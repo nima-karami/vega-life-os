@@ -1,0 +1,147 @@
+import { useMemo } from "react";
+import { useStore } from "@/core/store";
+import { Panel, SectionHead, Label, Sparkline, Gauge, cx } from "@/core/ui";
+import { goalTimeElapsed } from "@/features/goals";
+import { habitRate } from "@/features/habits";
+import {
+  dailyStats,
+  weeklyRate,
+  overallRate,
+  completedByValue,
+} from "./selectors";
+
+export function AnalyticsPage() {
+  const tasks = useStore((s) => s.tasks);
+  const values = useStore((s) => s.values);
+  const goals = useStore((s) => s.goals);
+  const habits = useStore((s) => s.habits);
+
+  const daily = useMemo(() => dailyStats(tasks, 28), [tasks]);
+  const weekly = useMemo(() => weeklyRate(tasks, 12), [tasks]);
+  const overall = useMemo(() => overallRate(tasks, 30), [tasks]);
+  const byValue = useMemo(() => completedByValue(tasks, 28), [tasks]);
+  const maxValueCount = Math.max(1, ...Object.values(byValue));
+  const maxDaily = Math.max(1, ...daily.map((d) => d.total));
+
+  const habitRanked = useMemo(
+    () => habits.map((h) => ({ h, rate: habitRate(tasks, h.id) })).sort((a, b) => b.rate - a.rate),
+    [habits, tasks],
+  );
+
+  return (
+    <div className="mx-auto max-w-[1400px] p-4">
+      <Panel className="mb-4 px-5 py-4">
+        <Label>// analytics · follow-through</Label>
+        <h1 className="display mt-1 text-3xl">How it's actually going</h1>
+        <p className="mono mt-1 text-[11px] text-stone">
+          Signal over vanity. Consistency, balance, and whether goals are keeping pace.
+        </p>
+      </Panel>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* headline */}
+        <Panel className="flex items-center gap-5 p-5">
+          <Gauge value={overall} size={92} stroke={8} sub="30d" />
+          <div>
+            <p className="display text-4xl leading-none">{Math.round(overall * 100)}%</p>
+            <Label className="mt-1">follow-through</Label>
+            <p className="mono mt-2 text-[11px] text-stone">resolved vs. scheduled, last 30 days</p>
+          </div>
+        </Panel>
+
+        {/* weekly trend */}
+        <Panel className="p-5 lg:col-span-2">
+          <SectionHead title="weekly trend" meta="12 wk" />
+          <div className="mt-3">
+            <Sparkline points={weekly} width={760} height={70} className="w-full" />
+          </div>
+          <div className="mt-1 flex justify-between">
+            <Label>12 weeks ago</Label>
+            <Label>this week</Label>
+          </div>
+        </Panel>
+
+        {/* daily completion bars */}
+        <Panel className="p-5 lg:col-span-2">
+          <SectionHead title="daily completion" meta="28 d" />
+          <div className="mt-4 flex items-end gap-[3px]" style={{ height: 120 }}>
+            {daily.map((d) => (
+              <div key={d.iso} className="group relative flex flex-1 flex-col items-center justify-end">
+                <div className="flex w-full flex-col justify-end" style={{ height: 110 }}>
+                  <div className="w-full bg-[var(--color-line-strong)]" style={{ height: `${(d.total / maxDaily) * 100}%`, minHeight: d.total ? 2 : 0 }}>
+                    <div className="w-full bg-ink" style={{ height: `${d.total ? (d.done / d.total) * 100 : 0}%` }} />
+                  </div>
+                </div>
+                <span className="mono mt-1 text-[7px] text-mist">{d.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-2 w-2 bg-ink" /> done</span>
+            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-2 w-2 bg-[var(--color-line-strong)]" /> scheduled</span>
+          </div>
+        </Panel>
+
+        {/* balance by value */}
+        <Panel className="p-5">
+          <SectionHead title="balance · by value" meta="28 d" />
+          <div className="mt-4 space-y-2.5">
+            {values.map((v) => {
+              const c = byValue[v.id] ?? 0;
+              return (
+                <div key={v.id} className="flex items-center gap-2">
+                  <span className="mono w-20 shrink-0 truncate text-[10px] uppercase text-ash">{v.name}</span>
+                  <div className="h-3 flex-1 bg-[var(--color-line-soft)]">
+                    <div className="h-3" style={{ width: `${(c / maxValueCount) * 100}%`, background: v.hue }} />
+                  </div>
+                  <span className="mono w-6 text-right text-[10px] tabular-nums text-stone">{c}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+
+        {/* goal trajectory */}
+        <Panel className="p-5 lg:col-span-2">
+          <SectionHead title="goal trajectory" meta="progress vs. pace" />
+          <div className="mt-4 space-y-4">
+            {goals.map((g) => {
+              const elapsed = goalTimeElapsed(g);
+              const pace = g.progress - elapsed;
+              return (
+                <div key={g.id}>
+                  <div className="flex items-center justify-between">
+                    <span className="mono text-[11px] text-ink">{g.name}</span>
+                    <span className={cx("mono text-[10px]", pace >= 0 ? "text-good" : "text-signal")}>
+                      {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
+                    </span>
+                  </div>
+                  <div className="relative mt-2 h-2 bg-[var(--color-line-soft)]">
+                    <div className="absolute left-0 top-0 h-2 bg-ink" style={{ width: `${g.progress * 100}%` }} />
+                    <div className="absolute top-[-2px] h-3 border-l border-dashed border-signal" style={{ left: `${elapsed * 100}%` }} title="expected pace" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+
+        {/* habit consistency */}
+        <Panel className="p-5">
+          <SectionHead title="habit consistency" meta="rate" />
+          <div className="mt-4 space-y-2.5">
+            {habitRanked.map(({ h, rate }) => (
+              <div key={h.id} className="flex items-center gap-2">
+                <span className="mono w-24 shrink-0 truncate text-[10px] text-ash">{h.name}</span>
+                <div className="h-3 flex-1 bg-[var(--color-line-soft)]">
+                  <div className="h-3 bg-ink" style={{ width: `${rate * 100}%` }} />
+                </div>
+                <span className="mono w-8 text-right text-[10px] tabular-nums text-stone">{Math.round(rate * 100)}%</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+    </div>
+  );
+}
