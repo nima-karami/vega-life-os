@@ -4,6 +4,7 @@ import { useStore } from "@/core/store";
 import { TopBar } from "./TopBar";
 import { NavRow } from "./NavRow";
 import { CommandBar } from "./CommandBar";
+import { EphemeralOverlay } from "./EphemeralOverlay";
 import { Toast } from "./Toast";
 
 export function AppShell() {
@@ -45,6 +46,7 @@ export function AppShell() {
         )}
       </main>
       <CommandBar />
+      <EphemeralOverlay />
       <Toast />
     </div>
   );

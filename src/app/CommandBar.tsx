@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
+import { agent } from "@/core/agent";
 import { NAV } from "./nav";
 
 /**
@@ -19,6 +20,12 @@ export function CommandBar() {
   const pushToast = useStore((s) => s.pushToast);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const smart = query.trim() ? agent.suggest(query) : [];
+
+  // reset the input each time the palette opens
+  useEffect(() => {
+    if (open) setQuery("");
+  }, [open]);
 
   const go = (to: string) => {
     navigate(to);
@@ -77,6 +84,19 @@ export function CommandBar() {
                     + Add "{query}" to backlog
                   </button>
                 </Command.Empty>
+
+                {smart.length > 0 && (
+                  <Command.Group
+                    heading="Smart actions"
+                    className="[&_[cmdk-group-heading]]:label [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5"
+                  >
+                    {smart.map((a) => (
+                      <Item key={a.id} value={`${query} ${a.label}`} icon={a.icon} onSelect={() => { a.run(); close(); }}>
+                        {a.label}
+                      </Item>
+                    ))}
+                  </Command.Group>
+                )}
 
                 <Command.Group
                   heading="Navigate"

@@ -4,7 +4,6 @@ import { useStore } from "@/core/store";
 import { cx, Panel, Label, Button, IconButton, Icon, Tag } from "@/core/ui";
 import { weekDays, weekStartOf, minutesOf, fmtShort } from "@/core/lib/date";
 import { TaskDrawer } from "@/features/tasks";
-import { dowIndex } from "@/core/lib/date";
 import type { Task } from "@/features/tasks";
 
 const START = 5 * 60;
@@ -14,10 +13,9 @@ const HOURS = Array.from({ length: (END - START) / 60 + 1 }, (_, i) => 5 + i);
 
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
-  const habits = useStore((s) => s.habits);
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
-  const addTask = useStore((s) => s.addTask);
+  const planWeek = useStore((s) => s.planWeek);
   const pushToast = useStore((s) => s.pushToast);
   const focusGoalId = useStore((s) => s.focusGoalId);
   const setFocusGoal = useStore((s) => s.setFocusGoal);
@@ -30,23 +28,7 @@ export function CalendarPage() {
     values.find((v) => v.id === vId)?.hue ?? "var(--color-mist)";
 
   const generateWeek = () => {
-    const existing = new Set(
-      tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`),
-    );
-    let made = 0;
-    for (const d of days) {
-      const dow = dowIndex(d.iso);
-      for (const h of habits) {
-        if (!h.days[dow]) continue;
-        if (existing.has(`${h.id}@${d.iso}`)) continue;
-        addTask({
-          title: h.name, kind: "habit", habitId: h.id, goalId: h.goalId,
-          valueId: h.valueId, date: d.iso, time: h.time,
-          durationMin: h.durationMin, status: "todo",
-        });
-        made++;
-      }
-    }
+    const made = planWeek(weekRef);
     pushToast(made ? `Generated ${made} habit blocks` : "Week already complete");
   };
 

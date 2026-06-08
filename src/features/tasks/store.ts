@@ -1,6 +1,7 @@
 import type { Slice } from "@/core/store/slice";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
+import { weekDays, dowIndex } from "@/core/lib/date";
 import type { Task, TaskStatus } from "./model";
 
 export interface TasksSlice {
@@ -12,6 +13,8 @@ export interface TasksSlice {
   cycleStatus: (id: string) => void;
   setNote: (id: string, note: string) => void;
   moveTask: (id: string, date: string | null, time?: string | null) => void;
+  /** fill the visible week with any missing habit instances; returns count made */
+  planWeek: (ref?: Date) => number;
 }
 
 export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
@@ -83,5 +86,27 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     const t = get().tasks.find((x) => x.id === id);
     if (t && t.kind === "habit") patch.detached = true;
     get().updateTask(id, patch);
+  },
+
+  planWeek: (ref = new Date()) => {
+    const { tasks, habits, addTask } = get();
+    const existing = new Set(
+      tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`),
+    );
+    let made = 0;
+    for (const d of weekDays(ref)) {
+      const dow = dowIndex(d.iso);
+      for (const h of habits) {
+        if (!h.days[dow]) continue;
+        if (existing.has(`${h.id}@${d.iso}`)) continue;
+        addTask({
+          title: h.name, kind: "habit", habitId: h.id, goalId: h.goalId,
+          valueId: h.valueId, date: d.iso, time: h.time,
+          durationMin: h.durationMin, status: "todo",
+        });
+        made++;
+      }
+    }
+    return made;
   },
 });
