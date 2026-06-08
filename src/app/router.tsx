@@ -4,6 +4,7 @@ import { Placeholder } from "./Placeholder";
 import { CockpitPage } from "@/features/cockpit/CockpitPage";
 import { MapPage } from "@/features/map/MapPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
+import { BoardPage } from "@/features/board/BoardPage";
 
 export const router = createBrowserRouter([
   {
@@ -13,7 +14,7 @@ export const router = createBrowserRouter([
       { index: true, element: <CockpitPage /> },
       { path: "map", element: <MapPage /> },
       { path: "calendar", element: <CalendarPage /> },
-      { path: "board", element: <Placeholder title="board · status" /> },
+      { path: "board", element: <BoardPage /> },
       { path: "values", element: <Placeholder title="values & goals" /> },
       { path: "habits", element: <Placeholder title="habits · recurrence" /> },
       { path: "analytics", element: <Placeholder title="analytics" /> },
