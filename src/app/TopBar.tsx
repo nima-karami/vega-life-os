@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { useClock } from "./useClock";
@@ -37,6 +38,9 @@ export function TopBar() {
         <span className="mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone lg:inline">
           {counts.done}/{counts.total} TODAY
         </span>
+        <Link to="/lab" className="mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone transition-colors hover:bg-ink hover:text-paper md:inline">
+          LAB
+        </Link>
         <span className="mono border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-ink">
           {format(now, "EEE.MMM.dd.yyyy").toUpperCase()}
         </span>
