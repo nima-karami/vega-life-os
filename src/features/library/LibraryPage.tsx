@@ -164,14 +164,18 @@ function VocabPanel() {
   const today = todayISO();
   const due = vocab.filter((w) => !w.nextDue || w.nextDue <= today);
   const [reviewing, setReviewing] = useState(false);
+  const [queue, setQueue] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  const card = due[idx];
+  // Snapshot the review set at start: grading moves a card's nextDue forward, so
+  // recomputing from the live `due` filter mid-session would shrink the array.
+  const card = vocab.find((w) => w.id === queue[idx]) ?? null;
+  const startReview = () => { setQueue(due.map((w) => w.id)); setIdx(0); setFlipped(false); setReviewing(true); };
   const grade = (correct: boolean) => {
     if (card) reviewVocab(card.id, correct);
     setFlipped(false);
-    if (idx + 1 >= due.length) { setReviewing(false); setIdx(0); }
+    if (idx + 1 >= queue.length) { setReviewing(false); setIdx(0); }
     else setIdx(idx + 1);
   };
 
@@ -181,7 +185,7 @@ function VocabPanel() {
         <span className="mono text-[11px] text-stone">{due.length} due for review · {vocab.length} total</span>
         <div className="flex gap-2">
           {due.length > 0 && !reviewing && (
-            <Button solid icon="spark" onClick={() => { setReviewing(true); setIdx(0); setFlipped(false); }}>Review {due.length}</Button>
+            <Button solid icon="spark" onClick={startReview}>Review {due.length}</Button>
           )}
           <Button icon="plus" onClick={() => addVocab({ term: "new word", definition: "" })}>Add word</Button>
         </div>
@@ -189,7 +193,7 @@ function VocabPanel() {
 
       {reviewing && card ? (
         <Panel ticks className="mx-auto max-w-lg p-8 text-center">
-          <Label>{idx + 1} / {due.length} · box {card.box}</Label>
+          <Label>{idx + 1} / {queue.length} · box {card.box}</Label>
           <p className="display mt-4 text-4xl">{card.term}</p>
           <p className="mono mt-1 text-[11px] text-stone">{card.language}</p>
           {flipped ? (
