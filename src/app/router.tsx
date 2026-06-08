@@ -5,6 +5,7 @@ import { CockpitPage } from "@/features/cockpit/CockpitPage";
 import { MapPage } from "@/features/map/MapPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { BoardPage } from "@/features/board/BoardPage";
+import { ValuesGoalsPage } from "@/features/valuesgoals/ValuesGoalsPage";
 
 export const router = createBrowserRouter([
   {
@@ -15,7 +16,7 @@ export const router = createBrowserRouter([
       { path: "map", element: <MapPage /> },
       { path: "calendar", element: <CalendarPage /> },
       { path: "board", element: <BoardPage /> },
-      { path: "values", element: <Placeholder title="values & goals" /> },
+      { path: "values", element: <ValuesGoalsPage /> },
       { path: "habits", element: <Placeholder title="habits · recurrence" /> },
       { path: "analytics", element: <Placeholder title="analytics" /> },
       { path: "library", element: <Placeholder title="library" /> },

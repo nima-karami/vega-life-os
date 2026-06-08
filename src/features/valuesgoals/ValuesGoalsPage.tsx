@@ -1,0 +1,157 @@
+import { useState } from "react";
+import { useStore } from "@/core/store";
+import { cx, Panel, Label, Icon, Gauge, ProgressBar, Button, Tag } from "@/core/ui";
+import { fmtShort } from "@/core/lib/date";
+import { goalTimeElapsed, habitsForGoal } from "@/features/goals";
+import { habitStreak } from "@/features/habits";
+
+export function ValuesGoalsPage() {
+  const values = useStore((s) => s.values);
+  const goals = useStore((s) => s.goals);
+  const habits = useStore((s) => s.habits);
+  const tasks = useStore((s) => s.tasks);
+  const addValue = useStore((s) => s.addValue);
+  const addGoal = useStore((s) => s.addGoal);
+
+  return (
+    <div className="mx-auto max-w-[1100px] p-4">
+      <Panel className="mb-4 flex items-center px-5 py-4">
+        <div>
+          <Label>// values &amp; goals · the why</Label>
+          <h1 className="display mt-1 text-3xl">What you're building toward</h1>
+          <p className="mono mt-1 text-[11px] text-stone">
+            Goals ladder up to a value. Maintenance habits keep a value alive without a finish line.
+          </p>
+        </div>
+        <Button className="ml-auto" icon="plus" onClick={() => addValue()}>Add value</Button>
+      </Panel>
+
+      <div className="space-y-4">
+        {values.map((v) => {
+          const vGoals = goals.filter((g) => g.valueId === v.id);
+          const upkeep = habits.filter((h) => h.valueId === v.id && !h.goalId);
+          return (
+            <Panel key={v.id} ticks className="p-5">
+              <div className="flex items-start gap-4">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--color-line-strong)]" style={{ background: v.hue }}>
+                  <Icon name={v.icon} size={20} className="text-paper" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="display text-2xl leading-none">{v.name}</h2>
+                  <p className="mono mt-1.5 text-[12px] leading-relaxed text-ash">{v.desc}</p>
+                </div>
+                <Gauge value={v.energy} size={56} sub="energy" />
+              </div>
+
+              {/* goals */}
+              <div className="mt-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Label ink>// goals</Label>
+                  <div className="h-px flex-1 bg-[var(--color-line)]" />
+                  <button onClick={() => addGoal({ valueId: v.id })} className="mono flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-stone hover:text-ink">
+                    <Icon name="plus" size={12} /> add goal
+                  </button>
+                </div>
+                {vGoals.map((g) => (
+                  <GoalCard key={g.id} goalId={g.id} />
+                ))}
+                {!vGoals.length && (
+                  <p className="mono py-2 text-[11px] text-mist">No goals yet — this value runs on upkeep alone.</p>
+                )}
+              </div>
+
+              {/* upkeep habits */}
+              {upkeep.length > 0 && (
+                <div className="mt-5">
+                  <Label>// upkeep</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {upkeep.map((h) => (
+                      <span key={h.id} className="flex items-center gap-2 border border-[var(--color-line)] px-2.5 py-1.5">
+                        <Icon name={h.icon} size={13} className="text-ash" />
+                        <span className="mono text-[11px] text-ink">{h.name}</span>
+                        <span className="mono text-[10px] text-stone">· {habitStreak(tasks, h.id)}d</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Panel>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GoalCard({ goalId }: { goalId: string }) {
+  const goal = useStore((s) => s.goals.find((g) => g.id === goalId))!;
+  const habits = useStore((s) => s.habits);
+  const updateGoal = useStore((s) => s.updateGoal);
+  const removeGoal = useStore((s) => s.removeGoal);
+  const toggleSubgoal = useStore((s) => s.toggleSubgoal);
+  const addSubgoal = useStore((s) => s.addSubgoal);
+  const removeSubgoal = useStore((s) => s.removeSubgoal);
+  const [newSub, setNewSub] = useState("");
+
+  if (!goal) return null;
+  const elapsed = goalTimeElapsed(goal);
+  const pace = goal.progress - elapsed;
+  const linked = habitsForGoal(habits, goal.id);
+
+  return (
+    <div className="border border-[var(--color-line)] p-3.5">
+      <div className="flex items-center gap-2">
+        <Icon name={goal.icon} size={15} className="shrink-0 text-ash" />
+        <input
+          value={goal.name}
+          onChange={(e) => updateGoal(goal.id, { name: e.target.value })}
+          className="display flex-1 bg-transparent text-[15px] outline-none"
+        />
+        <span className="mono text-[12px] tabular-nums text-stone">{Math.round(goal.progress * 100)}%</span>
+        <button onClick={() => removeGoal(goal.id)} aria-label="Delete goal" className="text-mist hover:text-signal">
+          <Icon name="trash" size={13} />
+        </button>
+      </div>
+
+      <ProgressBar value={goal.progress} knob className="mt-3" />
+      <div className="mt-2 flex items-center justify-between">
+        <span className="mono text-[10px] text-stone">{fmtShort(goal.start)} → {fmtShort(goal.end)}</span>
+        <span className={cx("mono text-[10px]", pace >= 0 ? "text-good" : "text-signal")}>
+          {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
+        </span>
+      </div>
+
+      {/* subgoals */}
+      <div className="mt-3 space-y-1">
+        {goal.subgoals.map((s) => (
+          <div key={s.id} className="group flex items-center gap-2">
+            <button onClick={() => toggleSubgoal(goal.id, s.id)} className={cx("grid h-4 w-4 shrink-0 place-items-center border", s.done ? "border-ink bg-ink text-paper" : "border-[var(--color-line-strong)] text-transparent hover:border-ink")}>
+              <Icon name="check" size={10} />
+            </button>
+            <span className={cx("mono flex-1 text-[11px]", s.done && "text-stone line-through")}>{s.name}</span>
+            <button onClick={() => removeSubgoal(goal.id, s.id)} className="text-mist opacity-0 transition-opacity hover:text-signal group-hover:opacity-100">
+              <Icon name="close" size={12} />
+            </button>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 pt-1">
+          <Icon name="plus" size={12} className="text-mist" />
+          <input
+            value={newSub}
+            onChange={(e) => setNewSub(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && newSub.trim()) { addSubgoal(goal.id, newSub.trim()); setNewSub(""); } }}
+            placeholder="add a step…"
+            className="mono flex-1 bg-transparent text-[11px] outline-none placeholder:text-mist"
+          />
+        </div>
+      </div>
+
+      {linked.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[var(--color-line)] pt-2.5">
+          <Label>drives</Label>
+          {linked.map((h) => <Tag key={h.id}>{h.name}</Tag>)}
+        </div>
+      )}
+    </div>
+  );
+}
