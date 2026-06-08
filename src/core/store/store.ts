@@ -75,6 +75,11 @@ export const useStore = create<RootState>((set, get, api) => ({
     });
   },
 
+  wipe: async () => {
+    await persistence.clearAll();
+    set({ values: [], goals: [], habits: [], tasks: [], books: [], movies: [], vocab: [], reviews: [] });
+  },
+
   exportJSON: () => {
     const s = get();
     const data: Dataset = {

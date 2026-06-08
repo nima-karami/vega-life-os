@@ -33,6 +33,10 @@ export interface UiSlice {
   accent: string;
   setAccent: (hex: string) => void;
 
+  /** first-run welcome completed */
+  onboarded: boolean;
+  setOnboarded: (v: boolean) => void;
+
   /** global goal focus filter (used by calendar / cockpit) */
   focusGoalId: string | null;
   setFocusGoal: (id: string | null) => void;
@@ -90,6 +94,12 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   setOperatorName: (operatorName) => { writeSettings({ operatorName }); set({ operatorName }); },
   setOperatorWorkspace: (operatorWorkspace) => { writeSettings({ operatorWorkspace }); set({ operatorWorkspace }); },
   setAccent: (accent) => { writeSettings({ accent }); set({ accent }); },
+
+  onboarded: typeof localStorage !== "undefined" && localStorage.getItem("vega.onboarded") === "1",
+  setOnboarded: (v) => {
+    try { localStorage.setItem("vega.onboarded", v ? "1" : "0"); } catch { /* ignore */ }
+    set({ onboarded: v });
+  },
 
   focusGoalId: null,
   setFocusGoal: (focusGoalId) => set({ focusGoalId }),

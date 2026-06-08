@@ -17,6 +17,7 @@ export interface RootState
   ready: boolean;
   bootstrap: () => Promise<void>;
   reseed: () => Promise<void>;
+  wipe: () => Promise<void>;
   exportJSON: () => string;
   importJSON: (text: string) => Promise<boolean>;
 }

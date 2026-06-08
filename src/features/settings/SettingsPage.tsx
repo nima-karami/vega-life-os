@@ -105,6 +105,7 @@ export function SettingsPage() {
           <input ref={fileRef} type="file" accept="application/json" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) void doImport(f); e.target.value = ""; }} />
           <Button icon="repeat" onClick={() => { void s.reseed(); s.pushToast("Demo data reset"); }}>Reset demo data</Button>
+          <Button icon="spark" onClick={() => s.setOnboarded(false)}>Replay welcome</Button>
         </div>
       </Panel>
 

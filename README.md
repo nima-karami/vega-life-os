@@ -7,6 +7,8 @@ library (books / film / vocabulary), an always-present ⌘K command bar, and a
 
 Monochrome "cockpit HUD" aesthetic. Runs entirely in the browser; your data
 lives in IndexedDB on your machine. No account, no server, no keys required.
+First run shows a welcome where you set your name and choose sample data or a
+clean start (replayable from Settings).
 
 ```bash
 npm install

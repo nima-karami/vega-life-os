@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { useStore } from "@/core/store";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
+import { Onboarding } from "./Onboarding";
 import { Toast } from "./Toast";
 
 /** Top-level provider: boots data, applies theme, owns the global ⌘K layer. */
@@ -11,6 +12,7 @@ export function RootBoot() {
   const ready = useStore((s) => s.ready);
   const theme = useStore((s) => s.theme);
   const accent = useStore((s) => s.accent);
+  const onboarded = useStore((s) => s.onboarded);
   const toggleCommand = useStore((s) => s.toggleCommand);
 
   useEffect(() => {
@@ -50,6 +52,8 @@ export function RootBoot() {
       </div>
     );
   }
+
+  if (!onboarded) return <Onboarding />;
 
   return (
     <>
