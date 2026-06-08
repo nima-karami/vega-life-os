@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import { Placeholder } from "./Placeholder";
 import { CockpitPage } from "@/features/cockpit/CockpitPage";
+import { MapPage } from "@/features/map/MapPage";
 
 export const router = createBrowserRouter([
   {
@@ -9,7 +10,7 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <CockpitPage /> },
-      { path: "map", element: <Placeholder title="map · orbit view" /> },
+      { path: "map", element: <MapPage /> },
       { path: "calendar", element: <Placeholder title="calendar · week" /> },
       { path: "board", element: <Placeholder title="board · status" /> },
       { path: "values", element: <Placeholder title="values & goals" /> },

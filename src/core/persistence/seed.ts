@@ -108,28 +108,34 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   const tid = () => "t" + String(++order).padStart(3, "0");
 
   // morning-ish tasks (time < 14:00) on `today` count as done; later ones todo
-  const statusFor = (dayIdx: number, time: string): TaskStatus => {
-    if (dayIdx < todayIdx) {
+  const today = iso(ref);
+  const statusForDate = (dateStr: string, time: string): TaskStatus => {
+    if (dateStr < today) {
       const r = rng();
       if (r < 0.12) return "skip";
       if (r < 0.2) return "todo"; // a few honest misses
       return "done";
     }
-    if (dayIdx === todayIdx) {
+    if (dateStr === today) {
       const hour = parseInt(time.slice(0, 2), 10);
       return hour < 14 ? "done" : "todo";
     }
     return "todo";
   };
 
+  // generate 3 weeks of history + the current week (drives streaks/analytics)
+  const FROM = -21;
+  const TO = 6;
   for (const h of habits) {
-    for (let d = 0; d < 7; d++) {
-      if (!h.days[d]) continue;
-      const status = statusFor(d, h.time);
+    for (let off = FROM; off <= TO; off++) {
+      const dow = ((off % 7) + 7) % 7; // weekStart is Monday -> index 0
+      if (!h.days[dow]) continue;
+      const dateStr = iso(addDays(weekStart, off));
+      const status = statusForDate(dateStr, h.time);
       tasks.push({
         id: tid(), title: h.name, kind: "habit", habitId: h.id,
         goalId: h.goalId, valueId: h.valueId,
-        date: dayISO(d), time: h.time, durationMin: h.durationMin,
+        date: dateStr, time: h.time, durationMin: h.durationMin,
         status, detached: false, note: "", order,
       });
     }

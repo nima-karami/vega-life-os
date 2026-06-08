@@ -15,20 +15,25 @@ export interface ValueRollup {
 
 export function valueRollup(
   valueId: string,
-  data: { goals: Goal[]; habits: Habit[]; tasks: Task[] },
+  data: { goals: Goal[]; habits: Habit[]; tasks: Task[]; energy?: number },
 ): ValueRollup {
   const goals = data.goals.filter((g) => g.valueId === valueId).length;
   const habits = data.habits.filter((h) => h.valueId === valueId).length;
 
-  const week = weekDays().map((d) => d.iso);
-  const weekTasks = data.tasks.filter(
-    (t) => t.valueId === valueId && t.date && week.includes(t.date),
+  // attention = resolved share of this value's *elapsed* week (past + today),
+  // so it reads meaningfully regardless of which weekday it is.
+  const today = weekDays().find((d) => d.today)?.iso ?? "";
+  const elapsed = data.tasks.filter(
+    (t) => t.valueId === valueId && t.date && t.date <= today,
   );
-  const resolved = weekTasks.filter(
+  const resolved = elapsed.filter(
     (t) => t.status === "done" || t.status === "skip",
   ).length;
-  const attention = weekTasks.length ? resolved / weekTasks.length : 0;
-  const needsYou = (goals > 0 || habits > 0) && attention < 0.34;
+  const attention = elapsed.length ? resolved / elapsed.length : 0;
+
+  // a value "needs you" when its standing energy is low and it has commitments.
+  const energy = data.energy ?? 1;
+  const needsYou = (goals > 0 || habits > 0) && energy < 0.4;
 
   return { goals, habits, attention, needsYou };
 }
