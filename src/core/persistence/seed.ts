@@ -172,6 +172,28 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   ];
   ds.tasks.push(...backlog);
 
+  // energy lens (charge / drain) by activity — what lifts vs. costs you
+  const ENERGY_BY_TITLE: Record<string, "charge" | "drain" | "neutral"> = {
+    "Read 1h before bed": "charge",
+    "Read — finish 'Sapiens' ch.9": "charge",
+    "Apply to 1 role": "drain",
+    "Lights out by 22:30": "neutral",
+    "Morning walk": "charge",
+    "Workout 30 min": "charge",
+    "Pay the bills": "drain",
+    "Tidy 15 min": "neutral",
+    "Call family": "charge",
+    "Update ID card": "drain",
+    "Mock interview w/ Dana": "drain",
+    "Negotiation prep doc": "drain",
+    "Sort out tax documents": "drain",
+    "Renew passport": "drain",
+    "Set up reading nook": "charge",
+    "Buy blackout curtains": "neutral",
+    "Plan a long weekend trip": "charge",
+  };
+  ds.tasks.forEach((t) => { t.energy = ENERGY_BY_TITLE[t.title] ?? "neutral"; });
+
   // ---------------- LIBRARY ----------------
   const books: Book[] = [
     { id: "b1", title: "Sapiens", author: "Yuval Noah Harari", status: "reading", rating: null, pages: 443, currentPage: 210, startedAt: iso(addDays(weekStart, -20)), finishedAt: null, valueId: "v2", note: "Ch.9 next.", order: 0 },

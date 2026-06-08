@@ -3,9 +3,11 @@ import { useStore } from "@/core/store";
 import { cx, Icon, Label, Tag, Button } from "@/core/ui";
 import { alignOf, ALIGN_LABEL } from "@/core/lib/align";
 import { fmtLong } from "@/core/lib/date";
-import type { Task, TaskStatus } from "../model";
+import { type Task, type TaskStatus, type TaskEnergy, ENERGY_META } from "../model";
+import { energyOf } from "../selectors";
 
 const STATUSES: TaskStatus[] = ["todo", "doing", "done", "skip"];
+const ENERGIES: TaskEnergy[] = ["charge", "neutral", "drain"];
 
 export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const updateTask = useStore((s) => s.updateTask);
@@ -72,6 +74,26 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                       )}
                     >
                       {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>energy</Label>
+                <div className="flex gap-1.5">
+                  {ENERGIES.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => updateTask(task.id, { energy: e })}
+                      className={cx(
+                        "mono flex-1 border px-2 py-2 text-[10px] uppercase tracking-[0.08em]",
+                        energyOf(task) === e
+                          ? "border-ink bg-ink text-paper"
+                          : "border-[var(--color-line)] text-stone hover:border-ink",
+                      )}
+                    >
+                      {ENERGY_META[e].glyph} {ENERGY_META[e].label}
                     </button>
                   ))}
                 </div>

@@ -1,6 +1,8 @@
-import type { Task, TaskStatus } from "./model";
+import type { Task, TaskStatus, TaskEnergy } from "./model";
 
 export const isResolved = (t: Task) => t.status === "done" || t.status === "skip";
+
+export const energyOf = (t: Task): TaskEnergy => t.energy ?? "neutral";
 
 export const byTime = (a: Task, b: Task) =>
   (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.order - b.order;

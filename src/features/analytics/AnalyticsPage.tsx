@@ -8,6 +8,7 @@ import {
   weeklyRate,
   overallRate,
   completedByValue,
+  energyStats,
 } from "./selectors";
 
 export function AnalyticsPage() {
@@ -20,6 +21,8 @@ export function AnalyticsPage() {
   const weekly = useMemo(() => weeklyRate(tasks, 12), [tasks]);
   const overall = useMemo(() => overallRate(tasks, 30), [tasks]);
   const byValue = useMemo(() => completedByValue(tasks, 28), [tasks]);
+  const energy = useMemo(() => energyStats(tasks, 28), [tasks]);
+  const energyTotal = Math.max(1, energy.charge + energy.drain);
   const maxValueCount = Math.max(1, ...Object.values(byValue));
   const maxDaily = Math.max(1, ...daily.map((d) => d.total));
 
@@ -139,6 +142,60 @@ export function AnalyticsPage() {
                 <span className="mono w-8 text-right text-[10px] tabular-nums text-stone">{Math.round(rate * 100)}%</span>
               </div>
             ))}
+          </div>
+        </Panel>
+
+        {/* energy · charge vs drain */}
+        <Panel className="p-5 lg:col-span-3">
+          <SectionHead title="energy · charge vs. drain" meta="28 d · the burnout lens" />
+          <div className="mt-4 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)]">
+            <div>
+              <div className="flex items-end gap-2">
+                <span className="display text-4xl leading-none" style={{ color: energy.net >= 0 ? "var(--color-good)" : "var(--color-signal)" }}>
+                  {energy.net >= 0 ? "+" : ""}{energy.net}
+                </span>
+                <Label className="mb-1.5">net energy</Label>
+              </div>
+              <div className="mt-3 flex h-3 w-full overflow-hidden border border-[var(--color-line)]">
+                <div className="h-full bg-ink" style={{ width: `${(energy.charge / energyTotal) * 100}%` }} title={`${energy.charge} charge`} />
+                <div className="h-full" style={{ width: `${(energy.drain / energyTotal) * 100}%`, background: "var(--color-signal)" }} title={`${energy.drain} drain`} />
+              </div>
+              <div className="mt-2 flex justify-between">
+                <span className="mono text-[10px] text-stone">▲ {energy.charge} charged</span>
+                <span className="mono text-[10px]" style={{ color: "var(--color-signal)" }}>▼ {energy.drain} drained</span>
+              </div>
+              <p className="mono mt-3 text-[10px] leading-relaxed text-mist">
+                {energy.net >= 0
+                  ? "You're net-charged. The week's work is feeding you more than it costs."
+                  : "You're running a deficit. Protect more of what charges you, or offload a drain."}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-5">
+              <div>
+                <Label>what charges you</Label>
+                <ul className="mt-2 space-y-1.5">
+                  {energy.topCharges.map((d) => (
+                    <li key={d.title} className="flex items-center justify-between">
+                      <span className="mono text-[11px] text-ink">▲ {d.title}</span>
+                      <span className="mono text-[10px] text-stone">×{d.n}</span>
+                    </li>
+                  ))}
+                  {!energy.topCharges.length && <li className="mono text-[10px] text-mist">— tag tasks to see this —</li>}
+                </ul>
+              </div>
+              <div>
+                <Label>what drains you</Label>
+                <ul className="mt-2 space-y-1.5">
+                  {energy.topDrains.map((d) => (
+                    <li key={d.title} className="flex items-center justify-between">
+                      <span className="mono text-[11px]" style={{ color: "var(--color-signal)" }}>▼ {d.title}</span>
+                      <span className="mono text-[10px] text-stone">×{d.n}</span>
+                    </li>
+                  ))}
+                  {!energy.topDrains.length && <li className="mono text-[10px] text-mist">— nothing draining logged —</li>}
+                </ul>
+              </div>
+            </div>
           </div>
         </Panel>
       </div>

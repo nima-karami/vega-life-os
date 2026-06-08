@@ -1,6 +1,15 @@
 export type TaskKind = "habit" | "oneoff";
 export type TaskStatus = "todo" | "doing" | "done" | "skip";
 
+/** Does this activity charge you up or drain you? (burnout lens) */
+export type TaskEnergy = "charge" | "drain" | "neutral";
+
+export const ENERGY_META: Record<TaskEnergy, { label: string; glyph: string; sign: number }> = {
+  charge: { label: "Charges", glyph: "▲", sign: 1 },
+  drain: { label: "Drains", glyph: "▼", sign: -1 },
+  neutral: { label: "Neutral", glyph: "·", sign: 0 },
+};
+
 /**
  * The single atom. Either a habit-instance (kind "habit", has habitId) or a
  * one-off. Undated one-offs (date === null) live in the backlog.
@@ -21,6 +30,8 @@ export interface Task {
   /** a habit instance edited away from its template (moved/renamed) */
   detached: boolean;
   note: string;
+  /** charge / drain / neutral — optional; absent = neutral */
+  energy?: TaskEnergy;
   /** ordering within a day / board column / backlog */
   order: number;
 }
