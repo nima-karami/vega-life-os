@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -25,6 +25,26 @@ const fmtLen = (mins: number) => {
   const m = mins % 60;
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 };
+
+/**
+ * Scroll the slot marked `data-sel="true"` to the middle of its scroll column.
+ * Lists are unmounted while closed, so on each open they reset to the top — this
+ * brings the already-selected time back into view without the user scrolling.
+ */
+function useCenterSelected(open: boolean, ...cols: React.RefObject<HTMLDivElement | null>[]) {
+  useEffect(() => {
+    if (!open) return;
+    const r = requestAnimationFrame(() => {
+      for (const ref of cols) {
+        const col = ref.current;
+        const sel = col?.querySelector<HTMLElement>('[data-sel="true"]');
+        if (col && sel) col.scrollTop = sel.offsetTop - col.clientHeight / 2 + sel.clientHeight / 2;
+      }
+    });
+    return () => cancelAnimationFrame(r);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+}
 
 /** Field-style trigger shared by the pickers: hairline box, label above, value below. */
 function PickerField({
@@ -153,6 +173,8 @@ export function TimePicker({
   clearable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const colRef = useRef<HTMLDivElement>(null);
+  useCenterSelected(open, colRef);
   const slots: string[] = [];
   for (let m = startHour * 60; m <= endHour * 60; m += 15) {
     slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
@@ -171,7 +193,7 @@ export function TimePicker({
           </button>
         }
       >
-        <div className="flex max-h-[240px] w-[120px] flex-col overflow-y-auto p-1">
+        <div ref={colRef} className="flex max-h-[240px] w-[120px] flex-col overflow-y-auto p-1">
           {value && clearable && (
             <button type="button" onClick={() => { onChange(null); setOpen(false); }}
               className="mono px-2.5 py-1.5 text-left text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal">Clear</button>
@@ -181,6 +203,7 @@ export function TimePicker({
               key={t}
               type="button"
               onClick={() => { onChange(t); setOpen(false); }}
+              data-sel={value === t}
               className={cx(
                 "mono px-2.5 py-1.5 text-left text-[12px] tabular-nums transition-colors",
                 value === t ? "bg-ink text-paper" : "text-ink hover:bg-paper-3",
@@ -257,6 +280,9 @@ export function TimeRange({
   clearable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const startColRef = useRef<HTMLDivElement>(null);
+  const endColRef = useRef<HTMLDivElement>(null);
+  useCenterSelected(open, startColRef, endColRef);
   const MIN = startHour * 60;
   const MAX = endHour * 60;
   const slots = (from: number, to: number) => {
@@ -305,21 +331,21 @@ export function TimeRange({
             )}
           </div>
           <div className="grid grid-cols-2 gap-1">
-            <div className="flex max-h-[220px] flex-col overflow-y-auto border-r border-[var(--color-line)] pr-1">
+            <div ref={startColRef} className="flex max-h-[220px] flex-col overflow-y-auto border-r border-[var(--color-line)] pr-1">
               {slots(MIN, MAX - 15).map((m) => (
-                <button key={m} type="button" onClick={() => pickStart(m)}
+                <button key={m} type="button" onClick={() => pickStart(m)} data-sel={start === m}
                   className={cx("mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
                     start === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3")}>
                   {fmtMin(m)}
                 </button>
               ))}
             </div>
-            <div className="flex max-h-[220px] flex-col overflow-y-auto">
+            <div ref={endColRef} className="flex max-h-[220px] flex-col overflow-y-auto">
               {start == null ? (
                 <span className="mono px-2 py-2 text-[10px] text-mist">pick a start first</span>
               ) : (
                 slots(start + 15, MAX).map((m) => (
-                  <button key={m} type="button" onClick={() => { pickEnd(m); setOpen(false); }}
+                  <button key={m} type="button" onClick={() => { pickEnd(m); setOpen(false); }} data-sel={end === m}
                     className={cx("mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
                       end === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3")}>
                     {fmtMin(m)}
