@@ -29,6 +29,8 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     };
     set((s) => ({ habits: [...s.habits, habit] }));
     savePut("habits", habit);
+    // schedule it right away so it shows up in calendar/today without a reload
+    get().ensureUpcoming();
     return habit;
   },
 
@@ -40,6 +42,20 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       ),
     }));
     if (next) savePut("habits", next);
+    // when the schedule changes, rebuild this habit's future undone instances
+    // (skipping user-detached ones) so the calendar reflects the new definition
+    if (next && (patch.days !== undefined || patch.time !== undefined)) {
+      const today = todayISO();
+      const removeIds = get()
+        .tasks.filter((t) => t.habitId === id && t.date && t.date >= today && t.status === "todo" && !t.detached)
+        .map((t) => t.id);
+      if (removeIds.length) {
+        const drop = new Set(removeIds);
+        set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
+        removeIds.forEach((tid) => saveRemove("tasks", tid));
+      }
+      get().ensureUpcoming();
+    }
   },
 
   removeHabit: (id) => {
