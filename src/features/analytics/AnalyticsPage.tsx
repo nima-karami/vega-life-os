@@ -9,6 +9,8 @@ import {
   overallRate,
   completedByValue,
   energyStats,
+  consistencyGrid,
+  type GridCell,
 } from "./selectors";
 
 export function AnalyticsPage() {
@@ -23,6 +25,7 @@ export function AnalyticsPage() {
   const byValue = useMemo(() => completedByValue(tasks, 28), [tasks]);
   const energy = useMemo(() => energyStats(tasks, 28), [tasks]);
   const energyTotal = Math.max(1, energy.charge + energy.drain);
+  const grid = useMemo(() => consistencyGrid(tasks, 22), [tasks]);
   const maxValueCount = Math.max(1, ...Object.values(byValue));
   const maxDaily = Math.max(1, ...daily.map((d) => d.total));
 
@@ -61,6 +64,47 @@ export function AnalyticsPage() {
           <div className="mt-1 flex justify-between">
             <Label>12 weeks ago</Label>
             <Label>this week</Label>
+          </div>
+        </Panel>
+
+        {/* consistency heatmap */}
+        <Panel className="p-5 lg:col-span-3">
+          <SectionHead title="consistency · the long view" meta="22 wk" />
+          <div className="mt-4 overflow-x-auto">
+            {/* month labels */}
+            <div className="mb-1 flex gap-[3px]">
+              <div className="w-4 shrink-0" />
+              {grid.cols.map((_, ci) => {
+                const mk = grid.months.find((m) => m.col === ci);
+                return (
+                  <div key={ci} style={{ width: 13 }} className="mono shrink-0 overflow-visible whitespace-nowrap text-[8px] text-mist">
+                    {mk ? mk.label : ""}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-[3px]">
+              {/* day labels */}
+              <div className="mr-px flex w-4 shrink-0 flex-col gap-[3px]">
+                {["M", "", "W", "", "F", "", "S"].map((d, i) => (
+                  <span key={i} style={{ height: 13 }} className="mono text-[8px] leading-[13px] text-mist">{d}</span>
+                ))}
+              </div>
+              {grid.cols.map((col, ci) => (
+                <div key={ci} className="flex shrink-0 flex-col gap-[3px]">
+                  {col.map((cell) => <HeatCell key={cell.iso} cell={cell} />)}
+                </div>
+              ))}
+            </div>
+            {/* legend */}
+            <div className="mt-3 flex items-center gap-1.5">
+              <Label>less</Label>
+              {[0, 0.25, 0.45, 0.7, 1].map((o, i) => (
+                <span key={i} style={{ width: 11, height: 11, background: "var(--color-ink)", opacity: o || 0, border: o ? "none" : "1px solid var(--color-line)" }} />
+              ))}
+              <Label>more</Label>
+              <span className="mono ml-3 text-[10px] text-stone">daily completion · skips excluded</span>
+            </div>
           </div>
         </Panel>
 
@@ -200,5 +244,21 @@ export function AnalyticsPage() {
         </Panel>
       </div>
     </div>
+  );
+}
+
+function HeatCell({ cell }: { cell: GridCell }) {
+  if (cell.future) {
+    return <div style={{ width: 13, height: 13 }} className="border border-dashed border-[var(--color-line)]" />;
+  }
+  if (cell.total === 0) {
+    return <div title={cell.iso} style={{ width: 13, height: 13 }} className="border border-[var(--color-line)]" />;
+  }
+  const op = cell.rate < 0.25 ? 0.25 : cell.rate < 0.5 ? 0.45 : cell.rate < 0.8 ? 0.7 : 1;
+  return (
+    <div
+      title={`${cell.iso} · ${Math.round(cell.rate * 100)}% (${cell.total} task${cell.total > 1 ? "s" : ""})`}
+      style={{ width: 13, height: 13, background: "var(--color-ink)", opacity: op }}
+    />
   );
 }

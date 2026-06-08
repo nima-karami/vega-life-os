@@ -119,8 +119,8 @@ export function buildSeed(ref: Date = new Date()): Dataset {
     return "todo";
   };
 
-  // generate 3 weeks of history + the current week (drives streaks/analytics)
-  const FROM = -21;
+  // generate ~12 weeks of history + the current week (drives streaks/analytics/heatmap)
+  const FROM = -84;
   const TO = 6;
   for (const h of habits) {
     for (let off = FROM; off <= TO; off++) {

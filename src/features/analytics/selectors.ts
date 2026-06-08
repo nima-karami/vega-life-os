@@ -1,4 +1,4 @@
-import { format, subDays, startOfWeek } from "date-fns";
+import { format, subDays, addDays, startOfWeek } from "date-fns";
 import type { Task } from "@/features/tasks/model";
 
 export interface DayStat {
@@ -65,6 +65,54 @@ export function completedByValue(tasks: Task[], n = 28): Record<string, number> 
 
 export function currentStreakTotal(tasks: Task[]): number {
   return tasks.filter((t) => t.status === "done").length;
+}
+
+export interface GridCell {
+  iso: string;
+  rate: number;
+  total: number;
+  future: boolean;
+}
+
+/** GitHub-style consistency grid: `weeks` columns × 7 day-rows (Mon..Sun). */
+export function consistencyGrid(
+  tasks: Task[],
+  weeks = 22,
+): { cols: GridCell[][]; months: { label: string; col: number }[] } {
+  const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const today = format(new Date(), "yyyy-MM-dd");
+  const byDate = new Map<string, Task[]>();
+  for (const t of tasks) {
+    if (!t.date) continue;
+    const arr = byDate.get(t.date);
+    if (arr) arr.push(t);
+    else byDate.set(t.date, [t]);
+  }
+
+  const cols: GridCell[][] = [];
+  const months: { label: string; col: number }[] = [];
+  let lastMonth = -1;
+  for (let w = weeks - 1; w >= 0; w--) {
+    const wkStart = subDays(thisWeekStart, w * 7);
+    const colIdx = weeks - 1 - w;
+    const col: GridCell[] = [];
+    for (let d = 0; d < 7; d++) {
+      const iso = format(addDays(wkStart, d), "yyyy-MM-dd");
+      const day = byDate.get(iso) ?? [];
+      const counted = day.filter((t) => t.status !== "skip");
+      const done = day.filter((t) => t.status === "done").length;
+      col.push({
+        iso,
+        rate: counted.length ? done / counted.length : 0,
+        total: day.length,
+        future: iso > today,
+      });
+    }
+    const m = wkStart.getMonth();
+    if (m !== lastMonth) { months.push({ label: format(wkStart, "MMM"), col: colIdx }); lastMonth = m; }
+    cols.push(col);
+  }
+  return { cols, months };
 }
 
 export interface EnergyStats {
