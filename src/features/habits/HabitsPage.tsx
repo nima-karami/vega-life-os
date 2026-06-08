@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, Panel, Label, Icon, Button, Tag } from "@/core/ui";
+import { cx, Panel, Label, Icon, Button, Tag, TimeRange } from "@/core/ui";
 import { habitStreak, habitRate, habitHistory } from "./selectors";
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -23,6 +24,16 @@ export function HabitsPage() {
   const updateHabit = useStore((s) => s.updateHabit);
   const removeHabit = useStore((s) => s.removeHabit);
 
+  // after adding, focus + scroll to the new (top) habit so it's never buried below the fold
+  const [newId, setNewId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!newId) return;
+    const el = document.querySelector<HTMLInputElement>(`[data-habit-name="${newId}"]`);
+    el?.focus();
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    setNewId(null);
+  }, [newId]);
+
   return (
     <div className="mx-auto max-w-[1100px] p-4">
       <Panel className="mb-4 flex items-center px-5 py-4">
@@ -33,7 +44,7 @@ export function HabitsPage() {
             Streaks reward consistency. A skipped day is neutral; a missed day breaks the chain.
           </p>
         </div>
-        <Button className="ml-auto" icon="plus" onClick={() => addHabit()}>Add habit</Button>
+        <Button className="ml-auto" icon="plus" onClick={() => setNewId(addHabit().id)}>Add habit</Button>
       </Panel>
 
       <div className="space-y-3">
@@ -53,6 +64,7 @@ export function HabitsPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <input
+                      data-habit-name={h.id}
                       value={h.name}
                       onChange={(e) => updateHabit(h.id, { name: e.target.value })}
                       className="display w-full bg-transparent text-lg leading-tight outline-none"
@@ -85,15 +97,13 @@ export function HabitsPage() {
                       );
                     })}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Icon name="clock" size={13} className="text-stone" />
-                    <input
-                      type="time"
-                      value={h.time}
-                      onChange={(e) => updateHabit(h.id, { time: e.target.value })}
-                      className="mono bg-transparent text-[12px] outline-none"
+                  <div className="w-[230px]">
+                    <TimeRange
+                      label="default block"
+                      value={{ time: h.time, durationMin: h.durationMin }}
+                      clearable={false}
+                      onChange={({ time, durationMin }) => updateHabit(h.id, { time: time ?? h.time, durationMin })}
                     />
-                    <span className="mono text-[10px] text-mist">· {h.durationMin}m</span>
                   </div>
                 </div>
 

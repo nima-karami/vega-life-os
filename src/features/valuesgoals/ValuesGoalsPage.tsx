@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, Panel, Label, Icon, Gauge, ProgressBar, Button, Tag } from "@/core/ui";
+import { cx, Panel, Label, Icon, Gauge, ProgressBar, Button, Tag, Menu, ConfirmDialog } from "@/core/ui";
 import { fmtShort } from "@/core/lib/date";
+import { ValueDrawer } from "@/features/values";
+import type { Value } from "@/features/values";
 import { goalTimeElapsed, habitsForGoal } from "@/features/goals";
 import { habitStreak } from "@/features/habits";
 
@@ -12,6 +14,19 @@ export function ValuesGoalsPage() {
   const tasks = useStore((s) => s.tasks);
   const addValue = useStore((s) => s.addValue);
   const addGoal = useStore((s) => s.addGoal);
+  const removeValue = useStore((s) => s.removeValue);
+  const pushToast = useStore((s) => s.pushToast);
+
+  const [editId, setEditId] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<Value | null>(null);
+  const editValue = values.find((v) => v.id === editId) ?? null;
+
+  const delCounts = confirmDel
+    ? {
+        goals: goals.filter((g) => g.valueId === confirmDel.id).length,
+        habits: habits.filter((h) => h.valueId === confirmDel.id).length,
+      }
+    : null;
 
   return (
     <div className="mx-auto max-w-[1100px] p-4">
@@ -23,7 +38,7 @@ export function ValuesGoalsPage() {
             Goals ladder up to a value. Maintenance habits keep a value alive without a finish line.
           </p>
         </div>
-        <Button className="ml-auto" icon="plus" onClick={() => addValue()}>Add value</Button>
+        <Button className="ml-auto" icon="plus" onClick={() => setEditId(addValue().id)}>Add value</Button>
       </Panel>
 
       <div className="space-y-4">
@@ -33,14 +48,28 @@ export function ValuesGoalsPage() {
           return (
             <Panel key={v.id} ticks className="p-5">
               <div className="flex items-start gap-4">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--color-line-strong)]" style={{ background: v.hue }}>
+                <button onClick={() => setEditId(v.id)} aria-label={`Edit ${v.name}`}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--color-line-strong)] transition-transform hover:scale-105" style={{ background: v.hue }}>
                   <Icon name={v.icon} size={20} className="text-paper" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h2 className="display text-2xl leading-none">{v.name}</h2>
-                  <p className="mono mt-1.5 text-[12px] leading-relaxed text-ash">{v.desc}</p>
-                </div>
+                </button>
+                <button onClick={() => setEditId(v.id)} className="group min-w-0 flex-1 text-left">
+                  <h2 className="display text-2xl leading-none group-hover:underline decoration-[var(--color-line-strong)] underline-offset-4">{v.name}</h2>
+                  <p className="mono mt-1.5 text-[12px] leading-relaxed text-ash">{v.desc || <span className="text-mist">No description yet — click to add one.</span>}</p>
+                </button>
                 <Gauge value={v.energy} size={56} sub="energy" />
+                <Menu
+                  align="end"
+                  trigger={
+                    <button aria-label="Value actions" className="grid h-8 w-8 place-items-center text-stone hover:bg-ink hover:text-paper">
+                      <Icon name="dots" size={16} />
+                    </button>
+                  }
+                  items={[
+                    { label: "Edit details", icon: "edit", onSelect: () => setEditId(v.id) },
+                    { label: "Add goal", icon: "plus", onSelect: () => addGoal({ valueId: v.id }) },
+                    { label: "Delete value", icon: "trash", danger: true, onSelect: () => setConfirmDel(v) },
+                  ]}
+                />
               </div>
 
               {/* goals */}
@@ -78,7 +107,34 @@ export function ValuesGoalsPage() {
             </Panel>
           );
         })}
+        {!values.length && (
+          <Panel ticks className="p-10 text-center">
+            <p className="mono text-[12px] text-mist">No values yet. Add one to start building the tree.</p>
+          </Panel>
+        )}
       </div>
+
+      <ValueDrawer
+        value={editValue}
+        onClose={() => setEditId(null)}
+        onDelete={(v) => { setEditId(null); setConfirmDel(v); }}
+      />
+
+      <ConfirmDialog
+        open={!!confirmDel}
+        danger
+        title={`Delete "${confirmDel?.name}"?`}
+        confirmLabel="Delete"
+        body={
+          delCounts && (delCounts.goals > 0 || delCounts.habits > 0) ? (
+            <>This also removes {delCounts.goals} goal{delCounts.goals === 1 ? "" : "s"} and {delCounts.habits} habit{delCounts.habits === 1 ? "" : "s"} tied to it, plus their scheduled tasks. This can't be undone.</>
+          ) : (
+            <>This can't be undone.</>
+          )
+        }
+        onConfirm={() => { if (confirmDel) { removeValue(confirmDel.id); pushToast("Value deleted"); } setConfirmDel(null); }}
+        onClose={() => setConfirmDel(null)}
+      />
     </div>
   );
 }

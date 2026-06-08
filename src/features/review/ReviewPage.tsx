@@ -29,7 +29,7 @@ export function ReviewPage() {
     const maxV = Math.max(1, ...byValue.map((x) => x.n));
     const wins = done.filter((t) => t.goalId).slice(0, 6);
     const today = todayISO();
-    const misses = wk.filter((t) => t.date! < today && (t.status === "todo" || t.status === "doing")).slice(0, 6);
+    const misses = wk.filter((t) => t.date! < today && t.status !== "done" && t.status !== "skip").slice(0, 6);
     const habitRows = habits.map((h) => {
       const sched = wk.filter((t) => t.habitId === h.id && t.status !== "skip");
       const hd = sched.filter((t) => t.status === "done").length;

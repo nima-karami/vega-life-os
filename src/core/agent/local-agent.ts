@@ -15,7 +15,7 @@ const score = (q: string, text: string) => {
 };
 
 const openTasks = (tasks: Task[]) =>
-  tasks.filter((t) => t.status === "todo" || t.status === "doing");
+  tasks.filter((t) => t.status !== "done" && t.status !== "skip");
 
 /**
  * Deterministic, local natural-language-ish command parser. Swap in an
@@ -39,7 +39,7 @@ export class LocalIntentAgent implements Agent {
         id: "add", icon: "plus",
         label: `Add task: "${rest}"${date ? ` · ${date === todayISO() ? "today" : date.slice(5)}` : " · backlog"}${time ? ` ${time}` : ""}`,
         run: () => {
-          s.addTask({ title: rest, date: date ?? null, time: time ?? null, status: "todo" });
+          s.addTask({ title: rest, date: date ?? null, time: time ?? null });
           s.pushToast(`Added "${rest}"`);
         },
       });
@@ -129,7 +129,7 @@ export class LocalIntentAgent implements Agent {
         run: () => {
           const recent = format(subDays(new Date(), 14), "yyyy-MM-dd");
           const overdue = s.tasks
-            .filter((t) => t.date && t.date >= recent && t.date < todayISO() && (t.status === "todo" || t.status === "doing"))
+            .filter((t) => t.date && t.date >= recent && t.date < todayISO() && t.status !== "done" && t.status !== "skip")
             .sort((a, b) => (a.date! < b.date! ? 1 : -1));
           s.setEphemeral({ title: "Overdue", subtitle: `${overdue.length} unresolved · last 14 days`, taskIds: overdue.map((t) => t.id), createdAt: Date.now() });
         },
@@ -151,7 +151,7 @@ export class LocalIntentAgent implements Agent {
         out.push({
           id: `q-val-${v.id}`, icon: v.icon, label: `Show: ${v.name} work`,
           run: () => {
-            const ids = s.tasks.filter((t) => t.valueId === v.id && (t.status === "todo" || t.status === "doing")).map((t) => t.id);
+            const ids = s.tasks.filter((t) => t.valueId === v.id && t.status !== "done" && t.status !== "skip").map((t) => t.id);
             s.setEphemeral({ title: v.name, subtitle: v.desc, taskIds: ids.slice(0, 30), createdAt: Date.now() });
           },
         }),

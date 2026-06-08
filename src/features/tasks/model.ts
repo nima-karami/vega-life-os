@@ -1,5 +1,6 @@
 export type TaskKind = "habit" | "oneoff";
-export type TaskStatus = "todo" | "doing" | "done" | "skip";
+/** open = unscheduled inbox · todo = scheduled/committed · done · skip = skipped */
+export type TaskStatus = "open" | "todo" | "done" | "skip";
 
 /** Does this activity charge you up or drain you? (burnout lens) */
 export type TaskEnergy = "charge" | "drain" | "neutral";
@@ -37,8 +38,8 @@ export interface Task {
 }
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
+  open: "Open",
   todo: "To do",
-  doing: "Doing",
   done: "Done",
   skip: "Skipped",
 };

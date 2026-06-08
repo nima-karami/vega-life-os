@@ -35,6 +35,6 @@ export function dayCounts(tasks: Task[], date: string): DayCounts {
     total: list.length,
     done: list.filter((t) => t.status === "done").length,
     skip: list.filter((t) => t.status === "skip").length,
-    todo: list.filter((t) => t.status === "todo" || t.status === "doing").length,
+    todo: list.filter((t) => t.status === "todo" || t.status === "open").length,
   };
 }

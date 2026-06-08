@@ -9,3 +9,6 @@ dist-ssr
 *.log
 .vite
 .gstack/
+
+# TypeScript incremental build cache (churns on every build)
+*.tsbuildinfo

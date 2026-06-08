@@ -16,6 +16,28 @@ const ACCENTS = [
 export function SettingsPage() {
   const s = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
+  const avatarRef = useRef<HTMLInputElement>(null);
+
+  // downscale to a 256px square data-URL so the avatar stays tiny in localStorage
+  const setAvatar = async (file: File) => {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const SIZE = 256;
+      const canvas = document.createElement("canvas");
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const scale = Math.max(SIZE / bitmap.width, SIZE / bitmap.height);
+      const w = bitmap.width * scale;
+      const h = bitmap.height * scale;
+      ctx.drawImage(bitmap, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+      s.setOperatorAvatar(canvas.toDataURL("image/jpeg", 0.85));
+      s.pushToast("Photo updated");
+    } catch {
+      s.pushToast("Couldn't read that image");
+    }
+  };
 
   const doExport = () => {
     const blob = new Blob([s.exportJSON()], { type: "application/json" });
@@ -42,18 +64,47 @@ export function SettingsPage() {
         <p className="mono mt-1 text-[11px] text-stone">Identity, appearance, and your data — all of it lives on this machine.</p>
       </Panel>
 
-      {/* identity */}
+      {/* identity / profile */}
       <Panel className="mb-4 p-5">
-        <SectionHead title="operator identity" />
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Labeled label="name">
-            <input value={s.operatorName} onChange={(e) => s.setOperatorName(e.target.value)}
-              className="mono w-full bg-transparent text-[14px] outline-none" placeholder="Your name" />
-          </Labeled>
-          <Labeled label="workspace">
-            <input value={s.operatorWorkspace} onChange={(e) => s.setOperatorWorkspace(e.target.value)}
-              className="mono w-full bg-transparent text-[14px] outline-none" placeholder="Workspace label" />
-          </Labeled>
+        <SectionHead title="operator profile" />
+        <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-start">
+          {/* avatar */}
+          <div className="flex flex-col items-center gap-2">
+            <button onClick={() => avatarRef.current?.click()} aria-label="Upload photo"
+              className="group relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border border-[var(--color-line-strong)]"
+              style={{ background: s.operatorAvatar ? undefined : "var(--color-paper-3)" }}>
+              {s.operatorAvatar ? (
+                <img src={s.operatorAvatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="display text-3xl text-ink/70">{initials(s.operatorName)}</span>
+              )}
+              <span className="absolute inset-0 grid place-items-center bg-ink/55 opacity-0 transition-opacity group-hover:opacity-100">
+                <Icon name="upload" size={20} className="text-paper" />
+              </span>
+            </button>
+            <input ref={avatarRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void setAvatar(f); e.target.value = ""; }} />
+            {s.operatorAvatar ? (
+              <button onClick={() => s.setOperatorAvatar("")} className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal">Remove</button>
+            ) : (
+              <span className="mono text-[9px] uppercase tracking-[0.1em] text-mist">click to upload</span>
+            )}
+          </div>
+          {/* fields */}
+          <div className="grid flex-1 gap-3 sm:grid-cols-2">
+            <Labeled label="name">
+              <input value={s.operatorName} onChange={(e) => s.setOperatorName(e.target.value)}
+                className="mono w-full bg-transparent text-[14px] outline-none" placeholder="Your name" />
+            </Labeled>
+            <Labeled label="email">
+              <input type="email" value={s.operatorEmail} onChange={(e) => s.setOperatorEmail(e.target.value)}
+                className="mono w-full bg-transparent text-[14px] outline-none" placeholder="you@example.com" />
+            </Labeled>
+            <Labeled label="workspace">
+              <input value={s.operatorWorkspace} onChange={(e) => s.setOperatorWorkspace(e.target.value)}
+                className="mono w-full bg-transparent text-[14px] outline-none" placeholder="Workspace label" />
+            </Labeled>
+          </div>
         </div>
       </Panel>
 
@@ -126,6 +177,9 @@ export function SettingsPage() {
   );
 }
 
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "OP";
+}
 function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5 border border-[var(--color-line)] px-3 py-2.5">

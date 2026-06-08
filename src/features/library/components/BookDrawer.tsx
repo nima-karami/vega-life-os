@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
-import { cx, Icon, Label, Button, Stars } from "@/core/ui";
+import { cx, Icon, Label, Button, Stars, Select, NONE } from "@/core/ui";
 import { todayISO } from "@/core/lib/date";
 import type { Book, BookStatus } from "../model";
 
@@ -65,11 +65,15 @@ export function BookDrawer({ book, onClose }: { book: Book | null; onClose: () =
 
               <label className="flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2">
                 <Label>serves value</Label>
-                <select value={book.valueId ?? ""} onChange={(e) => update(book.id, { valueId: e.target.value || null })}
-                  className="mono bg-transparent text-[12px] outline-none">
-                  <option value="">— none —</option>
-                  {values.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
+                <Select
+                  ariaLabel="Serves value"
+                  value={book.valueId ?? NONE}
+                  onValueChange={(v) => update(book.id, { valueId: v === NONE ? null : v })}
+                  options={[
+                    { value: NONE, label: "— none —" },
+                    ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
+                  ]}
+                />
               </label>
 
               <div className="space-y-1.5">

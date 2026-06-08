@@ -20,7 +20,7 @@ export function habitStreak(tasks: Task[], habitId: string): number {
     if (t.status === "done") streak++;
     else if (t.status === "skip") continue;
     else if (t.date === today) continue; // today not done *yet* — the day isn't over
-    else break; // todo/doing in the past = a real miss
+    else break; // an unresolved instance in the past = a real miss
   }
   return streak;
 }

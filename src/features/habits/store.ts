@@ -27,7 +27,8 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       durationMin: patch.durationMin ?? 30,
       createdAt: patch.createdAt ?? todayISO(),
     };
-    set((s) => ({ habits: [...s.habits, habit] }));
+    // newest first, so a freshly added habit is visible at the top (not buried below the fold)
+    set((s) => ({ habits: [habit, ...s.habits] }));
     savePut("habits", habit);
     // schedule it right away so it shows up in calendar/today without a reload
     get().ensureUpcoming();

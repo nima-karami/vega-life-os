@@ -43,7 +43,27 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
   },
 
   removeValue: (id) => {
-    set((s) => ({ values: s.values.filter((v) => v.id !== id) }));
+    // cascade: a value's goals, its upkeep habits, and every task instance tied
+    // to them go with it — nothing is left pointing at a value that no longer exists.
+    const goalIds = new Set(get().goals.filter((g) => g.valueId === id).map((g) => g.id));
+    const habitIds = new Set(get().habits.filter((h) => h.valueId === id).map((h) => h.id));
+    const taskIds = new Set(
+      get()
+        .tasks.filter(
+          (t) => t.valueId === id || (t.goalId && goalIds.has(t.goalId)) || (t.habitId && habitIds.has(t.habitId)),
+        )
+        .map((t) => t.id),
+    );
+
+    set((s) => ({
+      values: s.values.filter((v) => v.id !== id),
+      goals: s.goals.filter((g) => !goalIds.has(g.id)),
+      habits: s.habits.filter((h) => !habitIds.has(h.id)),
+      tasks: s.tasks.filter((t) => !taskIds.has(t.id)),
+    }));
     saveRemove("values", id);
+    goalIds.forEach((g) => saveRemove("goals", g));
+    habitIds.forEach((h) => saveRemove("habits", h));
+    taskIds.forEach((t) => saveRemove("tasks", t));
   },
 });

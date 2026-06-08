@@ -25,6 +25,7 @@ export function CockpitPage() {
   const habits = useStore((s) => s.habits);
   const operator = useStore((s) => s.operatorName);
   const workspace = useStore((s) => s.operatorWorkspace);
+  const avatar = useStore((s) => s.operatorAvatar);
   const setStatus = useStore((s) => s.setStatus);
   const addValue = useStore((s) => s.addValue);
   const reseed = useStore((s) => s.reseed);
@@ -138,10 +139,14 @@ export function CockpitPage() {
         <div className="space-y-4">
           <Panel ticks className="p-4">
             <SectionHead title="operator" meta="A-34" />
-            <div className="relative mt-3 grid aspect-square w-full place-items-center border border-[var(--color-line)]" style={{ backgroundImage: "repeating-linear-gradient(135deg, var(--color-line-soft) 0 6px, transparent 6px 12px)" }}>
-              <span className="display text-5xl text-ink/80">
-                {operator.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-              </span>
+            <div className="relative mt-3 grid aspect-square w-full place-items-center overflow-hidden border border-[var(--color-line)]" style={{ backgroundImage: avatar ? undefined : "repeating-linear-gradient(135deg, var(--color-line-soft) 0 6px, transparent 6px 12px)" }}>
+              {avatar ? (
+                <img src={avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="display text-5xl text-ink/80">
+                  {operator.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                </span>
+              )}
               <span className="absolute bottom-1.5 left-1.5 mono border border-[var(--color-line)] bg-paper px-1 py-0.5 text-[8px] tracking-[0.12em] text-stone">OPERATOR.SCAN</span>
             </div>
             <h2 className="display mt-3 text-xl">{operator.toUpperCase()}</h2>

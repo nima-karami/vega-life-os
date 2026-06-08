@@ -163,12 +163,12 @@ export function buildSeed(ref: Date = new Date()): Dataset {
 
   // ---------------- BACKLOG (undated one-offs) ----------------
   const backlog: Task[] = [
-    { id: tid(), title: "Renew passport", kind: "oneoff", habitId: null, goalId: null, valueId: "v4", date: null, time: null, durationMin: 60, status: "todo", detached: false, note: "", order },
-    { id: tid(), title: "Negotiation prep doc", kind: "oneoff", habitId: null, goalId: "g1", valueId: "v1", date: null, time: null, durationMin: 90, status: "todo", detached: false, note: "Salary research + scripts.", order },
-    { id: tid(), title: "Set up reading nook", kind: "oneoff", habitId: null, goalId: "g2", valueId: "v2", date: null, time: null, durationMin: 60, status: "todo", detached: false, note: "", order },
-    { id: tid(), title: "Buy blackout curtains", kind: "oneoff", habitId: null, goalId: "g3", valueId: "v3", date: null, time: null, durationMin: 30, status: "todo", detached: false, note: "", order },
-    { id: tid(), title: "Sort out tax documents", kind: "oneoff", habitId: null, goalId: null, valueId: "v4", date: null, time: null, durationMin: 90, status: "todo", detached: false, note: "Upkeep — no deadline yet.", order },
-    { id: tid(), title: "Plan a long weekend trip", kind: "oneoff", habitId: null, goalId: null, valueId: "v5", date: null, time: null, durationMin: 60, status: "todo", detached: false, note: "", order },
+    { id: tid(), title: "Renew passport", kind: "oneoff", habitId: null, goalId: null, valueId: "v4", date: null, time: null, durationMin: 60, status: "open", detached: false, note: "", order },
+    { id: tid(), title: "Negotiation prep doc", kind: "oneoff", habitId: null, goalId: "g1", valueId: "v1", date: null, time: null, durationMin: 90, status: "open", detached: false, note: "Salary research + scripts.", order },
+    { id: tid(), title: "Set up reading nook", kind: "oneoff", habitId: null, goalId: "g2", valueId: "v2", date: null, time: null, durationMin: 60, status: "open", detached: false, note: "", order },
+    { id: tid(), title: "Buy blackout curtains", kind: "oneoff", habitId: null, goalId: "g3", valueId: "v3", date: null, time: null, durationMin: 30, status: "open", detached: false, note: "", order },
+    { id: tid(), title: "Sort out tax documents", kind: "oneoff", habitId: null, goalId: null, valueId: "v4", date: null, time: null, durationMin: 90, status: "open", detached: false, note: "Upkeep — no deadline yet.", order },
+    { id: tid(), title: "Plan a long weekend trip", kind: "oneoff", habitId: null, goalId: null, valueId: "v5", date: null, time: null, durationMin: 60, status: "open", detached: false, note: "", order },
   ];
   ds.tasks.push(...backlog);
 

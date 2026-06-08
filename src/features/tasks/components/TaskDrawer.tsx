@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
-import { cx, Icon, Label, Tag, Button } from "@/core/ui";
+import { cx, Icon, Label, Tag, Button, Select, NONE, DatePicker, TimeRange } from "@/core/ui";
 import { alignOf, ALIGN_LABEL } from "@/core/lib/align";
 import { fmtLong } from "@/core/lib/date";
-import { type Task, type TaskStatus, type TaskEnergy, ENERGY_META } from "../model";
+import { type Task, type TaskStatus, type TaskEnergy, ENERGY_META, STATUS_LABEL } from "../model";
 import { energyOf } from "../selectors";
 
-const STATUSES: TaskStatus[] = ["todo", "doing", "done", "skip"];
+const STATUSES: TaskStatus[] = ["open", "todo", "done", "skip"];
 const ENERGIES: TaskEnergy[] = ["charge", "neutral", "drain"];
 
 export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
@@ -61,11 +61,12 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                 className="display w-full bg-transparent text-2xl leading-tight outline-none"
               />
 
+              {/* hierarchy: value → goal → habit → type */}
               <div className="flex flex-wrap items-center gap-1.5">
-                {task.kind === "habit" && <Tag>HABIT</Tag>}
                 {value && <Tag active>{value.name.toUpperCase()}</Tag>}
-                <Tag>{ALIGN_LABEL[alignOf(task)].toUpperCase()}</Tag>
                 {goal && <Tag>→ {goal.name}</Tag>}
+                {task.kind === "habit" && <Tag>HABIT</Tag>}
+                <Tag>{ALIGN_LABEL[alignOf(task)].toUpperCase()}</Tag>
               </div>
 
               <div className="space-y-2">
@@ -82,7 +83,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                           : "border-[var(--color-line)] text-stone hover:border-ink",
                       )}
                     >
-                      {s}
+                      {STATUS_LABEL[s]}
                     </button>
                   ))}
                 </div>
@@ -109,27 +110,25 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Labeled label="date">
-                  <input
-                    type="date"
-                    value={task.date ?? ""}
-                    onChange={(e) => updateTask(task.id, { date: e.target.value || null })}
-                    className="mono w-full bg-transparent text-[12px] outline-none"
-                  />
-                </Labeled>
-                <Labeled label="time">
-                  <input
-                    type="time"
-                    value={task.time ?? ""}
-                    onChange={(e) => updateTask(task.id, { time: e.target.value || null })}
-                    className="mono w-full bg-transparent text-[12px] outline-none"
-                  />
-                </Labeled>
+                <DatePicker
+                  label="date"
+                  value={task.date}
+                  onChange={(date) => updateTask(task.id, { date })}
+                />
+                <TimeRange
+                  label="time block"
+                  value={{ time: task.time, durationMin: task.durationMin }}
+                  onChange={({ time, durationMin }) => updateTask(task.id, { time, durationMin })}
+                />
+                {task.date && (
+                  <div className="col-span-2 flex items-center gap-1.5 px-1">
+                    <Label>when</Label>
+                    <span className="mono text-[11px] leading-snug text-stone">
+                      {fmtLong(task.date)}{task.time ? ` · ${task.time}` : ""}
+                    </span>
+                  </div>
+                )}
               </div>
-
-              {task.date && (
-                <p className="mono text-[11px] text-stone">{fmtLong(task.date)}</p>
-              )}
 
               <div className="space-y-2">
                 <Label>note</Label>
@@ -142,18 +141,30 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                 />
               </div>
 
-              <Labeled label="value">
-                <select
-                  value={task.valueId ?? ""}
-                  onChange={(e) => updateTask(task.id, { valueId: e.target.value || null })}
-                  className="mono w-full bg-transparent text-[12px] outline-none"
-                >
-                  <option value="">— none —</option>
-                  {values.map((v) => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
-              </Labeled>
+              <div className="grid grid-cols-2 gap-3">
+                <Labeled label="value">
+                  <Select
+                    ariaLabel="Value"
+                    value={task.valueId ?? NONE}
+                    onValueChange={(v) => updateTask(task.id, { valueId: v === NONE ? null : v })}
+                    options={[
+                      { value: NONE, label: "— none —" },
+                      ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
+                    ]}
+                  />
+                </Labeled>
+                <Labeled label="goal">
+                  <Select
+                    ariaLabel="Goal"
+                    value={task.goalId ?? NONE}
+                    onValueChange={(v) => updateTask(task.id, { goalId: v === NONE ? null : v })}
+                    options={[
+                      { value: NONE, label: "— none —" },
+                      ...goals.map((g) => ({ value: g.id, label: g.name })),
+                    ]}
+                  />
+                </Labeled>
+              </div>
             </div>
 
             <div className="flex items-center justify-between border-t border-[var(--color-line)] px-4 py-3">

@@ -1,6 +1,10 @@
 import type { Slice } from "./slice";
+import type { Task } from "@/features/tasks";
 
 export type ThemeMode = "paper" | "void";
+
+/** Content snapshot of a task for the calendar copy/paste flow (no id/date/time). */
+export type ClipboardTask = Pick<Task, "title" | "valueId" | "goalId" | "energy" | "durationMin" | "note">;
 
 /** An on-the-fly view the agent can conjure for a query the fixed views don't cover. */
 export interface EphemeralView {
@@ -29,8 +33,13 @@ export interface UiSlice {
   /** operator identity (shown across the HUD) */
   operatorName: string;
   operatorWorkspace: string;
+  operatorEmail: string;
+  /** data-URL of an uploaded avatar, or "" for initials */
+  operatorAvatar: string;
   setOperatorName: (v: string) => void;
   setOperatorWorkspace: (v: string) => void;
+  setOperatorEmail: (v: string) => void;
+  setOperatorAvatar: (v: string) => void;
 
   /** custom accent — tints signal/needs-you/now-line; "" = theme default */
   accent: string;
@@ -47,6 +56,11 @@ export interface UiSlice {
   ephemeral: EphemeralView | null;
   setEphemeral: (v: EphemeralView | null) => void;
 
+  /** calendar copy/paste — non-null means "paste-armed" */
+  clipboardTask: ClipboardTask | null;
+  copyTask: (t: Task) => void;
+  clearClipboard: () => void;
+
   toast: string | null;
   pushToast: (msg: string) => void;
 }
@@ -58,9 +72,9 @@ function initialTheme(): ThemeMode {
   const t = localStorage.getItem(THEME_KEY);
   return t === "void" || t === "paper" ? t : "paper";
 }
-interface StoredSettings { operatorName: string; operatorWorkspace: string; accent: string }
+interface StoredSettings { operatorName: string; operatorWorkspace: string; operatorEmail: string; operatorAvatar: string; accent: string }
 function readSettings(): StoredSettings {
-  const def = { operatorName: "Operator", operatorWorkspace: "Personal workspace", accent: "" };
+  const def = { operatorName: "Operator", operatorWorkspace: "Personal workspace", operatorEmail: "", operatorAvatar: "", accent: "" };
   if (typeof localStorage === "undefined") return def;
   try {
     return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") };
@@ -99,6 +113,8 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   ...(() => readSettings())(),
   setOperatorName: (operatorName) => { writeSettings({ operatorName }); set({ operatorName }); },
   setOperatorWorkspace: (operatorWorkspace) => { writeSettings({ operatorWorkspace }); set({ operatorWorkspace }); },
+  setOperatorEmail: (operatorEmail) => { writeSettings({ operatorEmail }); set({ operatorEmail }); },
+  setOperatorAvatar: (operatorAvatar) => { writeSettings({ operatorAvatar }); set({ operatorAvatar }); },
   setAccent: (accent) => { writeSettings({ accent }); set({ accent }); },
 
   onboarded: typeof localStorage !== "undefined" && localStorage.getItem("vega.onboarded") === "1",
@@ -112,6 +128,20 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
 
   ephemeral: null,
   setEphemeral: (ephemeral) => set({ ephemeral }),
+
+  clipboardTask: null,
+  copyTask: (t) =>
+    set({
+      clipboardTask: {
+        title: t.title,
+        valueId: t.valueId,
+        goalId: t.goalId,
+        energy: t.energy,
+        durationMin: t.durationMin,
+        note: t.note,
+      },
+    }),
+  clearClipboard: () => set({ clipboardTask: null }),
 
   toast: null,
   pushToast: (toast) => {

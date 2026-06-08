@@ -10,6 +10,8 @@ export interface TasksSlice {
   addTask: (patch?: Partial<Task>) => Task;
   updateTask: (id: string, patch: Partial<Task>) => void;
   removeTask: (id: string) => void;
+  /** clone content into a fresh one-off task at the given date/time (calendar paste) */
+  duplicateTask: (content: Partial<Task>, at: { date: string | null; time: string | null }) => Task;
   setStatus: (id: string, status: TaskStatus) => void;
   cycleStatus: (id: string) => void;
   setNote: (id: string, note: string) => void;
@@ -35,7 +37,8 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       date: patch.date ?? null,
       time: patch.time ?? null,
       durationMin: patch.durationMin ?? 30,
-      status: patch.status ?? "todo",
+      // unscheduled tasks start "open" (inbox); scheduled ones start "todo"
+      status: patch.status ?? (patch.date ? "todo" : "open"),
       detached: patch.detached ?? false,
       note: patch.note ?? "",
       order: patch.order ?? order,
@@ -60,6 +63,19 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     saveRemove("tasks", id);
   },
 
+  duplicateTask: (content, at) =>
+    // a pasted copy is always a plain one-off (it doesn't belong to the source's habit)
+    get().addTask({
+      ...content,
+      id: undefined,
+      kind: "oneoff",
+      habitId: null,
+      detached: false,
+      status: "todo",
+      date: at.date,
+      time: at.time,
+    }),
+
   setStatus: (id, status) => {
     let next: Task | undefined;
     set((s) => ({
@@ -71,10 +87,12 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   },
 
   cycleStatus: (id) => {
+    // quick toggle on a row: active → done → skipped → back to active
     const order: TaskStatus[] = ["todo", "done", "skip"];
     const t = get().tasks.find((x) => x.id === id);
     if (!t) return;
-    const idx = order.indexOf(t.status === "doing" ? "todo" : t.status);
+    const cur = t.status === "open" ? "todo" : t.status; // treat open like todo for cycling
+    const idx = order.indexOf(cur);
     get().setStatus(id, order[(idx + 1) % order.length]);
   },
 

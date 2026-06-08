@@ -28,6 +28,18 @@ export function RootBoot() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  // suppress the native browser context menu app-wide — VEGA owns right-click
+  // (our Radix context menus still open). Text fields keep their menu for copy/paste.
+  useEffect(() => {
+    const onCtx = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest('input, textarea, [contenteditable="true"]')) return;
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", onCtx);
+    return () => document.removeEventListener("contextmenu", onCtx);
+  }, []);
+
   useEffect(() => {
     const root = document.documentElement;
     if (accent) {

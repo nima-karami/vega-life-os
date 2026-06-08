@@ -4,47 +4,51 @@ import { cx, Panel, Label, Icon, Tag } from "@/core/ui";
 import { todayISO, fmtShort } from "@/core/lib/date";
 import { format, subDays } from "date-fns";
 import { alignOf, ALIGN_TAG } from "@/core/lib/align";
-import { TaskDrawer } from "@/features/tasks";
-import type { Task, TaskStatus } from "@/features/tasks";
+import { TaskDrawer, TaskFilterBar, useTaskFilter } from "@/features/tasks";
+import type { Task } from "@/features/tasks";
 
-type ColId = "backlog" | "todo" | "doing" | "done";
+type ColId = "open" | "todo" | "done" | "skip";
 
 const COLUMN_LIMIT = 40;
 
 const COLUMNS: { id: ColId; label: string; sub: string }[] = [
-  { id: "backlog", label: "Backlog", sub: "no date" },
+  { id: "open", label: "Open", sub: "unscheduled" },
   { id: "todo", label: "To do", sub: "scheduled" },
-  { id: "doing", label: "Doing", sub: "in motion" },
-  { id: "done", label: "Done", sub: "resolved" },
+  { id: "done", label: "Done", sub: "completed" },
+  { id: "skip", label: "Skipped", sub: "passed on" },
 ];
 
 const inColumn = (t: Task, col: ColId): boolean => {
-  if (col === "backlog") return t.date === null && t.status !== "done";
-  if (col === "done") return t.status === "done" || t.status === "skip";
-  if (col === "doing") return t.status === "doing" && t.date !== null;
-  return t.status === "todo" && t.date !== null;
+  if (col === "done") return t.status === "done";
+  if (col === "skip") return t.status === "skip";
+  const active = t.status !== "done" && t.status !== "skip";
+  if (col === "open") return active && t.date === null; // unscheduled inbox
+  return active && t.date !== null; // todo = scheduled
 };
 
 export function BoardPage() {
   const tasks = useStore((s) => s.tasks);
   const values = useStore((s) => s.values);
+  const goals = useStore((s) => s.goals);
   const updateTask = useStore((s) => s.updateTask);
   const addTask = useStore((s) => s.addTask);
   const [selected, setSelected] = useState<Task | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<ColId | null>(null);
+  const { filters, setFilters, match, active, clear } = useTaskFilter();
 
   const hueOf = (vId: string | null) =>
     values.find((v) => v.id === vId)?.hue ?? "var(--color-mist)";
+  const goalName = (gId: string | null) => goals.find((g) => g.id === gId)?.name ?? null;
   const staleCutoff = format(subDays(new Date(), 7), "yyyy-MM-dd");
 
   const drop = (col: ColId) => {
     const t = dragId ? tasks.find((x) => x.id === dragId) : null;
     if (!t) { setDragId(null); setOver(null); return; }
     let patch: Partial<Task>;
-    if (col === "backlog") patch = { date: null, time: null, status: "todo" };
-    else if (col === "doing") patch = { status: "doing", date: t.date ?? todayISO() };
+    if (col === "open") patch = { date: null, time: null, status: "open" };
     else if (col === "done") patch = { status: "done" };
+    else if (col === "skip") patch = { status: "skip" };
     else patch = { status: "todo", date: t.date ?? todayISO() };
     updateTask(t.id, patch);
     setDragId(null);
@@ -52,8 +56,11 @@ export function BoardPage() {
   };
 
   const add = (col: ColId) => {
-    const status: TaskStatus = col === "doing" ? "doing" : col === "done" ? "done" : "todo";
-    const t = addTask({ title: "New task", date: col === "backlog" ? null : todayISO(), status });
+    const t = addTask(
+      col === "open"
+        ? { title: "New task" } // undated → defaults to "open"
+        : { title: "New task", date: todayISO(), status: col === "done" ? "done" : col === "skip" ? "skip" : "todo" },
+    );
     setSelected(t);
   };
 
@@ -63,14 +70,17 @@ export function BoardPage() {
         <Label>// board · status</Label>
         <h1 className="display mt-1 text-3xl">Everything, by status</h1>
         <p className="mono mt-1 text-[11px] text-stone">
-          Drag cards between columns. Backlog holds undated one-offs.
+          Drag between columns. Open holds unscheduled tasks; give one a date and it moves to To do.
         </p>
       </Panel>
+
+      <TaskFilterBar filters={filters} onChange={setFilters} onClear={clear} active={active} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {COLUMNS.map((col) => {
           const all = tasks
             .filter((t) => inColumn(t, col.id))
+            .filter(match)
             // keep "To do" actionable: drop stale misses older than a week (still counted in analytics)
             .filter((t) => !(col.id === "todo" && t.date !== null && t.date < staleCutoff))
             .sort((a, b) => {
@@ -123,7 +133,9 @@ export function BoardPage() {
                         {t.title}
                       </p>
                     </div>
+                    {/* hierarchy: value (left border) → goal → habit → type */}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-5">
+                      {goalName(t.goalId) && <Tag>→ {goalName(t.goalId)}</Tag>}
                       {t.kind === "habit" && <Tag>HABIT</Tag>}
                       <Tag>{ALIGN_TAG[alignOf(t)]}</Tag>
                       {t.date && <span className="mono text-[9px] text-mist">{fmtShort(t.date)}{t.time ? ` · ${t.time}` : ""}</span>}

@@ -6,8 +6,8 @@ import { energyOf } from "../selectors";
 import type { Task } from "../model";
 
 const STATUS_BOX: Record<Task["status"], { icon?: "check" | "skip"; solid: boolean }> = {
+  open: { solid: false },
   todo: { solid: false },
-  doing: { solid: false },
   done: { icon: "check", solid: true },
   skip: { icon: "skip", solid: true },
 };

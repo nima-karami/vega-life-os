@@ -44,6 +44,12 @@ export const ICON_NAMES = [
   "command",
   "trash",
   "edit",
+  "mail",
+  "upload",
+  "user",
+  "flame",
+  "copy",
+  "clipboard",
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
