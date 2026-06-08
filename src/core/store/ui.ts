@@ -19,6 +19,9 @@ export interface UiSlice {
   closeCommand: () => void;
   toggleCommand: () => void;
 
+  shortcutsOpen: boolean;
+  setShortcutsOpen: (v: boolean) => void;
+
   theme: ThemeMode;
   setTheme: (t: ThemeMode) => void;
   toggleTheme: () => void;
@@ -78,6 +81,9 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   openCommand: () => set({ commandOpen: true }),
   closeCommand: () => set({ commandOpen: false }),
   toggleCommand: () => set((s) => ({ commandOpen: !s.commandOpen })),
+
+  shortcutsOpen: false,
+  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
 
   theme: initialTheme(),
   setTheme: (theme) => {

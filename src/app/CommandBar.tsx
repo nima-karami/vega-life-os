@@ -126,6 +126,9 @@ export function CommandBar() {
                   <Item onSelect={() => { toggleTheme(); close(); }} icon="moon" value="theme dark light toggle">
                     Toggle theme
                   </Item>
+                  <Item onSelect={() => { useStore.getState().setShortcutsOpen(true); close(); }} icon="command" value="keyboard shortcuts help hotkeys">
+                    Keyboard shortcuts (?)
+                  </Item>
                   <Item
                     onSelect={() => { void reseed(); pushToast("Demo data reset"); close(); }}
                     icon="repeat"
