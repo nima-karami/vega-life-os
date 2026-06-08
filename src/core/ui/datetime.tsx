@@ -37,7 +37,7 @@ function PickerField({
   className?: string;
 }) {
   return (
-    <div className={cx("flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2", className)}>
+    <div className={cx("surface flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2", className)}>
       <span className="label">{label}</span>
       {children}
     </div>

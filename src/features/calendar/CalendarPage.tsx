@@ -238,14 +238,14 @@ export function CalendarPage() {
         <button
           onClick={() => setFocusGoal(null)}
           className={cx("mono border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em]",
-            !focusGoalId ? "border-ink bg-ink text-paper" : "border-[var(--color-line)] text-stone")}
+            !focusGoalId ? "border-ink bg-ink text-paper" : "surface border-[var(--color-line)] text-stone")}
         >
           All
         </button>
         {goals.map((g) => (
           <button key={g.id} onClick={() => setFocusGoal(focusGoalId === g.id ? null : g.id)}
             className={cx("mono flex items-center gap-1.5 border px-2.5 py-1 text-[10px] uppercase tracking-[0.08em]",
-              focusGoalId === g.id ? "border-ink bg-ink text-paper" : "border-[var(--color-line)] text-stone")}>
+              focusGoalId === g.id ? "border-ink bg-ink text-paper" : "surface border-[var(--color-line)] text-stone")}>
             <span className="h-2 w-2 rounded-full" style={{ background: hueOf(g.valueId) }} />
             {g.name}
           </button>

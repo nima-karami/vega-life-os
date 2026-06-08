@@ -80,7 +80,7 @@ export function useTaskFilter() {
 
 const chip = (on: boolean) =>
   cx("mono border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] transition-colors",
-    on ? "border-ink bg-ink text-paper" : "border-[var(--color-line)] text-stone hover:border-ink");
+    on ? "border-ink bg-ink text-paper" : "surface border-[var(--color-line)] text-stone hover:border-ink");
 
 /** Filter controls bar — styled like the calendar focus filter. */
 export function TaskFilterBar({
@@ -101,7 +101,7 @@ export function TaskFilterBar({
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
       {/* search */}
-      <div className="flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-1">
+      <div className="surface flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-1">
         <Icon name="search" size={13} className="text-stone" />
         <input
           value={filters.query}
@@ -121,7 +121,7 @@ export function TaskFilterBar({
 
       {/* value + goal */}
       <div className="flex items-center gap-2">
-        <div className="min-w-[120px] border border-[var(--color-line)] px-2 py-1">
+        <div className="surface min-w-[120px] border border-[var(--color-line)] px-2 py-1">
           <Select
             ariaLabel="Filter by value"
             value={filters.valueId ?? NONE}
@@ -129,7 +129,7 @@ export function TaskFilterBar({
             options={[{ value: NONE, label: "Any value" }, ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue }))]}
           />
         </div>
-        <div className="min-w-[120px] border border-[var(--color-line)] px-2 py-1">
+        <div className="surface min-w-[120px] border border-[var(--color-line)] px-2 py-1">
           <Select
             ariaLabel="Filter by goal"
             value={filters.goalId ?? NONE}

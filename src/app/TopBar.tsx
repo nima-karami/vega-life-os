@@ -27,21 +27,21 @@ export function TopBar() {
       <div className="ml-auto flex items-center gap-2">
         <button
           onClick={openCommand}
-          className="mono hidden items-center gap-2 border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] text-stone transition-colors hover:bg-ink hover:text-paper sm:flex"
+          className="surface mono hidden items-center gap-2 border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] text-stone transition-colors hover:bg-ink hover:text-paper sm:flex"
         >
           <Icon name="search" size={13} />
           <span className="tracking-[0.1em]">SEARCH · ⌘K</span>
         </button>
-        <span className="mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone md:inline">
+        <span className="surface mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone md:inline">
           SYS.OK
         </span>
-        <span className="mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone lg:inline">
+        <span className="surface mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone lg:inline">
           {counts.done}/{counts.total} TODAY
         </span>
-        <Link to="/lab" className="mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone transition-colors hover:bg-ink hover:text-paper md:inline">
+        <Link to="/lab" className="surface mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone transition-colors hover:bg-ink hover:text-paper md:inline">
           LAB
         </Link>
-        <span className="mono border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-ink">
+        <span className="surface mono border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-ink">
           {format(now, "EEE.MMM.dd.yyyy").toUpperCase()}
         </span>
         <span className="mono w-[68px] text-right text-[12px] tabular-nums text-ink">
@@ -51,7 +51,7 @@ export function TopBar() {
           aria-label="Toggle theme"
           title="Toggle theme"
           onClick={toggleTheme}
-          className="grid h-8 w-8 place-items-center border border-[var(--color-line)] text-ash transition-colors hover:bg-ink hover:text-paper"
+          className="surface grid h-8 w-8 place-items-center border border-[var(--color-line)] text-ash transition-colors hover:bg-ink hover:text-paper"
         >
           <Icon name={theme === "paper" ? "moon" : "sun"} size={15} />
         </button>
@@ -59,7 +59,7 @@ export function TopBar() {
           to="/settings"
           aria-label="Settings"
           title="Settings"
-          className="grid h-8 w-8 place-items-center border border-[var(--color-line)] text-ash transition-colors hover:bg-ink hover:text-paper"
+          className="surface grid h-8 w-8 place-items-center border border-[var(--color-line)] text-ash transition-colors hover:bg-ink hover:text-paper"
         >
           <Icon name="sliders" size={15} />
         </Link>

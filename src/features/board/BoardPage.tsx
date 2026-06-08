@@ -95,7 +95,7 @@ export function BoardPage() {
               onDragLeave={() => setOver((o) => (o === col.id ? null : o))}
               onDrop={() => drop(col.id)}
               className={cx(
-                "flex min-h-[60vh] flex-col border p-2 transition-colors",
+                "surface flex min-h-[60vh] flex-col border p-2 transition-colors",
                 over === col.id ? "border-ink bg-paper-3" : "border-[var(--color-line)]",
               )}
             >

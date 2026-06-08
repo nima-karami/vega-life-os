@@ -15,7 +15,7 @@ export function NavRow() {
               "group relative flex min-w-[128px] flex-1 items-start gap-2.5 border px-3 py-2 transition-colors",
               isActive
                 ? "border-ink bg-ink text-paper"
-                : "border-[var(--color-line)] text-ink hover:border-ink/40",
+                : "surface border-[var(--color-line)] text-ink hover:border-ink/40",
             )
           }
         >
