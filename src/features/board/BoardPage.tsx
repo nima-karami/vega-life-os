@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, Panel, Label, Icon, Tag, IconButton } from "@/core/ui";
+import { cx, Panel, Label, Icon, Tag } from "@/core/ui";
 import { todayISO, fmtShort } from "@/core/lib/date";
 import { alignOf, ALIGN_TAG } from "@/core/lib/align";
 import { TaskDrawer } from "@/features/tasks";

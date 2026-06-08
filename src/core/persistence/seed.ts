@@ -1,4 +1,4 @@
-import { addDays, format, startOfWeek, differenceInCalendarDays } from "date-fns";
+import { addDays, format, startOfWeek } from "date-fns";
 import { type Dataset, emptyDataset } from "./adapter";
 import type { Value } from "@/features/values/model";
 import type { Goal } from "@/features/goals/model";
@@ -30,10 +30,6 @@ export function buildSeed(ref: Date = new Date()): Dataset {
 
   const weekStart = startOfWeek(ref, { weekStartsOn: 1 }); // Monday
   const dayISO = (i: number) => iso(addDays(weekStart, i));
-  const todayIdx = Math.min(
-    6,
-    Math.max(0, differenceInCalendarDays(ref, weekStart)),
-  );
   const yearStart = iso(new Date(ref.getFullYear(), 0, 1));
   const yearEnd = iso(new Date(ref.getFullYear(), 11, 31));
 

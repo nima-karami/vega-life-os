@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { cx, Icon } from "@/core/ui";
 
@@ -32,7 +33,9 @@ export function LabLayout() {
         </nav>
       </header>
       <main className="relative min-h-0 flex-1 overflow-hidden">
-        <Outlet />
+        <Suspense fallback={<div className="grid h-full place-items-center"><span className="mono animate-pulse text-[11px] tracking-[0.16em] text-[#8a877a]">// rendering variant…</span></div>}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

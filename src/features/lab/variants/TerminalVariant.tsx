@@ -41,8 +41,7 @@ export function TerminalVariant() {
     setHistory((h) => [cmd, ...h]);
     setHIdx(-1);
     const s = store.getState();
-    const [verb, ...rest] = cmd.toLowerCase().split(/\s+/);
-    const arg = rest.join(" ");
+    const verb = cmd.toLowerCase().split(/\s+/)[0];
 
     switch (verb) {
       case "help":
