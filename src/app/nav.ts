@@ -18,4 +18,5 @@ export const NAV: NavItem[] = [
   { to: "/habits", label: "Habits", sub: "Recurrence", icon: "repeat", idx: "05" },
   { to: "/analytics", label: "Analytics", sub: "Follow-through", icon: "chart", idx: "06" },
   { to: "/library", label: "Library", sub: "Books · film · words", icon: "book", idx: "07" },
+  { to: "/review", label: "Review", sub: "The mirror", icon: "note", idx: "08" },
 ];

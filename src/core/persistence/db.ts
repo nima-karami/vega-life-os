@@ -4,6 +4,7 @@ import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { Task } from "@/features/tasks/model";
 import type { Book, Movie, VocabEntry } from "@/features/library/model";
+import type { Review } from "@/features/review/model";
 
 export class VegaDB extends Dexie {
   values!: Table<Value, string>;
@@ -13,10 +14,11 @@ export class VegaDB extends Dexie {
   books!: Table<Book, string>;
   movies!: Table<Movie, string>;
   vocab!: Table<VocabEntry, string>;
+  reviews!: Table<Review, string>;
 
   constructor() {
     super("vega-life-os");
-    this.version(1).stores({
+    const stores = {
       // only index fields we actually query on; Dexie stores the whole object
       values: "id, order",
       goals: "id, valueId, order",
@@ -25,7 +27,9 @@ export class VegaDB extends Dexie {
       books: "id, status, order",
       movies: "id, status, order",
       vocab: "id, box, nextDue",
-    });
+    };
+    this.version(1).stores(stores);
+    this.version(2).stores({ ...stores, reviews: "id, periodKey" });
   }
 }
 

@@ -12,6 +12,7 @@ import { HabitsPage } from "@/features/habits/HabitsPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { ReviewPage } from "@/features/review/ReviewPage";
 import { LabLayout } from "@/features/lab/LabLayout";
 import { LabIndex } from "@/features/lab/LabIndex";
 
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
           { path: "habits", element: <HabitsPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "library", element: <LibraryPage /> },
+          { path: "review", element: <ReviewPage /> },
           { path: "settings", element: <SettingsPage /> },
           { path: "*", element: <Placeholder title="404 · off the map" /> },
         ],

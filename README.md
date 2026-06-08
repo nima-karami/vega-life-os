@@ -36,6 +36,8 @@ Everything ladders up to a **value**. Alignment is *derived*, not assigned:
 - **Habits** — recurrence editor, streaks, rates, 28-day heatmaps.
 - **Analytics** — follow-through, weekly trend, daily completion, value balance, goal pace, habit consistency.
 - **Library** — Books (shelf + progress + rating), Film (watchlist + rating), Vocabulary (Leitner spaced repetition).
+- **Review** — weekly mirror: completion + value-balance + habit rollups, wins/slipped, and guided reflection journaling (saved per week).
+- **Settings** — editable operator identity, theme + accent, JSON backup/restore.
 - **⌘K command bar** — natural-language add/complete/skip/plan/library + on-the-fly "generated views".
 - **/lab** — Galaxy (3D), Globe (3D), Constellation (2D), Terminal (live CLI), Blueprint (technical drawing).
 

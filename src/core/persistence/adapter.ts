@@ -3,6 +3,7 @@ import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { Task } from "@/features/tasks/model";
 import type { Book, Movie, VocabEntry } from "@/features/library/model";
+import type { Review } from "@/features/review/model";
 
 /** The complete local dataset, loaded into memory on boot. */
 export interface Dataset {
@@ -13,6 +14,7 @@ export interface Dataset {
   books: Book[];
   movies: Movie[];
   vocab: VocabEntry[];
+  reviews: Review[];
 }
 
 export type CollectionName = keyof Dataset;
@@ -26,6 +28,7 @@ export const COLLECTIONS: CollectionName[] = [
   "books",
   "movies",
   "vocab",
+  "reviews",
 ];
 
 export function emptyDataset(): Dataset {
@@ -37,6 +40,7 @@ export function emptyDataset(): Dataset {
     books: [],
     movies: [],
     vocab: [],
+    reviews: [],
   };
 }
 

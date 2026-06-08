@@ -18,7 +18,7 @@ export class DexieAdapter implements PersistenceAdapter {
   }
 
   async loadAll(): Promise<Dataset> {
-    const [values, goals, habits, tasks, books, movies, vocab] =
+    const [values, goals, habits, tasks, books, movies, vocab, reviews] =
       await Promise.all([
         db.values.toArray(),
         db.goals.toArray(),
@@ -27,8 +27,9 @@ export class DexieAdapter implements PersistenceAdapter {
         db.books.toArray(),
         db.movies.toArray(),
         db.vocab.toArray(),
+        db.reviews.toArray(),
       ]);
-    return { ...emptyDataset(), values, goals, habits, tasks, books, movies, vocab };
+    return { ...emptyDataset(), values, goals, habits, tasks, books, movies, vocab, reviews };
   }
 
   async put<C extends CollectionName>(
@@ -60,6 +61,7 @@ export class DexieAdapter implements PersistenceAdapter {
       db.books.clear(),
       db.movies.clear(),
       db.vocab.clear(),
+      db.reviews.clear(),
     ]);
   }
 }

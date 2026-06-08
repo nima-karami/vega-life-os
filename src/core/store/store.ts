@@ -7,6 +7,7 @@ import { createGoalsSlice } from "@/features/goals/store";
 import { createHabitsSlice } from "@/features/habits/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createLibrarySlice } from "@/features/library/store";
+import { createReviewSlice } from "@/features/review/store";
 import { createUiSlice } from "./ui";
 
 export const useStore = create<RootState>((set, get, api) => ({
@@ -15,6 +16,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createHabitsSlice(set, get, api),
   ...createTasksSlice(set, get, api),
   ...createLibrarySlice(set, get, api),
+  ...createReviewSlice(set, get, api),
   ...createUiSlice(set, get, api),
 
   ready: false,
@@ -31,6 +33,7 @@ export const useStore = create<RootState>((set, get, api) => ({
         persistence.bulkPut("books", seed.books),
         persistence.bulkPut("movies", seed.movies),
         persistence.bulkPut("vocab", seed.vocab),
+        persistence.bulkPut("reviews", seed.reviews),
       ]);
     }
     const data = await persistence.loadAll();
@@ -42,6 +45,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       books: data.books.sort((a, b) => a.order - b.order),
       movies: data.movies.sort((a, b) => a.order - b.order),
       vocab: data.vocab,
+      reviews: data.reviews.sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1)),
       ready: true,
     });
   },
@@ -57,6 +61,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       persistence.bulkPut("books", seed.books),
       persistence.bulkPut("movies", seed.movies),
       persistence.bulkPut("vocab", seed.vocab),
+      persistence.bulkPut("reviews", seed.reviews),
     ]);
     set({
       values: seed.values,
@@ -66,6 +71,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       books: seed.books,
       movies: seed.movies,
       vocab: seed.vocab,
+      reviews: seed.reviews,
     });
   },
 
@@ -73,7 +79,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     const s = get();
     const data: Dataset = {
       values: s.values, goals: s.goals, habits: s.habits, tasks: s.tasks,
-      books: s.books, movies: s.movies, vocab: s.vocab,
+      books: s.books, movies: s.movies, vocab: s.vocab, reviews: s.reviews,
     };
     return JSON.stringify({ app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data }, null, 2);
   },
