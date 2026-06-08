@@ -1,5 +1,6 @@
 import { useStore } from "@/core/store";
 import { todayISO } from "@/core/lib/date";
+import { subDays, format } from "date-fns";
 import type { Task } from "@/features/tasks/model";
 import type { Agent, AgentAction } from "./types";
 import { parseWhen } from "./when";
@@ -126,8 +127,11 @@ export class LocalIntentAgent implements Agent {
       out.push({
         id: "q-overdue", icon: "alert", label: "Show: overdue tasks",
         run: () => {
-          const ids = s.tasks.filter((t) => t.date && t.date < todayISO() && (t.status === "todo" || t.status === "doing")).map((t) => t.id);
-          s.setEphemeral({ title: "Overdue", subtitle: `${ids.length} unresolved`, taskIds: ids, createdAt: Date.now() });
+          const recent = format(subDays(new Date(), 14), "yyyy-MM-dd");
+          const overdue = s.tasks
+            .filter((t) => t.date && t.date >= recent && t.date < todayISO() && (t.status === "todo" || t.status === "doing"))
+            .sort((a, b) => (a.date! < b.date! ? 1 : -1));
+          s.setEphemeral({ title: "Overdue", subtitle: `${overdue.length} unresolved · last 14 days`, taskIds: overdue.map((t) => t.id), createdAt: Date.now() });
         },
       });
     }
