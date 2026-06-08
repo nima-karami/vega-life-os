@@ -14,7 +14,7 @@ import {
 } from "@/core/ui";
 import { todayISO, fmtLong } from "@/core/lib/date";
 import { dayQueue, dayCounts, TaskRow, TaskDrawer } from "@/features/tasks";
-import { habitStreak } from "@/features/habits";
+import { habitStreak, streakAtRisk } from "@/features/habits";
 import type { Task } from "@/features/tasks";
 
 export function CockpitPage() {
@@ -24,11 +24,26 @@ export function CockpitPage() {
   const habits = useStore((s) => s.habits);
   const operator = useStore((s) => s.operatorName);
   const workspace = useStore((s) => s.operatorWorkspace);
+  const setStatus = useStore((s) => s.setStatus);
   const [selected, setSelected] = useState<Task | null>(null);
 
   const today = todayISO();
   const queue = useMemo(() => dayQueue(tasks, today), [tasks, today]);
   const counts = dayCounts(tasks, today);
+
+  // streaks on the line today — proactive "don't break the chain"
+  const atRisk = useMemo(
+    () =>
+      habits
+        .map((h) => ({ h, streak: streakAtRisk(tasks, h.id) }))
+        .filter((x) => x.streak > 0)
+        .sort((a, b) => b.streak - a.streak),
+    [habits, tasks],
+  );
+  const keepStreak = (habitId: string) => {
+    const inst = tasks.find((t) => t.habitId === habitId && t.date === today);
+    if (inst) setStatus(inst.id, "done");
+  };
 
   // follow-through signal: last 14 days resolved fraction
   const signal = useMemo(() => {
@@ -70,6 +85,31 @@ export function CockpitPage() {
         </div>
         <DayRail />
       </Panel>
+
+      {atRisk.length > 0 && (
+        <Panel className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
+          <span className="flex items-center gap-2">
+            <Icon name="alert" size={15} style={{ color: "var(--color-signal)" }} />
+            <span className="mono text-[11px] uppercase tracking-[0.1em] text-ink">
+              {atRisk.length} streak{atRisk.length > 1 ? "s" : ""} on the line today
+            </span>
+          </span>
+          <span className="mono text-[10px] text-stone">— don't break the chain</span>
+          <div className="ml-auto flex flex-wrap gap-1.5">
+            {atRisk.map(({ h, streak }) => (
+              <button
+                key={h.id}
+                onClick={() => keepStreak(h.id)}
+                title={`Mark "${h.name}" done — keep your ${streak}-day streak`}
+                className="mono group flex items-center gap-1.5 border border-[var(--color-line-strong)] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-ink transition-colors hover:bg-ink hover:text-paper"
+              >
+                <Icon name="check" size={11} className="opacity-40 group-hover:opacity-100" />
+                {h.name} · {streak}d
+              </button>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
         {/* LEFT */}

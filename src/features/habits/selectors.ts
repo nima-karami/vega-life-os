@@ -19,7 +19,8 @@ export function habitStreak(tasks: Task[], habitId: string): number {
   for (const t of past) {
     if (t.status === "done") streak++;
     else if (t.status === "skip") continue;
-    else break; // todo/doing in the past = a miss
+    else if (t.date === today) continue; // today not done *yet* — the day isn't over
+    else break; // todo/doing in the past = a real miss
   }
   return streak;
 }
@@ -32,6 +33,27 @@ export function habitRate(tasks: Task[], habitId: string): number {
   if (!counted.length) return 0;
   const done = counted.filter((t) => t.status === "done").length;
   return done / counted.length;
+}
+
+/**
+ * Streak "on the line" today: there's an unresolved instance scheduled today and
+ * a streak worth protecting (>= threshold). Returns the streak length, else 0.
+ */
+export function streakAtRisk(
+  tasks: Task[],
+  habitId: string,
+  threshold = 3,
+): number {
+  const today = todayISO();
+  const todayInst = tasks.find(
+    (t) => t.habitId === habitId && t.date === today,
+  );
+  if (!todayInst || todayInst.status === "done" || todayInst.status === "skip") {
+    return 0;
+  }
+  // habitStreak now ignores a still-pending today, so it reflects the run at stake
+  const streak = habitStreak(tasks, habitId);
+  return streak >= threshold ? streak : 0;
 }
 
 /** A small completion history (most recent N), 1=done 0=miss -1=skip. */
