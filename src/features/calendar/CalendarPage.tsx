@@ -86,6 +86,9 @@ export function CalendarPage() {
       </div>
 
       <Panel className="overflow-hidden">
+        {/* horizontal scroll on small screens keeps day columns readable */}
+        <div className="overflow-x-auto">
+        <div className="min-w-[720px]">
         {/* day headers */}
         <div className="grid border-b border-[var(--color-line)]" style={{ gridTemplateColumns: `52px repeat(7, 1fr)` }}>
           <div />
@@ -170,6 +173,8 @@ export function CalendarPage() {
               );
             })}
           </div>
+        </div>
+        </div>
         </div>
       </Panel>
 
