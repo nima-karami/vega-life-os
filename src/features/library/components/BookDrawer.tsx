@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
 import { cx, Icon, Label, Button, Stars } from "@/core/ui";
@@ -12,6 +13,13 @@ export function BookDrawer({ book, onClose }: { book: Book | null; onClose: () =
   const values = useStore((s) => s.values);
   const pushToast = useStore((s) => s.pushToast);
 
+  useEffect(() => {
+    if (!book) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [book, onClose]);
+
   return (
     <AnimatePresence>
       {book && (
@@ -19,7 +27,8 @@ export function BookDrawer({ book, onClose }: { book: Book | null; onClose: () =
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
           <motion.aside className="flex h-full w-full max-w-md flex-col border-l border-ink bg-paper"
             initial={{ x: 40 }} animate={{ x: 0 }} exit={{ x: 40 }} transition={{ type: "tween", duration: 0.18 }}
-            onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
             <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
               <Label ink>// book</Label>
               <button onClick={onClose} aria-label="Close" className="text-stone hover:text-ink"><Icon name="close" size={18} /></button>

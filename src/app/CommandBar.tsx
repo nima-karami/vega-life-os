@@ -71,6 +71,7 @@ export function CommandBar() {
                   className="mono w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-mist"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && e.metaKey) quickAdd();
+                    if (e.key === "Escape") close();
                   }}
                 />
                 <span className="label">ESC</span>

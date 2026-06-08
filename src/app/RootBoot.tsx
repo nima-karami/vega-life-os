@@ -57,7 +57,7 @@ export function RootBoot() {
       const s = useStore.getState();
 
       if (k === "?") { e.preventDefault(); s.setShortcutsOpen(!s.shortcutsOpen); return; }
-      if (k === "Escape") { s.setShortcutsOpen(false); return; }
+      if (k === "Escape") { s.setShortcutsOpen(false); s.closeCommand(); s.setEphemeral(null); return; }
 
       if (gPending.current) {
         gPending.current = false;

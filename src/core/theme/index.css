@@ -96,6 +96,12 @@
     color: var(--color-paper);
   }
 
+  /* keyboard focus ring (mouse clicks stay clean via :focus-visible) */
+  :focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+
   ::-webkit-scrollbar {
     width: 9px;
     height: 9px;

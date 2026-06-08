@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
 import { cx, Icon, Label, Tag, Button } from "@/core/ui";
@@ -20,6 +21,13 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   const value = task ? values.find((v) => v.id === task.valueId) : null;
   const goal = task ? goals.find((g) => g.id === task.goalId) : null;
 
+  useEffect(() => {
+    if (!task) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [task, onClose]);
+
   return (
     <AnimatePresence>
       {task && (
@@ -37,6 +45,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
             exit={{ x: 40, opacity: 0 }}
             transition={{ type: "tween", duration: 0.18 }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
           >
             <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
               <Label ink>// task</Label>
