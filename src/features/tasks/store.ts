@@ -2,6 +2,7 @@ import type { Slice } from "@/core/store/slice";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import { weekDays, dowIndex } from "@/core/lib/date";
+import { addDays, format } from "date-fns";
 import type { Task, TaskStatus } from "./model";
 
 export interface TasksSlice {
@@ -15,6 +16,8 @@ export interface TasksSlice {
   moveTask: (id: string, date: string | null, time?: string | null) => void;
   /** fill the visible week with any missing habit instances; returns count made */
   planWeek: (ref?: Date) => number;
+  /** keep the runway populated: ensure habit instances exist from today forward */
+  ensureUpcoming: (daysAhead?: number) => number;
 }
 
 export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
@@ -102,6 +105,30 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
         addTask({
           title: h.name, kind: "habit", habitId: h.id, goalId: h.goalId,
           valueId: h.valueId, date: d.iso, time: h.time,
+          durationMin: h.durationMin, status: "todo",
+        });
+        made++;
+      }
+    }
+    return made;
+  },
+
+  ensureUpcoming: (daysAhead = 14) => {
+    const { tasks, habits, addTask } = get();
+    const existing = new Set(
+      tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`),
+    );
+    const start = new Date();
+    let made = 0;
+    for (let i = 0; i <= daysAhead; i++) {
+      const iso = format(addDays(start, i), "yyyy-MM-dd");
+      const dow = dowIndex(iso);
+      for (const h of habits) {
+        if (!h.days[dow]) continue;
+        if (existing.has(`${h.id}@${iso}`)) continue;
+        addTask({
+          title: h.name, kind: "habit", habitId: h.id, goalId: h.goalId,
+          valueId: h.valueId, date: iso, time: h.time,
           durationMin: h.durationMin, status: "todo",
         });
         made++;

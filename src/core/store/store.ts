@@ -48,6 +48,8 @@ export const useStore = create<RootState>((set, get, api) => ({
       reviews: data.reviews.sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1)),
       ready: true,
     });
+    // keep the runway populated so habits actually recur without manual planning
+    get().ensureUpcoming(14);
   },
 
   reseed: async () => {
