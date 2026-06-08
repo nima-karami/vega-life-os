@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { addDays } from "date-fns";
 import { useStore } from "@/core/store";
-import { cx, Panel, Label, Button, IconButton, Icon, Tag } from "@/core/ui";
+import { cx, Panel, Label, Button, IconButton, Icon } from "@/core/ui";
 import { weekDays, weekStartOf, minutesOf, fmtShort } from "@/core/lib/date";
 import { TaskDrawer } from "@/features/tasks";
 import type { Task } from "@/features/tasks";
@@ -16,12 +16,25 @@ export function CalendarPage() {
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const planWeek = useStore((s) => s.planWeek);
+  const moveTask = useStore((s) => s.moveTask);
   const pushToast = useStore((s) => s.pushToast);
   const focusGoalId = useStore((s) => s.focusGoalId);
   const setFocusGoal = useStore((s) => s.setFocusGoal);
 
   const [weekRef, setWeekRef] = useState(() => new Date());
   const [selected, setSelected] = useState<Task | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overDay, setOverDay] = useState<string | null>(null);
+
+  // drop Y within a column -> snapped HH:mm
+  const dropTime = (clientY: number, colTop: number) => {
+    let mins = START + ((clientY - colTop) / HOUR_PX) * 60;
+    mins = Math.round(mins / 15) * 15;
+    mins = Math.min(END, Math.max(START, mins));
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
 
   const days = useMemo(() => weekDays(weekRef), [weekRef]);
   const hueOf = (vId: string | null) =>
@@ -103,7 +116,20 @@ export function CalendarPage() {
             {days.map((d) => {
               const dayTasks = tasks.filter((t) => t.date === d.iso && t.time);
               return (
-                <div key={d.iso} className={cx("relative border-l border-[var(--color-line)]", d.today && "bg-paper-2/40")}>
+                <div
+                  key={d.iso}
+                  onDragOver={(e) => { if (dragId) { e.preventDefault(); setOverDay(d.iso); } }}
+                  onDragLeave={() => setOverDay((o) => (o === d.iso ? null : o))}
+                  onDrop={(e) => {
+                    if (!dragId) return;
+                    e.preventDefault();
+                    const time = dropTime(e.clientY, e.currentTarget.getBoundingClientRect().top);
+                    moveTask(dragId, d.iso, time);
+                    setDragId(null);
+                    setOverDay(null);
+                  }}
+                  className={cx("relative border-l border-[var(--color-line)]", d.today && "bg-paper-2/40", overDay === d.iso && "bg-paper-3")}
+                >
                   {/* hour lines */}
                   {HOURS.map((h, i) => (
                     <div key={h} className="absolute left-0 right-0 border-t border-[var(--color-line-soft)]" style={{ top: i * HOUR_PX }} />
@@ -119,11 +145,15 @@ export function CalendarPage() {
                     return (
                       <button
                         key={t.id}
+                        draggable
+                        onDragStart={(e) => { setDragId(t.id); e.dataTransfer.effectAllowed = "move"; }}
+                        onDragEnd={() => { setDragId(null); setOverDay(null); }}
                         onClick={() => setSelected(t)}
                         className={cx(
-                          "absolute left-0.5 right-0.5 overflow-hidden border-l-2 px-1.5 py-1 text-left transition-opacity",
+                          "absolute left-0.5 right-0.5 cursor-grab overflow-hidden border-l-2 px-1.5 py-1 text-left transition-opacity active:cursor-grabbing",
                           resolved ? "bg-paper-3" : "bg-paper",
                           dim ? "opacity-25" : "opacity-100",
+                          dragId === t.id && "opacity-40",
                         )}
                         style={{ top, height, borderColor: hueOf(t.valueId), boxShadow: "0 1px 0 var(--color-line)" }}
                       >
@@ -144,7 +174,8 @@ export function CalendarPage() {
       </Panel>
 
       <div className="mt-2 flex items-center gap-3">
-        <Tag>HABIT</Tag><span className="mono text-[10px] text-stone">recurring instance</span>
+        <Icon name="drag" size={13} className="text-stone" />
+        <span className="mono text-[10px] text-stone">Drag a block to reschedule</span>
         <Icon name="flash" size={12} className="ml-3 text-stone" />
         <span className="mono text-[10px] text-stone">Generate week fills missing habit blocks</span>
       </div>
