@@ -1,5 +1,8 @@
 import { format, subDays, addDays, startOfWeek } from "date-fns";
+import { dowIndex } from "@/core/lib/date";
+import { habitStreak } from "@/features/habits";
 import type { Task } from "@/features/tasks/model";
+import type { Habit } from "@/features/habits/model";
 
 export interface DayStat {
   iso: string;
@@ -65,6 +68,72 @@ export function completedByValue(tasks: Task[], n = 28): Record<string, number> 
 
 export function currentStreakTotal(tasks: Task[]): number {
   return tasks.filter((t) => t.status === "done").length;
+}
+
+const DOW_NAME = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const doneRate = (list: Task[]) =>
+  list.length ? list.filter((t) => t.status === "done").length / list.length : 0;
+
+/**
+ * Deterministic, non-obvious observations from the data — proactive intelligence,
+ * no LLM required. Returns up to 4 insight strings (only when there's enough signal).
+ */
+export function insights(tasks: Task[], habits: Habit[]): string[] {
+  const out: string[] = [];
+  const lo = format(subDays(new Date(), 60), "yyyy-MM-dd");
+  const today = format(new Date(), "yyyy-MM-dd");
+  const window = tasks.filter(
+    (t) => t.date && t.date >= lo && t.date <= today && t.status !== "skip",
+  );
+
+  // weekday strength
+  const byDow = Array.from({ length: 7 }, () => ({ done: 0, total: 0 }));
+  for (const t of window) {
+    const di = dowIndex(t.date!);
+    byDow[di].total++;
+    if (t.status === "done") byDow[di].done++;
+  }
+  const dowRanked = byDow
+    .map((x, i) => ({ i, rate: x.total ? x.done / x.total : 0, total: x.total }))
+    .filter((x) => x.total >= 3)
+    .sort((a, b) => b.rate - a.rate);
+  if (dowRanked.length >= 3 && dowRanked[0].rate - dowRanked[dowRanked.length - 1].rate >= 0.1) {
+    const hi = dowRanked[0];
+    const loDay = dowRanked[dowRanked.length - 1];
+    out.push(`You follow through most on ${DOW_NAME[hi.i]}s (${Math.round(hi.rate * 100)}%) and least on ${DOW_NAME[loDay.i]}s (${Math.round(loDay.rate * 100)}%).`);
+  }
+
+  // morning vs evening
+  const morning = window.filter((t) => t.time && parseInt(t.time, 10) < 12);
+  const evening = window.filter((t) => t.time && parseInt(t.time, 10) >= 18);
+  if (morning.length >= 5 && evening.length >= 5) {
+    const mr = doneRate(morning);
+    const er = doneRate(evening);
+    if (Math.abs(mr - er) >= 0.08) {
+      out.push(`${mr > er ? "Mornings" : "Evenings"} stick better — ${Math.round(Math.max(mr, er) * 100)}% vs ${Math.round(Math.min(mr, er) * 100)}% the other way.`);
+    }
+  }
+
+  // goal work vs upkeep
+  const goalT = window.filter((t) => t.goalId);
+  const upkeepT = window.filter((t) => !t.goalId && t.valueId);
+  if (goalT.length >= 5 && upkeepT.length >= 5) {
+    const gr = doneRate(goalT);
+    const ur = doneRate(upkeepT);
+    if (Math.abs(gr - ur) >= 0.08) {
+      out.push(`${gr > ur ? "Goal work" : "Upkeep"} lands more reliably (${Math.round(Math.max(gr, ur) * 100)}%) than ${gr > ur ? "upkeep" : "goal work"} (${Math.round(Math.min(gr, ur) * 100)}%).`);
+    }
+  }
+
+  // strongest chain
+  const topChain = habits
+    .map((h) => ({ h, s: habitStreak(tasks, h.id) }))
+    .sort((a, b) => b.s - a.s)[0];
+  if (topChain && topChain.s >= 4) {
+    out.push(`Your strongest chain is "${topChain.h.name}" at ${topChain.s} days — worth protecting.`);
+  }
+
+  return out.slice(0, 4);
 }
 
 export interface GridCell {

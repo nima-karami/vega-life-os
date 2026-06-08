@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useStore } from "@/core/store";
-import { Panel, SectionHead, Label, Sparkline, Gauge, cx } from "@/core/ui";
+import { Panel, SectionHead, Label, Sparkline, Gauge, Icon, cx } from "@/core/ui";
 import { goalTimeElapsed } from "@/features/goals";
 import { habitRate } from "@/features/habits";
 import {
@@ -10,6 +10,7 @@ import {
   completedByValue,
   energyStats,
   consistencyGrid,
+  insights,
   type GridCell,
 } from "./selectors";
 
@@ -26,6 +27,7 @@ export function AnalyticsPage() {
   const energy = useMemo(() => energyStats(tasks, 28), [tasks]);
   const energyTotal = Math.max(1, energy.charge + energy.drain);
   const grid = useMemo(() => consistencyGrid(tasks, 22), [tasks]);
+  const insightList = useMemo(() => insights(tasks, habits), [tasks, habits]);
   const maxValueCount = Math.max(1, ...Object.values(byValue));
   const maxDaily = Math.max(1, ...daily.map((d) => d.total));
 
@@ -43,6 +45,20 @@ export function AnalyticsPage() {
           Signal over vanity. Consistency, balance, and whether goals are keeping pace.
         </p>
       </Panel>
+
+      {insightList.length > 0 && (
+        <Panel className="mb-4 p-5">
+          <SectionHead title="insights · patterns" meta="60 d" />
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            {insightList.map((text, i) => (
+              <div key={i} className="flex items-start gap-2.5 border-l-2 border-ink py-1 pl-3">
+                <Icon name="spark" size={14} className="mt-0.5 shrink-0 text-ash" />
+                <p className="text-[12px] leading-relaxed">{text}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* headline */}
