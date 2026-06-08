@@ -14,7 +14,7 @@ import { todayISO } from "@/core/lib/date";
 import type { Task } from "../model";
 
 export type DateRange = "all" | "today" | "week" | "month";
-export type TypeFilter = "all" | "habit" | "goal" | "upkeep" | "errand";
+export type TypeFilter = "all" | "habit" | "goal" | "errand";
 
 export interface TaskFilters {
   range: DateRange;
@@ -36,7 +36,6 @@ const TYPES: { id: TypeFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "habit", label: "Habit" },
   { id: "goal", label: "Goal work" },
-  { id: "upkeep", label: "Upkeep" },
   { id: "errand", label: "Errand" },
 ];
 
@@ -58,7 +57,6 @@ function matchType(t: Task, type: TypeFilter): boolean {
   if (type === "habit") return t.kind === "habit";
   const a = alignOf(t);
   if (type === "goal") return a === "aspirational";
-  if (type === "upkeep") return a === "maintenance";
   return a === "logistical"; // errand
 }
 

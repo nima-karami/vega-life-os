@@ -114,14 +114,14 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
     }
   }
 
-  // goal work vs upkeep
+  // goal-linked vs goal-less work
   const goalT = window.filter((t) => t.goalId);
-  const upkeepT = window.filter((t) => !t.goalId && t.valueId);
-  if (goalT.length >= 5 && upkeepT.length >= 5) {
+  const looseT = window.filter((t) => !t.goalId && t.valueId);
+  if (goalT.length >= 5 && looseT.length >= 5) {
     const gr = doneRate(goalT);
-    const ur = doneRate(upkeepT);
+    const ur = doneRate(looseT);
     if (Math.abs(gr - ur) >= 0.08) {
-      out.push(`${gr > ur ? "Goal work" : "Upkeep"} lands more reliably (${Math.round(Math.max(gr, ur) * 100)}%) than ${gr > ur ? "upkeep" : "goal work"} (${Math.round(Math.min(gr, ur) * 100)}%).`);
+      out.push(`${gr > ur ? "Goal-linked work" : "Goal-less habits"} land more reliably (${Math.round(Math.max(gr, ur) * 100)}%) than ${gr > ur ? "goal-less habits" : "goal-linked work"} (${Math.round(Math.min(gr, ur) * 100)}%).`);
     }
   }
 

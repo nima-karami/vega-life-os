@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
 import { cx, Icon, Label, Tag, Button, Select, NONE, DatePicker, TimeRange } from "@/core/ui";
-import { alignOf, ALIGN_LABEL } from "@/core/lib/align";
 import { fmtLong } from "@/core/lib/date";
 import { type Task, type TaskStatus, type TaskEnergy, ENERGY_META, STATUS_LABEL } from "../model";
 import { energyOf } from "../selectors";
@@ -61,12 +60,12 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                 className="display w-full bg-transparent text-2xl leading-tight outline-none"
               />
 
-              {/* hierarchy: value → goal → habit → type */}
+              {/* hierarchy: value → goal → habit (errand only when unaligned) */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {value && <Tag active>{value.name.toUpperCase()}</Tag>}
                 {goal && <Tag>→ {goal.name}</Tag>}
                 {task.kind === "habit" && <Tag>HABIT</Tag>}
-                <Tag>{ALIGN_LABEL[alignOf(task)].toUpperCase()}</Tag>
+                {!task.valueId && !task.goalId && <Tag>ERRAND</Tag>}
               </div>
 
               <div className="space-y-2">

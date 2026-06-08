@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, Panel, Label, Icon, Button, Tag, TimeRange } from "@/core/ui";
+import { cx, Panel, Label, Icon, Button, TimeRange, Select, NONE } from "@/core/ui";
 import { habitStreak, habitRate, habitHistory } from "./selectors";
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -50,7 +50,6 @@ export function HabitsPage() {
       <div className="space-y-3">
         {habits.map((h) => {
           const value = values.find((v) => v.id === h.valueId);
-          const goal = goals.find((g) => g.id === h.goalId);
           const streak = habitStreak(tasks, h.id);
           const rate = habitRate(tasks, h.id);
           const history = habitHistory(tasks, h.id, 28);
@@ -69,9 +68,23 @@ export function HabitsPage() {
                       onChange={(e) => updateHabit(h.id, { name: e.target.value })}
                       className="display w-full bg-transparent text-lg leading-tight outline-none"
                     />
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      {value && <Tag active>{value.name.toUpperCase()}</Tag>}
-                      {goal ? <Tag>→ {goal.name}</Tag> : <Tag>UPKEEP</Tag>}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <div className="min-w-[104px] border border-[var(--color-line)] px-2 py-1">
+                        <Select
+                          ariaLabel="Value"
+                          value={h.valueId || NONE}
+                          onValueChange={(v) => updateHabit(h.id, { valueId: v === NONE ? "" : v })}
+                          options={[{ value: NONE, label: "No value" }, ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue }))]}
+                        />
+                      </div>
+                      <div className="min-w-[104px] border border-[var(--color-line)] px-2 py-1">
+                        <Select
+                          ariaLabel="Goal"
+                          value={h.goalId || NONE}
+                          onValueChange={(v) => updateHabit(h.id, { goalId: v === NONE ? null : v })}
+                          options={[{ value: NONE, label: "No goal" }, ...goals.map((g) => ({ value: g.id, label: g.name }))]}
+                        />
+                      </div>
                       <span className="mono ml-1 text-[10px] text-stone">{recurrenceLabel(h.days)}</span>
                     </div>
                   </div>

@@ -58,7 +58,7 @@ export function MapPage() {
         children.push({ id: g.id, label: g.name, sub: `${Math.round(g.progress * 100)}% · goal`, icon: g.icon, energy: g.progress, kind: "goal" }),
       );
       habits.filter((h) => h.valueId === v.id && !h.goalId).forEach((h) =>
-        children.push({ id: h.id, label: h.name, sub: "upkeep", icon: h.icon, energy: 0.5, kind: "habit" }),
+        children.push({ id: h.id, label: h.name, sub: "habit", icon: h.icon, energy: 0.5, kind: "habit" }),
       );
 
       const childRing = size / 2 + 70;
@@ -94,8 +94,8 @@ export function MapPage() {
         <Panel className="relative overflow-hidden">
           <div className="absolute left-4 top-3 z-10 flex items-center gap-3">
             <Label ink>// orbit field</Label>
-            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-px w-4 bg-ink" /> goal work</span>
-            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-px w-4 border-b border-dashed border-stone" /> upkeep</span>
+            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-px w-4 bg-ink" /> goal</span>
+            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-px w-4 border-b border-dashed border-stone" /> habit</span>
           </div>
           <div className="aspect-[1000/640] w-full">
             <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full">

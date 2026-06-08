@@ -3,7 +3,6 @@ import { useStore } from "@/core/store";
 import { cx, Panel, Label, Icon, Tag } from "@/core/ui";
 import { todayISO, fmtShort } from "@/core/lib/date";
 import { format, subDays } from "date-fns";
-import { alignOf, ALIGN_TAG } from "@/core/lib/align";
 import { TaskDrawer, TaskFilterBar, useTaskFilter } from "@/features/tasks";
 import type { Task } from "@/features/tasks";
 
@@ -133,11 +132,11 @@ export function BoardPage() {
                         {t.title}
                       </p>
                     </div>
-                    {/* hierarchy: value (left border) → goal → habit → type */}
+                    {/* hierarchy: value (left border) → goal → habit (errand only when unaligned) */}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-5">
                       {goalName(t.goalId) && <Tag>→ {goalName(t.goalId)}</Tag>}
                       {t.kind === "habit" && <Tag>HABIT</Tag>}
-                      <Tag>{ALIGN_TAG[alignOf(t)]}</Tag>
+                      {!t.valueId && !t.goalId && <Tag>ERRAND</Tag>}
                       {t.date && <span className="mono text-[9px] text-mist">{fmtShort(t.date)}{t.time ? ` · ${t.time}` : ""}</span>}
                     </div>
                   </article>

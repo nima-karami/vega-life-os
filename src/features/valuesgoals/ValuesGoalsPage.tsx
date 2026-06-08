@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { cx, Panel, Label, Icon, Gauge, ProgressBar, Button, Tag, Menu, ConfirmDialog } from "@/core/ui";
-import { fmtShort } from "@/core/lib/date";
 import { ValueDrawer } from "@/features/values";
 import type { Value } from "@/features/values";
-import { goalTimeElapsed, habitsForGoal } from "@/features/goals";
+import { goalTimeElapsed, habitsForGoal, GoalDrawer, periodLabel, GOAL_STATUS_LABEL, isGoalClosed } from "@/features/goals";
 import { habitStreak } from "@/features/habits";
 
 export function ValuesGoalsPage() {
@@ -18,6 +17,7 @@ export function ValuesGoalsPage() {
   const pushToast = useStore((s) => s.pushToast);
 
   const [editId, setEditId] = useState<string | null>(null);
+  const [goalEditId, setGoalEditId] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<Value | null>(null);
   const editValue = values.find((v) => v.id === editId) ?? null;
 
@@ -35,7 +35,7 @@ export function ValuesGoalsPage() {
           <Label>// values &amp; goals · the why</Label>
           <h1 className="display mt-1 text-3xl">What you're building toward</h1>
           <p className="mono mt-1 text-[11px] text-stone">
-            Goals ladder up to a value. Maintenance habits keep a value alive without a finish line.
+            Goals ladder up to a value — each with a timeframe and a state. Habits keep them moving.
           </p>
         </div>
         <Button className="ml-auto" icon="plus" onClick={() => setEditId(addValue().id)}>Add value</Button>
@@ -43,8 +43,10 @@ export function ValuesGoalsPage() {
 
       <div className="space-y-4">
         {values.map((v) => {
-          const vGoals = goals.filter((g) => g.valueId === v.id);
-          const upkeep = habits.filter((h) => h.valueId === v.id && !h.goalId);
+          const vGoals = goals
+            .filter((g) => g.valueId === v.id)
+            .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : a.order - b.order));
+          const valueHabits = habits.filter((h) => h.valueId === v.id && !h.goalId);
           return (
             <Panel key={v.id} ticks className="p-5">
               <div className="flex items-start gap-4">
@@ -66,7 +68,7 @@ export function ValuesGoalsPage() {
                   }
                   items={[
                     { label: "Edit details", icon: "edit", onSelect: () => setEditId(v.id) },
-                    { label: "Add goal", icon: "plus", onSelect: () => addGoal({ valueId: v.id }) },
+                    { label: "Add goal", icon: "plus", onSelect: () => setGoalEditId(addGoal({ valueId: v.id }).id) },
                     { label: "Delete value", icon: "trash", danger: true, onSelect: () => setConfirmDel(v) },
                   ]}
                 />
@@ -77,24 +79,24 @@ export function ValuesGoalsPage() {
                 <div className="flex items-center gap-3">
                   <Label ink>// goals</Label>
                   <div className="h-px flex-1 bg-[var(--color-line)]" />
-                  <button onClick={() => addGoal({ valueId: v.id })} className="mono flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-stone hover:text-ink">
+                  <button onClick={() => setGoalEditId(addGoal({ valueId: v.id }).id)} className="mono flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-stone hover:text-ink">
                     <Icon name="plus" size={12} /> add goal
                   </button>
                 </div>
                 {vGoals.map((g) => (
-                  <GoalCard key={g.id} goalId={g.id} />
+                  <GoalCard key={g.id} goalId={g.id} onEdit={setGoalEditId} />
                 ))}
                 {!vGoals.length && (
-                  <p className="mono py-2 text-[11px] text-mist">No goals yet — this value runs on upkeep alone.</p>
+                  <p className="mono py-2 text-[11px] text-mist">No goals yet.</p>
                 )}
               </div>
 
-              {/* upkeep habits */}
-              {upkeep.length > 0 && (
+              {/* habits serving this value directly (no goal) */}
+              {valueHabits.length > 0 && (
                 <div className="mt-5">
-                  <Label>// upkeep</Label>
+                  <Label>// habits</Label>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {upkeep.map((h) => (
+                    {valueHabits.map((h) => (
                       <span key={h.id} className="flex items-center gap-2 border border-[var(--color-line)] px-2.5 py-1.5">
                         <Icon name={h.icon} size={13} className="text-ash" />
                         <span className="mono text-[11px] text-ink">{h.name}</span>
@@ -120,6 +122,8 @@ export function ValuesGoalsPage() {
         onDelete={(v) => { setEditId(null); setConfirmDel(v); }}
       />
 
+      <GoalDrawer goalId={goalEditId} onClose={() => setGoalEditId(null)} />
+
       <ConfirmDialog
         open={!!confirmDel}
         danger
@@ -139,11 +143,20 @@ export function ValuesGoalsPage() {
   );
 }
 
-function GoalCard({ goalId }: { goalId: string }) {
+const STATUS_CHIP: Record<string, string> = {
+  backlog: "border-[var(--color-line)] text-stone",
+  active: "border-ink text-ink",
+  paused: "border-[var(--color-line-strong)] text-stone",
+  done: "border-good text-good",
+  abandoned: "border-[var(--color-line)] text-mist line-through",
+};
+
+function GoalCard({ goalId, onEdit }: { goalId: string; onEdit: (id: string) => void }) {
   const goal = useStore((s) => s.goals.find((g) => g.id === goalId))!;
   const habits = useStore((s) => s.habits);
   const updateGoal = useStore((s) => s.updateGoal);
   const removeGoal = useStore((s) => s.removeGoal);
+  const pushToast = useStore((s) => s.pushToast);
   const toggleSubgoal = useStore((s) => s.toggleSubgoal);
   const addSubgoal = useStore((s) => s.addSubgoal);
   const removeSubgoal = useStore((s) => s.removeSubgoal);
@@ -153,28 +166,47 @@ function GoalCard({ goalId }: { goalId: string }) {
   const elapsed = goalTimeElapsed(goal);
   const pace = goal.progress - elapsed;
   const linked = habitsForGoal(habits, goal.id);
+  const closed = isGoalClosed(goal.status);
 
   return (
-    <div className="border border-[var(--color-line)] p-3.5">
+    <div className={cx("border border-[var(--color-line)] p-3.5", closed && "opacity-60")}>
       <div className="flex items-center gap-2">
-        <Icon name={goal.icon} size={15} className="shrink-0 text-ash" />
+        <button onClick={() => onEdit(goal.id)} aria-label="Edit goal" className="shrink-0 text-ash hover:text-ink">
+          <Icon name={goal.icon} size={15} />
+        </button>
         <input
           value={goal.name}
           onChange={(e) => updateGoal(goal.id, { name: e.target.value })}
           className="display flex-1 bg-transparent text-[15px] outline-none"
         />
-        <span className="mono text-[12px] tabular-nums text-stone">{Math.round(goal.progress * 100)}%</span>
-        <button onClick={() => removeGoal(goal.id)} aria-label="Delete goal" className="text-mist hover:text-signal">
-          <Icon name="trash" size={13} />
-        </button>
+        <span className={cx("mono shrink-0 border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em]", STATUS_CHIP[goal.status])}>
+          {GOAL_STATUS_LABEL[goal.status]}
+        </span>
+        <Menu
+          align="end"
+          trigger={
+            <button aria-label="Goal actions" className="grid h-7 w-7 shrink-0 place-items-center text-stone hover:bg-ink hover:text-paper">
+              <Icon name="dots" size={15} />
+            </button>
+          }
+          items={[
+            { label: "Edit details", icon: "edit", onSelect: () => onEdit(goal.id) },
+            { label: "Delete goal", icon: "trash", danger: true, onSelect: () => { removeGoal(goal.id); pushToast("Goal deleted"); } },
+          ]}
+        />
       </div>
 
       <ProgressBar value={goal.progress} knob className="mt-3" />
       <div className="mt-2 flex items-center justify-between">
-        <span className="mono text-[10px] text-stone">{fmtShort(goal.start)} → {fmtShort(goal.end)}</span>
-        <span className={cx("mono text-[10px]", pace >= 0 ? "text-good" : "text-signal")}>
-          {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
-        </span>
+        <button onClick={() => onEdit(goal.id)} className="mono flex items-center gap-1 text-[10px] text-stone hover:text-ink">
+          <Icon name="calendar" size={11} /> {periodLabel(goal.start, goal.end)}
+        </button>
+        <span className="mono text-[12px] tabular-nums text-stone">{Math.round(goal.progress * 100)}%</span>
+        {!closed && (
+          <span className={cx("mono text-[10px]", pace >= 0 ? "text-good" : "text-signal")}>
+            {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
+          </span>
+        )}
       </div>
 
       {/* subgoals */}

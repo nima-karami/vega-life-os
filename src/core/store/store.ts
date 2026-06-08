@@ -41,7 +41,8 @@ export const useStore = create<RootState>((set, get, api) => ({
     const data = await persistence.loadAll();
     set({
       values: data.values.sort((a, b) => a.order - b.order),
-      goals: data.goals.sort((a, b) => a.order - b.order),
+      // migrate goals from before the status field existed
+      goals: data.goals.map((g) => ({ ...g, status: g.status ?? "active" })).sort((a, b) => a.order - b.order),
       habits: data.habits,
       tasks: data.tasks,
       books: data.books.sort((a, b) => a.order - b.order),

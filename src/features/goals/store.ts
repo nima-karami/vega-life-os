@@ -30,6 +30,7 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
       valueId: patch.valueId ?? get().values[0]?.id ?? "",
       name: patch.name ?? "New goal",
       icon: patch.icon ?? "target",
+      status: patch.status ?? "active",
       start: patch.start ?? todayISO(),
       end: patch.end ?? format(addDays(new Date(), 30), "yyyy-MM-dd"),
       progress: patch.progress ?? 0,

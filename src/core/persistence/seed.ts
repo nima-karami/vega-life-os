@@ -46,7 +46,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   // ---------------- GOALS ----------------
   const goals: Goal[] = [
     {
-      id: "g1", valueId: "v1", name: "Get a higher-paying job", icon: "briefcase",
+      id: "g1", valueId: "v1", name: "Get a higher-paying job", icon: "briefcase", status: "active",
       start: iso(addDays(weekStart, -7)), end: iso(addDays(weekStart, 35)), progress: 0.42, order: 0,
       subgoals: [
         { id: "s1", name: "Rewrite résumé + portfolio", done: true },
@@ -56,7 +56,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       ],
     },
     {
-      id: "g2", valueId: "v2", name: "Read 24 books this year", icon: "book",
+      id: "g2", valueId: "v2", name: "Read 24 books this year", icon: "book", status: "active",
       start: yearStart, end: yearEnd, progress: 0.46, order: 1,
       subgoals: [
         { id: "s5", name: "Build a nightly reading habit", done: true },
@@ -64,7 +64,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       ],
     },
     {
-      id: "g3", valueId: "v3", name: "Sleep 7.5h consistently", icon: "heart",
+      id: "g3", valueId: "v3", name: "Sleep 7.5h consistently", icon: "heart", status: "paused",
       start: iso(addDays(weekStart, -28)), end: iso(addDays(weekStart, 21)), progress: 0.61, order: 2,
       subgoals: [
         { id: "s7", name: "Fixed wind-down at 10:30", done: true },
@@ -72,7 +72,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       ],
     },
     {
-      id: "g4", valueId: "v5", name: "Run a 10k", icon: "flash",
+      id: "g4", valueId: "v5", name: "Run a 10k", icon: "flash", status: "active",
       start: iso(addDays(weekStart, -14)), end: iso(addDays(weekStart, 56)), progress: 0.3, order: 3,
       subgoals: [
         { id: "s9", name: "Couch-to-5k finished", done: true },
@@ -167,7 +167,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
     { id: tid(), title: "Negotiation prep doc", kind: "oneoff", habitId: null, goalId: "g1", valueId: "v1", date: null, time: null, durationMin: 90, status: "open", detached: false, note: "Salary research + scripts.", order },
     { id: tid(), title: "Set up reading nook", kind: "oneoff", habitId: null, goalId: "g2", valueId: "v2", date: null, time: null, durationMin: 60, status: "open", detached: false, note: "", order },
     { id: tid(), title: "Buy blackout curtains", kind: "oneoff", habitId: null, goalId: "g3", valueId: "v3", date: null, time: null, durationMin: 30, status: "open", detached: false, note: "", order },
-    { id: tid(), title: "Sort out tax documents", kind: "oneoff", habitId: null, goalId: null, valueId: "v4", date: null, time: null, durationMin: 90, status: "open", detached: false, note: "Upkeep — no deadline yet.", order },
+    { id: tid(), title: "Sort out tax documents", kind: "oneoff", habitId: null, goalId: null, valueId: "v4", date: null, time: null, durationMin: 90, status: "open", detached: false, note: "No deadline yet.", order },
     { id: tid(), title: "Plan a long weekend trip", kind: "oneoff", habitId: null, goalId: null, valueId: "v5", date: null, time: null, durationMin: 60, status: "open", detached: false, note: "", order },
   ];
   ds.tasks.push(...backlog);
