@@ -111,6 +111,9 @@ export function CommandBar() {
                   <Item onSelect={() => go("/lab")} icon="flash" value="lab variants design">
                     Lab — design variants
                   </Item>
+                  <Item onSelect={() => go("/settings")} icon="sliders" value="settings identity theme data backup export">
+                    Settings — identity, theme, data
+                  </Item>
                 </Command.Group>
 
                 <Command.Group

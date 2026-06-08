@@ -55,6 +55,14 @@ export function TopBar() {
         >
           <Icon name={theme === "paper" ? "moon" : "sun"} size={15} />
         </button>
+        <Link
+          to="/settings"
+          aria-label="Settings"
+          title="Settings"
+          className="grid h-8 w-8 place-items-center border border-[var(--color-line)] text-ash transition-colors hover:bg-ink hover:text-paper"
+        >
+          <Icon name="sliders" size={15} />
+        </Link>
       </div>
     </header>
   );

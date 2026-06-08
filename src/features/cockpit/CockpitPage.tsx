@@ -17,13 +17,13 @@ import { dayQueue, dayCounts, TaskRow, TaskDrawer } from "@/features/tasks";
 import { habitStreak } from "@/features/habits";
 import type { Task } from "@/features/tasks";
 
-const OPERATOR = "Avery Quinn";
-
 export function CockpitPage() {
   const tasks = useStore((s) => s.tasks);
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
+  const operator = useStore((s) => s.operatorName);
+  const workspace = useStore((s) => s.operatorWorkspace);
   const [selected, setSelected] = useState<Task | null>(null);
 
   const today = todayISO();
@@ -76,9 +76,14 @@ export function CockpitPage() {
         <div className="space-y-4">
           <Panel ticks className="p-4">
             <SectionHead title="operator" meta="A-34" />
-            <div className="mt-3 aspect-square w-full border border-[var(--color-line)] grain" style={{ backgroundImage: "repeating-linear-gradient(135deg, var(--color-line-soft) 0 6px, transparent 6px 12px)" }} />
-            <h2 className="display mt-3 text-xl">{OPERATOR.toUpperCase()}</h2>
-            <Label className="mt-0.5">personal workspace</Label>
+            <div className="relative mt-3 grid aspect-square w-full place-items-center border border-[var(--color-line)]" style={{ backgroundImage: "repeating-linear-gradient(135deg, var(--color-line-soft) 0 6px, transparent 6px 12px)" }}>
+              <span className="display text-5xl text-ink/80">
+                {operator.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+              </span>
+              <span className="absolute bottom-1.5 left-1.5 mono border border-[var(--color-line)] bg-paper px-1 py-0.5 text-[8px] tracking-[0.12em] text-stone">OPERATOR.SCAN</span>
+            </div>
+            <h2 className="display mt-3 text-xl">{operator.toUpperCase()}</h2>
+            <Label className="mt-0.5">{workspace}</Label>
             <div className="mt-3 grid grid-cols-3 gap-2">
               <Stat label="incept" value="2024" />
               <Stat label="goals" value={String(goals.length)} />

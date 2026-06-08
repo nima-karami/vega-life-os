@@ -10,6 +10,7 @@ export function RootBoot() {
   const bootstrap = useStore((s) => s.bootstrap);
   const ready = useStore((s) => s.ready);
   const theme = useStore((s) => s.theme);
+  const accent = useStore((s) => s.accent);
   const toggleCommand = useStore((s) => s.toggleCommand);
 
   useEffect(() => {
@@ -19,6 +20,17 @@ export function RootBoot() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (accent) {
+      root.style.setProperty("--color-accent", accent);
+      root.style.setProperty("--color-signal", accent);
+    } else {
+      root.style.removeProperty("--color-accent");
+      root.style.removeProperty("--color-signal");
+    }
+  }, [accent]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

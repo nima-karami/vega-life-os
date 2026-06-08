@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persistence, buildSeed } from "@/core/persistence";
+import { persistence, buildSeed, COLLECTIONS } from "@/core/persistence";
+import type { Dataset, CollectionName } from "@/core/persistence";
 import type { RootState } from "./types";
 import { createValuesSlice } from "@/features/values/store";
 import { createGoalsSlice } from "@/features/goals/store";
@@ -66,5 +67,36 @@ export const useStore = create<RootState>((set, get, api) => ({
       movies: seed.movies,
       vocab: seed.vocab,
     });
+  },
+
+  exportJSON: () => {
+    const s = get();
+    const data: Dataset = {
+      values: s.values, goals: s.goals, habits: s.habits, tasks: s.tasks,
+      books: s.books, movies: s.movies, vocab: s.vocab,
+    };
+    return JSON.stringify({ app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data }, null, 2);
+  },
+
+  importJSON: async (text) => {
+    let parsed: { data?: Partial<Dataset> };
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return false;
+    }
+    const data = parsed?.data;
+    if (!data || typeof data !== "object") return false;
+    await persistence.clearAll();
+    const next: Partial<Dataset> = {};
+    for (const col of COLLECTIONS) {
+      const arr = (data as Record<CollectionName, unknown>)[col];
+      if (Array.isArray(arr)) {
+        await persistence.bulkPut(col, arr as never);
+        (next as Record<string, unknown>)[col] = arr;
+      }
+    }
+    set(next as Partial<RootState>);
+    return true;
   },
 }));
