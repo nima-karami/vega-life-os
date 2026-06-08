@@ -23,7 +23,9 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   bootstrap: async () => {
     await persistence.init();
-    if (await persistence.isEmpty()) {
+    // Only auto-seed on a genuine first run. Once onboarded, an empty DB means the
+    // user chose "start empty" — don't force the demo back on reload.
+    if ((await persistence.isEmpty()) && !get().onboarded) {
       const seed = buildSeed();
       await Promise.all([
         persistence.bulkPut("values", seed.values),

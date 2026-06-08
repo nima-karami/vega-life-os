@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { format, subDays } from "date-fns";
 import { useStore } from "@/core/store";
 import {
@@ -11,6 +11,7 @@ import {
   Radar,
   Sparkline,
   Icon,
+  Button,
 } from "@/core/ui";
 import { todayISO, fmtLong } from "@/core/lib/date";
 import { dayQueue, dayCounts, TaskRow, TaskDrawer } from "@/features/tasks";
@@ -25,6 +26,9 @@ export function CockpitPage() {
   const operator = useStore((s) => s.operatorName);
   const workspace = useStore((s) => s.operatorWorkspace);
   const setStatus = useStore((s) => s.setStatus);
+  const addValue = useStore((s) => s.addValue);
+  const reseed = useStore((s) => s.reseed);
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<Task | null>(null);
 
   const today = todayISO();
@@ -86,6 +90,24 @@ export function CockpitPage() {
         <DayRail />
       </Panel>
 
+      {values.length === 0 ? (
+        <Panel ticks className="mx-auto my-10 max-w-2xl p-8 text-center">
+          <Label>// empty workspace</Label>
+          <h2 className="display mt-3 text-4xl">A clear runway.</h2>
+          <p className="mono mx-auto mt-3 max-w-md text-[12px] leading-relaxed text-stone">
+            VEGA threads small daily acts up to the life you're building. Start by naming a
+            <b className="text-ink"> value</b> you want to live by — goals, habits, and tasks orbit it.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Button solid icon="plus" onClick={() => { addValue(); navigate("/values"); }}>
+              Add your first value
+            </Button>
+            <Button icon="spark" onClick={() => { void reseed(); }}>Load sample data</Button>
+          </div>
+          <p className="mono mt-5 text-[10px] text-mist">tip: press ? for keyboard shortcuts · ⌘K to add anything</p>
+        </Panel>
+      ) : (
+      <>
       {atRisk.length > 0 && (
         <Panel className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
           <span className="flex items-center gap-2">
@@ -226,6 +248,8 @@ export function CockpitPage() {
           </Panel>
         </div>
       </div>
+      </>
+      )}
 
       <TaskDrawer task={selected} onClose={() => setSelected(null)} />
     </div>
