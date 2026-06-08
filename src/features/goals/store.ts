@@ -52,8 +52,17 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
   },
 
   removeGoal: (id) => {
-    set((s) => ({ goals: s.goals.filter((g) => g.id !== id) }));
+    // detach dependents rather than dangle: habits/tasks fall back to upkeep
+    const habitsToFix = get().habits.filter((h) => h.goalId === id).map((h) => ({ ...h, goalId: null }));
+    const tasksToFix = get().tasks.filter((t) => t.goalId === id).map((t) => ({ ...t, goalId: null }));
+    set((s) => ({
+      goals: s.goals.filter((g) => g.id !== id),
+      habits: s.habits.map((h) => (h.goalId === id ? { ...h, goalId: null } : h)),
+      tasks: s.tasks.map((t) => (t.goalId === id ? { ...t, goalId: null } : t)),
+    }));
     saveRemove("goals", id);
+    habitsToFix.forEach((h) => savePut("habits", h));
+    tasksToFix.forEach((t) => savePut("tasks", t));
   },
 
   addSubgoal: (goalId, name) => {

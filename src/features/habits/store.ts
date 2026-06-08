@@ -43,7 +43,13 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   },
 
   removeHabit: (id) => {
-    set((s) => ({ habits: s.habits.filter((h) => h.id !== id) }));
+    // cascade: a deleted habit takes its task instances with it (no ghost tasks)
+    const orphanTaskIds = get().tasks.filter((t) => t.habitId === id).map((t) => t.id);
+    set((s) => ({
+      habits: s.habits.filter((h) => h.id !== id),
+      tasks: s.tasks.filter((t) => t.habitId !== id),
+    }));
     saveRemove("habits", id);
+    orphanTaskIds.forEach((tid) => saveRemove("tasks", tid));
   },
 });
