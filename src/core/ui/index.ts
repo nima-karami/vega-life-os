@@ -8,5 +8,6 @@ export {
   Button,
   IconButton,
   Field,
+  Stars,
 } from "./primitives";
 export { Gauge, DotMeter, ProgressBar, Sparkline, Radar } from "./charts";

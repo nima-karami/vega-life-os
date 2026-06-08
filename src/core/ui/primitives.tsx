@@ -130,6 +130,42 @@ export function IconButton({
   );
 }
 
+export function Stars({
+  value,
+  onChange,
+  size = 14,
+}: {
+  value: number | null;
+  onChange?: (v: number) => void;
+  size?: number;
+}) {
+  const v = value ?? 0;
+  const Star = ({ n }: { n: number }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"
+      style={{ color: n <= v ? "var(--color-ink)" : "var(--color-line-strong)" }}>
+      <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.8 5.9 21.4l1.4-6.8L2.2 9.9l6.9-.8z" />
+    </svg>
+  );
+  // read-only: plain spans so it can nest inside a button without invalid DOM
+  if (!onChange) {
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((n) => <Star key={n} n={n} />)}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button key={n} type="button" onClick={() => onChange(n === value ? 0 : n)}
+          aria-label={`${n} star`} className="cursor-pointer leading-none">
+          <Star n={n} />
+        </button>
+      ))}
+    </span>
+  );
+}
+
 export function Field({
   label,
   value,

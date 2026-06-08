@@ -8,6 +8,7 @@ import { BoardPage } from "@/features/board/BoardPage";
 import { ValuesGoalsPage } from "@/features/valuesgoals/ValuesGoalsPage";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
+import { LibraryPage } from "@/features/library/LibraryPage";
 
 export const router = createBrowserRouter([
   {
@@ -21,7 +22,7 @@ export const router = createBrowserRouter([
       { path: "values", element: <ValuesGoalsPage /> },
       { path: "habits", element: <HabitsPage /> },
       { path: "analytics", element: <AnalyticsPage /> },
-      { path: "library", element: <Placeholder title="library" /> },
+      { path: "library", element: <LibraryPage /> },
       { path: "lab", element: <Placeholder title="lab · variants" /> },
       { path: "*", element: <Placeholder title="404 · off the map" /> },
     ],
