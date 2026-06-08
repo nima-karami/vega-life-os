@@ -1,0 +1,212 @@
+import { useId } from "react";
+import { cx } from "./cx";
+
+/** Circular gauge (HUD ring). */
+export function Gauge({
+  value,
+  size = 56,
+  stroke = 6,
+  hue,
+  showLabel = true,
+  sub,
+}: {
+  value: number;
+  size?: number;
+  stroke?: number;
+  hue?: string;
+  showLabel?: boolean;
+  sub?: string;
+}) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.round(value * 100);
+  return (
+    <div
+      className="relative grid place-items-center"
+      style={{ width: size, height: size }}
+    >
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-line)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={hue ?? "var(--color-ink)"}
+          strokeWidth={stroke}
+          strokeLinecap="butt"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - Math.min(1, Math.max(0, value)))}
+          style={{ transition: "stroke-dashoffset .6s cubic-bezier(.4,0,.1,1)" }}
+        />
+      </svg>
+      {showLabel && (
+        <div className="absolute flex flex-col items-center leading-none">
+          <span className="display" style={{ fontSize: size < 60 ? 15 : 20 }}>
+            {pct}
+            <span className="text-[0.5em] font-bold">%</span>
+          </span>
+          {sub && <span className="label mt-0.5">{sub}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** ●●●●●○○○○○ discrete meter (matches the cockpit VALUES rows). */
+export function DotMeter({
+  value,
+  count = 10,
+  size = 7,
+  className,
+}: {
+  value: number;
+  count?: number;
+  size?: number;
+  className?: string;
+}) {
+  const filled = Math.round(value * count);
+  return (
+    <span className={cx("inline-flex items-center gap-[3px]", className)}>
+      {Array.from({ length: count }, (_, i) => (
+        <span
+          key={i}
+          className="rounded-full"
+          style={{
+            width: size,
+            height: size,
+            background: i < filled ? "var(--color-ink)" : "transparent",
+            border: i < filled ? "none" : "1px solid var(--color-line-strong)",
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Thin horizontal progress bar with a draggable-looking knob. */
+export function ProgressBar({
+  value,
+  knob,
+  className,
+}: {
+  value: number;
+  knob?: boolean;
+  className?: string;
+}) {
+  const pct = Math.min(100, Math.max(0, value * 100));
+  return (
+    <div className={cx("relative h-px w-full bg-[var(--color-line-strong)]", className)}>
+      <div className="absolute left-0 top-0 h-px bg-ink" style={{ width: `${pct}%` }} />
+      {knob && (
+        <span
+          className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink"
+          style={{ left: `${pct}%` }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** SVG sparkline. */
+export function Sparkline({
+  points,
+  width = 240,
+  height = 48,
+  className,
+  dot = true,
+}: {
+  points: number[];
+  width?: number;
+  height?: number;
+  className?: string;
+  dot?: boolean;
+}) {
+  if (points.length < 2) return null;
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const range = max - min || 1;
+  const dx = width / (points.length - 1);
+  const xy = points.map((p, i) => [
+    i * dx,
+    height - ((p - min) / range) * (height - 6) - 3,
+  ]);
+  const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg width={width} height={height} className={className} preserveAspectRatio="none">
+      <path d={d} fill="none" stroke="var(--color-ink)" strokeWidth={1.5} />
+      {dot && <circle cx={lx} cy={ly} r={2.6} fill="var(--color-ink)" />}
+    </svg>
+  );
+}
+
+interface Blip {
+  angle: number; // 0..1 around the circle
+  radius: number; // 0..1 from center
+  on?: boolean;
+}
+
+/** Orbit radar — concentric rings + sweep + blips. */
+export function Radar({
+  size = 200,
+  blips = [],
+  sweep = true,
+}: {
+  size?: number;
+  blips?: Blip[];
+  sweep?: boolean;
+}) {
+  const cxp = size / 2;
+  const id = useId();
+  const rings = [0.28, 0.6, 0.92];
+  return (
+    <svg width={size} height={size} className="overflow-visible">
+      <defs>
+        <linearGradient id={`sweep-${id}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0" />
+          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.14" />
+        </linearGradient>
+      </defs>
+      {rings.map((r) => (
+        <circle key={r} cx={cxp} cy={cxp} r={(size / 2) * r} fill="none" stroke="var(--color-line)" />
+      ))}
+      <line x1={cxp} y1={4} x2={cxp} y2={size - 4} stroke="var(--color-line-soft)" />
+      <line x1={4} y1={cxp} x2={size - 4} y2={cxp} stroke="var(--color-line-soft)" />
+      {sweep && (
+        <g style={{ transformOrigin: "center" }}>
+          <path
+            d={`M${cxp} ${cxp} L${cxp} 4 A${cxp - 4} ${cxp - 4} 0 0 1 ${size - 4} ${cxp} Z`}
+            fill={`url(#sweep-${id})`}
+          >
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from={`0 ${cxp} ${cxp}`}
+              to={`360 ${cxp} ${cxp}`}
+              dur="6s"
+              repeatCount="indefinite"
+            />
+          </path>
+        </g>
+      )}
+      {blips.map((b, i) => {
+        const a = b.angle * Math.PI * 2 - Math.PI / 2;
+        const rad = (size / 2 - 8) * b.radius;
+        const x = cxp + Math.cos(a) * rad;
+        const y = cxp + Math.sin(a) * rad;
+        return (
+          <circle
+            key={i}
+            cx={x}
+            cy={y}
+            r={b.on ? 3 : 2.4}
+            fill={b.on ? "var(--color-ink)" : "none"}
+            stroke="var(--color-ink)"
+            strokeWidth={1}
+          />
+        );
+      })}
+    </svg>
+  );
+}

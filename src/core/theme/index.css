@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+/* ============================================================
+   VEGA · Life OS — design tokens (Tailwind v4 @theme)
+   Monochrome "cockpit HUD": warm paper, near-black ink, hairlines.
+   ============================================================ */
+@theme {
+  /* paper (light cockpit) */
+  --color-paper: #f1eee4;
+  --color-paper-2: #e9e5d9;
+  --color-paper-3: #e2ddcf;
+  --color-ink: #18180f;
+  --color-ink-2: #2c2c22;
+
+  /* monochrome value/grey ramp */
+  --color-ash: #474740;
+  --color-stone: #6f6f64;
+  --color-mist: #94948a;
+  --color-fog: #b6b3a7;
+
+  /* hairlines */
+  --color-line: rgba(24, 24, 15, 0.16);
+  --color-line-soft: rgba(24, 24, 15, 0.09);
+  --color-line-strong: rgba(24, 24, 15, 0.34);
+
+  /* dark cockpit surface (used by some lab variants + dark mode) */
+  --color-void: #0b0b08;
+  --color-void-2: #15150f;
+  --color-void-3: #1d1d15;
+
+  /* signal / status accents (kept sparse — HUD is mostly monochrome) */
+  --color-signal: #c9501e; /* "needs you" amber-rust */
+  --color-good: #2f6f3f;
+
+  /* value spectrum — used by Map orbs, galaxy, globe, light variants */
+  --color-courage: #5b6cff;
+  --color-presence: #2bb6a8;
+  --color-selfcare: #d8744f;
+  --color-stability: #c2a14e;
+  --color-vitality: #b154c9;
+
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  --font-sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
+
+  --radius-hud: 2px;
+}
+
+/* ---------- dark "void" cockpit theme ---------- */
+[data-theme="void"] {
+  --color-paper: #0c0c08;
+  --color-paper-2: #14140e;
+  --color-paper-3: #1b1b13;
+  --color-ink: #efeada;
+  --color-ink-2: #d8d2c2;
+  --color-ash: #b6b1a2;
+  --color-stone: #8a877a;
+  --color-mist: #6a685d;
+  --color-fog: #4a4840;
+  --color-line: rgba(239, 234, 218, 0.16);
+  --color-line-soft: rgba(239, 234, 218, 0.08);
+  --color-line-strong: rgba(239, 234, 218, 0.32);
+  --color-signal: #e0763f;
+}
+
+/* ---------- base ---------- */
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* faint engineering grid behind everything */
+  .hud-grid-bg {
+    background-image:
+      linear-gradient(var(--color-line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-line-soft) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-stone);
+    background-clip: padding-box;
+  }
+}
+
+/* ---------- reusable HUD utilities ---------- */
+@layer components {
+  .mono {
+    font-family: var(--font-mono);
+  }
+  /* a small uppercase tracked label — the HUD's connective tissue */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-stone);
+  }
+  .label-ink {
+    color: var(--color-ink);
+  }
+
+  .panel {
+    position: relative;
+    background: var(--color-paper-2);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-hud);
+  }
+  .panel-flush {
+    background: transparent;
+    border: 1px solid var(--color-line);
+  }
+
+  /* corner registration ticks for the blueprint feel */
+  .ticks::before,
+  .ticks::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-color: var(--color-line-strong);
+  }
+  .ticks::before {
+    top: -1px;
+    left: -1px;
+    border-top: 1px solid;
+    border-left: 1px solid;
+  }
+  .ticks::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 1px solid;
+    border-right: 1px solid;
+  }
+
+  .hairline {
+    border-bottom: 1px solid var(--color-line);
+  }
+  .dash {
+    border-bottom: 1px dashed var(--color-line);
+  }
+
+  .display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 0.92;
+  }
+
+  /* focusable HUD button */
+  .btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 7px 12px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-hud);
+    color: var(--color-ink);
+    background: transparent;
+    transition:
+      background 0.14s ease,
+      color 0.14s ease;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .btn-solid {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .btn-solid:hover {
+    background: var(--color-ink-2);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .grain {
+    background-image: radial-gradient(
+      var(--color-line-soft) 0.5px,
+      transparent 0.5px
+    );
+    background-size: 4px 4px;
+  }
+}
