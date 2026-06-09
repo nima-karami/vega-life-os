@@ -8,8 +8,15 @@ export interface AgentAction {
   run: () => void;
 }
 
+/** What an agent returns for a query: clickable actions and/or a prose reply. */
+export interface AgentResult {
+  actions: AgentAction[];
+  /** A short natural-language reply (for "what should I…" / "summarize…" queries). */
+  message?: string;
+}
+
 export interface Agent {
   id: string;
-  /** Return candidate actions for a free-text query (ranked, best first). */
-  suggest(query: string): AgentAction[];
+  /** Interpret a free-text query; resolve to ranked actions + optional reply. */
+  suggest(query: string): Promise<AgentResult>;
 }
