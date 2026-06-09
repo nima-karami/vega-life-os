@@ -65,5 +65,3 @@ export class DexieAdapter implements PersistenceAdapter {
     ]);
   }
 }
-
-export const persistence: PersistenceAdapter = new DexieAdapter();
