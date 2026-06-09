@@ -1,6 +1,9 @@
 import { create } from "zustand";
-import { persistence, buildSeed, COLLECTIONS } from "@/core/persistence";
-import type { Dataset, CollectionName } from "@/core/persistence";
+import { persistence, RoutingAdapter, buildSeed, COLLECTIONS } from "@/core/persistence";
+import type { Dataset, CollectionName, CollectionSnapshot } from "@/core/persistence";
+import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
+import { DexieAdapter } from "@/core/persistence/dexie-adapter";
+import { db } from "@/core/firebase/app";
 import type { RootState } from "./types";
 import { createValuesSlice } from "@/features/values/store";
 import { createGoalsSlice } from "@/features/goals/store";
@@ -9,6 +12,19 @@ import { createTasksSlice } from "@/features/tasks/store";
 import { createLibrarySlice } from "@/features/library/store";
 import { createReviewSlice } from "@/features/review/store";
 import { createUiSlice } from "./ui";
+
+let unsubscribeRemote: (() => void) | null = null;
+
+/** Apply the same per-collection ordering bootstrap() uses. */
+function sorted(data: Partial<Dataset>): Partial<Dataset> {
+  const out: Partial<Dataset> = { ...data };
+  if (data.values) out.values = [...data.values].sort((a, b) => a.order - b.order);
+  if (data.goals) out.goals = data.goals.map((g) => ({ ...g, status: g.status ?? "active" })).sort((a, b) => a.order - b.order);
+  if (data.books) out.books = [...data.books].sort((a, b) => a.order - b.order);
+  if (data.movies) out.movies = [...data.movies].sort((a, b) => a.order - b.order);
+  if (data.reviews) out.reviews = [...data.reviews].sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1));
+  return out;
+}
 
 export const useStore = create<RootState>((set, get, api) => ({
   ...createValuesSlice(set, get, api),
@@ -114,5 +130,34 @@ export const useStore = create<RootState>((set, get, api) => ({
     }
     set(next as Partial<RootState>);
     return true;
+  },
+
+  applyRemote: (snap: CollectionSnapshot) => {
+    set(sorted({ [snap.col]: snap.items }) as Partial<RootState>);
+  },
+
+  onAuthChange: async (uid: string | null) => {
+    const routing = persistence as RoutingAdapter;
+    unsubscribeRemote?.();
+    unsubscribeRemote = null;
+
+    if (uid && db) {
+      const cloud = new FirestoreAdapter(db, uid);
+      // First sign-in on this account: push local data up once.
+      if (await cloud.isEmpty()) {
+        const local = await new DexieAdapter().loadAll();
+        await Promise.all(
+          COLLECTIONS.map((col) => cloud.bulkPut(col, local[col] as never)),
+        );
+      }
+      routing.setDelegate(cloud);
+      const data = await cloud.loadAll();
+      set({ ...(sorted(data) as Partial<RootState>), ready: true });
+      get().ensureUpcoming(14);
+      unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
+    } else {
+      routing.setDelegate(new DexieAdapter());
+      await get().bootstrap();
+    }
   },
 }));
