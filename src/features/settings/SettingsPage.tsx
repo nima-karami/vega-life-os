@@ -3,6 +3,7 @@ import { useStore } from "@/core/store";
 import { cx, Panel, SectionHead, Label, Button, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
 import { AgentSettings } from "./components/AgentSettings";
+import { CalendarSettings } from "./components/CalendarSettings";
 
 const ACCENTS = [
   { name: "Default", hex: "" },
@@ -165,6 +166,8 @@ export function SettingsPage() {
           <Button icon="spark" onClick={() => s.setOnboarded(false)}>Replay welcome</Button>
         </div>
       </Panel>
+
+      <CalendarSettings />
 
       <Panel className="p-5">
         <SectionHead title="about" />
