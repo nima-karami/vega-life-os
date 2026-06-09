@@ -2,7 +2,7 @@ import { useStore } from "@/core/store";
 import { todayISO } from "@/core/lib/date";
 import { subDays, format } from "date-fns";
 import type { Task } from "@/features/tasks/model";
-import type { Agent, AgentAction } from "./types";
+import type { Agent, AgentAction, AgentResult } from "./types";
 import { parseWhen } from "./when";
 
 const score = (q: string, text: string) => {
@@ -24,9 +24,9 @@ const openTasks = (tasks: Task[]) =>
 export class LocalIntentAgent implements Agent {
   id = "local";
 
-  suggest(query: string): AgentAction[] {
+  async suggest(query: string): Promise<AgentResult> {
     const q = query.trim();
-    if (!q) return [];
+    if (!q) return { actions: [] };
     const s = useStore.getState();
     const out: AgentAction[] = [];
     const lower = q.toLowerCase();
@@ -174,7 +174,7 @@ export class LocalIntentAgent implements Agent {
         }),
       );
 
-    return out;
+    return { actions: out };
   }
 }
 
