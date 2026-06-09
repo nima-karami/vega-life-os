@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useStore } from "@/core/store";
 import { onAuth } from "@/core/auth";
+import { isEnabled as gcalEnabled, syncNow } from "@/features/calendar-sync";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { Onboarding } from "./Onboarding";
@@ -31,6 +32,13 @@ export function RootBoot() {
     const onAuthChange = useStore.getState().onAuthChange;
     const unsub = onAuth((user) => { void onAuthChange(user?.uid ?? null); });
     return unsub;
+  }, []);
+
+  useEffect(() => {
+    // When calendar sync is on, run one silent sync on boot. Non-interactive:
+    // if it needs consent it no-ops until the user reconnects from Settings.
+    if (!gcalEnabled()) return;
+    void syncNow(false).catch(() => {});
   }, []);
 
   useEffect(() => {
