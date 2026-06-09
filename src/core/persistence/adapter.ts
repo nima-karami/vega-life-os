@@ -20,6 +20,11 @@ export interface Dataset {
 export type CollectionName = keyof Dataset;
 export type Entity = Dataset[CollectionName][number];
 
+/** A realtime push from the backend: the full current contents of one collection. */
+export type CollectionSnapshot = {
+  [C in CollectionName]: { col: C; items: Dataset[C] };
+}[CollectionName];
+
 export const COLLECTIONS: CollectionName[] = [
   "values",
   "goals",
@@ -57,4 +62,10 @@ export interface PersistenceAdapter {
   bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void>;
   remove(col: CollectionName, id: string): Promise<void>;
   clearAll(): Promise<void>;
+  /**
+   * Optional realtime subscription. Backends that support live sync (Firestore)
+   * call `onChange` with a collection's full contents whenever it changes
+   * remotely. Returns an unsubscribe function. Local-only adapters omit this.
+   */
+  subscribe?(onChange: (snap: CollectionSnapshot) => void): () => void;
 }
