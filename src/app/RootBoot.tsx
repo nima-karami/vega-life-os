@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useStore } from "@/core/store";
+import { onAuth } from "@/core/auth";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { Onboarding } from "./Onboarding";
@@ -23,6 +24,14 @@ export function RootBoot() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    // When Firebase is configured, auth state drives which backend is active.
+    // When it isn't, onAuth fires once with null and we stay purely local.
+    const onAuthChange = useStore.getState().onAuthChange;
+    const unsub = onAuth((user) => { void onAuthChange(user?.uid ?? null); });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
