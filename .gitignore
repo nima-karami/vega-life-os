@@ -12,3 +12,9 @@ dist-ssr
 
 # TypeScript incremental build cache (churns on every build)
 *.tsbuildinfo
+
+# Local planning / roadmap docs — kept out of git on purpose
+.claude/docs/
+
+# Agent worktrees (transient, auto-managed)
+.claude/worktrees/
