@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useStore } from "@/core/store";
 import { cx, Panel, SectionHead, Label, Button, Icon } from "@/core/ui";
+import { AccountSettings } from "./components/AccountSettings";
 
 const ACCENTS = [
   { name: "Default", hex: "" },
@@ -63,6 +64,8 @@ export function SettingsPage() {
         <h1 className="display mt-1 text-3xl">Console</h1>
         <p className="mono mt-1 text-[11px] text-stone">Identity, appearance, and your data — all of it lives on this machine.</p>
       </Panel>
+
+      <AccountSettings />
 
       {/* identity / profile */}
       <Panel className="mb-4 p-5">

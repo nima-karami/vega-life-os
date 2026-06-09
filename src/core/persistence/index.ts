@@ -1,4 +1,5 @@
 export * from "./adapter";
-export { persistence, DexieAdapter } from "./dexie-adapter";
+export { DexieAdapter } from "./dexie-adapter";
+export { persistence, RoutingAdapter } from "./routing-adapter";
 export { buildSeed } from "./seed";
 export { db } from "./db";

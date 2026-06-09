@@ -20,4 +20,6 @@ export interface RootState
   wipe: () => Promise<void>;
   exportJSON: () => string;
   importJSON: (text: string) => Promise<boolean>;
+  applyRemote: (snap: import("@/core/persistence").CollectionSnapshot) => void;
+  onAuthChange: (uid: string | null) => Promise<void>;
 }
