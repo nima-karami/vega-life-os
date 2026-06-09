@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useStore } from "@/core/store";
 import { cx, Panel, SectionHead, Label, Button, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
+import { AgentSettings } from "./components/AgentSettings";
 
 const ACCENTS = [
   { name: "Default", hex: "" },
@@ -145,6 +146,8 @@ export function SettingsPage() {
           </div>
         </div>
       </Panel>
+
+      <AgentSettings />
 
       {/* data */}
       <Panel className="mb-4 p-5">

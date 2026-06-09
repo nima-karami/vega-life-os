@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import { agent } from "@/core/agent";
+import { runAgent, type AgentAction } from "@/core/agent";
 import { NAV } from "./nav";
 
 /**
@@ -20,7 +20,24 @@ export function CommandBar() {
   const pushToast = useStore((s) => s.pushToast);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const smart = query.trim() ? agent.suggest(query) : [];
+  const [smart, setSmart] = useState<AgentAction[]>([]);
+  const [reply, setReply] = useState<string>("");
+  const [thinking, setThinking] = useState(false);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) { setSmart([]); setReply(""); setThinking(false); return; }
+    setThinking(true);
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const r = await runAgent(q);
+      if (cancelled) return;
+      setSmart(r.actions);
+      setReply(r.message ?? "");
+      setThinking(false);
+    }, 250); // debounce keystrokes; one API call per pause
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query]);
 
   // reset the input each time the palette opens
   useEffect(() => {
@@ -77,6 +94,16 @@ export function CommandBar() {
                 <span className="label">ESC</span>
               </div>
               <Command.List className="max-h-[52vh] overflow-y-auto p-1.5">
+                {thinking && (
+                  <div className="mono flex items-center gap-2 px-3 py-2 text-[11px] text-stone">
+                    <Icon name="command" size={13} className="animate-pulse" /> thinking…
+                  </div>
+                )}
+                {reply && (
+                  <p className="mono border-b border-[var(--color-line)] px-3 py-2.5 text-[11px] leading-relaxed text-ink">
+                    {reply}
+                  </p>
+                )}
                 <Command.Empty className="px-3 py-6 text-center">
                   <button
                     onClick={quickAdd}

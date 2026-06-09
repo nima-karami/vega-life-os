@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { agent } from "@/core/agent";
+import { runAgent } from "@/core/agent";
 import { todayISO } from "@/core/lib/date";
 
 interface Line { kind: "in" | "out" | "sys"; text: string }
@@ -77,9 +77,10 @@ export function TerminalVariant() {
       }
       case "theme": s.toggleTheme(); print("  theme toggled (affects main app)"); break;
       default: {
-        const actions = agent.suggest(cmd);
-        if (actions.length) { actions[0].run(); print(`  ✓ ${actions[0].label}`); }
-        else print(`  unknown: '${cmd}'  (try 'help')`, "sys");
+        void runAgent(cmd).then(({ actions }) => {
+          if (actions.length) { actions[0].run(); print(`  ✓ ${actions[0].label}`); }
+          else print(`  unknown: '${cmd}'  (try 'help')`, "sys");
+        });
       }
     }
   };
