@@ -18,3 +18,9 @@ dist-ssr
 
 # Agent worktrees (transient, auto-managed)
 .claude/worktrees/
+
+# Playwright runtime-QA artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

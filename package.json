@@ -7,7 +7,27 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -b",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "lint:fix": "biome check --write .",
+    "deadcode": "knip --include files,dependencies,unlisted",
+    "knip:all": "knip",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dupes": "jscpd src --threshold 5 --reporters console",
+    "audit:deps": "npm audit --audit-level=high && osv-scanner scan source --lockfile package-lock.json",
+    "scan:secrets": "gitleaks dir . --no-banner --redact",
+    "sast": "semgrep ci",
+    "e2e": "playwright test",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deadcode && npm run test && npm run dupes && npm run scan:secrets && npm run audit:deps && npm run e2e",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,jsonc}": [
+      "biome check --write --no-errors-on-unmatched"
+    ]
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.69.0",
@@ -15,15 +35,13 @@
     "@radix-ui/react-dropdown-menu": "^2.1.17",
     "@radix-ui/react-popover": "^1.1.16",
     "@radix-ui/react-select": "^2.3.0",
-    "@radix-ui/react-tooltip": "^1.2.9",
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
     "date-fns": "^4.1.0",
     "dexie": "^4.0.10",
-    "dexie-react-hooks": "^1.1.7",
-    "firebase": "^10.14.1",
+    "firebase": "^12.15.0",
     "framer-motion": "^11.11.17",
     "lucide-react": "^1.17.0",
     "react": "^18.3.1",
@@ -33,14 +51,21 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0",
+    "@biomejs/biome": "2.5.0",
+    "@playwright/test": "^1.61.0",
+    "@tailwindcss/vite": "^4.3.1",
     "@types/node": "^22.19.20",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.169.0",
-    "@vitejs/plugin-react": "^4.3.3",
-    "tailwindcss": "^4.0.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "husky": "^9.1.7",
+    "jscpd": "^5.0.9",
+    "knip": "^6.17.1",
+    "lint-staged": "^17.0.7",
+    "tailwindcss": "^4.3.1",
     "typescript": "^5.6.3",
-    "vite": "^6.0.1"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }
