@@ -1,9 +1,9 @@
-import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useStore } from "@/core/store";
-import { cx, Icon, Label, Tag, Button, Select, NONE, DatePicker, TimeRange } from "@/core/ui";
+import { useEffect } from "react";
 import { fmtLong } from "@/core/lib/date";
-import { type Task, type TaskStatus, type TaskEnergy, ENERGY_META, STATUS_LABEL } from "../model";
+import { useStore } from "@/core/store";
+import { Button, cx, DatePicker, Icon, Label, NONE, Select, Tag, TimeRange } from "@/core/ui";
+import { ENERGY_META, STATUS_LABEL, type Task, type TaskEnergy, type TaskStatus } from "../model";
 import { energyOf } from "../selectors";
 
 const STATUSES: TaskStatus[] = ["open", "todo", "done", "skip"];
@@ -22,7 +22,9 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
 
   useEffect(() => {
     if (!task) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [task, onClose]);
@@ -44,11 +46,18 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
             exit={{ x: 40, opacity: 0 }}
             transition={{ type: "tween", duration: 0.18 }}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") onClose();
+            }}
           >
             <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
               <Label ink>// task</Label>
-              <button onClick={onClose} aria-label="Close" className="text-stone hover:text-ink">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="text-stone hover:text-ink"
+              >
                 <Icon name="close" size={18} />
               </button>
             </div>
@@ -73,6 +82,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                 <div className="flex gap-1.5">
                   {STATUSES.map((s) => (
                     <button
+                      type="button"
                       key={s}
                       onClick={() => setStatus(task.id, s)}
                       className={cx(
@@ -93,6 +103,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                 <div className="flex gap-1.5">
                   {ENERGIES.map((e) => (
                     <button
+                      type="button"
                       key={e}
                       onClick={() => updateTask(task.id, { energy: e })}
                       className={cx(
@@ -123,7 +134,8 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                   <div className="col-span-2 flex items-center gap-1.5 px-1">
                     <Label>when</Label>
                     <span className="mono text-[11px] leading-snug text-stone">
-                      {fmtLong(task.date)}{task.time ? ` · ${task.time}` : ""}
+                      {fmtLong(task.date)}
+                      {task.time ? ` · ${task.time}` : ""}
                     </span>
                   </div>
                 )}
@@ -168,12 +180,19 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
 
             <div className="flex items-center justify-between border-t border-[var(--color-line)] px-4 py-3">
               <button
-                onClick={() => { removeTask(task.id); pushToast("Task deleted"); onClose(); }}
+                type="button"
+                onClick={() => {
+                  removeTask(task.id);
+                  pushToast("Task deleted");
+                  onClose();
+                }}
                 className="mono flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] text-stone hover:text-signal"
               >
                 <Icon name="trash" size={14} /> Delete
               </button>
-              <Button solid onClick={onClose}>Done</Button>
+              <Button solid onClick={onClose}>
+                Done
+              </Button>
             </div>
           </motion.aside>
         </motion.div>
@@ -184,9 +203,9 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
 
 function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2">
+    <div className="flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2">
       <Label>{label}</Label>
       {children}
-    </label>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, Label, Icon } from "@/core/ui";
+import { cx, Icon, Label } from "@/core/ui";
 
 const STEPS = [
   { v: "Value", d: "What you stand for — your gravitational centers." },
@@ -17,6 +17,11 @@ export function Onboarding() {
   const operatorName = useStore((s) => s.operatorName);
   const [name, setName] = useState(operatorName === "Operator" ? "" : operatorName);
   const [busy, setBusy] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
 
   const finish = async (mode: "demo" | "empty") => {
     setBusy(true);
@@ -62,10 +67,12 @@ export function Onboarding() {
         <label className="mt-6 flex flex-col gap-1.5 border border-[var(--color-line)] px-3 py-2.5">
           <Label>operator name</Label>
           <input
-            autoFocus
+            ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") void finish("demo"); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void finish("demo");
+            }}
             placeholder="What should we call you?"
             className="mono w-full bg-transparent text-[15px] outline-none placeholder:text-mist"
           />
@@ -73,6 +80,7 @@ export function Onboarding() {
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
           <button
+            type="button"
             disabled={busy}
             onClick={() => finish("demo")}
             className={cx("btn-solid btn flex flex-1 items-center justify-center gap-2 py-3")}
@@ -80,6 +88,7 @@ export function Onboarding() {
             <Icon name="spark" size={14} /> Explore with sample data
           </button>
           <button
+            type="button"
             disabled={busy}
             onClick={() => finish("empty")}
             className="btn flex flex-1 items-center justify-center gap-2 py-3"

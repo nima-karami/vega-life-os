@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
-import { useStore } from "@/core/store";
 import { onAuth } from "@/core/auth";
+import { useStore } from "@/core/store";
 import { isEnabled as gcalEnabled, syncNow } from "@/features/calendar-sync";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
+import { GO_SHORTCUTS } from "./keymap";
 import { Onboarding } from "./Onboarding";
 import { Shortcuts } from "./Shortcuts";
-import { GO_SHORTCUTS } from "./keymap";
 import { Toast } from "./Toast";
 
 /** Top-level provider: boots data, applies theme, owns the global ⌘K layer. */
@@ -30,7 +30,9 @@ export function RootBoot() {
     // When Firebase is configured, auth state drives which backend is active.
     // When it isn't, onAuth fires once with null and we stay purely local.
     const onAuthChange = useStore.getState().onAuthChange;
-    const unsub = onAuth((user) => { void onAuthChange(user?.uid ?? null); });
+    const unsub = onAuth((user) => {
+      void onAuthChange(user?.uid ?? null);
+    });
     return unsub;
   }, []);
 
@@ -50,7 +52,7 @@ export function RootBoot() {
   useEffect(() => {
     const onCtx = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && t.closest('input, textarea, [contenteditable="true"]')) return;
+      if (t?.closest('input, textarea, [contenteditable="true"]')) return;
       e.preventDefault();
     };
     document.addEventListener("contextmenu", onCtx);
@@ -79,30 +81,56 @@ export function RootBoot() {
 
       const t = e.target as HTMLElement | null;
       const typing =
-        !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+        !!t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable);
       if (typing) return;
 
       const k = e.key;
       const s = useStore.getState();
 
-      if (k === "?") { e.preventDefault(); s.setShortcutsOpen(!s.shortcutsOpen); return; }
-      if (k === "Escape") { s.setShortcutsOpen(false); s.closeCommand(); s.setEphemeral(null); return; }
+      if (k === "?") {
+        e.preventDefault();
+        s.setShortcutsOpen(!s.shortcutsOpen);
+        return;
+      }
+      if (k === "Escape") {
+        s.setShortcutsOpen(false);
+        s.closeCommand();
+        s.setEphemeral(null);
+        return;
+      }
 
       if (gPending.current) {
         gPending.current = false;
         const m = GO_SHORTCUTS.find((g) => g.key === k.toLowerCase());
-        if (m) { e.preventDefault(); navigate(m.to); }
+        if (m) {
+          e.preventDefault();
+          navigate(m.to);
+        }
         return;
       }
       const low = k.toLowerCase();
       if (low === "g") {
         gPending.current = true;
         clearTimeout(gTimer.current);
-        gTimer.current = setTimeout(() => { gPending.current = false; }, 1500);
+        gTimer.current = setTimeout(() => {
+          gPending.current = false;
+        }, 1500);
         return;
       }
-      if (low === "n") { e.preventDefault(); s.openCommand(); return; }
-      if (low === "t") { e.preventDefault(); navigate("/"); return; }
+      if (low === "n") {
+        e.preventDefault();
+        s.openCommand();
+        return;
+      }
+      if (low === "t") {
+        e.preventDefault();
+        navigate("/");
+        return;
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

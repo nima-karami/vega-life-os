@@ -1,7 +1,7 @@
-import type { ReactNode, ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
 import { Icon } from "./icons";
-import type { IconName } from "@/core/lib/icon-names";
 
 /** A small uppercase tracked mono label — the HUD's connective tissue. */
 export function Label({
@@ -13,9 +13,7 @@ export function Label({
   className?: string;
   ink?: boolean;
 }) {
-  return (
-    <span className={cx("label", ink && "label-ink", className)}>{children}</span>
-  );
+  return <span className={cx("label", ink && "label-ink", className)}>{children}</span>;
 }
 
 /** Panel header: "// TITLE ———————————— meta" */
@@ -56,11 +54,7 @@ export function Panel({
   as?: "div" | "section" | "article";
 }) {
   return (
-    <As
-      className={cx(flush ? "panel-flush" : "panel", ticks && "ticks", className)}
-    >
-      {children}
-    </As>
+    <As className={cx(flush ? "panel-flush" : "panel", ticks && "ticks", className)}>{children}</As>
   );
 }
 
@@ -77,9 +71,7 @@ export function Tag({
     <span
       className={cx(
         "mono inline-flex items-center gap-1 border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.14em]",
-        active
-          ? "border-ink bg-ink text-paper"
-          : "border-[var(--color-line)] text-stone",
+        active ? "border-ink bg-ink text-paper" : "border-[var(--color-line)] text-stone",
         className,
       )}
     >
@@ -95,11 +87,8 @@ type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 export function Button({ solid, icon, children, className, ...rest }: BtnProps) {
   return (
     <button
-      className={cx(
-        "btn inline-flex items-center gap-2",
-        solid && "btn-solid",
-        className,
-      )}
+      type="button"
+      className={cx("btn inline-flex items-center gap-2", solid && "btn-solid", className)}
       {...rest}
     >
       {icon && <Icon name={icon} size={13} />}
@@ -117,6 +106,7 @@ export function IconButton({
 }: { name: IconName; size?: number; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
+      type="button"
       aria-label={label}
       title={label}
       className={cx(
@@ -141,8 +131,14 @@ export function Stars({
 }) {
   const v = value ?? 0;
   const Star = ({ n }: { n: number }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"
-      style={{ color: n <= v ? "var(--color-ink)" : "var(--color-line-strong)" }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      style={{ color: n <= v ? "var(--color-ink)" : "var(--color-line-strong)" }}
+    >
       <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.8 5.9 21.4l1.4-6.8L2.2 9.9l6.9-.8z" />
     </svg>
   );
@@ -150,15 +146,22 @@ export function Stars({
   if (!onChange) {
     return (
       <span className="inline-flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((n) => <Star key={n} n={n} />)}
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Star key={n} n={n} />
+        ))}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" onClick={() => onChange(n === value ? 0 : n)}
-          aria-label={`${n} star`} className="cursor-pointer leading-none">
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n === value ? 0 : n)}
+          aria-label={`${n} star`}
+          className="cursor-pointer leading-none"
+        >
           <Star n={n} />
         </button>
       ))}
@@ -176,12 +179,7 @@ export function Field({
   className?: string;
 }) {
   return (
-    <div
-      className={cx(
-        "panel-flush flex flex-col gap-1 px-3 py-2.5",
-        className,
-      )}
-    >
+    <div className={cx("panel-flush flex flex-col gap-1 px-3 py-2.5", className)}>
       <Label>{label}</Label>
       <span className="display text-xl leading-none">{value}</span>
     </div>

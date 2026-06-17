@@ -6,10 +6,7 @@
  */
 export type Alignment = "aspirational" | "maintenance" | "logistical";
 
-export function alignOf(x: {
-  goalId?: string | null;
-  valueId?: string | null;
-}): Alignment {
+export function alignOf(x: { goalId?: string | null; valueId?: string | null }): Alignment {
   if (x.goalId) return "aspirational";
   if (x.valueId) return "maintenance";
   return "logistical";

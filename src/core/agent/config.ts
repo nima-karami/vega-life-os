@@ -9,14 +9,30 @@ export const AGENT_MODELS = [
 export const DEFAULT_MODEL = AGENT_MODELS[0].id;
 
 export function getAnthropicKey(): string {
-  try { return localStorage.getItem(KEY) ?? ""; } catch { return ""; }
+  try {
+    return localStorage.getItem(KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 export function setAnthropicKey(v: string) {
-  try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch { /* ignore */ }
+  try {
+    v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
 }
 export function getAgentModel(): string {
-  try { return localStorage.getItem(MODEL) ?? DEFAULT_MODEL; } catch { return DEFAULT_MODEL; }
+  try {
+    return localStorage.getItem(MODEL) ?? DEFAULT_MODEL;
+  } catch {
+    return DEFAULT_MODEL;
+  }
 }
 export function setAgentModel(v: string) {
-  try { localStorage.setItem(MODEL, v); } catch { /* ignore */ }
+  try {
+    localStorage.setItem(MODEL, v);
+  } catch {
+    /* ignore */
+  }
 }

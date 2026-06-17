@@ -1,8 +1,8 @@
-import type { Slice } from "@/core/store/slice";
+import { addDays, format } from "date-fns";
+import { dowIndex, weekDays } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
-import { weekDays, dowIndex } from "@/core/lib/date";
-import { addDays, format } from "date-fns";
+import type { Slice } from "@/core/store/slice";
 import type { Task, TaskStatus } from "./model";
 
 export interface TasksSlice {
@@ -51,9 +51,11 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   updateTask: (id, patch) => {
     let next: Task | undefined;
     set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === id ? ((next = { ...t, ...patch, id }), next) : t,
-      ),
+      tasks: s.tasks.map((t) => {
+        if (t.id !== id) return t;
+        next = { ...t, ...patch, id };
+        return next;
+      }),
     }));
     if (next) savePut("tasks", next);
   },
@@ -79,9 +81,11 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   setStatus: (id, status) => {
     let next: Task | undefined;
     set((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === id ? ((next = { ...t, status }), next) : t,
-      ),
+      tasks: s.tasks.map((t) => {
+        if (t.id !== id) return t;
+        next = { ...t, status };
+        return next;
+      }),
     }));
     if (next) savePut("tasks", next);
   },
@@ -111,9 +115,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   planWeek: (ref = new Date()) => {
     const { tasks, habits, addTask } = get();
-    const existing = new Set(
-      tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`),
-    );
+    const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     let made = 0;
     for (const d of weekDays(ref)) {
       const dow = dowIndex(d.iso);
@@ -121,9 +123,15 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
         if (!h.days[dow]) continue;
         if (existing.has(`${h.id}@${d.iso}`)) continue;
         addTask({
-          title: h.name, kind: "habit", habitId: h.id, goalId: h.goalId,
-          valueId: h.valueId, date: d.iso, time: h.time,
-          durationMin: h.durationMin, status: "todo",
+          title: h.name,
+          kind: "habit",
+          habitId: h.id,
+          goalId: h.goalId,
+          valueId: h.valueId,
+          date: d.iso,
+          time: h.time,
+          durationMin: h.durationMin,
+          status: "todo",
         });
         made++;
       }
@@ -133,9 +141,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   ensureUpcoming: (daysAhead = 14) => {
     const { tasks, habits, addTask } = get();
-    const existing = new Set(
-      tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`),
-    );
+    const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     const start = new Date();
     let made = 0;
     for (let i = 0; i <= daysAhead; i++) {
@@ -145,9 +151,15 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
         if (!h.days[dow]) continue;
         if (existing.has(`${h.id}@${iso}`)) continue;
         addTask({
-          title: h.name, kind: "habit", habitId: h.id, goalId: h.goalId,
-          valueId: h.valueId, date: iso, time: h.time,
-          durationMin: h.durationMin, status: "todo",
+          title: h.name,
+          kind: "habit",
+          habitId: h.id,
+          goalId: h.goalId,
+          valueId: h.valueId,
+          date: iso,
+          time: h.time,
+          durationMin: h.durationMin,
+          status: "todo",
         });
         made++;
       }

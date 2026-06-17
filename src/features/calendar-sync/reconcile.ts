@@ -1,11 +1,11 @@
 import type { Task } from "@/features/tasks";
-import { isSchedulable, toGEvent, fromGEvent, type GEvent } from "./map";
+import { fromGEvent, type GEvent, isSchedulable, toGEvent } from "./map";
 
 export interface PushOp {
   kind: "insert" | "patch" | "delete";
   taskId: string;
   eventId?: string; // for patch/delete
-  body?: GEvent;    // for insert/patch
+  body?: GEvent; // for insert/patch
 }
 
 export interface PullUpdate {
@@ -31,9 +31,13 @@ export function computePull(tasks: Task[], events: GEvent[]): PullUpdate[] {
     if (!taskId) continue;
     const t = byId.get(taskId);
     if (!t) continue;
-    if (ev.status === "cancelled") { out.push({ taskId, date: null, time: null, unscheduled: true }); continue; }
+    if (ev.status === "cancelled") {
+      out.push({ taskId, date: null, time: null, unscheduled: true });
+      continue;
+    }
     const want = fromGEvent(ev);
-    if (want.date !== t.date || want.time !== t.time) out.push({ taskId, date: want.date, time: want.time });
+    if (want.date !== t.date || want.time !== t.time)
+      out.push({ taskId, date: want.date, time: want.time });
   }
   return out;
 }
@@ -57,15 +61,18 @@ export function computePush(tasks: Task[], events: GEvent[]): PushOp[] {
   for (const t of scheduled) {
     const ev = eventByTask.get(t.id);
     const body = toGEvent(t);
-    if (!ev) { ops.push({ kind: "insert", taskId: t.id, body }); continue; }
+    if (!ev) {
+      ops.push({ kind: "insert", taskId: t.id, body });
+      continue;
+    }
     const moved = startKey(ev) !== startKey({ ...body });
     const renamed = ev.summary !== body.summary;
-    if (moved || renamed) ops.push({ kind: "patch", taskId: t.id, eventId: ev.id!, body });
+    if (moved || renamed) ops.push({ kind: "patch", taskId: t.id, eventId: ev.id, body });
   }
   // events whose task is no longer schedulable → delete
   for (const e of live) {
     const id = e.extendedProperties?.private?.vegaTaskId;
-    if (id && !scheduledIds.has(id)) ops.push({ kind: "delete", taskId: id, eventId: e.id! });
+    if (id && !scheduledIds.has(id)) ops.push({ kind: "delete", taskId: id, eventId: e.id });
   }
   return ops;
 }

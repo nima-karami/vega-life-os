@@ -22,15 +22,11 @@ export function NavRow() {
           <Icon name={item.icon} size={17} className="mt-0.5 shrink-0" />
           <span className="flex flex-col leading-tight">
             <span className="display text-[13px] tracking-tight">{item.label}</span>
-            <span
-              className="mono mt-0.5 text-[9px] uppercase tracking-[0.12em] opacity-60"
-            >
+            <span className="mono mt-0.5 text-[9px] uppercase tracking-[0.12em] opacity-60">
               {item.sub}
             </span>
           </span>
-          <span className="mono absolute right-2 top-1.5 text-[9px] opacity-40">
-            {item.idx}
-          </span>
+          <span className="mono absolute right-2 top-1.5 text-[9px] opacity-40">{item.idx}</span>
         </NavLink>
       ))}
     </nav>

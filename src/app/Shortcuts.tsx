@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "@/core/store";
-import { Label, Icon } from "@/core/ui";
-import { GO_SHORTCUTS, GLOBAL_SHORTCUTS } from "./keymap";
+import { Icon, Label } from "@/core/ui";
+import { GLOBAL_SHORTCUTS, GO_SHORTCUTS } from "./keymap";
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
@@ -20,17 +20,28 @@ export function Shortcuts() {
       {open && (
         <motion.div
           className="fixed inset-0 z-50 grid place-items-center bg-black/30 px-4"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           onClick={close}
         >
           <motion.div
             className="w-full max-w-xl border border-ink bg-paper shadow-2xl"
-            initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 10, opacity: 0 }}
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 10, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 py-3">
               <Label ink>// keyboard</Label>
-              <button onClick={close} aria-label="Close" className="text-stone hover:text-ink"><Icon name="close" size={18} /></button>
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Close"
+                className="text-stone hover:text-ink"
+              >
+                <Icon name="close" size={18} />
+              </button>
             </div>
             <div className="grid gap-6 p-5 sm:grid-cols-2">
               <div>
@@ -40,7 +51,9 @@ export function Shortcuts() {
                     <div key={s.key} className="flex items-center justify-between">
                       <span className="mono text-[12px] text-ink">{s.label}</span>
                       <span className="flex items-center gap-1">
-                        <Key>G</Key><span className="text-mist">›</span><Key>{s.key.toUpperCase()}</Key>
+                        <Key>G</Key>
+                        <span className="text-mist">›</span>
+                        <Key>{s.key.toUpperCase()}</Key>
                       </span>
                     </div>
                   ))}
@@ -58,7 +71,10 @@ export function Shortcuts() {
                 </div>
                 <p className="mono mt-5 text-[10px] leading-relaxed text-mist">
                   Shortcuts are ignored while typing in a field. Open this anytime with
-                  <span className="mx-1"><Key>?</Key></span>.
+                  <span className="mx-1">
+                    <Key>?</Key>
+                  </span>
+                  .
                 </p>
               </div>
             </div>

@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
 import { addDays, format } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
+import { fmtShort, todayISO, weekDays, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { cx, Panel, SectionHead, Label, Button, IconButton, Gauge, Icon } from "@/core/ui";
-import { weekDays, weekStartOf, fmtShort, todayISO } from "@/core/lib/date";
+import { Button, cx, Gauge, Icon, IconButton, Label, Panel, SectionHead } from "@/core/ui";
 import { REVIEW_PROMPTS } from "./model";
 
 export function ReviewPage() {
@@ -29,7 +29,9 @@ export function ReviewPage() {
     const maxV = Math.max(1, ...byValue.map((x) => x.n));
     const wins = done.filter((t) => t.goalId).slice(0, 6);
     const today = todayISO();
-    const misses = wk.filter((t) => t.date! < today && t.status !== "done" && t.status !== "skip").slice(0, 6);
+    const misses = wk
+      .filter((t) => (t.date ?? "") < today && t.status !== "done" && t.status !== "skip")
+      .slice(0, 6);
     const habitRows = habits.map((h) => {
       const sched = wk.filter((t) => t.habitId === h.id && t.status !== "skip");
       const hd = sched.filter((t) => t.status === "done").length;
@@ -42,7 +44,7 @@ export function ReviewPage() {
   const [answers, setAnswers] = useState<string[]>(() => REVIEW_PROMPTS.map(() => ""));
   useEffect(() => {
     setAnswers(REVIEW_PROMPTS.map((q) => existing?.prompts.find((p) => p.q === q)?.a ?? ""));
-  }, [periodKey, existing]);
+  }, [existing]);
 
   const save = () => {
     saveReview({
@@ -66,9 +68,17 @@ export function ReviewPage() {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <IconButton name="chevL" label="Previous week" onClick={() => setWeekRef(addDays(weekStartOf(weekRef), -7))} />
+          <IconButton
+            name="chevL"
+            label="Previous week"
+            onClick={() => setWeekRef(addDays(weekStartOf(weekRef), -7))}
+          />
           <Button onClick={() => setWeekRef(new Date())}>This week</Button>
-          <IconButton name="chevR" label="Next week" onClick={() => setWeekRef(addDays(weekStartOf(weekRef), 7))} />
+          <IconButton
+            name="chevR"
+            label="Next week"
+            onClick={() => setWeekRef(addDays(weekStartOf(weekRef), 7))}
+          />
         </div>
       </Panel>
 
@@ -88,8 +98,15 @@ export function ReviewPage() {
             <div className="mt-3 space-y-2">
               {roll.byValue.map(({ v, n }) => (
                 <div key={v.id} className="flex items-center gap-2">
-                  <span className="mono w-16 shrink-0 truncate text-[10px] uppercase text-ash">{v.name}</span>
-                  <div className="h-2.5 flex-1 bg-[var(--color-line-soft)]"><div className="h-2.5" style={{ width: `${(n / roll.maxV) * 100}%`, background: v.hue }} /></div>
+                  <span className="mono w-16 shrink-0 truncate text-[10px] uppercase text-ash">
+                    {v.name}
+                  </span>
+                  <div className="h-2.5 flex-1 bg-[var(--color-line-soft)]">
+                    <div
+                      className="h-2.5"
+                      style={{ width: `${(n / roll.maxV) * 100}%`, background: v.hue }}
+                    />
+                  </div>
                   <span className="mono w-5 text-right text-[10px] text-stone">{n}</span>
                 </div>
               ))}
@@ -102,7 +119,9 @@ export function ReviewPage() {
               {roll.habitRows.map(({ h, rate, done, total }) => (
                 <div key={h.id} className="flex items-center justify-between">
                   <span className="mono truncate text-[10px] text-ash">{h.name}</span>
-                  <span className="mono text-[10px] tabular-nums text-stone">{done}/{total} · {Math.round(rate * 100)}%</span>
+                  <span className="mono text-[10px] tabular-nums text-stone">
+                    {done}/{total} · {Math.round(rate * 100)}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -116,18 +135,36 @@ export function ReviewPage() {
               <SectionHead title="wins" meta={String(roll.wins.length)} />
               <ul className="mt-3 space-y-1.5">
                 {roll.wins.map((t) => (
-                  <li key={t.id} className="flex items-start gap-2"><Icon name="check" size={12} className="mt-0.5 shrink-0 text-good" /><span className="text-[12px]">{t.title}</span></li>
+                  <li key={t.id} className="flex items-start gap-2">
+                    <Icon name="check" size={12} className="mt-0.5 shrink-0 text-good" />
+                    <span className="text-[12px]">{t.title}</span>
+                  </li>
                 ))}
-                {!roll.wins.length && <li className="mono text-[11px] text-mist">No goal-work completed yet.</li>}
+                {!roll.wins.length && (
+                  <li className="mono text-[11px] text-mist">No goal-work completed yet.</li>
+                )}
               </ul>
             </Panel>
             <Panel className="p-4">
               <SectionHead title="slipped" meta={String(roll.misses.length)} />
               <ul className="mt-3 space-y-1.5">
                 {roll.misses.map((t) => (
-                  <li key={t.id} className="flex items-start gap-2"><Icon name="alert" size={12} className="mt-0.5 shrink-0" style={{ color: "var(--color-signal)" }} /><span className="text-[12px] text-stone">{t.title} <span className="mono text-[9px] text-mist">{t.date?.slice(5)}</span></span></li>
+                  <li key={t.id} className="flex items-start gap-2">
+                    <Icon
+                      name="alert"
+                      size={12}
+                      className="mt-0.5 shrink-0"
+                      style={{ color: "var(--color-signal)" }}
+                    />
+                    <span className="text-[12px] text-stone">
+                      {t.title}{" "}
+                      <span className="mono text-[9px] text-mist">{t.date?.slice(5)}</span>
+                    </span>
+                  </li>
                 ))}
-                {!roll.misses.length && <li className="mono text-[11px] text-mist">Nothing left behind. Clean week.</li>}
+                {!roll.misses.length && (
+                  <li className="mono text-[11px] text-mist">Nothing left behind. Clean week.</li>
+                )}
               </ul>
             </Panel>
           </div>
@@ -140,18 +177,24 @@ export function ReviewPage() {
             <div className="mt-4 space-y-4">
               {REVIEW_PROMPTS.map((q, i) => (
                 <div key={q}>
-                  <label className="mono text-[12px] text-ink">{q}</label>
-                  <textarea
-                    value={answers[i]}
-                    onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
-                    rows={2}
-                    placeholder="…"
-                    className="mono mt-1.5 w-full resize-none border border-[var(--color-line)] bg-transparent p-2.5 text-[12px] leading-relaxed outline-none focus:border-ink placeholder:text-mist"
-                  />
+                  <label className="mono text-[12px] text-ink">
+                    {q}
+                    <textarea
+                      value={answers[i]}
+                      onChange={(e) =>
+                        setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))
+                      }
+                      rows={2}
+                      placeholder="…"
+                      className="mono mt-1.5 w-full resize-none border border-[var(--color-line)] bg-transparent p-2.5 text-[12px] leading-relaxed outline-none focus:border-ink placeholder:text-mist"
+                    />
+                  </label>
                 </div>
               ))}
               <div className="flex justify-end">
-                <Button solid icon="check" onClick={save}>{existing ? "Update reflection" : "Save reflection"}</Button>
+                <Button solid icon="check" onClick={save}>
+                  {existing ? "Update reflection" : "Save reflection"}
+                </Button>
               </div>
             </div>
           </Panel>
@@ -162,12 +205,24 @@ export function ReviewPage() {
               <SectionHead title="past reviews" meta={String(reviews.length)} />
               <div className="mt-3 space-y-1.5">
                 {reviews.map((r) => (
-                  <button key={r.id} onClick={() => setWeekRef(new Date(r.periodKey + "T00:00"))}
-                    className={cx("flex w-full items-center gap-3 border px-3 py-2 text-left transition-colors hover:border-ink",
-                      r.periodKey === periodKey ? "border-ink" : "border-[var(--color-line)]")}>
-                    <span className="mono text-[11px] text-ink">week of {fmtShort(r.periodKey)}</span>
-                    <span className="mono text-[10px] text-stone">{Math.round(r.completion * 100)}%</span>
-                    <span className="mono ml-auto truncate text-[10px] text-mist">{r.prompts.find((p) => p.a)?.a ?? "—"}</span>
+                  <button
+                    type="button"
+                    key={r.id}
+                    onClick={() => setWeekRef(new Date(`${r.periodKey}T00:00`))}
+                    className={cx(
+                      "flex w-full items-center gap-3 border px-3 py-2 text-left transition-colors hover:border-ink",
+                      r.periodKey === periodKey ? "border-ink" : "border-[var(--color-line)]",
+                    )}
+                  >
+                    <span className="mono text-[11px] text-ink">
+                      week of {fmtShort(r.periodKey)}
+                    </span>
+                    <span className="mono text-[10px] text-stone">
+                      {Math.round(r.completion * 100)}%
+                    </span>
+                    <span className="mono ml-auto truncate text-[10px] text-mist">
+                      {r.prompts.find((p) => p.a)?.a ?? "—"}
+                    </span>
                   </button>
                 ))}
               </div>

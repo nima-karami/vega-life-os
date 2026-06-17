@@ -1,6 +1,6 @@
-import type { Slice } from "@/core/store/slice";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
+import type { Slice } from "@/core/store/slice";
 import type { Value } from "./model";
 
 export interface ValuesSlice {
@@ -35,9 +35,11 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
   updateValue: (id, patch) => {
     let next: Value | undefined;
     set((s) => ({
-      values: s.values.map((v) =>
-        v.id === id ? ((next = { ...v, ...patch, id }), next) : v,
-      ),
+      values: s.values.map((v) => {
+        if (v.id !== id) return v;
+        next = { ...v, ...patch, id };
+        return next;
+      }),
     }));
     if (next) savePut("values", next);
   },
@@ -45,12 +47,23 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
   removeValue: (id) => {
     // cascade: a value's goals, its upkeep habits, and every task instance tied
     // to them go with it — nothing is left pointing at a value that no longer exists.
-    const goalIds = new Set(get().goals.filter((g) => g.valueId === id).map((g) => g.id));
-    const habitIds = new Set(get().habits.filter((h) => h.valueId === id).map((h) => h.id));
+    const goalIds = new Set(
+      get()
+        .goals.filter((g) => g.valueId === id)
+        .map((g) => g.id),
+    );
+    const habitIds = new Set(
+      get()
+        .habits.filter((h) => h.valueId === id)
+        .map((h) => h.id),
+    );
     const taskIds = new Set(
       get()
         .tasks.filter(
-          (t) => t.valueId === id || (t.goalId && goalIds.has(t.goalId)) || (t.habitId && habitIds.has(t.habitId)),
+          (t) =>
+            t.valueId === id ||
+            (t.goalId && goalIds.has(t.goalId)) ||
+            (t.habitId && habitIds.has(t.habitId)),
         )
         .map((t) => t.id),
     );
@@ -62,8 +75,8 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
       tasks: s.tasks.filter((t) => !taskIds.has(t.id)),
     }));
     saveRemove("values", id);
-    goalIds.forEach((g) => saveRemove("goals", g));
-    habitIds.forEach((h) => saveRemove("habits", h));
-    taskIds.forEach((t) => saveRemove("tasks", t));
+    for (const g of goalIds) saveRemove("goals", g);
+    for (const h of habitIds) saveRemove("habits", h);
+    for (const t of taskIds) saveRemove("tasks", t);
   },
 });

@@ -1,9 +1,4 @@
-import {
-  type PersistenceAdapter,
-  type Dataset,
-  type CollectionName,
-  type CollectionSnapshot,
-} from "./adapter";
+import type { CollectionName, CollectionSnapshot, Dataset, PersistenceAdapter } from "./adapter";
 import { DexieAdapter } from "./dexie-adapter";
 
 /**
@@ -19,17 +14,27 @@ export class RoutingAdapter implements PersistenceAdapter {
     this.current = adapter;
   }
 
-  init() { return this.current.init(); }
-  isEmpty() { return this.current.isEmpty(); }
-  loadAll() { return this.current.loadAll(); }
+  init() {
+    return this.current.init();
+  }
+  isEmpty() {
+    return this.current.isEmpty();
+  }
+  loadAll() {
+    return this.current.loadAll();
+  }
   put<C extends CollectionName>(col: C, item: Dataset[C][number]) {
     return this.current.put(col, item);
   }
   bulkPut<C extends CollectionName>(col: C, items: Dataset[C]) {
     return this.current.bulkPut(col, items);
   }
-  remove(col: CollectionName, id: string) { return this.current.remove(col, id); }
-  clearAll() { return this.current.clearAll(); }
+  remove(col: CollectionName, id: string) {
+    return this.current.remove(col, id);
+  }
+  clearAll() {
+    return this.current.clearAll();
+  }
 
   subscribe(onChange: (snap: CollectionSnapshot) => void): () => void {
     return this.current.subscribe ? this.current.subscribe(onChange) : () => {};

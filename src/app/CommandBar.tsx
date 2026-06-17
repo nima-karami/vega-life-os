@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import { Command } from "cmdk";
-import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { type AgentAction, runAgent } from "@/core/agent";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import { runAgent, type AgentAction } from "@/core/agent";
 import { NAV } from "./nav";
 
 /**
@@ -26,7 +26,12 @@ export function CommandBar() {
 
   useEffect(() => {
     const q = query.trim();
-    if (!q) { setSmart([]); setReply(""); setThinking(false); return; }
+    if (!q) {
+      setSmart([]);
+      setReply("");
+      setThinking(false);
+      return;
+    }
     setThinking(true);
     let cancelled = false;
     const t = setTimeout(async () => {
@@ -36,7 +41,10 @@ export function CommandBar() {
       setReply(r.message ?? "");
       setThinking(false);
     }, 250); // debounce keystrokes; one API call per pause
-    return () => { cancelled = true; clearTimeout(t); };
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [query]);
 
   // reset the input each time the palette opens
@@ -106,6 +114,7 @@ export function CommandBar() {
                 )}
                 <Command.Empty className="px-3 py-6 text-center">
                   <button
+                    type="button"
                     onClick={quickAdd}
                     className="mono text-[12px] text-ink underline-offset-4 hover:underline"
                   >
@@ -119,7 +128,15 @@ export function CommandBar() {
                     className="[&_[cmdk-group-heading]]:label [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5"
                   >
                     {smart.map((a) => (
-                      <Item key={a.id} value={`${query} ${a.label}`} icon={a.icon} onSelect={() => { a.run(); close(); }}>
+                      <Item
+                        key={a.id}
+                        value={`${query} ${a.label}`}
+                        icon={a.icon}
+                        onSelect={() => {
+                          a.run();
+                          close();
+                        }}
+                      >
                         {a.label}
                       </Item>
                     ))}
@@ -131,7 +148,12 @@ export function CommandBar() {
                   className="[&_[cmdk-group-heading]]:label [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5"
                 >
                   {NAV.map((n) => (
-                    <Item key={n.to} onSelect={() => go(n.to)} icon={n.icon} value={`go ${n.label} ${n.sub}`}>
+                    <Item
+                      key={n.to}
+                      onSelect={() => go(n.to)}
+                      icon={n.icon}
+                      value={`go ${n.label} ${n.sub}`}
+                    >
                       {n.label}
                       <span className="ml-2 text-stone">— {n.sub}</span>
                     </Item>
@@ -139,7 +161,11 @@ export function CommandBar() {
                   <Item onSelect={() => go("/lab")} icon="flash" value="lab variants design">
                     Lab — design variants
                   </Item>
-                  <Item onSelect={() => go("/settings")} icon="sliders" value="settings identity theme data backup export">
+                  <Item
+                    onSelect={() => go("/settings")}
+                    icon="sliders"
+                    value="settings identity theme data backup export"
+                  >
                     Settings — identity, theme, data
                   </Item>
                 </Command.Group>
@@ -151,14 +177,32 @@ export function CommandBar() {
                   <Item onSelect={quickAdd} icon="plus" value="add task new backlog">
                     Add "{query || "task"}" to backlog
                   </Item>
-                  <Item onSelect={() => { toggleTheme(); close(); }} icon="moon" value="theme dark light toggle">
+                  <Item
+                    onSelect={() => {
+                      toggleTheme();
+                      close();
+                    }}
+                    icon="moon"
+                    value="theme dark light toggle"
+                  >
                     Toggle theme
                   </Item>
-                  <Item onSelect={() => { useStore.getState().setShortcutsOpen(true); close(); }} icon="command" value="keyboard shortcuts help hotkeys">
+                  <Item
+                    onSelect={() => {
+                      useStore.getState().setShortcutsOpen(true);
+                      close();
+                    }}
+                    icon="command"
+                    value="keyboard shortcuts help hotkeys"
+                  >
                     Keyboard shortcuts (?)
                   </Item>
                   <Item
-                    onSelect={() => { void reseed(); pushToast("Demo data reset"); close(); }}
+                    onSelect={() => {
+                      void reseed();
+                      pushToast("Demo data reset");
+                      close();
+                    }}
                     icon="repeat"
                     value="reseed reset demo data"
                   >

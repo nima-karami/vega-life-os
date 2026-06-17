@@ -1,6 +1,6 @@
-export type { Goal, Subgoal, GoalStatus } from "./model";
-export { GOAL_STATUSES, GOAL_STATUS_LABEL, isGoalClosed } from "./model";
-export { createGoalsSlice, type GoalsSlice } from "./store";
-export { presetRange, detectTimeframe, periodLabel, type Timeframe } from "./timeframe";
 export { GoalDrawer } from "./components/GoalDrawer";
+export type { Goal, GoalStatus, Subgoal } from "./model";
+export { GOAL_STATUS_LABEL, GOAL_STATUSES, isGoalClosed } from "./model";
 export * from "./selectors";
+export { createGoalsSlice, type GoalsSlice } from "./store";
+export { detectTimeframe, periodLabel, presetRange, type Timeframe } from "./timeframe";

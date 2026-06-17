@@ -1,7 +1,14 @@
 import { useState } from "react";
-import { Panel, SectionHead, Button } from "@/core/ui";
 import { useStore } from "@/core/store";
-import { gcalConfigured, getCalendarToken, clearCalendarToken, syncNow, isEnabled, setEnabled } from "@/features/calendar-sync";
+import { Button, Panel, SectionHead } from "@/core/ui";
+import {
+  clearCalendarToken,
+  gcalConfigured,
+  getCalendarToken,
+  isEnabled,
+  setEnabled,
+  syncNow,
+} from "@/features/calendar-sync";
 
 export function CalendarSettings() {
   const pushToast = useStore((s) => s.pushToast);
@@ -14,8 +21,8 @@ export function CalendarSettings() {
         <SectionHead title="google calendar" />
         <p className="mono mt-3 text-[11px] leading-relaxed text-stone">
           Set <code>VITE_GOOGLE_CLIENT_ID</code> in <code>.env.local</code> to enable two-way
-          calendar sync. Your VEGA time-blocks then appear in Google Calendar, and the Calendar
-          app on your phone handles the reminders.
+          calendar sync. Your VEGA time-blocks then appear in Google Calendar, and the Calendar app
+          on your phone handles the reminders.
         </p>
       </Panel>
     );
@@ -24,19 +31,33 @@ export function CalendarSettings() {
   const connect = async () => {
     setBusy(true);
     try {
-      await getCalendarToken(true);  // consent prompt
-      setEnabled(true); setOn(true);
+      await getCalendarToken(true); // consent prompt
+      setEnabled(true);
+      setOn(true);
       const r = await syncNow(true);
       pushToast(`Calendar connected — ${r.pushed} blocks synced`);
-    } catch { pushToast("Calendar connection failed"); }
-    finally { setBusy(false); }
+    } catch {
+      pushToast("Calendar connection failed");
+    } finally {
+      setBusy(false);
+    }
   };
-  const disconnect = () => { clearCalendarToken(); setEnabled(false); setOn(false); pushToast("Calendar disconnected"); };
+  const disconnect = () => {
+    clearCalendarToken();
+    setEnabled(false);
+    setOn(false);
+    pushToast("Calendar disconnected");
+  };
   const sync = async () => {
     setBusy(true);
-    try { const r = await syncNow(true); pushToast(`Synced · ${r.pushed} up, ${r.pulled} down`); }
-    catch { pushToast("Sync failed — reconnect?"); }
-    finally { setBusy(false); }
+    try {
+      const r = await syncNow(true);
+      pushToast(`Synced · ${r.pushed} up, ${r.pulled} down`);
+    } catch {
+      pushToast("Sync failed — reconnect?");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -44,16 +65,23 @@ export function CalendarSettings() {
       <SectionHead title="google calendar" />
       <p className="mono mt-3 text-[11px] leading-relaxed text-stone">
         Two-way sync for scheduled tasks. Blocks you schedule in VEGA appear in Google Calendar
-        (with reminders); moving or deleting a VEGA event in Google flows back here on the next sync.
+        (with reminders); moving or deleting a VEGA event in Google flows back here on the next
+        sync.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         {on ? (
           <>
-            <Button solid icon="repeat" disabled={busy} onClick={() => void sync()}>Sync now</Button>
-            <Button icon="close" onClick={disconnect}>Disconnect</Button>
+            <Button solid icon="repeat" disabled={busy} onClick={() => void sync()}>
+              Sync now
+            </Button>
+            <Button icon="close" onClick={disconnect}>
+              Disconnect
+            </Button>
           </>
         ) : (
-          <Button solid icon="calendar" disabled={busy} onClick={() => void connect()}>Connect Google Calendar</Button>
+          <Button solid icon="calendar" disabled={busy} onClick={() => void connect()}>
+            Connect Google Calendar
+          </Button>
         )}
       </div>
     </Panel>

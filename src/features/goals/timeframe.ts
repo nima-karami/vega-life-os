@@ -1,8 +1,14 @@
 import {
-  startOfQuarter, endOfQuarter, getQuarter,
-  startOfMonth, endOfMonth,
-  startOfYear, endOfYear, getYear,
-  format, parseISO,
+  endOfMonth,
+  endOfQuarter,
+  endOfYear,
+  format,
+  getQuarter,
+  getYear,
+  parseISO,
+  startOfMonth,
+  startOfQuarter,
+  startOfYear,
 } from "date-fns";
 
 export type Timeframe = "quarter" | "month" | "year" | "custom";
@@ -10,7 +16,10 @@ export type Timeframe = "quarter" | "month" | "year" | "custom";
 const fmt = (d: Date) => format(d, "yyyy-MM-dd");
 
 /** start/end ISO dates for a preset timeframe around a reference date. */
-export function presetRange(tf: Exclude<Timeframe, "custom">, ref: Date = new Date()): { start: string; end: string } {
+export function presetRange(
+  tf: Exclude<Timeframe, "custom">,
+  ref: Date = new Date(),
+): { start: string; end: string } {
   if (tf === "quarter") return { start: fmt(startOfQuarter(ref)), end: fmt(endOfQuarter(ref)) };
   if (tf === "month") return { start: fmt(startOfMonth(ref)), end: fmt(endOfMonth(ref)) };
   return { start: fmt(startOfYear(ref)), end: fmt(endOfYear(ref)) };

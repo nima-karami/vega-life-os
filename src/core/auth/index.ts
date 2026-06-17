@@ -1,19 +1,23 @@
 import {
-  GoogleAuthProvider,
-  signInWithPopup,
   signOut as fbSignOut,
+  GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithPopup,
   type User,
 } from "firebase/auth";
 import { auth, firebaseEnabled } from "@/core/firebase/app";
 
 const provider = new GoogleAuthProvider();
+
 // Phase C (Google Calendar) adds calendar scope here later.
 
 export { firebaseEnabled };
 
 export function onAuth(cb: (user: User | null) => void): () => void {
-  if (!auth) { cb(null); return () => {}; }
+  if (!auth) {
+    cb(null);
+    return () => {};
+  }
   return onAuthStateChanged(auth, cb);
 }
 

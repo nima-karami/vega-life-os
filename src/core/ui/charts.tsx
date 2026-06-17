@@ -21,12 +21,16 @@ export function Gauge({
   const c = 2 * Math.PI * r;
   const pct = Math.round(value * 100);
   return (
-    <div
-      className="relative grid place-items-center"
-      style={{ width: size, height: size }}
-    >
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-line)" strokeWidth={stroke} />
+    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="var(--color-line)"
+          strokeWidth={stroke}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -66,17 +70,18 @@ export function DotMeter({
   className?: string;
 }) {
   const filled = Math.round(value * count);
+  const dots = Array.from({ length: count }, (_, i) => ({ on: i < filled, key: `dot-${i}` }));
   return (
     <span className={cx("inline-flex items-center gap-[3px]", className)}>
-      {Array.from({ length: count }, (_, i) => (
+      {dots.map((dot) => (
         <span
-          key={i}
+          key={dot.key}
           className="rounded-full"
           style={{
             width: size,
             height: size,
-            background: i < filled ? "var(--color-ink)" : "transparent",
-            border: i < filled ? "none" : "1px solid var(--color-line-strong)",
+            background: dot.on ? "var(--color-ink)" : "transparent",
+            border: dot.on ? "none" : "1px solid var(--color-line-strong)",
           }}
         />
       ))}
@@ -127,14 +132,17 @@ export function Sparkline({
   const min = Math.min(...points, 0);
   const range = max - min || 1;
   const dx = width / (points.length - 1);
-  const xy = points.map((p, i) => [
-    i * dx,
-    height - ((p - min) / range) * (height - 6) - 3,
-  ]);
+  const xy = points.map((p, i) => [i * dx, height - ((p - min) / range) * (height - 6) - 3]);
   const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
   const [lx, ly] = xy[xy.length - 1];
   return (
-    <svg width={width} height={height} className={className} preserveAspectRatio="none">
+    <svg
+      width={width}
+      height={height}
+      className={className}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
       <path d={d} fill="none" stroke="var(--color-ink)" strokeWidth={1.5} />
       {dot && <circle cx={lx} cy={ly} r={2.6} fill="var(--color-ink)" />}
     </svg>
@@ -161,7 +169,7 @@ export function Radar({
   const id = useId();
   const rings = [0.28, 0.6, 0.92];
   return (
-    <svg width={size} height={size} className="overflow-visible">
+    <svg width={size} height={size} className="overflow-visible" aria-hidden="true">
       <defs>
         <linearGradient id={`sweep-${id}`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0" />
@@ -169,7 +177,14 @@ export function Radar({
         </linearGradient>
       </defs>
       {rings.map((r) => (
-        <circle key={r} cx={cxp} cy={cxp} r={(size / 2) * r} fill="none" stroke="var(--color-line)" />
+        <circle
+          key={r}
+          cx={cxp}
+          cy={cxp}
+          r={(size / 2) * r}
+          fill="none"
+          stroke="var(--color-line)"
+        />
       ))}
       <line x1={cxp} y1={4} x2={cxp} y2={size - 4} stroke="var(--color-line-soft)" />
       <line x1={4} y1={cxp} x2={size - 4} y2={cxp} stroke="var(--color-line-soft)" />
@@ -190,14 +205,14 @@ export function Radar({
           </path>
         </g>
       )}
-      {blips.map((b, i) => {
+      {blips.map((b) => {
         const a = b.angle * Math.PI * 2 - Math.PI / 2;
         const rad = (size / 2 - 8) * b.radius;
         const x = cxp + Math.cos(a) * rad;
         const y = cxp + Math.sin(a) * rad;
         return (
           <circle
-            key={i}
+            key={`blip-${b.angle}-${b.radius}`}
             cx={x}
             cy={y}
             r={b.on ? 3 : 2.4}

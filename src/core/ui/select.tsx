@@ -51,7 +51,11 @@ export function Select({
           <RS.Value placeholder={placeholder} />
         </span>
         <RS.Icon asChild>
-          <Icon name="chevD" size={13} className="shrink-0 text-stone transition-colors group-hover:text-ink" />
+          <Icon
+            name="chevD"
+            size={13}
+            className="shrink-0 text-stone transition-colors group-hover:text-ink"
+          />
         </RS.Icon>
       </RS.Trigger>
 
@@ -76,7 +80,10 @@ export function Select({
                 )}
               >
                 {o.hue && (
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--color-line)]" style={{ background: o.hue }} />
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--color-line)]"
+                    style={{ background: o.hue }}
+                  />
                 )}
                 <RS.ItemText>{o.label}</RS.ItemText>
                 <RS.ItemIndicator className="ml-auto">

@@ -1,12 +1,12 @@
-export type { Agent, AgentAction, AgentResult } from "./types";
-export { LocalIntentAgent } from "./local-agent";
 export { AnthropicAgent } from "./anthropic-agent";
-export { parseWhen } from "./when";
 export * from "./config";
+export { LocalIntentAgent } from "./local-agent";
+export type { Agent, AgentAction, AgentResult } from "./types";
+export { parseWhen } from "./when";
 
-import { LocalIntentAgent } from "./local-agent";
 import { AnthropicAgent } from "./anthropic-agent";
 import { getAnthropicKey } from "./config";
+import { LocalIntentAgent } from "./local-agent";
 import type { AgentResult } from "./types";
 
 const local = new LocalIntentAgent();
@@ -19,8 +19,11 @@ const anthropic = new AnthropicAgent();
  */
 export async function runAgent(query: string): Promise<AgentResult> {
   if (getAnthropicKey()) {
-    try { return await anthropic.suggest(query); }
-    catch { return local.suggest(query); }
+    try {
+      return await anthropic.suggest(query);
+    } catch {
+      return local.suggest(query);
+    }
   }
   return local.suggest(query);
 }

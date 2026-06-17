@@ -1,9 +1,9 @@
+import { ALIGN_TAG, alignOf } from "@/core/lib/align";
 import { useStore } from "@/core/store";
 import { cx, Icon, Tag } from "@/core/ui";
-import { alignOf, ALIGN_TAG } from "@/core/lib/align";
+import type { Task } from "../model";
 import { ENERGY_META } from "../model";
 import { energyOf } from "../selectors";
-import type { Task } from "../model";
 
 const STATUS_BOX: Record<Task["status"], { icon?: "check" | "skip"; solid: boolean }> = {
   open: { solid: false },
@@ -27,17 +27,13 @@ export function TaskRow({
   const box = STATUS_BOX[task.status];
 
   return (
-    <div
-      className={cx(
-        "group flex items-center gap-3 py-2.5",
-        resolved && "opacity-55",
-      )}
-    >
+    <div className={cx("group flex items-center gap-3 py-2.5", resolved && "opacity-55")}>
       <span className="mono w-11 shrink-0 text-[11px] tabular-nums text-stone">
         {task.time ?? "—"}
       </span>
 
       <button
+        type="button"
         className="flex min-w-0 flex-1 items-center gap-2 text-left"
         onClick={() => onOpen?.(task)}
       >
@@ -45,19 +41,16 @@ export function TaskRow({
           className="h-2 w-2 shrink-0 rounded-full"
           style={{ background: value?.hue ?? "var(--color-mist)" }}
         />
-        <span
-          className={cx(
-            "truncate text-[13px]",
-            resolved && "line-through decoration-1",
-          )}
-        >
+        <span className={cx("truncate text-[13px]", resolved && "line-through decoration-1")}>
           {task.title}
         </span>
         {energyOf(task) !== "neutral" && (
           <span
             className="mono shrink-0 text-[11px] leading-none"
             title={ENERGY_META[energyOf(task)].label}
-            style={{ color: energyOf(task) === "drain" ? "var(--color-signal)" : "var(--color-ink)" }}
+            style={{
+              color: energyOf(task) === "drain" ? "var(--color-signal)" : "var(--color-ink)",
+            }}
           >
             {ENERGY_META[energyOf(task)].glyph}
           </span>
@@ -75,6 +68,7 @@ export function TaskRow({
       </div>
 
       <button
+        type="button"
         aria-label={`Toggle ${task.title}`}
         onClick={() => cycleStatus(task.id)}
         className={cx(

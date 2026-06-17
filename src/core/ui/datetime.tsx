@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -11,12 +10,21 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import { useEffect, useRef, useState } from "react";
+import { minutesOf } from "@/core/lib/date";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 import { Popover } from "./popover";
-import { minutesOf } from "@/core/lib/date";
 
-const DOW = ["M", "T", "W", "T", "F", "S", "S"];
+const DOW = [
+  { key: "mon", label: "M" },
+  { key: "tue", label: "T" },
+  { key: "wed", label: "W" },
+  { key: "thu", label: "T" },
+  { key: "fri", label: "F" },
+  { key: "sat", label: "S" },
+  { key: "sun", label: "S" },
+];
 
 const fmtMin = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -32,17 +40,18 @@ const fmtLen = (mins: number) => {
  * brings the already-selected time back into view without the user scrolling.
  */
 function useCenterSelected(open: boolean, ...cols: React.RefObject<HTMLDivElement | null>[]) {
+  const colsRef = useRef(cols);
+  colsRef.current = cols;
   useEffect(() => {
     if (!open) return;
     const r = requestAnimationFrame(() => {
-      for (const ref of cols) {
+      for (const ref of colsRef.current) {
         const col = ref.current;
         const sel = col?.querySelector<HTMLElement>('[data-sel="true"]');
         if (col && sel) col.scrollTop = sel.offsetTop - col.clientHeight / 2 + sel.clientHeight / 2;
       }
     });
     return () => cancelAnimationFrame(r);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 }
 
@@ -57,7 +66,12 @@ function PickerField({
   className?: string;
 }) {
   return (
-    <div className={cx("surface flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2", className)}>
+    <div
+      className={cx(
+        "surface flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2",
+        className,
+      )}
+    >
       <span className="label">{label}</span>
       {children}
     </div>
@@ -104,20 +118,30 @@ export function DatePicker({
       >
         <div className="w-[244px] p-3">
           <div className="flex items-center justify-between">
-            <button type="button" onClick={() => setView(addMonths(view, -1))} aria-label="Previous month"
-              className="grid h-6 w-6 place-items-center text-stone hover:text-ink">
+            <button
+              type="button"
+              onClick={() => setView(addMonths(view, -1))}
+              aria-label="Previous month"
+              className="grid h-6 w-6 place-items-center text-stone hover:text-ink"
+            >
               <Icon name="chevL" size={15} />
             </button>
             <span className="display text-[13px]">{format(view, "MMMM yyyy")}</span>
-            <button type="button" onClick={() => setView(addMonths(view, 1))} aria-label="Next month"
-              className="grid h-6 w-6 place-items-center text-stone hover:text-ink">
+            <button
+              type="button"
+              onClick={() => setView(addMonths(view, 1))}
+              aria-label="Next month"
+              className="grid h-6 w-6 place-items-center text-stone hover:text-ink"
+            >
               <Icon name="chevR" size={15} />
             </button>
           </div>
 
           <div className="mt-2 grid grid-cols-7 gap-0.5">
-            {DOW.map((d, i) => (
-              <span key={i} className="label grid h-6 place-items-center text-mist">{d}</span>
+            {DOW.map((d) => (
+              <span key={d.key} className="label grid h-6 place-items-center text-mist">
+                {d.label}
+              </span>
             ))}
             {days.map((d) => {
               const iso = format(d, "yyyy-MM-dd");
@@ -128,7 +152,10 @@ export function DatePicker({
                 <button
                   key={iso}
                   type="button"
-                  onClick={() => { onChange(iso); setOpen(false); }}
+                  onClick={() => {
+                    onChange(iso);
+                    setOpen(false);
+                  }}
                   className={cx(
                     "mono grid h-7 place-items-center text-[11px] tabular-nums transition-colors",
                     sel ? "bg-ink text-paper" : "hover:bg-paper-3",
@@ -143,11 +170,27 @@ export function DatePicker({
           </div>
 
           <div className="mt-2 flex items-center justify-between border-t border-[var(--color-line)] pt-2">
-            <button type="button" onClick={() => { onChange(format(today, "yyyy-MM-dd")); setOpen(false); }}
-              className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-ink">Today</button>
+            <button
+              type="button"
+              onClick={() => {
+                onChange(format(today, "yyyy-MM-dd"));
+                setOpen(false);
+              }}
+              className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-ink"
+            >
+              Today
+            </button>
             {value && (
-              <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-                className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal">Clear</button>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+                className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+              >
+                Clear
+              </button>
             )}
           </div>
         </div>
@@ -195,14 +238,25 @@ export function TimePicker({
       >
         <div ref={colRef} className="flex max-h-[240px] w-[120px] flex-col overflow-y-auto p-1">
           {value && clearable && (
-            <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-              className="mono px-2.5 py-1.5 text-left text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal">Clear</button>
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+              className="mono px-2.5 py-1.5 text-left text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+            >
+              Clear
+            </button>
           )}
           {slots.map((t) => (
             <button
               key={t}
               type="button"
-              onClick={() => { onChange(t); setOpen(false); }}
+              onClick={() => {
+                onChange(t);
+                setOpen(false);
+              }}
               data-sel={value === t}
               className={cx(
                 "mono px-2.5 py-1.5 text-left text-[12px] tabular-nums transition-colors",
@@ -243,15 +297,23 @@ export function DurationStepper({
   return (
     <PickerField label={label}>
       <div className="flex items-center justify-between">
-        <button type="button" onClick={() => set(value - step)} aria-label="Decrease duration"
+        <button
+          type="button"
+          onClick={() => set(value - step)}
+          aria-label="Decrease duration"
           className="grid h-5 w-5 place-items-center border border-[var(--color-line)] text-stone hover:bg-ink hover:text-paper disabled:opacity-30"
-          disabled={value <= min}>
+          disabled={value <= min}
+        >
           <Icon name="chevD" size={12} />
         </button>
         <span className="mono text-[12px] tabular-nums text-ink">{fmt(value)}</span>
-        <button type="button" onClick={() => set(value + step)} aria-label="Increase duration"
+        <button
+          type="button"
+          onClick={() => set(value + step)}
+          aria-label="Increase duration"
           className="grid h-5 w-5 place-items-center border border-[var(--color-line)] text-stone hover:bg-ink hover:text-paper disabled:opacity-30"
-          disabled={value >= max}>
+          disabled={value >= max}
+        >
           <Icon name="chevU" size={12} />
         </button>
       </div>
@@ -316,7 +378,9 @@ export function TimeRange({
               {value.time && end != null ? `${value.time} – ${fmtMin(end)}` : "No time"}
             </span>
             <span className="flex items-center gap-1.5 shrink-0">
-              {value.time && <span className="mono text-[10px] text-stone">{fmtLen(value.durationMin)}</span>}
+              {value.time && (
+                <span className="mono text-[10px] text-stone">{fmtLen(value.durationMin)}</span>
+              )}
               <Icon name="clock" size={13} className="text-stone" />
             </span>
           </button>
@@ -326,16 +390,34 @@ export function TimeRange({
           <div className="flex items-center justify-between px-2 pb-1 pt-1">
             <span className="label">start · end</span>
             {value.time && clearable && (
-              <button type="button" onClick={() => { onChange({ time: null, durationMin: value.durationMin }); setOpen(false); }}
-                className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal">Clear</button>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({ time: null, durationMin: value.durationMin });
+                  setOpen(false);
+                }}
+                className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+              >
+                Clear
+              </button>
             )}
           </div>
           <div className="grid grid-cols-2 gap-1">
-            <div ref={startColRef} className="flex max-h-[220px] flex-col overflow-y-auto border-r border-[var(--color-line)] pr-1">
+            <div
+              ref={startColRef}
+              className="flex max-h-[220px] flex-col overflow-y-auto border-r border-[var(--color-line)] pr-1"
+            >
               {slots(MIN, MAX - 15).map((m) => (
-                <button key={m} type="button" onClick={() => pickStart(m)} data-sel={start === m}
-                  className={cx("mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
-                    start === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3")}>
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => pickStart(m)}
+                  data-sel={start === m}
+                  className={cx(
+                    "mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
+                    start === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3",
+                  )}
+                >
                   {fmtMin(m)}
                 </button>
               ))}
@@ -345,9 +427,19 @@ export function TimeRange({
                 <span className="mono px-2 py-2 text-[10px] text-mist">pick a start first</span>
               ) : (
                 slots(start + 15, MAX).map((m) => (
-                  <button key={m} type="button" onClick={() => { pickEnd(m); setOpen(false); }} data-sel={end === m}
-                    className={cx("mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
-                      end === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3")}>
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      pickEnd(m);
+                      setOpen(false);
+                    }}
+                    data-sel={end === m}
+                    className={cx(
+                      "mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
+                      end === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3",
+                    )}
+                  >
                     {fmtMin(m)}
                   </button>
                 ))

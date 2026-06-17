@@ -1,8 +1,8 @@
-import { format, subDays, addDays, startOfWeek } from "date-fns";
+import { addDays, format, startOfWeek, subDays } from "date-fns";
 import { dowIndex } from "@/core/lib/date";
 import { habitStreak } from "@/features/habits";
-import type { Task } from "@/features/tasks/model";
 import type { Habit } from "@/features/habits/model";
+import type { Task } from "@/features/tasks/model";
 
 export interface DayStat {
   iso: string;
@@ -89,7 +89,8 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
   // weekday strength
   const byDow = Array.from({ length: 7 }, () => ({ done: 0, total: 0 }));
   for (const t of window) {
-    const di = dowIndex(t.date!);
+    if (!t.date) continue;
+    const di = dowIndex(t.date);
     byDow[di].total++;
     if (t.status === "done") byDow[di].done++;
   }
@@ -100,7 +101,9 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
   if (dowRanked.length >= 3 && dowRanked[0].rate - dowRanked[dowRanked.length - 1].rate >= 0.1) {
     const hi = dowRanked[0];
     const loDay = dowRanked[dowRanked.length - 1];
-    out.push(`You follow through most on ${DOW_NAME[hi.i]}s (${Math.round(hi.rate * 100)}%) and least on ${DOW_NAME[loDay.i]}s (${Math.round(loDay.rate * 100)}%).`);
+    out.push(
+      `You follow through most on ${DOW_NAME[hi.i]}s (${Math.round(hi.rate * 100)}%) and least on ${DOW_NAME[loDay.i]}s (${Math.round(loDay.rate * 100)}%).`,
+    );
   }
 
   // morning vs evening
@@ -110,7 +113,9 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
     const mr = doneRate(morning);
     const er = doneRate(evening);
     if (Math.abs(mr - er) >= 0.08) {
-      out.push(`${mr > er ? "Mornings" : "Evenings"} stick better — ${Math.round(Math.max(mr, er) * 100)}% vs ${Math.round(Math.min(mr, er) * 100)}% the other way.`);
+      out.push(
+        `${mr > er ? "Mornings" : "Evenings"} stick better — ${Math.round(Math.max(mr, er) * 100)}% vs ${Math.round(Math.min(mr, er) * 100)}% the other way.`,
+      );
     }
   }
 
@@ -121,7 +126,9 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
     const gr = doneRate(goalT);
     const ur = doneRate(looseT);
     if (Math.abs(gr - ur) >= 0.08) {
-      out.push(`${gr > ur ? "Goal-linked work" : "Goal-less habits"} land more reliably (${Math.round(Math.max(gr, ur) * 100)}%) than ${gr > ur ? "goal-less habits" : "goal-linked work"} (${Math.round(Math.min(gr, ur) * 100)}%).`);
+      out.push(
+        `${gr > ur ? "Goal-linked work" : "Goal-less habits"} land more reliably (${Math.round(Math.max(gr, ur) * 100)}%) than ${gr > ur ? "goal-less habits" : "goal-linked work"} (${Math.round(Math.min(gr, ur) * 100)}%).`,
+      );
     }
   }
 
@@ -130,7 +137,9 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
     .map((h) => ({ h, s: habitStreak(tasks, h.id) }))
     .sort((a, b) => b.s - a.s)[0];
   if (topChain && topChain.s >= 4) {
-    out.push(`Your strongest chain is "${topChain.h.name}" at ${topChain.s} days — worth protecting.`);
+    out.push(
+      `Your strongest chain is "${topChain.h.name}" at ${topChain.s} days — worth protecting.`,
+    );
   }
 
   return out.slice(0, 4);
@@ -178,7 +187,10 @@ export function consistencyGrid(
       });
     }
     const m = wkStart.getMonth();
-    if (m !== lastMonth) { months.push({ label: format(wkStart, "MMM"), col: colIdx }); lastMonth = m; }
+    if (m !== lastMonth) {
+      months.push({ label: format(wkStart, "MMM"), col: colIdx });
+      lastMonth = m;
+    }
     cols.push(col);
   }
   return { cols, months };
@@ -202,10 +214,24 @@ export function energyStats(tasks: Task[], n = 28): EnergyStats {
   const chargeBy: Record<string, number> = {};
   for (const t of done) {
     const e = t.energy ?? "neutral";
-    if (e === "charge") { charge++; chargeBy[t.title] = (chargeBy[t.title] ?? 0) + 1; }
-    else if (e === "drain") { drain++; drainBy[t.title] = (drainBy[t.title] ?? 0) + 1; }
+    if (e === "charge") {
+      charge++;
+      chargeBy[t.title] = (chargeBy[t.title] ?? 0) + 1;
+    } else if (e === "drain") {
+      drain++;
+      drainBy[t.title] = (drainBy[t.title] ?? 0) + 1;
+    }
   }
   const rank = (m: Record<string, number>) =>
-    Object.entries(m).map(([title, c]) => ({ title, n: c })).sort((a, b) => b.n - a.n).slice(0, 4);
-  return { charge, drain, net: charge - drain, topDrains: rank(drainBy), topCharges: rank(chargeBy) };
+    Object.entries(m)
+      .map(([title, c]) => ({ title, n: c }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 4);
+  return {
+    charge,
+    drain,
+    net: charge - drain,
+    topDrains: rank(drainBy),
+    topCharges: rank(chargeBy),
+  };
 }

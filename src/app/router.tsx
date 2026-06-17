@@ -1,29 +1,39 @@
 import { lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
-import { RootBoot } from "./RootBoot";
+import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
+import { BoardPage } from "@/features/board/BoardPage";
+import { CalendarPage } from "@/features/calendar/CalendarPage";
+import { CockpitPage } from "@/features/cockpit/CockpitPage";
+import { HabitsPage } from "@/features/habits/HabitsPage";
+import { LabIndex } from "@/features/lab/LabIndex";
+import { LabLayout } from "@/features/lab/LabLayout";
+import { LibraryPage } from "@/features/library/LibraryPage";
+import { MapPage } from "@/features/map/MapPage";
+import { ReviewPage } from "@/features/review/ReviewPage";
+import { SettingsPage } from "@/features/settings/SettingsPage";
+import { ValuesGoalsPage } from "@/features/valuesgoals/ValuesGoalsPage";
 import { AppShell } from "./AppShell";
 import { Placeholder } from "./Placeholder";
-import { CockpitPage } from "@/features/cockpit/CockpitPage";
-import { MapPage } from "@/features/map/MapPage";
-import { CalendarPage } from "@/features/calendar/CalendarPage";
-import { BoardPage } from "@/features/board/BoardPage";
-import { ValuesGoalsPage } from "@/features/valuesgoals/ValuesGoalsPage";
-import { HabitsPage } from "@/features/habits/HabitsPage";
-import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
-import { LibraryPage } from "@/features/library/LibraryPage";
-import { SettingsPage } from "@/features/settings/SettingsPage";
-import { ReviewPage } from "@/features/review/ReviewPage";
-import { LabLayout } from "@/features/lab/LabLayout";
-import { LabIndex } from "@/features/lab/LabIndex";
+import { RootBoot } from "./RootBoot";
 
 // Lab variants are heavy (three.js) — code-split so the main app stays light.
 const named = <T extends string>(p: Promise<Record<T, React.ComponentType>>, k: T) =>
   p.then((m) => ({ default: m[k] }));
-const GalaxyVariant = lazy(() => named(import("@/features/lab/variants/GalaxyVariant"), "GalaxyVariant"));
-const GlobeVariant = lazy(() => named(import("@/features/lab/variants/GlobeVariant"), "GlobeVariant"));
-const ConstellationVariant = lazy(() => named(import("@/features/lab/variants/ConstellationVariant"), "ConstellationVariant"));
-const TerminalVariant = lazy(() => named(import("@/features/lab/variants/TerminalVariant"), "TerminalVariant"));
-const BlueprintVariant = lazy(() => named(import("@/features/lab/variants/BlueprintVariant"), "BlueprintVariant"));
+const GalaxyVariant = lazy(() =>
+  named(import("@/features/lab/variants/GalaxyVariant"), "GalaxyVariant"),
+);
+const GlobeVariant = lazy(() =>
+  named(import("@/features/lab/variants/GlobeVariant"), "GlobeVariant"),
+);
+const ConstellationVariant = lazy(() =>
+  named(import("@/features/lab/variants/ConstellationVariant"), "ConstellationVariant"),
+);
+const TerminalVariant = lazy(() =>
+  named(import("@/features/lab/variants/TerminalVariant"), "TerminalVariant"),
+);
+const BlueprintVariant = lazy(() =>
+  named(import("@/features/lab/variants/BlueprintVariant"), "BlueprintVariant"),
+);
 
 export const router = createBrowserRouter([
   {

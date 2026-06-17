@@ -1,5 +1,5 @@
 import { useStore } from "@/core/store";
-import { listVegaEvents, insertEvent, patchEvent, deleteEvent } from "./gcal";
+import { deleteEvent, insertEvent, listVegaEvents, patchEvent } from "./gcal";
 import { computePull, computePush } from "./reconcile";
 import { getCalendarId, getSyncToken, setSyncToken } from "./state";
 
@@ -18,14 +18,22 @@ export async function syncNow(interactive = false): Promise<{ pushed: number; pu
     const store = useStore.getState();
 
     // 1. PULL — incremental when we have a syncToken; fall back to full on 410.
-    let { events, nextSyncToken, expired } = await listVegaEvents(calId, getSyncToken(), interactive);
+    let { events, nextSyncToken, expired } = await listVegaEvents(
+      calId,
+      getSyncToken(),
+      interactive,
+    );
     if (expired) {
       setSyncToken(null);
       ({ events, nextSyncToken } = await listVegaEvents(calId, null, interactive));
     }
     const pull = computePull(store.tasks, events);
     for (const u of pull) {
-      store.updateTask(u.taskId, { date: u.date, time: u.time, ...(u.unscheduled ? { status: "open" } : {}) });
+      store.updateTask(u.taskId, {
+        date: u.date,
+        time: u.time,
+        ...(u.unscheduled ? { status: "open" } : {}),
+      });
     }
 
     // 2. PUSH — re-read tasks after pull; bring Google in line.
@@ -33,9 +41,13 @@ export async function syncNow(interactive = false): Promise<{ pushed: number; pu
     const liveEvents = events.filter((e) => e.status !== "cancelled");
     const ops = computePush(tasks, liveEvents);
     for (const op of ops) {
-      if (op.kind === "insert") await insertEvent(calId, op.body!);
-      else if (op.kind === "patch") await patchEvent(calId, op.eventId!, op.body!);
-      else await deleteEvent(calId, op.eventId!);
+      if (op.kind === "insert") {
+        if (op.body) await insertEvent(calId, op.body);
+      } else if (op.kind === "patch") {
+        if (op.eventId && op.body) await patchEvent(calId, op.eventId, op.body);
+      } else if (op.eventId) {
+        await deleteEvent(calId, op.eventId);
+      }
     }
 
     if (nextSyncToken) setSyncToken(nextSyncToken);

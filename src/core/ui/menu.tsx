@@ -1,8 +1,8 @@
 import * as RM from "@radix-ui/react-dropdown-menu";
 import type { ReactNode } from "react";
+import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
 import { Icon } from "./icons";
-import type { IconName } from "@/core/lib/icon-names";
 
 export interface MenuItem {
   label: string;
@@ -35,9 +35,9 @@ export function Menu({
           sideOffset={6}
           className="z-[60] min-w-[160px] overflow-hidden border border-ink bg-paper p-1 shadow-[0_8px_24px_rgba(24,24,15,0.18)]"
         >
-          {items.map((it, i) => (
+          {items.map((it) => (
             <RM.Item
-              key={i}
+              key={it.label}
               onSelect={it.onSelect}
               disabled={it.disabled}
               className={cx(

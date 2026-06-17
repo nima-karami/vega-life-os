@@ -1,17 +1,17 @@
 import { useMemo } from "react";
 import { useStore } from "@/core/store";
-import { Panel, SectionHead, Label, Sparkline, Gauge, Icon, cx } from "@/core/ui";
+import { cx, Gauge, Icon, Label, Panel, SectionHead, Sparkline } from "@/core/ui";
 import { goalTimeElapsed } from "@/features/goals";
 import { habitRate } from "@/features/habits";
 import {
-  dailyStats,
-  weeklyRate,
-  overallRate,
   completedByValue,
-  energyStats,
   consistencyGrid,
-  insights,
+  dailyStats,
+  energyStats,
   type GridCell,
+  insights,
+  overallRate,
+  weeklyRate,
 } from "./selectors";
 
 export function AnalyticsPage() {
@@ -50,8 +50,8 @@ export function AnalyticsPage() {
         <Panel className="mb-4 p-5">
           <SectionHead title="insights · patterns" meta="60 d" />
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-            {insightList.map((text, i) => (
-              <div key={i} className="flex items-start gap-2.5 border-l-2 border-ink py-1 pl-3">
+            {insightList.map((text) => (
+              <div key={text} className="flex items-start gap-2.5 border-l-2 border-ink py-1 pl-3">
                 <Icon name="spark" size={14} className="mt-0.5 shrink-0 text-ash" />
                 <p className="text-[12px] leading-relaxed">{text}</p>
               </div>
@@ -90,10 +90,14 @@ export function AnalyticsPage() {
             {/* month labels */}
             <div className="mb-1 flex gap-[3px]">
               <div className="w-4 shrink-0" />
-              {grid.cols.map((_, ci) => {
+              {grid.cols.map((col, ci) => {
                 const mk = grid.months.find((m) => m.col === ci);
                 return (
-                  <div key={ci} style={{ width: 13 }} className="mono shrink-0 overflow-visible whitespace-nowrap text-[8px] text-mist">
+                  <div
+                    key={`mlabel-${col[0]?.iso ?? ci}`}
+                    style={{ width: 13 }}
+                    className="mono shrink-0 overflow-visible whitespace-nowrap text-[8px] text-mist"
+                  >
                     {mk ? mk.label : ""}
                   </div>
                 );
@@ -102,24 +106,51 @@ export function AnalyticsPage() {
             <div className="flex gap-[3px]">
               {/* day labels */}
               <div className="mr-px flex w-4 shrink-0 flex-col gap-[3px]">
-                {["M", "", "W", "", "F", "", "S"].map((d, i) => (
-                  <span key={i} style={{ height: 13 }} className="mono text-[8px] leading-[13px] text-mist">{d}</span>
+                {[
+                  { key: "mon", label: "M" },
+                  { key: "tue", label: "" },
+                  { key: "wed", label: "W" },
+                  { key: "thu", label: "" },
+                  { key: "fri", label: "F" },
+                  { key: "sat", label: "" },
+                  { key: "sun", label: "S" },
+                ].map((d) => (
+                  <span
+                    key={d.key}
+                    style={{ height: 13 }}
+                    className="mono text-[8px] leading-[13px] text-mist"
+                  >
+                    {d.label}
+                  </span>
                 ))}
               </div>
               {grid.cols.map((col, ci) => (
-                <div key={ci} className="flex shrink-0 flex-col gap-[3px]">
-                  {col.map((cell) => <HeatCell key={cell.iso} cell={cell} />)}
+                <div key={`wcol-${col[0]?.iso ?? ci}`} className="flex shrink-0 flex-col gap-[3px]">
+                  {col.map((cell) => (
+                    <HeatCell key={cell.iso} cell={cell} />
+                  ))}
                 </div>
               ))}
             </div>
             {/* legend */}
             <div className="mt-3 flex items-center gap-1.5">
               <Label>less</Label>
-              {[0, 0.25, 0.45, 0.7, 1].map((o, i) => (
-                <span key={i} style={{ width: 11, height: 11, background: "var(--color-ink)", opacity: o || 0, border: o ? "none" : "1px solid var(--color-line)" }} />
+              {[0, 0.25, 0.45, 0.7, 1].map((o) => (
+                <span
+                  key={`legend-${o}`}
+                  style={{
+                    width: 11,
+                    height: 11,
+                    background: "var(--color-ink)",
+                    opacity: o || 0,
+                    border: o ? "none" : "1px solid var(--color-line)",
+                  }}
+                />
               ))}
               <Label>more</Label>
-              <span className="mono ml-3 text-[10px] text-stone">daily completion · skips excluded</span>
+              <span className="mono ml-3 text-[10px] text-stone">
+                daily completion · skips excluded
+              </span>
             </div>
           </div>
         </Panel>
@@ -129,10 +160,19 @@ export function AnalyticsPage() {
           <SectionHead title="daily completion" meta="28 d" />
           <div className="mt-4 flex items-end gap-[3px]" style={{ height: 120 }}>
             {daily.map((d) => (
-              <div key={d.iso} className="group relative flex flex-1 flex-col items-center justify-end">
+              <div
+                key={d.iso}
+                className="group relative flex flex-1 flex-col items-center justify-end"
+              >
                 <div className="flex w-full flex-col justify-end" style={{ height: 110 }}>
-                  <div className="w-full bg-[var(--color-line-strong)]" style={{ height: `${(d.total / maxDaily) * 100}%`, minHeight: d.total ? 2 : 0 }}>
-                    <div className="w-full bg-ink" style={{ height: `${d.total ? (d.done / d.total) * 100 : 0}%` }} />
+                  <div
+                    className="w-full bg-[var(--color-line-strong)]"
+                    style={{ height: `${(d.total / maxDaily) * 100}%`, minHeight: d.total ? 2 : 0 }}
+                  >
+                    <div
+                      className="w-full bg-ink"
+                      style={{ height: `${d.total ? (d.done / d.total) * 100 : 0}%` }}
+                    />
                   </div>
                 </div>
                 <span className="mono mt-1 text-[7px] text-mist">{d.label}</span>
@@ -140,8 +180,12 @@ export function AnalyticsPage() {
             ))}
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-2 w-2 bg-ink" /> done</span>
-            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-2 w-2 bg-[var(--color-line-strong)]" /> scheduled</span>
+            <span className="mono flex items-center gap-1 text-[9px] text-stone">
+              <span className="inline-block h-2 w-2 bg-ink" /> done
+            </span>
+            <span className="mono flex items-center gap-1 text-[9px] text-stone">
+              <span className="inline-block h-2 w-2 bg-[var(--color-line-strong)]" /> scheduled
+            </span>
           </div>
         </Panel>
 
@@ -153,11 +197,18 @@ export function AnalyticsPage() {
               const c = byValue[v.id] ?? 0;
               return (
                 <div key={v.id} className="flex items-center gap-2">
-                  <span className="mono w-20 shrink-0 truncate text-[10px] uppercase text-ash">{v.name}</span>
+                  <span className="mono w-20 shrink-0 truncate text-[10px] uppercase text-ash">
+                    {v.name}
+                  </span>
                   <div className="h-3 flex-1 bg-[var(--color-line-soft)]">
-                    <div className="h-3" style={{ width: `${(c / maxValueCount) * 100}%`, background: v.hue }} />
+                    <div
+                      className="h-3"
+                      style={{ width: `${(c / maxValueCount) * 100}%`, background: v.hue }}
+                    />
                   </div>
-                  <span className="mono w-6 text-right text-[10px] tabular-nums text-stone">{c}</span>
+                  <span className="mono w-6 text-right text-[10px] tabular-nums text-stone">
+                    {c}
+                  </span>
                 </div>
               );
             })}
@@ -175,13 +226,22 @@ export function AnalyticsPage() {
                 <div key={g.id}>
                   <div className="flex items-center justify-between">
                     <span className="mono text-[11px] text-ink">{g.name}</span>
-                    <span className={cx("mono text-[10px]", pace >= 0 ? "text-good" : "text-signal")}>
+                    <span
+                      className={cx("mono text-[10px]", pace >= 0 ? "text-good" : "text-signal")}
+                    >
                       {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
                     </span>
                   </div>
                   <div className="relative mt-2 h-2 bg-[var(--color-line-soft)]">
-                    <div className="absolute left-0 top-0 h-2 bg-ink" style={{ width: `${g.progress * 100}%` }} />
-                    <div className="absolute top-[-2px] h-3 border-l border-dashed border-signal" style={{ left: `${elapsed * 100}%` }} title="expected pace" />
+                    <div
+                      className="absolute left-0 top-0 h-2 bg-ink"
+                      style={{ width: `${g.progress * 100}%` }}
+                    />
+                    <div
+                      className="absolute top-[-2px] h-3 border-l border-dashed border-signal"
+                      style={{ left: `${elapsed * 100}%` }}
+                      title="expected pace"
+                    />
                   </div>
                 </div>
               );
@@ -199,7 +259,9 @@ export function AnalyticsPage() {
                 <div className="h-3 flex-1 bg-[var(--color-line-soft)]">
                   <div className="h-3 bg-ink" style={{ width: `${rate * 100}%` }} />
                 </div>
-                <span className="mono w-8 text-right text-[10px] tabular-nums text-stone">{Math.round(rate * 100)}%</span>
+                <span className="mono w-8 text-right text-[10px] tabular-nums text-stone">
+                  {Math.round(rate * 100)}%
+                </span>
               </div>
             ))}
           </div>
@@ -211,18 +273,35 @@ export function AnalyticsPage() {
           <div className="mt-4 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)]">
             <div>
               <div className="flex items-end gap-2">
-                <span className="display text-4xl leading-none" style={{ color: energy.net >= 0 ? "var(--color-good)" : "var(--color-signal)" }}>
-                  {energy.net >= 0 ? "+" : ""}{energy.net}
+                <span
+                  className="display text-4xl leading-none"
+                  style={{ color: energy.net >= 0 ? "var(--color-good)" : "var(--color-signal)" }}
+                >
+                  {energy.net >= 0 ? "+" : ""}
+                  {energy.net}
                 </span>
                 <Label className="mb-1.5">net energy</Label>
               </div>
               <div className="mt-3 flex h-3 w-full overflow-hidden border border-[var(--color-line)]">
-                <div className="h-full bg-ink" style={{ width: `${(energy.charge / energyTotal) * 100}%` }} title={`${energy.charge} charge`} />
-                <div className="h-full" style={{ width: `${(energy.drain / energyTotal) * 100}%`, background: "var(--color-signal)" }} title={`${energy.drain} drain`} />
+                <div
+                  className="h-full bg-ink"
+                  style={{ width: `${(energy.charge / energyTotal) * 100}%` }}
+                  title={`${energy.charge} charge`}
+                />
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${(energy.drain / energyTotal) * 100}%`,
+                    background: "var(--color-signal)",
+                  }}
+                  title={`${energy.drain} drain`}
+                />
               </div>
               <div className="mt-2 flex justify-between">
                 <span className="mono text-[10px] text-stone">▲ {energy.charge} charged</span>
-                <span className="mono text-[10px]" style={{ color: "var(--color-signal)" }}>▼ {energy.drain} drained</span>
+                <span className="mono text-[10px]" style={{ color: "var(--color-signal)" }}>
+                  ▼ {energy.drain} drained
+                </span>
               </div>
               <p className="mono mt-3 text-[10px] leading-relaxed text-mist">
                 {energy.net >= 0
@@ -240,7 +319,9 @@ export function AnalyticsPage() {
                       <span className="mono text-[10px] text-stone">×{d.n}</span>
                     </li>
                   ))}
-                  {!energy.topCharges.length && <li className="mono text-[10px] text-mist">— tag tasks to see this —</li>}
+                  {!energy.topCharges.length && (
+                    <li className="mono text-[10px] text-mist">— tag tasks to see this —</li>
+                  )}
                 </ul>
               </div>
               <div>
@@ -248,11 +329,15 @@ export function AnalyticsPage() {
                 <ul className="mt-2 space-y-1.5">
                   {energy.topDrains.map((d) => (
                     <li key={d.title} className="flex items-center justify-between">
-                      <span className="mono text-[11px]" style={{ color: "var(--color-signal)" }}>▼ {d.title}</span>
+                      <span className="mono text-[11px]" style={{ color: "var(--color-signal)" }}>
+                        ▼ {d.title}
+                      </span>
                       <span className="mono text-[10px] text-stone">×{d.n}</span>
                     </li>
                   ))}
-                  {!energy.topDrains.length && <li className="mono text-[10px] text-mist">— nothing draining logged —</li>}
+                  {!energy.topDrains.length && (
+                    <li className="mono text-[10px] text-mist">— nothing draining logged —</li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -265,10 +350,21 @@ export function AnalyticsPage() {
 
 function HeatCell({ cell }: { cell: GridCell }) {
   if (cell.future) {
-    return <div style={{ width: 13, height: 13 }} className="border border-dashed border-[var(--color-line)]" />;
+    return (
+      <div
+        style={{ width: 13, height: 13 }}
+        className="border border-dashed border-[var(--color-line)]"
+      />
+    );
   }
   if (cell.total === 0) {
-    return <div title={cell.iso} style={{ width: 13, height: 13 }} className="border border-[var(--color-line)]" />;
+    return (
+      <div
+        title={cell.iso}
+        style={{ width: 13, height: 13 }}
+        className="border border-[var(--color-line)]"
+      />
+    );
   }
   const op = cell.rate < 0.25 ? 0.25 : cell.rate < 0.5 ? 0.45 : cell.rate < 0.8 ? 0.7 : 1;
   return (

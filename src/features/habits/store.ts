@@ -1,7 +1,7 @@
-import type { Slice } from "@/core/store/slice";
+import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
-import { todayISO } from "@/core/lib/date";
+import type { Slice } from "@/core/store/slice";
 import type { Habit } from "./model";
 
 export interface HabitsSlice {
@@ -38,9 +38,11 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   updateHabit: (id, patch) => {
     let next: Habit | undefined;
     set((s) => ({
-      habits: s.habits.map((h) =>
-        h.id === id ? ((next = { ...h, ...patch, id }), next) : h,
-      ),
+      habits: s.habits.map((h) => {
+        if (h.id !== id) return h;
+        next = { ...h, ...patch, id };
+        return next;
+      }),
     }));
     if (next) savePut("habits", next);
     // when the schedule changes, rebuild this habit's future undone instances
@@ -48,12 +50,15 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     if (next && (patch.days !== undefined || patch.time !== undefined)) {
       const today = todayISO();
       const removeIds = get()
-        .tasks.filter((t) => t.habitId === id && t.date && t.date >= today && t.status === "todo" && !t.detached)
+        .tasks.filter(
+          (t) =>
+            t.habitId === id && t.date && t.date >= today && t.status === "todo" && !t.detached,
+        )
         .map((t) => t.id);
       if (removeIds.length) {
         const drop = new Set(removeIds);
         set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
-        removeIds.forEach((tid) => saveRemove("tasks", tid));
+        for (const tid of removeIds) saveRemove("tasks", tid);
       }
       get().ensureUpcoming();
     }
@@ -61,12 +66,14 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
 
   removeHabit: (id) => {
     // cascade: a deleted habit takes its task instances with it (no ghost tasks)
-    const orphanTaskIds = get().tasks.filter((t) => t.habitId === id).map((t) => t.id);
+    const orphanTaskIds = get()
+      .tasks.filter((t) => t.habitId === id)
+      .map((t) => t.id);
     set((s) => ({
       habits: s.habits.filter((h) => h.id !== id),
       tasks: s.tasks.filter((t) => t.habitId !== id),
     }));
     saveRemove("habits", id);
-    orphanTaskIds.forEach((tid) => saveRemove("tasks", tid));
+    for (const tid of orphanTaskIds) saveRemove("tasks", tid);
   },
 });

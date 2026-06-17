@@ -1,10 +1,10 @@
 import {
   addDays,
+  isToday as dfnsIsToday,
+  differenceInCalendarDays,
   format,
   parseISO,
   startOfWeek,
-  differenceInCalendarDays,
-  isToday as dfnsIsToday,
 } from "date-fns";
 
 export const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -14,8 +14,7 @@ export const todayISO = (ref: Date = new Date()) => format(ref, "yyyy-MM-dd");
 export const isoToDate = (s: string) => parseISO(s);
 
 /** Monday-anchored week start for a reference date. */
-export const weekStartOf = (ref: Date = new Date()) =>
-  startOfWeek(ref, { weekStartsOn: 1 });
+export const weekStartOf = (ref: Date = new Date()) => startOfWeek(ref, { weekStartsOn: 1 });
 
 export interface WeekDay {
   dow: string;
@@ -47,11 +46,9 @@ export function dowIndex(isoDate: string): number {
   return (d.getDay() + 6) % 7;
 }
 
-export const fmtShort = (isoDate: string) =>
-  format(parseISO(isoDate), "MMM d");
+export const fmtShort = (isoDate: string) => format(parseISO(isoDate), "MMM d");
 
-export const fmtLong = (isoDate: string) =>
-  format(parseISO(isoDate), "EEE · MMM d · yyyy");
+export const fmtLong = (isoDate: string) => format(parseISO(isoDate), "EEE · MMM d · yyyy");
 
 export const isToday = (isoDate: string) => dfnsIsToday(parseISO(isoDate));
 

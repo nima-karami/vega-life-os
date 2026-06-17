@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
-import { TopBar } from "./TopBar";
 import { NavRow } from "./NavRow";
+import { TopBar } from "./TopBar";
 
 /** App chrome: top bar + nav + the active view. Boot/theme/⌘K live in RootBoot. */
 export function AppShell() {

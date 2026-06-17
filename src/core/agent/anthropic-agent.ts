@@ -1,9 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { useStore } from "@/core/store";
 import { todayISO } from "@/core/lib/date";
-import { parseWhen } from "./when";
+import { useStore } from "@/core/store";
+import { getAgentModel, getAnthropicKey } from "./config";
 import type { Agent, AgentAction, AgentResult } from "./types";
-import { getAnthropicKey, getAgentModel } from "./config";
+import { parseWhen } from "./when";
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -23,13 +23,22 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "complete_task",
-    description: "Mark an existing open task done. taskId must be from the provided open-tasks list.",
-    input_schema: { type: "object", properties: { taskId: { type: "string" } }, required: ["taskId"] },
+    description:
+      "Mark an existing open task done. taskId must be from the provided open-tasks list.",
+    input_schema: {
+      type: "object",
+      properties: { taskId: { type: "string" } },
+      required: ["taskId"],
+    },
   },
   {
     name: "skip_task",
     description: "Skip an existing open task. taskId must be from the provided open-tasks list.",
-    input_schema: { type: "object", properties: { taskId: { type: "string" } }, required: ["taskId"] },
+    input_schema: {
+      type: "object",
+      properties: { taskId: { type: "string" } },
+      required: ["taskId"],
+    },
   },
   {
     name: "plan_week",
@@ -39,11 +48,16 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "focus_goal",
     description: "Set the global focus filter to a goal. goalId from the provided goals list.",
-    input_schema: { type: "object", properties: { goalId: { type: "string" } }, required: ["goalId"] },
+    input_schema: {
+      type: "object",
+      properties: { goalId: { type: "string" } },
+      required: ["goalId"],
+    },
   },
   {
     name: "show",
-    description: "Surface a focused read-only view answering a 'what/show/which' question. Provide taskIds to render a task list, and/or lines for freeform bullet text.",
+    description:
+      "Surface a focused read-only view answering a 'what/show/which' question. Provide taskIds to render a task list, and/or lines for freeform bullet text.",
     input_schema: {
       type: "object",
       properties: {
@@ -86,10 +100,17 @@ function toAction(name: string, input: Record<string, unknown>, idx: number): Ag
       const date = (input.date as string) ?? when.date ?? null;
       const time = (input.time as string) ?? when.time ?? null;
       return {
-        id, icon: "plus",
+        id,
+        icon: "plus",
         label: `Add task: "${title}"${date ? ` · ${date === todayISO() ? "today" : date.slice(5)}` : " · backlog"}${time ? ` ${time}` : ""}`,
         run: () => {
-          s.addTask({ title, date, time, valueId: (input.valueId as string) ?? null, goalId: (input.goalId as string) ?? null });
+          s.addTask({
+            title,
+            date,
+            time,
+            valueId: (input.valueId as string) ?? null,
+            goalId: (input.goalId as string) ?? null,
+          });
           s.pushToast(`Added "${title}"`);
         },
       };
@@ -97,30 +118,65 @@ function toAction(name: string, input: Record<string, unknown>, idx: number): Ag
     case "complete_task": {
       const t = s.tasks.find((x) => x.id === input.taskId);
       if (!t) return null;
-      return { id, icon: "check", label: `Complete: ${t.title}`, run: () => { s.setStatus(t.id, "done"); s.pushToast(`Completed "${t.title}"`); } };
+      return {
+        id,
+        icon: "check",
+        label: `Complete: ${t.title}`,
+        run: () => {
+          s.setStatus(t.id, "done");
+          s.pushToast(`Completed "${t.title}"`);
+        },
+      };
     }
     case "skip_task": {
       const t = s.tasks.find((x) => x.id === input.taskId);
       if (!t) return null;
-      return { id, icon: "skip", label: `Skip: ${t.title}`, run: () => { s.setStatus(t.id, "skip"); s.pushToast(`Skipped "${t.title}"`); } };
+      return {
+        id,
+        icon: "skip",
+        label: `Skip: ${t.title}`,
+        run: () => {
+          s.setStatus(t.id, "skip");
+          s.pushToast(`Skipped "${t.title}"`);
+        },
+      };
     }
     case "plan_week":
-      return { id, icon: "flash", label: "Plan this week (fill habit blocks)", run: () => { const n = s.planWeek(); s.pushToast(n ? `Planned ${n} blocks` : "Week already full"); } };
+      return {
+        id,
+        icon: "flash",
+        label: "Plan this week (fill habit blocks)",
+        run: () => {
+          const n = s.planWeek();
+          s.pushToast(n ? `Planned ${n} blocks` : "Week already full");
+        },
+      };
     case "focus_goal": {
       const g = s.goals.find((x) => x.id === input.goalId);
       if (!g) return null;
-      return { id, icon: g.icon, label: `Focus: ${g.name}`, run: () => { s.setFocusGoal(g.id); s.pushToast(`Focused on ${g.name}`); } };
+      return {
+        id,
+        icon: g.icon,
+        label: `Focus: ${g.name}`,
+        run: () => {
+          s.setFocusGoal(g.id);
+          s.pushToast(`Focused on ${g.name}`);
+        },
+      };
     }
     case "show":
       return {
-        id, icon: "calendar", label: `Show: ${String(input.title ?? "view")}`,
-        run: () => s.setEphemeral({
-          title: String(input.title ?? "View"),
-          subtitle: input.subtitle as string | undefined,
-          taskIds: (input.taskIds as string[]) ?? undefined,
-          lines: (input.lines as string[]) ?? undefined,
-          createdAt: Date.now(),
-        }),
+        id,
+        icon: "calendar",
+        label: `Show: ${String(input.title ?? "view")}`,
+        run: () =>
+          s.setEphemeral({
+            title: String(input.title ?? "View"),
+            subtitle: input.subtitle as string | undefined,
+            taskIds: (input.taskIds as string[]) ?? undefined,
+            lines: (input.lines as string[]) ?? undefined,
+            createdAt: Date.now(),
+          }),
       };
     default:
       return null;
@@ -145,7 +201,7 @@ export class AnthropicAgent implements Agent {
       max_tokens: 2048,
       thinking: { type: "adaptive" },
       output_config: { effort: "low" },
-      system: SYSTEM.replace("{TODAY}", todayISO()) + "\n\nCONTEXT:\n" + context(),
+      system: `${SYSTEM.replace("{TODAY}", todayISO())}\n\nCONTEXT:\n${context()}`,
       tools: TOOLS,
       messages: [{ role: "user", content: q }],
     } as unknown as Anthropic.MessageCreateParamsNonStreaming);

@@ -1,14 +1,7 @@
-import {
-  persistence,
-  type CollectionName,
-  type Dataset,
-} from "@/core/persistence";
+import { type CollectionName, type Dataset, persistence } from "@/core/persistence";
 
 /** Fire-and-forget persistence helpers used by store slices. */
-export function savePut<C extends CollectionName>(
-  col: C,
-  item: Dataset[C][number],
-) {
+export function savePut<C extends CollectionName>(col: C, item: Dataset[C][number]) {
   void persistence.put(col, item).catch((e) => console.error("persist", col, e));
 }
 

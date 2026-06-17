@@ -1,7 +1,7 @@
-import type { Goal } from "./model";
+import { daysBetween, todayISO } from "@/core/lib/date";
 import type { Habit } from "@/features/habits/model";
 import type { Task } from "@/features/tasks/model";
-import { todayISO, daysBetween } from "@/core/lib/date";
+import type { Goal } from "./model";
 
 export const goalsForValue = (goals: Goal[], valueId: string) =>
   goals.filter((g) => g.valueId === valueId).sort((a, b) => a.order - b.order);

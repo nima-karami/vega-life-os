@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
 import { useStore } from "@/core/store";
-import { Panel, SectionHead, Label, Icon, Tag, Gauge } from "@/core/ui";
 import { spectrum as SPECTRUM } from "@/core/theme/tokens";
-import { valueRollup } from "@/features/values";
+import { Gauge, Icon, Label, Panel, SectionHead, Tag } from "@/core/ui";
 import { goalsForValue } from "@/features/goals";
 import type { Value } from "@/features/values";
+import { valueRollup } from "@/features/values";
 
 interface Node {
   id: string;
@@ -46,20 +46,48 @@ export function MapPage() {
       const roll = valueRollup(v.id, { goals, habits, tasks, energy: v.energy });
       const size = 56 + v.energy * 56;
       nodes.push({
-        id: v.id, kind: "value", label: v.name,
+        id: v.id,
+        kind: "value",
+        label: v.name,
         sub: `${Math.round(v.energy * 100)}% energy`,
-        x: vx, y: vy, size, hue: SPECTRUM[v.spectrum] ?? "#888",
-        energy: v.energy, needsYou: roll.needsYou, icon: v.icon,
+        x: vx,
+        y: vy,
+        size,
+        hue: SPECTRUM[v.spectrum] ?? "#888",
+        energy: v.energy,
+        needsYou: roll.needsYou,
+        icon: v.icon,
       });
 
       // children: goals + maintenance habits (no goal)
-      const children: { id: string; label: string; sub: string; icon: Node["icon"]; energy: number; kind: "goal" | "habit" }[] = [];
-      goalsForValue(goals, v.id).forEach((g) =>
-        children.push({ id: g.id, label: g.name, sub: `${Math.round(g.progress * 100)}% · goal`, icon: g.icon, energy: g.progress, kind: "goal" }),
-      );
-      habits.filter((h) => h.valueId === v.id && !h.goalId).forEach((h) =>
-        children.push({ id: h.id, label: h.name, sub: "habit", icon: h.icon, energy: 0.5, kind: "habit" }),
-      );
+      const children: {
+        id: string;
+        label: string;
+        sub: string;
+        icon: Node["icon"];
+        energy: number;
+        kind: "goal" | "habit";
+      }[] = [];
+      for (const g of goalsForValue(goals, v.id)) {
+        children.push({
+          id: g.id,
+          label: g.name,
+          sub: `${Math.round(g.progress * 100)}% · goal`,
+          icon: g.icon,
+          energy: g.progress,
+          kind: "goal",
+        });
+      }
+      for (const h of habits.filter((hh) => hh.valueId === v.id && !hh.goalId)) {
+        children.push({
+          id: h.id,
+          label: h.name,
+          sub: "habit",
+          icon: h.icon,
+          energy: 0.5,
+          kind: "habit",
+        });
+      }
 
       const childRing = size / 2 + 70;
       children.forEach((c, ci) => {
@@ -68,9 +96,17 @@ export function MapPage() {
         const ccy = vy + Math.sin(ca) * childRing;
         edges.push({ x1: vx, y1: vy, x2: ccx, y2: ccy, faint: c.kind === "habit" });
         nodes.push({
-          id: c.id, kind: c.kind, label: c.label, sub: c.sub,
-          x: ccx, y: ccy, size: 34, hue: SPECTRUM[v.spectrum] ?? "#888",
-          energy: c.energy, parentId: v.id, icon: c.icon,
+          id: c.id,
+          kind: c.kind,
+          label: c.label,
+          sub: c.sub,
+          x: ccx,
+          y: ccy,
+          size: 34,
+          hue: SPECTRUM[v.spectrum] ?? "#888",
+          energy: c.energy,
+          parentId: v.id,
+          icon: c.icon,
         });
       });
     });
@@ -85,8 +121,8 @@ export function MapPage() {
         <Label>// map · orbit view</Label>
         <h1 className="display mt-1 text-4xl">Your life, by value</h1>
         <p className="mono mt-2 max-w-xl text-[11px] leading-relaxed text-stone">
-          Everything you do orbits a value. Bright clusters are getting your energy this
-          week; dim ones are slipping. A flagged value needs you.
+          Everything you do orbits a value. Bright clusters are getting your energy this week; dim
+          ones are slipping. A flagged value needs you.
         </p>
       </Panel>
 
@@ -94,17 +130,36 @@ export function MapPage() {
         <Panel className="relative overflow-hidden">
           <div className="absolute left-4 top-3 z-10 flex items-center gap-3">
             <Label ink>// orbit field</Label>
-            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-px w-4 bg-ink" /> goal</span>
-            <span className="mono flex items-center gap-1 text-[9px] text-stone"><span className="inline-block h-px w-4 border-b border-dashed border-stone" /> habit</span>
+            <span className="mono flex items-center gap-1 text-[9px] text-stone">
+              <span className="inline-block h-px w-4 bg-ink" /> goal
+            </span>
+            <span className="mono flex items-center gap-1 text-[9px] text-stone">
+              <span className="inline-block h-px w-4 border-b border-dashed border-stone" /> habit
+            </span>
           </div>
           <div className="aspect-[1000/640] w-full">
-            <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full">
-              {edges.map((e, i) => (
-                <line key={i} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
-                  stroke="var(--color-line-strong)" strokeWidth={1}
-                  strokeDasharray={e.faint ? "3 4" : undefined} opacity={e.faint ? 0.6 : 1} />
+            <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" aria-hidden="true">
+              {edges.map((e) => (
+                <line
+                  key={`${e.x1},${e.y1}-${e.x2},${e.y2}`}
+                  x1={e.x1}
+                  y1={e.y1}
+                  x2={e.x2}
+                  y2={e.y2}
+                  stroke="var(--color-line-strong)"
+                  strokeWidth={1}
+                  strokeDasharray={e.faint ? "3 4" : undefined}
+                  opacity={e.faint ? 0.6 : 1}
+                />
               ))}
-              {nodes.map((n) => <NodeShape key={n.id} n={n} active={active === n.id} onClick={() => setActive(n.id === active ? null : n.id)} />)}
+              {nodes.map((n) => (
+                <NodeShape
+                  key={n.id}
+                  n={n}
+                  active={active === n.id}
+                  onClick={() => setActive(n.id === active ? null : n.id)}
+                />
+              ))}
             </svg>
           </div>
         </Panel>
@@ -119,14 +174,27 @@ export function MapPage() {
                 {values.map((v) => {
                   const roll = valueRollup(v.id, { goals, habits, tasks, energy: v.energy });
                   return (
-                    <button key={v.id} onClick={() => setActive(v.id)}
-                      className="flex w-full items-center gap-2.5 border border-[var(--color-line)] px-2.5 py-2 text-left transition-colors hover:border-ink">
-                      <span className="h-3 w-3 rounded-full" style={{ background: SPECTRUM[v.spectrum] }} />
+                    <button
+                      type="button"
+                      key={v.id}
+                      onClick={() => setActive(v.id)}
+                      className="flex w-full items-center gap-2.5 border border-[var(--color-line)] px-2.5 py-2 text-left transition-colors hover:border-ink"
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ background: SPECTRUM[v.spectrum] }}
+                      />
                       <span className="flex-1">
                         <span className="display block text-[13px] leading-none">{v.name}</span>
-                        <span className="mono text-[9px] text-stone">{roll.goals}G · {roll.habits}H · {Math.round(v.energy * 100)}%</span>
+                        <span className="mono text-[9px] text-stone">
+                          {roll.goals}G · {roll.habits}H · {Math.round(v.energy * 100)}%
+                        </span>
                       </span>
-                      {roll.needsYou && <Tag><span style={{ color: "var(--color-signal)" }}>NEEDS YOU</span></Tag>}
+                      {roll.needsYou && (
+                        <Tag>
+                          <span style={{ color: "var(--color-signal)" }}>NEEDS YOU</span>
+                        </Tag>
+                      )}
                     </button>
                   );
                 })}
@@ -140,7 +208,14 @@ export function MapPage() {
               {values.map((v) => (
                 <div key={v.id} className="flex flex-1 flex-col items-center gap-1.5">
                   <div className="flex w-full flex-1 items-end">
-                    <div className="w-full" style={{ height: `${v.energy * 100}%`, background: SPECTRUM[v.spectrum], minHeight: 2 }} />
+                    <div
+                      className="w-full"
+                      style={{
+                        height: `${v.energy * 100}%`,
+                        background: SPECTRUM[v.spectrum],
+                        minHeight: 2,
+                      }}
+                    />
                   </div>
                   <span className="mono text-[8px] uppercase text-stone">{v.name.slice(0, 4)}</span>
                 </div>
@@ -167,17 +242,61 @@ function NodeShape({ n, active, onClick }: { n: Node; active: boolean; onClick: 
       {n.kind === "value" ? (
         <>
           {n.needsYou && (
-            <circle cx={n.x} cy={n.y} r={r + 7} fill="none" stroke="var(--color-signal)" strokeWidth={1} strokeDasharray="2 4" />
+            <circle
+              cx={n.x}
+              cy={n.y}
+              r={r + 7}
+              fill="none"
+              stroke="var(--color-signal)"
+              strokeWidth={1}
+              strokeDasharray="2 4"
+            />
           )}
-          <circle cx={n.x} cy={n.y} r={r} fill={n.hue} opacity={dim} stroke={active ? "var(--color-ink)" : "transparent"} strokeWidth={2} />
-          <text x={n.x} y={n.y + r + 16} textAnchor="middle" className="display" style={{ fontSize: 14, fill: "var(--color-ink)" }}>{n.label}</text>
-          <text x={n.x} y={n.y + r + 30} textAnchor="middle" style={{ fontSize: 9, fill: "var(--color-stone)", fontFamily: "var(--font-mono)" }}>{n.sub}</text>
+          <circle
+            cx={n.x}
+            cy={n.y}
+            r={r}
+            fill={n.hue}
+            opacity={dim}
+            stroke={active ? "var(--color-ink)" : "transparent"}
+            strokeWidth={2}
+          />
+          <text
+            x={n.x}
+            y={n.y + r + 16}
+            textAnchor="middle"
+            className="display"
+            style={{ fontSize: 14, fill: "var(--color-ink)" }}
+          >
+            {n.label}
+          </text>
+          <text
+            x={n.x}
+            y={n.y + r + 30}
+            textAnchor="middle"
+            style={{ fontSize: 9, fill: "var(--color-stone)", fontFamily: "var(--font-mono)" }}
+          >
+            {n.sub}
+          </text>
         </>
       ) : (
         <>
-          <circle cx={n.x} cy={n.y} r={r} fill="var(--color-paper)" stroke={n.hue} strokeWidth={1.5} opacity={0.5 + n.energy * 0.5} />
-          <text x={n.x} y={n.y + r + 13} textAnchor="middle" style={{ fontSize: 9.5, fill: "var(--color-ash)", fontFamily: "var(--font-mono)" }}>
-            {n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label}
+          <circle
+            cx={n.x}
+            cy={n.y}
+            r={r}
+            fill="var(--color-paper)"
+            stroke={n.hue}
+            strokeWidth={1.5}
+            opacity={0.5 + n.energy * 0.5}
+          />
+          <text
+            x={n.x}
+            y={n.y + r + 13}
+            textAnchor="middle"
+            style={{ fontSize: 9.5, fill: "var(--color-ash)", fontFamily: "var(--font-mono)" }}
+          >
+            {n.label.length > 22 ? `${n.label.slice(0, 21)}…` : n.label}
           </text>
         </>
       )}
@@ -195,7 +314,10 @@ function ValueCard({ value, onClose }: { value: Value; onClose: () => void }) {
     <Panel ticks className="p-4">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-full" style={{ background: SPECTRUM[value.spectrum] }}>
+          <span
+            className="grid h-8 w-8 place-items-center rounded-full"
+            style={{ background: SPECTRUM[value.spectrum] }}
+          >
             <Icon name={value.icon} size={16} className="text-paper" />
           </span>
           <div>
@@ -203,7 +325,9 @@ function ValueCard({ value, onClose }: { value: Value; onClose: () => void }) {
             <Label className="mt-1">value</Label>
           </div>
         </div>
-        <button onClick={onClose} className="text-stone hover:text-ink"><Icon name="close" size={16} /></button>
+        <button type="button" onClick={onClose} className="text-stone hover:text-ink">
+          <Icon name="close" size={16} />
+        </button>
       </div>
       <p className="mono mt-3 text-[11px] leading-relaxed text-ash">{value.desc}</p>
       <div className="mt-4 flex items-center gap-4">
@@ -219,7 +343,10 @@ function ValueCard({ value, onClose }: { value: Value; onClose: () => void }) {
           <Label>goals</Label>
           <div className="mt-1.5 space-y-1">
             {vGoals.map((g) => (
-              <div key={g.id} className="flex items-center justify-between border-b border-[var(--color-line)] py-1">
+              <div
+                key={g.id}
+                className="flex items-center justify-between border-b border-[var(--color-line)] py-1"
+              >
                 <span className="mono text-[11px] text-ink">{g.name}</span>
                 <span className="mono text-[10px] text-stone">{Math.round(g.progress * 100)}%</span>
               </div>

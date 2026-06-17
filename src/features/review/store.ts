@@ -1,11 +1,13 @@
-import type { Slice } from "@/core/store/slice";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
+import type { Slice } from "@/core/store/slice";
 import type { Review } from "./model";
 
 export interface ReviewSlice {
   reviews: Review[];
-  saveReview: (review: Omit<Review, "id" | "createdAt"> & Partial<Pick<Review, "id" | "createdAt">>) => Review;
+  saveReview: (
+    review: Omit<Review, "id" | "createdAt"> & Partial<Pick<Review, "id" | "createdAt">>,
+  ) => Review;
   removeReview: (id: string) => void;
 }
 
@@ -14,7 +16,9 @@ export const createReviewSlice: Slice<ReviewSlice> = (set, get) => ({
 
   saveReview: (input) => {
     // one review per period — overwrite if the week already has one
-    const existing = get().reviews.find((r) => r.periodKey === input.periodKey && (!input.id || r.id === input.id));
+    const existing = get().reviews.find(
+      (r) => r.periodKey === input.periodKey && (!input.id || r.id === input.id),
+    );
     const review: Review = {
       id: input.id ?? existing?.id ?? uid("rv_"),
       periodKey: input.periodKey,

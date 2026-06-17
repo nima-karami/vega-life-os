@@ -19,10 +19,13 @@ export function parseWhen(input: string): Parsed {
     s = s.replace(re, " ");
   };
 
-  if (/\btomorrow\b/i.test(s)) { date = format(addDays(new Date(), 1), "yyyy-MM-dd"); strip(/\btomorrow\b/i); }
-  else if (/\b(today|tonight)\b/i.test(s)) {
+  if (/\btomorrow\b/i.test(s)) {
+    date = format(addDays(new Date(), 1), "yyyy-MM-dd");
+    strip(/\btomorrow\b/i);
+  } else if (/\b(today|tonight)\b/i.test(s)) {
     if (/\btonight\b/i.test(s)) time = time ?? "21:00";
-    date = todayISO(); strip(/\b(today|tonight)\b/i);
+    date = todayISO();
+    strip(/\b(today|tonight)\b/i);
   } else {
     const wd = WEEKDAYS.find((d) => new RegExp(`\\b(next\\s+)?${d}\\b`, "i").test(s));
     if (wd) {

@@ -1,8 +1,8 @@
-import type { Slice } from "@/core/store/slice";
+import { addDays, format } from "date-fns";
+import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
-import { todayISO } from "@/core/lib/date";
-import { addDays, format } from "date-fns";
+import type { Slice } from "@/core/store/slice";
 import type { Book, Movie, VocabEntry } from "./model";
 
 export interface LibrarySlice {
@@ -54,9 +54,11 @@ export const createLibrarySlice: Slice<LibrarySlice> = (set, get) => ({
   updateBook: (id, patch) => {
     let next: Book | undefined;
     set((s) => ({
-      books: s.books.map((b) =>
-        b.id === id ? ((next = { ...b, ...patch, id }), next) : b,
-      ),
+      books: s.books.map((b) => {
+        if (b.id !== id) return b;
+        next = { ...b, ...patch, id };
+        return next;
+      }),
     }));
     if (next) savePut("books", next);
   },
@@ -84,9 +86,11 @@ export const createLibrarySlice: Slice<LibrarySlice> = (set, get) => ({
   updateMovie: (id, patch) => {
     let next: Movie | undefined;
     set((s) => ({
-      movies: s.movies.map((m) =>
-        m.id === id ? ((next = { ...m, ...patch, id }), next) : m,
-      ),
+      movies: s.movies.map((m) => {
+        if (m.id !== id) return m;
+        next = { ...m, ...patch, id };
+        return next;
+      }),
     }));
     if (next) savePut("movies", next);
   },
@@ -114,9 +118,11 @@ export const createLibrarySlice: Slice<LibrarySlice> = (set, get) => ({
   updateVocab: (id, patch) => {
     let next: VocabEntry | undefined;
     set((s) => ({
-      vocab: s.vocab.map((w) =>
-        w.id === id ? ((next = { ...w, ...patch, id }), next) : w,
-      ),
+      vocab: s.vocab.map((w) => {
+        if (w.id !== id) return w;
+        next = { ...w, ...patch, id };
+        return next;
+      }),
     }));
     if (next) savePut("vocab", next);
   },

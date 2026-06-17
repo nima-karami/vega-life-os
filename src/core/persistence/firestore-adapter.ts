@@ -1,24 +1,24 @@
 import {
   collection,
-  doc,
-  getDocs,
-  setDoc,
   deleteDoc,
-  writeBatch,
+  doc,
+  type Firestore,
+  getDocs,
   onSnapshot,
   serverTimestamp,
-  type Firestore,
+  setDoc,
+  writeBatch,
 } from "firebase/firestore";
 import {
-  type PersistenceAdapter,
-  type Dataset,
+  COLLECTIONS,
   type CollectionName,
   type CollectionSnapshot,
-  COLLECTIONS,
+  type Dataset,
   emptyDataset,
+  type PersistenceAdapter,
 } from "./adapter";
 
-const stripMeta = <T,>(data: Record<string, unknown>): T => {
+const stripMeta = <T>(data: Record<string, unknown>): T => {
   const { _updatedAt, ...rest } = data;
   void _updatedAt;
   return rest as T;
@@ -26,7 +26,10 @@ const stripMeta = <T,>(data: Record<string, unknown>): T => {
 
 /** Firestore-backed adapter. Source of truth when the user is signed in. */
 export class FirestoreAdapter implements PersistenceAdapter {
-  constructor(private db: Firestore, private uid: string) {}
+  constructor(
+    private db: Firestore,
+    private uid: string,
+  ) {}
 
   private colRef(col: CollectionName) {
     return collection(this.db, "users", this.uid, col);
@@ -95,6 +98,8 @@ export class FirestoreAdapter implements PersistenceAdapter {
         onChange({ col, items } as CollectionSnapshot);
       }),
     );
-    return () => unsubs.forEach((u) => u());
+    return () => {
+      for (const u of unsubs) u();
+    };
   }
 }

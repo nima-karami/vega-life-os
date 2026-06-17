@@ -7,7 +7,11 @@ async function call(path: string, init: RequestInit = {}, interactive = false): 
   const token = await getCalendarToken(interactive);
   return fetch(`${BASE}/${path}`, {
     ...init,
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
   });
 }
 
@@ -38,17 +42,26 @@ export async function listVegaEvents(
 }
 
 export async function insertEvent(calendarId: string, body: GEvent): Promise<GEvent> {
-  const res = await call(`${encodeURIComponent(calendarId)}/events`, { method: "POST", body: JSON.stringify(body) });
+  const res = await call(`${encodeURIComponent(calendarId)}/events`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`gcal insert ${res.status}`);
   return res.json();
 }
 
 export async function patchEvent(calendarId: string, eventId: string, body: GEvent): Promise<void> {
-  const res = await call(`${encodeURIComponent(calendarId)}/events/${eventId}`, { method: "PATCH", body: JSON.stringify(body) });
+  const res = await call(`${encodeURIComponent(calendarId)}/events/${eventId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`gcal patch ${res.status}`);
 }
 
 export async function deleteEvent(calendarId: string, eventId: string): Promise<void> {
-  const res = await call(`${encodeURIComponent(calendarId)}/events/${eventId}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 410 && res.status !== 404) throw new Error(`gcal delete ${res.status}`);
+  const res = await call(`${encodeURIComponent(calendarId)}/events/${eventId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 410 && res.status !== 404)
+    throw new Error(`gcal delete ${res.status}`);
 }

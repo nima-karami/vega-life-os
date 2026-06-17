@@ -1,10 +1,10 @@
-import { useMemo, useRef } from "react";
+import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html } from "@react-three/drei";
-import * as THREE from "three";
+import { useMemo, useRef } from "react";
+import type * as THREE from "three";
+import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { spectrum as SPECTRUM } from "@/core/theme/tokens";
-import { todayISO } from "@/core/lib/date";
 
 const R = 3;
 
@@ -20,17 +20,20 @@ function Globe() {
   const group = useRef<THREE.Group>(null);
 
   const markers = useMemo(
-    () => values.map((v, i) => {
-      const lat = -45 + (i / Math.max(values.length - 1, 1)) * 90;
-      const lon = (i / values.length) * 360;
-      return { v, pos: sphericalToXYZ(lat, lon, R + 0.02) };
-    }),
+    () =>
+      values.map((v, i) => {
+        const lat = -45 + (i / Math.max(values.length - 1, 1)) * 90;
+        const lon = (i / values.length) * 360;
+        return { v, pos: sphericalToXYZ(lat, lon, R + 0.02) };
+      }),
     [values],
   );
 
   const todayCount = tasks.filter((t) => t.date === todayISO()).length;
 
-  useFrame((_, dt) => { if (group.current) group.current.rotation.y += dt * 0.12; });
+  useFrame((_, dt) => {
+    if (group.current) group.current.rotation.y += dt * 0.12;
+  });
 
   return (
     <>
@@ -65,8 +68,12 @@ function Globe() {
               </mesh>
               <Html center distanceFactor={9} position={[0, 0.25, 0]} pointerEvents="none">
                 <div className="whitespace-nowrap" style={{ pointerEvents: "none" }}>
-                  <span className="display text-[11px]" style={{ color: c }}>{v.name}</span>
-                  <span className="mono ml-1 text-[8px] text-[#8a877a]">{Math.round(v.energy * 100)}%</span>
+                  <span className="display text-[11px]" style={{ color: c }}>
+                    {v.name}
+                  </span>
+                  <span className="mono ml-1 text-[8px] text-[#8a877a]">
+                    {Math.round(v.energy * 100)}%
+                  </span>
                 </div>
               </Html>
             </group>
@@ -75,11 +82,20 @@ function Globe() {
       </group>
 
       {/* task satellites */}
-      {Array.from({ length: Math.min(todayCount, 8) }, (_, i) => (
-        <Satellite key={i} idx={i} total={Math.min(todayCount, 8)} />
+      {Array.from({ length: Math.min(todayCount, 8) }, (_, i) => ({
+        idx: i,
+        key: `satellite-${i}`,
+      })).map((sat) => (
+        <Satellite key={sat.key} idx={sat.idx} total={Math.min(todayCount, 8)} />
       ))}
 
-      <OrbitControls enablePan={false} autoRotate autoRotateSpeed={0.3} minDistance={5} maxDistance={14} />
+      <OrbitControls
+        enablePan={false}
+        autoRotate
+        autoRotateSpeed={0.3}
+        minDistance={5}
+        maxDistance={14}
+      />
     </>
   );
 }
@@ -90,7 +106,12 @@ function Satellite({ idx, total }: { idx: number; total: number }) {
   const tilt = (idx / total) * Math.PI;
   useFrame((s) => {
     const t = s.clock.elapsedTime * 0.5 + idx;
-    if (ref.current) ref.current.position.set(Math.cos(t) * r, Math.sin(t) * r * Math.sin(tilt), Math.sin(t) * r * Math.cos(tilt));
+    if (ref.current)
+      ref.current.position.set(
+        Math.cos(t) * r,
+        Math.sin(t) * r * Math.sin(tilt),
+        Math.sin(t) * r * Math.cos(tilt),
+      );
   });
   return (
     <mesh ref={ref}>

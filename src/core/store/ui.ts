@@ -1,10 +1,13 @@
-import type { Slice } from "./slice";
 import type { Task } from "@/features/tasks";
+import type { Slice } from "./slice";
 
 export type ThemeMode = "paper" | "void";
 
 /** Content snapshot of a task for the calendar copy/paste flow (no id/date/time). */
-export type ClipboardTask = Pick<Task, "title" | "valueId" | "goalId" | "energy" | "durationMin" | "note">;
+export type ClipboardTask = Pick<
+  Task,
+  "title" | "valueId" | "goalId" | "energy" | "durationMin" | "note"
+>;
 
 /** An on-the-fly view the agent can conjure for a query the fixed views don't cover. */
 export interface EphemeralView {
@@ -72,9 +75,21 @@ function initialTheme(): ThemeMode {
   const t = localStorage.getItem(THEME_KEY);
   return t === "void" || t === "paper" ? t : "paper";
 }
-interface StoredSettings { operatorName: string; operatorWorkspace: string; operatorEmail: string; operatorAvatar: string; accent: string }
+interface StoredSettings {
+  operatorName: string;
+  operatorWorkspace: string;
+  operatorEmail: string;
+  operatorAvatar: string;
+  accent: string;
+}
 function readSettings(): StoredSettings {
-  const def = { operatorName: "Operator", operatorWorkspace: "Personal workspace", operatorEmail: "", operatorAvatar: "", accent: "" };
+  const def = {
+    operatorName: "Operator",
+    operatorWorkspace: "Personal workspace",
+    operatorEmail: "",
+    operatorAvatar: "",
+    accent: "",
+  };
   if (typeof localStorage === "undefined") return def;
   try {
     return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") };
@@ -111,15 +126,34 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   toggleTheme: () => get().setTheme(get().theme === "paper" ? "void" : "paper"),
 
   ...(() => readSettings())(),
-  setOperatorName: (operatorName) => { writeSettings({ operatorName }); set({ operatorName }); },
-  setOperatorWorkspace: (operatorWorkspace) => { writeSettings({ operatorWorkspace }); set({ operatorWorkspace }); },
-  setOperatorEmail: (operatorEmail) => { writeSettings({ operatorEmail }); set({ operatorEmail }); },
-  setOperatorAvatar: (operatorAvatar) => { writeSettings({ operatorAvatar }); set({ operatorAvatar }); },
-  setAccent: (accent) => { writeSettings({ accent }); set({ accent }); },
+  setOperatorName: (operatorName) => {
+    writeSettings({ operatorName });
+    set({ operatorName });
+  },
+  setOperatorWorkspace: (operatorWorkspace) => {
+    writeSettings({ operatorWorkspace });
+    set({ operatorWorkspace });
+  },
+  setOperatorEmail: (operatorEmail) => {
+    writeSettings({ operatorEmail });
+    set({ operatorEmail });
+  },
+  setOperatorAvatar: (operatorAvatar) => {
+    writeSettings({ operatorAvatar });
+    set({ operatorAvatar });
+  },
+  setAccent: (accent) => {
+    writeSettings({ accent });
+    set({ accent });
+  },
 
   onboarded: typeof localStorage !== "undefined" && localStorage.getItem("vega.onboarded") === "1",
   setOnboarded: (v) => {
-    try { localStorage.setItem("vega.onboarded", v ? "1" : "0"); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("vega.onboarded", v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
     set({ onboarded: v });
   },
 

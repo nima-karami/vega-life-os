@@ -8,21 +8,15 @@ import type { MenuItem } from "./menu";
  * Right-click context menu on Radix ContextMenu, styled like the cockpit `Menu`.
  * `children` is the target whose right-click opens the menu.
  */
-export function ContextMenu({
-  children,
-  items,
-}: {
-  children: ReactNode;
-  items: MenuItem[];
-}) {
+export function ContextMenu({ children, items }: { children: ReactNode; items: MenuItem[] }) {
   return (
     <RC.Root>
       <RC.Trigger asChild>{children}</RC.Trigger>
       <RC.Portal>
         <RC.Content className="z-[60] min-w-[170px] overflow-hidden border border-ink bg-paper p-1 shadow-[0_8px_24px_rgba(24,24,15,0.18)]">
-          {items.map((it, i) => (
+          {items.map((it) => (
             <RC.Item
-              key={i}
+              key={it.label}
               onSelect={it.onSelect}
               disabled={it.disabled}
               className={cx(

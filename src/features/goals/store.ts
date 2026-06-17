@@ -1,8 +1,8 @@
-import type { Slice } from "@/core/store/slice";
+import { addDays, format } from "date-fns";
+import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
-import { todayISO } from "@/core/lib/date";
-import { addDays, format } from "date-fns";
+import type { Slice } from "@/core/store/slice";
 import type { Goal, Subgoal } from "./model";
 
 export interface GoalsSlice {
@@ -45,25 +45,31 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
   updateGoal: (id, patch) => {
     let next: Goal | undefined;
     set((s) => ({
-      goals: s.goals.map((g) =>
-        g.id === id ? ((next = { ...g, ...patch, id }), next) : g,
-      ),
+      goals: s.goals.map((g) => {
+        if (g.id !== id) return g;
+        next = { ...g, ...patch, id };
+        return next;
+      }),
     }));
     if (next) savePut("goals", next);
   },
 
   removeGoal: (id) => {
     // detach dependents rather than dangle: habits/tasks fall back to upkeep
-    const habitsToFix = get().habits.filter((h) => h.goalId === id).map((h) => ({ ...h, goalId: null }));
-    const tasksToFix = get().tasks.filter((t) => t.goalId === id).map((t) => ({ ...t, goalId: null }));
+    const habitsToFix = get()
+      .habits.filter((h) => h.goalId === id)
+      .map((h) => ({ ...h, goalId: null }));
+    const tasksToFix = get()
+      .tasks.filter((t) => t.goalId === id)
+      .map((t) => ({ ...t, goalId: null }));
     set((s) => ({
       goals: s.goals.filter((g) => g.id !== id),
       habits: s.habits.map((h) => (h.goalId === id ? { ...h, goalId: null } : h)),
       tasks: s.tasks.map((t) => (t.goalId === id ? { ...t, goalId: null } : t)),
     }));
     saveRemove("goals", id);
-    habitsToFix.forEach((h) => savePut("habits", h));
-    tasksToFix.forEach((t) => savePut("tasks", t));
+    for (const h of habitsToFix) savePut("habits", h);
+    for (const t of tasksToFix) savePut("tasks", t);
   },
 
   addSubgoal: (goalId, name) => {
@@ -85,9 +91,7 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
     set((s) => ({
       goals: s.goals.map((g) => {
         if (g.id !== goalId) return g;
-        const subgoals = g.subgoals.map((sb) =>
-          sb.id === subId ? { ...sb, done: !sb.done } : sb,
-        );
+        const subgoals = g.subgoals.map((sb) => (sb.id === subId ? { ...sb, done: !sb.done } : sb));
         next = { ...g, subgoals, progress: deriveProgress(subgoals, g.progress) };
         return next;
       }),

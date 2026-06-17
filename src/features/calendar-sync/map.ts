@@ -11,8 +11,7 @@ export interface GEvent {
 }
 
 /** A VEGA task is "schedulable" to the calendar when it has a date. */
-export const isSchedulable = (t: Task): boolean =>
-  t.date !== null && t.status !== "skip";
+export const isSchedulable = (t: Task): boolean => t.date !== null && t.status !== "skip";
 
 /** Build the Google event body for a VEGA task. Timed if it has a time, else all-day. */
 export function toGEvent(t: Task): GEvent {
@@ -26,8 +25,8 @@ export function toGEvent(t: Task): GEvent {
     base.start = { dateTime: toLocalRFC3339(start) };
     base.end = { dateTime: toLocalRFC3339(end) };
   } else {
-    base.start = { date: t.date! };
-    base.end = { date: t.date! };
+    base.start = { date: t.date ?? undefined };
+    base.end = { date: t.date ?? undefined };
   }
   return base;
 }

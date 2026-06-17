@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import {
   endOfMonth,
   endOfWeek,
@@ -7,10 +6,11 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { useStore } from "@/core/store";
-import { cx, Label, Icon, Select, NONE } from "@/core/ui";
+import { useMemo, useState } from "react";
 import { alignOf } from "@/core/lib/align";
 import { todayISO } from "@/core/lib/date";
+import { useStore } from "@/core/store";
+import { cx, Icon, Label, NONE, Select } from "@/core/ui";
 import type { Task } from "../model";
 
 export type DateRange = "all" | "today" | "week" | "month";
@@ -73,14 +73,22 @@ export function useTaskFilter() {
       matchType(t, filters.type);
   }, [filters]);
   const active =
-    filters.range !== "all" || filters.valueId || filters.goalId || filters.query.trim() || filters.type !== "all";
+    filters.range !== "all" ||
+    filters.valueId ||
+    filters.goalId ||
+    filters.query.trim() ||
+    filters.type !== "all";
   const clear = () => setFilters(DEFAULTS);
   return { filters, setFilters, match, active: !!active, clear };
 }
 
 const chip = (on: boolean) =>
-  cx("mono border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] transition-colors",
-    on ? "border-ink bg-ink text-paper" : "surface border-[var(--color-line)] text-stone hover:border-ink");
+  cx(
+    "mono border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] transition-colors",
+    on
+      ? "border-ink bg-ink text-paper"
+      : "surface border-[var(--color-line)] text-stone hover:border-ink",
+  );
 
 /** Filter controls bar — styled like the calendar focus filter. */
 export function TaskFilterBar({
@@ -115,7 +123,14 @@ export function TaskFilterBar({
       <div className="flex items-center gap-1.5">
         <Label>when</Label>
         {RANGES.map((r) => (
-          <button key={r.id} onClick={() => set({ range: r.id })} className={chip(filters.range === r.id)}>{r.label}</button>
+          <button
+            type="button"
+            key={r.id}
+            onClick={() => set({ range: r.id })}
+            className={chip(filters.range === r.id)}
+          >
+            {r.label}
+          </button>
         ))}
       </div>
 
@@ -126,7 +141,10 @@ export function TaskFilterBar({
             ariaLabel="Filter by value"
             value={filters.valueId ?? NONE}
             onValueChange={(v) => set({ valueId: v === NONE ? null : v })}
-            options={[{ value: NONE, label: "Any value" }, ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue }))]}
+            options={[
+              { value: NONE, label: "Any value" },
+              ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
+            ]}
           />
         </div>
         <div className="surface min-w-[120px] border border-[var(--color-line)] px-2 py-1">
@@ -134,7 +152,10 @@ export function TaskFilterBar({
             ariaLabel="Filter by goal"
             value={filters.goalId ?? NONE}
             onValueChange={(v) => set({ goalId: v === NONE ? null : v })}
-            options={[{ value: NONE, label: "Any goal" }, ...goals.map((g) => ({ value: g.id, label: g.name }))]}
+            options={[
+              { value: NONE, label: "Any goal" },
+              ...goals.map((g) => ({ value: g.id, label: g.name })),
+            ]}
           />
         </div>
       </div>
@@ -143,12 +164,23 @@ export function TaskFilterBar({
       <div className="flex items-center gap-1.5">
         <Label>type</Label>
         {TYPES.map((t) => (
-          <button key={t.id} onClick={() => set({ type: t.id })} className={chip(filters.type === t.id)}>{t.label}</button>
+          <button
+            type="button"
+            key={t.id}
+            onClick={() => set({ type: t.id })}
+            className={chip(filters.type === t.id)}
+          >
+            {t.label}
+          </button>
         ))}
       </div>
 
       {active && (
-        <button onClick={onClear} className="mono flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal">
+        <button
+          type="button"
+          onClick={onClear}
+          className="mono flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+        >
           <Icon name="close" size={12} /> clear
         </button>
       )}

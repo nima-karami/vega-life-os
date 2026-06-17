@@ -8,16 +8,23 @@ const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
 export const gcalConfigured = Boolean(CLIENT_ID);
 
-interface TokenClient { requestAccessToken: (o?: { prompt?: string }) => void; }
+interface TokenClient {
+  requestAccessToken: (o?: { prompt?: string }) => void;
+}
 // minimal shape of the global injected by the GIS script
 declare global {
   interface Window {
-    google?: { accounts: { oauth2: {
-      initTokenClient: (c: {
-        client_id: string; scope: string;
-        callback: (r: { access_token?: string; error?: string }) => void;
-      }) => TokenClient;
-    } } };
+    google?: {
+      accounts: {
+        oauth2: {
+          initTokenClient: (c: {
+            client_id: string;
+            scope: string;
+            callback: (r: { access_token?: string; error?: string }) => void;
+          }) => TokenClient;
+        };
+      };
+    };
   }
 }
 
@@ -41,7 +48,9 @@ export function getCalendarToken(interactive: boolean): Promise<string> {
   if (token && Date.now() < expiresAt - 60_000) return Promise.resolve(token);
   return new Promise((resolve, reject) => {
     const c = ensureClient();
-    (c as unknown as { callback: (r: { access_token?: string; error?: string }) => void }).callback = (r) => {
+    (
+      c as unknown as { callback: (r: { access_token?: string; error?: string }) => void }
+    ).callback = (r) => {
       if (r.access_token) {
         token = r.access_token;
         expiresAt = Date.now() + 55 * 60_000; // GIS tokens ~1h
@@ -54,5 +63,10 @@ export function getCalendarToken(interactive: boolean): Promise<string> {
   });
 }
 
-export function clearCalendarToken() { token = ""; expiresAt = 0; }
-export function isCalendarConnected() { return Boolean(token) && Date.now() < expiresAt; }
+export function clearCalendarToken() {
+  token = "";
+  expiresAt = 0;
+}
+export function isCalendarConnected() {
+  return Boolean(token) && Date.now() < expiresAt;
+}

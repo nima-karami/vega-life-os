@@ -238,10 +238,7 @@
     display: none;
   }
   .grain {
-    background-image: radial-gradient(
-      var(--color-line-soft) 0.5px,
-      transparent 0.5px
-    );
+    background-image: radial-gradient(var(--color-line-soft) 0.5px, transparent 0.5px);
     background-size: 4px 4px;
   }
 }

@@ -16,14 +16,19 @@ export function LabIndex() {
 
         <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {variants.map((v, i) => (
-            <Link key={v.to} to={v.to}
+            <Link
+              key={v.to}
+              to={v.to}
               className={cx(
                 "group flex flex-col justify-between border border-[var(--color-line)] p-5 transition-colors hover:border-[#efeada]",
                 "min-h-[150px]",
-              )}>
+              )}
+            >
               <span className="mono text-[10px] tracking-[0.16em] text-[#8a877a]">0{i + 1}</span>
               <div>
-                <h2 className="display text-2xl group-hover:translate-x-0.5 transition-transform">{v.label}</h2>
+                <h2 className="display text-2xl group-hover:translate-x-0.5 transition-transform">
+                  {v.label}
+                </h2>
                 <p className="mono mt-1.5 text-[11px] leading-relaxed text-[#b6b1a2]">{v.blurb}</p>
               </div>
             </Link>

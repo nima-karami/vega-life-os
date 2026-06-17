@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { useStore } from "@/core/store";
-import { cx, Panel, Label, Icon, Tag } from "@/core/ui";
-import { todayISO, fmtShort } from "@/core/lib/date";
 import { format, subDays } from "date-fns";
-import { TaskDrawer, TaskFilterBar, useTaskFilter } from "@/features/tasks";
+import { useState } from "react";
+import { fmtShort, todayISO } from "@/core/lib/date";
+import { useStore } from "@/core/store";
+import { cx, Icon, Label, Panel, Tag } from "@/core/ui";
 import type { Task } from "@/features/tasks";
+import { TaskDrawer, TaskFilterBar, useTaskFilter } from "@/features/tasks";
 
 type ColId = "open" | "todo" | "done" | "skip";
 
@@ -43,7 +43,11 @@ export function BoardPage() {
 
   const drop = (col: ColId) => {
     const t = dragId ? tasks.find((x) => x.id === dragId) : null;
-    if (!t) { setDragId(null); setOver(null); return; }
+    if (!t) {
+      setDragId(null);
+      setOver(null);
+      return;
+    }
     let patch: Partial<Task>;
     if (col === "open") patch = { date: null, time: null, status: "open" };
     else if (col === "done") patch = { status: "done" };
@@ -58,7 +62,11 @@ export function BoardPage() {
     const t = addTask(
       col === "open"
         ? { title: "New task" } // undated → defaults to "open"
-        : { title: "New task", date: todayISO(), status: col === "done" ? "done" : col === "skip" ? "skip" : "todo" },
+        : {
+            title: "New task",
+            date: todayISO(),
+            status: col === "done" ? "done" : col === "skip" ? "skip" : "todo",
+          },
     );
     setSelected(t);
   };
@@ -91,7 +99,12 @@ export function BoardPage() {
           return (
             <div
               key={col.id}
-              onDragOver={(e) => { e.preventDefault(); setOver(col.id); }}
+              role="application"
+              aria-label={`${col.label} column`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOver(col.id);
+              }}
               onDragLeave={() => setOver((o) => (o === col.id ? null : o))}
               onDrop={() => drop(col.id)}
               className={cx(
@@ -106,7 +119,12 @@ export function BoardPage() {
                 </div>
                 <span className="mono flex items-center gap-2 text-[11px] text-stone">
                   {all.length}
-                  <button onClick={() => add(col.id)} aria-label={`Add to ${col.label}`} className="hover:text-ink">
+                  <button
+                    type="button"
+                    onClick={() => add(col.id)}
+                    aria-label={`Add to ${col.label}`}
+                    className="hover:text-ink"
+                  >
                     <Icon name="plus" size={14} />
                   </button>
                 </span>
@@ -114,21 +132,31 @@ export function BoardPage() {
 
               <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
                 {list.map((t) => (
-                  <article
+                  <button
+                    type="button"
                     key={t.id}
                     draggable
                     onDragStart={() => setDragId(t.id)}
                     onDragEnd={() => setDragId(null)}
                     onClick={() => setSelected(t)}
                     className={cx(
-                      "group cursor-grab border-l-2 bg-paper p-2.5 transition-shadow hover:shadow-[0_1px_0_var(--color-line-strong)] active:cursor-grabbing",
+                      "group block w-full cursor-grab border-l-2 bg-paper p-2.5 text-left transition-shadow hover:shadow-[0_1px_0_var(--color-line-strong)] active:cursor-grabbing",
                       dragId === t.id && "opacity-40",
                     )}
                     style={{ borderColor: hueOf(t.valueId) }}
                   >
                     <div className="flex items-start gap-2">
-                      <Icon name="drag" size={13} className="mt-0.5 shrink-0 text-fog group-hover:text-stone" />
-                      <p className={cx("flex-1 text-[12px] leading-snug", (t.status === "done" || t.status === "skip") && "text-stone line-through")}>
+                      <Icon
+                        name="drag"
+                        size={13}
+                        className="mt-0.5 shrink-0 text-fog group-hover:text-stone"
+                      />
+                      <p
+                        className={cx(
+                          "flex-1 text-[12px] leading-snug",
+                          (t.status === "done" || t.status === "skip") && "text-stone line-through",
+                        )}
+                      >
                         {t.title}
                       </p>
                     </div>
@@ -137,12 +165,21 @@ export function BoardPage() {
                       {goalName(t.goalId) && <Tag>→ {goalName(t.goalId)}</Tag>}
                       {t.kind === "habit" && <Tag>HABIT</Tag>}
                       {!t.valueId && !t.goalId && <Tag>ERRAND</Tag>}
-                      {t.date && <span className="mono text-[9px] text-mist">{fmtShort(t.date)}{t.time ? ` · ${t.time}` : ""}</span>}
+                      {t.date && (
+                        <span className="mono text-[9px] text-mist">
+                          {fmtShort(t.date)}
+                          {t.time ? ` · ${t.time}` : ""}
+                        </span>
+                      )}
                     </div>
-                  </article>
+                  </button>
                 ))}
                 {!list.length && (
-                  <button onClick={() => add(col.id)} className="mono mt-1 border border-dashed border-[var(--color-line)] py-6 text-center text-[10px] uppercase tracking-[0.1em] text-mist hover:border-ink hover:text-ink">
+                  <button
+                    type="button"
+                    onClick={() => add(col.id)}
+                    className="mono mt-1 border border-dashed border-[var(--color-line)] py-6 text-center text-[10px] uppercase tracking-[0.1em] text-mist hover:border-ink hover:text-ink"
+                  >
                     + add
                   </button>
                 )}

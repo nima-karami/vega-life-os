@@ -1,10 +1,10 @@
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
+import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import { useClock } from "./useClock";
-import { todayISO } from "@/core/lib/date";
 import { dayCounts } from "@/features/tasks";
+import { useClock } from "./useClock";
 
 export function TopBar() {
   const now = useClock();
@@ -26,6 +26,7 @@ export function TopBar() {
 
       <div className="ml-auto flex items-center gap-2">
         <button
+          type="button"
           onClick={openCommand}
           className="surface mono hidden items-center gap-2 border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] text-stone transition-colors hover:bg-ink hover:text-paper sm:flex"
         >
@@ -38,7 +39,10 @@ export function TopBar() {
         <span className="surface mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone lg:inline">
           {counts.done}/{counts.total} TODAY
         </span>
-        <Link to="/lab" className="surface mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone transition-colors hover:bg-ink hover:text-paper md:inline">
+        <Link
+          to="/lab"
+          className="surface mono hidden border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-stone transition-colors hover:bg-ink hover:text-paper md:inline"
+        >
           LAB
         </Link>
         <span className="surface mono border border-[var(--color-line)] px-2.5 py-1.5 text-[11px] tracking-[0.1em] text-ink">
@@ -48,6 +52,7 @@ export function TopBar() {
           {format(now, "HH:mm:ss")}
         </span>
         <button
+          type="button"
           aria-label="Toggle theme"
           title="Toggle theme"
           onClick={toggleTheme}
