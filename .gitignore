@@ -24,3 +24,6 @@ dist-ssr
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# playwright-cli scratch (snapshots/console logs)
+.playwright-cli/
