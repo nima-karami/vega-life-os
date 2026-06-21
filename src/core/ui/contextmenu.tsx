@@ -13,17 +13,17 @@ export function ContextMenu({ children, items }: { children: ReactNode; items: M
     <RC.Root>
       <RC.Trigger asChild>{children}</RC.Trigger>
       <RC.Portal>
-        <RC.Content className="z-[60] min-w-[170px] overflow-hidden border border-ink bg-paper p-1 shadow-[0_8px_24px_rgba(24,24,15,0.18)]">
+        <RC.Content className="z-[60] min-w-[180px] overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-1.5 shadow-[var(--shadow-soft)]">
           {items.map((it) => (
             <RC.Item
               key={it.label}
               onSelect={it.onSelect}
               disabled={it.disabled}
               className={cx(
-                "mono flex cursor-pointer items-center gap-2 px-2.5 py-2 text-[11px] uppercase tracking-[0.08em] outline-none data-[disabled]:cursor-default data-[disabled]:opacity-35",
+                "flex cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 font-sans text-[13px] outline-none transition-colors duration-150 data-[disabled]:cursor-default data-[disabled]:opacity-35",
                 it.danger
-                  ? "text-signal data-[highlighted]:bg-signal data-[highlighted]:text-paper"
-                  : "text-ink data-[highlighted]:bg-ink data-[highlighted]:text-paper",
+                  ? "text-[var(--color-signal)] data-[highlighted]:bg-[var(--color-signal)] data-[highlighted]:text-[var(--color-accent-foreground)]"
+                  : "text-[var(--color-ink)] data-[highlighted]:bg-[var(--color-canvas)] data-[highlighted]:text-[var(--color-accent)]",
               )}
             >
               {it.icon && <Icon name={it.icon} size={13} />}

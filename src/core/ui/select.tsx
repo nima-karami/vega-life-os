@@ -42,8 +42,8 @@ export function Select({
       <RS.Trigger
         aria-label={ariaLabel}
         className={cx(
-          "mono group flex w-full items-center justify-between gap-2 bg-transparent text-[12px] text-ink outline-none",
-          "data-[placeholder]:text-mist",
+          "group flex w-full items-center justify-between gap-2 bg-transparent font-sans text-[13px] text-[var(--color-ink)] outline-none",
+          "data-[placeholder]:text-[var(--color-muted)]",
           className,
         )}
       >
@@ -54,7 +54,7 @@ export function Select({
           <Icon
             name="chevD"
             size={13}
-            className="shrink-0 text-stone transition-colors group-hover:text-ink"
+            className="shrink-0 text-[var(--color-muted)] transition-colors group-hover:text-[var(--color-ink)]"
           />
         </RS.Icon>
       </RS.Trigger>
@@ -64,19 +64,19 @@ export function Select({
           position="popper"
           sideOffset={6}
           className={cx(
-            "z-[60] min-w-[var(--radix-select-trigger-width)] overflow-hidden border border-ink bg-paper",
-            "shadow-[0_8px_24px_rgba(24,24,15,0.18)]",
+            "z-[60] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)]",
+            "shadow-[var(--shadow-soft)]",
           )}
         >
-          <RS.Viewport className="p-1">
+          <RS.Viewport className="p-1.5">
             {options.map((o) => (
               <RS.Item
                 key={o.value}
                 value={o.value}
                 className={cx(
-                  "mono relative flex cursor-pointer items-center gap-2 px-2.5 py-2 text-[12px] text-ink outline-none",
-                  "data-[highlighted]:bg-ink data-[highlighted]:text-paper",
-                  "data-[state=checked]:font-bold",
+                  "relative flex cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-2 font-sans text-[13px] text-[var(--color-ink)] outline-none transition-colors duration-150",
+                  "data-[highlighted]:bg-[var(--color-canvas)] data-[highlighted]:text-[var(--color-accent)]",
+                  "data-[state=checked]:font-medium data-[state=checked]:text-[var(--color-accent)]",
                 )}
               >
                 {o.hue && (

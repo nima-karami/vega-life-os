@@ -44,28 +44,38 @@ export function ConfirmDialog({
           onClick={onClose}
         >
           <motion.div
-            className="w-full max-w-sm border border-ink bg-paper p-5 shadow-[0_12px_40px_rgba(24,24,15,0.3)]"
+            className="w-full max-w-sm rounded-[var(--radius-lg)] border border-[var(--color-line)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-soft)]"
             initial={{ scale: 0.96, opacity: 0.6 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.97, opacity: 0 }}
             transition={{ type: "tween", duration: 0.14 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <Label ink>// confirm</Label>
-            <h2 className="display mt-2 text-xl leading-tight">{title}</h2>
-            {body && <div className="mono mt-2 text-[12px] leading-relaxed text-stone">{body}</div>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={onClose} className="btn">
+            <Label>Confirm</Label>
+            <h2 className="font-display mt-2 text-xl font-bold leading-tight tracking-[-0.03em]">
+              {title}
+            </h2>
+            {body && (
+              <div className="mt-2 font-sans text-[13px] leading-relaxed text-[var(--color-muted)]">
+                {body}
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-2 font-sans text-[13px] font-medium text-[var(--color-ink)] transition-colors duration-150 hover:bg-[var(--color-canvas)] hover:border-[var(--color-accent)]"
+              >
                 {cancelLabel}
               </button>
               <button
                 type="button"
                 onClick={onConfirm}
                 className={cx(
-                  "btn",
+                  "rounded-[var(--radius-sm)] border px-4 py-2 font-sans text-[13px] font-medium transition-colors duration-150",
                   danger
-                    ? "border-signal text-signal hover:bg-signal hover:text-paper"
-                    : "btn-solid",
+                    ? "border-[var(--color-signal)] text-[var(--color-signal)] hover:bg-[var(--color-signal)] hover:text-[var(--color-accent-foreground)]"
+                    : "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)] hover:opacity-90",
                 )}
               >
                 {confirmLabel}
