@@ -75,7 +75,7 @@ export function TaskCard({
       )}
       style={valueStripeStyle(lineage ?? { fromHabit: false })}
     >
-      {/* Done toggle — role=checkbox so SR exposes checked state */}
+      {/* Done toggle — aria-pressed toggle button so SR exposes the on/off state */}
       <button
         type="button"
         aria-pressed={done}
