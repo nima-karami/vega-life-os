@@ -1,9 +1,11 @@
-import { cloneElement, isValidElement, useId, useRef } from "react";
+import { Button, Input } from "@heroui/react";
+import { useRef } from "react";
 import { useStore } from "@/core/store";
-import { Button, cx, Icon, Label, Panel, SectionHead } from "@/core/ui";
+import { cx, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
 import { AgentSettings } from "./components/AgentSettings";
 import { CalendarSettings } from "./components/CalendarSettings";
+import { SettingsCard } from "./SettingsCard";
 
 const ACCENTS = [
   { name: "Default", hex: "" },
@@ -60,208 +62,235 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[820px] p-4">
-      <Panel className="mb-4 px-5 py-4">
-        <Label>// settings · console</Label>
-        <h1 className="display mt-1 text-3xl">Console</h1>
-        <p className="mono mt-1 text-[11px] text-stone">
+    <div className="mx-auto max-w-3xl px-4 py-6">
+      <header>
+        <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--color-ink)]">
+          Settings
+        </h1>
+        <p className="mt-1 font-sans text-sm text-[var(--color-muted)]">
           Identity, appearance, and your data — all of it lives on this machine.
         </p>
-      </Panel>
+      </header>
 
-      <AccountSettings />
+      <div className="mt-6 flex flex-col gap-4">
+        <AccountSettings />
 
-      {/* identity / profile */}
-      <Panel className="mb-4 p-5">
-        <SectionHead title="operator profile" />
-        <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-start">
-          {/* avatar */}
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => avatarRef.current?.click()}
-              aria-label="Upload photo"
-              className="group relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border border-[var(--color-line-strong)]"
-              style={{ background: s.operatorAvatar ? undefined : "var(--color-paper-3)" }}
-            >
+        {/* identity / profile */}
+        <SettingsCard title="Operator profile">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            {/* avatar */}
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => avatarRef.current?.click()}
+                aria-label="Upload photo"
+                className="group relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border border-[var(--color-line)] bg-[var(--color-canvas)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+              >
+                {s.operatorAvatar ? (
+                  <img src={s.operatorAvatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="font-display text-3xl text-[var(--color-muted)]">
+                    {initials(s.operatorName)}
+                  </span>
+                )}
+                <span className="absolute inset-0 grid place-items-center bg-[var(--color-ink)]/55 opacity-0 transition-opacity group-hover:opacity-100">
+                  <Icon name="upload" size={20} className="text-white" />
+                </span>
+              </button>
+              <input
+                ref={avatarRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void setAvatar(f);
+                  e.target.value = "";
+                }}
+              />
               {s.operatorAvatar ? (
-                <img src={s.operatorAvatar} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => s.setOperatorAvatar("")}
+                  className="font-sans text-xs text-[var(--color-muted)] transition-colors hover:text-[var(--color-accent)]"
+                >
+                  Remove
+                </button>
               ) : (
-                <span className="display text-3xl text-ink/70">{initials(s.operatorName)}</span>
+                <span className="font-sans text-xs text-[var(--color-muted)]">click to upload</span>
               )}
-              <span className="absolute inset-0 grid place-items-center bg-ink/55 opacity-0 transition-opacity group-hover:opacity-100">
-                <Icon name="upload" size={20} className="text-paper" />
-              </span>
-            </button>
+            </div>
+            {/* fields */}
+            <div className="grid flex-1 gap-4 sm:grid-cols-2">
+              <Input
+                label="Name"
+                labelPlacement="outside"
+                value={s.operatorName}
+                onValueChange={s.setOperatorName}
+                placeholder="Your name"
+                variant="bordered"
+                radius="md"
+              />
+              <Input
+                type="email"
+                label="Email"
+                labelPlacement="outside"
+                value={s.operatorEmail}
+                onValueChange={s.setOperatorEmail}
+                placeholder="you@example.com"
+                variant="bordered"
+                radius="md"
+              />
+              <Input
+                label="Workspace"
+                labelPlacement="outside"
+                value={s.operatorWorkspace}
+                onValueChange={s.setOperatorWorkspace}
+                placeholder="Workspace label"
+                variant="bordered"
+                radius="md"
+                className="sm:col-span-2"
+              />
+            </div>
+          </div>
+        </SettingsCard>
+
+        {/* appearance */}
+        <SettingsCard title="Appearance">
+          <div className="space-y-6">
+            <div>
+              <span className="font-sans text-sm font-medium text-[var(--color-ink)]">Theme</span>
+              <div className="mt-2 flex gap-2">
+                {(["paper", "void"] as const).map((t) => {
+                  const active = s.theme === t;
+                  return (
+                    <button
+                      type="button"
+                      key={t}
+                      onClick={() => s.setTheme(t)}
+                      aria-pressed={active}
+                      className={cx(
+                        "flex items-center gap-2 rounded-[var(--radius-sm)] border px-4 py-2.5 font-sans text-sm transition-colors",
+                        active
+                          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+                          : "border-[var(--color-line)] text-[var(--color-ink)] hover:border-[var(--color-line-strong)]",
+                      )}
+                    >
+                      <Icon name={t === "paper" ? "sun" : "moon"} size={15} />
+                      {t === "paper" ? "Paper" : "Void"}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <span className="font-sans text-sm font-medium text-[var(--color-ink)]">Accent</span>
+              <p className="mt-1 font-sans text-xs text-[var(--color-muted)]">
+                Tints signals: now-line, overdue, "needs you". The HUD stays monochrome by design.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {ACCENTS.map((a) => {
+                  const active = s.accent === a.hex;
+                  return (
+                    <button
+                      type="button"
+                      key={a.name}
+                      onClick={() => s.setAccent(a.hex)}
+                      title={a.name}
+                      aria-pressed={active}
+                      className={cx(
+                        "flex items-center gap-2 rounded-[var(--radius-sm)] border px-2.5 py-2 transition-colors",
+                        active
+                          ? "border-[var(--color-accent)]"
+                          : "border-[var(--color-line)] hover:border-[var(--color-line-strong)]",
+                      )}
+                    >
+                      <span
+                        className="h-4 w-4 rounded-full border border-[var(--color-line)]"
+                        style={{ background: a.hex || "var(--color-accent)" }}
+                      />
+                      <span className="font-sans text-xs text-[var(--color-ink)]">{a.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </SettingsCard>
+
+        <AgentSettings />
+
+        {/* data */}
+        <SettingsCard
+          title="Data · local-first"
+          description="Everything is stored in this browser (IndexedDB). No cloud, no account. Back up regularly — clearing site data wipes it."
+        >
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="bordered"
+              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              startContent={<Icon name="chart" size={15} />}
+              onPress={doExport}
+            >
+              Export backup (.json)
+            </Button>
+            <Button
+              variant="bordered"
+              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              startContent={<Icon name="plus" size={15} />}
+              onPress={() => fileRef.current?.click()}
+            >
+              Import backup
+            </Button>
             <input
-              ref={avatarRef}
+              ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="application/json"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void setAvatar(f);
+                if (f) void doImport(f);
                 e.target.value = "";
               }}
             />
-            {s.operatorAvatar ? (
-              <button
-                type="button"
-                onClick={() => s.setOperatorAvatar("")}
-                className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
-              >
-                Remove
-              </button>
-            ) : (
-              <span className="mono text-[9px] uppercase tracking-[0.1em] text-mist">
-                click to upload
-              </span>
-            )}
+            <Button
+              variant="bordered"
+              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              startContent={<Icon name="repeat" size={15} />}
+              onPress={() => {
+                void s.reseed();
+                s.pushToast("Demo data reset");
+              }}
+            >
+              Reset demo data
+            </Button>
+            <Button
+              variant="bordered"
+              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              startContent={<Icon name="spark" size={15} />}
+              onPress={() => s.setOnboarded(false)}
+            >
+              Replay welcome
+            </Button>
           </div>
-          {/* fields */}
-          <div className="grid flex-1 gap-3 sm:grid-cols-2">
-            <Labeled label="name">
-              <input
-                value={s.operatorName}
-                onChange={(e) => s.setOperatorName(e.target.value)}
-                className="mono w-full bg-transparent text-[14px] outline-none"
-                placeholder="Your name"
-              />
-            </Labeled>
-            <Labeled label="email">
-              <input
-                type="email"
-                value={s.operatorEmail}
-                onChange={(e) => s.setOperatorEmail(e.target.value)}
-                className="mono w-full bg-transparent text-[14px] outline-none"
-                placeholder="you@example.com"
-              />
-            </Labeled>
-            <Labeled label="workspace">
-              <input
-                value={s.operatorWorkspace}
-                onChange={(e) => s.setOperatorWorkspace(e.target.value)}
-                className="mono w-full bg-transparent text-[14px] outline-none"
-                placeholder="Workspace label"
-              />
-            </Labeled>
+        </SettingsCard>
+
+        <CalendarSettings />
+
+        {/* about */}
+        <SettingsCard title="About">
+          <div className="grid gap-px overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-line)] sm:grid-cols-2">
+            <Row k="Version" v="0.1.0" />
+            <Row k="Storage" v="IndexedDB (local)" />
+            <Row k="Command bar" v="⌘K · local agent" />
+            <Row k="Cloud sync" v="not connected" />
           </div>
-        </div>
-      </Panel>
-
-      {/* appearance */}
-      <Panel className="mb-4 p-5">
-        <SectionHead title="appearance" />
-        <div className="mt-4 space-y-4">
-          <div>
-            <Label>theme</Label>
-            <div className="mt-2 flex gap-2">
-              {(["paper", "void"] as const).map((t) => (
-                <button
-                  type="button"
-                  key={t}
-                  onClick={() => s.setTheme(t)}
-                  className={cx(
-                    "mono flex items-center gap-2 border px-4 py-2.5 text-[11px] uppercase tracking-[0.1em]",
-                    s.theme === t
-                      ? "border-ink bg-ink text-paper"
-                      : "border-[var(--color-line)] text-stone hover:border-ink",
-                  )}
-                >
-                  <Icon name={t === "paper" ? "sun" : "moon"} size={14} />
-                  {t === "paper" ? "Paper" : "Void"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <Label>accent</Label>
-            <p className="mono mt-1 text-[10px] text-mist">
-              Tints signals: now-line, overdue, "needs you". The HUD stays monochrome by design.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {ACCENTS.map((a) => (
-                <button
-                  type="button"
-                  key={a.name}
-                  onClick={() => s.setAccent(a.hex)}
-                  title={a.name}
-                  className={cx(
-                    "flex items-center gap-2 border px-2.5 py-2 transition-colors",
-                    s.accent === a.hex
-                      ? "border-ink"
-                      : "border-[var(--color-line)] hover:border-ink/50",
-                  )}
-                >
-                  <span
-                    className="h-4 w-4 rounded-full border border-[var(--color-line)]"
-                    style={{ background: a.hex || "var(--color-mist)" }}
-                  />
-                  <span className="mono text-[10px] uppercase tracking-[0.08em]">{a.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Panel>
-
-      <AgentSettings />
-
-      {/* data */}
-      <Panel className="mb-4 p-5">
-        <SectionHead title="data · local-first" />
-        <p className="mono mt-3 text-[11px] leading-relaxed text-stone">
-          Everything is stored in this browser (IndexedDB). No cloud, no account. Back up regularly
-          — clearing site data wipes it.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button icon="chart" onClick={doExport}>
-            Export backup (.json)
-          </Button>
-          <Button icon="plus" onClick={() => fileRef.current?.click()}>
-            Import backup
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void doImport(f);
-              e.target.value = "";
-            }}
-          />
-          <Button
-            icon="repeat"
-            onClick={() => {
-              void s.reseed();
-              s.pushToast("Demo data reset");
-            }}
-          >
-            Reset demo data
-          </Button>
-          <Button icon="spark" onClick={() => s.setOnboarded(false)}>
-            Replay welcome
-          </Button>
-        </div>
-      </Panel>
-
-      <CalendarSettings />
-
-      <Panel className="p-5">
-        <SectionHead title="about" />
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Row k="version" v="0.1.0" />
-          <Row k="storage" v="IndexedDB (local)" />
-          <Row k="command bar" v="⌘K · local agent" />
-          <Row k="cloud sync" v="not connected" />
-        </div>
-        <p className="mono mt-3 text-[10px] leading-relaxed text-mist">
-          Live AI, Google Calendar import, and cross-device sync are architected behind swappable
-          adapters — drop in keys to enable. See HANDOFF.md.
-        </p>
-      </Panel>
+          <p className="mt-3 font-sans text-xs leading-relaxed text-[var(--color-muted)]">
+            Live AI, Google Calendar import, and cross-device sync are architected behind swappable
+            adapters — drop in keys to enable. See HANDOFF.md.
+          </p>
+        </SettingsCard>
+      </div>
     </div>
   );
 }
@@ -277,27 +306,12 @@ function initials(name: string) {
       .toUpperCase() || "OP"
   );
 }
-function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
-  const id = useId();
-  // associate the label with its (single) control so clicking the label focuses it
-  const control = isValidElement<{ id?: string }>(children)
-    ? cloneElement(children, { id })
-    : children;
-  return (
-    <label
-      htmlFor={id}
-      className="flex flex-col gap-1.5 border border-[var(--color-line)] px-3 py-2.5"
-    >
-      <Label>{label}</Label>
-      {control}
-    </label>
-  );
-}
+
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--color-line)] py-1.5">
-      <Label>{k}</Label>
-      <span className="mono text-[11px] text-ink">{v}</span>
+    <div className="flex items-center justify-between gap-3 bg-[var(--color-surface)] px-3 py-2.5">
+      <span className="font-sans text-sm text-[var(--color-muted)]">{k}</span>
+      <span className="font-mono text-xs text-[var(--color-ink)]">{v}</span>
     </div>
   );
 }

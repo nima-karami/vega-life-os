@@ -1,3 +1,4 @@
+import { Button, Input } from "@heroui/react";
 import { useEffect, useState } from "react";
 import {
   authErrorMessage,
@@ -9,7 +10,8 @@ import {
   signUpWithEmail,
 } from "@/core/auth";
 import { useStore } from "@/core/store";
-import { Button, Icon, Label, Panel, SectionHead } from "@/core/ui";
+import { Icon } from "@/core/ui";
+import { SettingsCard } from "../SettingsCard";
 
 export function AccountSettings() {
   const pushToast = useStore((s) => s.pushToast);
@@ -21,14 +23,14 @@ export function AccountSettings() {
 
   if (!firebaseEnabled) {
     return (
-      <Panel className="mb-4 p-5">
-        <SectionHead title="account · sync" />
-        <p className="mono mt-3 text-[11px] leading-relaxed text-stone">
-          Cloud sync is off. Add a Firebase web-app config to <code>.env.local</code> (see
-          <code> .env.example</code>) and reload to enable signing in and cross-device sync. VEGA
-          works fully offline without it.
+      <SettingsCard title="Account & sync">
+        <p className="font-sans text-sm leading-relaxed text-[var(--color-muted)]">
+          Cloud sync is off. Add a Firebase web-app config to{" "}
+          <code className="font-mono text-xs">.env.local</code> (see{" "}
+          <code className="font-mono text-xs">.env.example</code>) and reload to enable signing in
+          and cross-device sync. VEGA works fully offline without it.
         </p>
-      </Panel>
+      </SettingsCard>
     );
   }
 
@@ -71,35 +73,43 @@ export function AccountSettings() {
   };
 
   return (
-    <Panel className="mb-4 p-5">
-      <SectionHead title="account · sync" />
+    <SettingsCard title="Account & sync">
       {email ? (
-        <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <Label>signed in</Label>
-            <p className="mono text-[13px] text-ink">{email}</p>
-            <p className="mono mt-1 text-[10px] text-mist">
-              Data syncs across your devices in real time.
+            <p className="font-sans text-sm font-medium text-[var(--color-ink)]">{email}</p>
+            <p className="mt-1 font-sans text-xs text-[var(--color-muted)]">
+              Signed in · data syncs across your devices in real time.
             </p>
           </div>
-          <Button icon="repeat" onClick={() => void signOut()}>
+          <Button
+            variant="bordered"
+            className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+            startContent={<Icon name="repeat" size={15} />}
+            onPress={() => void signOut()}
+          >
             Sign out
           </Button>
         </div>
       ) : (
-        <div className="mt-4 flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="mono text-[11px] text-stone">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="max-w-sm font-sans text-sm text-[var(--color-muted)]">
               Sign in to sync across devices. Local data merges up on first sign-in.
             </p>
-            <Button solid icon="spark" disabled={busy} onClick={() => void signIn()}>
-              <Icon name="spark" size={14} /> Continue with Google
+            <Button
+              className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+              startContent={<Icon name="spark" size={15} />}
+              isDisabled={busy}
+              onPress={() => void signIn()}
+            >
+              Continue with Google
             </Button>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-[var(--color-line)]" />
-            <span className="mono text-[9px] uppercase tracking-[0.18em] text-mist">or email</span>
+            <span className="font-sans text-xs text-[var(--color-muted)]">or email</span>
             <div className="h-px flex-1 bg-[var(--color-line)]" />
           </div>
 
@@ -110,37 +120,44 @@ export function AccountSettings() {
               void emailAuth("in");
             }}
           >
-            <label className="flex flex-col gap-1.5 border border-[var(--color-line)] px-3 py-2.5">
-              <Label>email</Label>
-              <input
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="you@example.com"
-                className="mono w-full bg-transparent text-[13px] outline-none placeholder:text-mist"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 border border-[var(--color-line)] px-3 py-2.5">
-              <Label>password</Label>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="at least 6 characters"
-                className="mono w-full bg-transparent text-[13px] outline-none placeholder:text-mist"
-              />
-            </label>
-            <div className="flex items-center gap-2">
-              <Button solid type="submit" icon="mail" disabled={busy}>
+            <Input
+              type="email"
+              label="Email"
+              labelPlacement="outside"
+              autoComplete="email"
+              value={form.email}
+              onValueChange={(v) => setForm((f) => ({ ...f, email: v }))}
+              placeholder="you@example.com"
+              variant="bordered"
+              radius="md"
+            />
+            <Input
+              type="password"
+              label="Password"
+              labelPlacement="outside"
+              autoComplete="current-password"
+              value={form.password}
+              onValueChange={(v) => setForm((f) => ({ ...f, password: v }))}
+              placeholder="at least 6 characters"
+              variant="bordered"
+              radius="md"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="submit"
+                className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+                startContent={<Icon name="mail" size={15} />}
+                isDisabled={busy}
+              >
                 Sign in
               </Button>
               <Button
                 type="button"
-                icon="plus"
-                disabled={busy}
-                onClick={() => void emailAuth("up")}
+                variant="bordered"
+                className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+                startContent={<Icon name="plus" size={15} />}
+                isDisabled={busy}
+                onPress={() => void emailAuth("up")}
               >
                 Create account
               </Button>
@@ -148,6 +165,6 @@ export function AccountSettings() {
           </form>
         </div>
       )}
-    </Panel>
+    </SettingsCard>
   );
 }
