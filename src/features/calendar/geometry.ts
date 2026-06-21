@@ -1,0 +1,100 @@
+/**
+ * Pure grid geometry for the week calendar.
+ *
+ * All time math lives here so it can be unit-tested without a DOM. The React
+ * view consumes these helpers; it owns no scheduling arithmetic of its own.
+ *
+ * Window, snap granularity, hour height and the minimum chip height are ports
+ * of the legacy CalendarPage so the re-skin preserves the original behavior.
+ */
+
+/** Visible window: 05:00–23:00 (minutes since midnight). */
+export const DAY_START = 5 * 60;
+export const DAY_END = 23 * 60;
+/** Pixels per hour of the timed grid. */
+export const HOUR_PX = 46;
+/** Width of the left hour gutter, px. */
+export const GUTTER = 52;
+/** Drag/click snap granularity, minutes. */
+export const SNAP = 15;
+/** Smallest visible chip height so very short tasks stay tappable. */
+export const MIN_CHIP_PX = 20;
+
+/** Hours rendered as gutter labels + horizontal lines (inclusive of END hour). */
+export const HOURS = Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, i) => 5 + i);
+
+/** Round a minute value to the nearest SNAP step. */
+export const snap = (m: number) => Math.round(m / SNAP) * SNAP;
+
+/** Format minutes-since-midnight as "HH:mm". */
+export const fmtMin = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+/** Clamp a start minute so a chip stays inside the window with room for a slot. */
+export const clampStart = (m: number) => Math.max(DAY_START, Math.min(DAY_END - SNAP, m));
+
+/** Pixel offset from the window top for a start minute (clamped to the top edge). */
+export const chipTop = (startMin: number) =>
+  ((Math.max(DAY_START, startMin) - DAY_START) / 60) * HOUR_PX;
+
+/** Pixel height for a duration, reserving a 2px gap and a minimum tappable size. */
+export const chipHeight = (durationMin: number) =>
+  Math.max((durationMin / 60) * HOUR_PX - 2, MIN_CHIP_PX);
+
+/** True when a start minute falls outside the visible 05:00–23:00 window. */
+export const isOffWindow = (startMin: number) => startMin < DAY_START || startMin > DAY_END;
+
+/** Convert a pixel offset within the grid body into a snapped, clamped start minute. */
+export const minuteAtOffset = (offsetPx: number) =>
+  clampStart(snap(DAY_START + (offsetPx / HOUR_PX) * 60));
+
+export type DragMode = "move" | "top" | "bottom";
+
+export interface DragOrigin {
+  origDate: string;
+  origStart: number;
+  origDur: number;
+}
+
+export interface DragPointer {
+  /** Pointer position in minutes-since-midnight within the grid. */
+  pointerMin: number;
+  /** Offset from the block top to the pointer captured at grab time. */
+  grabMin: number;
+  /** Day column the pointer is currently over (used by "move"). */
+  targetDate: string;
+}
+
+export interface DragResult {
+  date: string;
+  start: number;
+  durationMin: number;
+}
+
+/**
+ * Resolve a live drag into the next {date,start,durationMin}.
+ * - move: reposition body to another day/time, duration fixed, fully clamped.
+ * - bottom: extend/shrink the end; at least one SNAP slot tall.
+ * - top: drag the start while holding the end fixed; at least one SNAP slot.
+ */
+export function resolveDrag(mode: DragMode, origin: DragOrigin, pointer: DragPointer): DragResult {
+  const { origDate, origStart, origDur } = origin;
+  const { pointerMin, grabMin, targetDate } = pointer;
+
+  if (mode === "move") {
+    let start = snap(pointerMin - grabMin);
+    start = Math.max(DAY_START, Math.min(DAY_END - origDur, start));
+    return { date: targetDate, start, durationMin: origDur };
+  }
+
+  if (mode === "bottom") {
+    let end = snap(pointerMin);
+    end = Math.max(origStart + SNAP, Math.min(DAY_END, end));
+    return { date: origDate, start: origStart, durationMin: end - origStart };
+  }
+
+  // top
+  let start = snap(pointerMin);
+  start = Math.max(DAY_START, Math.min(origStart + origDur - SNAP, start));
+  return { date: origDate, start, durationMin: origStart + origDur - start };
+}
