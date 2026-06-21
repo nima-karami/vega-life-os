@@ -1,212 +1,207 @@
-import { useEffect, useState } from "react";
+import { Button } from "@heroui/react";
+import { useCallback, useMemo, useState } from "react";
+import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
-import { Button, cx, Icon, Label, NONE, Panel, Select, TimeRange } from "@/core/ui";
-import { habitHistory, habitRate, habitStreak } from "./selectors";
+import { Icon } from "@/core/ui";
+import type { Goal } from "@/features/goals/model";
+import { valueColor } from "@/features/values/color";
+import type { Value } from "@/features/values/model";
+import { DeleteHabitDialog } from "./DeleteHabitDialog";
+import { recurrenceLabel } from "./editor";
+import { HabitEditor } from "./HabitEditor";
+import type { Habit } from "./model";
 
-const DAYS = [
-  { key: "mon", label: "M" },
-  { key: "tue", label: "T" },
-  { key: "wed", label: "W" },
-  { key: "thu", label: "T" },
-  { key: "fri", label: "F" },
-  { key: "sat", label: "S" },
-  { key: "sun", label: "S" },
-];
-
-function recurrenceLabel(days: number[]): string {
-  const on = days.map((d, i) => (d ? i : -1)).filter((i) => i >= 0);
-  if (on.length === 7) return "Every day";
-  if (on.length === 0) return "Never";
-  if (on.join() === "0,1,2,3,4") return "Weekdays";
-  if (on.join() === "5,6") return "Weekends";
-  const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return on.map((i) => names[i]).join(" / ");
+function fmtDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h}h ${m}m` : `${h}h`;
 }
 
 export function HabitsPage() {
   const habits = useStore((s) => s.habits);
-  const tasks = useStore((s) => s.tasks);
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const addHabit = useStore((s) => s.addHabit);
-  const updateHabit = useStore((s) => s.updateHabit);
-  const removeHabit = useStore((s) => s.removeHabit);
 
-  // after adding, focus + scroll to the new (top) habit so it's never buried below the fold
-  const [newId, setNewId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!newId) return;
-    const el = document.querySelector<HTMLInputElement>(`[data-habit-name="${newId}"]`);
-    el?.focus();
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
-    setNewId(null);
-  }, [newId]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Memoized lookup maps so per-card lineage is O(1), not O(N) .find per card.
+  const valueById = useMemo(() => new Map(values.map((v) => [v.id, v])), [values]);
+  const goalById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
+
+  const editing = editingId ? (habits.find((h) => h.id === editingId) ?? null) : null;
+  const deleting = deletingId ? (habits.find((h) => h.id === deletingId) ?? null) : null;
+
+  const createHabit = useCallback(() => {
+    const habit = addHabit();
+    setEditingId(habit.id);
+  }, [addHabit]);
+
+  // Register "new habit" with the command bar while this view is mounted.
+  useRegisterCommands(
+    useMemo(
+      () => [
+        {
+          id: "habits-new",
+          label: "New habit",
+          icon: "repeat" as const,
+          keywords: "new habit create recurring routine",
+          run: ({ navigate, close }) => {
+            const habit = useStore.getState().addHabit();
+            navigate("/habits");
+            setEditingId(habit.id);
+            close();
+          },
+        },
+      ],
+      [],
+    ),
+  );
 
   return (
-    <div className="mx-auto max-w-[1100px] p-4">
-      <Panel className="mb-4 flex items-center px-5 py-4">
+    <div className="mx-auto max-w-3xl px-4 py-6">
+      <header className="flex items-end justify-between gap-4">
         <div>
-          <Label>// habits · recurrence</Label>
-          <h1 className="display mt-1 text-3xl">The things you repeat</h1>
-          <p className="mono mt-1 text-[11px] text-stone">
-            Streaks reward consistency. A skipped day is neutral; a missed day breaks the chain.
+          <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--color-ink)]">
+            Habits
+          </h1>
+          <p className="mt-1 font-sans text-sm text-[var(--color-muted)]">
+            Behaviors that repeat on a schedule and auto-create your daily tasks.
           </p>
         </div>
-        <Button className="ml-auto" icon="plus" onClick={() => setNewId(addHabit().id)}>
-          Add habit
-        </Button>
-      </Panel>
+        {habits.length > 0 && (
+          <Button
+            className="shrink-0 bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+            startContent={<Icon name="plus" size={16} />}
+            onPress={createHabit}
+          >
+            New habit
+          </Button>
+        )}
+      </header>
 
-      <div className="space-y-3">
-        {habits.map((h) => {
-          const value = values.find((v) => v.id === h.valueId);
-          const streak = habitStreak(tasks, h.id);
-          const rate = habitRate(tasks, h.id);
-          const history = habitHistory(tasks, h.id, 28).map((v, i) => ({
-            v,
-            key: `${h.id}-day-${i}`,
-          }));
-          return (
-            <Panel key={h.id} className="p-4">
-              <div className="flex flex-wrap items-start gap-4">
-                {/* identity */}
-                <div className="flex min-w-[240px] flex-1 items-start gap-3">
-                  <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-                    style={{ background: value?.hue ?? "var(--color-mist)" }}
-                  >
-                    <Icon name={h.icon} size={16} className="text-paper" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <input
-                      data-habit-name={h.id}
-                      value={h.name}
-                      onChange={(e) => updateHabit(h.id, { name: e.target.value })}
-                      className="display w-full bg-transparent text-lg leading-tight outline-none"
-                    />
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <div className="min-w-[104px] border border-[var(--color-line)] px-2 py-1">
-                        <Select
-                          ariaLabel="Value"
-                          value={h.valueId || NONE}
-                          onValueChange={(v) => updateHabit(h.id, { valueId: v === NONE ? "" : v })}
-                          options={[
-                            { value: NONE, label: "No value" },
-                            ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
-                          ]}
-                        />
-                      </div>
-                      <div className="min-w-[104px] border border-[var(--color-line)] px-2 py-1">
-                        <Select
-                          ariaLabel="Goal"
-                          value={h.goalId || NONE}
-                          onValueChange={(v) =>
-                            updateHabit(h.id, { goalId: v === NONE ? null : v })
-                          }
-                          options={[
-                            { value: NONE, label: "No goal" },
-                            ...goals.map((g) => ({ value: g.id, label: g.name })),
-                          ]}
-                        />
-                      </div>
-                      <span className="mono ml-1 text-[10px] text-stone">
-                        {recurrenceLabel(h.days)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      {habits.length === 0 ? (
+        <EmptyState onCreate={createHabit} />
+      ) : (
+        <ul className="mt-6 flex flex-col gap-3">
+          {habits.map((h) => (
+            <li key={h.id}>
+              <HabitCard
+                habit={h}
+                value={valueById.get(h.valueId)}
+                goal={h.goalId ? goalById.get(h.goalId) : undefined}
+                onOpen={() => setEditingId(h.id)}
+                onDelete={() => setDeletingId(h.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
 
-                {/* day toggles + time */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-1">
-                    {DAYS.map((d, i) => {
-                      const on = !!h.days[i];
-                      return (
-                        <button
-                          type="button"
-                          key={d.key}
-                          onClick={() => {
-                            const days = [...h.days];
-                            days[i] = on ? 0 : 1;
-                            updateHabit(h.id, { days, recurrence: recurrenceLabel(days) });
-                          }}
-                          className={cx(
-                            "mono grid h-7 w-7 place-items-center border text-[10px]",
-                            on
-                              ? "border-ink bg-ink text-paper"
-                              : "border-[var(--color-line)] text-mist hover:border-ink",
-                          )}
-                        >
-                          {d.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="w-[230px]">
-                    <TimeRange
-                      label="default block"
-                      value={{ time: h.time, durationMin: h.durationMin }}
-                      clearable={false}
-                      onChange={({ time, durationMin }) =>
-                        updateHabit(h.id, { time: time ?? h.time, durationMin })
-                      }
-                    />
-                  </div>
-                </div>
+      {editing && (
+        <HabitEditor
+          habit={editing}
+          isOpen={editingId !== null}
+          onClose={() => setEditingId(null)}
+          onRequestDelete={() => setDeletingId(editing.id)}
+        />
+      )}
+      {deleting && (
+        <DeleteHabitDialog
+          habit={deleting}
+          isOpen={deletingId !== null}
+          onClose={() => setDeletingId(null)}
+          onDeleted={() => setEditingId(null)}
+        />
+      )}
+    </div>
+  );
+}
 
-                {/* stats */}
-                <div className="flex items-center gap-5">
-                  <div className="text-center">
-                    <p className="display text-2xl leading-none">{streak}</p>
-                    <Label>streak</Label>
-                  </div>
-                  <div className="text-center">
-                    <p className="display text-2xl leading-none">
-                      {Math.round(rate * 100)}
-                      <span className="text-sm">%</span>
-                    </p>
-                    <Label>rate</Label>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeHabit(h.id)}
-                    aria-label="Delete habit"
-                    className="text-mist hover:text-signal"
-                  >
-                    <Icon name="trash" size={15} />
-                  </button>
-                </div>
-              </div>
+function HabitCard({
+  habit,
+  value,
+  goal,
+  onOpen,
+  onDelete,
+}: {
+  habit: Habit;
+  value: Value | undefined;
+  goal: Goal | undefined;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const color = valueColor(value);
+  return (
+    <div
+      className="group flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-4 transition-shadow hover:shadow-md"
+      style={{ borderInlineStart: `3px solid ${color}` }}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+        aria-label={`Edit ${habit.name}`}
+      >
+        <span
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white"
+          style={{ background: color }}
+        >
+          <Icon name={habit.icon} size={17} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-base text-[var(--color-ink)]">{habit.name}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-sans text-xs text-[var(--color-muted)]">
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: color }}
+                aria-hidden="true"
+              />
+              {value ? value.name : "No value"}
+              {goal ? ` → ${goal.name}` : ""}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{recurrenceLabel(habit.days)}</span>
+            <span aria-hidden="true">·</span>
+            <span className="tabular-nums">{habit.time}</span>
+            <span aria-hidden="true">·</span>
+            <span>{fmtDuration(habit.durationMin)}</span>
+          </div>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`Delete ${habit.name}`}
+        className="shrink-0 rounded-[var(--radius-sm)] p-2 text-[var(--color-muted)] outline-none transition-colors hover:text-[var(--color-signal)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+      >
+        <Icon name="trash" size={16} />
+      </button>
+    </div>
+  );
+}
 
-              {/* heatmap */}
-              <div className="mt-3 flex items-center gap-2 border-t border-[var(--color-line)] pt-3">
-                <Label>28d</Label>
-                <div className="flex flex-1 flex-wrap gap-1">
-                  {history.map(({ v, key }) => (
-                    <span
-                      key={key}
-                      title={v === 1 ? "done" : v === -1 ? "skipped" : "missed"}
-                      className="h-3.5 w-3.5"
-                      style={{
-                        background:
-                          v === 1
-                            ? "var(--color-ink)"
-                            : v === -1
-                              ? "var(--color-line-strong)"
-                              : "transparent",
-                        border: v === 0 ? "1px solid var(--color-line)" : "none",
-                      }}
-                    />
-                  ))}
-                  {!history.length && (
-                    <span className="mono text-[10px] text-mist">no history yet</span>
-                  )}
-                </div>
-              </div>
-            </Panel>
-          );
-        })}
-      </div>
+function EmptyState({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="mt-10 flex flex-col items-center rounded-[var(--radius-lg)] border border-dashed border-[var(--color-line)] bg-[var(--color-surface)] px-6 py-14 text-center">
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-[var(--color-canvas)] text-[var(--color-muted)]">
+        <Icon name="repeat" size={22} />
+      </span>
+      <h2 className="mt-4 font-display text-xl text-[var(--color-ink)]">Build a routine</h2>
+      <p className="mt-1 max-w-sm font-sans text-sm text-[var(--color-muted)]">
+        Habits repeat on a schedule and auto-create your daily tasks. Define one once and it shows
+        up on the days it should.
+      </p>
+      <Button
+        className="mt-5 bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+        startContent={<Icon name="plus" size={16} />}
+        onPress={onCreate}
+      >
+        Create your first habit
+      </Button>
     </div>
   );
 }
