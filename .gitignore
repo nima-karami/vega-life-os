@@ -27,3 +27,6 @@ dist-ssr
 
 # playwright-cli scratch (snapshots/console logs)
 .playwright-cli/
+
+# Autonomous build-loop run state (transient)
+.autoloop/
