@@ -1,5 +1,19 @@
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { cx } from "./cx";
+
+/** Tracks the user's reduced-motion preference (SSR-safe, live-updating). */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
 
 /** Circular gauge (HUD ring). */
 export function Gauge({
@@ -167,6 +181,8 @@ export function Radar({
 }) {
   const cxp = size / 2;
   const id = useId();
+  const reducedMotion = usePrefersReducedMotion();
+  const animateSweep = sweep && !reducedMotion;
   const rings = [0.28, 0.6, 0.92];
   return (
     <svg width={size} height={size} className="overflow-visible" aria-hidden="true">
@@ -194,14 +210,16 @@ export function Radar({
             d={`M${cxp} ${cxp} L${cxp} 4 A${cxp - 4} ${cxp - 4} 0 0 1 ${size - 4} ${cxp} Z`}
             fill={`url(#sweep-${id})`}
           >
-            <animateTransform
-              attributeName="transform"
-              type="rotate"
-              from={`0 ${cxp} ${cxp}`}
-              to={`360 ${cxp} ${cxp}`}
-              dur="6s"
-              repeatCount="indefinite"
-            />
+            {animateSweep && (
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from={`0 ${cxp} ${cxp}`}
+                to={`360 ${cxp} ${cxp}`}
+                dur="6s"
+                repeatCount="indefinite"
+              />
+            )}
           </path>
         </g>
       )}
