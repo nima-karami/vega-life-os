@@ -1,6 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 @plugin "../../../hero";
+/* Tailwind v4 must scan HeroUI's theme dist so component classes are generated
+   (without this, HeroUI Checkbox/Input/etc. render unstyled). */
+@source "../../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
 
 /* ============================================================
    VEGA Life OS — Vapor theme tokens (Tailwind v4 @theme)
