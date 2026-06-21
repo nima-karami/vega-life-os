@@ -1,0 +1,344 @@
+﻿
+> vega-life-os@0.1.0 verify
+> npm run format:check && npm run lint && npm run typecheck && npm run deadcode && npm run test && npm run dupes && npm run scan:secrets && npm run audit:deps && npm run e2e
+
+
+> vega-life-os@0.1.0 format:check
+> biome format .
+
+Checked 118 files in 82ms. No fixes applied.
+
+> vega-life-os@0.1.0 lint
+> biome lint .
+
+node.exe : src\app\RootBoot.tsx:69:38 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━━━━━━━━━━━━━━━━━
+At C:\Program Files\nodejs\npm.ps1:29 char:3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (src\app\RootBoo...━━━━━━━━━━━━━━━:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+  ! Excessive complexity of 33 detected (max: 15).
+  
+    67 │   // Global keyboard shortcuts
+    68 │   useEffect(() => {
+  > 69 │     const onKey = (e: KeyboardEvent) => {
+       │                                      ^^^
+    70 │       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    71 │         e.preventDefault();
+  
+  i Please refactor this function to reduce its complexity score from 33 to the max allowed complexity 15.
+  
+
+src\core\agent\anthropic-agent.ts:92:10 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━━━━
+
+  ! Excessive complexity of 20 detected (max: 15).
+  
+    91 │ /** Build a clickable action from a Claude tool_use block. */
+  > 92 │ function toAction(name: string, input: Record<string, unknown>, idx: number): AgentAction | null {
+       │          ^^^^^^^^
+    93 │   const s = useStore.getState();
+    94 │   const id = `ai-${idx}`;
+  
+  i Please refactor this function to reduce its complexity score from 20 to the max allowed complexity 15.
+  
+
+src\core\agent\local-agent.ts:27:9 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━━━━━━━━━
+
+  ! Excessive complexity of 28 detected (max: 15).
+  
+    25 │   id = "local";
+    26 │ 
+  > 27 │   async suggest(query: string): Promise<AgentResult> {
+       │         ^^^^^^^
+    28 │     const q = query.trim();
+    29 │     if (!q) return { actions: [] };
+  
+  i Please refactor this function to reduce its complexity score from 28 to the max allowed complexity 15.
+  
+
+src\core\agent\when.ts:13:17 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Excessive complexity of 25 detected (max: 15).
+  
+    12 │ /** Pull simple date/time tokens out of a phrase, returning the cleaned rest. */
+  > 13 │ export function parseWhen(input: string): Parsed {
+       │                 ^^^^^^^^^
+    14 │   let s = ` ${input} `;
+    15 │   let date: string | undefined;
+  
+  i Please refactor this function to reduce its complexity score from 25 to the max allowed complexity 15.
+  
+
+src\features\analytics\selectors.ts:81:17 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━━
+
+  ! Excessive complexity of 26 detected (max: 15).
+  
+    79 │  * no LLM required. Returns up to 4 insight strings (only when there's enough signal).
+    80 │  */
+  > 81 │ export function insights(tasks: Task[], habits: Habit[]): string[] {
+       │                 ^^^^^^^^
+    82 │   const out: string[] = [];
+    83 │   const lo = format(subDays(new Date(), 60), "yyyy-MM-dd");
+  
+  i Please refactor this function to reduce its complexity score from 26 to the max allowed complexity 15.
+  
+
+src\features\calendar-sync\sync.ts:13:23 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━━━
+
+  ! Excessive complexity of 21 detected (max: 15).
+  
+    11 │  * last write per task wins. Client-side, on-demand (no webhooks).
+    12 │  */
+  > 13 │ export async function syncNow(interactive = false): Promise<{ pushed: number; pulled: number }> {
+       │                       ^^^^^^^
+    14 │   if (running) return { pushed: 0, pulled: 0 };
+    15 │   running = true;
+  
+  i Please refactor this function to reduce its complexity score from 21 to the max allowed complexity 15.
+  
+
+src\features\calendar\CalendarPage.tsx:190:21 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━
+
+  ! Excessive complexity of 26 detected (max: 15).
+  
+    188 │       setPreview(next);
+    189 │     };
+  > 190 │     const onUp = () => {
+        │                     ^^^
+    191 │       const d = dragRef.current;
+    192 │       const p = previewRef.current;
+  
+  i Please refactor this function to reduce its complexity score from 26 to the max allowed complexity 15.
+  
+
+src\features\calendar\CalendarPage.tsx:418:41 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━
+
+  ! Excessive complexity of 19 detected (max: 15).
+  
+    416 │                       )}
+    417 │                       {/* task blocks */}
+  > 418 │                       {dayTasks.map((t) => {
+        │                                         ^^^
+    419 │                         const eff = effective(t);
+    420 │                         const top = ((eff.start - START) / 60) * HOUR_PX;
+  
+  i Please refactor this function to reduce its complexity score from 19 to the max allowed complexity 15.
+  
+
+src\features\habits\HabitsPage.tsx:185:45 lint/complexity/noExcessiveCognitiveComplexity ━━━━━━━━━━━
+
+  ! Excessive complexity of 17 detected (max: 15).
+  
+    183 │                 <Label>28d</Label>
+    184 │                 <div className="flex flex-1 flex-wrap gap-1">
+  > 185 │                   {history.map(({ v, key }) => (
+        │                                             ^^^
+    186 │                     <span
+    187 │                       key={key}
+  
+  i Please refactor this function to reduce its complexity score from 17 to the max allowed complexity 15.
+  
+
+Checked 119 files in 111ms. No fixes applied.
+Found 9 warnings.
+
+> vega-life-os@0.1.0 typecheck
+> tsc -b
+
+
+> vega-life-os@0.1.0 deadcode
+> knip --include files,dependencies,unlisted
+
+
+> vega-life-os@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.9 G:/awby/projects/vega-life-os/.claude/worktrees/s0-foundation
+
+
+ Test Files  8 passed (8)
+      Tests  62 passed (62)
+   Start at  13:34:11
+   Duration  4.03s (transform 759ms, setup 0ms, import 14.21s, tests 160ms, environment 3ms)
+
+
+> vega-life-os@0.1.0 dupes
+> jscpd src --threshold 5 --reporters console
+
+[1mClone found (typescript)[22m
+ - [1m[32msrc\core\agent\local-agent.ts[39m[22m [52:41 - 58:14] (7 lines, 66 tokens)
+   [1m[32msrc\core\agent\local-agent.ts[39m[22m [72:41 - 78:14]
+[1mClone found (typescript)[22m
+ - [1m[32msrc\core\persistence\adapter.ts[39m[22m [1:1 - 9:7] (9 lines, 53 tokens)
+   [1m[32msrc\core\persistence\db.ts[39m[22m [2:1 - 9:7]
+[1mClone found (typescript)[22m
+ - [1m[32msrc\core\store\store.ts[39m[22m [49:7 - 59:10] (11 lines, 104 tokens)
+   [1m[32msrc\core\store\store.ts[39m[22m [82:5 - 92:8]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\core\ui\contextmenu.tsx[39m[22m [18:16 - 31:15] (14 lines, 73 tokens)
+   [1m[32msrc\core\ui\menu.tsx[39m[22m [39:16 - 52:15]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\core\ui\datetime.tsx[39m[22m [19:11 - 27:3] (9 lines, 74 tokens)
+   [1m[32msrc\features\habits\HabitsPage.tsx[39m[22m [6:12 - 14:3]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\core\ui\datetime.tsx[39m[22m [104:3 - 112:56] (9 lines, 53 tokens)
+   [1m[32msrc\core\ui\datetime.tsx[39m[22m [226:3 - 234:56]
+[1mClone found (typescript)[22m
+ - [1m[32msrc\features\analytics\selectors.ts[39m[22m [49:42 - 54:5] (6 lines, 53 tokens)
+   [1m[32msrc\features\analytics\selectors.ts[39m[22m [83:43 - 90:8]
+[1mClone found (typescript)[22m
+ - [1m[32msrc\features\calendar-sync\map.test.ts[39m[22m [3:73 - 20:4] (18 lines, 78 tokens)
+   [1m[32msrc\features\calendar-sync\reconcile.test.ts[39m[22m [4:55 - 21:4]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\features\goals\components\GoalDrawer.tsx[39m[22m [48:14 - 54:7] (7 lines, 52 tokens)
+   [1m[32msrc\features\tasks\components\TaskDrawer.tsx[39m[22m [24:14 - 30:7]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\features\goals\components\GoalDrawer.tsx[39m[22m [48:14 - 54:7] (7 lines, 52 tokens)
+   [1m[32msrc\features\values\components\ValueDrawer.tsx[39m[22m [52:15 - 58:7]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\features\goals\components\GoalDrawer.tsx[39m[22m [76:13 - 86:29] (11 lines, 57 tokens)
+   [1m[32msrc\features\tasks\components\TaskDrawer.tsx[39m[22m [34:13 - 44:29]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\features\goals\components\GoalDrawer.tsx[39m[22m [76:13 - 93:26] (18 lines, 116 tokens)
+   [1m[32msrc\features\values\components\ValueDrawer.tsx[39m[22m [62:14 - 79:26]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\features\goals\components\GoalDrawer.tsx[39m[22m [93:33 - 105:16] (13 lines, 54 tokens)
+   [1m[32msrc\features\tasks\components\TaskDrawer.tsx[39m[22m [54:33 - 66:16]
+[1mClone found (tsx)[22m
+ - [1m[32msrc\features\goals\components\GoalDrawer.tsx[39m[22m [93:33 - 106:33] (14 lines, 64 tokens)
+   [1m[32msrc\features\values\components\ValueDrawer.tsx[39m[22m [79:34 - 93:29]
+[1mClone found (typescript)[22m
+ - [1m[32msrc\features\goals\store.ts[39m[22m [89:16 - 94:37] (6 lines, 54 tokens)
+   [1m[32msrc\features\goals\store.ts[39m[22m [102:16 - 107:37]
+[90m┌────────────┬────────────────┬─────────────┬──────────────┬──────────────┬──────────────────┬───────────────────┐[39m
+[90m│[39m[31m Format     [39m[90m│[39m[31m Files analyzed [39m[90m│[39m[31m Total lines [39m[90m│[39m[31m Total tokens [39m[90m│[39m[31m Clones found [39m[90m│[39m[31m Duplicated lines [39m[90m│[39m[31m Duplicated tokens [39m[90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m css        [90m│[39m 1              [90m│[39m 242         [90m│[39m 2227         [90m│[39m 0            [90m│[39m 0 (0.00%)        [90m│[39m 0 (0.00%)         [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m tsx        [90m│[39m 34             [90m│[39m 5372        [90m│[39m 32651        [90m│[39m 9            [90m│[39m 93 (1.73%)       [90m│[39m 595 (1.82%)       [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m typescript [90m│[39m 61             [90m│[39m 4909        [90m│[39m 32209        [90m│[39m 6            [90m│[39m 51 (1.04%)       [90m│[39m 408 (1.27%)       [90m│[39m
+[90m├────────────┼────────────────┼─────────────┼──────────────┼──────────────┼──────────────────┼───────────────────┤[39m
+[90m│[39m [1mTotal:[22m     [90m│[39m 96             [90m│[39m 10523       [90m│[39m 67087        [90m│[39m 15           [90m│[39m 144 (1.37%)      [90m│[39m 1003 (1.50%)      [90m│[39m
+[90m└────────────┴────────────────┴─────────────┴──────────────┴──────────────┴──────────────────┴───────────────────┘[39m
+[90mFound 15 clones.[39m
+[90mtime: 35.066ms[39m
+
+[90m💡 Auto-refactor with AI: [1m[39mnpx skills add https://github.com/kucherenko/jscpd --skill dry-refactoring[90m[22m
+[90m🎩 New: Gangsta Agents — discipline your AI coding → gangsta.page[39m
+[90m💖 Support jscpd project → https://opencollective.com/jscpd[39m
+
+> vega-life-os@0.1.0 scan:secrets
+> gitleaks dir . --no-banner --redact
+
+[90m1:34PM[0m [32mINF[0m [1mscanned ~894088 bytes (894.09 KB) in 283ms[0m
+[90m1:34PM[0m [32mINF[0m [1mno leaks found[0m
+
+> vega-life-os@0.1.0 audit:deps
+> npm audit --audit-level=high && osv-scanner scan source --lockfile package-lock.json
+
+found 0 vulnerabilities
+Starting filesystem walk for root: G:\
+Scanned G:\awby\projects\vega-life-os\.claude\worktrees\s0-foundation\package-lock.json file and found 577 packages
+End status: 0 dirs visited, 1 inodes visited, 1 Extract calls, 13.2868ms elapsed, 13.2869ms wall time
+
+No issues found
+
+> vega-life-os@0.1.0 e2e
+> playwright test
+
+
+Running 12 tests using 6 workers
+
+[WebServer] 1:34:39 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:39 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:39 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:39 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:39 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:39 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:40 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:41 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:42 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:42 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok  1 [chromium] › e2e\smoke.spec.ts:38:1 › boots to /today — no TopBar, no NavRow, omni trigger visible (12.7s)
+[WebServer] 1:34:42 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok  4 [chromium] › e2e\smoke.spec.ts:72:3 › renders calendar (/calendar) with content and no errors (13.0s)
+  ok  6 [chromium] › e2e\smoke.spec.ts:72:3 › renders values-goals (/values) with content and no errors (13.0s)
+[WebServer] 1:34:43 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:43 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok  2 [chromium] › e2e\smoke.spec.ts:72:3 › renders today (/today) with content and no errors (14.3s)
+  ok  5 [chromium] › e2e\smoke.spec.ts:72:3 › renders analytics (/analytics) with content and no errors (14.1s)
+[WebServer] 1:34:44 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:45 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok  3 [chromium] › e2e\smoke.spec.ts:72:3 › renders habits (/habits) with content and no errors (16.2s)
+[WebServer] 1:34:46 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:48 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:48 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:48 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:49 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok  7 [chromium] › e2e\smoke.spec.ts:102:3 › removed route /board shows 404 recovery (7.2s)
+[WebServer] 1:34:49 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok  8 [chromium] › e2e\smoke.spec.ts:102:3 › removed route /map shows 404 recovery (7.7s)
+[WebServer] 1:34:51 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:52 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:52 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 1:34:52 PM [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will 
+begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag 
+to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok  9 [chromium] › e2e\smoke.spec.ts:102:3 › removed route /library shows 404 recovery (9.3s)
+  ok 12 [chromium] › e2e\smoke.spec.ts:102:3 › removed route /review shows 404 recovery (6.8s)
+  ok 10 [chromium] › e2e\smoke.spec.ts:102:3 › removed route /lab shows 404 recovery (8.7s)
+  ok 11 [chromium] › e2e\smoke.spec.ts:102:3 › removed route /cockpit shows 404 recovery (8.8s)
+
+  12 passed (30.3s)

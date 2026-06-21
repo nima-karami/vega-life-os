@@ -1,0 +1,192 @@
+/**
+ * Command / nav registry — the sole navigation layer for the vapor redesign.
+ *
+ * Provides:
+ * - NAV_COMMANDS: the 5 v1 routes (Today, Values, Habits, Calendar, Analytics)
+ * - ACTION_COMMANDS: core shell actions (add task, reset demo, keyboard shortcuts)
+ * - registerCommands / useRegisterCommands: API for views to add per-view commands
+ */
+import { useEffect } from "react";
+import type { IconName } from "@/core/lib/icon-names";
+import type { useStore } from "@/core/store";
+
+// ─── Types ─────────────────────────────────────────────────────────────────
+
+/** What a command's run() callback receives. */
+export interface CommandApi {
+  navigate: (to: string) => void;
+  close: () => void;
+  store: typeof useStore;
+  query: string;
+}
+
+/** A navigation entry (routes to a path). */
+export interface NavCommand {
+  id: string;
+  label: string;
+  sublabel?: string;
+  icon: IconName;
+  to: string;
+  keywords?: string;
+}
+
+/** An executable action. */
+export interface ActionCommand {
+  id: string;
+  label: string;
+  icon: IconName;
+  keywords?: string;
+  run: (api: CommandApi) => void;
+}
+
+// ─── Nav Commands (5 v1 routes) ────────────────────────────────────────────
+
+export const NAV_COMMANDS: NavCommand[] = [
+  {
+    id: "nav-today",
+    label: "Today",
+    sublabel: "Focus · daily plan",
+    icon: "calendar",
+    to: "/today",
+    keywords: "today focus daily plan tasks",
+  },
+  {
+    id: "nav-values",
+    label: "Values & Goals",
+    sublabel: "The why",
+    icon: "tree",
+    to: "/values",
+    keywords: "values goals the why",
+  },
+  {
+    id: "nav-habits",
+    label: "Habits",
+    sublabel: "Recurrence",
+    icon: "repeat",
+    to: "/habits",
+    keywords: "habits recurrence streak",
+  },
+  {
+    id: "nav-calendar",
+    label: "Calendar",
+    sublabel: "Week · schedule",
+    icon: "calendar",
+    to: "/calendar",
+    keywords: "calendar week schedule gcal",
+  },
+  {
+    id: "nav-analytics",
+    label: "Analytics",
+    sublabel: "Follow-through",
+    icon: "chart",
+    to: "/analytics",
+    keywords: "analytics review follow-through insights",
+  },
+];
+
+// ─── Core Action Commands ────────────────────────────────────────────────────
+
+export const ACTION_COMMANDS: ActionCommand[] = [
+  {
+    id: "action-add-task",
+    label: "Add task to backlog",
+    icon: "plus",
+    keywords: "add task new backlog",
+    run: ({ store, query, close }) => {
+      const title = query.trim();
+      if (!title) return;
+      store.getState().addTask({ title, date: null });
+      store.getState().pushToast(`Added "${title}" to backlog`);
+      close();
+    },
+  },
+  {
+    id: "action-shortcuts",
+    label: "Keyboard shortcuts",
+    icon: "command",
+    keywords: "keyboard shortcuts help hotkeys",
+    run: ({ store, close }) => {
+      store.getState().setShortcutsOpen(true);
+      close();
+    },
+  },
+  {
+    id: "action-settings",
+    label: "Settings",
+    icon: "sliders",
+    keywords: "settings identity data backup export account",
+    run: ({ navigate, close }) => {
+      navigate("/settings");
+      close();
+    },
+  },
+  {
+    id: "action-reseed",
+    label: "Reset demo data",
+    icon: "repeat",
+    keywords: "reseed reset demo data",
+    run: ({ store, close }) => {
+      void store.getState().reseed();
+      store.getState().pushToast("Demo data reset");
+      close();
+    },
+  },
+];
+
+// ─── View-command Registry ────────────────────────────────────────────────────
+
+type RegistryListener = () => void;
+
+let _viewCommands: ActionCommand[] = [];
+const _listeners = new Set<RegistryListener>();
+let _version = 0;
+
+function notify() {
+  _version++;
+  for (const l of _listeners) l();
+}
+
+/**
+ * Register additional commands while a view is mounted.
+ * Returns an unregister function — call it on view unmount.
+ * Registering a command with an existing id replaces the old one.
+ */
+export function registerCommands(commands: ActionCommand[]): () => void {
+  // Replace existing by id or append
+  const ids = new Set(commands.map((c) => c.id));
+  _viewCommands = _viewCommands.filter((c) => !ids.has(c.id));
+  _viewCommands = [..._viewCommands, ...commands];
+  notify();
+  return () => {
+    _viewCommands = _viewCommands.filter((c) => !ids.has(c.id));
+    notify();
+  };
+}
+
+/** Subscribe to registry changes (used by CommandBar). Returns unsubscribe. */
+export function subscribeRegistry(listener: RegistryListener): () => void {
+  _listeners.add(listener);
+  return () => _listeners.delete(listener);
+}
+
+/** Read current view commands snapshot. */
+export function getViewCommands(): ActionCommand[] {
+  return _viewCommands;
+}
+
+/** Get current registry version (use as a dependency trigger). */
+export function getRegistryVersion(): number {
+  return _version;
+}
+
+/**
+ * Hook wrapper: registers commands on mount, unregisters on unmount.
+ * Views import this to inject their per-view actions.
+ */
+export function useRegisterCommands(commands: ActionCommand[]): void {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: commands identity changes on every render; key on ids
+  useEffect(() => {
+    return registerCommands(commands);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
