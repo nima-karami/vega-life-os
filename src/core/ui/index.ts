@@ -4,6 +4,7 @@ export { ContextMenu } from "./contextmenu";
 export { cx } from "./cx";
 export { DatePicker, DurationStepper, TimePicker, TimeRange } from "./datetime";
 export { Ic, Icon } from "./icons";
+export { Lineage, valueStripeStyle } from "./lineage";
 export type { MenuItem } from "./menu";
 export { Menu } from "./menu";
 export { Popover, PopoverClose } from "./popover";

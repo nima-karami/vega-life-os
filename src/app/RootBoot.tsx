@@ -10,11 +10,10 @@ import { Onboarding } from "./Onboarding";
 import { Shortcuts } from "./Shortcuts";
 import { Toast } from "./Toast";
 
-/** Top-level provider: boots data, applies theme, owns the global ⌘K layer. */
+/** Top-level provider: boots data, applies vapor theme, owns the global ⌘K layer. */
 export function RootBoot() {
   const bootstrap = useStore((s) => s.bootstrap);
   const ready = useStore((s) => s.ready);
-  const theme = useStore((s) => s.theme);
   const accent = useStore((s) => s.accent);
   const onboarded = useStore((s) => s.onboarded);
   const toggleCommand = useStore((s) => s.toggleCommand);
@@ -27,8 +26,6 @@ export function RootBoot() {
   }, [bootstrap]);
 
   useEffect(() => {
-    // When Firebase is configured, auth state drives which backend is active.
-    // When it isn't, onAuth fires once with null and we stay purely local.
     const onAuthChange = useStore.getState().onAuthChange;
     const unsub = onAuth((user) => {
       void onAuthChange(user?.uid ?? null);
@@ -37,18 +34,26 @@ export function RootBoot() {
   }, []);
 
   useEffect(() => {
-    // When calendar sync is on, run one silent sync on boot. Non-interactive:
-    // if it needs consent it no-ops until the user reconnects from Settings.
     if (!gcalEnabled()) return;
     void syncNow(false).catch(() => {});
   }, []);
 
+  // Apply vapor theme on mount (single theme for this branch)
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    document.documentElement.dataset.theme = "vapor";
+  }, []);
 
-  // suppress the native browser context menu app-wide — VEGA owns right-click
-  // (our Radix context menus still open). Text fields keep their menu for copy/paste.
+  // Custom accent override (store field kept for data-layer reuse, but vapor ignores it by default)
+  useEffect(() => {
+    const root = document.documentElement;
+    if (accent) {
+      root.style.setProperty("--color-accent", accent);
+    } else {
+      root.style.removeProperty("--color-accent");
+    }
+  }, [accent]);
+
+  // suppress native context menu app-wide
   useEffect(() => {
     const onCtx = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
@@ -59,17 +64,7 @@ export function RootBoot() {
     return () => document.removeEventListener("contextmenu", onCtx);
   }, []);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (accent) {
-      root.style.setProperty("--color-accent", accent);
-      root.style.setProperty("--color-signal", accent);
-    } else {
-      root.style.removeProperty("--color-accent");
-      root.style.removeProperty("--color-signal");
-    }
-  }, [accent]);
-
+  // Global keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -126,11 +121,6 @@ export function RootBoot() {
         s.openCommand();
         return;
       }
-      if (low === "t") {
-        e.preventDefault();
-        navigate("/");
-        return;
-      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -138,8 +128,10 @@ export function RootBoot() {
 
   if (!ready) {
     return (
-      <div className="grid h-screen place-items-center bg-paper">
-        <span className="label animate-pulse">// booting vega…</span>
+      <div className="grid h-screen place-items-center bg-[var(--color-canvas)]">
+        <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)] animate-pulse">
+          // booting vega…
+        </span>
       </div>
     );
   }

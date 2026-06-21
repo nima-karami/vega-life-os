@@ -1,22 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Every spine view must actually render real content with no uncaught errors.
- * This is the layer that catches a green build shipping a blank screen or a
- * thrown component — unit-level checks never see that.
+ * Smoke suite for the vapor redesign shell (slice 0).
+ *
+ * Asserts:
+ * 1. App boots to /today — NO TopBar, NO NavRow in DOM
+ * 2. Omni trigger is visible on /today
+ * 3. All 5 v1 routes render real content with no uncaught errors
+ * 4. A removed route (e.g. /board) renders the 404 recovery page
  */
-const ROUTES: { path: string; name: string }[] = [
-  { path: "/", name: "cockpit" },
-  { path: "/map", name: "map" },
-  { path: "/calendar", name: "calendar" },
-  { path: "/board", name: "board" },
-  { path: "/values", name: "values-goals" },
-  { path: "/habits", name: "habits" },
-  { path: "/analytics", name: "analytics" },
-  { path: "/library", name: "library" },
-  { path: "/review", name: "review" },
-  { path: "/settings", name: "settings" },
-];
 
 // Known-benign console noise we don't want to fail the smoke on.
 const IGNORE = [
@@ -25,22 +17,59 @@ const IGNORE = [
   /Firebase/i, // cloud sync is gated off without config — expected
 ];
 
-// A fresh browser shows the first-run onboarding overlay. Clear it (and seed the
-// demo dataset) so each test exercises a populated, booted app.
+// Boot the app and dismiss onboarding once before each test.
 test.beforeEach(async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
+
+  // The app settles into EITHER onboarding or the booted shell.
   const explore = page.getByRole("button", { name: /explore with sample data/i });
-  const nav = page.getByRole("navigation").first();
-  // The app settles into EITHER onboarding or the booted shell — wait for whichever.
-  await expect(explore.or(nav)).toBeVisible({ timeout: 15_000 });
+  const omni = page.getByTestId("omni-trigger");
+  const main = page.locator("main");
+
+  await expect(explore.or(omni).or(main)).toBeVisible({ timeout: 20_000 });
+
   if (await explore.isVisible()) {
     await explore.click();
+    // Wait until onboarding is gone and the main content area appears
+    await expect(main).toBeVisible({ timeout: 15_000 });
   }
-  await expect(nav).toBeVisible({ timeout: 15_000 });
 });
 
-for (const { path, name } of ROUTES) {
-  test(`renders ${name} (${path})`, async ({ page }, testInfo) => {
+test("boots to /today — no TopBar, no NavRow, omni trigger visible", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+  page.on("console", (m) => {
+    if (m.type() === "error" && !IGNORE.some((re) => re.test(m.text()))) {
+      errors.push(`console.error: ${m.text()}`);
+    }
+  });
+
+  await page.goto("/", { waitUntil: "networkidle" });
+
+  // No legacy nav chrome
+  await expect(page.locator("header")).toHaveCount(0);
+  await expect(page.locator("nav")).toHaveCount(0);
+
+  // Omni trigger present
+  await expect(page.getByTestId("omni-trigger")).toBeVisible({ timeout: 10_000 });
+
+  // Content in main
+  const text = (await page.locator("main").innerText()).trim();
+  expect(text.length, "main content too short").toBeGreaterThan(20);
+
+  expect(errors, `runtime errors:\n${errors.join("\n")}`).toEqual([]);
+});
+
+const V1_ROUTES: { path: string; name: string }[] = [
+  { path: "/today", name: "today" },
+  { path: "/values", name: "values-goals" },
+  { path: "/habits", name: "habits" },
+  { path: "/calendar", name: "calendar" },
+  { path: "/analytics", name: "analytics" },
+];
+
+for (const { path, name } of V1_ROUTES) {
+  test(`renders ${name} (${path}) with content and no errors`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
     page.on("console", (m) => {
@@ -51,16 +80,44 @@ for (const { path, name } of ROUTES) {
 
     await page.goto(path, { waitUntil: "networkidle" });
 
-    // The app shell nav is always present once the SPA has booted (not a blank screen).
-    await expect(page.getByRole("navigation").first()).toBeVisible({ timeout: 15_000 });
+    // main content area is present
+    const main = page.locator("main");
+    await expect(main).toBeVisible({ timeout: 15_000 });
 
-    // Real content rendered, not an empty/broken view.
-    const text = (await page.locator("main").innerText()).trim();
+    // Real content rendered (not blank)
+    const text = (await main.innerText()).trim();
     expect(text.length, `view "${name}" rendered too little text`).toBeGreaterThan(40);
 
-    // Evidence for human/agent inspection.
-    await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true });
+    // No legacy nav chrome
+    await expect(page.locator("header")).toHaveCount(0);
+    await expect(page.locator("nav")).toHaveCount(0);
 
     expect(errors, `runtime errors on ${name}:\n${errors.join("\n")}`).toEqual([]);
+  });
+}
+
+const REMOVED_ROUTES = ["/board", "/map", "/library", "/lab", "/cockpit", "/review"];
+
+for (const path of REMOVED_ROUTES) {
+  test(`removed route ${path} shows 404 recovery`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+    page.on("console", (m) => {
+      if (m.type() === "error" && !IGNORE.some((re) => re.test(m.text()))) {
+        errors.push(`console.error: ${m.text()}`);
+      }
+    });
+
+    await page.goto(path, { waitUntil: "networkidle" });
+
+    // 404 page shows — wait for main to contain recovery text
+    const main = page.locator("main");
+    await expect(main).toBeVisible({ timeout: 15_000 });
+
+    // Recovery link exists
+    const goToToday = page.getByRole("link", { name: /go to today/i });
+    await expect(goToToday).toBeVisible({ timeout: 10_000 });
+
+    expect(errors, `runtime errors on 404 for ${path}:\n${errors.join("\n")}`).toEqual([]);
   });
 }

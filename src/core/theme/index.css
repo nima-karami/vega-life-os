@@ -1,79 +1,63 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
+@plugin "../../../hero";
 
 /* ============================================================
-   VEGA · Life OS — design tokens (Tailwind v4 @theme)
-   Monochrome "cockpit HUD": warm paper, near-black ink, hairlines.
+   VEGA Life OS — Vapor theme tokens (Tailwind v4 @theme)
+   Minimal, calm, light-mode-only for the redesign branch.
    ============================================================ */
 @theme {
-  /* paper (light cockpit) */
-  --color-paper: #f1eee4;
-  --color-paper-2: #e9e5d9;
-  --color-paper-3: #e2ddcf;
-  --color-ink: #18180f;
-  --color-ink-2: #2c2c22;
+  /* Canvas & surface */
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
 
-  /* monochrome value/grey ramp */
-  --color-ash: #474740;
-  --color-stone: #6f6f64;
-  --color-mist: #94948a;
-  --color-fog: #b6b3a7;
+  /* Text */
+  --color-ink: #0d1117;
+  --color-muted: #6b7280; /* darkened from #8A93A0 to meet WCAG 4.5:1 on white */
 
-  /* hairlines */
-  --color-line: rgba(24, 24, 15, 0.16);
-  --color-line-soft: rgba(24, 24, 15, 0.09);
-  --color-line-strong: rgba(24, 24, 15, 0.34);
+  /* Lines & dividers */
+  --color-line: #eaecef;
+  --color-line-soft: rgba(14, 17, 23, 0.06);
+  --color-line-strong: rgba(14, 17, 23, 0.24);
 
-  /* dark cockpit surface (used by some lab variants + dark mode) */
-  --color-void: #0b0b08;
-  --color-void-2: #15150f;
-  --color-void-3: #1d1d15;
+  /* Accent — single indigo */
+  --color-accent: #5b5bd6;
+  --color-accent-foreground: #ffffff;
 
-  /* opaque control surfaces — sit ABOVE the engineering grid so bordered
-     buttons / inputs / chips stay legible instead of meshing with the lines.
-     `surface` is the resting fill; `surface-2` is a touch heavier for nesting
-     a control on top of an already-filled panel. Both flip with the theme. */
-  --color-surface: var(--color-paper-2);
-  --color-surface-2: var(--color-paper-3);
+  /* Legacy aliases (kept for HUD components that still render) */
+  --color-paper: #f6f7f9;
+  --color-paper-2: #f0f1f4;
+  --color-paper-3: #e8eaed;
+  --color-ink-2: #1a1f2c;
+  --color-ash: #4b5563;
+  --color-stone: #6b7280;
+  --color-mist: #9ca3af;
+  --color-fog: #d1d5db;
+  --color-signal: #5b5bd6;
+  --color-good: #2f9e74;
 
-  /* signal / status accents (kept sparse — HUD is mostly monochrome) */
-  --color-signal: #c9501e; /* "needs you" amber-rust */
-  --color-good: #2f6f3f;
+  /* Shadows */
+  --shadow-soft: 0 4px 24px rgba(14, 17, 23, 0.08), 0 1px 4px rgba(14, 17, 23, 0.06);
 
-  /* value spectrum — used by Map orbs, galaxy, globe, light variants */
-  --color-courage: #5b6cff;
-  --color-presence: #2bb6a8;
-  --color-selfcare: #d8744f;
-  --color-stability: #c2a14e;
-  --color-vitality: #b154c9;
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-hud: 4px;
 
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Typography */
   --font-display: "Space Grotesk", system-ui, -apple-system, sans-serif;
-  --font-sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
-
-  --radius-hud: 2px;
-}
-
-/* ---------- dark "void" cockpit theme ---------- */
-[data-theme="void"] {
-  --color-paper: #0c0c08;
-  --color-paper-2: #14140e;
-  --color-paper-3: #1b1b13;
-  --color-ink: #efeada;
-  --color-ink-2: #d8d2c2;
-  --color-ash: #b6b1a2;
-  --color-stone: #8a877a;
-  --color-mist: #6a685d;
-  --color-fog: #4a4840;
-  --color-line: rgba(239, 234, 218, 0.16);
-  --color-line-soft: rgba(239, 234, 218, 0.08);
-  --color-line-strong: rgba(239, 234, 218, 0.32);
-  --color-signal: #e0763f;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /* ---------- base ---------- */
 @layer base {
-  * {
+  *,
+  ::before,
+  ::after {
     border-color: var(--color-line);
+    box-sizing: border-box;
   }
   html,
   body,
@@ -82,7 +66,7 @@
   }
   body {
     margin: 0;
-    background: var(--color-paper);
+    background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv01";
@@ -90,50 +74,68 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* faint engineering grid behind everything */
-  .hud-grid-bg {
-    background-image:
-      linear-gradient(var(--color-line-soft) 1px, transparent 1px),
-      linear-gradient(90deg, var(--color-line-soft) 1px, transparent 1px);
-    background-size: 28px 28px;
+  /* Data-theme: vapor is the single theme for this branch */
+  [data-theme="vapor"] {
+    background: var(--color-canvas);
+    color: var(--color-ink);
   }
 
   ::selection {
-    background: var(--color-ink);
-    color: var(--color-paper);
+    background: var(--color-accent);
+    color: var(--color-accent-foreground);
   }
 
-  /* keyboard focus ring (mouse clicks stay clean via :focus-visible) */
+  /* Focus ring — indigo, passes forced-colors */
   :focus-visible {
-    outline: 2px solid var(--color-signal);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
 
+  /* Forced-colors fallback (high-contrast mode) */
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline: 3px solid ButtonText;
+    }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms;
+      transition-duration: 0.01ms;
+    }
+  }
+
   ::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: var(--color-line-strong);
-    border: 2px solid transparent;
-    background-clip: padding-box;
-    border-radius: 0;
+    border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-stone);
-    background-clip: padding-box;
   }
 }
 
-/* ---------- reusable HUD utilities ---------- */
+/* ---------- reusable utilities ---------- */
 @layer components {
   .mono {
     font-family: var(--font-mono);
   }
-  /* a small uppercase tracked label — the HUD's connective tissue */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 0.92;
+  }
+  /* a small uppercase tracked label */
   .label {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -146,18 +148,73 @@
     color: var(--color-ink);
   }
 
+  /* Vapor surface card */
   .panel {
     position: relative;
-    background: var(--color-paper-2);
+    background: var(--color-surface);
     border: 1px solid var(--color-line);
-    border-radius: var(--radius-hud);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
   }
   .panel-flush {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
   }
 
-  /* corner registration ticks for the blueprint feel */
+  .hairline {
+    border-bottom: 1px solid var(--color-line);
+  }
+  .dash {
+    border-bottom: 1px dashed var(--color-line);
+  }
+
+  /* focusable button */
+  .btn {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    padding: 8px 16px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    background: var(--color-surface);
+    transition:
+      background 0.14s ease,
+      color 0.14s ease;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: var(--color-ink);
+    color: var(--color-surface);
+  }
+  .btn-solid {
+    background: var(--color-accent);
+    color: var(--color-accent-foreground);
+    border-color: var(--color-accent);
+  }
+  .btn-solid:hover {
+    opacity: 0.9;
+  }
+}
+
+@layer utilities {
+  .surface {
+    background: var(--color-surface);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* legacy HUD utilities kept for existing pages */
+  .hud-grid-bg {
+    background-image: none;
+  }
+  .surface-2 {
+    background: var(--color-paper-2);
+  }
   .ticks::before,
   .ticks::after {
     content: "";
@@ -177,65 +234,6 @@
     right: -1px;
     border-bottom: 1px solid;
     border-right: 1px solid;
-  }
-
-  .hairline {
-    border-bottom: 1px solid var(--color-line);
-  }
-  .dash {
-    border-bottom: 1px dashed var(--color-line);
-  }
-
-  .display {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 0.92;
-  }
-
-  /* focusable HUD button */
-  .btn {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 7px 12px;
-    border: 1px solid var(--color-line-strong);
-    border-radius: var(--radius-hud);
-    color: var(--color-ink);
-    background: var(--color-surface);
-    transition:
-      background 0.14s ease,
-      color 0.14s ease;
-    cursor: pointer;
-  }
-  .btn:hover {
-    background: var(--color-ink);
-    color: var(--color-paper);
-  }
-  .btn-solid {
-    background: var(--color-ink);
-    color: var(--color-paper);
-  }
-  .btn-solid:hover {
-    background: var(--color-ink-2);
-  }
-}
-
-@layer utilities {
-  /* opaque control fill — drop onto any bordered button / input / chip that
-     floats directly on the grid so the lines don't bleed through it. */
-  .surface {
-    background: var(--color-surface);
-  }
-  .surface-2 {
-    background: var(--color-surface-2);
-  }
-  .text-balance {
-    text-wrap: balance;
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
   }
   .grain {
     background-image: radial-gradient(var(--color-line-soft) 0.5px, transparent 0.5px);

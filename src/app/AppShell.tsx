@@ -1,14 +1,14 @@
 import { Outlet } from "react-router-dom";
-import { NavRow } from "./NavRow";
-import { TopBar } from "./TopBar";
 
-/** App chrome: top bar + nav + the active view. Boot/theme/⌘K live in RootBoot. */
+/**
+ * Full-screen app shell — no TopBar, no NavRow.
+ * The command bar layer lives in RootBoot.
+ * The only chrome is the active route + (on /today) the always-visible omni trigger.
+ */
 export function AppShell() {
   return (
-    <div className="hud-grid-bg flex h-screen flex-col bg-paper text-ink">
-      <TopBar />
-      <NavRow />
-      <main className="min-h-0 flex-1 overflow-y-auto">
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-canvas)] text-[var(--color-ink)]">
+      <main id="main-content" className="min-h-0 flex-1 overflow-y-auto">
         <Outlet />
       </main>
     </div>

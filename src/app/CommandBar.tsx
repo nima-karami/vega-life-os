@@ -1,29 +1,45 @@
 import { Command } from "cmdk";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { type AgentAction, runAgent } from "@/core/agent";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import { NAV } from "./nav";
+import {
+  ACTION_COMMANDS,
+  type ActionCommand,
+  type CommandApi,
+  getRegistryVersion,
+  getViewCommands,
+  NAV_COMMANDS,
+  subscribeRegistry,
+} from "./commands";
 
 /**
- * Minimal command palette. Task 15 swaps the freeform branch for the
- * LocalIntentAgent (and an AnthropicAgent when a key is present).
+ * Vapor command bar — the sole navigation surface.
+ * Shows: agent smart-actions, Navigate group (5 routes), Actions group (core + view-registered).
  */
 export function CommandBar() {
   const open = useStore((s) => s.commandOpen);
   const close = useStore((s) => s.closeCommand);
-  const addTask = useStore((s) => s.addTask);
-  const reseed = useStore((s) => s.reseed);
-  const toggleTheme = useStore((s) => s.toggleTheme);
-  const pushToast = useStore((s) => s.pushToast);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [smart, setSmart] = useState<AgentAction[]>([]);
   const [reply, setReply] = useState<string>("");
   const [thinking, setThinking] = useState(false);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  // Track view-command registry changes
+  const [_regVersion, setRegVersion] = useState(getRegistryVersion);
+  useEffect(() => {
+    return subscribeRegistry(() => setRegVersion(getRegistryVersion()));
+  }, []);
+
+  // Snapshot view commands on each re-render triggered by version bump
+  const viewCommands = getViewCommands();
+  const allActions = [...ACTION_COMMANDS, ...viewCommands];
+
+  // Agent debounce
   useEffect(() => {
     const q = query.trim();
     if (!q) {
@@ -40,17 +56,35 @@ export function CommandBar() {
       setSmart(r.actions);
       setReply(r.message ?? "");
       setThinking(false);
-    }, 250); // debounce keystrokes; one API call per pause
+    }, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
   }, [query]);
 
-  // reset the input each time the palette opens
+  // Save/restore focus; reset input on open
   useEffect(() => {
-    if (open) setQuery("");
+    if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      setQuery("");
+      setSmart([]);
+      setReply("");
+      setThinking(false);
+    } else {
+      // Return focus to omni trigger or previous element after close
+      const trigger = document.querySelector<HTMLElement>('[data-testid="omni-trigger"]');
+      const target = trigger ?? previousFocusRef.current;
+      target?.focus();
+    }
   }, [open]);
+
+  const buildApi = (q: string): CommandApi => ({
+    navigate,
+    close,
+    store: useStore,
+    query: q,
+  });
 
   const go = (to: string) => {
     navigate(to);
@@ -60,165 +94,159 @@ export function CommandBar() {
   const quickAdd = () => {
     const title = query.trim();
     if (!title) return;
-    addTask({ title, date: null });
-    pushToast(`Added "${title}" to backlog`);
+    useStore.getState().addTask({ title, date: null });
+    useStore.getState().pushToast(`Added "${title}" to backlog`);
     setQuery("");
     close();
   };
 
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.12 }}
-          className="fixed inset-0 z-50 grid place-items-start justify-center bg-black/30 px-4 pt-[12vh]"
-          onClick={close}
-        >
-          <motion.div
-            initial={{ y: -8, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -8, opacity: 0 }}
-            transition={{ duration: 0.14 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl border border-ink bg-paper shadow-2xl"
-          >
-            <Command label="Command palette" className="flex flex-col">
-              <div className="flex items-center gap-2.5 border-b border-[var(--color-line)] px-3.5 py-3">
-                <Icon name="command" size={16} className="text-stone" />
-                <Command.Input
-                  autoFocus
-                  value={query}
-                  onValueChange={setQuery}
-                  placeholder="Search, navigate, or type a task…"
-                  className="mono w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-mist"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.metaKey) quickAdd();
-                    if (e.key === "Escape") close();
-                  }}
-                />
-                <span className="label">ESC</span>
-              </div>
-              <Command.List className="max-h-[52vh] overflow-y-auto p-1.5">
-                {thinking && (
-                  <div className="mono flex items-center gap-2 px-3 py-2 text-[11px] text-stone">
-                    <Icon name="command" size={13} className="animate-pulse" /> thinking…
-                  </div>
-                )}
-                {reply && (
-                  <p className="mono border-b border-[var(--color-line)] px-3 py-2.5 text-[11px] leading-relaxed text-ink">
-                    {reply}
-                  </p>
-                )}
-                <Command.Empty className="px-3 py-6 text-center">
-                  <button
-                    type="button"
-                    onClick={quickAdd}
-                    className="mono text-[12px] text-ink underline-offset-4 hover:underline"
-                  >
-                    + Add "{query}" to backlog
-                  </button>
-                </Command.Empty>
+  const runAction = (cmd: ActionCommand) => {
+    cmd.run(buildApi(query));
+  };
 
-                {smart.length > 0 && (
+  return (
+    <>
+      {/* Live region for screen reader announcements */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only" id="command-bar-status">
+        {open ? (thinking ? "Thinking…" : "Command bar open") : ""}
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+            className="fixed inset-0 z-50 grid place-items-start justify-center bg-black/25 px-4 pt-[12vh] backdrop-blur-sm"
+            onClick={close}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command bar"
+          >
+            <motion.div
+              initial={{ y: -8, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -8, opacity: 0 }}
+              transition={{ duration: 0.14 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xl overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)]"
+            >
+              <Command label="Command palette" className="flex flex-col">
+                {/* Input */}
+                <div className="flex items-center gap-2.5 border-b border-[var(--color-line)] px-4 py-3">
+                  <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+                  <Command.Input
+                    autoFocus
+                    value={query}
+                    onValueChange={setQuery}
+                    placeholder="Search, navigate, or ask…"
+                    className="w-full bg-transparent font-sans text-sm text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) quickAdd();
+                      if (e.key === "Escape") close();
+                    }}
+                  />
+                  <kbd className="rounded bg-[var(--color-canvas)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-muted)]">
+                    ESC
+                  </kbd>
+                </div>
+
+                {/* Results */}
+                <Command.List className="max-h-[52vh] overflow-y-auto p-1.5">
+                  {thinking && (
+                    <div className="flex items-center gap-2 px-3 py-2 font-mono text-[11px] text-[var(--color-muted)]">
+                      <Icon name="spark" size={13} className="animate-pulse" />
+                      Thinking…
+                    </div>
+                  )}
+                  {reply && (
+                    <p className="border-b border-[var(--color-line)] px-3 py-2.5 font-mono text-[11px] leading-relaxed text-[var(--color-ink)]">
+                      {reply}
+                    </p>
+                  )}
+
+                  <Command.Empty className="px-3 py-6 text-center">
+                    <button
+                      type="button"
+                      onClick={quickAdd}
+                      className="font-mono text-[12px] text-[var(--color-ink)] underline-offset-4 hover:underline"
+                    >
+                      + Add &ldquo;{query}&rdquo; to backlog
+                    </button>
+                  </Command.Empty>
+
+                  {/* Smart actions (agent) */}
+                  {smart.length > 0 && (
+                    <Command.Group
+                      heading="Smart actions"
+                      className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
+                    >
+                      {smart.map((a) => (
+                        <CmdItem
+                          key={a.id}
+                          value={`${query} ${a.label}`}
+                          icon={a.icon}
+                          onSelect={() => {
+                            a.run();
+                            close();
+                          }}
+                        >
+                          {a.label}
+                        </CmdItem>
+                      ))}
+                    </Command.Group>
+                  )}
+
+                  {/* Navigate group */}
                   <Command.Group
-                    heading="Smart actions"
-                    className="[&_[cmdk-group-heading]]:label [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5"
+                    heading="Navigate"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
                   >
-                    {smart.map((a) => (
-                      <Item
-                        key={a.id}
-                        value={`${query} ${a.label}`}
-                        icon={a.icon}
-                        onSelect={() => {
-                          a.run();
-                          close();
-                        }}
+                    {NAV_COMMANDS.map((n) => (
+                      <CmdItem
+                        key={n.id}
+                        onSelect={() => go(n.to)}
+                        icon={n.icon}
+                        value={`go ${n.label} ${n.sublabel ?? ""} ${n.keywords ?? ""}`}
                       >
-                        {a.label}
-                      </Item>
+                        {n.label}
+                        {n.sublabel && (
+                          <span className="ml-2 text-[var(--color-muted)]">— {n.sublabel}</span>
+                        )}
+                      </CmdItem>
                     ))}
                   </Command.Group>
-                )}
 
-                <Command.Group
-                  heading="Navigate"
-                  className="[&_[cmdk-group-heading]]:label [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5"
-                >
-                  {NAV.map((n) => (
-                    <Item
-                      key={n.to}
-                      onSelect={() => go(n.to)}
-                      icon={n.icon}
-                      value={`go ${n.label} ${n.sub}`}
-                    >
-                      {n.label}
-                      <span className="ml-2 text-stone">— {n.sub}</span>
-                    </Item>
-                  ))}
-                  <Item onSelect={() => go("/lab")} icon="flash" value="lab variants design">
-                    Lab — design variants
-                  </Item>
-                  <Item
-                    onSelect={() => go("/settings")}
-                    icon="sliders"
-                    value="settings identity theme data backup export"
+                  {/* Actions group */}
+                  <Command.Group
+                    heading="Actions"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
                   >
-                    Settings — identity, theme, data
-                  </Item>
-                </Command.Group>
-
-                <Command.Group
-                  heading="Actions"
-                  className="[&_[cmdk-group-heading]]:label [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5"
-                >
-                  <Item onSelect={quickAdd} icon="plus" value="add task new backlog">
-                    Add "{query || "task"}" to backlog
-                  </Item>
-                  <Item
-                    onSelect={() => {
-                      toggleTheme();
-                      close();
-                    }}
-                    icon="moon"
-                    value="theme dark light toggle"
-                  >
-                    Toggle theme
-                  </Item>
-                  <Item
-                    onSelect={() => {
-                      useStore.getState().setShortcutsOpen(true);
-                      close();
-                    }}
-                    icon="command"
-                    value="keyboard shortcuts help hotkeys"
-                  >
-                    Keyboard shortcuts (?)
-                  </Item>
-                  <Item
-                    onSelect={() => {
-                      void reseed();
-                      pushToast("Demo data reset");
-                      close();
-                    }}
-                    icon="repeat"
-                    value="reseed reset demo data"
-                  >
-                    Reset demo data
-                  </Item>
-                </Command.Group>
-              </Command.List>
-            </Command>
+                    {allActions.map((cmd) => (
+                      <CmdItem
+                        key={cmd.id}
+                        onSelect={() => runAction(cmd)}
+                        icon={cmd.icon}
+                        value={`${cmd.label} ${cmd.keywords ?? ""}`}
+                      >
+                        {cmd.id === "action-add-task"
+                          ? `Add "${query || "task"}" to backlog`
+                          : cmd.label}
+                      </CmdItem>
+                    ))}
+                  </Command.Group>
+                </Command.List>
+              </Command>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
-function Item({
+function CmdItem({
   children,
   onSelect,
   icon,
@@ -233,7 +261,14 @@ function Item({
     <Command.Item
       value={value}
       onSelect={onSelect}
-      className="mono flex cursor-pointer items-center gap-2.5 px-2.5 py-2 text-[12px] text-ink data-[selected=true]:bg-ink data-[selected=true]:text-paper"
+      className="
+        flex cursor-pointer items-center gap-2.5
+        rounded-[var(--radius-sm)]
+        px-2.5 py-2
+        font-sans text-[13px] text-[var(--color-ink)]
+        data-[selected=true]:bg-[var(--color-accent)]
+        data-[selected=true]:text-[var(--color-accent-foreground)]
+      "
     >
       <Icon name={icon} size={14} />
       <span className="flex items-center">{children}</span>
