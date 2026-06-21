@@ -46,11 +46,11 @@ test("boots to /today — no TopBar, no NavRow, omni trigger visible", async ({ 
 
   await page.goto("/", { waitUntil: "networkidle" });
 
-  // No legacy nav chrome
-  await expect(page.locator("header")).toHaveCount(0);
+  // No legacy nav chrome (NavRow was a <nav>). Semantic <header>/page headers are allowed.
   await expect(page.locator("nav")).toHaveCount(0);
 
-  // Omni trigger present
+  // Exactly one global omni trigger — the only navigation — present and visible.
+  await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
   await expect(page.getByTestId("omni-trigger")).toBeVisible({ timeout: 10_000 });
 
   // Content in main
@@ -88,9 +88,10 @@ for (const { path, name } of V1_ROUTES) {
     const text = (await main.innerText()).trim();
     expect(text.length, `view "${name}" rendered too little text`).toBeGreaterThan(40);
 
-    // No legacy nav chrome
-    await expect(page.locator("header")).toHaveCount(0);
+    // No legacy nav chrome (semantic <header> is allowed in the vapor shell/pages)
     await expect(page.locator("nav")).toHaveCount(0);
+    // The global omni trigger is present on every route (the only navigation).
+    await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
 
     expect(errors, `runtime errors on ${name}:\n${errors.join("\n")}`).toEqual([]);
   });
