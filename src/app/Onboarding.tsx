@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, Icon, Label } from "@/core/ui";
+import { Icon } from "@/core/ui";
 
 const STEPS = [
   { v: "Value", d: "What you stand for — your gravitational centers." },
@@ -10,6 +10,10 @@ const STEPS = [
   { v: "Task", d: "The atom you actually check off today." },
 ];
 
+/**
+ * First-run onboarding — re-skinned to vapor. Behavior is unchanged: capture an
+ * optional operator name, then either seed demo data or start empty.
+ */
 export function Onboarding() {
   const setOnboarded = useStore((s) => s.setOnboarded);
   const setOperatorName = useStore((s) => s.setOperatorName);
@@ -31,41 +35,55 @@ export function Onboarding() {
   };
 
   return (
-    <div className="hud-grid-bg grid h-screen place-items-center bg-paper px-4 text-ink">
+    <div className="grid h-screen place-items-center bg-[var(--color-canvas)] px-4 text-[var(--color-ink)]">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-lg"
       >
-        <div className="mb-6 flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center bg-ink text-paper">
-            <span className="display text-xl leading-none">V</span>
+        <div className="mb-8 flex items-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-[var(--radius-sm)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]">
+            <span className="font-display text-xl font-bold leading-none">V</span>
           </span>
-          <div>
-            <span className="display text-xl">VEGA</span>
-            <span className="label ml-2">// life.os</span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-xl font-bold">VEGA</span>
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">
+              life.os
+            </span>
           </div>
         </div>
 
-        <h1 className="display text-4xl leading-tight">A command center for your life.</h1>
-        <p className="mono mt-3 text-[12px] leading-relaxed text-stone">
-          Everything you do orbits a <b className="text-ink">value</b>. VEGA threads them together
-          so the small daily acts ladder up to the life you're actually trying to build.
+        <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
+          A command center for your life.
+        </h1>
+        <p className="mt-4 font-sans text-sm leading-relaxed text-[var(--color-muted)]">
+          Everything you do orbits a <b className="text-[var(--color-ink)]">value</b>. VEGA threads
+          them together so the small daily acts ladder up to the life you're actually trying to
+          build.
         </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {STEPS.map((s, i) => (
-            <div key={s.v} className="panel-flush p-3">
-              <Label>{String(i + 1).padStart(2, "0")}</Label>
-              <p className="display mt-1 text-base">{s.v}</p>
-              <p className="mono mt-1 text-[9px] leading-snug text-stone">{s.d}</p>
+            <div
+              key={s.v}
+              className="rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-soft)]"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted)]">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <p className="mt-1 font-display text-base font-semibold">{s.v}</p>
+              <p className="mt-1 font-sans text-[11px] leading-snug text-[var(--color-muted)]">
+                {s.d}
+              </p>
             </div>
           ))}
         </div>
 
-        <label className="mt-6 flex flex-col gap-1.5 border border-[var(--color-line)] px-3 py-2.5">
-          <Label>operator name</Label>
+        <label className="mt-8 flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3">
+          <span className="font-sans text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+            Operator name
+          </span>
           <input
             ref={nameRef}
             value={name}
@@ -74,16 +92,16 @@ export function Onboarding() {
               if (e.key === "Enter") void finish("demo");
             }}
             placeholder="What should we call you?"
-            className="mono w-full bg-transparent text-[15px] outline-none placeholder:text-mist"
+            className="w-full bg-transparent font-sans text-[15px] outline-none placeholder:text-[var(--color-muted)]"
           />
         </label>
 
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             disabled={busy}
             onClick={() => finish("demo")}
-            className={cx("btn-solid btn flex flex-1 items-center justify-center gap-2 py-3")}
+            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--color-accent)] py-3 font-sans text-sm font-medium text-[var(--color-accent-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <Icon name="spark" size={14} /> Explore with sample data
           </button>
@@ -91,12 +109,12 @@ export function Onboarding() {
             type="button"
             disabled={busy}
             onClick={() => finish("empty")}
-            className="btn flex flex-1 items-center justify-center gap-2 py-3"
+            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] py-3 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:border-[var(--color-accent)] disabled:opacity-50"
           >
             <Icon name="plus" size={14} /> Start empty
           </button>
         </div>
-        <p className="mono mt-3 text-center text-[10px] text-mist">
+        <p className="mt-4 text-center font-mono text-[10px] text-[var(--color-muted)]">
           Local-first · your data stays in this browser · switch anytime in Settings
         </p>
       </motion.div>
