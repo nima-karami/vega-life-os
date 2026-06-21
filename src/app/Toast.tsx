@@ -13,7 +13,7 @@ export function Toast() {
           transition={{ duration: 0.2 }}
           className="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2"
         >
-          <div className="mono border border-ink bg-ink px-4 py-2.5 text-[11px] uppercase tracking-[0.12em] text-paper shadow-lg">
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-2.5 font-sans text-[13px] text-[var(--color-ink)] shadow-[var(--shadow-soft)]">
             {toast}
           </div>
         </motion.div>
