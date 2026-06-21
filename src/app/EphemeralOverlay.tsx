@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { useStore } from "@/core/store";
-import { Icon, Label } from "@/core/ui";
+import { Icon } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { TaskDrawer, TaskRow } from "@/features/tasks";
 
@@ -20,14 +20,14 @@ export function EphemeralOverlay() {
     <AnimatePresence>
       {ephemeral && (
         <motion.div
-          className="fixed inset-0 z-40 grid place-items-start justify-center bg-black/30 px-4 pt-[10vh]"
+          className="fixed inset-0 z-40 grid place-items-start justify-center bg-black/30 px-4 pt-[10vh] backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={() => clear(null)}
         >
           <motion.div
-            className="w-full max-w-xl border border-ink bg-paper shadow-2xl"
+            className="w-full max-w-xl overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)]"
             initial={{ y: -10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -10, opacity: 0 }}
@@ -35,17 +35,23 @@ export function EphemeralOverlay() {
           >
             <div className="flex items-start justify-between border-b border-[var(--color-line)] px-4 py-3">
               <div>
-                <Label>// generated view</Label>
-                <h2 className="display mt-1 text-2xl leading-none">{ephemeral.title}</h2>
+                <span className="font-sans text-[11px] font-medium uppercase tracking-wider text-[var(--color-muted)]">
+                  Generated view
+                </span>
+                <h2 className="mt-1 font-display text-2xl font-bold leading-tight tracking-tight text-[var(--color-ink)]">
+                  {ephemeral.title}
+                </h2>
                 {ephemeral.subtitle && (
-                  <p className="mono mt-1 text-[11px] text-stone">{ephemeral.subtitle}</p>
+                  <p className="mt-1 font-sans text-[12px] text-[var(--color-muted)]">
+                    {ephemeral.subtitle}
+                  </p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => clear(null)}
                 aria-label="Close"
-                className="text-stone hover:text-ink"
+                className="text-[var(--color-muted)] transition-colors hover:text-[var(--color-ink)]"
               >
                 <Icon name="close" size={18} />
               </button>
@@ -54,7 +60,7 @@ export function EphemeralOverlay() {
               {ephemeral.lines && (
                 <div className="space-y-1.5">
                   {ephemeral.lines.map((l) => (
-                    <p key={l} className="mono text-[12px] text-ink">
+                    <p key={l} className="font-sans text-[13px] text-[var(--color-ink)]">
                       {l}
                     </p>
                   ))}
@@ -68,7 +74,7 @@ export function EphemeralOverlay() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mono py-8 text-center text-[12px] text-mist">
+                  <p className="py-8 text-center font-sans text-[13px] text-[var(--color-muted)]">
                     Nothing here. Clear skies.
                   </p>
                 ))}

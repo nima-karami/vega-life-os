@@ -118,7 +118,7 @@ export function CommandBar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="fixed inset-0 z-50 grid place-items-start justify-center bg-black/25 px-4 pt-[12vh] backdrop-blur-sm"
+            className="fixed inset-0 z-50 grid place-items-start justify-center bg-black/30 px-4 pt-[12vh] backdrop-blur-sm"
             onClick={close}
             role="dialog"
             aria-modal="true"
@@ -155,13 +155,17 @@ export function CommandBar() {
                 {/* Results */}
                 <Command.List className="max-h-[52vh] overflow-y-auto p-1.5">
                   {thinking && (
-                    <div className="flex items-center gap-2 px-3 py-2 font-mono text-[11px] text-[var(--color-muted)]">
-                      <Icon name="spark" size={13} className="animate-pulse" />
+                    <div className="flex items-center gap-2 px-3 py-2 font-sans text-[12px] text-[var(--color-muted)]">
+                      <Icon
+                        name="spark"
+                        size={13}
+                        className="animate-pulse text-[var(--color-accent)]"
+                      />
                       Thinking…
                     </div>
                   )}
                   {reply && (
-                    <p className="border-b border-[var(--color-line)] px-3 py-2.5 font-mono text-[11px] leading-relaxed text-[var(--color-ink)]">
+                    <p className="mb-1 rounded-[var(--radius-sm)] bg-[var(--color-canvas)] px-3 py-2.5 font-sans text-[13px] leading-relaxed text-[var(--color-ink)]">
                       {reply}
                     </p>
                   )}
@@ -170,7 +174,7 @@ export function CommandBar() {
                     <button
                       type="button"
                       onClick={quickAdd}
-                      className="font-mono text-[12px] text-[var(--color-ink)] underline-offset-4 hover:underline"
+                      className="font-sans text-[13px] font-medium text-[var(--color-accent)] underline-offset-4 hover:underline"
                     >
                       + Add &ldquo;{query}&rdquo; to backlog
                     </button>
@@ -180,7 +184,7 @@ export function CommandBar() {
                   {smart.length > 0 && (
                     <Command.Group
                       heading="Smart actions"
-                      className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
+                      className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-sans [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
                     >
                       {smart.map((a) => (
                         <CmdItem
@@ -201,7 +205,7 @@ export function CommandBar() {
                   {/* Navigate group */}
                   <Command.Group
                     heading="Navigate"
-                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-sans [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
                   >
                     {NAV_COMMANDS.map((n) => (
                       <CmdItem
@@ -221,7 +225,7 @@ export function CommandBar() {
                   {/* Actions group */}
                   <Command.Group
                     heading="Actions"
-                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-sans [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
                   >
                     {allActions.map((cmd) => (
                       <CmdItem
@@ -266,11 +270,13 @@ function CmdItem({
         rounded-[var(--radius-sm)]
         px-2.5 py-2
         font-sans text-[13px] text-[var(--color-ink)]
-        data-[selected=true]:bg-[var(--color-accent)]
-        data-[selected=true]:text-[var(--color-accent-foreground)]
+        transition-colors duration-100
+        data-[selected=true]:bg-[var(--color-canvas)]
+        data-[selected=true]:text-[var(--color-ink)]
+        data-[selected=true]:[&_svg]:text-[var(--color-accent)]
       "
     >
-      <Icon name={icon} size={14} />
+      <Icon name={icon} size={14} className="shrink-0 text-[var(--color-muted)]" />
       <span className="flex items-center">{children}</span>
     </Command.Item>
   );
