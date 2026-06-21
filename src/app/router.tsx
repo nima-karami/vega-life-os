@@ -4,7 +4,7 @@ import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { TodayPage } from "@/features/today/TodayPage";
-import { ValuesGoalsPage } from "@/features/valuesgoals/ValuesGoalsPage";
+import { ValuesView } from "@/features/values";
 import { AppShell } from "./AppShell";
 import { NotFound } from "./NotFound";
 import { RootBoot } from "./RootBoot";
@@ -20,7 +20,7 @@ export const router = createBrowserRouter([
           // /today is the index AND has a named path for direct links/bookmarks
           { index: true, element: <TodayPage /> },
           { path: "today", element: <TodayPage /> },
-          { path: "values", element: <ValuesGoalsPage /> },
+          { path: "values", element: <ValuesView /> },
           { path: "habits", element: <HabitsPage /> },
           { path: "calendar", element: <CalendarPage /> },
           { path: "analytics", element: <AnalyticsPage /> },

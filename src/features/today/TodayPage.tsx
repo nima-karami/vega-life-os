@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { OmniTrigger } from "@/app/OmniTrigger";
 import { fmtLong, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
@@ -91,10 +90,8 @@ export function TodayPage() {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 py-6 sm:py-10">
-      <OmniTrigger />
-
       {/* Header — date + progress */}
-      <header className="mt-8">
+      <header>
         <p className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">
           {fmtLong(today)}
         </p>

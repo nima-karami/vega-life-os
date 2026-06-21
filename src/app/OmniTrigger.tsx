@@ -2,8 +2,8 @@ import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 
 /**
- * Always-visible omni trigger bar.
- * Placed at the top of the Today view; other views rely on ⌘K / N.
+ * Always-visible omni trigger bar. Rendered by AppShell so it is constant on
+ * every route — it is the primary way to navigate between views.
  * Clicking (or pressing Enter/Space) opens the command bar.
  */
 export function OmniTrigger() {

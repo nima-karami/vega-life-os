@@ -1,5 +1,4 @@
 export { GoalCard } from "./components/GoalCard";
-export { GoalDrawer } from "./components/GoalDrawer";
 export { GoalEditor } from "./components/GoalEditor";
 export type { Goal, GoalStatus, Subgoal } from "./model";
 export { GOAL_STATUS_LABEL, GOAL_STATUSES, isGoalClosed } from "./model";

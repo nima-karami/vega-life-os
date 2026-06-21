@@ -1,7 +1,6 @@
 // Vapor color palette
 export { cascadeCounts, cascadeMessage } from "./cascade";
 export { VALUE_COLOR_FALLBACK, VALUE_PALETTE, valueColor } from "./color";
-export { ValueDrawer } from "./components/ValueDrawer";
 export { ValueEditor } from "./components/ValueEditor";
 export type { Value } from "./model";
 export { type MoveDirection, type Orderable, reorderedOrders } from "./reorder";
