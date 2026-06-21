@@ -68,18 +68,20 @@ function PickerField({
   return (
     <div
       className={cx(
-        "surface flex flex-col gap-1 border border-[var(--color-line)] px-2.5 py-2",
+        "flex flex-col gap-1 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] px-2.5 py-2",
         className,
       )}
     >
-      <span className="label">{label}</span>
+      <span className="font-sans text-[10px] font-medium uppercase leading-none tracking-[0.14em] text-[var(--color-muted)]">
+        {label}
+      </span>
       {children}
     </div>
   );
 }
 
 const triggerCx =
-  "mono flex w-full items-center justify-between gap-2 bg-transparent text-left text-[12px] text-ink outline-none hover:text-ink";
+  "flex w-full items-center justify-between gap-2 bg-transparent text-left font-sans text-[13px] text-[var(--color-ink)] outline-none";
 
 /** Custom calendar-grid date picker. value/onChange use ISO yyyy-mm-dd or null. */
 export function DatePicker({
@@ -109,37 +111,42 @@ export function DatePicker({
         align="start"
         trigger={
           <button type="button" className={triggerCx}>
-            <span className={value ? "" : "text-mist"}>
+            <span className={value ? "" : "text-[var(--color-muted)]"}>
               {value ? format(parseISO(value), "EEE · MMM d, yyyy") : "No date"}
             </span>
-            <Icon name="calendar" size={13} className="shrink-0 text-stone" />
+            <Icon name="calendar" size={13} className="shrink-0 text-[var(--color-muted)]" />
           </button>
         }
       >
-        <div className="w-[244px] p-3">
+        <div className="w-[252px] p-3">
           <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={() => setView(addMonths(view, -1))}
               aria-label="Previous month"
-              className="grid h-6 w-6 place-items-center text-stone hover:text-ink"
+              className="grid h-7 w-7 place-items-center rounded-[var(--radius-sm)] text-[var(--color-muted)] transition-colors duration-150 hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]"
             >
               <Icon name="chevL" size={15} />
             </button>
-            <span className="display text-[13px]">{format(view, "MMMM yyyy")}</span>
+            <span className="font-display text-[14px] font-bold tracking-[-0.02em]">
+              {format(view, "MMMM yyyy")}
+            </span>
             <button
               type="button"
               onClick={() => setView(addMonths(view, 1))}
               aria-label="Next month"
-              className="grid h-6 w-6 place-items-center text-stone hover:text-ink"
+              className="grid h-7 w-7 place-items-center rounded-[var(--radius-sm)] text-[var(--color-muted)] transition-colors duration-150 hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]"
             >
               <Icon name="chevR" size={15} />
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-7 gap-0.5">
+          <div className="mt-3 grid grid-cols-7 gap-0.5">
             {DOW.map((d) => (
-              <span key={d.key} className="label grid h-6 place-items-center text-mist">
+              <span
+                key={d.key}
+                className="grid h-6 place-items-center font-sans text-[10px] font-medium uppercase tracking-[0.1em] text-[var(--color-muted)]"
+              >
                 {d.label}
               </span>
             ))}
@@ -157,10 +164,12 @@ export function DatePicker({
                     setOpen(false);
                   }}
                   className={cx(
-                    "mono grid h-7 place-items-center text-[11px] tabular-nums transition-colors",
-                    sel ? "bg-ink text-paper" : "hover:bg-paper-3",
-                    out ? "text-mist" : "text-ink",
-                    !sel && isToday && "ring-1 ring-inset ring-[var(--color-line-strong)]",
+                    "grid h-8 place-items-center rounded-[var(--radius-sm)] font-sans text-[12px] tabular-nums transition-colors duration-150",
+                    sel
+                      ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+                      : "hover:bg-[var(--color-canvas)]",
+                    out ? "text-[var(--color-muted)]" : "text-[var(--color-ink)]",
+                    !sel && isToday && "ring-1 ring-inset ring-[var(--color-accent)]",
                   )}
                 >
                   {d.getDate()}
@@ -169,14 +178,14 @@ export function DatePicker({
             })}
           </div>
 
-          <div className="mt-2 flex items-center justify-between border-t border-[var(--color-line)] pt-2">
+          <div className="mt-3 flex items-center justify-between border-t border-[var(--color-line)] pt-3">
             <button
               type="button"
               onClick={() => {
                 onChange(format(today, "yyyy-MM-dd"));
                 setOpen(false);
               }}
-              className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-ink"
+              className="font-sans text-[11px] font-medium text-[var(--color-muted)] transition-colors duration-150 hover:text-[var(--color-accent)]"
             >
               Today
             </button>
@@ -187,7 +196,7 @@ export function DatePicker({
                   onChange(null);
                   setOpen(false);
                 }}
-                className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+                className="font-sans text-[11px] font-medium text-[var(--color-muted)] transition-colors duration-150 hover:text-[var(--color-signal)]"
               >
                 Clear
               </button>
@@ -231,12 +240,12 @@ export function TimePicker({
         align="start"
         trigger={
           <button type="button" className={triggerCx}>
-            <span className={value ? "" : "text-mist"}>{value ?? "No time"}</span>
-            <Icon name="clock" size={13} className="shrink-0 text-stone" />
+            <span className={value ? "" : "text-[var(--color-muted)]"}>{value ?? "No time"}</span>
+            <Icon name="clock" size={13} className="shrink-0 text-[var(--color-muted)]" />
           </button>
         }
       >
-        <div ref={colRef} className="flex max-h-[240px] w-[120px] flex-col overflow-y-auto p-1">
+        <div ref={colRef} className="flex max-h-[240px] w-[128px] flex-col overflow-y-auto p-1.5">
           {value && clearable && (
             <button
               type="button"
@@ -244,7 +253,7 @@ export function TimePicker({
                 onChange(null);
                 setOpen(false);
               }}
-              className="mono px-2.5 py-1.5 text-left text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+              className="rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left font-sans text-[11px] font-medium text-[var(--color-muted)] transition-colors duration-150 hover:text-[var(--color-signal)]"
             >
               Clear
             </button>
@@ -259,8 +268,10 @@ export function TimePicker({
               }}
               data-sel={value === t}
               className={cx(
-                "mono px-2.5 py-1.5 text-left text-[12px] tabular-nums transition-colors",
-                value === t ? "bg-ink text-paper" : "text-ink hover:bg-paper-3",
+                "rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left font-sans text-[13px] tabular-nums transition-colors duration-150",
+                value === t
+                  ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+                  : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)]",
               )}
             >
               {t}
@@ -301,17 +312,19 @@ export function DurationStepper({
           type="button"
           onClick={() => set(value - step)}
           aria-label="Decrease duration"
-          className="grid h-5 w-5 place-items-center border border-[var(--color-line)] text-stone hover:bg-ink hover:text-paper disabled:opacity-30"
+          className="grid h-6 w-6 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)] text-[var(--color-muted)] transition-colors duration-150 hover:border-[var(--color-accent)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)] disabled:opacity-30"
           disabled={value <= min}
         >
           <Icon name="chevD" size={12} />
         </button>
-        <span className="mono text-[12px] tabular-nums text-ink">{fmt(value)}</span>
+        <span className="font-sans text-[13px] tabular-nums text-[var(--color-ink)]">
+          {fmt(value)}
+        </span>
         <button
           type="button"
           onClick={() => set(value + step)}
           aria-label="Increase duration"
-          className="grid h-5 w-5 place-items-center border border-[var(--color-line)] text-stone hover:bg-ink hover:text-paper disabled:opacity-30"
+          className="grid h-6 w-6 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)] text-[var(--color-muted)] transition-colors duration-150 hover:border-[var(--color-accent)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)] disabled:opacity-30"
           disabled={value >= max}
         >
           <Icon name="chevU" size={12} />
@@ -374,21 +387,25 @@ export function TimeRange({
         align="start"
         trigger={
           <button type="button" className={triggerCx}>
-            <span className={value.time ? "" : "text-mist"}>
+            <span className={value.time ? "" : "text-[var(--color-muted)]"}>
               {value.time && end != null ? `${value.time} – ${fmtMin(end)}` : "No time"}
             </span>
             <span className="flex items-center gap-1.5 shrink-0">
               {value.time && (
-                <span className="mono text-[10px] text-stone">{fmtLen(value.durationMin)}</span>
+                <span className="font-sans text-[11px] text-[var(--color-muted)]">
+                  {fmtLen(value.durationMin)}
+                </span>
               )}
-              <Icon name="clock" size={13} className="text-stone" />
+              <Icon name="clock" size={13} className="text-[var(--color-muted)]" />
             </span>
           </button>
         }
       >
-        <div className="w-[220px] p-1">
-          <div className="flex items-center justify-between px-2 pb-1 pt-1">
-            <span className="label">start · end</span>
+        <div className="w-[228px] p-1.5">
+          <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
+            <span className="font-sans text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--color-muted)]">
+              start · end
+            </span>
             {value.time && clearable && (
               <button
                 type="button"
@@ -396,16 +413,16 @@ export function TimeRange({
                   onChange({ time: null, durationMin: value.durationMin });
                   setOpen(false);
                 }}
-                className="mono text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+                className="font-sans text-[11px] font-medium text-[var(--color-muted)] transition-colors duration-150 hover:text-[var(--color-signal)]"
               >
                 Clear
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-2 gap-1.5">
             <div
               ref={startColRef}
-              className="flex max-h-[220px] flex-col overflow-y-auto border-r border-[var(--color-line)] pr-1"
+              className="flex max-h-[220px] flex-col overflow-y-auto border-r border-[var(--color-line)] pr-1.5"
             >
               {slots(MIN, MAX - 15).map((m) => (
                 <button
@@ -414,8 +431,10 @@ export function TimeRange({
                   onClick={() => pickStart(m)}
                   data-sel={start === m}
                   className={cx(
-                    "mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
-                    start === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3",
+                    "rounded-[var(--radius-sm)] px-2 py-1.5 text-left font-sans text-[13px] tabular-nums transition-colors duration-150",
+                    start === m
+                      ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+                      : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)]",
                   )}
                 >
                   {fmtMin(m)}
@@ -424,7 +443,9 @@ export function TimeRange({
             </div>
             <div ref={endColRef} className="flex max-h-[220px] flex-col overflow-y-auto">
               {start == null ? (
-                <span className="mono px-2 py-2 text-[10px] text-mist">pick a start first</span>
+                <span className="px-2 py-2 font-sans text-[11px] text-[var(--color-muted)]">
+                  pick a start first
+                </span>
               ) : (
                 slots(start + 15, MAX).map((m) => (
                   <button
@@ -436,8 +457,10 @@ export function TimeRange({
                     }}
                     data-sel={end === m}
                     className={cx(
-                      "mono px-2 py-1.5 text-left text-[12px] tabular-nums transition-colors",
-                      end === m ? "bg-ink text-paper" : "text-ink hover:bg-paper-3",
+                      "rounded-[var(--radius-sm)] px-2 py-1.5 text-left font-sans text-[13px] tabular-nums transition-colors duration-150",
+                      end === m
+                        ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+                        : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)]",
                     )}
                   >
                     {fmtMin(m)}

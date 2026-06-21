@@ -32,7 +32,7 @@ export function Popover({
           side={side}
           sideOffset={6}
           className={cx(
-            "z-[60] border border-ink bg-paper shadow-[0_8px_24px_rgba(24,24,15,0.18)] outline-none",
+            "z-[60] overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)] outline-none",
             className,
           )}
         >
