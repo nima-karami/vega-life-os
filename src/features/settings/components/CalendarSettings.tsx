@@ -1,6 +1,7 @@
+import { Button } from "@heroui/react";
 import { useState } from "react";
 import { useStore } from "@/core/store";
-import { Button, Panel, SectionHead } from "@/core/ui";
+import { Icon } from "@/core/ui";
 import {
   clearCalendarToken,
   gcalConfigured,
@@ -9,6 +10,7 @@ import {
   setEnabled,
   syncNow,
 } from "@/features/calendar-sync";
+import { SettingsCard } from "../SettingsCard";
 
 export function CalendarSettings() {
   const pushToast = useStore((s) => s.pushToast);
@@ -17,14 +19,14 @@ export function CalendarSettings() {
 
   if (!gcalConfigured) {
     return (
-      <Panel className="mb-4 p-5">
-        <SectionHead title="google calendar" />
-        <p className="mono mt-3 text-[11px] leading-relaxed text-stone">
-          Set <code>VITE_GOOGLE_CLIENT_ID</code> in <code>.env.local</code> to enable two-way
-          calendar sync. Your VEGA time-blocks then appear in Google Calendar, and the Calendar app
-          on your phone handles the reminders.
+      <SettingsCard title="Google Calendar">
+        <p className="font-sans text-sm leading-relaxed text-[var(--color-muted)]">
+          Set <code className="font-mono text-xs">VITE_GOOGLE_CLIENT_ID</code> in{" "}
+          <code className="font-mono text-xs">.env.local</code> to enable two-way calendar sync.
+          Your VEGA time-blocks then appear in Google Calendar, and the Calendar app on your phone
+          handles the reminders.
         </p>
-      </Panel>
+      </SettingsCard>
     );
   }
 
@@ -61,29 +63,41 @@ export function CalendarSettings() {
   };
 
   return (
-    <Panel className="mb-4 p-5">
-      <SectionHead title="google calendar" />
-      <p className="mono mt-3 text-[11px] leading-relaxed text-stone">
-        Two-way sync for scheduled tasks. Blocks you schedule in VEGA appear in Google Calendar
-        (with reminders); moving or deleting a VEGA event in Google flows back here on the next
-        sync.
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
+    <SettingsCard
+      title="Google Calendar"
+      description="Two-way sync for scheduled tasks. Blocks you schedule in VEGA appear in Google Calendar (with reminders); moving or deleting a VEGA event in Google flows back here on the next sync."
+    >
+      <div className="flex flex-wrap gap-2">
         {on ? (
           <>
-            <Button solid icon="repeat" disabled={busy} onClick={() => void sync()}>
+            <Button
+              className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+              startContent={<Icon name="repeat" size={15} />}
+              isDisabled={busy}
+              onPress={() => void sync()}
+            >
               Sync now
             </Button>
-            <Button icon="close" onClick={disconnect}>
+            <Button
+              variant="bordered"
+              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              startContent={<Icon name="close" size={15} />}
+              onPress={disconnect}
+            >
               Disconnect
             </Button>
           </>
         ) : (
-          <Button solid icon="calendar" disabled={busy} onClick={() => void connect()}>
+          <Button
+            className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+            startContent={<Icon name="calendar" size={15} />}
+            isDisabled={busy}
+            onPress={() => void connect()}
+          >
             Connect Google Calendar
           </Button>
         )}
       </div>
-    </Panel>
+    </SettingsCard>
   );
 }
