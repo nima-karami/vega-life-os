@@ -121,3 +121,58 @@ for (const path of REMOVED_ROUTES) {
     expect(errors, `runtime errors on 404 for ${path}:\n${errors.join("\n")}`).toEqual([]);
   });
 }
+
+// ─── Slice 1: Today view ─────────────────────────────────────────────────────
+
+test("today header shows date and an X of Y done progress read-out", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  const main = page.locator("main");
+  await expect(main).toBeVisible({ timeout: 15_000 });
+  // Heading + progress copy ("N of M done" or the empty-state copy).
+  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(main).toContainText(/(\d+ of \d+ done|Nothing scheduled)/);
+});
+
+test("completing a remaining task moves it to Done and updates progress", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  const remaining = page.getByRole("region", { name: "Remaining" });
+  await expect(remaining).toBeVisible({ timeout: 15_000 });
+
+  // Grab the first "Mark … done" control in the Remaining group.
+  const firstComplete = remaining.getByRole("button", { name: /^Mark .+ done$/ }).first();
+  await expect(firstComplete).toBeVisible();
+  // Derive the task title from the aria-label so we can assert it lands in Done.
+  const label = (await firstComplete.getAttribute("aria-label")) ?? "";
+  const title = label.replace(/^Mark /, "").replace(/ done$/, "");
+
+  await firstComplete.click();
+
+  // The Done group now exists and contains that task.
+  const doneGroup = page.getByRole("region", { name: "Done" });
+  await expect(doneGroup).toBeVisible();
+  await expect(doneGroup).toContainText(title);
+
+  // Reload — the change persisted.
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(page.getByRole("region", { name: "Done" })).toContainText(title);
+});
+
+test("add-a-task captures a title and the card appears in Remaining", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Expand the inline capture and type a title.
+  await page
+    .getByRole("button", { name: /^Add a task$/ })
+    .first()
+    .click();
+  const titleInput = page.getByRole("textbox", { name: "Task title" });
+  await expect(titleInput).toBeFocused();
+  const unique = `E2E task ${Date.now()}`;
+  await titleInput.fill(unique);
+  await titleInput.press("Enter");
+
+  // The new card shows up in Remaining.
+  const remaining = page.getByRole("region", { name: "Remaining" });
+  await expect(remaining).toContainText(unique);
+});
