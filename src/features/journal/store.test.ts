@@ -1,0 +1,65 @@
+import { describe, expect, it, vi } from "vitest";
+import type { DayEntry } from "./model";
+import { createJournalSlice, type JournalSlice } from "./store";
+
+vi.mock("@/core/store/persist", () => ({
+  savePut: vi.fn(),
+  saveRemove: vi.fn(),
+}));
+
+/** Minimal harness: drive the slice with a local state object. */
+function makeSlice() {
+  let state = {} as JournalSlice;
+  const set = (partial: Partial<JournalSlice> | ((s: JournalSlice) => Partial<JournalSlice>)) => {
+    const patch = typeof partial === "function" ? partial(state) : partial;
+    state = { ...state, ...patch };
+  };
+  const get = () => state;
+  // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
+  state = createJournalSlice(set as any, get as any, {} as any);
+  return { get };
+}
+
+describe("journal slice", () => {
+  it("creates an entry on first non-empty upsert", () => {
+    const { get } = makeSlice();
+    const out = get().upsertDayEntry("2026-06-22", { gratitude: ["sun"] });
+    expect(out).not.toBeNull();
+    expect(get().journal).toHaveLength(1);
+    expect(get().getDayEntry("2026-06-22")?.gratitude).toEqual(["sun"]);
+  });
+
+  it("updates the same record (one per date) on subsequent upserts", () => {
+    const { get } = makeSlice();
+    get().upsertDayEntry("2026-06-22", { gratitude: ["sun"] });
+    const id1 = get().getDayEntry("2026-06-22")?.id;
+    get().upsertDayEntry("2026-06-22", { mood: 4 });
+    expect(get().journal).toHaveLength(1);
+    expect(get().getDayEntry("2026-06-22")?.id).toBe(id1);
+    expect(get().getDayEntry("2026-06-22")?.mood).toBe(4);
+  });
+
+  it("does not create a record for an all-empty upsert", () => {
+    const { get } = makeSlice();
+    const out = get().upsertDayEntry("2026-06-22", { journal: "   " });
+    expect(out).toBeNull();
+    expect(get().journal).toHaveLength(0);
+  });
+
+  it("removes an existing record when it is emptied", () => {
+    const { get } = makeSlice();
+    get().upsertDayEntry("2026-06-22", { journal: "hi" });
+    get().upsertDayEntry("2026-06-22", { journal: "" });
+    expect(get().journal).toHaveLength(0);
+  });
+
+  it("removeDayEntry deletes by id; restoreDayEntry re-adds intact", () => {
+    const { get } = makeSlice();
+    get().upsertDayEntry("2026-06-22", { mood: 3 });
+    const entry = get().getDayEntry("2026-06-22") as DayEntry;
+    get().removeDayEntry(entry.id);
+    expect(get().journal).toHaveLength(0);
+    get().restoreDayEntry(entry);
+    expect(get().getDayEntry("2026-06-22")?.id).toBe(entry.id);
+  });
+});
