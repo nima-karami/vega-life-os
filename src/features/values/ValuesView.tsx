@@ -293,7 +293,7 @@ function ValueCard({
               {value.desc || "No description yet — click to add one."}
             </p>
           </button>
-          <Gauge value={value.energy} size={52} sub="energy" />
+          <Gauge value={value.energy} size={52} sub="energy" hue="hsl(var(--heroui-primary))" />
           <Menu
             align="end"
             trigger={
