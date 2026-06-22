@@ -8,7 +8,7 @@ import {
   setAnthropicKey,
 } from "@/core/agent";
 import { useStore } from "@/core/store";
-import { cx, Icon } from "@/core/ui";
+import { Icon } from "@/core/ui";
 import { SettingsCard } from "../SettingsCard";
 
 export function AgentSettings() {
@@ -40,38 +40,29 @@ export function AgentSettings() {
           placeholder="sk-ant-…"
           variant="bordered"
           radius="md"
-          classNames={{ input: "font-mono" }}
         />
         <div>
-          <span className="font-sans text-sm font-medium text-[var(--color-ink)]">Model</span>
+          <span className="text-small font-medium text-foreground">Model</span>
           <div className="mt-2 flex flex-wrap gap-2">
             {AGENT_MODELS.map((m) => {
               const active = model === m.id;
               return (
-                <button
-                  type="button"
+                <Button
                   key={m.id}
-                  onClick={() => pick(m.id)}
+                  size="sm"
+                  variant={active ? "solid" : "bordered"}
+                  color={active ? "primary" : "default"}
                   aria-pressed={active}
-                  className={cx(
-                    "rounded-[var(--radius-sm)] border px-3.5 py-2 font-sans text-sm transition-colors",
-                    active
-                      ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-                      : "border-[var(--color-line)] text-[var(--color-ink)] hover:border-[var(--color-line-strong)]",
-                  )}
+                  onPress={() => pick(m.id)}
                 >
                   {m.label}
-                </button>
+                </Button>
               );
             })}
           </div>
         </div>
         <div>
-          <Button
-            className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
-            startContent={<Icon name="spark" size={15} />}
-            onPress={save}
-          >
+          <Button color="primary" startContent={<Icon name="spark" size={15} />} onPress={save}>
             Save key
           </Button>
         </div>

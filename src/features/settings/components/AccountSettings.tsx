@@ -1,4 +1,4 @@
-import { Button, Input } from "@heroui/react";
+import { Button, Code, Input } from "@heroui/react";
 import { useEffect, useState } from "react";
 import {
   authErrorMessage,
@@ -24,11 +24,10 @@ export function AccountSettings() {
   if (!firebaseEnabled) {
     return (
       <SettingsCard title="Account & sync">
-        <p className="font-sans text-sm leading-relaxed text-[var(--color-muted)]">
-          Cloud sync is off. Add a Firebase web-app config to{" "}
-          <code className="font-mono text-xs">.env.local</code> (see{" "}
-          <code className="font-mono text-xs">.env.example</code>) and reload to enable signing in
-          and cross-device sync. VEGA works fully offline without it.
+        <p className="text-small leading-relaxed text-default-500">
+          Cloud sync is off. Add a Firebase web-app config to <Code size="sm">.env.local</Code> (see{" "}
+          <Code size="sm">.env.example</Code>) and reload to enable signing in and cross-device
+          sync. VEGA works fully offline without it.
         </p>
       </SettingsCard>
     );
@@ -77,14 +76,13 @@ export function AccountSettings() {
       {email ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="font-sans text-sm font-medium text-[var(--color-ink)]">{email}</p>
-            <p className="mt-1 font-sans text-xs text-[var(--color-muted)]">
+            <p className="text-small font-medium text-foreground">{email}</p>
+            <p className="mt-1 text-tiny text-default-500">
               Signed in · data syncs across your devices in real time.
             </p>
           </div>
           <Button
             variant="bordered"
-            className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
             startContent={<Icon name="repeat" size={15} />}
             onPress={() => void signOut()}
           >
@@ -94,11 +92,11 @@ export function AccountSettings() {
       ) : (
         <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="max-w-sm font-sans text-sm text-[var(--color-muted)]">
+            <p className="max-w-sm text-small text-default-500">
               Sign in to sync across devices. Local data merges up on first sign-in.
             </p>
             <Button
-              className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+              color="primary"
               startContent={<Icon name="spark" size={15} />}
               isDisabled={busy}
               onPress={() => void signIn()}
@@ -108,9 +106,9 @@ export function AccountSettings() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-[var(--color-line)]" />
-            <span className="font-sans text-xs text-[var(--color-muted)]">or email</span>
-            <div className="h-px flex-1 bg-[var(--color-line)]" />
+            <div className="h-px flex-1 bg-divider" />
+            <span className="text-tiny text-default-500">or email</span>
+            <div className="h-px flex-1 bg-divider" />
           </div>
 
           <form
@@ -145,7 +143,7 @@ export function AccountSettings() {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="submit"
-                className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+                color="primary"
                 startContent={<Icon name="mail" size={15} />}
                 isDisabled={busy}
               >
@@ -154,7 +152,6 @@ export function AccountSettings() {
               <Button
                 type="button"
                 variant="bordered"
-                className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
                 startContent={<Icon name="plus" size={15} />}
                 isDisabled={busy}
                 onPress={() => void emailAuth("up")}
