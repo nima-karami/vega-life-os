@@ -177,3 +177,95 @@ test("add-a-task captures a title and the card appears in Remaining", async ({ p
   const remaining = page.getByRole("region", { name: "Remaining" });
   await expect(remaining).toContainText(unique);
 });
+
+// ─── Calendar: slot create / draft discard / right-click delete ───────────────
+
+test("calendar: opening a slot then closing without naming discards the draft", async ({
+  page,
+}) => {
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Click an empty slot near the top of the first day column → creates a draft.
+  const addSlot = page.getByRole("button", { name: /^Add task on/ }).first();
+  await addSlot.click({ position: { x: 20, y: 30 } });
+
+  // The editor opens on the placeholder draft.
+  const title = page.getByRole("textbox", { name: "Task title" });
+  await expect(title).toBeVisible({ timeout: 10_000 });
+  await expect(title).toHaveValue("New task");
+
+  // Close without naming → the placeholder task must NOT survive.
+  await page.getByRole("contentinfo").getByRole("button", { name: "Done" }).click();
+  await expect(title).toBeHidden();
+  await expect(page.getByText("New task", { exact: true })).toHaveCount(0);
+});
+
+test("calendar: right-click a chip → Delete removes it", async ({ page }) => {
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Create a uniquely-named task via a slot click, then close to keep it.
+  const addSlot = page.getByRole("button", { name: /^Add task on/ }).first();
+  await addSlot.click({ position: { x: 20, y: 60 } });
+  const title = page.getByRole("textbox", { name: "Task title" });
+  await expect(title).toBeVisible({ timeout: 10_000 });
+  const unique = `CtxDelete ${Date.now()}`;
+  await title.fill(unique);
+  await page.getByRole("contentinfo").getByRole("button", { name: "Done" }).click();
+  await expect(title).toBeHidden();
+
+  // The named chip is on the grid.
+  const chip = page.getByText(unique, { exact: true });
+  await expect(chip).toBeVisible();
+
+  // Right-click it → context menu → Delete actually removes it.
+  await chip.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.getByText(unique, { exact: true })).toHaveCount(0);
+});
+
+test("calendar: right-click an empty slot → add / schedule menu", async ({ page }) => {
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Right-click an empty area of the first day column.
+  const addSlot = page.getByRole("button", { name: /^Add task on/ }).first();
+  await addSlot.scrollIntoViewIfNeeded();
+  await addSlot.click({ button: "right", position: { x: 20, y: 150 } });
+
+  // The slot menu offers Add + Schedule (Paste only appears with a clipboard).
+  const menu = page.getByRole("menu", { name: "Slot actions" });
+  await expect(menu).toBeVisible({ timeout: 10_000 });
+  await expect(menu.getByRole("menuitem", { name: "Add task here" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: /Schedule existing task/ })).toBeVisible();
+
+  // "Add task here" opens the editor on a fresh draft.
+  await menu.getByRole("menuitem", { name: "Add task here" }).click();
+  await expect(page.getByRole("textbox", { name: "Task title" })).toBeVisible({ timeout: 10_000 });
+});
+
+test("calendar: schedule an existing task from the slot menu", async ({ page }) => {
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const addSlot = page.getByRole("button", { name: /^Add task on/ }).first();
+  await addSlot.click({ button: "right", position: { x: 20, y: 150 } });
+
+  await page
+    .getByRole("menu", { name: "Slot actions" })
+    .getByRole("menuitem", { name: /Schedule existing task/ })
+    .click();
+
+  // The picker lists unscheduled tasks (seed has several).
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Schedule a task", { timeout: 10_000 });
+  const firstRow = dialog.locator("li button").first();
+  await expect(firstRow).toBeVisible();
+  const picked = (await firstRow.innerText()).trim();
+
+  // Pick it → it gets scheduled and shows up on the grid as a chip.
+  await firstRow.click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(picked, { exact: true })).toBeVisible();
+});

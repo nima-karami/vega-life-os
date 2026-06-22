@@ -84,12 +84,12 @@ export function ReviewSection() {
   const visibleReviews = reviews.slice(0, shown);
 
   return (
-    <div className="mx-auto max-w-[1100px]">
+    <div className="w-full">
       <Panel className="mb-4 flex flex-wrap items-center gap-4 px-5 py-4">
         <div>
-          <Label>// review · the mirror</Label>
-          <h2 className="display mt-1 text-3xl">Weekly review</h2>
-          <p className="mono mt-1 text-[11px] text-stone">
+          <Label>Review</Label>
+          <h2 className="mt-1 font-display text-3xl font-bold tracking-tight">Weekly review</h2>
+          <p className="mt-1 font-sans text-sm text-[var(--color-muted)]">
             {fmtShort(days[0].iso)} – {fmtShort(days[6].iso)}
             {isThisWeek && " · in progress"}
             {isFuture && " · upcoming"}
@@ -116,7 +116,9 @@ export function ReviewSection() {
           <Panel className="flex items-center gap-4 p-5">
             <Gauge value={roll.completion} size={76} stroke={7} sub="done" />
             <div>
-              <p className="display text-3xl leading-none">{Math.round(roll.completion * 100)}%</p>
+              <p className="font-display font-bold tracking-tight text-3xl leading-none">
+                {Math.round(roll.completion * 100)}%
+              </p>
               <Label className="mt-1">completion</Label>
             </div>
           </Panel>
@@ -124,14 +126,14 @@ export function ReviewSection() {
           {noActivity ? (
             <Panel className="p-5">
               <SectionHead title="this week" meta="empty" />
-              <p className="mono mt-3 text-[12px] leading-relaxed text-stone">
+              <p className="mt-3 text-[12px] leading-relaxed text-stone">
                 Nothing logged this week yet — but you can still write a reflection below.
               </p>
             </Panel>
           ) : (
             <>
               <Panel className="p-4">
-                <SectionHead title="balance" meta="done · by value" />
+                <SectionHead title="balance" meta="by value" />
                 <div className="mt-3 space-y-2">
                   {roll.byValue.map(({ v, n }) => (
                     <ValueBar key={v.id} valueId={v.id} name={v.name} n={n} max={roll.maxV} />
@@ -144,14 +146,14 @@ export function ReviewSection() {
                 <div className="mt-3 space-y-1.5">
                   {roll.habitRows.map(({ h, rate, done, total }) => (
                     <div key={h.id} className="flex items-center justify-between">
-                      <span className="mono truncate text-[10px] text-ash">{h.name}</span>
-                      <span className="mono text-[10px] tabular-nums text-stone">
+                      <span className="truncate text-[10px] text-ash">{h.name}</span>
+                      <span className="text-[10px] tabular-nums text-stone">
                         {done}/{total} · {Math.round(rate * 100)}%
                       </span>
                     </div>
                   ))}
                   {!roll.habitRows.length && (
-                    <p className="mono text-[11px] text-mist">No habits scheduled this week.</p>
+                    <p className="text-[11px] text-mist">No habits scheduled this week.</p>
                   )}
                 </div>
               </Panel>
@@ -172,7 +174,7 @@ export function ReviewSection() {
                   </li>
                 ))}
                 {!roll.wins.length && (
-                  <li className="mono text-[11px] text-mist">No goal-work completed yet.</li>
+                  <li className="text-[11px] text-mist">No goal-work completed yet.</li>
                 )}
               </ul>
             </Panel>
@@ -188,13 +190,12 @@ export function ReviewSection() {
                       style={{ color: "var(--color-signal)" }}
                     />
                     <span className="text-[12px] text-stone">
-                      {t.title}{" "}
-                      <span className="mono text-[9px] text-mist">{t.date?.slice(5)}</span>
+                      {t.title} <span className="text-[9px] text-mist">{t.date?.slice(5)}</span>
                     </span>
                   </li>
                 ))}
                 {!roll.slipped.length && (
-                  <li className="mono text-[11px] text-mist">Nothing left behind. Clean week.</li>
+                  <li className="text-[11px] text-mist">Nothing left behind. Clean week.</li>
                 )}
               </ul>
             </Panel>
@@ -212,7 +213,7 @@ export function ReviewSection() {
             <div className="mt-4 space-y-4">
               {REVIEW_PROMPTS.map((q, i) => (
                 <div key={q}>
-                  <label className="mono text-[12px] text-ink">
+                  <label className="text-[12px] text-ink">
                     {q}
                     <textarea
                       value={answers[i]}
@@ -222,7 +223,7 @@ export function ReviewSection() {
                       }
                       rows={2}
                       placeholder="…"
-                      className="mono mt-1.5 w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-transparent p-2.5 text-[12px] leading-relaxed outline-none placeholder:text-mist focus:border-accent disabled:opacity-60"
+                      className="mt-1.5 w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-transparent p-2.5 text-[12px] leading-relaxed outline-none placeholder:text-mist focus:border-accent disabled:opacity-60"
                     />
                   </label>
                 </div>
@@ -258,13 +259,11 @@ export function ReviewSection() {
                       r.periodKey === periodKey ? "border-accent" : "border-[var(--color-line)]",
                     )}
                   >
-                    <span className="mono text-[11px] text-ink">
-                      week of {fmtShort(r.periodKey)}
-                    </span>
-                    <span className="mono text-[10px] text-stone">
+                    <span className="text-[11px] text-ink">week of {fmtShort(r.periodKey)}</span>
+                    <span className="text-[10px] text-stone">
                       {Math.round(r.completion * 100)}%
                     </span>
-                    <span className="mono ml-auto truncate text-[10px] text-mist">
+                    <span className="ml-auto truncate text-[10px] text-mist">
                       {r.prompts.find((p) => p.a)?.a ?? "—"}
                     </span>
                   </button>
@@ -317,14 +316,14 @@ function ValueBar({
   const color = useValueColor(valueId);
   return (
     <div className="flex items-center gap-2">
-      <span className="mono w-16 shrink-0 truncate text-[10px] uppercase text-ash">{name}</span>
+      <span className="w-16 shrink-0 truncate text-[10px] uppercase text-ash">{name}</span>
       <div className="h-2.5 flex-1 rounded-full bg-[var(--color-line-soft)]">
         <div
           className="h-2.5 rounded-full"
           style={{ width: `${(n / max) * 100}%`, background: color }}
         />
       </div>
-      <span className="mono w-5 text-right text-[10px] text-stone">{n}</span>
+      <span className="w-5 text-right text-[10px] text-stone">{n}</span>
     </div>
   );
 }

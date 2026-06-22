@@ -1,18 +1,17 @@
 /**
- * Goal editor — HeroUI right-side Drawer (vapor). Replaces the legacy
- * framer-motion GoalDrawer. Live per-field autosave. Preserves all data
- * semantics: free status transitions, done→progress 100%, timeframe presets,
- * subgoal-derived progress (manual control disabled when subgoals exist).
+ * Goal editor — HeroUI centered Modal (vapor). Live per-field autosave. Preserves
+ * all data semantics: free status transitions, done→progress 100%, timeframe
+ * presets, subgoal-derived progress (manual control disabled when subgoals exist).
  * Auto-closes if its target goal is removed (not-found).
  */
 import {
   Checkbox,
-  Drawer,
-  DrawerBody,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
   Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
 } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
@@ -103,18 +102,25 @@ export function GoalEditor({
   };
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="sm" aria-label="Edit goal">
-      <DrawerContent>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      placement="center"
+      scrollBehavior="inside"
+      backdrop="blur"
+      aria-label="Edit goal"
+    >
+      <ModalContent className="bg-[var(--color-surface)]">
         {goal && (
           <>
-            <DrawerHeader className="flex items-center gap-3">
+            <ModalHeader className="flex items-center gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)]">
                 <Icon name={goal.icon} size={20} className="text-[var(--color-ink)]" />
               </span>
               <span className="font-display text-lg">Goal</span>
-            </DrawerHeader>
+            </ModalHeader>
 
-            <DrawerBody className="space-y-5">
+            <ModalBody className="space-y-5">
               <Input
                 label="Name"
                 labelPlacement="outside"
@@ -274,9 +280,9 @@ export function GoalEditor({
                   onSelect={(icon) => update(goal.id, { icon })}
                 />
               </EditorField>
-            </DrawerBody>
+            </ModalBody>
 
-            <DrawerFooter className="justify-between">
+            <ModalFooter className="justify-between">
               <Button
                 onClick={() => onDelete(goal.id)}
                 className="flex items-center gap-1.5 text-[var(--color-muted)] hover:text-[var(--color-accent)]"
@@ -286,10 +292,10 @@ export function GoalEditor({
               <Button solid onClick={onClose}>
                 Done
               </Button>
-            </DrawerFooter>
+            </ModalFooter>
           </>
         )}
-      </DrawerContent>
-    </Drawer>
+      </ModalContent>
+    </Modal>
   );
 }

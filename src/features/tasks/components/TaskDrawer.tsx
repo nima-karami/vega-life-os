@@ -1,5 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect } from "react";
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/react";
 import { fmtLong } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, DatePicker, Icon, NONE, Select, TimeRange } from "@/core/ui";
@@ -10,9 +9,10 @@ const STATUSES: TaskStatus[] = ["open", "todo", "done", "skip"];
 const ENERGIES: TaskEnergy[] = ["charge", "neutral", "drain"];
 
 /**
- * Task editor — re-skinned to vapor. Opens as a right-hand sheet. All edits are
- * live (write straight through the store). Reuses the existing data wiring:
- * title, status, energy, date/time, value/goal links, note, delete.
+ * Task editor — HeroUI centered Modal (vapor). All edits are live (write straight
+ * through the store). Reuses the existing data wiring: title, status, energy,
+ * date/time, value/goal links, note, delete. (Named TaskDrawer for historical
+ * import compatibility; it now renders as a modal, not a side panel.)
  */
 export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const updateTask = useStore((s) => s.updateTask);
@@ -25,53 +25,23 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   // Goals scoped to the task's value (when set) — keeps the link coherent.
   const goalOptions = task?.valueId ? goals.filter((g) => g.valueId === task.valueId) : goals;
 
-  useEffect(() => {
-    if (!task) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [task, onClose]);
-
   return (
-    <AnimatePresence>
-      {task && (
-        <motion.div
-          className="fixed inset-0 z-40 flex justify-end bg-black/30 backdrop-blur-[1px]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-        >
-          <motion.aside
-            role="dialog"
-            aria-label="Edit task"
-            className="flex h-full w-full max-w-md flex-col bg-[var(--color-surface)] shadow-[var(--shadow-soft)]"
-            initial={{ x: 40, opacity: 0.6 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 40, opacity: 0 }}
-            transition={{ type: "tween", duration: 0.18 }}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") onClose();
-            }}
-          >
-            <div className="flex items-center justify-between border-b border-[var(--color-line)] px-5 py-4">
-              <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">
-                Edit task
-              </span>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] text-[var(--color-muted)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]"
-              >
-                <Icon name="close" size={18} />
-              </button>
-            </div>
+    <Modal
+      isOpen={!!task}
+      onClose={onClose}
+      placement="center"
+      scrollBehavior="inside"
+      backdrop="blur"
+      aria-label="Edit task"
+    >
+      <ModalContent className="bg-[var(--color-surface)]">
+        {task && (
+          <>
+            <ModalHeader className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">
+              Edit task
+            </ModalHeader>
 
-            <div className="flex-1 space-y-6 overflow-y-auto p-5">
+            <ModalBody className="space-y-6">
               <input
                 value={task.title}
                 onChange={(e) => updateTask(task.id, { title: e.target.value })}
@@ -136,7 +106,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                       })
                     }
                     options={[
-                      { value: NONE, label: "— none —" },
+                      { value: NONE, label: "None" },
                       ...values.map((v) => ({ value: v.id, label: v.name })),
                     ]}
                   />
@@ -147,7 +117,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                     value={task.goalId ?? NONE}
                     onValueChange={(v) => updateTask(task.id, { goalId: v === NONE ? null : v })}
                     options={[
-                      { value: NONE, label: "— none —" },
+                      { value: NONE, label: "None" },
                       ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
                     ]}
                   />
@@ -183,9 +153,9 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                   className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-transparent p-3 font-sans text-sm leading-relaxed text-[var(--color-ink)] outline-none focus:border-[var(--color-accent)] placeholder:text-[var(--color-muted)]"
                 />
               </Section>
-            </div>
+            </ModalBody>
 
-            <div className="flex items-center justify-between border-t border-[var(--color-line)] px-5 py-4">
+            <ModalFooter className="justify-between">
               <button
                 type="button"
                 onClick={() => {
@@ -204,11 +174,11 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
               >
                 Done
               </button>
-            </div>
-          </motion.aside>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }
 

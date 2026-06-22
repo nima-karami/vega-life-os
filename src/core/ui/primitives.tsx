@@ -26,25 +26,19 @@ export function Label({
   );
 }
 
-/** Panel header: title ———————————— meta */
+/** Panel header: a quiet uppercase title with optional meta on the right — no rule. */
 export function SectionHead({
   title,
   meta,
   className,
-  slash = true,
 }: {
   title: ReactNode;
   meta?: ReactNode;
   className?: string;
-  slash?: boolean;
 }) {
   return (
-    <div className={cx("flex items-center gap-3", className)}>
-      <Label ink>
-        {slash && <span className="text-[var(--color-muted)]">// </span>}
-        {title}
-      </Label>
-      <div className="h-px flex-1 bg-[var(--color-line)]" />
+    <div className={cx("flex items-baseline justify-between gap-3", className)}>
+      <Label ink>{title}</Label>
       {meta != null && <Label>{meta}</Label>}
     </div>
   );

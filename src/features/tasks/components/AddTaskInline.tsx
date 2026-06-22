@@ -129,9 +129,9 @@ export function AddTaskInline({
             ariaLabel="Value"
             value={draft.valueId ?? NONE}
             onValueChange={(v) => chooseValue(v === NONE ? null : v)}
-            placeholder="— value —"
+            placeholder="None"
             options={[
-              { value: NONE, label: "— value —" },
+              { value: NONE, label: "None" },
               ...values.map((v) => ({ value: v.id, label: v.name })),
             ]}
           />
@@ -141,9 +141,9 @@ export function AddTaskInline({
             ariaLabel="Goal"
             value={draft.goalId ?? NONE}
             onValueChange={(v) => setDraft((d) => ({ ...d, goalId: v === NONE ? null : v }))}
-            placeholder="— goal —"
+            placeholder="None"
             options={[
-              { value: NONE, label: "— goal —" },
+              { value: NONE, label: "None" },
               ...valueGoals.map((g) => ({ value: g.id, label: g.name })),
             ]}
           />
@@ -153,9 +153,9 @@ export function AddTaskInline({
             ariaLabel="Habit"
             value={draft.habitId ?? NONE}
             onValueChange={(v) => chooseHabit(v === NONE ? null : v)}
-            placeholder="— habit —"
+            placeholder="None"
             options={[
-              { value: NONE, label: "— habit —" },
+              { value: NONE, label: "None" },
               ...habits.map((h) => ({ value: h.id, label: h.name })),
             ]}
           />

@@ -1,9 +1,10 @@
+import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
 import { addDays } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { addMinutes, fmtShort, minutesOf, weekDays, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { ContextMenu, cx, Icon } from "@/core/ui";
+import { ContextMenu, cx, FloatingMenu, Icon, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
@@ -57,6 +58,14 @@ export function CalendarPage() {
 
   const [weekRef, setWeekRef] = useState(() => new Date());
   const [selected, setSelected] = useState<Task | null>(null);
+  // Right-click menu for an empty slot, and the "schedule existing task" picker.
+  const [slotMenu, setSlotMenu] = useState<{
+    x: number;
+    y: number;
+    date: string;
+    time: string;
+  } | null>(null);
+  const [scheduleSlot, setScheduleSlot] = useState<{ date: string; time: string } | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
   const [mobile, setMobile] = useState(
@@ -67,6 +76,9 @@ export function CalendarPage() {
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const previewRef = useRef<Preview | null>(null);
+  // Id of a task freshly created by clicking an empty slot — discarded on close
+  // if it was never named (so an accidental click doesn't litter the calendar).
+  const draftIdRef = useRef<string | null>(null);
   const justDragged = useRef(false);
   const pasteSuppressUntil = useRef(0);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -133,21 +145,61 @@ export function CalendarPage() {
     pushToast("Replaced from clipboard");
   };
 
+  // Open an existing task. Clears any pending draft so it isn't discarded.
+  const openTask = (t: Task) => {
+    draftIdRef.current = null;
+    setSelected(t);
+  };
+
+  // Close the editor; if a freshly-created draft was never named, discard it.
+  const closeEditor = () => {
+    const id = draftIdRef.current;
+    draftIdRef.current = null;
+    if (id) {
+      const t = tasks.find((x) => x.id === id);
+      if (t && (t.title.trim() === "" || t.title === "New task")) removeTask(id);
+    }
+    setSelected(null);
+  };
+
+  // Create a fresh task at a slot and open it as a draft (discarded if unnamed).
+  const createDraftAt = (date: string, time: string) => {
+    const t = addTask({ title: "New task", date, time, durationMin: 60, status: "todo" });
+    draftIdRef.current = t.id;
+    setSelected(t);
+    setAnnounce(`Created task on ${date} at ${time}`);
+  };
+
+  // Paste the clipboard task into a slot.
+  const pasteAt = (date: string, time: string) => {
+    const c = clipRef.current;
+    if (!c) return;
+    duplicateTask(c, { date, time });
+    pushToast("Pasted");
+    setAnnounce("Pasted task");
+  };
+
+  // Schedule an existing (unscheduled) task into a slot.
+  const scheduleAt = (t: Task, date: string, time: string) => {
+    updateTask(t.id, { date, time, status: "todo" });
+    pushToast(`Scheduled "${t.title}"`);
+    setAnnounce(`Scheduled ${t.title} on ${date}`);
+  };
+
   const onColumnClick = (e: React.MouseEvent, dayIso: string) => {
     if (justDragged.current) return;
     if (Date.now() < pasteSuppressUntil.current) return;
     if ((e.target as HTMLElement).closest("[data-block]")) return;
     const time = fmtMin(minuteAt(e.clientY));
-    const c = clipRef.current;
-    if (c) {
-      duplicateTask(c, { date: dayIso, time });
-      pushToast("Pasted");
-      setAnnounce("Pasted task");
-    } else {
-      const t = addTask({ title: "New task", date: dayIso, time, durationMin: 60, status: "todo" });
-      setSelected(t);
-      setAnnounce(`Created task on ${dayIso} at ${time}`);
-    }
+    if (clipRef.current) pasteAt(dayIso, time);
+    else createDraftAt(dayIso, time);
+  };
+
+  // Right-click an empty slot → menu (add / paste / schedule existing).
+  const onColumnContextMenu = (e: React.MouseEvent, dayIso: string) => {
+    if ((e.target as HTMLElement).closest("[data-block]")) return;
+    e.preventDefault();
+    setSlotMenu({ x: e.clientX, y: e.clientY, date: dayIso, time: fmtMin(minuteAt(e.clientY)) });
   };
 
   // commit a schedule change; a moved/resized habit instance detaches.
@@ -213,7 +265,7 @@ export function CalendarPage() {
       return;
     }
     const t = tasksRef.current.find((x) => x.id === d.id);
-    if (t) setSelected(t);
+    if (t) openTask(t);
   };
   const endDragRef = useRef(endDrag);
   endDragRef.current = endDrag;
@@ -305,7 +357,7 @@ export function CalendarPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] px-4 py-5">
+    <div className="mx-auto max-w-6xl px-4 py-5">
       <span className="sr-only" role="status" aria-live="polite">
         {announce}
       </span>
@@ -465,7 +517,7 @@ export function CalendarPage() {
                   className="min-h-[28px] space-y-1 border-l border-[var(--color-line)] p-1"
                 >
                   {untimedTasksForDay(tasks, d.iso).map((t) => (
-                    <AllDayChip key={t.id} task={t} onOpen={() => setSelected(t)} />
+                    <AllDayChip key={t.id} task={t} onOpen={() => openTask(t)} />
                   ))}
                 </div>
               ))}
@@ -509,6 +561,7 @@ export function CalendarPage() {
                         type="button"
                         aria-label={`Add task on ${d.dow}, ${fmtShort(d.iso)}${d.today ? ", today" : ""}`}
                         onClick={(e) => onColumnClick(e, d.iso)}
+                        onContextMenu={(e) => onColumnContextMenu(e, d.iso)}
                         className={cx(
                           "absolute inset-0 z-0 block w-full",
                           clipboardTask ? "cursor-copy" : "cursor-default",
@@ -544,7 +597,7 @@ export function CalendarPage() {
                           onPointerDownBody={(e) => beginDrag(e, t, "move")}
                           onPointerDownTop={(e) => beginDrag(e, t, "top")}
                           onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
-                          onOpen={() => setSelected(t)}
+                          onOpen={() => openTask(t)}
                           onCopy={() => {
                             copyTask(t);
                             pasteSuppressUntil.current = Date.now() + 400;
@@ -602,7 +655,7 @@ export function CalendarPage() {
                   <BacklogItem
                     key={t.id}
                     task={t}
-                    onOpen={() => setSelected(t)}
+                    onOpen={() => openTask(t)}
                     onSchedule={() =>
                       scheduleBacklog(t, (days.find((d) => d.today) ?? days[0]).iso)
                     }
@@ -616,9 +669,100 @@ export function CalendarPage() {
 
       <TaskDrawer
         task={selected ? (tasks.find((t) => t.id === selected.id) ?? null) : null}
-        onClose={() => setSelected(null)}
+        onClose={closeEditor}
       />
+
+      {/* Right-click an empty slot → add / paste / schedule */}
+      {slotMenu && (
+        <FloatingMenu
+          pos={{ x: slotMenu.x, y: slotMenu.y }}
+          onClose={() => setSlotMenu(null)}
+          label="Slot actions"
+          items={[
+            {
+              label: "Add task here",
+              icon: "plus",
+              onSelect: () => createDraftAt(slotMenu.date, slotMenu.time),
+            },
+            ...(clipboardTask
+              ? [
+                  {
+                    label: `Paste "${clipboardTask.title}"`,
+                    icon: "clipboard",
+                    onSelect: () => pasteAt(slotMenu.date, slotMenu.time),
+                  } as MenuItem,
+                ]
+              : []),
+            {
+              label: "Schedule existing task…",
+              icon: "calendar",
+              disabled: backlog.length === 0,
+              onSelect: () => setScheduleSlot({ date: slotMenu.date, time: slotMenu.time }),
+            },
+          ]}
+        />
+      )}
+
+      {/* Schedule-existing-task picker (from the slot menu) */}
+      <Modal
+        isOpen={!!scheduleSlot}
+        onClose={() => setScheduleSlot(null)}
+        placement="center"
+        scrollBehavior="inside"
+        backdrop="blur"
+        aria-label="Schedule an existing task"
+      >
+        <ModalContent className="bg-[var(--color-surface)]">
+          <ModalHeader className="flex-col items-start gap-0.5">
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">
+              Schedule a task
+            </span>
+            {scheduleSlot && (
+              <span className="font-sans text-xs font-normal normal-case text-[var(--color-muted)]">
+                {fmtShort(scheduleSlot.date)} · {scheduleSlot.time}
+              </span>
+            )}
+          </ModalHeader>
+          <ModalBody className="pb-6">
+            {backlog.length === 0 ? (
+              <p className="font-sans text-sm text-[var(--color-muted)]">No unscheduled tasks.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {backlog.map((t) => (
+                  <li key={t.id}>
+                    <ScheduleRow
+                      task={t}
+                      onPick={() => {
+                        if (scheduleSlot) scheduleAt(t, scheduleSlot.date, scheduleSlot.time);
+                        setScheduleSlot(null);
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
+  );
+}
+
+function ScheduleRow({ task, onPick }: { task: Task; onPick: () => void }) {
+  const accent = useValueColor(task.valueId);
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className="flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-left transition-colors hover:border-[var(--color-accent)]"
+    >
+      <span
+        className="h-2 w-2 shrink-0 rounded-full"
+        style={{ background: accent }}
+        aria-hidden="true"
+      />
+      <span className="truncate font-sans text-sm text-[var(--color-ink)]">{task.title}</span>
+    </button>
   );
 }
 

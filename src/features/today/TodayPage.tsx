@@ -89,7 +89,7 @@ export function TodayPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-4 py-6 sm:py-10">
+    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
       {/* Header — date + progress */}
       <header>
         <p className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">

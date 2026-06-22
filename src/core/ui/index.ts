@@ -1,13 +1,13 @@
 export { DotMeter, Gauge, ProgressBar, Radar, Sparkline } from "./charts";
 export { ConfirmDialog } from "./confirm";
-export { ContextMenu } from "./contextmenu";
+export { ContextMenu, FloatingMenu } from "./contextmenu";
 export { cx } from "./cx";
 export { DatePicker, DurationStepper, TimePicker, TimeRange } from "./datetime";
 export { Ic, Icon } from "./icons";
 export { Lineage, valueStripeStyle } from "./lineage";
 export type { MenuItem } from "./menu";
 export { Menu } from "./menu";
-export { Popover, PopoverClose } from "./popover";
+export { Popover } from "./popover";
 export {
   Button,
   Field,

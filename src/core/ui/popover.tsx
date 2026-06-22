@@ -1,10 +1,17 @@
-import * as RP from "@radix-ui/react-popover";
+import {
+  Popover as HPopover,
+  PopoverContent,
+  type PopoverProps,
+  PopoverTrigger,
+} from "@heroui/react";
 import type { ReactNode } from "react";
 import { cx } from "./cx";
 
 /**
- * Radix Popover styled to the cockpit. Used for the custom date/time pickers
- * and any floating editor that needs to escape overflow clipping.
+ * Popover on HeroUI (react-aria) — shares the overlay system with HeroUI Modal,
+ * so it works correctly when nested inside a modal (no aria-hidden / focus-trap
+ * conflicts that a body-portaled Radix popover hits). Used for the custom
+ * date/time pickers and any floating editor that needs to escape overflow clipping.
  */
 export function Popover({
   trigger,
@@ -23,24 +30,23 @@ export function Popover({
   onOpenChange?: (v: boolean) => void;
   className?: string;
 }) {
+  const placement = (align === "center" ? side : `${side}-${align}`) as PopoverProps["placement"];
+
   return (
-    <RP.Root open={open} onOpenChange={onOpenChange}>
-      <RP.Trigger asChild>{trigger}</RP.Trigger>
-      <RP.Portal>
-        <RP.Content
-          align={align}
-          side={side}
-          sideOffset={6}
-          className={cx(
-            "z-[60] overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)] outline-none",
-            className,
-          )}
-        >
-          {children}
-        </RP.Content>
-      </RP.Portal>
-    </RP.Root>
+    <HPopover
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      placement={placement}
+      offset={6}
+      classNames={{
+        content: cx(
+          "rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-0 shadow-[var(--shadow-soft)]",
+          className,
+        ),
+      }}
+    >
+      <PopoverTrigger>{trigger}</PopoverTrigger>
+      <PopoverContent>{children}</PopoverContent>
+    </HPopover>
   );
 }
-
-export const PopoverClose = RP.Close;

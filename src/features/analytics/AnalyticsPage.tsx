@@ -35,13 +35,15 @@ export function AnalyticsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1400px] p-4">
+    <div className="mx-auto max-w-6xl p-4">
       <Panel className="mb-4 flex flex-wrap items-center gap-4 px-5 py-4">
         <div>
-          <Label>// analytics &amp; review</Label>
-          <h1 className="display mt-1 text-3xl">How it's actually going</h1>
-          <p className="mono mt-1 text-[11px] text-stone">
-            Signal over vanity. See your follow-through, then reflect on it.
+          <Label>Analytics &amp; review</Label>
+          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">
+            How it's actually going
+          </h1>
+          <p className="mt-1 font-sans text-sm text-[var(--color-muted)]">
+            Your follow-through, then time to reflect.
           </p>
         </div>
         <div
@@ -88,7 +90,7 @@ function SectionTab({
       aria-controls={`panel-${id}`}
       onClick={() => onSelect(id)}
       className={cx(
-        "mono rounded-[var(--radius-sm)] px-4 py-1.5 text-[11px] uppercase tracking-[0.1em] transition-colors",
+        "rounded-[var(--radius-sm)] px-4 py-1.5 text-[11px] uppercase tracking-[0.1em] transition-colors",
         selected ? "bg-accent text-[var(--color-accent-foreground)]" : "text-stone hover:text-ink",
       )}
     >
@@ -137,8 +139,10 @@ function AnalyticsSection() {
     return (
       <Panel className="p-8 text-center">
         <Icon name="chart" size={28} className="mx-auto text-mist" />
-        <h2 className="display mt-3 text-2xl">Nothing to chart yet</h2>
-        <p className="mono mx-auto mt-2 max-w-md text-[12px] leading-relaxed text-stone">
+        <h2 className="font-display font-bold tracking-tight mt-3 text-2xl">
+          Nothing to chart yet
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-[12px] leading-relaxed text-stone">
           Your follow-through, consistency, and balance show up here once you start logging tasks.
           Open the command bar (⌘K) to add your first one.
         </p>
@@ -149,7 +153,7 @@ function AnalyticsSection() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="mono text-[11px] text-stone" aria-live="polite">
+        <p className="text-[11px] text-stone" aria-live="polite">
           Showing the last {days} day{days === 1 ? "" : "s"}
         </p>
         <RangeSelector range={range} onChange={setRange} />
@@ -157,7 +161,7 @@ function AnalyticsSection() {
 
       {insightList.length > 0 && (
         <Panel className="mb-4 p-5">
-          <SectionHead title="insights · patterns" meta="60 d" />
+          <SectionHead title="Insights" meta="60d" />
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
             {insightList.map((text) => (
               <div
@@ -174,9 +178,7 @@ function AnalyticsSection() {
 
       {!tasksInRange && (
         <Panel className="mb-4 p-5 text-center">
-          <p className="mono text-[12px] text-stone">
-            No activity in this range — try a wider one.
-          </p>
+          <p className="text-[12px] text-stone">No activity in this range — try a wider one.</p>
         </Panel>
       )}
 
@@ -188,22 +190,22 @@ function AnalyticsSection() {
         >
           <Gauge value={overall} size={92} stroke={8} sub={range} />
           <div>
-            <p className="display text-4xl leading-none">{Math.round(overall * 100)}%</p>
-            <Label className="mt-1">follow-through</Label>
-            <p className="mono mt-2 text-[11px] text-stone">
-              resolved vs. scheduled · skips excluded
+            <p className="font-display font-bold tracking-tight text-4xl leading-none">
+              {Math.round(overall * 100)}%
             </p>
+            <Label className="mt-1">follow-through</Label>
+            <p className="mt-2 text-[11px] text-stone">resolved vs. scheduled</p>
           </div>
         </Panel>
 
         {/* weekly trend */}
         <Panel className="p-5 lg:col-span-2">
-          <SectionHead title="weekly trend" meta={`${weeks} wk`} />
+          <SectionHead title="Weekly trend" meta={`${weeks} wk`} />
           <div className="mt-3">
             {enoughWeekly ? (
               <Sparkline points={weekly} width={760} height={70} className="w-full" />
             ) : (
-              <p className="mono py-6 text-[11px] text-mist">
+              <p className="py-6 text-[11px] text-mist">
                 Not enough weekly data yet — keep logging to see the trend.
               </p>
             )}
@@ -216,7 +218,7 @@ function AnalyticsSection() {
 
         {/* consistency heatmap */}
         <Panel className="p-5 lg:col-span-3">
-          <SectionHead title="consistency · the long view" meta="22 wk" />
+          <SectionHead title="Consistency" meta="22 wk" />
           <div className="mt-4 overflow-x-auto">
             <div className="mb-1 flex gap-[3px]">
               <div className="w-4 shrink-0" />
@@ -226,7 +228,7 @@ function AnalyticsSection() {
                   <div
                     key={`mlabel-${col[0]?.iso ?? ci}`}
                     style={{ width: 13 }}
-                    className="mono shrink-0 overflow-visible whitespace-nowrap text-[8px] text-mist"
+                    className="shrink-0 overflow-visible whitespace-nowrap text-[8px] text-mist"
                   >
                     {mk ? mk.label : ""}
                   </div>
@@ -247,7 +249,7 @@ function AnalyticsSection() {
                   <span
                     key={d.key}
                     style={{ height: 13 }}
-                    className="mono text-[8px] leading-[13px] text-mist"
+                    className="text-[8px] leading-[13px] text-mist"
                   >
                     {d.label}
                   </span>
@@ -277,16 +279,14 @@ function AnalyticsSection() {
                 />
               ))}
               <Label>more</Label>
-              <span className="mono ml-3 text-[10px] text-stone">
-                daily completion · skips excluded
-              </span>
+              <span className="ml-3 text-[10px] text-stone">daily completion</span>
             </div>
           </div>
         </Panel>
 
         {/* daily completion bars */}
         <Panel className="p-5 lg:col-span-2">
-          <SectionHead title="daily completion" meta={`${days} d`} />
+          <SectionHead title="Daily completion" meta={`${days}d`} />
           <div className="mt-4 flex items-end gap-[3px]" style={{ height: 120 }}>
             {daily.map((d) => (
               <div
@@ -304,15 +304,15 @@ function AnalyticsSection() {
                     />
                   </div>
                 </div>
-                <span className="mono mt-1 text-[7px] text-mist">{d.label}</span>
+                <span className="mt-1 text-[7px] text-mist">{d.label}</span>
               </div>
             ))}
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <span className="mono flex items-center gap-1 text-[9px] text-stone">
+            <span className="flex items-center gap-1 text-[9px] text-stone">
               <span className="inline-block h-2 w-2 rounded-[2px] bg-ink" /> done
             </span>
-            <span className="mono flex items-center gap-1 text-[9px] text-stone">
+            <span className="flex items-center gap-1 text-[9px] text-stone">
               <span className="inline-block h-2 w-2 rounded-[2px] bg-[var(--color-line-strong)]" />{" "}
               scheduled
             </span>
@@ -321,7 +321,7 @@ function AnalyticsSection() {
 
         {/* balance by value */}
         <Panel className="p-5">
-          <SectionHead title="balance · by value" meta={`${days} d`} />
+          <SectionHead title="Balance" meta={`${days}d`} />
           <div className="mt-4 space-y-2.5">
             {values.map((v) => (
               <ValueBalanceBar
@@ -337,7 +337,7 @@ function AnalyticsSection() {
 
         {/* goal trajectory */}
         <Panel className="p-5 lg:col-span-2">
-          <SectionHead title="goal trajectory" meta="progress vs. pace" />
+          <SectionHead title="Goal trajectory" meta="pace" />
           <div className="mt-4 space-y-4">
             {goals.map((g) => {
               const elapsed = goalTimeElapsed(g);
@@ -345,10 +345,8 @@ function AnalyticsSection() {
               return (
                 <div key={g.id}>
                   <div className="flex items-center justify-between">
-                    <span className="mono text-[11px] text-ink">{g.name}</span>
-                    <span
-                      className={cx("mono text-[10px]", pace >= 0 ? "text-good" : "text-signal")}
-                    >
+                    <span className="text-[11px] text-ink">{g.name}</span>
+                    <span className={cx("text-[10px]", pace >= 0 ? "text-good" : "text-signal")}>
                       {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
                     </span>
                   </div>
@@ -367,40 +365,40 @@ function AnalyticsSection() {
               );
             })}
             {!goals.length && (
-              <p className="mono text-[11px] text-mist">No goals yet to track against pace.</p>
+              <p className="text-[11px] text-mist">No goals yet to track against pace.</p>
             )}
           </div>
         </Panel>
 
         {/* habit consistency */}
         <Panel className="p-5">
-          <SectionHead title="habit consistency" meta="rate" />
+          <SectionHead title="Habit consistency" meta="rate" />
           <div className="mt-4 space-y-2.5">
             {habitRanked.map(({ h, rate }) => (
               <div key={h.id} className="flex items-center gap-2">
-                <span className="mono w-24 shrink-0 truncate text-[10px] text-ash">{h.name}</span>
+                <span className="w-24 shrink-0 truncate text-[10px] text-ash">{h.name}</span>
                 <div className="h-3 flex-1 rounded-full bg-[var(--color-line-soft)]">
                   <div className="h-3 rounded-full bg-ink" style={{ width: `${rate * 100}%` }} />
                 </div>
-                <span className="mono w-8 text-right text-[10px] tabular-nums text-stone">
+                <span className="w-8 text-right text-[10px] tabular-nums text-stone">
                   {Math.round(rate * 100)}%
                 </span>
               </div>
             ))}
             {!habitRanked.length && (
-              <p className="mono text-[11px] text-mist">No habits to measure yet.</p>
+              <p className="text-[11px] text-mist">No habits to measure yet.</p>
             )}
           </div>
         </Panel>
 
         {/* energy · charge vs drain */}
         <Panel className="p-5 lg:col-span-3">
-          <SectionHead title="energy · charge vs. drain" meta={`${days} d · the burnout lens`} />
+          <SectionHead title="Energy" meta={`${days}d`} />
           <div className="mt-4 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)]">
             <div>
               <div className="flex items-end gap-2">
                 <span
-                  className="display text-4xl leading-none"
+                  className="font-display font-bold tracking-tight text-4xl leading-none"
                   style={{ color: energy.net >= 0 ? "var(--color-good)" : "var(--color-signal)" }}
                 >
                   {energy.net >= 0 ? "+" : ""}
@@ -424,12 +422,12 @@ function AnalyticsSection() {
                 />
               </div>
               <div className="mt-2 flex justify-between">
-                <span className="mono text-[10px] text-stone">▲ {energy.charge} charged</span>
-                <span className="mono text-[10px]" style={{ color: "var(--color-signal)" }}>
+                <span className="text-[10px] text-stone">▲ {energy.charge} charged</span>
+                <span className="text-[10px]" style={{ color: "var(--color-signal)" }}>
                   ▼ {energy.drain} drained
                 </span>
               </div>
-              <p className="mono mt-3 text-[10px] leading-relaxed text-mist">
+              <p className="mt-3 text-[10px] leading-relaxed text-mist">
                 {energy.net >= 0
                   ? "You're net-charged. The week's work is feeding you more than it costs."
                   : "You're running a deficit. Protect more of what charges you, or offload a drain."}
@@ -441,12 +439,12 @@ function AnalyticsSection() {
                 <ul className="mt-2 space-y-1.5">
                   {energy.topCharges.map((d) => (
                     <li key={d.title} className="flex items-center justify-between">
-                      <span className="mono text-[11px] text-ink">▲ {d.title}</span>
-                      <span className="mono text-[10px] text-stone">×{d.n}</span>
+                      <span className="text-[11px] text-ink">▲ {d.title}</span>
+                      <span className="text-[10px] text-stone">×{d.n}</span>
                     </li>
                   ))}
                   {!energy.topCharges.length && (
-                    <li className="mono text-[10px] text-mist">— tag tasks to see this —</li>
+                    <li className="text-[10px] text-mist">— tag tasks to see this —</li>
                   )}
                 </ul>
               </div>
@@ -455,14 +453,14 @@ function AnalyticsSection() {
                 <ul className="mt-2 space-y-1.5">
                   {energy.topDrains.map((d) => (
                     <li key={d.title} className="flex items-center justify-between">
-                      <span className="mono text-[11px]" style={{ color: "var(--color-signal)" }}>
+                      <span className="text-[11px]" style={{ color: "var(--color-signal)" }}>
                         ▼ {d.title}
                       </span>
-                      <span className="mono text-[10px] text-stone">×{d.n}</span>
+                      <span className="text-[10px] text-stone">×{d.n}</span>
                     </li>
                   ))}
                   {!energy.topDrains.length && (
-                    <li className="mono text-[10px] text-mist">— nothing draining logged —</li>
+                    <li className="text-[10px] text-mist">— nothing draining logged —</li>
                   )}
                 </ul>
               </div>
@@ -499,7 +497,7 @@ function RangeSelector({
             aria-label={o.label}
             onClick={() => onChange(o.id)}
             className={cx(
-              "mono rounded-[var(--radius-sm)] px-3 py-1 text-[11px] uppercase transition-colors",
+              "rounded-[var(--radius-sm)] px-3 py-1 text-[11px] uppercase transition-colors",
               selected
                 ? "bg-accent text-[var(--color-accent-foreground)]"
                 : "text-stone hover:text-ink",
@@ -527,14 +525,14 @@ function ValueBalanceBar({
   const color = useValueColor(valueId);
   return (
     <div className="flex items-center gap-2">
-      <span className="mono w-20 shrink-0 truncate text-[10px] uppercase text-ash">{name}</span>
+      <span className="w-20 shrink-0 truncate text-[10px] uppercase text-ash">{name}</span>
       <div className="h-3 flex-1 rounded-full bg-[var(--color-line-soft)]">
         <div
           className="h-3 rounded-full"
           style={{ width: `${(count / max) * 100}%`, background: color }}
         />
       </div>
-      <span className="mono w-6 text-right text-[10px] tabular-nums text-stone">{count}</span>
+      <span className="w-6 text-right text-[10px] tabular-nums text-stone">{count}</span>
     </div>
   );
 }

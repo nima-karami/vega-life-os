@@ -1,16 +1,15 @@
 /**
- * Value editor — HeroUI right-side Drawer (vapor). Replaces the legacy
- * framer-motion ValueDrawer. Live per-field autosave through `updateValue`
- * (no Save button). If the target value is removed out from under it (cascade),
- * the drawer detects the missing entity and closes (not-found state).
+ * Value editor — HeroUI centered Modal (vapor). Live per-field autosave through
+ * `updateValue` (no Save button). If the target value is removed out from under
+ * it (cascade), the editor detects the missing entity and closes (not-found state).
  */
 import {
-  Drawer,
-  DrawerBody,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
   Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
   Textarea,
 } from "@heroui/react";
 import { useEffect } from "react";
@@ -72,11 +71,18 @@ export function ValueEditor({
   const isOpen = !!value;
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} placement="right" size="sm" aria-label="Edit value">
-      <DrawerContent>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      placement="center"
+      scrollBehavior="inside"
+      backdrop="blur"
+      aria-label="Edit value"
+    >
+      <ModalContent className="bg-[var(--color-surface)]">
         {value && (
           <>
-            <DrawerHeader className="flex items-center gap-3">
+            <ModalHeader className="flex items-center gap-3">
               <span
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
                 style={{ background: valueColor(value) }}
@@ -84,9 +90,9 @@ export function ValueEditor({
                 <Icon name={value.icon} size={20} className="text-white" />
               </span>
               <span className="font-display text-lg">Value</span>
-            </DrawerHeader>
+            </ModalHeader>
 
-            <DrawerBody className="space-y-5">
+            <ModalBody className="space-y-5">
               <Input
                 label="Name"
                 labelPlacement="outside"
@@ -127,9 +133,9 @@ export function ValueEditor({
                   onSelect={(hue) => update(value.id, { hue })}
                 />
               </EditorField>
-            </DrawerBody>
+            </ModalBody>
 
-            <DrawerFooter className="justify-between">
+            <ModalFooter className="justify-between">
               <Button
                 onClick={() => onDelete(value)}
                 className="flex items-center gap-1.5 text-[var(--color-muted)] hover:text-[var(--color-accent)]"
@@ -139,10 +145,10 @@ export function ValueEditor({
               <Button solid onClick={onClose}>
                 Done
               </Button>
-            </DrawerFooter>
+            </ModalFooter>
           </>
         )}
-      </DrawerContent>
-    </Drawer>
+      </ModalContent>
+    </Modal>
   );
 }
