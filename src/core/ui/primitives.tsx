@@ -1,9 +1,13 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Card, Chip, Button as HButton, type ButtonProps as HButtonProps } from "@heroui/react";
+import type { ReactNode } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 
-/** A small uppercase tracked label — connective tissue, set in Inter. */
+/**
+ * Small, quiet muted label — connective tissue. Sentence case, not uppercase-tracked
+ * (per the calm contract). `ink` bumps it to the foreground color.
+ */
 export function Label({
   children,
   className,
@@ -14,19 +18,13 @@ export function Label({
   ink?: boolean;
 }) {
   return (
-    <span
-      className={cx(
-        "font-sans text-[10px] font-medium uppercase leading-none tracking-[0.14em]",
-        ink ? "text-[var(--color-ink)]" : "text-[var(--color-muted)]",
-        className,
-      )}
-    >
+    <span className={cx("text-tiny", ink ? "text-foreground" : "text-default-500", className)}>
       {children}
     </span>
   );
 }
 
-/** Panel header: a quiet uppercase title with optional meta on the right — no rule. */
+/** Panel header: a quiet title with optional meta on the right — no rule, no uppercase. */
 export function SectionHead({
   title,
   meta,
@@ -38,12 +36,16 @@ export function SectionHead({
 }) {
   return (
     <div className={cx("flex items-baseline justify-between gap-3", className)}>
-      <Label ink>{title}</Label>
-      {meta != null && <Label>{meta}</Label>}
+      <span className="text-small font-medium text-foreground">{title}</span>
+      {meta != null && <span className="text-tiny text-default-400">{meta}</span>}
     </div>
   );
 }
 
+/**
+ * Calm surface card on HeroUI <Card> (shadow="sm"). Keeps the legacy <Panel> API
+ * (children, className, flush, as, ticks no-op) so call sites don't change.
+ */
 export function Panel({
   children,
   className,
@@ -52,25 +54,24 @@ export function Panel({
 }: {
   children: ReactNode;
   className?: string;
-  /** @deprecated Legacy HUD corner ticks — accepted for API compat but no longer rendered in the vapor theme. */
+  /** @deprecated Legacy HUD corner ticks — accepted for API compat, no longer rendered. */
   ticks?: boolean;
   flush?: boolean;
   as?: "div" | "section" | "article";
 }) {
   return (
-    <As
-      className={cx(
-        flush
-          ? "border border-[var(--color-line)] bg-[var(--color-surface)] rounded-[var(--radius-md)]"
-          : "border border-[var(--color-line)] bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-[var(--shadow-soft)]",
-        className,
-      )}
+    <Card
+      as={As}
+      shadow={flush ? "none" : "sm"}
+      radius="lg"
+      className={cx("border border-divider bg-content1", className)}
     >
       {children}
-    </As>
+    </Card>
   );
 }
 
+/** Small status/category chip on HeroUI <Chip>. Keeps the legacy <Tag> API. */
 export function Tag({
   children,
   active,
@@ -81,63 +82,70 @@ export function Tag({
   className?: string;
 }) {
   return (
-    <span
-      className={cx(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-sans text-[10px] font-medium uppercase tracking-[0.12em]",
-        active
-          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-          : "border-[var(--color-line)] text-[var(--color-muted)]",
-        className,
-      )}
+    <Chip
+      size="sm"
+      radius="full"
+      variant={active ? "solid" : "flat"}
+      color={active ? "primary" : "default"}
+      className={className}
     >
       {children}
-    </span>
+    </Chip>
   );
 }
 
-type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+// Built on HeroUI ButtonProps so call sites can also pass HeroUI props directly.
+type BtnProps = Omit<HButtonProps, "color" | "variant" | "startContent"> & {
   solid?: boolean;
   icon?: IconName;
 };
-export function Button({ solid, icon, children, className, ...rest }: BtnProps) {
+/**
+ * Calm button on HeroUI <Button>. `solid` → primary solid; otherwise a quiet
+ * flat secondary. Forwards HeroUI/native button props (onClick, onPress, type, …).
+ */
+export function Button({ solid, icon, children, className, type, ...rest }: BtnProps) {
   return (
-    <button
-      type="button"
-      className={cx(
-        "inline-flex items-center gap-2 rounded-[var(--radius-sm)] border px-4 py-2 font-sans text-[13px] font-medium transition-colors duration-150",
-        solid
-          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)] hover:opacity-90"
-          : "border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-ink)] hover:bg-[var(--color-canvas)] hover:border-[var(--color-accent)]",
-        className,
-      )}
+    <HButton
+      type={type ?? "button"}
+      size="sm"
+      radius="sm"
+      color={solid ? "primary" : "default"}
+      variant={solid ? "solid" : "flat"}
+      startContent={icon ? <Icon name={icon} size={14} /> : undefined}
+      className={cx("font-medium", className)}
       {...rest}
     >
-      {icon && <Icon name={icon} size={13} />}
       {children}
-    </button>
+    </HButton>
   );
 }
 
+/** Icon-only button on HeroUI <Button isIconOnly variant="light">. Keeps the legacy API. */
 export function IconButton({
   name,
   size = 16,
   label,
   className,
+  type,
   ...rest
-}: { name: IconName; size?: number; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
+}: { name: IconName; size?: number; label: string } & Omit<
+  HButtonProps,
+  "isIconOnly" | "variant" | "startContent" | "size"
+>) {
   return (
-    <button
-      type="button"
+    <HButton
+      isIconOnly
+      type={type ?? "button"}
+      size="sm"
+      radius="sm"
+      variant="light"
       aria-label={label}
       title={label}
-      className={cx(
-        "grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)] text-[var(--color-muted)] transition-colors duration-150 hover:bg-[var(--color-canvas)] hover:border-[var(--color-accent)] hover:text-[var(--color-ink)]",
-        className,
-      )}
+      className={cx("text-default-500 data-[hover=true]:text-foreground", className)}
       {...rest}
     >
       <Icon name={name} size={size} />
-    </button>
+    </HButton>
   );
 }
 
@@ -158,7 +166,7 @@ export function Stars({
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden="true"
-      style={{ color: n <= v ? "var(--color-accent)" : "var(--color-line-strong)" }}
+      className={n <= v ? "text-primary" : "text-default-300"}
     >
       <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.8 5.9 21.4l1.4-6.8L2.2 9.9l6.9-.8z" />
     </svg>
@@ -202,12 +210,12 @@ export function Field({
   return (
     <div
       className={cx(
-        "flex flex-col gap-1 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2.5",
+        "flex flex-col gap-1 rounded-medium border border-divider bg-content1 px-3 py-2.5",
         className,
       )}
     >
       <Label>{label}</Label>
-      <span className="font-display text-xl font-bold leading-none tracking-[-0.03em]">
+      <span className="text-xl font-semibold leading-none tracking-tight text-foreground">
         {value}
       </span>
     </div>

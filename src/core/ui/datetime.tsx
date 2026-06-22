@@ -128,7 +128,7 @@ export function DatePicker({
             >
               <Icon name="chevL" size={15} />
             </button>
-            <span className="font-display text-[14px] font-bold tracking-[-0.02em]">
+            <span className="text-small font-semibold tracking-tight">
               {format(view, "MMMM yyyy")}
             </span>
             <button

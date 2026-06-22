@@ -35,7 +35,7 @@ export function Onboarding() {
   };
 
   return (
-    <div className="grid h-screen place-items-center bg-[var(--color-canvas)] px-4 text-[var(--color-ink)]">
+    <div className="grid h-screen place-items-center bg-background px-4 text-foreground">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -43,47 +43,38 @@ export function Onboarding() {
         className="w-full max-w-lg"
       >
         <div className="mb-8 flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-[var(--radius-sm)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]">
-            <span className="font-display text-xl font-bold leading-none">V</span>
+          <span className="grid h-10 w-10 place-items-center rounded-medium bg-primary text-primary-foreground">
+            <span className="text-xl font-semibold leading-none">V</span>
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-xl font-bold">VEGA</span>
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">
-              life.os
-            </span>
+            <span className="text-xl font-semibold">VEGA</span>
+            <span className="text-tiny text-default-500">life os</span>
           </div>
         </div>
 
-        <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
+        <h1 className="text-4xl font-semibold leading-tight tracking-tight">
           A command center for your life.
         </h1>
-        <p className="mt-4 font-sans text-sm leading-relaxed text-[var(--color-muted)]">
-          Everything you do orbits a <b className="text-[var(--color-ink)]">value</b>. VEGA threads
-          them together so the small daily acts ladder up to the life you're actually trying to
-          build.
+        <p className="mt-4 text-small leading-relaxed text-default-500">
+          Everything you do orbits a <b className="text-foreground">value</b>. VEGA threads them
+          together so the small daily acts ladder up to the life you're actually trying to build.
         </p>
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {STEPS.map((s, i) => (
             <div
               key={s.v}
-              className="rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-soft)]"
+              className="rounded-medium border border-divider bg-content1 p-3 shadow-small"
             >
-              <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--color-muted)]">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <p className="mt-1 font-display text-base font-semibold">{s.v}</p>
-              <p className="mt-1 font-sans text-[11px] leading-snug text-[var(--color-muted)]">
-                {s.d}
-              </p>
+              <span className="text-tiny text-default-400">{String(i + 1).padStart(2, "0")}</span>
+              <p className="mt-1 text-medium font-semibold">{s.v}</p>
+              <p className="mt-1 text-tiny leading-snug text-default-500">{s.d}</p>
             </div>
           ))}
         </div>
 
-        <label className="mt-8 flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] px-4 py-3">
-          <span className="font-sans text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            Operator name
-          </span>
+        <label className="mt-8 flex flex-col gap-1.5 rounded-medium border border-divider bg-content1 px-4 py-3">
+          <span className="text-tiny text-default-500">Operator name</span>
           <input
             ref={nameRef}
             value={name}
@@ -92,7 +83,7 @@ export function Onboarding() {
               if (e.key === "Enter") void finish("demo");
             }}
             placeholder="What should we call you?"
-            className="w-full bg-transparent font-sans text-[15px] outline-none placeholder:text-[var(--color-muted)]"
+            className="w-full bg-transparent text-medium outline-none placeholder:text-default-400"
           />
         </label>
 
@@ -101,7 +92,7 @@ export function Onboarding() {
             type="button"
             disabled={busy}
             onClick={() => finish("demo")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--color-accent)] py-3 font-sans text-sm font-medium text-[var(--color-accent-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-medium bg-primary py-3 text-small font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <Icon name="spark" size={14} /> Explore with sample data
           </button>
@@ -109,12 +100,12 @@ export function Onboarding() {
             type="button"
             disabled={busy}
             onClick={() => finish("empty")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] py-3 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:border-[var(--color-accent)] disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-medium border border-divider bg-content1 py-3 text-small font-medium text-foreground transition-colors hover:border-primary disabled:opacity-50"
           >
             <Icon name="plus" size={14} /> Start empty
           </button>
         </div>
-        <p className="mt-4 text-center font-mono text-[10px] text-[var(--color-muted)]">
+        <p className="mt-4 text-center text-tiny text-default-400">
           Local-first · your data stays in this browser · switch anytime in Settings
         </p>
       </motion.div>

@@ -84,7 +84,7 @@ export function FloatingMenu({
       ref={menuRef}
       role="menu"
       aria-label={label}
-      className="fixed z-[80] min-w-[180px] overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-1.5 shadow-[var(--shadow-soft)]"
+      className="fixed z-[80] min-w-[180px] overflow-hidden rounded-medium border border-divider bg-content1 p-1 shadow-medium"
       style={{ left: coords.x, top: coords.y }}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -99,10 +99,8 @@ export function FloatingMenu({
             it.onSelect();
           }}
           className={cx(
-            "flex w-full cursor-pointer items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 text-left font-sans text-[13px] outline-none transition-colors duration-150 disabled:cursor-default disabled:opacity-35",
-            it.danger
-              ? "text-[var(--color-signal)] hover:bg-[var(--color-signal)] hover:text-[var(--color-accent-foreground)]"
-              : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-accent)]",
+            "flex w-full cursor-pointer items-center gap-2.5 rounded-small px-2.5 py-2 text-left text-small outline-none transition-colors duration-150 disabled:cursor-default disabled:opacity-50",
+            it.danger ? "text-danger hover:bg-danger/10" : "text-foreground hover:bg-default/40",
           )}
         >
           {it.icon && <Icon name={it.icon} size={13} />}

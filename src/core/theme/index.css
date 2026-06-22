@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @plugin "../../../hero";
 /* Tailwind v4 must scan HeroUI's theme dist so component classes are generated
@@ -6,50 +6,54 @@
 @source "../../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
 
 /* ============================================================
-   VEGA Life OS — Vapor theme tokens (Tailwind v4 @theme)
-   Minimal, calm, light-mode-only for the redesign branch.
+   VEGA Life OS — Calm token bridge (Tailwind v4 @theme)
+   These --color-* tokens are re-pointed to the calm HeroUI palette
+   (see hero.ts / design-system.md) so any not-yet-migrated
+   `var(--color-*)` markup adopts the calm look automatically.
    ============================================================ */
 @theme {
-  /* Canvas & surface */
-  --color-canvas: #f6f7f9;
+  /* Canvas & surface — match HeroUI background / content1 */
+  --color-canvas: #f7f7f6;
   --color-surface: #ffffff;
 
-  /* Text */
-  --color-ink: #0d1117;
-  --color-muted: #6b7280; /* darkened from #8A93A0 to meet WCAG 4.5:1 on white */
+  /* Text — match HeroUI foreground / default-500 */
+  --color-ink: #1a1a19;
+  --color-muted: #6b7280; /* meets WCAG 4.5:1 on white */
 
-  /* Lines & dividers */
-  --color-line: #eaecef;
-  --color-line-soft: rgba(14, 17, 23, 0.06);
-  --color-line-strong: rgba(14, 17, 23, 0.24);
+  /* Lines & dividers — match HeroUI divider */
+  --color-line: rgba(0, 0, 0, 0.08);
+  --color-line-soft: rgba(0, 0, 0, 0.05);
+  --color-line-strong: rgba(0, 0, 0, 0.18);
 
-  /* Accent — single indigo */
-  --color-accent: #5b5bd6;
+  /* Accent — calm desaturated slate-blue (matches HeroUI primary) */
+  --color-accent: #4e6e8e;
   --color-accent-foreground: #ffffff;
 
-  /* Legacy aliases (kept for HUD components that still render) */
-  --color-paper: #f6f7f9;
-  --color-paper-2: #f0f1f4;
-  --color-paper-3: #e8eaed;
-  --color-ink-2: #1a1f2c;
-  --color-ash: #4b5563;
+  /* Legacy aliases (kept for components that still reference them) */
+  --color-paper: #f7f7f6;
+  --color-paper-2: #f3f3f2;
+  --color-paper-3: #ebebea;
+  --color-ink-2: #27272a;
+  --color-ash: #52525b;
   --color-stone: #6b7280;
-  --color-mist: #9ca3af;
-  --color-fog: #d1d5db;
-  --color-signal: #5b5bd6;
-  --color-good: #2f9e74;
+  --color-mist: #a8a8a4;
+  --color-fog: #d2d2cf;
+  --color-signal: #c2554d; /* muted terracotta = danger */
+  --color-good: #3f8f6f; /* muted sage = success */
 
-  /* Shadows */
-  --shadow-soft: 0 4px 24px rgba(14, 17, 23, 0.08), 0 1px 4px rgba(14, 17, 23, 0.06);
+  /* Shadow — softened, barely-there (matches HeroUI shadow-small) */
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.05);
 
-  /* Radii */
+  /* Radii — match HeroUI layout.radius */
   --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-hud: 4px;
 
-  /* Typography */
-  --font-display: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  /* Typography — one family: Inter. --font-display aliases Inter so any
+     remaining `font-display` usage renders in Inter (no Space Grotesk).
+     JetBrains Mono is kept only for the ⌘K kbd chip. */
+  --font-display: "Inter", system-ui, -apple-system, sans-serif;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -129,29 +133,15 @@
 
 /* ---------- reusable utilities ---------- */
 @layer components {
+  /* Bridge for not-yet-migrated feature markup that still uses `.mono`
+     (TaskRow/TaskFilterBar). Page agents drop these; per the calm contract
+     mono is reserved for the ⌘K kbd chip in migrated code. */
   .mono {
     font-family: var(--font-mono);
   }
-  .display {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 0.92;
-  }
-  /* a small uppercase tracked label */
-  .label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 1;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--color-stone);
-  }
-  .label-ink {
-    color: var(--color-ink);
-  }
 
-  /* Vapor surface card */
+  /* Calm surface card — bridged so un-migrated `.panel` markup (e.g. calendar)
+     adopts the calm tokens. Prefer HeroUI <Card> in migrated code. */
   .panel {
     position: relative;
     background: var(--color-surface);
@@ -162,41 +152,6 @@
   .panel-flush {
     background: var(--color-surface);
     border: 1px solid var(--color-line);
-  }
-
-  .hairline {
-    border-bottom: 1px solid var(--color-line);
-  }
-  .dash {
-    border-bottom: 1px dashed var(--color-line);
-  }
-
-  /* focusable button */
-  .btn {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    padding: 8px 16px;
-    border: 1px solid var(--color-line-strong);
-    border-radius: var(--radius-sm);
-    color: var(--color-ink);
-    background: var(--color-surface);
-    transition:
-      background 0.14s ease,
-      color 0.14s ease;
-    cursor: pointer;
-  }
-  .btn:hover {
-    background: var(--color-ink);
-    color: var(--color-surface);
-  }
-  .btn-solid {
-    background: var(--color-accent);
-    color: var(--color-accent-foreground);
-    border-color: var(--color-accent);
-  }
-  .btn-solid:hover {
-    opacity: 0.9;
   }
 }
 
@@ -209,37 +164,5 @@
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
-  }
-
-  /* legacy HUD utilities kept for existing pages */
-  .hud-grid-bg {
-    background-image: none;
-  }
-  .surface-2 {
-    background: var(--color-paper-2);
-  }
-  .ticks::before,
-  .ticks::after {
-    content: "";
-    position: absolute;
-    width: 7px;
-    height: 7px;
-    border-color: var(--color-line-strong);
-  }
-  .ticks::before {
-    top: -1px;
-    left: -1px;
-    border-top: 1px solid;
-    border-left: 1px solid;
-  }
-  .ticks::after {
-    bottom: -1px;
-    right: -1px;
-    border-bottom: 1px solid;
-    border-right: 1px solid;
-  }
-  .grain {
-    background-image: radial-gradient(var(--color-line-soft) 0.5px, transparent 0.5px);
-    background-size: 4px 4px;
   }
 }

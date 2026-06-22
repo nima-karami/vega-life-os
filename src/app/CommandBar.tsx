@@ -118,7 +118,7 @@ export function CommandBar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="fixed inset-0 z-50 grid place-items-start justify-center bg-black/30 px-4 pt-[12vh] backdrop-blur-sm"
+            className="fixed inset-0 z-50 grid place-items-start justify-center bg-black/40 px-4 pt-[12vh] backdrop-blur-sm"
             onClick={close}
             role="dialog"
             aria-modal="true"
@@ -130,24 +130,24 @@ export function CommandBar() {
               exit={{ y: -8, opacity: 0 }}
               transition={{ duration: 0.14 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xl overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)]"
+              className="w-full max-w-xl overflow-hidden rounded-large border border-divider bg-content1 shadow-medium"
             >
               <Command label="Command palette" className="flex flex-col">
                 {/* Input */}
-                <div className="flex items-center gap-2.5 border-b border-[var(--color-line)] px-4 py-3">
-                  <Icon name="search" size={16} className="shrink-0 text-[var(--color-muted)]" />
+                <div className="flex items-center gap-2.5 border-b border-divider px-4 py-3">
+                  <Icon name="search" size={16} className="shrink-0 text-default-500" />
                   <Command.Input
                     autoFocus
                     value={query}
                     onValueChange={setQuery}
                     placeholder="Search, navigate, or ask…"
-                    className="w-full bg-transparent font-sans text-sm text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]"
+                    className="w-full bg-transparent text-small text-foreground outline-none placeholder:text-default-400"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) quickAdd();
                       if (e.key === "Escape") close();
                     }}
                   />
-                  <kbd className="rounded bg-[var(--color-canvas)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-muted)]">
+                  <kbd className="rounded bg-default-100 px-1.5 py-0.5 font-mono text-tiny text-default-500">
                     ESC
                   </kbd>
                 </div>
@@ -155,17 +155,13 @@ export function CommandBar() {
                 {/* Results */}
                 <Command.List className="max-h-[52vh] overflow-y-auto p-1.5">
                   {thinking && (
-                    <div className="flex items-center gap-2 px-3 py-2 font-sans text-[12px] text-[var(--color-muted)]">
-                      <Icon
-                        name="spark"
-                        size={13}
-                        className="animate-pulse text-[var(--color-accent)]"
-                      />
+                    <div className="flex items-center gap-2 px-3 py-2 text-tiny text-default-500">
+                      <Icon name="spark" size={13} className="animate-pulse text-primary" />
                       Thinking…
                     </div>
                   )}
                   {reply && (
-                    <p className="mb-1 rounded-[var(--radius-sm)] bg-[var(--color-canvas)] px-3 py-2.5 font-sans text-[13px] leading-relaxed text-[var(--color-ink)]">
+                    <p className="mb-1 rounded-small bg-default-100 px-3 py-2.5 text-small leading-relaxed text-foreground">
                       {reply}
                     </p>
                   )}
@@ -174,7 +170,7 @@ export function CommandBar() {
                     <button
                       type="button"
                       onClick={quickAdd}
-                      className="font-sans text-[13px] font-medium text-[var(--color-accent)] underline-offset-4 hover:underline"
+                      className="text-small font-medium text-primary underline-offset-4 hover:underline"
                     >
                       + Add &ldquo;{query}&rdquo; to backlog
                     </button>
@@ -184,7 +180,7 @@ export function CommandBar() {
                   {smart.length > 0 && (
                     <Command.Group
                       heading="Smart actions"
-                      className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-sans [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
+                      className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-tiny [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-default-500"
                     >
                       {smart.map((a) => (
                         <CmdItem
@@ -205,7 +201,7 @@ export function CommandBar() {
                   {/* Navigate group */}
                   <Command.Group
                     heading="Navigate"
-                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-sans [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-tiny [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-default-500"
                   >
                     {NAV_COMMANDS.map((n) => (
                       <CmdItem
@@ -216,7 +212,7 @@ export function CommandBar() {
                       >
                         {n.label}
                         {n.sublabel && (
-                          <span className="ml-2 text-[var(--color-muted)]">— {n.sublabel}</span>
+                          <span className="ml-2 text-default-500">— {n.sublabel}</span>
                         )}
                       </CmdItem>
                     ))}
@@ -225,7 +221,7 @@ export function CommandBar() {
                   {/* Actions group */}
                   <Command.Group
                     heading="Actions"
-                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-sans [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[var(--color-muted)]"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-tiny [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-default-500"
                   >
                     {allActions.map((cmd) => (
                       <CmdItem
@@ -267,16 +263,16 @@ function CmdItem({
       onSelect={onSelect}
       className="
         flex cursor-pointer items-center gap-2.5
-        rounded-[var(--radius-sm)]
+        rounded-small
         px-2.5 py-2
-        font-sans text-[13px] text-[var(--color-ink)]
+        text-small text-foreground
         transition-colors duration-100
-        data-[selected=true]:bg-[var(--color-canvas)]
-        data-[selected=true]:text-[var(--color-ink)]
-        data-[selected=true]:[&_svg]:text-[var(--color-accent)]
+        data-[selected=true]:bg-default/40
+        data-[selected=true]:text-foreground
+        data-[selected=true]:[&_svg]:text-primary
       "
     >
-      <Icon name={icon} size={14} className="shrink-0 text-[var(--color-muted)]" />
+      <Icon name={icon} size={14} className="shrink-0 text-default-500" />
       <span className="flex items-center">{children}</span>
     </Command.Item>
   );
