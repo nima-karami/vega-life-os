@@ -1,3 +1,4 @@
+import { Button, Chip, Input } from "@heroui/react";
 import {
   endOfMonth,
   endOfWeek,
@@ -10,7 +11,7 @@ import { useMemo, useState } from "react";
 import { alignOf } from "@/core/lib/align";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { cx, Icon, Label, NONE, Select } from "@/core/ui";
+import { Icon, Label, NONE, Select } from "@/core/ui";
 import type { Task } from "../model";
 
 export type DateRange = "all" | "today" | "week" | "month";
@@ -82,15 +83,7 @@ export function useTaskFilter() {
   return { filters, setFilters, match, active: !!active, clear };
 }
 
-const chip = (on: boolean) =>
-  cx(
-    "mono border px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] transition-colors",
-    on
-      ? "border-ink bg-ink text-paper"
-      : "surface border-[var(--color-line)] text-stone hover:border-ink",
-  );
-
-/** Filter controls bar — styled like the calendar focus filter. */
+/** Filter controls bar — calm chip toggles + selects. */
 export function TaskFilterBar({
   filters,
   onChange,
@@ -107,36 +100,41 @@ export function TaskFilterBar({
   const set = (patch: Partial<TaskFilters>) => onChange({ ...filters, ...patch });
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
       {/* search */}
-      <div className="surface flex items-center gap-1.5 border border-[var(--color-line)] px-2 py-1">
-        <Icon name="search" size={13} className="text-stone" />
-        <input
-          value={filters.query}
-          onChange={(e) => set({ query: e.target.value })}
-          placeholder="search tasks…"
-          className="mono w-40 bg-transparent text-[11px] outline-none placeholder:text-mist"
-        />
-      </div>
+      <Input
+        value={filters.query}
+        onValueChange={(query) => set({ query })}
+        placeholder="Search tasks…"
+        aria-label="Search tasks"
+        variant="flat"
+        size="sm"
+        startContent={<Icon name="search" size={14} className="text-default-400" />}
+        className="w-52"
+      />
 
       {/* date range */}
       <div className="flex items-center gap-1.5">
-        <Label>when</Label>
+        <Label>When</Label>
         {RANGES.map((r) => (
-          <button
-            type="button"
+          <Chip
             key={r.id}
+            as="button"
+            type="button"
+            size="sm"
+            radius="full"
+            variant={filters.range === r.id ? "solid" : "flat"}
+            color={filters.range === r.id ? "primary" : "default"}
             onClick={() => set({ range: r.id })}
-            className={chip(filters.range === r.id)}
           >
             {r.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
       {/* value + goal */}
       <div className="flex items-center gap-2">
-        <div className="surface min-w-[120px] border border-[var(--color-line)] px-2 py-1">
+        <div className="min-w-[140px]">
           <Select
             ariaLabel="Filter by value"
             value={filters.valueId ?? NONE}
@@ -147,7 +145,7 @@ export function TaskFilterBar({
             ]}
           />
         </div>
-        <div className="surface min-w-[120px] border border-[var(--color-line)] px-2 py-1">
+        <div className="min-w-[140px]">
           <Select
             ariaLabel="Filter by goal"
             value={filters.goalId ?? NONE}
@@ -162,27 +160,33 @@ export function TaskFilterBar({
 
       {/* type */}
       <div className="flex items-center gap-1.5">
-        <Label>type</Label>
+        <Label>Type</Label>
         {TYPES.map((t) => (
-          <button
-            type="button"
+          <Chip
             key={t.id}
+            as="button"
+            type="button"
+            size="sm"
+            radius="full"
+            variant={filters.type === t.id ? "solid" : "flat"}
+            color={filters.type === t.id ? "primary" : "default"}
             onClick={() => set({ type: t.id })}
-            className={chip(filters.type === t.id)}
           >
             {t.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
       {active && (
-        <button
+        <Button
           type="button"
-          onClick={onClear}
-          className="mono flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] text-stone hover:text-signal"
+          size="sm"
+          variant="light"
+          startContent={<Icon name="close" size={14} />}
+          onPress={onClear}
         >
-          <Icon name="close" size={12} /> clear
-        </button>
+          Clear
+        </Button>
       )}
     </div>
   );
