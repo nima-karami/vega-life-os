@@ -12,6 +12,7 @@ import { DexieAdapter } from "@/core/persistence/dexie-adapter";
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { createGoalsSlice } from "@/features/goals/store";
 import { createHabitsSlice } from "@/features/habits/store";
+import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
 import { createReviewSlice } from "@/features/review/store";
 import { createTasksSlice } from "@/features/tasks/store";
@@ -33,6 +34,7 @@ function sorted(data: Partial<Dataset>): Partial<Dataset> {
   if (data.movies) out.movies = [...data.movies].sort((a, b) => a.order - b.order);
   if (data.reviews)
     out.reviews = [...data.reviews].sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1));
+  if (data.journal) out.journal = [...data.journal].sort((a, b) => (a.date < b.date ? 1 : -1));
   return out;
 }
 
@@ -43,6 +45,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createTasksSlice(set, get, api),
   ...createLibrarySlice(set, get, api),
   ...createReviewSlice(set, get, api),
+  ...createJournalSlice(set, get, api),
   ...createUiSlice(set, get, api),
 
   ready: false,
@@ -62,6 +65,7 @@ export const useStore = create<RootState>((set, get, api) => ({
         persistence.bulkPut("movies", seed.movies),
         persistence.bulkPut("vocab", seed.vocab),
         persistence.bulkPut("reviews", seed.reviews),
+        persistence.bulkPut("journal", seed.journal),
       ]);
     }
     const data = await persistence.loadAll();
@@ -77,6 +81,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       movies: data.movies.sort((a, b) => a.order - b.order),
       vocab: data.vocab,
       reviews: data.reviews.sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1)),
+      journal: data.journal.sort((a, b) => (a.date < b.date ? 1 : -1)),
       ready: true,
     });
     // keep the runway populated so habits actually recur without manual planning
@@ -95,6 +100,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       persistence.bulkPut("movies", seed.movies),
       persistence.bulkPut("vocab", seed.vocab),
       persistence.bulkPut("reviews", seed.reviews),
+      persistence.bulkPut("journal", seed.journal),
     ]);
     set({
       values: seed.values,
@@ -105,6 +111,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       movies: seed.movies,
       vocab: seed.vocab,
       reviews: seed.reviews,
+      journal: seed.journal,
     });
   },
 
@@ -119,6 +126,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       movies: [],
       vocab: [],
       reviews: [],
+      journal: [],
     });
   },
 
@@ -134,6 +142,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       movies: s.movies,
       vocab: s.vocab,
       reviews: s.reviews,
+      journal: s.journal,
     };
     return JSON.stringify(
       { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data },

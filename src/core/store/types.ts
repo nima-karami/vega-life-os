@@ -1,5 +1,6 @@
 import type { GoalsSlice } from "@/features/goals/store";
 import type { HabitsSlice } from "@/features/habits/store";
+import type { JournalSlice } from "@/features/journal/store";
 import type { LibrarySlice } from "@/features/library/store";
 import type { ReviewSlice } from "@/features/review/store";
 import type { TasksSlice } from "@/features/tasks/store";
@@ -13,6 +14,7 @@ export interface RootState
     TasksSlice,
     LibrarySlice,
     ReviewSlice,
+    JournalSlice,
     UiSlice {
   ready: boolean;
   bootstrap: () => Promise<void>;
