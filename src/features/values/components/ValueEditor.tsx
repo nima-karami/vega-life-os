@@ -4,6 +4,7 @@
  * it (cascade), the editor detects the missing entity and closes (not-found state).
  */
 import {
+  Button,
   Input,
   Modal,
   ModalBody,
@@ -15,7 +16,7 @@ import {
 import { useEffect } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { Button, Icon } from "@/core/ui";
+import { Icon } from "@/core/ui";
 import { valueColor } from "../color";
 import type { Value } from "../model";
 import { EditorField, FractionSlider, HuePicker, IconPicker } from "./editor-bits";
@@ -79,17 +80,17 @@ export function ValueEditor({
       backdrop="blur"
       aria-label="Edit value"
     >
-      <ModalContent className="bg-[var(--color-surface)]">
+      <ModalContent>
         {value && (
           <>
             <ModalHeader className="flex items-center gap-3">
               <span
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
                 style={{ background: valueColor(value) }}
               >
-                <Icon name={value.icon} size={20} className="text-white" />
+                <Icon name={value.icon} size={18} className="text-white" />
               </span>
-              <span className="font-display text-lg">Value</span>
+              <span className="text-medium font-semibold text-foreground">Value</span>
             </ModalHeader>
 
             <ModalBody className="space-y-5">
@@ -137,12 +138,15 @@ export function ValueEditor({
 
             <ModalFooter className="justify-between">
               <Button
-                onClick={() => onDelete(value)}
-                className="flex items-center gap-1.5 text-[var(--color-muted)] hover:text-[var(--color-accent)]"
+                size="sm"
+                variant="light"
+                color="danger"
+                startContent={<Icon name="trash" size={14} />}
+                onPress={() => onDelete(value)}
               >
-                <Icon name="trash" size={14} /> Delete value
+                Delete value
               </Button>
-              <Button solid onClick={onClose}>
+              <Button size="sm" color="primary" onPress={onClose}>
                 Done
               </Button>
             </ModalFooter>
