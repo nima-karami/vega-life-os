@@ -1,7 +1,13 @@
 import { create } from "zustand";
 import { db } from "@/core/firebase/app";
 import type { CollectionName, CollectionSnapshot, Dataset } from "@/core/persistence";
-import { buildSeed, COLLECTIONS, persistence, type RoutingAdapter } from "@/core/persistence";
+import {
+  buildSeed,
+  COLLECTIONS,
+  emptyDataset,
+  persistence,
+  type RoutingAdapter,
+} from "@/core/persistence";
 import { DexieAdapter } from "@/core/persistence/dexie-adapter";
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { createGoalsSlice } from "@/features/goals/store";
@@ -119,6 +125,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   exportJSON: () => {
     const s = get();
     const data: Dataset = {
+      ...emptyDataset(),
       values: s.values,
       goals: s.goals,
       habits: s.habits,

@@ -1,5 +1,6 @@
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
+import type { DayEntry } from "@/features/journal/model";
 import type { Book, Movie, VocabEntry } from "@/features/library/model";
 import type { Review } from "@/features/review/model";
 import type { Task } from "@/features/tasks/model";
@@ -15,6 +16,7 @@ export interface Dataset {
   movies: Movie[];
   vocab: VocabEntry[];
   reviews: Review[];
+  journal: DayEntry[];
 }
 
 export type CollectionName = keyof Dataset;
@@ -34,6 +36,7 @@ export const COLLECTIONS: CollectionName[] = [
   "movies",
   "vocab",
   "reviews",
+  "journal",
 ];
 
 export function emptyDataset(): Dataset {
@@ -46,6 +49,7 @@ export function emptyDataset(): Dataset {
     movies: [],
     vocab: [],
     reviews: [],
+    journal: [],
   };
 }
 
