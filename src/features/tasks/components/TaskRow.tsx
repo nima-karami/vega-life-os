@@ -1,4 +1,4 @@
-import { ALIGN_TAG, alignOf } from "@/core/lib/align";
+import { ALIGN_LABEL, alignOf } from "@/core/lib/align";
 import { useStore } from "@/core/store";
 import { cx, Icon, Tag } from "@/core/ui";
 import type { Task } from "../model";
@@ -28,7 +28,7 @@ export function TaskRow({
 
   return (
     <div className={cx("group flex items-center gap-3 py-2.5", resolved && "opacity-55")}>
-      <span className="mono w-11 shrink-0 text-[11px] tabular-nums text-stone">
+      <span className="w-11 shrink-0 text-tiny tabular-nums text-default-500">
         {task.time ?? "—"}
       </span>
 
@@ -41,30 +41,32 @@ export function TaskRow({
           className="h-2 w-2 shrink-0 rounded-full"
           style={{ background: value?.hue ?? "var(--color-mist)" }}
         />
-        <span className={cx("truncate text-[13px]", resolved && "line-through decoration-1")}>
+        <span
+          className={cx(
+            "truncate text-small text-foreground",
+            resolved && "line-through decoration-1",
+          )}
+        >
           {task.title}
         </span>
         {energyOf(task) !== "neutral" && (
           <span
-            className="mono shrink-0 text-[11px] leading-none"
+            className="shrink-0 text-tiny leading-none text-default-500"
             title={ENERGY_META[energyOf(task)].label}
-            style={{
-              color: energyOf(task) === "drain" ? "var(--color-signal)" : "var(--color-ink)",
-            }}
           >
             {ENERGY_META[energyOf(task)].glyph}
           </span>
         )}
-        {task.detached && <Icon name="unlink" size={12} className="shrink-0 text-mist" />}
-        {task.note && <Icon name="note" size={12} className="shrink-0 text-mist" />}
+        {task.detached && <Icon name="unlink" size={12} className="shrink-0 text-default-400" />}
+        {task.note && <Icon name="note" size={12} className="shrink-0 text-default-400" />}
       </button>
 
       <div className="hidden items-center gap-1.5 sm:flex">
         {showDate && task.date && (
-          <span className="mono text-[10px] text-mist">{task.date.slice(5)}</span>
+          <span className="text-tiny text-default-400">{task.date.slice(5)}</span>
         )}
-        {task.kind === "habit" && <Tag>HABIT</Tag>}
-        <Tag>{value ? value.name.toUpperCase() : ALIGN_TAG[alignOf(task)]}</Tag>
+        {task.kind === "habit" && <Tag>Habit</Tag>}
+        <Tag>{value ? value.name : ALIGN_LABEL[alignOf(task)]}</Tag>
       </div>
 
       <button
@@ -72,10 +74,10 @@ export function TaskRow({
         aria-label={`Toggle ${task.title}`}
         onClick={() => cycleStatus(task.id)}
         className={cx(
-          "grid h-6 w-6 shrink-0 place-items-center border transition-colors",
+          "grid h-6 w-6 shrink-0 place-items-center rounded-full border transition-colors",
           box.solid
-            ? "border-ink bg-ink text-paper"
-            : "border-[var(--color-line-strong)] text-transparent hover:border-ink",
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-default-300 text-transparent hover:border-primary",
         )}
       >
         {box.icon && <Icon name={box.icon} size={13} />}

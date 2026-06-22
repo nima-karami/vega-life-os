@@ -1,10 +1,11 @@
+import { Card } from "@heroui/react";
 import { cx, Icon, Lineage, Menu, type MenuItem, valueStripeStyle } from "@/core/ui";
 import { useTaskLineage } from "@/features/tasks/lineage";
 import { ENERGY_META, type Task } from "../model";
 import { energyOf } from "../selectors";
 
 /**
- * TaskCard — the vapor Today-view card.
+ * TaskCard — the Today-view card.
  *
  * Composition: a value-colored leading stripe, a binary done-toggle control,
  * the title, the lineage row (value name · → goal · Habit pill), and the
@@ -68,10 +69,12 @@ export function TaskCard({
   ];
 
   return (
-    <div
+    <Card
+      shadow="sm"
+      radius="lg"
       className={cx(
-        "group relative flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] py-3 pe-3 ps-4 shadow-[var(--shadow-soft)] transition-all duration-150",
-        resolved ? "opacity-60" : "hover:border-[var(--color-accent)]/40",
+        "group relative flex flex-row items-start gap-3 border border-divider bg-content1 py-3 pe-3 ps-4",
+        resolved && "opacity-60",
       )}
       style={valueStripeStyle(lineage ?? { fromHabit: false })}
     >
@@ -84,10 +87,10 @@ export function TaskCard({
         className={cx(
           "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
           done
-            ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+            ? "border-primary bg-primary text-primary-foreground"
             : skipped
-              ? "border-[var(--color-line-strong)] text-[var(--color-muted)]"
-              : "border-[var(--color-line-strong)] text-transparent hover:border-[var(--color-accent)]",
+              ? "border-default-300 text-default-500"
+              : "border-default-300 text-transparent hover:border-primary",
         )}
       >
         {done && <Icon name="check" size={12} />}
@@ -103,14 +106,14 @@ export function TaskCard({
         <span className="flex w-full items-center gap-2">
           <span
             className={cx(
-              "min-w-0 truncate font-sans text-[15px] text-[var(--color-ink)]",
+              "min-w-0 truncate text-small text-foreground",
               done && "line-through decoration-1",
             )}
           >
             {task.title}
           </span>
           {skipped && (
-            <span className="shrink-0 rounded-full bg-[var(--color-line)] px-1.5 py-0.5 font-sans text-[10px] font-medium text-[var(--color-muted)]">
+            <span className="shrink-0 rounded-full bg-content2 px-1.5 py-0.5 text-tiny font-medium text-default-500">
               Skipped
             </span>
           )}
@@ -119,14 +122,14 @@ export function TaskCard({
         <span className="flex w-full flex-wrap items-center gap-x-2 gap-y-1">
           {lineage && <Lineage lineage={lineage} variant="card" />}
           {task.time && (
-            <span className="inline-flex items-center gap-1 font-mono text-[11px] tabular-nums text-[var(--color-muted)]">
+            <span className="inline-flex items-center gap-1 text-tiny tabular-nums text-default-500">
               <Icon name="clock" size={11} />
               {task.time}
             </span>
           )}
           {energy !== "neutral" && (
             <span
-              className="inline-flex items-center gap-0.5 font-mono text-[11px] text-[var(--color-muted)]"
+              className="inline-flex items-center gap-0.5 text-tiny text-default-500"
               title={ENERGY_META[energy].label}
             >
               <span aria-hidden="true">{ENERGY_META[energy].glyph}</span>
@@ -137,7 +140,7 @@ export function TaskCard({
             <Icon
               name="unlink"
               size={12}
-              className="text-[var(--color-muted)]"
+              className="text-default-500"
               aria-label="Detached from habit"
             />
           )}
@@ -150,13 +153,13 @@ export function TaskCard({
           <button
             type="button"
             aria-label={`Actions for ${task.title}`}
-            className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-[var(--radius-sm)] text-[var(--color-muted)] opacity-0 transition-opacity hover:bg-[var(--color-canvas)] focus-visible:opacity-100 group-hover:opacity-100"
+            className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-medium text-default-500 opacity-0 transition-opacity hover:bg-content2 focus-visible:opacity-100 group-hover:opacity-100"
           >
             <Icon name="dots" size={16} />
           </button>
         }
         items={menuItems}
       />
-    </div>
+    </Card>
   );
 }
