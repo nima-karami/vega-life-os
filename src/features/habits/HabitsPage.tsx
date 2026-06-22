@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button, Card, CardBody } from "@heroui/react";
 import { useCallback, useMemo, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
@@ -61,19 +61,18 @@ export function HabitsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       <header className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--color-ink)]">
-            Habits
-          </h1>
-          <p className="mt-1 font-sans text-sm text-[var(--color-muted)]">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Habits</h1>
+          <p className="mt-1 text-sm text-default-500">
             Behaviors that repeat on a schedule and auto-create your daily tasks.
           </p>
         </div>
         {habits.length > 0 && (
           <Button
-            className="shrink-0 bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+            color="primary"
+            className="shrink-0"
             startContent={<Icon name="plus" size={16} />}
             onPress={createHabit}
           >
@@ -85,7 +84,7 @@ export function HabitsPage() {
       {habits.length === 0 ? (
         <EmptyState onCreate={createHabit} />
       ) : (
-        <ul className="mt-6 flex flex-col gap-3">
+        <ul className="mt-8 flex flex-col gap-3">
           {habits.map((h) => (
             <li key={h.id}>
               <HabitCard
@@ -135,73 +134,77 @@ function HabitCard({
 }) {
   const color = valueColor(value);
   return (
-    <div
-      className="group flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-4 transition-shadow hover:shadow-md"
-      style={{ borderInlineStart: `3px solid ${color}` }}
-    >
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-        aria-label={`Edit ${habit.name}`}
-      >
-        <span
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white"
-          style={{ background: color }}
+    <Card shadow="sm" className="group">
+      <CardBody className="flex flex-row items-center gap-3 p-4">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-medium text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label={`Edit ${habit.name}`}
         >
-          <Icon name={habit.icon} size={17} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-base text-[var(--color-ink)]">{habit.name}</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-sans text-xs text-[var(--color-muted)]">
-            <span className="inline-flex items-center gap-1">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ background: color }}
-                aria-hidden="true"
-              />
-              {value ? value.name : "No value"}
-              {goal ? ` → ${goal.name}` : ""}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>{recurrenceLabel(habit.days)}</span>
-            <span aria-hidden="true">·</span>
-            <span className="tabular-nums">{habit.time}</span>
-            <span aria-hidden="true">·</span>
-            <span>{fmtDuration(habit.durationMin)}</span>
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white"
+            style={{ background: color }}
+          >
+            <Icon name={habit.icon} size={17} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-medium text-foreground">{habit.name}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-default-500">
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ background: color }}
+                  aria-hidden="true"
+                />
+                {value ? value.name : "No value"}
+                {goal ? ` → ${goal.name}` : ""}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>{recurrenceLabel(habit.days)}</span>
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums">{habit.time}</span>
+              <span aria-hidden="true">·</span>
+              <span>{fmtDuration(habit.durationMin)}</span>
+            </div>
           </div>
-        </div>
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={`Delete ${habit.name}`}
-        className="shrink-0 rounded-[var(--radius-sm)] p-2 text-[var(--color-muted)] outline-none transition-colors hover:text-[var(--color-signal)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-      >
-        <Icon name="trash" size={16} />
-      </button>
-    </div>
+        </button>
+        <Button
+          isIconOnly
+          variant="light"
+          size="sm"
+          onPress={onDelete}
+          aria-label={`Delete ${habit.name}`}
+          className="shrink-0 text-default-400 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Icon name="trash" size={16} />
+        </Button>
+      </CardBody>
+    </Card>
   );
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="mt-10 flex flex-col items-center rounded-[var(--radius-lg)] border border-dashed border-[var(--color-line)] bg-[var(--color-surface)] px-6 py-14 text-center">
-      <span className="grid h-12 w-12 place-items-center rounded-full bg-[var(--color-canvas)] text-[var(--color-muted)]">
-        <Icon name="repeat" size={22} />
-      </span>
-      <h2 className="mt-4 font-display text-xl text-[var(--color-ink)]">Build a routine</h2>
-      <p className="mt-1 max-w-sm font-sans text-sm text-[var(--color-muted)]">
-        Habits repeat on a schedule and auto-create your daily tasks. Define one once and it shows
-        up on the days it should.
-      </p>
-      <Button
-        className="mt-5 bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-        startContent={<Icon name="plus" size={16} />}
-        onPress={onCreate}
-      >
-        Create your first habit
-      </Button>
-    </div>
+    <Card shadow="none" className="mt-10 border border-dashed border-divider bg-content1">
+      <CardBody className="flex flex-col items-center px-6 py-14 text-center">
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-content2 text-default-500">
+          <Icon name="repeat" size={22} />
+        </span>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">Build a routine</h2>
+        <p className="mt-1 max-w-sm text-sm text-default-500">
+          Habits repeat on a schedule and auto-create your daily tasks. Define one once and it shows
+          up on the days it should.
+        </p>
+        <Button
+          color="primary"
+          className="mt-6"
+          startContent={<Icon name="plus" size={16} />}
+          onPress={onCreate}
+        >
+          Create your first habit
+        </Button>
+      </CardBody>
+    </Card>
   );
 }

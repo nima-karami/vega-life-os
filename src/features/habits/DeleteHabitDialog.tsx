@@ -38,10 +38,10 @@ export function DeleteHabitDialog({ habit, isOpen, onClose, onDeleted }: DeleteH
       backdrop="blur"
       size="sm"
     >
-      <ModalContent className="bg-[var(--color-surface)]">
-        <ModalHeader className="font-display text-base">Delete “{habit.name}”?</ModalHeader>
+      <ModalContent>
+        <ModalHeader className="text-base font-semibold">Delete “{habit.name}”?</ModalHeader>
         <ModalBody>
-          <p className="font-sans text-sm text-[var(--color-muted)]">
+          <p className="text-sm text-default-500">
             This removes it
             {instanceCount > 0
               ? ` and its ${instanceCount} scheduled task${instanceCount === 1 ? "" : "s"}.`

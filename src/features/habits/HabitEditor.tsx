@@ -131,12 +131,12 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
       scrollBehavior="inside"
       backdrop="blur"
     >
-      <ModalContent className="bg-[var(--color-surface)]">
+      <ModalContent>
         {!habitExists ? (
           <>
-            <ModalHeader className="font-display">This habit no longer exists</ModalHeader>
+            <ModalHeader>This habit no longer exists</ModalHeader>
             <ModalBody>
-              <p className="font-sans text-sm text-[var(--color-muted)]">
+              <p className="text-sm text-default-500">
                 It was removed elsewhere. You can close this and create a new one.
               </p>
             </ModalBody>
@@ -149,8 +149,8 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
         ) : (
           <>
             <ModalHeader className="flex flex-col gap-1">
-              <span className="font-display text-lg">{draft.name.trim() || "New habit"}</span>
-              <span className="font-sans text-xs font-normal text-[var(--color-muted)]">
+              <span className="text-lg font-semibold">{draft.name.trim() || "New habit"}</span>
+              <span className="text-xs font-normal text-default-500">
                 {recurrenceLabel(draft.days)} · {draft.time}
               </span>
             </ModalHeader>
@@ -166,7 +166,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                 maxLength={120}
                 isInvalid={touched && !!errors.name}
                 errorMessage={errors.name}
-                variant="bordered"
+                variant="flat"
                 autoFocus
               />
 
@@ -176,7 +176,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   label="Value"
                   labelPlacement="outside"
                   className="min-w-[160px] flex-1"
-                  variant="bordered"
+                  variant="flat"
                   selectedKeys={[draft.valueId || "__none__"]}
                   onChange={(e) =>
                     onValueChange(e.target.value === "__none__" ? "" : e.target.value)
@@ -204,7 +204,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   label="Goal"
                   labelPlacement="outside"
                   className="min-w-[160px] flex-1"
-                  variant="bordered"
+                  variant="flat"
                   isDisabled={!draft.valueId}
                   selectedKeys={[draft.goalId ?? "__none__"]}
                   onChange={(e) =>
@@ -221,9 +221,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
               {/* Icon picker — fieldset/legend names the group; toggle buttons
                   expose selection via aria-pressed (single-select enforced in handler) */}
               <fieldset>
-                <legend className="mb-1.5 block font-sans text-sm text-[var(--color-ink)]">
-                  Icon
-                </legend>
+                <legend className="mb-1.5 block text-tiny text-default-500">Icon</legend>
                 <div className="flex flex-wrap gap-1.5">
                   {ICON_NAMES.map((name) => {
                     const selected = draft.icon === name;
@@ -234,10 +232,10 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                         aria-pressed={selected}
                         aria-label={name}
                         onClick={() => set("icon", name)}
-                        className={`grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] border transition-colors ${
+                        className={`grid h-8 w-8 place-items-center rounded-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           selected
-                            ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-                            : "border-[var(--color-line)] text-[var(--color-muted)] hover:border-[var(--color-line-strong)]"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-content2 text-default-500 hover:bg-content3"
                         }`}
                       >
                         <Icon name={name} size={15} />
@@ -249,9 +247,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
 
               {/* Schedule: weekday picker + time + duration */}
               <fieldset>
-                <legend className="mb-1.5 block font-sans text-sm text-[var(--color-ink)]">
-                  Active days
-                </legend>
+                <legend className="mb-1.5 block text-tiny text-default-500">Active days</legend>
                 <div className="flex gap-1.5">
                   {WEEKDAYS.map((d, i) => {
                     const on = !!draft.days[i];
@@ -262,10 +258,10 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                         aria-pressed={on}
                         aria-label={d.full}
                         onClick={() => toggleDay(i)}
-                        className={`grid h-9 w-9 place-items-center rounded-[var(--radius-sm)] border font-mono text-xs transition-colors ${
+                        className={`grid h-9 w-9 place-items-center rounded-medium text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           on
-                            ? "border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-surface)]"
-                            : "border-[var(--color-line)] text-[var(--color-muted)] hover:border-[var(--color-line-strong)]"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-content2 text-default-500 hover:bg-content3"
                         }`}
                       >
                         {d.short}
@@ -274,7 +270,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   })}
                 </div>
                 {!activeDays && (
-                  <p className="mt-1.5 flex items-center gap-1.5 font-sans text-xs text-[var(--color-muted)]">
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs text-default-500">
                     <Icon name="alert" size={13} />
                     No active days — this won&apos;t create any tasks.
                   </p>
@@ -301,12 +297,12 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                 </div>
               </div>
               {touched && errors.durationMin && (
-                <p className="font-sans text-xs text-[var(--color-signal)]">{errors.durationMin}</p>
+                <p className="text-xs text-danger">{errors.durationMin}</p>
               )}
 
               {/* Detached advisory */}
               {detached > 0 && (
-                <p className="font-sans text-xs text-[var(--color-muted)]">
+                <p className="text-xs text-default-500">
                   {detached} instance{detached === 1 ? " was" : "s were"} customized and won&apos;t
                   change.
                 </p>
@@ -326,11 +322,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                 <Button variant="light" onPress={onClose}>
                   Cancel
                 </Button>
-                <Button
-                  className="bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-                  isDisabled={touched && hasErrors}
-                  onPress={onSave}
-                >
+                <Button color="primary" isDisabled={touched && hasErrors} onPress={onSave}>
                   Save
                 </Button>
               </div>
