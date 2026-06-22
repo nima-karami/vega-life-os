@@ -1,8 +1,8 @@
 /**
- * /values — Values & Goals view (vapor / HeroUI re-skin).
+ * /values — Values & Goals view (calm / HeroUI re-skin).
  *
  * Lists every value (colour, icon, name, description, energy) with its goals
- * grouped beneath, full CRUD via HeroUI drawer editors and a custom cascade-aware
+ * grouped beneath, full CRUD via HeroUI modal editors and a custom cascade-aware
  * confirm (never window.confirm), free status transitions, subgoal-derived
  * progress, closed-goal de-emphasis, reorder (menu + keyboard), empty states, and
  * "New value"/"New goal" command-bar entries.
@@ -10,6 +10,7 @@
  * The data layer is reused unchanged — every mutation goes through existing store
  * actions; logic-bearing display rules live in pure, unit-tested helpers.
  */
+import { Button, Card, CardBody, Chip } from "@heroui/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
@@ -108,33 +109,32 @@ export function ValuesView() {
   const confirmGoal = goals.find((g) => g.id === confirmGoalId) ?? null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       {region}
 
       <header className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">
-            Values &amp; Goals · the why
-          </span>
-          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-[var(--color-ink)]">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             What you're building toward
           </h1>
-          <p className="mt-1 font-sans text-sm text-[var(--color-muted)]">
+          <p className="mt-2 text-small text-default-500">
             Goals ladder up to a value — each with a timeframe and a state. Habits keep them moving.
           </p>
         </div>
-        <button
+        <Button
           ref={addBtnRef}
-          type="button"
-          onClick={createValue}
-          className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-accent)] px-3 py-2 font-sans text-sm font-medium text-[var(--color-accent-foreground)] hover:opacity-90"
+          color="primary"
+          size="sm"
+          className="shrink-0"
+          startContent={<Icon name="plus" size={16} />}
+          onPress={createValue}
         >
-          <Icon name="plus" size={16} /> Add value
-        </button>
+          Add value
+        </Button>
       </header>
 
       {sortedValues.length > 0 ? (
-        <ul className="mt-6 space-y-4">
+        <ul className="mt-8 space-y-5">
           {sortedValues.map((v, i) => (
             <li key={v.id}>
               <ValueCard
@@ -162,22 +162,25 @@ export function ValuesView() {
           ))}
         </ul>
       ) : (
-        <div className="mt-10 grid place-items-center rounded-[var(--radius-md)] border border-dashed border-[var(--color-line)] bg-[var(--color-surface)] p-12 text-center">
-          <Icon name="tree" size={28} className="text-[var(--color-muted)]" />
-          <p className="mt-3 font-display text-lg text-[var(--color-ink)]">
-            Start with what matters
-          </p>
-          <p className="mt-1 max-w-sm font-sans text-sm text-[var(--color-muted)]">
-            Add your first value — the "why" that gives every goal and task downstream its meaning.
-          </p>
-          <button
-            type="button"
-            onClick={createValue}
-            className="mt-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-accent)] px-4 py-2 font-sans text-sm font-medium text-[var(--color-accent-foreground)] hover:opacity-90"
-          >
-            <Icon name="plus" size={16} /> Add your first value
-          </button>
-        </div>
+        <Card shadow="sm" className="mt-10 border border-divider bg-content1">
+          <CardBody className="grid place-items-center gap-3 p-12 text-center">
+            <Icon name="tree" size={28} className="text-default-400" />
+            <p className="text-large font-medium text-foreground">Start with what matters</p>
+            <p className="max-w-sm text-small text-default-500">
+              Add your first value — the "why" that gives every goal and task downstream its
+              meaning.
+            </p>
+            <Button
+              color="primary"
+              size="sm"
+              className="mt-1"
+              startContent={<Icon name="plus" size={16} />}
+              onPress={createValue}
+            >
+              Add your first value
+            </Button>
+          </CardBody>
+        </Card>
       )}
 
       <ValueEditor
@@ -270,118 +273,121 @@ function ValueCard({
   const color = valueColor(value);
 
   return (
-    <article className="rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-soft)]">
-      <div className="flex items-start gap-4">
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label={`Edit ${value.name}`}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition-transform hover:scale-105"
-          style={{ background: color }}
-        >
-          <Icon name={value.icon} size={20} className="text-white" />
-        </button>
-        <button type="button" onClick={onEdit} className="group min-w-0 flex-1 text-left">
-          <h2 className="font-display text-xl font-bold leading-tight text-[var(--color-ink)] group-hover:underline">
-            {value.name}
-          </h2>
-          <p className="mt-1 break-words font-sans text-sm leading-relaxed text-[var(--color-muted)]">
-            {value.desc || "No description yet — click to add one."}
-          </p>
-        </button>
-        <Gauge value={value.energy} size={52} sub="energy" />
-        <Menu
-          align="end"
-          trigger={
-            <button
-              type="button"
-              aria-label={`${value.name} actions`}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-sm)] text-[var(--color-muted)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]"
-            >
-              <Icon name="dots" size={16} />
-            </button>
-          }
-          items={[
-            { label: "Edit details", icon: "edit", onSelect: onEdit },
-            { label: "Add goal", icon: "plus", onSelect: onAddGoal },
-            { label: "Move up", icon: "chevU", disabled: isFirst, onSelect: () => onMove("up") },
-            {
-              label: "Move down",
-              icon: "chevD",
-              disabled: isLast,
-              onSelect: () => onMove("down"),
-            },
-            { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
-          ]}
-        />
-      </div>
-
-      <div className="mt-5 space-y-2.5">
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">
-            Goals
-          </span>
-          <span className="h-px flex-1 bg-[var(--color-line)]" />
+    <Card shadow="sm" as="article" className="border border-divider bg-content1">
+      <CardBody className="p-5">
+        <div className="flex items-start gap-4">
           <button
             type="button"
-            onClick={onAddGoal}
-            className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--color-muted)] hover:text-[var(--color-ink)]"
+            onClick={onEdit}
+            aria-label={`Edit ${value.name}`}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full transition-transform hover:scale-105"
+            style={{ background: color }}
           >
-            <Icon name="plus" size={12} /> Add goal
+            <Icon name={value.icon} size={18} className="text-white" />
           </button>
+          <button type="button" onClick={onEdit} className="group min-w-0 flex-1 text-left">
+            <h2 className="text-large font-semibold leading-tight text-foreground group-hover:underline">
+              {value.name}
+            </h2>
+            <p className="mt-1 break-words text-small leading-relaxed text-default-500">
+              {value.desc || "No description yet — click to add one."}
+            </p>
+          </button>
+          <Gauge value={value.energy} size={52} sub="energy" />
+          <Menu
+            align="end"
+            trigger={
+              <button
+                type="button"
+                aria-label={`${value.name} actions`}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-medium text-default-400 hover:bg-content2 hover:text-foreground"
+              >
+                <Icon name="dots" size={16} />
+              </button>
+            }
+            items={[
+              { label: "Edit details", icon: "edit", onSelect: onEdit },
+              { label: "Add goal", icon: "plus", onSelect: onAddGoal },
+              { label: "Move up", icon: "chevU", disabled: isFirst, onSelect: () => onMove("up") },
+              {
+                label: "Move down",
+                icon: "chevD",
+                disabled: isLast,
+                onSelect: () => onMove("down"),
+              },
+              { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
+            ]}
+          />
         </div>
 
-        {vGoals.length > 0 ? (
-          <ul className="space-y-2.5">
-            {vGoals.map((g, i) => (
-              <li key={g.id}>
-                <GoalCard
-                  goalId={g.id}
-                  isFirst={i === 0}
-                  isLast={i === vGoals.length - 1}
-                  onEdit={() => onEditGoal(g.id)}
-                  onMove={(dir) => onMoveGoal(g.id, dir, g.name)}
-                  onDelete={() => onDeleteGoal(g.id)}
-                  onStatusAnnounce={onStatusAnnounce}
-                />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="flex items-center justify-between rounded-[var(--radius-sm)] border border-dashed border-[var(--color-line)] px-3 py-3">
-            <span className="font-sans text-sm text-[var(--color-muted)]">No goals yet.</span>
-            <button
-              type="button"
-              onClick={onAddGoal}
-              className="flex items-center gap-1 font-sans text-sm font-medium text-[var(--color-accent)] hover:underline"
+        <div className="mt-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-tiny text-default-500">Goals</span>
+            <Button
+              size="sm"
+              variant="light"
+              className="h-7 min-w-0 px-2 text-tiny text-default-500 data-[hover=true]:text-foreground"
+              startContent={<Icon name="plus" size={13} />}
+              onPress={onAddGoal}
             >
-              <Icon name="plus" size={14} /> Add goal
-            </button>
+              Add goal
+            </Button>
+          </div>
+
+          {vGoals.length > 0 ? (
+            <ul className="space-y-2.5">
+              {vGoals.map((g, i) => (
+                <li key={g.id}>
+                  <GoalCard
+                    goalId={g.id}
+                    isFirst={i === 0}
+                    isLast={i === vGoals.length - 1}
+                    onEdit={() => onEditGoal(g.id)}
+                    onMove={(dir) => onMoveGoal(g.id, dir, g.name)}
+                    onDelete={() => onDeleteGoal(g.id)}
+                    onStatusAnnounce={onStatusAnnounce}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex items-center justify-between rounded-medium border border-dashed border-divider px-3 py-3">
+              <span className="text-small text-default-500">No goals yet.</span>
+              <Button
+                size="sm"
+                variant="light"
+                color="primary"
+                className="h-7 min-w-0 px-2"
+                startContent={<Icon name="plus" size={14} />}
+                onPress={onAddGoal}
+              >
+                Add goal
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {valueHabits.length > 0 && (
+          <div className="mt-5">
+            <span className="text-tiny text-default-500">Habits</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {valueHabits.map((h) => (
+                <Chip
+                  key={h.id}
+                  size="sm"
+                  variant="flat"
+                  startContent={
+                    <Icon name={h.icon} size={13} className="ml-0.5 text-default-400" />
+                  }
+                >
+                  <span className="text-foreground">{h.name}</span>
+                  <span className="ml-1 text-default-400">· {habitStreak(tasks, h.id)}d</span>
+                </Chip>
+              ))}
+            </div>
           </div>
         )}
-      </div>
-
-      {valueHabits.length > 0 && (
-        <div className="mt-5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">
-            Habits
-          </span>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {valueHabits.map((h) => (
-              <span
-                key={h.id}
-                className="flex items-center gap-2 rounded-full border border-[var(--color-line)] px-2.5 py-1"
-              >
-                <Icon name={h.icon} size={13} className="text-[var(--color-muted)]" />
-                <span className="font-sans text-xs text-[var(--color-ink)]">{h.name}</span>
-                <span className="font-mono text-[10px] text-[var(--color-muted)]">
-                  · {habitStreak(tasks, h.id)}d
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </article>
+      </CardBody>
+    </Card>
   );
 }

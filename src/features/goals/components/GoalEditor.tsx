@@ -5,6 +5,7 @@
  * Auto-closes if its target goal is removed (not-found).
  */
 import {
+  Button,
   Checkbox,
   Input,
   Modal,
@@ -16,7 +17,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { Button, DatePicker, Icon, Select } from "@/core/ui";
+import { cx, DatePicker, Icon, Select } from "@/core/ui";
 import { EditorField, FractionSlider, IconPicker } from "@/features/values/components/editor-bits";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
 import { goalProgressIsDerived, goalProgressPercent, statusChangePatch } from "../presentation";
@@ -110,14 +111,14 @@ export function GoalEditor({
       backdrop="blur"
       aria-label="Edit goal"
     >
-      <ModalContent className="bg-[var(--color-surface)]">
+      <ModalContent>
         {goal && (
           <>
             <ModalHeader className="flex items-center gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)]">
-                <Icon name={goal.icon} size={20} className="text-[var(--color-ink)]" />
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-medium border border-divider text-foreground">
+                <Icon name={goal.icon} size={18} />
               </span>
-              <span className="font-display text-lg">Goal</span>
+              <span className="text-medium font-semibold text-foreground">Goal</span>
             </ModalHeader>
 
             <ModalBody className="space-y-5">
@@ -133,64 +134,40 @@ export function GoalEditor({
               {/* status — radiogroup */}
               <EditorField label="Status">
                 <div role="radiogroup" aria-label="Status" className="flex flex-wrap gap-1.5">
-                  {GOAL_STATUSES.map((st) => {
-                    const selected = goal.status === st;
-                    return (
-                      // biome-ignore lint/a11y/useSemanticElements: a segmented status control; native radios can't carry the segmented styling, so the ARIA radio pattern is intentional
-                      <button
-                        type="button"
-                        key={st}
-                        role="radio"
-                        aria-checked={selected}
-                        onClick={() => update(goal.id, statusChangePatch(st))}
-                        className={
-                          selected
-                            ? "flex-1 rounded-[var(--radius-sm)] border border-[var(--color-accent)] bg-[var(--color-accent)] px-2 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--color-accent-foreground)]"
-                            : "flex-1 rounded-[var(--radius-sm)] border border-[var(--color-line)] px-2 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--color-muted)] hover:border-[var(--color-accent)]"
-                        }
-                      >
-                        {GOAL_STATUS_LABEL[st]}
-                      </button>
-                    );
-                  })}
+                  {GOAL_STATUSES.map((st) => (
+                    <SegmentButton
+                      key={st}
+                      selected={goal.status === st}
+                      onClick={() => update(goal.id, statusChangePatch(st))}
+                    >
+                      {GOAL_STATUS_LABEL[st]}
+                    </SegmentButton>
+                  ))}
                 </div>
               </EditorField>
 
               {/* serves value */}
               <EditorField label="In service of">
-                <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] px-2.5 py-2">
-                  <Select
-                    ariaLabel="Value"
-                    value={goal.valueId}
-                    onValueChange={(v) => update(goal.id, { valueId: v })}
-                    options={values.map((v) => ({ value: v.id, label: v.name, hue: v.hue }))}
-                  />
-                </div>
+                <Select
+                  ariaLabel="Value"
+                  value={goal.valueId}
+                  onValueChange={(v) => update(goal.id, { valueId: v })}
+                  options={values.map((v) => ({ value: v.id, label: v.name, hue: v.hue }))}
+                />
               </EditorField>
 
               {/* timeframe */}
               <EditorField label={`Timeframe · ${periodLabel(goal.start, goal.end)}`}>
                 <div role="radiogroup" aria-label="Timeframe" className="flex gap-1.5">
-                  {TF_CHIPS.map((c) => {
-                    const selected = activeTf === c.id;
-                    return (
-                      // biome-ignore lint/a11y/useSemanticElements: a segmented timeframe control; native radios can't carry the segmented styling, so the ARIA radio pattern is intentional
-                      <button
-                        type="button"
-                        key={c.id}
-                        role="radio"
-                        aria-checked={selected}
-                        onClick={() => pickTf(c.id)}
-                        className={
-                          selected
-                            ? "flex-1 rounded-[var(--radius-sm)] border border-[var(--color-accent)] bg-[var(--color-accent)] px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--color-accent-foreground)]"
-                            : "flex-1 rounded-[var(--radius-sm)] border border-[var(--color-line)] px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--color-muted)] hover:border-[var(--color-accent)]"
-                        }
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
+                  {TF_CHIPS.map((c) => (
+                    <SegmentButton
+                      key={c.id}
+                      selected={activeTf === c.id}
+                      onClick={() => pickTf(c.id)}
+                    >
+                      {c.label}
+                    </SegmentButton>
+                  ))}
                 </div>
                 {activeTf === "custom" && (
                   <div className="grid grid-cols-2 gap-3 pt-2">
@@ -211,7 +188,7 @@ export function GoalEditor({
               {/* progress */}
               {derived ? (
                 <EditorField label={`Progress · ${goalProgressPercent(goal)}%`}>
-                  <p className="font-mono text-[10px] text-[var(--color-muted)]">
+                  <p className="text-tiny text-default-500">
                     Tracked from {goal.subgoals.filter((s) => s.done).length}/{goal.subgoals.length}{" "}
                     steps below.
                   </p>
@@ -236,11 +213,10 @@ export function GoalEditor({
                         aria-label={s.name}
                       />
                       <span
-                        className={
-                          s.done
-                            ? "flex-1 font-sans text-[12px] text-[var(--color-muted)] line-through"
-                            : "flex-1 font-sans text-[12px] text-[var(--color-ink)]"
-                        }
+                        className={cx(
+                          "flex-1 text-small",
+                          s.done ? "text-default-500 line-through" : "text-foreground",
+                        )}
                       >
                         {s.name}
                       </span>
@@ -248,7 +224,7 @@ export function GoalEditor({
                         type="button"
                         aria-label={`Remove ${s.name}`}
                         onClick={() => removeSubgoal(goal.id, s.id)}
-                        className="text-[var(--color-muted)] opacity-0 transition-opacity hover:text-[var(--color-accent)] group-hover:opacity-100"
+                        className="text-default-400 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
                       >
                         <Icon name="close" size={14} />
                       </button>
@@ -265,9 +241,7 @@ export function GoalEditor({
                       if (e.key === "Enter") commitSub();
                       if (e.key === "Escape") setNewSub("");
                     }}
-                    startContent={
-                      <Icon name="plus" size={13} className="text-[var(--color-muted)]" />
-                    }
+                    startContent={<Icon name="plus" size={13} className="text-default-400" />}
                   />
                 </div>
               </EditorField>
@@ -284,12 +258,15 @@ export function GoalEditor({
 
             <ModalFooter className="justify-between">
               <Button
-                onClick={() => onDelete(goal.id)}
-                className="flex items-center gap-1.5 text-[var(--color-muted)] hover:text-[var(--color-accent)]"
+                size="sm"
+                variant="light"
+                color="danger"
+                startContent={<Icon name="trash" size={14} />}
+                onPress={() => onDelete(goal.id)}
               >
-                <Icon name="trash" size={14} /> Delete goal
+                Delete goal
               </Button>
-              <Button solid onClick={onClose}>
+              <Button size="sm" color="primary" onPress={onClose}>
                 Done
               </Button>
             </ModalFooter>
@@ -297,5 +274,34 @@ export function GoalEditor({
         )}
       </ModalContent>
     </Modal>
+  );
+}
+
+/** A quiet segmented control cell (ARIA radio). Selected = primary fill; calm sentence case. */
+function SegmentButton({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a segmented control; native radios can't carry the segmented styling, so the ARIA radio pattern is intentional
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      className={cx(
+        "flex-1 rounded-medium border px-2 py-1.5 text-tiny font-medium transition-colors",
+        selected
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-divider text-default-500 hover:border-primary",
+      )}
+    >
+      {children}
+    </button>
   );
 }

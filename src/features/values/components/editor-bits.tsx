@@ -1,19 +1,17 @@
 /**
  * Shared, accessible building blocks for the value & goal editors.
  * Kept here (a value-feature module) and reused by the goal editor so the two
- * drawers don't copy-paste picker markup (keeps jscpd duplication low).
+ * editors don't copy-paste picker markup (keeps jscpd duplication low).
  */
 import { Slider } from "@heroui/react";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx, Icon } from "@/core/ui";
 
-/** Section wrapper with a small label above its control. */
+/** Section wrapper with a small, quiet label above its control (sentence case). */
 export function EditorField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">
-        {label}
-      </span>
+      <span className="text-tiny text-default-500">{label}</span>
       {children}
     </div>
   );
@@ -21,7 +19,7 @@ export function EditorField({ label, children }: { label: string; children: Reac
 
 /**
  * Accessible icon picker — a radiogroup of icon cells. Selection is shown with
- * a filled (accent) cell + ring, never colour alone; each cell is aria-labelled.
+ * a filled (primary) cell + ring, never colour alone; each cell is aria-labelled.
  */
 export function IconPicker({
   value,
@@ -48,10 +46,10 @@ export function IconPicker({
             aria-label={ic}
             onClick={() => onSelect(ic)}
             className={cx(
-              "grid aspect-square place-items-center rounded-[var(--radius-sm)] border transition-colors",
+              "grid aspect-square place-items-center rounded-medium border transition-colors",
               selected
-                ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)] ring-2 ring-[var(--color-accent)] ring-offset-1"
-                : "border-[var(--color-line)] text-[var(--color-muted)] hover:border-[var(--color-accent)]",
+                ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1 ring-offset-content1"
+                : "border-divider text-default-500 hover:border-primary",
             )}
           >
             <Icon name={ic} size={16} />
@@ -63,7 +61,7 @@ export function IconPicker({
 }
 
 /**
- * Accessible hue picker over the vapor value palette. Selected swatch carries a
+ * Accessible hue picker over the value palette. Selected swatch carries a
  * ring + the hex as its accessible name (colour is never the sole signal).
  */
 export function HuePicker({
@@ -90,7 +88,7 @@ export function HuePicker({
             onClick={() => onSelect(h)}
             className={cx(
               "grid h-8 w-8 place-items-center rounded-full border-2 transition-transform hover:scale-110",
-              selected ? "border-[var(--color-ink)]" : "border-[var(--color-line)]",
+              selected ? "border-foreground" : "border-divider",
             )}
             style={{ background: h }}
           >
@@ -121,17 +119,13 @@ export function FractionSlider({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-muted)]">
-          {label}
-        </span>
-        <span className="font-mono text-[11px] tabular-nums text-[var(--color-ink)]">
-          {Math.round(value * 100)}%
-        </span>
+        <span className="text-tiny text-default-500">{label}</span>
+        <span className="text-tiny tabular-nums text-foreground">{Math.round(value * 100)}%</span>
       </div>
       <Slider
         aria-label={label}
         size="sm"
-        color="foreground"
+        color="primary"
         minValue={0}
         maxValue={1}
         step={0.05}
