@@ -3,6 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { CalendarPopover, Icon, IconButton } from "@/core/ui";
+import {
+  DayEditor,
+  type DayEntry,
+  dayReflectable,
+  entryStatus,
+  GratitudeStep,
+  hasGratitude,
+  isReflected,
+  ReflectionStep,
+} from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
@@ -30,9 +40,22 @@ export function TodayPage() {
   const removeTask = useStore((s) => s.removeTask);
   const addTask = useStore((s) => s.addTask);
 
+  const journal = useStore((s) => s.journal);
+  const restoreDayEntry = useStore((s) => s.restoreDayEntry);
+
+  const todayEntry = journal.find((e) => e.date === today);
+  const viewEntry = journal.find((e) => e.date === viewDate);
+
   const [editing, setEditing] = useState<Task | null>(null);
   const [announce, setAnnounce] = useState("");
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
+  const [journalOpen, setJournalOpen] = useState(false);
+  const [reflectSkipped, setReflectSkipped] = useState(false);
+  const [pendingJournalUndo, setPendingJournalUndo] = useState<DayEntry | null>(null);
+
+  const showGratitudeGate = isToday && !hasGratitude(todayEntry);
+  const showReflection =
+    isToday && !reflectSkipped && !isReflected(todayEntry) && dayReflectable(tasks, today);
 
   const { remaining, done } = useMemo(() => partitionToday(tasks, viewDate), [tasks, viewDate]);
   const counts = useMemo(() => dayCounts(tasks, viewDate), [tasks, viewDate]);
@@ -49,6 +72,12 @@ export function TodayPage() {
     const id = setTimeout(() => setPendingUndo(null), 6000);
     return () => clearTimeout(id);
   }, [pendingUndo]);
+
+  useEffect(() => {
+    if (!pendingJournalUndo) return;
+    const id = setTimeout(() => setPendingJournalUndo(null), 6000);
+    return () => clearTimeout(id);
+  }, [pendingJournalUndo]);
 
   function handleToggleDone(task: Task) {
     const next = toggleDone(task);
@@ -91,6 +120,32 @@ export function TodayPage() {
     addTask({ ...pendingUndo });
     setAnnounce("Restored task");
     setPendingUndo(null);
+  }
+
+  if (showGratitudeGate) {
+    return (
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
+        <div aria-live="polite" className="sr-only">
+          {announce}
+        </div>
+        <GratitudeStep date={today} onContinue={() => setAnnounce("Gratitude saved")} />
+      </div>
+    );
+  }
+
+  if (showReflection) {
+    return (
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
+        <div aria-live="polite" className="sr-only">
+          {announce}
+        </div>
+        <ReflectionStep
+          date={today}
+          onSave={() => setAnnounce("Reflection saved")}
+          onSkip={() => setReflectSkipped(true)}
+        />
+      </div>
+    );
   }
 
   return (
@@ -210,7 +265,40 @@ export function TodayPage() {
         )}
       </div>
 
-      {pendingUndo && <UndoBar onUndo={undoDelete} />}
+      <div className="mt-8 flex justify-center">
+        <Button
+          variant="flat"
+          startContent={<Icon name="note" size={15} />}
+          onPress={() => setJournalOpen(true)}
+        >
+          {entryStatus(viewEntry) === "none" ? "Journal" : "Edit entry"}
+          {entryStatus(viewEntry) !== "none" && (
+            <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+          )}
+        </Button>
+      </div>
+
+      {pendingUndo && <UndoBar message="Task deleted" onUndo={undoDelete} />}
+
+      <DayEditor
+        date={viewDate}
+        open={journalOpen}
+        onClose={() => setJournalOpen(false)}
+        onDeleted={(entry) => {
+          setPendingJournalUndo(entry);
+          setAnnounce("Entry deleted");
+        }}
+      />
+      {pendingJournalUndo && (
+        <UndoBar
+          message="Entry deleted"
+          onUndo={() => {
+            restoreDayEntry(pendingJournalUndo);
+            setPendingJournalUndo(null);
+            setAnnounce("Entry restored");
+          }}
+        />
+      )}
 
       <TaskDrawer task={editingTask} onClose={() => setEditing(null)} />
     </div>
@@ -265,7 +353,7 @@ function AllDoneMarker({ isToday }: { isToday: boolean }) {
 }
 
 /** Inline undo affordance for the last delete (no native confirm). */
-function UndoBar({ onUndo }: { onUndo: () => void }) {
+function UndoBar({ message, onUndo }: { message: string; onUndo: () => void }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4">
       <Card
@@ -274,7 +362,7 @@ function UndoBar({ onUndo }: { onUndo: () => void }) {
         className="pointer-events-auto border border-divider bg-content1"
       >
         <CardBody className="flex flex-row items-center gap-3 px-4 py-2.5">
-          <span className="text-small text-foreground">Task deleted</span>
+          <span className="text-small text-foreground">{message}</span>
           <Button size="sm" variant="light" color="primary" onPress={onUndo}>
             Undo
           </Button>

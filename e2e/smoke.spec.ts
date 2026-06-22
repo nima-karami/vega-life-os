@@ -17,6 +17,15 @@ const IGNORE = [
   /Firebase/i, // cloud sync is gated off without config — expected
 ];
 
+/** Pass the forced morning gratitude gate so the task surface is reachable. */
+async function passGratitudeGate(page: import("@playwright/test").Page) {
+  const gate = page.getByRole("button", { name: "Continue to today" });
+  if (await gate.isVisible().catch(() => false)) {
+    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
+    await gate.click();
+  }
+}
+
 // Boot the app and dismiss onboarding once before each test.
 test.beforeEach(async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
@@ -127,6 +136,7 @@ for (const path of REMOVED_ROUTES) {
 
 test("today header shows date and an X of Y done progress read-out", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
   const main = page.locator("main");
   await expect(main).toBeVisible({ timeout: 15_000 });
   // Heading + progress copy ("N of M done" or the empty-state copy).
@@ -136,6 +146,7 @@ test("today header shows date and an X of Y done progress read-out", async ({ pa
 
 test("completing a remaining task moves it to Done and updates progress", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
   const remaining = page.getByRole("region", { name: "Remaining" });
   await expect(remaining).toBeVisible({ timeout: 15_000 });
 
@@ -160,6 +171,7 @@ test("completing a remaining task moves it to Done and updates progress", async 
 
 test("add-a-task captures a title and the card appears in Remaining", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   // Expand the inline capture and type a title.
@@ -310,6 +322,7 @@ test("settings: choosing an accent re-tints the HeroUI primary and persists; Def
 
 test("today: step back/forward a day and jump back to today", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
   const heading = page.getByRole("heading", { level: 1 });
   await expect(heading).toHaveText("Today", { timeout: 15_000 });
 
@@ -335,6 +348,7 @@ test("today: step back/forward a day and jump back to today", async ({ page }) =
 
 test("today: the date picker jumps to a chosen day", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Today", { timeout: 15_000 });
 
   // Open the calendar and pick the 1st of the visible month.
