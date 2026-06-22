@@ -53,10 +53,7 @@ export function Lineage({ lineage, variant = "inline", className }: LineageProps
             </>
           )}
           {fromHabit && (
-            <span
-              className="ml-1 inline-flex items-center rounded-full border border-[var(--color-line)] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest"
-              style={{ color: "var(--color-muted)" }}
-            >
+            <span className="ml-1 inline-flex items-center rounded-full border border-divider px-1.5 py-0.5 text-tiny text-default-500">
               Habit
             </span>
           )}

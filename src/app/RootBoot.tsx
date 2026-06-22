@@ -128,10 +128,8 @@ export function RootBoot() {
 
   if (!ready) {
     return (
-      <div className="grid h-screen place-items-center bg-[var(--color-canvas)]">
-        <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)] animate-pulse">
-          // booting vega…
-        </span>
+      <div className="grid h-screen place-items-center bg-background">
+        <span className="animate-pulse text-small text-default-500">Booting VEGA…</span>
       </div>
     );
   }

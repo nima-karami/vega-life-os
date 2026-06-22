@@ -60,11 +60,14 @@ export function Gauge({
       </svg>
       {showLabel && (
         <div className="absolute flex flex-col items-center leading-none">
-          <span className="display" style={{ fontSize: size < 60 ? 15 : 20 }}>
+          <span
+            className="font-semibold tracking-tight text-foreground"
+            style={{ fontSize: size < 60 ? 15 : 20 }}
+          >
             {pct}
-            <span className="text-[0.5em] font-bold">%</span>
+            <span className="text-[0.5em] font-semibold">%</span>
           </span>
-          {sub && <span className="label mt-0.5">{sub}</span>}
+          {sub && <span className="mt-0.5 text-tiny text-default-500">{sub}</span>}
         </div>
       )}
     </div>

@@ -9,19 +9,15 @@ export function NotFound() {
   return (
     <div className="grid h-full min-h-[60vh] place-items-center p-10">
       <div className="flex flex-col items-center gap-4 text-center">
-        <span className="font-sans text-xs font-medium uppercase tracking-wider text-[var(--color-muted)]">
-          404 · off the map
-        </span>
-        <p className="font-display text-4xl font-bold tracking-tight text-[var(--color-ink)]">
-          Page not found
-        </p>
-        <p className="max-w-sm font-sans text-sm text-[var(--color-muted)]">
+        <span className="text-tiny font-medium text-default-500">404 · off the map</span>
+        <p className="text-4xl font-semibold tracking-tight text-foreground">Page not found</p>
+        <p className="max-w-sm text-small text-default-500">
           This route was removed in the v1 redesign, or never existed. Use the command bar to
           navigate.
         </p>
         <Link
           to="/today"
-          className="mt-2 rounded-[var(--radius-md)] bg-[var(--color-accent)] px-5 py-2.5 font-sans text-sm font-medium text-[var(--color-accent-foreground)] shadow-[var(--shadow-soft)] transition-opacity hover:opacity-90"
+          className="mt-2 rounded-medium bg-primary px-5 py-2.5 text-small font-medium text-primary-foreground shadow-small transition-opacity hover:opacity-90"
         >
           Go to Today
         </Link>

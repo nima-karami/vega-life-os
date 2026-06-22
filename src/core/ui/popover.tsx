@@ -33,20 +33,9 @@ export function Popover({
   const placement = (align === "center" ? side : `${side}-${align}`) as PopoverProps["placement"];
 
   return (
-    <HPopover
-      isOpen={open}
-      onOpenChange={onOpenChange}
-      placement={placement}
-      offset={6}
-      classNames={{
-        content: cx(
-          "rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-0 shadow-[var(--shadow-soft)]",
-          className,
-        ),
-      }}
-    >
+    <HPopover isOpen={open} onOpenChange={onOpenChange} placement={placement} offset={6}>
       <PopoverTrigger>{trigger}</PopoverTrigger>
-      <PopoverContent>{children}</PopoverContent>
+      <PopoverContent className={cx("p-0", className)}>{children}</PopoverContent>
     </HPopover>
   );
 }

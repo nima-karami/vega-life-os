@@ -1,12 +1,9 @@
-import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react";
+import { Avatar, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { firebaseEnabled, onAuth, signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-
-const itemCx =
-  "rounded-[var(--radius-sm)] px-2.5 py-2 font-sans text-[13px] text-[var(--color-ink)] data-[hover=true]:bg-[var(--color-canvas)] data-[hover=true]:text-[var(--color-accent)]";
 
 function initials(name: string) {
   return (
@@ -51,7 +48,6 @@ export function AccountMenu() {
             key="signout"
             startContent={<Icon name="repeat" size={14} />}
             onPress={() => void signOut()}
-            className={itemCx}
           >
             Sign out
           </DropdownItem>,
@@ -61,65 +57,51 @@ export function AccountMenu() {
             key="signin"
             startContent={<Icon name="user" size={14} />}
             onPress={() => navigate("/settings")}
-            className={itemCx}
           >
             Sign in & sync
           </DropdownItem>,
         ];
 
   return (
-    <Dropdown
-      placement="bottom-end"
-      offset={8}
-      classNames={{
-        content:
-          "min-w-[224px] rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-1.5 shadow-[var(--shadow-soft)]",
-      }}
-    >
+    <Dropdown placement="bottom-end" offset={8}>
       <DropdownTrigger>
         <button
           type="button"
           aria-label="Account menu"
-          className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--color-line)] bg-[var(--color-surface)] outline-none transition-colors hover:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+          className="rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
         >
-          {avatar ? (
-            <img src={avatar} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span className="font-display text-xs font-semibold text-[var(--color-muted)]">
-              {initials(name)}
-            </span>
-          )}
+          <Avatar
+            size="sm"
+            src={avatar || undefined}
+            name={initials(name)}
+            className="bg-content2 text-tiny text-default-500"
+            getInitials={(n) => n}
+          />
         </button>
       </DropdownTrigger>
 
-      <DropdownMenu aria-label="Account">
+      <DropdownMenu aria-label="Account" className="min-w-[224px]">
         {[
           <DropdownItem
             key="profile"
             isReadOnly
             showDivider
             textValue="Profile"
-            className="cursor-default rounded-[var(--radius-sm)] px-2.5 py-2 data-[hover=true]:bg-transparent"
+            className="cursor-default data-[hover=true]:bg-transparent"
           >
             <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--color-line)] bg-[var(--color-canvas)]">
-                {avatar ? (
-                  <img src={avatar} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="font-display text-[11px] font-semibold text-[var(--color-muted)]">
-                    {initials(name)}
-                  </span>
-                )}
-              </span>
+              <Avatar
+                size="sm"
+                src={avatar || undefined}
+                name={initials(name)}
+                className="bg-content2 text-tiny text-default-500"
+                getInitials={(n) => n}
+              />
               <div className="min-w-0">
-                <p className="truncate font-sans text-[13px] font-medium text-[var(--color-ink)]">
+                <p className="truncate text-small font-medium text-foreground">
                   {name || "Operator"}
                 </p>
-                {email && (
-                  <p className="truncate font-sans text-[11px] text-[var(--color-muted)]">
-                    {email}
-                  </p>
-                )}
+                {email && <p className="truncate text-tiny text-default-500">{email}</p>}
               </div>
             </div>
           </DropdownItem>,
@@ -127,7 +109,6 @@ export function AccountMenu() {
             key="settings"
             startContent={<Icon name="sliders" size={14} />}
             onPress={() => navigate("/settings")}
-            className={itemCx}
           >
             Settings
           </DropdownItem>,

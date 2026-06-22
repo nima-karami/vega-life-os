@@ -10,7 +10,7 @@ import { OmniTrigger } from "./OmniTrigger";
  */
 export function AppShell() {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-canvas)] text-[var(--color-ink)]">
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <header className="relative shrink-0 px-4 pt-5 pb-3">
         <div className="mx-auto w-full max-w-2xl">
           <OmniTrigger />
