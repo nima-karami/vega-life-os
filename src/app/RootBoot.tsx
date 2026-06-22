@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { onAuth } from "@/core/auth";
 import { useStore } from "@/core/store";
+import { ACCENT_VAR_KEYS, accentVars } from "@/core/theme/accent";
 import { isEnabled as gcalEnabled, syncNow } from "@/features/calendar-sync";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
@@ -43,13 +44,17 @@ export function RootBoot() {
     document.documentElement.dataset.theme = "vapor";
   }, []);
 
-  // Custom accent override (store field kept for data-layer reuse, but vapor ignores it by default)
+  // Custom accent override — re-tints the whole app by overriding HeroUI's
+  // primary scale (buttons, chips, active nav, now-line) plus the legacy
+  // --color-accent token. Empty/invalid accent clears the overrides so the
+  // configured slate theme shows through.
   useEffect(() => {
     const root = document.documentElement;
-    if (accent) {
-      root.style.setProperty("--color-accent", accent);
-    } else {
-      root.style.removeProperty("--color-accent");
+    const vars = accentVars(accent);
+    for (const key of ACCENT_VAR_KEYS) {
+      const value = vars[key];
+      if (value) root.style.setProperty(key, value);
+      else root.style.removeProperty(key);
     }
   }, [accent]);
 

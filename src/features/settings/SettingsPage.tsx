@@ -158,30 +158,10 @@ export function SettingsPage() {
         <SettingsCard title="Appearance">
           <div className="space-y-6">
             <div>
-              <span className="text-small font-medium text-foreground">Theme</span>
-              <div className="mt-2 flex gap-2">
-                {(["paper", "void"] as const).map((t) => {
-                  const active = s.theme === t;
-                  return (
-                    <Button
-                      key={t}
-                      size="md"
-                      variant={active ? "solid" : "bordered"}
-                      color={active ? "primary" : "default"}
-                      aria-pressed={active}
-                      startContent={<Icon name={t === "paper" ? "sun" : "moon"} size={15} />}
-                      onPress={() => s.setTheme(t)}
-                    >
-                      {t === "paper" ? "Paper" : "Void"}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
               <span className="text-small font-medium text-foreground">Accent</span>
               <p className="mt-1 text-tiny text-default-500">
-                Tints signals: now-line, overdue, "needs you". The HUD stays monochrome by design.
+                Sets the app's primary color — buttons, highlights, the calendar now-line, and other
+                accents.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {ACCENTS.map((a) => {

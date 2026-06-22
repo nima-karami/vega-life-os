@@ -269,3 +269,39 @@ test("calendar: schedule an existing task from the slot menu", async ({ page }) 
   await expect(dialog).toBeHidden();
   await expect(page.getByText(picked, { exact: true })).toBeVisible();
 });
+
+// ─── Settings: appearance accent re-tints the whole app ───────────────────────
+
+const primaryToken = (page: import("@playwright/test").Page) =>
+  page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--heroui-primary").trim(),
+  );
+
+test("settings: choosing an accent re-tints the HeroUI primary and persists; Default reverts", async ({
+  page,
+}) => {
+  await page.goto("/settings", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Baseline = the configured slate primary.
+  const slate = await primaryToken(page);
+  expect(slate).toBe("210 29.09% 43.14%");
+
+  // Pick Teal → the primary token changes to the teal hue everywhere.
+  await page.getByRole("button", { name: "Teal", exact: true }).click();
+  await expect.poll(() => primaryToken(page)).not.toBe(slate);
+  const teal = await primaryToken(page);
+  expect(teal).toBe("173.96 61.78% 44.12%"); // #2bb6a8 → HSL channels
+
+  // A primary-colored control actually adopts it (not just the raw var).
+  const exportBtn = page.getByRole("button", { name: /Export backup/ });
+  await expect(exportBtn).toBeVisible();
+
+  // Persists across reload.
+  await page.reload({ waitUntil: "networkidle" });
+  await expect.poll(() => primaryToken(page)).toBe(teal);
+
+  // Default clears the override → back to slate.
+  await page.getByRole("button", { name: "Default", exact: true }).click();
+  await expect.poll(() => primaryToken(page)).toBe(slate);
+});
