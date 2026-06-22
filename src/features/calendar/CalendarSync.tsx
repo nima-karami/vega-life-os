@@ -5,6 +5,7 @@
  *
  * Mirrors the actions in settings/CalendarSettings.tsx, restyled for /calendar.
  */
+import { Button } from "@heroui/react";
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
@@ -20,12 +21,12 @@ import {
 import { deriveSyncPhase, formatLastSynced, type SyncPhase, syncStatusText } from "./sync-status";
 
 const DOT: Record<SyncPhase, string> = {
-  "not-configured": "bg-[var(--color-muted)]",
-  disconnected: "bg-[var(--color-muted)]",
-  syncing: "bg-[var(--color-accent)] animate-pulse",
-  error: "bg-[#C2622E]",
-  "needs-reconnect": "bg-[#C2622E]",
-  connected: "bg-[#2F9E74]",
+  "not-configured": "bg-default-400",
+  disconnected: "bg-default-400",
+  syncing: "bg-primary animate-pulse",
+  error: "bg-danger",
+  "needs-reconnect": "bg-danger",
+  connected: "bg-success",
 };
 
 export function CalendarSync() {
@@ -111,7 +112,7 @@ export function CalendarSync() {
       <span
         role="status"
         aria-live="polite"
-        className="inline-flex items-center gap-1.5 font-sans text-xs text-[var(--color-muted)]"
+        className="inline-flex items-center gap-1.5 text-small text-default-500"
         title={lastSynced ? new Date(lastSynced).toLocaleString() : undefined}
       >
         <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", DOT[phase])} aria-hidden="true" />
@@ -164,21 +165,16 @@ function SyncButton({
   busy?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
+    <Button
+      size="sm"
+      variant="flat"
+      onPress={onClick}
+      isDisabled={disabled}
       aria-busy={busy || undefined}
       aria-label={typeof children === "string" ? children : undefined}
-      className={cx(
-        "inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border px-3 py-1.5 font-sans text-xs",
-        "border-[var(--color-line-strong)] bg-[var(--color-surface)] text-[var(--color-ink)]",
-        "transition-colors hover:bg-[var(--color-ink)] hover:text-[var(--color-surface)]",
-        "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[var(--color-surface)] disabled:hover:text-[var(--color-ink)]",
-      )}
+      startContent={<Icon name={icon} size={13} className={cx(busy && "animate-spin")} />}
     >
-      <Icon name={icon} size={13} className={cx(busy && "animate-spin")} />
       {children}
-    </button>
+    </Button>
   );
 }

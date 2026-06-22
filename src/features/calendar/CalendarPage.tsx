@@ -1,4 +1,4 @@
-import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
+import { Button, Card, Chip, Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
 import { addDays } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
@@ -363,44 +363,56 @@ export function CalendarPage() {
       </span>
 
       {/* ── Nav header ───────────────────────────────────────────── */}
-      <header className="panel mb-4 flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--color-ink)]">
-            {mobile
-              ? `${visibleDays[0].dow} · ${fmtShort(visibleDays[0].iso)}`
-              : `${fmtShort(days[0].iso)} – ${fmtShort(days[6].iso)}`}
-          </h1>
-          <p className="mt-0.5 font-sans text-xs text-[var(--color-muted)]">
-            Habit instances + scheduled tasks
-          </p>
-        </div>
+      <Card shadow="sm" className="mb-5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-5">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              {mobile
+                ? `${visibleDays[0].dow} · ${fmtShort(visibleDays[0].iso)}`
+                : `${fmtShort(days[0].iso)} – ${fmtShort(days[6].iso)}`}
+            </h1>
+            <p className="mt-1 text-small text-default-500">Habit instances + scheduled tasks</p>
+          </div>
 
-        <div className="ml-auto flex items-center gap-1.5">
-          <NavButton
-            label={mobile ? "Previous day" : "Previous week"}
-            icon="chevL"
-            onClick={gotoPrev}
-          />
-          <button
-            type="button"
-            onClick={gotoToday}
-            aria-current={days.some((d) => d.today) ? "date" : undefined}
-            className="rounded-[var(--radius-sm)] border border-[var(--color-line-strong)] bg-[var(--color-surface)] px-3 py-1.5 font-sans text-xs text-[var(--color-ink)] transition-colors hover:bg-[var(--color-ink)] hover:text-[var(--color-surface)]"
-          >
-            Today
-          </button>
-          <NavButton label={mobile ? "Next day" : "Next week"} icon="chevR" onClick={gotoNext} />
-        </div>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              aria-label={mobile ? "Previous day" : "Previous week"}
+              onPress={gotoPrev}
+            >
+              <Icon name="chevL" size={16} />
+            </Button>
+            <Button
+              size="sm"
+              variant="flat"
+              onPress={gotoToday}
+              aria-current={days.some((d) => d.today) ? "date" : undefined}
+            >
+              Today
+            </Button>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              aria-label={mobile ? "Next day" : "Next week"}
+              onPress={gotoNext}
+            >
+              <Icon name="chevR" size={16} />
+            </Button>
+          </div>
 
-        <div className="w-full border-t border-[var(--color-line)] pt-3">
-          <CalendarSync />
+          <div className="w-full pt-1">
+            <CalendarSync />
+          </div>
         </div>
-      </header>
+      </Card>
 
       {/* ── Focus filter ─────────────────────────────────────────── */}
       {goals.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="font-sans text-xs text-[var(--color-muted)]">Focus</span>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-small text-default-500">Focus</span>
           <FilterChip active={!focusGoalId} onClick={() => setFocusGoal(null)}>
             All
           </FilterChip>
@@ -418,7 +430,7 @@ export function CalendarPage() {
 
       {/* ── Mobile day strip ─────────────────────────────────────── */}
       {mobile && (
-        <div className="mb-3 flex gap-1.5 overflow-x-auto no-scrollbar">
+        <div className="mb-4 flex gap-1.5 overflow-x-auto no-scrollbar">
           {days.map((d, i) => (
             <button
               key={d.iso}
@@ -426,19 +438,15 @@ export function CalendarPage() {
               onClick={() => setActiveDay(i)}
               aria-current={i === activeDay ? "date" : undefined}
               className={cx(
-                "flex min-w-[44px] flex-col items-center rounded-[var(--radius-sm)] border px-2.5 py-1.5",
+                "flex min-w-[44px] flex-col items-center rounded-medium border px-2.5 py-1.5 transition-colors",
                 i === activeDay
-                  ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-                  : "border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-ink)]",
-                d.today && i !== activeDay && "ring-1 ring-[var(--color-accent)]",
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-divider bg-content1 text-foreground",
+                d.today && i !== activeDay && "ring-1 ring-primary",
               )}
             >
-              <span className="font-sans text-[10px] uppercase tracking-wide opacity-80">
-                {d.dow}
-              </span>
-              <span className="font-display text-sm font-bold">
-                {String(d.dom).padStart(2, "0")}
-              </span>
+              <span className="text-tiny text-default-500">{d.dow}</span>
+              <span className="text-small font-semibold">{String(d.dom).padStart(2, "0")}</span>
             </button>
           ))}
         </div>
@@ -446,56 +454,53 @@ export function CalendarPage() {
 
       {/* ── Paste banner ─────────────────────────────────────────── */}
       {clipboardTask && (
-        <div className="panel mb-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
-          <Icon name="clipboard" size={15} className="text-[var(--color-ink)]" />
-          <span className="font-sans text-xs text-[var(--color-ink)]">
-            Copied “{clipboardTask.title}”
-          </span>
-          <span className="font-sans text-xs text-[var(--color-muted)]">
-            — click an empty slot to place it, or a chip to replace
-          </span>
-          <button
-            type="button"
-            onClick={clearClipboard}
-            aria-label="Cancel paste"
-            className="ml-auto inline-flex items-center gap-1 font-sans text-xs text-[var(--color-muted)] hover:text-[var(--color-ink)]"
-          >
-            <Icon name="close" size={12} /> Cancel · Esc
-          </button>
-        </div>
+        <Card shadow="sm" className="mb-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
+            <Icon name="clipboard" size={15} className="text-default-500" />
+            <span className="text-small text-foreground">Copied “{clipboardTask.title}”</span>
+            <span className="text-small text-default-500">
+              — click an empty slot to place it, or a chip to replace
+            </span>
+            <Button
+              size="sm"
+              variant="light"
+              onPress={clearClipboard}
+              aria-label="Cancel paste"
+              startContent={<Icon name="close" size={12} />}
+              className="ml-auto text-default-500"
+            >
+              Cancel · Esc
+            </Button>
+          </div>
+        </Card>
       )}
 
       {/* ── Week grid ────────────────────────────────────────────── */}
-      <div className="panel overflow-hidden">
+      <Card shadow="sm" className="overflow-hidden">
         <div className="overflow-x-auto">
           <div className={mobile ? "min-w-0" : "min-w-[720px]"}>
             {/* day headers */}
             <div
-              className="grid border-b border-[var(--color-line)]"
+              className="grid border-b border-divider"
               style={{ gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)` }}
             >
               <div />
               {visibleDays.map((d) => (
                 <div
                   key={d.iso}
-                  className={cx(
-                    "border-l border-[var(--color-line)] px-2 py-2",
-                    d.today && "bg-[var(--color-canvas)]",
-                  )}
+                  className={cx("border-l border-divider px-2.5 py-2.5", d.today && "bg-content2")}
                 >
-                  <span className="font-sans text-[11px] uppercase tracking-wide text-[var(--color-muted)]">
-                    {d.dow}
-                  </span>
+                  <span className="text-tiny text-default-500">{d.dow}</span>
                   <span
                     className={cx(
-                      "ml-1.5 font-display text-lg font-bold",
-                      d.today ? "text-[var(--color-accent)]" : "text-[var(--color-ink)]",
+                      "ml-1.5 text-lg font-semibold",
+                      d.today ? "text-primary" : "text-foreground",
                     )}
                   >
                     {String(d.dom).padStart(2, "0")}
                   </span>
                   {d.today && (
-                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] align-middle" />
+                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle" />
                   )}
                 </div>
               ))}
@@ -503,19 +508,14 @@ export function CalendarPage() {
 
             {/* all-day / untimed row */}
             <div
-              className="grid border-b border-[var(--color-line)]"
+              className="grid border-b border-divider"
               style={{ gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)` }}
             >
               <div className="flex items-center justify-end px-1.5 py-1">
-                <span className="font-sans text-[9px] uppercase tracking-wide text-[var(--color-muted)]">
-                  All day
-                </span>
+                <span className="text-tiny text-default-400">All day</span>
               </div>
               {visibleDays.map((d) => (
-                <div
-                  key={d.iso}
-                  className="min-h-[28px] space-y-1 border-l border-[var(--color-line)] p-1"
-                >
+                <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-divider p-1">
                   {untimedTasksForDay(tasks, d.iso).map((t) => (
                     <AllDayChip key={t.id} task={t} onOpen={() => openTask(t)} />
                   ))}
@@ -537,7 +537,7 @@ export function CalendarPage() {
                 <div className="relative">
                   {HOURS.map((h, i) => (
                     <div key={h} className="absolute right-1.5" style={{ top: i * HOUR_PX - 5 }}>
-                      <span className="font-mono text-[9px] tabular-nums text-[var(--color-muted)]">
+                      <span className="text-[9px] tabular-nums text-default-400">
                         {String(h).padStart(2, "0")}:00
                       </span>
                     </div>
@@ -552,9 +552,9 @@ export function CalendarPage() {
                     <div
                       key={d.iso}
                       className={cx(
-                        "relative border-l border-[var(--color-line)]",
-                        d.today && "bg-[var(--color-canvas)]/50",
-                        isTarget && "bg-[var(--color-canvas)]",
+                        "relative border-l border-divider",
+                        d.today && "bg-content2/40",
+                        isTarget && "bg-content2",
                       )}
                     >
                       <button
@@ -570,7 +570,7 @@ export function CalendarPage() {
                       {HOURS.map((h, i) => (
                         <div
                           key={h}
-                          className="pointer-events-none absolute left-0 right-0 border-t border-[var(--color-line-soft)]"
+                          className="pointer-events-none absolute left-0 right-0 border-t border-divider/60"
                           style={{ top: i * HOUR_PX }}
                         />
                       ))}
@@ -580,11 +580,11 @@ export function CalendarPage() {
                           className="pointer-events-none absolute inset-x-0 z-40 flex items-center gap-1"
                           style={{ top: chipTop(preview.start) }}
                         >
-                          <span className="-translate-y-1/2 rounded-[3px] bg-[var(--color-ink)] px-1.5 py-0.5 font-mono text-[9px] tabular-nums leading-none text-[var(--color-surface)] shadow-[var(--shadow-soft)]">
+                          <span className="-translate-y-1/2 rounded-medium bg-foreground px-1.5 py-0.5 text-[9px] tabular-nums leading-none text-background shadow-small">
                             {fmtMin(preview.start)}–
                             {addMinutes(fmtMin(preview.start), preview.durationMin)}
                           </span>
-                          <span className="h-px flex-1 bg-[var(--color-ink)]" />
+                          <span className="h-px flex-1 bg-foreground/60" />
                         </div>
                       )}
                       {dayTasks.map((t) => (
@@ -617,7 +617,7 @@ export function CalendarPage() {
               {/* empty-week hint */}
               {visibleDays.every((d) => timedTasksForDay(tasks, d.iso).length === 0) && (
                 <div className="pointer-events-none absolute inset-x-0 top-1/3 text-center">
-                  <p className="font-sans text-sm text-[var(--color-muted)]">
+                  <p className="text-small text-default-500">
                     Nothing scheduled {mobile ? "this day" : "this week"} — click a slot to add
                   </p>
                 </div>
@@ -625,30 +625,26 @@ export function CalendarPage() {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* ── Unscheduled rail ─────────────────────────────────────── */}
-      <section className="panel mt-4">
+      <Card shadow="sm" className="mt-5" as="section">
         <button
           type="button"
           onClick={() => setRailOpen((o) => !o)}
           aria-expanded={railOpen}
           aria-controls="unscheduled-rail"
-          className="flex w-full items-center gap-2 px-4 py-3 text-left"
+          className="flex w-full items-center gap-2 px-5 py-3.5 text-left"
         >
-          <Icon
-            name={railOpen ? "chevD" : "chevR"}
-            size={14}
-            className="text-[var(--color-muted)]"
-          />
-          <span className="font-sans text-sm font-medium text-[var(--color-ink)]">
+          <Icon name={railOpen ? "chevD" : "chevR"} size={14} className="text-default-500" />
+          <span className="text-small font-medium text-foreground">
             Unscheduled ({backlog.length})
           </span>
         </button>
         {railOpen && (
-          <div id="unscheduled-rail" className="border-t border-[var(--color-line)] p-3">
+          <div id="unscheduled-rail" className="border-t border-divider p-4">
             {backlog.length === 0 ? (
-              <p className="font-sans text-xs text-[var(--color-muted)]">No unscheduled tasks</p>
+              <p className="text-small text-default-500">No unscheduled tasks</p>
             ) : (
               <ul className="space-y-1.5">
                 {backlog.map((t) => (
@@ -665,7 +661,7 @@ export function CalendarPage() {
             )}
           </div>
         )}
-      </section>
+      </Card>
 
       <TaskDrawer
         task={selected ? (tasks.find((t) => t.id === selected.id) ?? null) : null}
@@ -712,20 +708,18 @@ export function CalendarPage() {
         backdrop="blur"
         aria-label="Schedule an existing task"
       >
-        <ModalContent className="bg-[var(--color-surface)]">
+        <ModalContent>
           <ModalHeader className="flex-col items-start gap-0.5">
-            <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-muted)]">
-              Schedule a task
-            </span>
+            <span className="text-medium font-semibold text-foreground">Schedule a task</span>
             {scheduleSlot && (
-              <span className="font-sans text-xs font-normal normal-case text-[var(--color-muted)]">
+              <span className="text-small font-normal text-default-500">
                 {fmtShort(scheduleSlot.date)} · {scheduleSlot.time}
               </span>
             )}
           </ModalHeader>
           <ModalBody className="pb-6">
             {backlog.length === 0 ? (
-              <p className="font-sans text-sm text-[var(--color-muted)]">No unscheduled tasks.</p>
+              <p className="text-small text-default-500">No unscheduled tasks.</p>
             ) : (
               <ul className="space-y-1.5">
                 {backlog.map((t) => (
@@ -754,41 +748,19 @@ function ScheduleRow({ task, onPick }: { task: Task; onPick: () => void }) {
     <button
       type="button"
       onClick={onPick}
-      className="flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-left transition-colors hover:border-[var(--color-accent)]"
+      className="flex w-full items-center gap-2.5 rounded-medium border border-divider bg-content1 px-3 py-2 text-left transition-colors hover:border-primary"
     >
       <span
         className="h-2 w-2 shrink-0 rounded-full"
         style={{ background: accent }}
         aria-hidden="true"
       />
-      <span className="truncate font-sans text-sm text-[var(--color-ink)]">{task.title}</span>
+      <span className="truncate text-small text-foreground">{task.title}</span>
     </button>
   );
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
-
-function NavButton({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string;
-  icon: "chevL" | "chevR";
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-ink)] hover:text-[var(--color-surface)]"
-    >
-      <Icon name={icon} size={16} />
-    </button>
-  );
-}
 
 function FilterChip({
   active,
@@ -800,19 +772,18 @@ function FilterChip({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Chip
+      as="button"
       type="button"
+      size="sm"
+      variant={active ? "solid" : "bordered"}
+      color={active ? "primary" : "default"}
       onClick={onClick}
       aria-pressed={active}
-      className={cx(
-        "rounded-full border px-2.5 py-1 font-sans text-xs",
-        active
-          ? "border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-surface)]"
-          : "border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:border-[var(--color-ink)]",
-      )}
+      className={cx("cursor-pointer", !active && "text-default-500")}
     >
       {children}
-    </button>
+    </Chip>
   );
 }
 
@@ -867,23 +838,22 @@ function TimedChip({
         }}
         aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-[6px] border-l-[3px] bg-[var(--color-surface)] px-1.5 py-1 text-left",
-          resolved && "bg-[var(--color-canvas)]",
+          "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-medium border-l-[3px] bg-content1 px-1.5 py-1 text-left shadow-small",
+          resolved && "bg-content2",
           dim ? "opacity-30" : "opacity-100",
           dragging
-            ? "z-30 cursor-grabbing shadow-[var(--shadow-soft)] ring-1 ring-[var(--color-accent)]"
+            ? "z-30 cursor-grabbing shadow-medium ring-1 ring-primary"
             : "transition-[top,height] duration-75",
         )}
         style={{
           top,
           height,
           borderColor: accent,
-          boxShadow: dragging ? undefined : "0 1px 0 var(--color-line)",
         }}
       >
         {off && (
           <span
-            className="absolute right-1 top-1 text-[var(--color-muted)]"
+            className="absolute right-1 top-1 text-default-400"
             title="Outside the visible hours"
             aria-hidden="true"
           >
@@ -896,22 +866,20 @@ function TimedChip({
         />
         <span
           className={cx(
-            "block truncate font-sans text-[11px] leading-tight text-[var(--color-ink)]",
-            resolved && "text-[var(--color-muted)] line-through",
+            "block truncate text-[11px] leading-tight text-foreground",
+            resolved && "text-default-500 line-through",
           )}
         >
           {task.title}
         </span>
         {height > 34 && (
-          <span className="mt-0.5 block font-mono text-[9px] text-[var(--color-muted)]">
-            {timeLabel}
-          </span>
+          <span className="mt-0.5 block text-[9px] tabular-nums text-default-500">{timeLabel}</span>
         )}
         <span
           onPointerDown={onPointerDownBottom}
           className="absolute inset-x-0 bottom-0 z-10 flex h-1.5 cursor-ns-resize items-end justify-center opacity-0 group-hover:opacity-100"
         >
-          <span className="mb-px h-0.5 w-5 rounded-full bg-[var(--color-line-strong)]" />
+          <span className="mb-px h-0.5 w-5 rounded-full bg-default-300" />
         </span>
       </button>
     </ContextMenu>
@@ -926,10 +894,10 @@ function AllDayChip({ task, onOpen }: { task: Task; onOpen: () => void }) {
       type="button"
       onClick={onOpen}
       aria-label={`${task.title}, all day${resolved ? `, ${task.status}` : ""}`}
-      className="block w-full truncate rounded-[4px] border-l-[3px] bg-[var(--color-surface)] px-1.5 py-0.5 text-left font-sans text-[10px] text-[var(--color-ink)] shadow-[0_1px_0_var(--color-line)]"
+      className="block w-full truncate rounded-small border-l-[3px] bg-content1 px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-small"
       style={{ borderColor: accent }}
     >
-      <span className={cx("truncate", resolved && "text-[var(--color-muted)] line-through")}>
+      <span className={cx("truncate", resolved && "text-default-500 line-through")}>
         {task.title}
       </span>
     </button>
@@ -952,24 +920,26 @@ function BacklogItem({
         type="button"
         onClick={onOpen}
         aria-label={`${task.title}, unscheduled`}
-        className="flex flex-1 items-center gap-2 truncate rounded-[6px] border border-[var(--color-line)] bg-[var(--color-surface)] px-2.5 py-1.5 text-left"
+        className="flex flex-1 items-center gap-2 truncate rounded-medium border border-divider bg-content1 px-2.5 py-1.5 text-left transition-colors hover:border-primary"
       >
         <span
           className="h-2 w-2 shrink-0 rounded-full"
           style={{ background: accent }}
           aria-hidden="true"
         />
-        <span className="truncate font-sans text-xs text-[var(--color-ink)]">{task.title}</span>
+        <span className="truncate text-small text-foreground">{task.title}</span>
       </button>
-      <button
-        type="button"
-        onClick={onSchedule}
+      <Button
+        isIconOnly
+        size="sm"
+        variant="light"
+        onPress={onSchedule}
         aria-label={`Schedule ${task.title} for today`}
         title="Schedule for today"
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)] text-[var(--color-muted)] transition-colors hover:bg-[var(--color-ink)] hover:text-[var(--color-surface)]"
+        className="shrink-0 text-default-500"
       >
         <Icon name="calendar" size={14} />
-      </button>
+      </Button>
     </li>
   );
 }
@@ -983,8 +953,8 @@ function NowLine() {
       className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
       style={{ top: chipTop(cur) }}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-      <span className="h-px flex-1 bg-[var(--color-accent)]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+      <span className="h-px flex-1 bg-primary/50" />
     </div>
   );
 }
