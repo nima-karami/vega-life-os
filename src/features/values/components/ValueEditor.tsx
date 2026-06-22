@@ -19,7 +19,7 @@ import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { valueColor } from "../color";
 import type { Value } from "../model";
-import { EditorField, FractionSlider, HuePicker, IconPicker } from "./editor-bits";
+import { EditorField, HuePicker, IconPicker } from "./editor-bits";
 
 const VALUE_ICONS: IconName[] = [
   "compass",
@@ -111,12 +111,6 @@ export function ValueEditor({
                 onValueChange={(desc) => update(value.id, { desc })}
                 variant="bordered"
                 minRows={3}
-              />
-
-              <FractionSlider
-                label="Energy this week"
-                value={value.energy}
-                onChange={(energy) => update(value.id, { energy })}
               />
 
               <EditorField label="Icon">

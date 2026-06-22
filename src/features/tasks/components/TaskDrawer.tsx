@@ -11,17 +11,15 @@ import {
 import { fmtLong } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { DatePicker, Icon, Label, NONE, Select, TimeRange } from "@/core/ui";
-import { ENERGY_META, STATUS_LABEL, type Task, type TaskEnergy, type TaskStatus } from "../model";
-import { energyOf } from "../selectors";
+import { STATUS_LABEL, type Task, type TaskStatus } from "../model";
 
 const STATUSES: TaskStatus[] = ["open", "todo", "done", "skip"];
-const ENERGIES: TaskEnergy[] = ["charge", "neutral", "drain"];
 
 /**
  * Task editor — HeroUI centered Modal. All edits are live (write straight
- * through the store). Reuses the existing data wiring: title, status, energy,
- * date/time, value/goal links, note, delete. (Named TaskDrawer for historical
- * import compatibility; it now renders as a modal, not a side panel.)
+ * through the store). Reuses the existing data wiring: title, status, date/time,
+ * value/goal links, note, delete. (Named TaskDrawer for historical import
+ * compatibility; it now renders as a modal, not a side panel.)
  */
 export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const updateTask = useStore((s) => s.updateTask);
@@ -71,24 +69,6 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                       onPress={() => setStatus(task.id, s)}
                     >
                       {STATUS_LABEL[s]}
-                    </Button>
-                  ))}
-                </div>
-              </Section>
-
-              <Section label="Energy">
-                <div className="grid grid-cols-3 gap-1.5">
-                  {ENERGIES.map((e) => (
-                    <Button
-                      key={e}
-                      type="button"
-                      size="sm"
-                      radius="sm"
-                      color={energyOf(task) === e ? "primary" : "default"}
-                      variant={energyOf(task) === e ? "solid" : "flat"}
-                      onPress={() => updateTask(task.id, { energy: e })}
-                    >
-                      {ENERGY_META[e].glyph} {ENERGY_META[e].label}
                     </Button>
                   ))}
                 </div>

@@ -12,7 +12,6 @@ import {
   completedByValue,
   consistencyGrid,
   dailyStats,
-  energyStats,
   type GridCell,
   insights,
   overallRate,
@@ -84,8 +83,6 @@ function AnalyticsSection() {
   const weekly = useMemo(() => weeklyRate(tasks, weeks), [tasks, weeks]);
   const overall = useMemo(() => overallRate(tasks, days), [tasks, days]);
   const byValue = useMemo(() => completedByValue(tasks, days), [tasks, days]);
-  const energy = useMemo(() => energyStats(tasks, days), [tasks, days]);
-  const energyTotal = Math.max(1, energy.charge + energy.drain);
   // consistency grid is the long view — fixed window regardless of range
   const grid = useMemo(() => consistencyGrid(tasks, 22), [tasks]);
   const insightList = useMemo(() => insights(tasks, habits), [tasks, habits]);
@@ -382,81 +379,6 @@ function AnalyticsSection() {
             {!habitRanked.length && (
               <p className="text-small text-default-400">No habits to measure yet.</p>
             )}
-          </div>
-        </Panel>
-
-        {/* energy · charge vs drain */}
-        <Panel className="p-6 lg:col-span-3">
-          <SectionHead title="Energy" meta={`${days}d`} />
-          <div className="mt-4 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)]">
-            <div>
-              <div className="flex items-end gap-2">
-                <span
-                  className={cx(
-                    "text-4xl font-semibold leading-none tracking-tight",
-                    energy.net >= 0 ? "text-success" : "text-danger",
-                  )}
-                >
-                  {energy.net >= 0 ? "+" : ""}
-                  {energy.net}
-                </span>
-                <Label className="mb-1.5">net energy</Label>
-              </div>
-              <div className="mt-3 flex h-3 w-full overflow-hidden rounded-full border border-divider">
-                <div
-                  className="h-full"
-                  style={{
-                    width: `${(energy.charge / energyTotal) * 100}%`,
-                    background: CHART_PRIMARY,
-                  }}
-                  title={`${energy.charge} charge`}
-                />
-                <div
-                  className="h-full bg-danger"
-                  style={{ width: `${(energy.drain / energyTotal) * 100}%` }}
-                  title={`${energy.drain} drain`}
-                />
-              </div>
-              <div className="mt-2 flex justify-between">
-                <span className="text-tiny text-default-500">▲ {energy.charge} charged</span>
-                <span className="text-tiny text-danger">▼ {energy.drain} drained</span>
-              </div>
-              <p className="mt-3 text-tiny leading-relaxed text-default-400">
-                {energy.net >= 0
-                  ? "You're net-charged. The week's work is feeding you more than it costs."
-                  : "You're running a deficit. Protect more of what charges you, or offload a drain."}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-5">
-              <div>
-                <Label>what charges you</Label>
-                <ul className="mt-2 space-y-1.5">
-                  {energy.topCharges.map((d) => (
-                    <li key={d.title} className="flex items-center justify-between">
-                      <span className="text-small text-foreground">▲ {d.title}</span>
-                      <span className="text-tiny text-default-500">×{d.n}</span>
-                    </li>
-                  ))}
-                  {!energy.topCharges.length && (
-                    <li className="text-tiny text-default-400">— tag tasks to see this —</li>
-                  )}
-                </ul>
-              </div>
-              <div>
-                <Label>what drains you</Label>
-                <ul className="mt-2 space-y-1.5">
-                  {energy.topDrains.map((d) => (
-                    <li key={d.title} className="flex items-center justify-between">
-                      <span className="text-small text-danger">▼ {d.title}</span>
-                      <span className="text-tiny text-default-500">×{d.n}</span>
-                    </li>
-                  ))}
-                  {!energy.topDrains.length && (
-                    <li className="text-tiny text-default-400">— nothing draining logged —</li>
-                  )}
-                </ul>
-              </div>
-            </div>
           </div>
         </Panel>
       </div>

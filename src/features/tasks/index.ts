@@ -6,6 +6,6 @@ export { TaskRow } from "./components/TaskRow";
 export type { TaskLineage } from "./lineage";
 export { taskLineage, useTaskLineage } from "./lineage";
 export type { Task, TaskEnergy, TaskKind, TaskStatus } from "./model";
-export { ENERGY_META, STATUS_LABEL } from "./model";
+export { STATUS_LABEL } from "./model";
 export * from "./selectors";
 export { createTasksSlice, type TasksSlice } from "./store";

@@ -1,7 +1,7 @@
 /**
  * /values — Values & Goals view (calm / HeroUI re-skin).
  *
- * Lists every value (colour, icon, name, description, energy) with its goals
+ * Lists every value (colour, icon, name, description) with its goals
  * grouped beneath, full CRUD via HeroUI modal editors and a custom cascade-aware
  * confirm (never window.confirm), free status transitions, subgoal-derived
  * progress, closed-goal de-emphasis, reorder (menu + keyboard), empty states, and
@@ -14,7 +14,7 @@ import { Button, Card, CardBody, Chip } from "@heroui/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, Gauge, Icon, Menu } from "@/core/ui";
+import { ConfirmDialog, Icon, Menu } from "@/core/ui";
 import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalEditor } from "@/features/goals/components/GoalEditor";
 import { habitStreak } from "@/features/habits";
@@ -293,7 +293,6 @@ function ValueCard({
               {value.desc || "No description yet — click to add one."}
             </p>
           </button>
-          <Gauge value={value.energy} size={52} sub="energy" hue="hsl(var(--heroui-primary))" />
           <Menu
             align="end"
             trigger={

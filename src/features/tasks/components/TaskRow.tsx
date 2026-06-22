@@ -2,8 +2,6 @@ import { ALIGN_LABEL, alignOf } from "@/core/lib/align";
 import { useStore } from "@/core/store";
 import { cx, Icon, Tag } from "@/core/ui";
 import type { Task } from "../model";
-import { ENERGY_META } from "../model";
-import { energyOf } from "../selectors";
 
 const STATUS_BOX: Record<Task["status"], { icon?: "check" | "skip"; solid: boolean }> = {
   open: { solid: false },
@@ -49,14 +47,6 @@ export function TaskRow({
         >
           {task.title}
         </span>
-        {energyOf(task) !== "neutral" && (
-          <span
-            className="shrink-0 text-tiny leading-none text-default-500"
-            title={ENERGY_META[energyOf(task)].label}
-          >
-            {ENERGY_META[energyOf(task)].glyph}
-          </span>
-        )}
         {task.detached && <Icon name="unlink" size={12} className="shrink-0 text-default-400" />}
         {task.note && <Icon name="note" size={12} className="shrink-0 text-default-400" />}
       </button>

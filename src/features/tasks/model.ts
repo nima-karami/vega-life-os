@@ -2,14 +2,11 @@ export type TaskKind = "habit" | "oneoff";
 /** open = unscheduled inbox · todo = scheduled/committed · done · skip = skipped */
 export type TaskStatus = "open" | "todo" | "done" | "skip";
 
-/** Does this activity charge you up or drain you? (burnout lens) */
+/**
+ * Retained data field (see Task.energy). The energy UX/UI is currently removed;
+ * this type stays so stored values survive and the feature is easy to restore.
+ */
 export type TaskEnergy = "charge" | "drain" | "neutral";
-
-export const ENERGY_META: Record<TaskEnergy, { label: string; glyph: string; sign: number }> = {
-  charge: { label: "Charges", glyph: "▲", sign: 1 },
-  drain: { label: "Drains", glyph: "▼", sign: -1 },
-  neutral: { label: "Neutral", glyph: "·", sign: 0 },
-};
 
 /**
  * The single atom. Either a habit-instance (kind "habit", has habitId) or a

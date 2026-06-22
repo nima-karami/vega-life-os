@@ -1,17 +1,16 @@
 import { Card } from "@heroui/react";
 import { cx, Icon, Lineage, Menu, type MenuItem, valueStripeStyle } from "@/core/ui";
 import { useTaskLineage } from "@/features/tasks/lineage";
-import { ENERGY_META, type Task } from "../model";
-import { energyOf } from "../selectors";
+import type { Task } from "../model";
 
 /**
  * TaskCard — the Today-view card.
  *
  * Composition: a value-colored leading stripe, a binary done-toggle control,
  * the title, the lineage row (value name · → goal · Habit pill), and the
- * optional time + energy glyph metadata. Resolved tasks (done/skip) are
- * visually de-emphasised. A hover/keyboard overflow menu provides the
- * non-pointer paths for skip, reorder, and delete.
+ * optional time metadata. Resolved tasks (done/skip) are visually
+ * de-emphasised. A hover/keyboard overflow menu provides the non-pointer paths
+ * for skip, reorder, and delete.
  */
 export function TaskCard({
   task,
@@ -40,7 +39,6 @@ export function TaskCard({
   const done = task.status === "done";
   const skipped = task.status === "skip";
   const resolved = done || skipped;
-  const energy = energyOf(task);
 
   const checkLabel = done ? `Mark ${task.title} not done` : `Mark ${task.title} done`;
 
@@ -125,15 +123,6 @@ export function TaskCard({
             <span className="inline-flex items-center gap-1 text-tiny tabular-nums text-default-500">
               <Icon name="clock" size={11} />
               {task.time}
-            </span>
-          )}
-          {energy !== "neutral" && (
-            <span
-              className="inline-flex items-center gap-0.5 text-tiny text-default-500"
-              title={ENERGY_META[energy].label}
-            >
-              <span aria-hidden="true">{ENERGY_META[energy].glyph}</span>
-              <span className="sr-only">{ENERGY_META[energy].label}</span>
             </span>
           )}
           {task.detached && (
