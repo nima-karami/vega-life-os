@@ -64,10 +64,8 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <header>
-        <h1 className="font-display text-3xl font-bold tracking-tight text-[var(--color-ink)]">
-          Settings
-        </h1>
-        <p className="mt-1 font-sans text-sm text-[var(--color-muted)]">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Settings</h1>
+        <p className="mt-1 text-small text-default-500">
           Identity, appearance, and your data — all of it lives on this machine.
         </p>
       </header>
@@ -84,17 +82,17 @@ export function SettingsPage() {
                 type="button"
                 onClick={() => avatarRef.current?.click()}
                 aria-label="Upload photo"
-                className="group relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border border-[var(--color-line)] bg-[var(--color-canvas)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                className="group relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border border-divider bg-content2 outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
               >
                 {s.operatorAvatar ? (
                   <img src={s.operatorAvatar} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="font-display text-3xl text-[var(--color-muted)]">
+                  <span className="text-3xl font-semibold text-default-500">
                     {initials(s.operatorName)}
                   </span>
                 )}
-                <span className="absolute inset-0 grid place-items-center bg-[var(--color-ink)]/55 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Icon name="upload" size={20} className="text-white" />
+                <span className="absolute inset-0 grid place-items-center bg-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
+                  <Icon name="upload" size={20} className="text-background" />
                 </span>
               </button>
               <input
@@ -109,15 +107,16 @@ export function SettingsPage() {
                 }}
               />
               {s.operatorAvatar ? (
-                <button
-                  type="button"
-                  onClick={() => s.setOperatorAvatar("")}
-                  className="font-sans text-xs text-[var(--color-muted)] transition-colors hover:text-[var(--color-accent)]"
+                <Button
+                  size="sm"
+                  variant="light"
+                  className="text-tiny text-default-500"
+                  onPress={() => s.setOperatorAvatar("")}
                 >
                   Remove
-                </button>
+                </Button>
               ) : (
-                <span className="font-sans text-xs text-[var(--color-muted)]">click to upload</span>
+                <span className="text-tiny text-default-500">click to upload</span>
               )}
             </div>
             {/* fields */}
@@ -159,33 +158,29 @@ export function SettingsPage() {
         <SettingsCard title="Appearance">
           <div className="space-y-6">
             <div>
-              <span className="font-sans text-sm font-medium text-[var(--color-ink)]">Theme</span>
+              <span className="text-small font-medium text-foreground">Theme</span>
               <div className="mt-2 flex gap-2">
                 {(["paper", "void"] as const).map((t) => {
                   const active = s.theme === t;
                   return (
-                    <button
-                      type="button"
+                    <Button
                       key={t}
-                      onClick={() => s.setTheme(t)}
+                      size="md"
+                      variant={active ? "solid" : "bordered"}
+                      color={active ? "primary" : "default"}
                       aria-pressed={active}
-                      className={cx(
-                        "flex items-center gap-2 rounded-[var(--radius-sm)] border px-4 py-2.5 font-sans text-sm transition-colors",
-                        active
-                          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-                          : "border-[var(--color-line)] text-[var(--color-ink)] hover:border-[var(--color-line-strong)]",
-                      )}
+                      startContent={<Icon name={t === "paper" ? "sun" : "moon"} size={15} />}
+                      onPress={() => s.setTheme(t)}
                     >
-                      <Icon name={t === "paper" ? "sun" : "moon"} size={15} />
                       {t === "paper" ? "Paper" : "Void"}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
             </div>
             <div>
-              <span className="font-sans text-sm font-medium text-[var(--color-ink)]">Accent</span>
-              <p className="mt-1 font-sans text-xs text-[var(--color-muted)]">
+              <span className="text-small font-medium text-foreground">Accent</span>
+              <p className="mt-1 text-tiny text-default-500">
                 Tints signals: now-line, overdue, "needs you". The HUD stays monochrome by design.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -199,17 +194,15 @@ export function SettingsPage() {
                       title={a.name}
                       aria-pressed={active}
                       className={cx(
-                        "flex items-center gap-2 rounded-[var(--radius-sm)] border px-2.5 py-2 transition-colors",
-                        active
-                          ? "border-[var(--color-accent)]"
-                          : "border-[var(--color-line)] hover:border-[var(--color-line-strong)]",
+                        "flex items-center gap-2 rounded-medium border px-2.5 py-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2",
+                        active ? "border-primary" : "border-divider hover:border-default-400",
                       )}
                     >
                       <span
-                        className="h-4 w-4 rounded-full border border-[var(--color-line)]"
-                        style={{ background: a.hex || "var(--color-accent)" }}
+                        className="h-4 w-4 rounded-full border border-divider"
+                        style={{ background: a.hex || "hsl(var(--heroui-primary))" }}
                       />
-                      <span className="font-sans text-xs text-[var(--color-ink)]">{a.name}</span>
+                      <span className="text-tiny text-foreground">{a.name}</span>
                     </button>
                   );
                 })}
@@ -227,16 +220,14 @@ export function SettingsPage() {
         >
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="bordered"
-              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              variant="flat"
               startContent={<Icon name="chart" size={15} />}
               onPress={doExport}
             >
               Export backup (.json)
             </Button>
             <Button
-              variant="bordered"
-              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              variant="flat"
               startContent={<Icon name="plus" size={15} />}
               onPress={() => fileRef.current?.click()}
             >
@@ -254,8 +245,7 @@ export function SettingsPage() {
               }}
             />
             <Button
-              variant="bordered"
-              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              variant="flat"
               startContent={<Icon name="repeat" size={15} />}
               onPress={() => {
                 void s.reseed();
@@ -265,8 +255,7 @@ export function SettingsPage() {
               Reset demo data
             </Button>
             <Button
-              variant="bordered"
-              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              variant="light"
               startContent={<Icon name="spark" size={15} />}
               onPress={() => s.setOnboarded(false)}
             >
@@ -279,13 +268,13 @@ export function SettingsPage() {
 
         {/* about */}
         <SettingsCard title="About">
-          <div className="grid gap-px overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-line)] sm:grid-cols-2">
+          <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
             <Row k="Version" v="0.1.0" />
             <Row k="Storage" v="IndexedDB (local)" />
             <Row k="Command bar" v="⌘K · local agent" />
             <Row k="Cloud sync" v="not connected" />
           </div>
-          <p className="mt-3 font-sans text-xs leading-relaxed text-[var(--color-muted)]">
+          <p className="mt-4 text-tiny leading-relaxed text-default-500">
             Live AI, Google Calendar import, and cross-device sync are architected behind swappable
             adapters — drop in keys to enable. See HANDOFF.md.
           </p>
@@ -309,9 +298,9 @@ function initials(name: string) {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 bg-[var(--color-surface)] px-3 py-2.5">
-      <span className="font-sans text-sm text-[var(--color-muted)]">{k}</span>
-      <span className="font-mono text-xs text-[var(--color-ink)]">{v}</span>
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-small text-default-500">{k}</span>
+      <span className="text-small text-foreground">{v}</span>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button, Code } from "@heroui/react";
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
@@ -20,11 +20,10 @@ export function CalendarSettings() {
   if (!gcalConfigured) {
     return (
       <SettingsCard title="Google Calendar">
-        <p className="font-sans text-sm leading-relaxed text-[var(--color-muted)]">
-          Set <code className="font-mono text-xs">VITE_GOOGLE_CLIENT_ID</code> in{" "}
-          <code className="font-mono text-xs">.env.local</code> to enable two-way calendar sync.
-          Your VEGA time-blocks then appear in Google Calendar, and the Calendar app on your phone
-          handles the reminders.
+        <p className="text-small leading-relaxed text-default-500">
+          Set <Code size="sm">VITE_GOOGLE_CLIENT_ID</Code> in <Code size="sm">.env.local</Code> to
+          enable two-way calendar sync. Your VEGA time-blocks then appear in Google Calendar, and
+          the Calendar app on your phone handles the reminders.
         </p>
       </SettingsCard>
     );
@@ -71,7 +70,7 @@ export function CalendarSettings() {
         {on ? (
           <>
             <Button
-              className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+              color="primary"
               startContent={<Icon name="repeat" size={15} />}
               isDisabled={busy}
               onPress={() => void sync()}
@@ -79,8 +78,8 @@ export function CalendarSettings() {
               Sync now
             </Button>
             <Button
-              variant="bordered"
-              className="border-[var(--color-line)] font-sans text-[var(--color-ink)]"
+              variant="flat"
+              color="danger"
               startContent={<Icon name="close" size={15} />}
               onPress={disconnect}
             >
@@ -89,7 +88,7 @@ export function CalendarSettings() {
           </>
         ) : (
           <Button
-            className="bg-[var(--color-accent)] font-sans text-[var(--color-accent-foreground)]"
+            color="primary"
             startContent={<Icon name="calendar" size={15} />}
             isDisabled={busy}
             onPress={() => void connect()}

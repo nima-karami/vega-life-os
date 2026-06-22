@@ -1,9 +1,10 @@
+import { Card, CardBody, CardHeader } from "@heroui/react";
 import type { ReactNode } from "react";
-import { cx } from "@/core/ui";
 
 /**
- * A vapor settings card: white surface, hairline border, soft shadow, rounded.
- * Section title in Space Grotesk (font-display); body in Inter.
+ * A calm settings card on HeroUI <Card> (shadow="sm"): white surface, hairline
+ * border, barely-there shadow. Quiet sentence-case Inter title — no eyebrow,
+ * no rule. Optional description under the title and an action on the right.
  */
 export function SettingsCard({
   title,
@@ -19,26 +20,17 @@ export function SettingsCard({
   className?: string;
 }) {
   return (
-    <section
-      className={cx(
-        "rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-soft)]",
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
+    <Card as="section" shadow="sm" radius="lg" className={className}>
+      <CardHeader className="flex items-start justify-between gap-4 px-6 pb-0 pt-6">
         <div className="min-w-0">
-          <h2 className="font-display text-lg font-semibold tracking-tight text-[var(--color-ink)]">
-            {title}
-          </h2>
+          <h2 className="text-medium font-semibold tracking-tight text-foreground">{title}</h2>
           {description != null && (
-            <p className="mt-1 font-sans text-sm leading-relaxed text-[var(--color-muted)]">
-              {description}
-            </p>
+            <p className="mt-1 text-small leading-relaxed text-default-500">{description}</p>
           )}
         </div>
         {action != null && <div className="shrink-0">{action}</div>}
-      </div>
-      {children != null && <div className="mt-5">{children}</div>}
-    </section>
+      </CardHeader>
+      {children != null && <CardBody className="px-6 pb-6 pt-5">{children}</CardBody>}
+    </Card>
   );
 }
