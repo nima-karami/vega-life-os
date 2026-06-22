@@ -55,6 +55,22 @@ export const isToday = (isoDate: string) => dfnsIsToday(parseISO(isoDate));
 export const daysBetween = (a: string, b: string) =>
   differenceInCalendarDays(parseISO(a), parseISO(b));
 
+/** ISO date shifted by N calendar days (negative steps backward). */
+export const shiftISO = (isoDate: string, days: number) =>
+  format(addDays(parseISO(isoDate), days), "yyyy-MM-dd");
+
+/**
+ * Human label for a date relative to a reference (default today):
+ * "Today" / "Tomorrow" / "Yesterday", else the weekday name ("Saturday").
+ */
+export function relativeDay(isoDate: string, ref: string = todayISO()): string {
+  const diff = daysBetween(isoDate, ref);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff === -1) return "Yesterday";
+  return format(parseISO(isoDate), "EEEE");
+}
+
 /** minutes since midnight from "HH:mm" */
 export const minutesOf = (time: string) => {
   const [h, m] = time.split(":").map(Number);

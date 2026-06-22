@@ -1,8 +1,8 @@
 import { Button, Card, CardBody } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
-import { fmtLong, todayISO } from "@/core/lib/date";
+import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { Icon } from "@/core/ui";
+import { CalendarPopover, Icon, IconButton } from "@/core/ui";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
@@ -19,6 +19,10 @@ import { partitionToday, reorderWithinDay, toggleDone } from "./today-logic";
  */
 export function TodayPage() {
   const today = todayISO();
+  // The day currently in view. Defaults to today; the header lets you step
+  // back/forward a day or jump to any date, without leaving this surface.
+  const [viewDate, setViewDate] = useState(today);
+  const isToday = viewDate === today;
 
   const tasks = useStore((s) => s.tasks);
   const setStatus = useStore((s) => s.setStatus);
@@ -30,8 +34,8 @@ export function TodayPage() {
   const [announce, setAnnounce] = useState("");
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
 
-  const { remaining, done } = useMemo(() => partitionToday(tasks, today), [tasks, today]);
-  const counts = useMemo(() => dayCounts(tasks, today), [tasks, today]);
+  const { remaining, done } = useMemo(() => partitionToday(tasks, viewDate), [tasks, viewDate]);
+  const counts = useMemo(() => dayCounts(tasks, viewDate), [tasks, viewDate]);
 
   const isEmpty = counts.total === 0;
   const allDone = counts.total > 0 && remaining.length === 0;
@@ -63,14 +67,15 @@ export function TodayPage() {
   }
 
   function handleReorder(task: Task, direction: "up" | "down") {
-    const updates = reorderWithinDay(tasks, today, task.id, direction);
+    const updates = reorderWithinDay(tasks, viewDate, task.id, direction);
     if (updates.length === 0) return;
     for (const u of updates) updateTask(u.id, { order: u.order });
     const nextTasks = tasks.map((t) => {
       const hit = updates.find((u) => u.id === t.id);
       return hit ? { ...t, order: hit.order } : t;
     });
-    const pos = partitionToday(nextTasks, today).remaining.findIndex((t) => t.id === task.id) + 1;
+    const pos =
+      partitionToday(nextTasks, viewDate).remaining.findIndex((t) => t.id === task.id) + 1;
     setAnnounce(`Moved to position ${pos} of ${remaining.length}`);
   }
 
@@ -90,13 +95,60 @@ export function TodayPage() {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
-      {/* Header — date + progress */}
+      {/* Header — date + day navigation + progress */}
       <header className="space-y-1">
-        <p className="text-small text-default-500">{fmtLong(today)}</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Today</h1>
-        <p className="text-small text-default-500">
-          {isEmpty ? "Nothing scheduled" : `${counts.done} of ${counts.total} done`}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-small text-default-500">{fmtLong(viewDate)}</p>
+          <div className="flex items-center gap-0.5">
+            <IconButton
+              name="chevL"
+              size={18}
+              label="Previous day"
+              onPress={() => setViewDate(shiftISO(viewDate, -1))}
+            />
+            <CalendarPopover
+              value={viewDate}
+              onChange={(v) => v && setViewDate(v)}
+              showClear={false}
+              align="end"
+              trigger={
+                // Plain <button> (not IconButton) so HeroUI's PopoverTrigger can
+                // attach its ref and anchor the popover. Styled to match the chevrons.
+                <button
+                  type="button"
+                  aria-label="Pick a date"
+                  title="Pick a date"
+                  className="inline-grid h-8 w-8 place-items-center rounded-small text-default-500 outline-none transition-colors hover:bg-default/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+                >
+                  <Icon name="calendar" size={16} />
+                </button>
+              }
+            />
+            <IconButton
+              name="chevR"
+              size={18}
+              label="Next day"
+              onPress={() => setViewDate(shiftISO(viewDate, 1))}
+            />
+          </div>
+        </div>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          {relativeDay(viewDate, today)}
+        </h1>
+        <div className="flex items-center gap-2">
+          <p className="text-small text-default-500">
+            {isEmpty ? "Nothing scheduled" : `${counts.done} of ${counts.total} done`}
+          </p>
+          {!isToday && (
+            <button
+              type="button"
+              onClick={() => setViewDate(today)}
+              className="text-small text-primary underline-offset-2 hover:underline"
+            >
+              Jump to today
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Polite live region for outcome announcements */}
@@ -107,16 +159,16 @@ export function TodayPage() {
       {/* Body */}
       <div className="mt-8 flex flex-col gap-8">
         {isEmpty ? (
-          <EmptyToday date={today} />
+          <EmptyToday date={viewDate} isToday={isToday} />
         ) : (
           <>
             <section aria-label="Remaining" className="flex flex-col gap-3">
               {allDone ? (
-                <AllDoneMarker />
+                <AllDoneMarker isToday={isToday} />
               ) : (
                 <h2 className="text-small font-medium text-foreground">Remaining</h2>
               )}
-              <AddTaskInline date={today} onAdded={(t) => setAnnounce(`Added ${t}`)} />
+              <AddTaskInline date={viewDate} onAdded={(t) => setAnnounce(`Added ${t}`)} />
               {remaining.map((task, i) => (
                 <TaskCard
                   key={task.id}
@@ -167,7 +219,7 @@ export function TodayPage() {
 
 const NOOP = () => {};
 
-function EmptyToday({ date }: { date: string }) {
+function EmptyToday({ date, isToday }: { date: string; isToday: boolean }) {
   return (
     <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
       <CardBody className="flex flex-col items-center gap-4 px-6 py-12 text-center">
@@ -175,9 +227,13 @@ function EmptyToday({ date }: { date: string }) {
           <Icon name="spark" size={20} />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Nothing scheduled for today</h2>
+          <h2 className="text-xl font-semibold text-foreground">
+            {isToday ? "Nothing scheduled for today" : "Nothing scheduled for this day"}
+          </h2>
           <p className="mx-auto mt-2 max-w-sm text-small text-default-500">
-            Today is your calm focus surface. Add what you want to do, or press ⌘K to ask VEGA.
+            {isToday
+              ? "Today is your calm focus surface. Add what you want to do, or press ⌘K to ask VEGA."
+              : "Add what you want to do on this day, or press ⌘K to ask VEGA."}
           </p>
         </div>
         <div className="w-full max-w-sm">
@@ -188,7 +244,7 @@ function EmptyToday({ date }: { date: string }) {
   );
 }
 
-function AllDoneMarker() {
+function AllDoneMarker({ isToday }: { isToday: boolean }) {
   return (
     <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
       <CardBody className="flex flex-row items-center gap-3 px-4 py-3">
@@ -196,7 +252,9 @@ function AllDoneMarker() {
           <Icon name="check" size={16} />
         </div>
         <div>
-          <p className="text-small font-medium text-foreground">Nothing left for today</p>
+          <p className="text-small font-medium text-foreground">
+            {isToday ? "Nothing left for today" : "Nothing left for this day"}
+          </p>
           <p className="text-tiny text-default-500">
             Everything is resolved. Add another if you like.
           </p>

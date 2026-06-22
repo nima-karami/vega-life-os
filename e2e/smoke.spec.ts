@@ -305,3 +305,44 @@ test("settings: choosing an accent re-tints the HeroUI primary and persists; Def
   await page.getByRole("button", { name: "Default", exact: true }).click();
   await expect.poll(() => primaryToken(page)).toBe(slate);
 });
+
+// ─── Today: step between days + jump back ─────────────────────────────────────
+
+test("today: step back/forward a day and jump back to today", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  const heading = page.getByRole("heading", { level: 1 });
+  await expect(heading).toHaveText("Today", { timeout: 15_000 });
+
+  // No "Jump to today" while on today.
+  await expect(page.getByRole("button", { name: "Jump to today" })).toBeHidden();
+
+  // Step back a day → Yesterday, and the jump-back affordance appears.
+  await page.getByRole("button", { name: "Previous day" }).click();
+  await expect(heading).toHaveText("Yesterday");
+  const jump = page.getByRole("button", { name: "Jump to today" });
+  await expect(jump).toBeVisible();
+
+  // Forward two days → Tomorrow.
+  await page.getByRole("button", { name: "Next day" }).click();
+  await page.getByRole("button", { name: "Next day" }).click();
+  await expect(heading).toHaveText("Tomorrow");
+
+  // Jump back → Today, affordance gone.
+  await jump.click();
+  await expect(heading).toHaveText("Today");
+  await expect(page.getByRole("button", { name: "Jump to today" })).toBeHidden();
+});
+
+test("today: the date picker jumps to a chosen day", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Today", { timeout: 15_000 });
+
+  // Open the calendar and pick the 1st of the visible month.
+  await page.getByRole("button", { name: "Pick a date" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "1", exact: true }).first().click();
+
+  // We've left "today" — the jump-back affordance is now shown.
+  await expect(page.getByRole("button", { name: "Jump to today" })).toBeVisible();
+});
