@@ -182,7 +182,13 @@ function AnalyticsSection() {
           <SectionHead title="Weekly trend" meta={`${weeks} wk`} />
           <div className="mt-4">
             {enoughWeekly ? (
-              <Sparkline points={weekly} width={760} height={70} className="w-full" />
+              <Sparkline
+                points={weekly}
+                width={760}
+                height={70}
+                className="w-full"
+                color="hsl(var(--heroui-primary))"
+              />
             ) : (
               <p className="py-6 text-tiny text-default-400">
                 Not enough weekly data yet — keep logging to see the trend.

@@ -137,12 +137,15 @@ export function Sparkline({
   height = 48,
   className,
   dot = true,
+  color = "var(--color-ink)",
 }: {
   points: number[];
   width?: number;
   height?: number;
   className?: string;
   dot?: boolean;
+  /** Line/dot color — defaults to ink; pass the calm primary for a quieter trend. */
+  color?: string;
 }) {
   if (points.length < 2) return null;
   const max = Math.max(...points, 1);
@@ -160,8 +163,8 @@ export function Sparkline({
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      <path d={d} fill="none" stroke="var(--color-ink)" strokeWidth={1.5} />
-      {dot && <circle cx={lx} cy={ly} r={2.6} fill="var(--color-ink)" />}
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5} />
+      {dot && <circle cx={lx} cy={ly} r={2.6} fill={color} />}
     </svg>
   );
 }
