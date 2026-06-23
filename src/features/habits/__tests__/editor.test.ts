@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
-import { detachedCount, recurrenceLabel, resetGoalForValue, validateDraft } from "../editor";
+import {
+  conflictNote,
+  detachedCount,
+  recurrenceLabel,
+  resetGoalForValue,
+  validateDraft,
+} from "../editor";
+import type { Habit } from "../model";
 
 const goal = (id: string, valueId: string): Goal => ({
   id,
@@ -89,5 +96,23 @@ describe("detachedCount", () => {
 
   it("is zero when there are none", () => {
     expect(detachedCount([], "h1")).toBe(0);
+  });
+});
+
+describe("conflictNote", () => {
+  const h = (name: string, days: number[]): Habit => ({ id: name, name, days }) as unknown as Habit;
+  const sun = [0, 0, 0, 0, 0, 0, 1];
+
+  it("returns null with no conflicts", () => {
+    expect(conflictNote([], sun)).toBeNull();
+  });
+
+  it("names a single conflicting habit and the shared day", () => {
+    expect(conflictNote([h("Morning run", sun)], sun)).toBe("Overlaps Morning run on Sun.");
+  });
+
+  it("summarizes multiple conflicts with a count and names", () => {
+    const note = conflictNote([h("A", sun), h("B", sun)], sun);
+    expect(note).toBe("Overlaps 2 habits on these days: A and B.");
   });
 });

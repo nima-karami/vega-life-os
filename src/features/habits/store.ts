@@ -2,6 +2,7 @@ import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+import type { Task } from "@/features/tasks/model";
 import type { Habit } from "./model";
 
 export interface HabitsSlice {
@@ -9,6 +10,24 @@ export interface HabitsSlice {
   addHabit: (patch?: Partial<Habit>) => Habit;
   updateHabit: (id: string, patch: Partial<Habit>) => void;
   removeHabit: (id: string) => void;
+  /** retire a habit non-destructively: set archivedAt = now and strip its future
+   *  undone, non-detached task instances (history is preserved). Idempotent. */
+  archiveHabit: (id: string) => void;
+  /** bring a habit back: clear archivedAt and regenerate future instances from
+   *  today forward (no back-fill of the archived gap). Idempotent. */
+  unarchiveHabit: (id: string) => void;
+}
+
+/** future, undone, non-detached habit instances — the set a schedule change or
+ *  archive rebuilds/strips. Past and user-customized instances are left alone. */
+function futureUndoneInstanceIds(get: () => { tasks: Task[] }, habitId: string): string[] {
+  const today = todayISO();
+  return get()
+    .tasks.filter(
+      (t) =>
+        t.habitId === habitId && t.date && t.date >= today && t.status === "todo" && !t.detached,
+    )
+    .map((t) => t.id);
 }
 
 export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
@@ -27,6 +46,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       days: patch.days ?? [1, 1, 1, 1, 1, 1, 1],
       durationMin: patch.durationMin ?? 30,
       createdAt: patch.createdAt ?? todayISO(),
+      archivedAt: patch.archivedAt ?? null,
     };
     // newest first, so a freshly added habit is visible at the top (not buried below the fold)
     set((s) => ({ habits: [habit, ...s.habits] }));
@@ -49,13 +69,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     // when the schedule changes, rebuild this habit's future undone instances
     // (skipping user-detached ones) so the calendar reflects the new definition
     if (next && (patch.days !== undefined || patch.time !== undefined)) {
-      const today = todayISO();
-      const removeIds = get()
-        .tasks.filter(
-          (t) =>
-            t.habitId === id && t.date && t.date >= today && t.status === "todo" && !t.detached,
-        )
-        .map((t) => t.id);
+      const removeIds = futureUndoneInstanceIds(get, id);
       if (removeIds.length) {
         const drop = new Set(removeIds);
         set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
@@ -76,5 +90,31 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     }));
     saveRemove("habits", id);
     for (const tid of orphanTaskIds) saveRemove("tasks", tid);
+  },
+
+  archiveHabit: (id) => {
+    const habit = get().habits.find((h) => h.id === id);
+    if (!habit || habit.archivedAt !== null) return; // idempotent
+    const next: Habit = { ...habit, archivedAt: new Date().toISOString() };
+    // strip the same future-instance set a schedule change rebuilds — but DON'T
+    // regenerate (archived habits have no future). Past/detached instances stay.
+    const removeIds = futureUndoneInstanceIds(get, id);
+    const drop = new Set(removeIds);
+    set((s) => ({
+      habits: s.habits.map((h) => (h.id === id ? next : h)),
+      tasks: removeIds.length ? s.tasks.filter((t) => !drop.has(t.id)) : s.tasks,
+    }));
+    savePut("habits", next);
+    for (const tid of removeIds) saveRemove("tasks", tid);
+  },
+
+  unarchiveHabit: (id) => {
+    const habit = get().habits.find((h) => h.id === id);
+    if (!habit || habit.archivedAt === null) return; // idempotent
+    const next: Habit = { ...habit, archivedAt: null };
+    set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
+    savePut("habits", next);
+    // resume from today forward (no back-fill of the archived gap)
+    get().ensureUpcoming();
   },
 });

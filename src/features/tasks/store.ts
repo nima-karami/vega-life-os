@@ -3,11 +3,30 @@ import { dowIndex, weekDays } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+import type { Habit } from "@/features/habits/model";
 import type { Task, TaskStatus } from "./model";
 
 /** Enforce the invariant: a task with no date can't carry a time. */
 function normalizeSchedule(t: Task): Task {
   return t.date === null && t.time !== null ? { ...t, time: null } : t;
+}
+
+/** Values carry `archivedAt`; an archived or missing parent value never generates. */
+type SchedValue = { id: string; archivedAt?: string | null };
+
+/**
+ * Habits that may generate future instances: the habit itself is active AND its
+ * parent value is active. A missing/dangling parent value never generates. This
+ * folds together the habit-archive and value-archive rules so the engine can't
+ * miss either.
+ */
+function generatingHabits(habits: Habit[], values: SchedValue[]): Habit[] {
+  const valueById = new Map(values.map((v) => [v.id, v]));
+  return habits.filter((h) => {
+    if ((h.archivedAt ?? null) !== null) return false;
+    const value = valueById.get(h.valueId);
+    return value != null && (value.archivedAt ?? null) === null;
+  });
 }
 
 export interface TasksSlice {
@@ -176,17 +195,12 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   planWeek: (ref = new Date()) => {
     const { tasks, habits, addTask } = get();
-    const archivedValueIds = new Set(
-      get()
-        .values.filter((v) => v.archivedAt !== null)
-        .map((v) => v.id),
-    );
+    const generating = generatingHabits(habits, get().values);
     const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     let made = 0;
     for (const d of weekDays(ref)) {
       const dow = dowIndex(d.iso);
-      for (const h of habits) {
-        if (archivedValueIds.has(h.valueId)) continue;
+      for (const h of generating) {
         if (!h.days[dow]) continue;
         if (existing.has(`${h.id}@${d.iso}`)) continue;
         addTask({
@@ -208,19 +222,14 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   ensureUpcoming: (daysAhead = 14) => {
     const { tasks, habits, addTask } = get();
-    const archivedValueIds = new Set(
-      get()
-        .values.filter((v) => v.archivedAt !== null)
-        .map((v) => v.id),
-    );
+    const generating = generatingHabits(habits, get().values);
     const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     const start = new Date();
     let made = 0;
     for (let i = 0; i <= daysAhead; i++) {
       const iso = format(addDays(start, i), "yyyy-MM-dd");
       const dow = dowIndex(iso);
-      for (const h of habits) {
-        if (archivedValueIds.has(h.valueId)) continue;
+      for (const h of generating) {
         if (!h.days[dow]) continue;
         if (existing.has(`${h.id}@${iso}`)) continue;
         addTask({

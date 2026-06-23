@@ -18,12 +18,14 @@ import { goalsForValue } from "@/features/goals/selectors";
 import { valueColor } from "@/features/values/color";
 import {
   ANYTIME_LABEL,
+  conflictNote,
   detachedCount,
   recurrenceLabel,
   resetGoalForValue,
   validateDraft,
 } from "./editor";
 import type { Habit } from "./model";
+import { conflictingHabits } from "./selectors";
 
 /** Day picker order is fixed Mon..Sun to match the model's days[7] mask. */
 const WEEKDAYS = [
@@ -85,9 +87,11 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const tasks = useStore((s) => s.tasks);
+  const habits = useStore((s) => s.habits);
   const habitExists = useStore((s) => (habit ? s.habits.some((h) => h.id === habit.id) : true));
   const updateHabit = useStore((s) => s.updateHabit);
   const addHabit = useStore((s) => s.addHabit);
+  const unarchiveHabit = useStore((s) => s.unarchiveHabit);
   const pushToast = useStore((s) => s.pushToast);
 
   const isCreate = habit === null;
@@ -110,6 +114,13 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const hasErrors = Object.keys(errors).length > 0;
   const activeDays = draft.days.some((d) => d === 1);
   const detached = habit ? detachedCount(tasks, habit.id) : 0;
+  const isArchived = habit?.archivedAt != null;
+
+  const conflicts = useMemo(
+    () => conflictingHabits(habits, { days: draft.days, time: draft.time }, habit?.id ?? null),
+    [habits, draft.days, draft.time, habit?.id],
+  );
+  const conflictText = conflictNote(conflicts, draft.days);
 
   const set = <K extends keyof Draft>(key: K, val: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: val }));
@@ -186,6 +197,17 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
             </ModalHeader>
 
             <ModalBody className="gap-4">
+              {/* Archived banner — editing a retired habit is gated behind unarchive,
+                  because archived habits don't regenerate instances. */}
+              {isArchived && habit && (
+                <ArchivedBanner
+                  onUnarchive={() => {
+                    unarchiveHabit(habit.id);
+                    pushToast("Habit unarchived");
+                  }}
+                />
+              )}
+
               {/* Name */}
               <Input
                 label="Name"
@@ -197,6 +219,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                 isInvalid={touched && !!errors.name}
                 errorMessage={errors.name}
                 variant="flat"
+                isDisabled={isArchived}
                 autoFocus
               />
 
@@ -207,6 +230,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   labelPlacement="outside"
                   className="min-w-[160px] flex-1"
                   variant="flat"
+                  isDisabled={isArchived}
                   selectedKeys={[draft.valueId || "__none__"]}
                   onChange={(e) =>
                     onValueChange(e.target.value === "__none__" ? "" : e.target.value)
@@ -235,7 +259,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   labelPlacement="outside"
                   className="min-w-[160px] flex-1"
                   variant="flat"
-                  isDisabled={!draft.valueId}
+                  isDisabled={isArchived || !draft.valueId}
                   selectedKeys={[draft.goalId ?? "__none__"]}
                   onChange={(e) =>
                     set("goalId", e.target.value === "__none__" ? null : e.target.value)
@@ -261,6 +285,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                         key={name}
                         aria-pressed={selected}
                         aria-label={name}
+                        disabled={isArchived}
                         onClick={() => set("icon", name)}
                         className={`grid h-8 w-8 place-items-center rounded-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           selected
@@ -287,6 +312,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                         key={d.full}
                         aria-pressed={on}
                         aria-label={d.full}
+                        disabled={isArchived}
                         onClick={() => toggleDay(i)}
                         className={`grid h-9 w-9 place-items-center rounded-medium text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           on
@@ -316,6 +342,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                     aria-pressed={draft.time != null}
                     color={draft.time != null ? "primary" : "default"}
                     variant={draft.time != null ? "solid" : "bordered"}
+                    isDisabled={isArchived}
                     onPress={() => set("time", draft.time ?? "09:00")}
                   >
                     Scheduled
@@ -325,6 +352,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                     aria-pressed={draft.time == null}
                     color={draft.time == null ? "primary" : "default"}
                     variant={draft.time == null ? "solid" : "bordered"}
+                    isDisabled={isArchived}
                     onPress={() => set("time", null)}
                   >
                     Anytime
@@ -339,7 +367,11 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
 
               {/* Time + duration only apply to a scheduled (timed) habit. */}
               {draft.time != null && (
-                <>
+                <div
+                  className={`flex flex-col gap-1.5 ${
+                    isArchived ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
                   <div className="flex flex-wrap gap-3">
                     <div className="min-w-[140px] flex-1">
                       <TimePicker
@@ -362,8 +394,12 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   {touched && errors.durationMin && (
                     <p className="text-xs text-danger">{errors.durationMin}</p>
                   )}
-                </>
+                </div>
               )}
+
+              {/* Conflict note — advisory, never blocks Save. Lives in an aria-live
+                  region so SR users hear it update as days/time change. */}
+              <ConflictNote text={conflictText} />
 
               {/* Detached advisory */}
               {detached > 0 && (
@@ -387,16 +423,45 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
               )}
               <div className="flex gap-2">
                 <Button variant="light" onPress={onClose}>
-                  Cancel
+                  {isArchived ? "Close" : "Cancel"}
                 </Button>
-                <Button color="primary" isDisabled={touched && hasErrors} onPress={onSave}>
-                  {isCreate ? "Create habit" : "Save"}
-                </Button>
+                {!isArchived && (
+                  <Button color="primary" isDisabled={touched && hasErrors} onPress={onSave}>
+                    {isCreate ? "Create habit" : "Save"}
+                  </Button>
+                )}
               </div>
             </ModalFooter>
           </>
         )}
       </ModalContent>
     </Modal>
+  );
+}
+
+function ArchivedBanner({ onUnarchive }: { onUnarchive: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-medium bg-default-100 px-3 py-2">
+      <span className="flex items-center gap-1.5 text-xs text-default-500">
+        <Icon name="clipboard" size={13} />
+        Archived — unarchive to edit and resume scheduling.
+      </span>
+      <Button size="sm" variant="flat" onPress={onUnarchive}>
+        Unarchive to edit
+      </Button>
+    </div>
+  );
+}
+
+function ConflictNote({ text }: { text: string | null }) {
+  return (
+    <div aria-live="polite" className="min-h-0">
+      {text && (
+        <p className="flex items-start gap-1.5 text-xs text-warning">
+          <Icon name="alert" size={13} className="mt-0.5 shrink-0" />
+          <span>{text}</span>
+        </p>
+      )}
+    </div>
   );
 }

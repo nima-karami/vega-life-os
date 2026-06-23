@@ -16,4 +16,8 @@ export interface Habit {
   durationMin: number;
   /** ISO date the habit was created (for rate windows) */
   createdAt: string;
+  /** ISO-8601 timestamp when archived; null = active. A timestamp (not a boolean)
+   *  so archived habits can be ordered by archive date. Legacy records lack it and
+   *  load as null (active). */
+  archivedAt: string | null;
 }
