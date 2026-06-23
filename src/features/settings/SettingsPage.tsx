@@ -67,9 +67,7 @@ export function SettingsPage() {
     <div className="mx-auto max-w-6xl px-4 py-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Settings</h1>
-        <p className="mt-1 text-small text-default-500">
-          Identity, appearance, and your data — all of it lives on this machine.
-        </p>
+        <p className="mt-1 text-small text-default-500">Identity, appearance, and your data.</p>
       </header>
 
       <div className="mt-6 flex flex-col gap-4">
@@ -268,13 +266,13 @@ export function SettingsPage() {
         <SettingsCard title="About">
           <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
             <Row k="Version" v="0.1.0" />
-            <Row k="Storage" v="IndexedDB (local)" />
+            <Row k="Storage" v={signedIn ? "Cloud (your account)" : "This device (sample data)"} />
             <Row k="Command bar" v="⌘K · local agent" />
-            <Row k="Cloud sync" v="not connected" />
+            <Row k="Cloud sync" v={signedIn ? "Connected" : "Sign in to enable"} />
           </div>
           <p className="mt-4 text-tiny leading-relaxed text-default-500">
-            Live AI, Google Calendar import, and cross-device sync are architected behind swappable
-            adapters — drop in keys to enable. See HANDOFF.md.
+            Cross-device sync is live when you sign in. Live AI and Google Calendar import are
+            architected behind swappable adapters — drop in keys to enable. See HANDOFF.md.
           </p>
         </SettingsCard>
         <ConfirmDialog

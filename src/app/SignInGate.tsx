@@ -37,8 +37,9 @@ export function SignInGate() {
         </ModalHeader>
         <ModalBody>
           <p className="text-small leading-relaxed text-default-500">
-            Signing in switches to your account. The data currently on this device is local only and
-            will be cleared — it is not uploaded. Export a backup first if you want to keep it.
+            Signing in switches to your account. The sample data currently on this device stays
+            local and will be cleared — it is not uploaded. Export a backup first if you want to
+            keep it.
           </p>
         </ModalBody>
         <ModalFooter className="flex-wrap justify-end gap-2">

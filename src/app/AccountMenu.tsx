@@ -37,7 +37,7 @@ export function AccountMenu() {
 
   const signOut = async () => {
     await signOutUser();
-    pushToast("Signed out — local only");
+    pushToast("Signed out");
   };
 
   const authItem = !firebaseEnabled

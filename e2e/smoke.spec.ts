@@ -347,6 +347,17 @@ test("settings: choosing an accent re-tints the HeroUI primary and persists; Def
   await expect.poll(() => primaryToken(page)).toBe(slate);
 });
 
+test("settings: About reflects the signed-out (sample data) state", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/settings", { waitUntil: "networkidle" });
+  const main = page.locator("main");
+  await expect(main).toBeVisible({ timeout: 15_000 });
+  await expect(main).toContainText("This device (sample data)");
+  await expect(main).toContainText("Sign in to enable");
+  await expect(main).not.toContainText("IndexedDB (local)");
+  await expect(main).not.toContainText("not connected");
+});
+
 // ─── Today: step between days + jump back ─────────────────────────────────────
 
 test("today: step back/forward a day and jump back to today", async ({ page }) => {
