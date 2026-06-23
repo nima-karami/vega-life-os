@@ -139,6 +139,8 @@ export function SettingsPage() {
                 placeholder="you@example.com"
                 variant="bordered"
                 radius="md"
+                isReadOnly={signedIn}
+                description={signedIn ? "Your account email." : undefined}
               />
               <Input
                 label="Workspace"

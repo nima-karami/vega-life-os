@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { onAuth } from "@/core/auth";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
+import { profileIncomplete } from "@/core/store/profile";
 import { ACCENT_VAR_KEYS, accentVars } from "@/core/theme/accent";
 import { isEnabled as gcalEnabled, syncNow } from "@/features/calendar-sync";
 import { gratitudeRequired } from "@/features/journal";
@@ -10,6 +11,7 @@ import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { GO_SHORTCUTS } from "./keymap";
 import { Onboarding } from "./Onboarding";
+import { ProfileStep } from "./ProfileStep";
 import { Shortcuts } from "./Shortcuts";
 import { SignInGate } from "./SignInGate";
 import { Toast } from "./Toast";
@@ -20,6 +22,7 @@ export function RootBoot() {
   const accent = useStore((s) => s.accent);
   const onboarded = useStore((s) => s.onboarded);
   const authUid = useStore((s) => s.authUid);
+  const operatorName = useStore((s) => s.operatorName);
   const toggleCommand = useStore((s) => s.toggleCommand);
   const navigate = useNavigate();
   const gPending = useRef(false);
@@ -144,6 +147,7 @@ export function RootBoot() {
   }
 
   if (!authUid && !onboarded) return <Onboarding />;
+  if (authUid && profileIncomplete(operatorName)) return <ProfileStep />;
 
   return (
     <>
