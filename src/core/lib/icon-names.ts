@@ -50,6 +50,7 @@ export const ICON_NAMES = [
   "flame",
   "copy",
   "clipboard",
+  "archive",
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];

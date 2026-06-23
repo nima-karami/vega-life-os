@@ -90,7 +90,9 @@ export const useStore = create<RootState>((set, get, api) => ({
     await persistence.init();
     const data = await persistence.loadAll();
     set({
-      values: data.values.sort((a, b) => a.order - b.order),
+      values: data.values
+        .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null }))
+        .sort((a, b) => a.order - b.order),
       goals: data.goals
         .map((g) => ({ ...g, status: g.status ?? "active" }))
         .sort((a, b) => a.order - b.order),

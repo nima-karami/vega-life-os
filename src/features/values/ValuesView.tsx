@@ -7,15 +7,21 @@
  * progress, closed-goal de-emphasis, drag-and-drop reorder (pointer + keyboard),
  * empty states, and "New value"/"New goal" command-bar entries.
  *
+ * A page-level Active | Archived filter splits values by their non-destructive
+ * `archivedAt` lifecycle; archived values render read-only (their goals/habits/
+ * task history survive untouched). Each card's goals header tucks closed goals
+ * (done/abandoned) behind a per-value toggle.
+ *
  * The data layer is reused unchanged — every mutation goes through existing store
  * actions; logic-bearing display rules live in pure, unit-tested helpers.
  */
-import { Button, Card, CardBody, Chip } from "@heroui/react";
+import { Button, ButtonGroup, Card, CardBody, Chip } from "@heroui/react";
+import { format } from "date-fns";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
-import { AddButton, ConfirmDialog, Icon, Menu, SortableList } from "@/core/ui";
+import { AddButton, ConfirmDialog, cx, Icon, Menu, SortableList } from "@/core/ui";
 import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalEditor } from "@/features/goals/components/GoalEditor";
 import { habitStreak } from "@/features/habits";
@@ -23,6 +29,9 @@ import { cascadeCounts, cascadeMessage } from "./cascade";
 import { valueColor } from "./color";
 import { ValueEditor } from "./components/ValueEditor";
 import type { Value } from "./model";
+import { activeValues, archivedValues, goalCounts, splitGoals } from "./selectors";
+
+type Filter = "active" | "archived";
 
 /** Small polite live-region announcer (sighted users see these changes; SR users wouldn't). */
 function useAnnouncer() {
@@ -44,8 +53,11 @@ export function ValuesView() {
   const updateGoal = useStore((s) => s.updateGoal);
   const removeValue = useStore((s) => s.removeValue);
   const removeGoal = useStore((s) => s.removeGoal);
+  const archiveValue = useStore((s) => s.archiveValue);
+  const unarchiveValue = useStore((s) => s.unarchiveValue);
   const pushToast = useStore((s) => s.pushToast);
 
+  const [filter, setFilter] = useState<Filter>("active");
   const [valueEditId, setValueEditId] = useState<string | null>(null);
   const [creatingValue, setCreatingValue] = useState(false);
   const [goalEditId, setGoalEditId] = useState<string | null>(null);
@@ -55,7 +67,9 @@ export function ValuesView() {
   const { announce, region } = useAnnouncer();
   const addBtnRef = useRef<HTMLButtonElement>(null);
 
-  const sortedValues = useMemo(() => [...values].sort((a, b) => a.order - b.order), [values]);
+  const active = useMemo(() => activeValues(values), [values]);
+  const archived = useMemo(() => archivedValues(values), [values]);
+  const shown = filter === "active" ? active : archived;
 
   const createValue = useCallback(() => setCreatingValue(true), []);
 
@@ -94,11 +108,10 @@ export function ValuesView() {
 
   const reorderValues = useCallback(
     (activeId: string, overId: string) => {
-      for (const c of reorderByIds(sortedValues, activeId, overId))
-        updateValue(c.id, { order: c.order });
+      for (const c of reorderByIds(active, activeId, overId)) updateValue(c.id, { order: c.order });
       announce("Values reordered");
     },
-    [sortedValues, updateValue, announce],
+    [active, updateValue, announce],
   );
 
   const reorderGoals = useCallback(
@@ -113,11 +126,44 @@ export function ValuesView() {
     [goals, updateGoal, announce],
   );
 
+  const onArchive = useCallback(
+    (id: string) => {
+      archiveValue(id);
+      pushToast("Value archived");
+      announce("Value archived");
+    },
+    [archiveValue, pushToast, announce],
+  );
+
+  const onUnarchive = useCallback(
+    (id: string) => {
+      unarchiveValue(id);
+      pushToast("Value unarchived");
+      announce("Value unarchived");
+    },
+    [unarchiveValue, pushToast, announce],
+  );
+
+  const setFilterTo = useCallback(
+    (f: Filter) => {
+      setFilter(f);
+      announce(f === "active" ? "Showing active values" : "Showing archived values");
+    },
+    [announce],
+  );
+
   const confirmCounts = confirmValue
     ? cascadeCounts(confirmValue.id, { goals, habits })
     : { goals: 0, habits: 0 };
   const cascadeBody = cascadeMessage(confirmCounts);
   const confirmGoal = goals.find((g) => g.id === confirmGoalId) ?? null;
+
+  const emptyMessage =
+    filter === "archived"
+      ? "No archived values yet. Archiving a value tucks it here, read-only, with its goals and history intact."
+      : archived.length > 0
+        ? `No active values — ${archived.length} archived.`
+        : 'No values yet — the "why" behind every goal and task downstream.';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
@@ -132,15 +178,54 @@ export function ValuesView() {
         </p>
       </header>
 
-      <div className="mt-8 flex flex-col gap-5">
-        <AddButton ref={addBtnRef} label="Add value" onPress={createValue} />
-        {sortedValues.length === 0 ? (
-          <p className="text-small text-default-500">
-            No values yet — the "why" behind every goal and task downstream.
-          </p>
+      <div className="mt-6">
+        <ButtonGroup size="sm" radius="full" aria-label="Filter values">
+          <Button
+            aria-pressed={filter === "active"}
+            color={filter === "active" ? "primary" : "default"}
+            variant={filter === "active" ? "solid" : "bordered"}
+            onPress={() => setFilterTo("active")}
+          >
+            Active
+          </Button>
+          <Button
+            aria-pressed={filter === "archived"}
+            color={filter === "archived" ? "primary" : "default"}
+            variant={filter === "archived" ? "solid" : "bordered"}
+            onPress={() => setFilterTo("archived")}
+          >
+            Archived
+          </Button>
+        </ButtonGroup>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-5">
+        {filter === "active" && (
+          <AddButton ref={addBtnRef} label="Add value" onPress={createValue} />
+        )}
+        {shown.length === 0 ? (
+          <p className="text-small text-default-500">{emptyMessage}</p>
+        ) : filter === "archived" ? (
+          <div className="space-y-5">
+            {shown.map((v) => (
+              <ValueCard
+                key={v.id}
+                value={v}
+                archived
+                onEdit={() => {}}
+                onAddGoal={() => {}}
+                onArchiveToggle={() => onUnarchive(v.id)}
+                onDelete={() => setConfirmValue(v)}
+                onEditGoal={() => {}}
+                onReorderGoals={() => {}}
+                onDeleteGoal={() => {}}
+                onStatusAnnounce={announce}
+              />
+            ))}
+          </div>
         ) : (
           <SortableList
-            items={sortedValues}
+            items={shown}
             getId={(v) => v.id}
             getLabel={(v) => v.name}
             onReorder={reorderValues}
@@ -148,8 +233,10 @@ export function ValuesView() {
             renderItem={(v) => (
               <ValueCard
                 value={v}
+                archived={false}
                 onEdit={() => setValueEditId(v.id)}
                 onAddGoal={() => createGoal(v.id)}
+                onArchiveToggle={() => onArchive(v.id)}
                 onDelete={() => setConfirmValue(v)}
                 onEditGoal={setGoalEditId}
                 onReorderGoals={(activeId, overId) => reorderGoals(v.id, activeId, overId)}
@@ -224,8 +311,10 @@ export function ValuesView() {
 
 function ValueCard({
   value,
+  archived,
   onEdit,
   onAddGoal,
+  onArchiveToggle,
   onDelete,
   onEditGoal,
   onReorderGoals,
@@ -233,43 +322,68 @@ function ValueCard({
   onStatusAnnounce,
 }: {
   value: Value;
+  archived: boolean;
   onEdit: () => void;
   onAddGoal: () => void;
+  onArchiveToggle: () => void;
   onDelete: () => void;
   onEditGoal: (id: string) => void;
   onReorderGoals: (activeId: string, overId: string) => void;
   onDeleteGoal: (id: string) => void;
   onStatusAnnounce: (msg: string) => void;
 }) {
-  const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
   const tasks = useStore((s) => s.tasks);
 
-  const vGoals = goals.filter((g) => g.valueId === value.id).sort((a, b) => a.order - b.order);
   const valueHabits = habits.filter((h) => h.valueId === value.id && !h.goalId);
   const color = valueColor(value);
 
   return (
-    <Card shadow="sm" as="article" className="border border-divider bg-content1">
+    <Card
+      shadow="sm"
+      as="article"
+      className={cx("border border-divider bg-content1", archived && "opacity-90")}
+    >
       <CardBody className="p-5">
         <div className="flex items-start gap-4">
           <button
             type="button"
-            onClick={onEdit}
-            aria-label={`Edit ${value.name}`}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full transition-transform hover:scale-105"
+            onClick={archived ? undefined : onEdit}
+            disabled={archived}
+            aria-label={archived ? value.name : `Edit ${value.name}`}
+            className={cx(
+              "grid h-10 w-10 shrink-0 place-items-center rounded-full transition-transform",
+              !archived && "hover:scale-105",
+            )}
             style={{ background: color }}
           >
             <Icon name={value.icon} size={18} className="text-white" />
           </button>
-          <button type="button" onClick={onEdit} className="group min-w-0 flex-1 text-left">
-            <h2 className="text-large font-semibold leading-tight text-foreground group-hover:underline">
-              {value.name}
-            </h2>
-            <p className="mt-1 break-words text-small leading-relaxed text-default-500">
-              {value.desc || "No description yet — click to add one."}
-            </p>
-          </button>
+          {archived ? (
+            <div className="min-w-0 flex-1 text-left">
+              <h2 className="text-large font-semibold leading-tight text-foreground">
+                {value.name}
+              </h2>
+              <p className="mt-1 break-words text-small leading-relaxed text-default-500">
+                {value.desc || "No description."}
+              </p>
+              {value.archivedAt && (
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-content2 px-2 py-0.5 text-tiny text-default-400">
+                  <Icon name="archive" size={11} />
+                  Archived {format(new Date(value.archivedAt), "d MMM yyyy")}
+                </span>
+              )}
+            </div>
+          ) : (
+            <button type="button" onClick={onEdit} className="group min-w-0 flex-1 text-left">
+              <h2 className="text-large font-semibold leading-tight text-foreground group-hover:underline">
+                {value.name}
+              </h2>
+              <p className="mt-1 break-words text-small leading-relaxed text-default-500">
+                {value.desc || "No description yet — click to add one."}
+              </p>
+            </button>
+          )}
           <Menu
             align="end"
             trigger={
@@ -281,61 +395,31 @@ function ValueCard({
                 <Icon name="dots" size={16} />
               </button>
             }
-            items={[
-              { label: "Edit details", icon: "edit", onSelect: onEdit },
-              { label: "Add goal", icon: "plus", onSelect: onAddGoal },
-              { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
-            ]}
+            items={
+              archived
+                ? [
+                    { label: "Unarchive", icon: "archive", onSelect: onArchiveToggle },
+                    { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
+                  ]
+                : [
+                    { label: "Edit details", icon: "edit", onSelect: onEdit },
+                    { label: "Add goal", icon: "plus", onSelect: onAddGoal },
+                    { label: "Archive", icon: "archive", onSelect: onArchiveToggle },
+                    { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
+                  ]
+            }
           />
         </div>
 
-        <div className="mt-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-tiny text-default-500">Goals</span>
-            <Button
-              size="sm"
-              variant="light"
-              className="h-7 min-w-0 px-2 text-tiny text-default-500 data-[hover=true]:text-foreground"
-              startContent={<Icon name="plus" size={13} />}
-              onPress={onAddGoal}
-            >
-              Add goal
-            </Button>
-          </div>
-
-          {vGoals.length > 0 ? (
-            <SortableList
-              items={vGoals}
-              getId={(g) => g.id}
-              getLabel={(g) => g.name}
-              onReorder={onReorderGoals}
-              className="space-y-2.5"
-              nested
-              renderItem={(g) => (
-                <GoalCard
-                  goalId={g.id}
-                  onEdit={() => onEditGoal(g.id)}
-                  onDelete={() => onDeleteGoal(g.id)}
-                  onStatusAnnounce={onStatusAnnounce}
-                />
-              )}
-            />
-          ) : (
-            <div className="flex items-center justify-between rounded-medium border border-dashed border-divider px-3 py-3">
-              <span className="text-small text-default-500">No goals yet.</span>
-              <Button
-                size="sm"
-                variant="light"
-                color="primary"
-                className="h-7 min-w-0 px-2"
-                startContent={<Icon name="plus" size={14} />}
-                onPress={onAddGoal}
-              >
-                Add goal
-              </Button>
-            </div>
-          )}
-        </div>
+        <ValueGoals
+          valueId={value.id}
+          archived={archived}
+          onAddGoal={onAddGoal}
+          onEditGoal={onEditGoal}
+          onReorderGoals={onReorderGoals}
+          onDeleteGoal={onDeleteGoal}
+          onStatusAnnounce={onStatusAnnounce}
+        />
 
         {valueHabits.length > 0 && (
           <div className="mt-5">
@@ -359,5 +443,131 @@ function ValueCard({
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/** A value's goals: header with open/closed counts, open goals (drag-reorderable
+ *  when active), and closed goals tucked behind a per-card toggle. */
+function ValueGoals({
+  valueId,
+  archived,
+  onAddGoal,
+  onEditGoal,
+  onReorderGoals,
+  onDeleteGoal,
+  onStatusAnnounce,
+}: {
+  valueId: string;
+  archived: boolean;
+  onAddGoal: () => void;
+  onEditGoal: (id: string) => void;
+  onReorderGoals: (activeId: string, overId: string) => void;
+  onDeleteGoal: (id: string) => void;
+  onStatusAnnounce: (msg: string) => void;
+}) {
+  const goals = useStore((s) => s.goals);
+  const vGoals = goals.filter((g) => g.valueId === valueId).sort((a, b) => a.order - b.order);
+  const { open, closed } = splitGoals(vGoals);
+  const counts = goalCounts(vGoals);
+  const hasClosed = closed.length > 0;
+
+  const [showClosed, setShowClosed] = useState(false);
+
+  const goalsLabel = `Goals (${counts.active} active · ${counts.closed} closed)`;
+
+  const toggleClosed = () => {
+    const next = !showClosed;
+    setShowClosed(next);
+    onStatusAnnounce(
+      next
+        ? `${counts.closed} closed ${counts.closed === 1 ? "goal" : "goals"} shown`
+        : "closed goals hidden",
+    );
+  };
+
+  const renderGoal = (id: string) => (
+    <GoalCard
+      goalId={id}
+      onEdit={() => onEditGoal(id)}
+      onDelete={() => onDeleteGoal(id)}
+      onStatusAnnounce={onStatusAnnounce}
+    />
+  );
+
+  return (
+    <div className="mt-5 space-y-3">
+      <div className="flex items-center justify-between">
+        {hasClosed ? (
+          <button
+            type="button"
+            onClick={toggleClosed}
+            aria-expanded={showClosed}
+            className="flex items-center gap-1 text-tiny text-default-500 hover:text-foreground"
+          >
+            <Icon
+              name="chevD"
+              size={13}
+              className={cx("transition-transform", showClosed && "rotate-180")}
+            />
+            {goalsLabel}
+          </button>
+        ) : (
+          <span className="text-tiny text-default-500">{goalsLabel}</span>
+        )}
+        {!archived && (
+          <Button
+            size="sm"
+            variant="light"
+            className="h-7 min-w-0 px-2 text-tiny text-default-500 data-[hover=true]:text-foreground"
+            startContent={<Icon name="plus" size={13} />}
+            onPress={onAddGoal}
+          >
+            Add goal
+          </Button>
+        )}
+      </div>
+
+      {vGoals.length === 0 ? (
+        <div className="flex items-center justify-between rounded-medium border border-dashed border-divider px-3 py-3">
+          <span className="text-small text-default-500">No goals yet.</span>
+          {!archived && (
+            <Button
+              size="sm"
+              variant="light"
+              color="primary"
+              className="h-7 min-w-0 px-2"
+              startContent={<Icon name="plus" size={14} />}
+              onPress={onAddGoal}
+            >
+              Add goal
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          {open.length === 0 ? (
+            <p className="px-1 text-small text-default-500">
+              No open goals — {counts.closed} closed.
+            </p>
+          ) : archived ? (
+            <div className="space-y-2.5">{open.map((g) => renderGoal(g.id))}</div>
+          ) : (
+            <SortableList
+              items={open}
+              getId={(g) => g.id}
+              getLabel={(g) => g.name}
+              onReorder={onReorderGoals}
+              className="space-y-2.5"
+              nested
+              renderItem={(g) => renderGoal(g.id)}
+            />
+          )}
+
+          {showClosed && hasClosed && (
+            <div className="space-y-2.5">{closed.map((g) => renderGoal(g.id))}</div>
+          )}
+        </>
+      )}
+    </div>
   );
 }

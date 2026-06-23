@@ -8,6 +8,10 @@ export interface ValuesSlice {
   addValue: (patch?: Partial<Value>) => Value;
   updateValue: (id: string, patch: Partial<Value>) => void;
   removeValue: (id: string) => void;
+  /** non-destructive: stamp archivedAt; idempotent if already archived */
+  archiveValue: (id: string) => void;
+  /** non-destructive: clear archivedAt; idempotent if already active */
+  unarchiveValue: (id: string) => void;
 }
 
 const SPECTRA = ["courage", "presence", "selfcare", "stability", "vitality"];
@@ -26,6 +30,7 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
       energy: patch.energy ?? 0.5,
       desc: patch.desc ?? "",
       order: patch.order ?? order,
+      archivedAt: patch.archivedAt ?? null,
     };
     set((s) => ({ values: [...s.values, value] }));
     savePut("values", value);
@@ -42,6 +47,16 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
       }),
     }));
     if (next) savePut("values", next);
+  },
+
+  archiveValue: (id) => {
+    if (get().values.find((v) => v.id === id)?.archivedAt) return;
+    get().updateValue(id, { archivedAt: new Date().toISOString() });
+  },
+
+  unarchiveValue: (id) => {
+    if (get().values.find((v) => v.id === id)?.archivedAt === null) return;
+    get().updateValue(id, { archivedAt: null });
   },
 
   removeValue: (id) => {

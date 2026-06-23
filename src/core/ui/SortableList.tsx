@@ -64,7 +64,7 @@ function SortableRow({
         {...listeners}
         aria-label={label}
         className={cx(
-          "absolute right-full top-2 z-10 grid cursor-grab touch-none place-items-center pr-1.5 text-default-300 opacity-0 transition-opacity hover:text-default-500 focus-visible:opacity-100",
+          "absolute right-full top-1/2 z-10 grid -translate-y-1/2 cursor-grab touch-none place-items-center pr-1.5 text-default-300 opacity-0 transition-opacity hover:text-default-500 focus-visible:opacity-100",
           group.reveal,
         )}
       >
