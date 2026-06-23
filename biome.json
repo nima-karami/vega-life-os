@@ -6,14 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!dist",
-      "!claude-design-handoff",
-      "!ui-inspo",
-      "!public",
-      "!**/*.tsbuildinfo"
-    ]
+    "includes": ["**", "!dist", "!ui-inspo", "!public", "!**/*.tsbuildinfo"]
   },
   "css": {
     "parser": {
