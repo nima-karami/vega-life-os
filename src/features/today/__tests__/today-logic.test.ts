@@ -6,6 +6,9 @@ import {
   goalsForValue,
   partitionToday,
   reorderTasksInDay,
+  sortDailyHabits,
+  splitRemaining,
+  streakLabel,
   toggleDone,
 } from "../today-logic";
 
@@ -252,5 +255,108 @@ describe("reorderTasksInDay()", () => {
     const updates = reorderTasksInDay(mixed, TODAY, "a", "c");
     expect(updates.every((u) => u.id !== "b")).toBe(true);
     expect(updates.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── splitRemaining ──────────────────────────────────────────────────────────
+
+describe("splitRemaining()", () => {
+  it("puts timed tasks in `timed` and untimed in `untimed`", () => {
+    const remaining = [
+      task({ id: "early", time: "08:00" }),
+      task({ id: "late", time: "15:00" }),
+      task({ id: "u1", time: null }),
+      task({ id: "u2", time: null }),
+    ];
+    const { timed, untimed } = splitRemaining(remaining);
+    expect(timed.map((t) => t.id)).toEqual(["early", "late"]);
+    expect(untimed.map((t) => t.id)).toEqual(["u1", "u2"]);
+  });
+
+  it("returns all rows in timed when every task is scheduled", () => {
+    const remaining = [task({ id: "a", time: "08:00" }), task({ id: "b", time: "09:00" })];
+    const { timed, untimed } = splitRemaining(remaining);
+    expect(timed.map((t) => t.id)).toEqual(["a", "b"]);
+    expect(untimed).toEqual([]);
+  });
+
+  it("returns all rows in untimed when nothing is scheduled", () => {
+    const remaining = [task({ id: "a", time: null }), task({ id: "b", time: null })];
+    const { timed, untimed } = splitRemaining(remaining);
+    expect(timed).toEqual([]);
+    expect(untimed.map((t) => t.id)).toEqual(["a", "b"]);
+  });
+
+  it("preserves the incoming order within each subgroup", () => {
+    // input already in dayQueue (time→order) sequence: timed prefix, untimed suffix
+    const remaining = [
+      task({ id: "t1", time: "08:00" }),
+      task({ id: "t2", time: "12:00" }),
+      task({ id: "u1", time: null, order: 0 }),
+      task({ id: "u2", time: null, order: 1 }),
+    ];
+    const { timed, untimed } = splitRemaining(remaining);
+    expect([...timed, ...untimed].map((t) => t.id)).toEqual(["t1", "t2", "u1", "u2"]);
+  });
+
+  it("handles an empty list", () => {
+    const { timed, untimed } = splitRemaining([]);
+    expect(timed).toEqual([]);
+    expect(untimed).toEqual([]);
+  });
+});
+
+// ─── sortDailyHabits ─────────────────────────────────────────────────────────
+
+describe("sortDailyHabits()", () => {
+  it("sorts alphabetically, case-insensitively", () => {
+    const items = [
+      task({ id: "z", title: "Zazen" }),
+      task({ id: "a", title: "apple" }),
+      task({ id: "b", title: "Breathe" }),
+    ];
+    expect(sortDailyHabits(items).map((t) => t.title)).toEqual(["apple", "Breathe", "Zazen"]);
+  });
+
+  it("breaks ties by order, then id", () => {
+    const items = [
+      task({ id: "x2", title: "Stretch", order: 2 }),
+      task({ id: "x1", title: "Stretch", order: 1 }),
+    ];
+    expect(sortDailyHabits(items).map((t) => t.id)).toEqual(["x1", "x2"]);
+  });
+
+  it("breaks ties by id when order is equal", () => {
+    const items = [
+      task({ id: "bbb", title: "Stretch", order: 0 }),
+      task({ id: "aaa", title: "Stretch", order: 0 }),
+    ];
+    expect(sortDailyHabits(items).map((t) => t.id)).toEqual(["aaa", "bbb"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const items = [task({ id: "z", title: "Z" }), task({ id: "a", title: "A" })];
+    const before = items.map((t) => t.id);
+    sortDailyHabits(items);
+    expect(items.map((t) => t.id)).toEqual(before);
+  });
+
+  it("orders case-only variants adjacently without throwing", () => {
+    const items = [task({ id: "u", title: "Run" }), task({ id: "l", title: "run" })];
+    expect(sortDailyHabits(items).map((t) => t.title)).toHaveLength(2);
+  });
+});
+
+// ─── streakLabel ─────────────────────────────────────────────────────────────
+
+describe("streakLabel()", () => {
+  it("is singular at exactly 1", () => {
+    expect(streakLabel(1)).toBe("1-day streak");
+  });
+
+  it("is plural at every other value", () => {
+    expect(streakLabel(0)).toBe("0-day streak");
+    expect(streakLabel(2)).toBe("2-day streak");
+    expect(streakLabel(12)).toBe("12-day streak");
   });
 });

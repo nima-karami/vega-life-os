@@ -20,6 +20,7 @@ export {
   Tag,
 } from "./primitives";
 export { SortableList } from "./SortableList";
+export { StreakBadge } from "./StreakBadge";
 export type { SelectOption } from "./select";
 export { NONE, Select } from "./select";
 export { UndoBar } from "./UndoBar";
