@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { db } from "@/core/firebase/app";
+import { auth, db } from "@/core/firebase/app";
+import { getCloudProfile } from "@/core/firebase/profile";
 import type { CollectionName, CollectionSnapshot, Dataset } from "@/core/persistence";
 import {
   buildSeed,
@@ -20,6 +21,7 @@ import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
 import { authTransition } from "./auth-transition";
 import { setPersistAuth } from "./persist";
+import { resolveProfile } from "./profile";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
 
@@ -43,6 +45,8 @@ async function loadAccount(
   try {
     const data = await cloud.loadAll();
     set({ ...(sorted(data) as Partial<RootState>), loadFailed: false, ready: true });
+    const profile = await getCloudProfile(uid).catch(() => null);
+    get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
     get().ensureUpcoming(14);
     unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
   } catch {
@@ -237,6 +241,12 @@ export const useStore = create<RootState>((set, get, api) => ({
       await get().clearLocal();
       void setSandboxDirty(false);
       get().setOnboarded(false);
+      get().hydrateProfile({
+        name: "Operator",
+        email: "",
+        avatar: "",
+        workspace: "Personal workspace",
+      });
       set({ ...emptyDataset(), pendingSignIn: null, loadFailed: false, ready: true });
     }
   },

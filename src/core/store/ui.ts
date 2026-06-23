@@ -1,3 +1,4 @@
+import { setCloudProfile } from "@/core/firebase/profile";
 import type { Task } from "@/features/tasks";
 import type { Slice } from "./slice";
 
@@ -43,6 +44,8 @@ export interface UiSlice {
   setOperatorWorkspace: (v: string) => void;
   setOperatorEmail: (v: string) => void;
   setOperatorAvatar: (v: string) => void;
+  /** Populate the profile from resolved auth+cloud values without writing back to the cloud. */
+  hydrateProfile: (p: { name: string; email: string; avatar: string; workspace: string }) => void;
 
   /** custom accent — tints signal/needs-you/now-line; "" = theme default */
   accent: string;
@@ -129,10 +132,14 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   setOperatorName: (operatorName) => {
     writeSettings({ operatorName });
     set({ operatorName });
+    const uid = get().authUid;
+    if (uid) void setCloudProfile(uid, { name: operatorName });
   },
   setOperatorWorkspace: (operatorWorkspace) => {
     writeSettings({ operatorWorkspace });
     set({ operatorWorkspace });
+    const uid = get().authUid;
+    if (uid) void setCloudProfile(uid, { workspace: operatorWorkspace });
   },
   setOperatorEmail: (operatorEmail) => {
     writeSettings({ operatorEmail });
@@ -141,6 +148,22 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   setOperatorAvatar: (operatorAvatar) => {
     writeSettings({ operatorAvatar });
     set({ operatorAvatar });
+    const uid = get().authUid;
+    if (uid) void setCloudProfile(uid, { avatar: operatorAvatar });
+  },
+  hydrateProfile: (p) => {
+    writeSettings({
+      operatorName: p.name,
+      operatorEmail: p.email,
+      operatorAvatar: p.avatar,
+      operatorWorkspace: p.workspace,
+    });
+    set({
+      operatorName: p.name,
+      operatorEmail: p.email,
+      operatorAvatar: p.avatar,
+      operatorWorkspace: p.workspace,
+    });
   },
   setAccent: (accent) => {
     writeSettings({ accent });
