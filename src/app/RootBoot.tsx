@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { onAuth } from "@/core/auth";
+import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { ACCENT_VAR_KEYS, accentVars } from "@/core/theme/accent";
 import { isEnabled as gcalEnabled, syncNow } from "@/features/calendar-sync";
+import { gratitudeRequired } from "@/features/journal";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { GO_SHORTCUTS } from "./keymap";
@@ -69,6 +71,11 @@ export function RootBoot() {
   // Global keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Morning gate up: swallow every shortcut so there's no keyboard way around it.
+      if (gratitudeRequired(useStore.getState().journal, todayISO())) {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         toggleCommand();

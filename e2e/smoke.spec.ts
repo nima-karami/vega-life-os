@@ -54,6 +54,7 @@ test("boots to /today — no TopBar, no NavRow, omni trigger visible", async ({ 
   });
 
   await page.goto("/", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
 
   // No legacy nav chrome (NavRow was a <nav>). Semantic <header>/page headers are allowed.
   await expect(page.locator("nav")).toHaveCount(0);
@@ -87,6 +88,7 @@ for (const { path, name } of V1_ROUTES) {
       }
     });
 
+    await passGratitudeGate(page);
     await page.goto(path, { waitUntil: "networkidle" });
 
     // main content area is present
@@ -118,6 +120,7 @@ for (const path of REMOVED_ROUTES) {
       }
     });
 
+    await passGratitudeGate(page);
     await page.goto(path, { waitUntil: "networkidle" });
 
     // 404 page shows — wait for main to contain recovery text
@@ -195,6 +198,7 @@ test("add-a-task captures a title and the card appears in Remaining", async ({ p
 test("calendar: opening a slot then closing without naming discards the draft", async ({
   page,
 }) => {
+  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -214,6 +218,7 @@ test("calendar: opening a slot then closing without naming discards the draft", 
 });
 
 test("calendar: right-click a chip → Delete removes it", async ({ page }) => {
+  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -238,6 +243,7 @@ test("calendar: right-click a chip → Delete removes it", async ({ page }) => {
 });
 
 test("calendar: right-click an empty slot → add / schedule menu", async ({ page }) => {
+  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -258,6 +264,7 @@ test("calendar: right-click an empty slot → add / schedule menu", async ({ pag
 });
 
 test("calendar: schedule an existing task from the slot menu", async ({ page }) => {
+  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -292,6 +299,7 @@ const primaryToken = (page: import("@playwright/test").Page) =>
 test("settings: choosing an accent re-tints the HeroUI primary and persists; Default reverts", async ({
   page,
 }) => {
+  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -375,11 +383,18 @@ test("today: gratitude gate blocks tasks until ≥1 is written, with no skip", a
   // There is no skip control anywhere on the gate.
   await expect(page.getByRole("button", { name: /skip/i })).toHaveCount(0);
 
-  // Writing one gratitude enables Continue and reveals the tasks.
+  // The shell is sealed: no search bar, and other routes bounce back to the gate.
+  await expect(page.getByTestId("omni-trigger")).toHaveCount(0);
+  await page.goto("/habits", { waitUntil: "networkidle" });
+  await expect(cont).toBeVisible();
+  await expect(page.getByTestId("omni-trigger")).toHaveCount(0);
+
+  // Writing one gratitude enables Continue, reveals the tasks, and unseals the shell.
   await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("Sunshine");
   await expect(cont).toBeEnabled();
   await cont.click();
   await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+  await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
 
   // Reloading goes straight to tasks (gate satisfied, data-driven).
   await page.reload({ waitUntil: "networkidle" });
@@ -447,6 +462,7 @@ test("today: journal editor saves a note and supports delete + undo", async ({ p
 test("settings: reset demo data is available signed-out and reloads the sandbox", async ({
   page,
 }) => {
+  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.getByRole("button", { name: "Reset demo data" })).toBeVisible({
     timeout: 15_000,
@@ -456,6 +472,7 @@ test("settings: reset demo data is available signed-out and reloads the sandbox"
 });
 
 test("settings: delete all (this device) empties the sandbox", async ({ page }) => {
+  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Delete all (this device)" }).click();
