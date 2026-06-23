@@ -14,12 +14,19 @@ interface Habit {
   valueId: string;
   time: string | null;
   durationMin: number;
+  days?: number[];
+  archivedAt?: string | null;
+}
+
+interface Value {
+  id: string;
+  archivedAt?: string | null;
 }
 
 /** Minimal harness: drive the slice with a local state object, supplying the
- *  cross-slice `habits` that relinkTaskToHabit reaches for. */
-function makeSlice(seed: { tasks?: Task[]; habits?: Habit[] } = {}) {
-  type State = TasksSlice & { habits: Habit[] };
+ *  cross-slice `habits`/`values` the scheduling engine reaches for. */
+function makeSlice(seed: { tasks?: Task[]; habits?: Habit[]; values?: Value[] } = {}) {
+  type State = TasksSlice & { habits: Habit[]; values: Value[] };
   let state = {} as State;
   const set = (partial: Partial<State> | ((s: State) => Partial<State>)) => {
     state = { ...state, ...(typeof partial === "function" ? partial(state) : partial) };
@@ -27,6 +34,7 @@ function makeSlice(seed: { tasks?: Task[]; habits?: Habit[] } = {}) {
   const get = () => state;
   state = {
     habits: seed.habits ?? [],
+    values: seed.values ?? [],
     // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
     ...createTasksSlice(set as any, get as any, {} as any),
   } as State;
@@ -98,6 +106,52 @@ describe("relinkTaskToHabit", () => {
     get().relinkTaskToHabit("t1");
     expect(get().tasks[0].title).toBe("Moved title");
     expect(get().tasks[0].detached).toBe(true);
+  });
+});
+
+describe("ensureUpcoming — archived gating", () => {
+  const everyDay = [1, 1, 1, 1, 1, 1, 1];
+  const sched = (over: Partial<Habit> = {}): Habit => ({
+    id: "h1",
+    name: "Run",
+    goalId: null,
+    valueId: "v1",
+    time: "07:00",
+    durationMin: 30,
+    days: everyDay,
+    archivedAt: null,
+    ...over,
+  });
+
+  it("generates instances for an active habit under an active value", () => {
+    const { get } = makeSlice({ habits: [sched()], values: [{ id: "v1", archivedAt: null }] });
+    expect(get().ensureUpcoming(1)).toBeGreaterThan(0);
+  });
+
+  it("generates nothing for an archived habit", () => {
+    const { get } = makeSlice({
+      habits: [sched({ archivedAt: "2026-06-01T00:00:00Z" })],
+      values: [{ id: "v1", archivedAt: null }],
+    });
+    expect(get().ensureUpcoming(1)).toBe(0);
+  });
+
+  it("generates nothing for a habit under an archived value", () => {
+    const { get } = makeSlice({
+      habits: [sched()],
+      values: [{ id: "v1", archivedAt: "2026-06-01T00:00:00Z" }],
+    });
+    expect(get().ensureUpcoming(1)).toBe(0);
+  });
+
+  it("generates nothing for a habit with a missing/dangling value", () => {
+    const { get } = makeSlice({ habits: [sched({ valueId: "gone" })], values: [] });
+    expect(get().ensureUpcoming(1)).toBe(0);
+  });
+
+  it("treats a value without an archivedAt field as active (back-compat)", () => {
+    const { get } = makeSlice({ habits: [sched()], values: [{ id: "v1" }] });
+    expect(get().ensureUpcoming(1)).toBeGreaterThan(0);
   });
 });
 

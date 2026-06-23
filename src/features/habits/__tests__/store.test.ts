@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Task } from "@/features/tasks/model";
 import { createHabitsSlice, type HabitsSlice } from "../store";
 
 vi.mock("@/core/store/persist", () => ({
@@ -7,9 +8,13 @@ vi.mock("@/core/store/persist", () => ({
 }));
 
 /** Minimal harness: drive the slice with a local state object, stubbing the
- *  cross-slice bits addHabit reaches for (values + ensureUpcoming). */
-function makeSlice() {
-  type State = HabitsSlice & { values: { id: string }[]; ensureUpcoming: () => void };
+ *  cross-slice bits the habit actions reach for (values + tasks + ensureUpcoming). */
+function makeSlice(seed: { tasks?: Task[] } = {}) {
+  type State = HabitsSlice & {
+    values: { id: string }[];
+    tasks: Task[];
+    ensureUpcoming: () => void;
+  };
   let state = {} as State;
   const set = (partial: Partial<State> | ((s: State) => Partial<State>)) => {
     state = { ...state, ...(typeof partial === "function" ? partial(state) : partial) };
@@ -17,12 +22,32 @@ function makeSlice() {
   const get = () => state;
   state = {
     values: [{ id: "v1" }],
+    tasks: seed.tasks ?? [],
     ensureUpcoming: vi.fn(),
     // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
     ...createHabitsSlice(set as any, get as any, {} as any),
   } as State;
+  if (seed.tasks) state.tasks = seed.tasks;
   return { get };
 }
+
+const inst = (over: Partial<Task> = {}): Task =>
+  ({
+    id: "t",
+    title: "x",
+    kind: "habit",
+    habitId: "h1",
+    goalId: null,
+    valueId: "v1",
+    date: "2999-01-01",
+    time: "09:00",
+    durationMin: 30,
+    status: "todo",
+    detached: false,
+    note: "",
+    order: 0,
+    ...over,
+  }) as Task;
 
 describe("addHabit — time handling", () => {
   it("defaults to 09:00 when time is omitted", () => {
@@ -41,5 +66,66 @@ describe("addHabit — time handling", () => {
     const { get } = makeSlice();
     get().addHabit({ name: "Drink water", time: null, days: [1, 1, 1, 1, 1, 1, 1] });
     expect(get().ensureUpcoming).toHaveBeenCalled();
+  });
+
+  it("defaults archivedAt to null (active)", () => {
+    const { get } = makeSlice();
+    const h = get().addHabit({ name: "Workout" });
+    expect(h.archivedAt).toBeNull();
+  });
+});
+
+describe("archiveHabit / unarchiveHabit", () => {
+  it("archives: sets archivedAt and strips future undone non-detached instances", () => {
+    const { get } = makeSlice({
+      tasks: [
+        inst({ id: "future", date: "2999-01-01" }),
+        inst({ id: "past", date: "2000-01-01" }),
+        inst({ id: "detached", date: "2999-02-01", detached: true }),
+        inst({ id: "done", date: "2999-03-01", status: "done" }),
+      ],
+    });
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().archiveHabit("h1");
+    expect(get().habits[0].archivedAt).toBeTruthy();
+    const ids = get()
+      .tasks.map((t) => t.id)
+      .sort();
+    expect(ids).toEqual(["detached", "done", "past"]);
+  });
+
+  it("archives without regenerating (ensureUpcoming not fired by archive)", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    get().archiveHabit("h1");
+    expect(get().ensureUpcoming).not.toHaveBeenCalled();
+  });
+
+  it("archive is idempotent (a no-op when already archived)", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().archiveHabit("h1");
+    const firstTs = get().habits[0].archivedAt;
+    get().archiveHabit("h1");
+    expect(get().habits[0].archivedAt).toBe(firstTs);
+  });
+
+  it("unarchives: clears archivedAt and calls ensureUpcoming", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().archiveHabit("h1");
+    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    get().unarchiveHabit("h1");
+    expect(get().habits[0].archivedAt).toBeNull();
+    expect(get().ensureUpcoming).toHaveBeenCalled();
+  });
+
+  it("unarchive is idempotent (a no-op on an active habit)", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    get().unarchiveHabit("h1");
+    expect(get().ensureUpcoming).not.toHaveBeenCalled();
   });
 });

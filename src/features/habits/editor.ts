@@ -8,8 +8,11 @@
  */
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
+import type { Habit } from "./model";
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+const listFmt = new Intl.ListFormat(undefined, { style: "long", type: "conjunction" });
 
 /** Shown wherever a habit's time would appear when the habit has no time (untimed). */
 export const ANYTIME_LABEL = "Anytime";
@@ -64,4 +67,24 @@ export function validateDraft(draft: { name: string; durationMin: number }): Dra
  */
 export function detachedCount(tasks: Task[], habitId: string): number {
   return tasks.filter((t) => t.habitId === habitId && t.detached).length;
+}
+
+/**
+ * Advisory conflict text for the editor. Given the habits that already occupy
+ * the draft's slot (from `conflictingHabits`) and the draft's selected days,
+ * returns the line to show, or null when there's nothing to warn about.
+ * Locale-aware names + day list; never blocks Save.
+ */
+export function conflictNote(conflicts: Habit[], draftDays: number[]): string | null {
+  if (!conflicts.length) return null;
+  // shared days = draft days that any conflicting habit also runs on
+  const sharedIdx = draftDays
+    .map((on, i) => (on === 1 && conflicts.some((c) => c.days[i] === 1) ? i : -1))
+    .filter((i) => i >= 0);
+  const dayLabel = listFmt.format(sharedIdx.map((i) => DAY_SHORT[i]));
+  if (conflicts.length === 1) {
+    return `Overlaps ${conflicts[0].name} on ${dayLabel}.`;
+  }
+  const names = listFmt.format(conflicts.map((c) => c.name));
+  return `Overlaps ${conflicts.length} habits on these days: ${names}.`;
 }
