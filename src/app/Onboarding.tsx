@@ -20,8 +20,12 @@ export function Onboarding() {
 
   const explore = async () => {
     setBusy(true);
-    await seedDemo();
-    setOnboarded(true);
+    try {
+      await seedDemo();
+      setOnboarded(true);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
