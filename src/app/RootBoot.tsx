@@ -9,6 +9,7 @@ import { EphemeralOverlay } from "./EphemeralOverlay";
 import { GO_SHORTCUTS } from "./keymap";
 import { Onboarding } from "./Onboarding";
 import { Shortcuts } from "./Shortcuts";
+import { SignInGate } from "./SignInGate";
 import { Toast } from "./Toast";
 
 /** Top-level provider: boots data, applies vapor theme, owns the global ⌘K layer. */
@@ -144,6 +145,7 @@ export function RootBoot() {
       <EphemeralOverlay />
       <Shortcuts />
       <Toast />
+      <SignInGate />
     </>
   );
 }

@@ -78,7 +78,7 @@ export function AccountSettings() {
           <div>
             <p className="text-small font-medium text-foreground">{email}</p>
             <p className="mt-1 text-tiny text-default-500">
-              Signed in · data syncs across your devices in real time.
+              Signed in · synced to your account. This device keeps no local copy.
             </p>
           </div>
           <Button
@@ -93,7 +93,8 @@ export function AccountSettings() {
         <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="max-w-sm text-small text-default-500">
-              Sign in to sync across devices. Local data merges up on first sign-in.
+              Sign in to use your cloud account across devices. Data on this device stays local and
+              is not uploaded; back it up first if you want to keep it.
             </p>
             <Button
               color="primary"

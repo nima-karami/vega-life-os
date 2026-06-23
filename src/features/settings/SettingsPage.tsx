@@ -1,7 +1,7 @@
 import { Button, Input } from "@heroui/react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, Icon } from "@/core/ui";
+import { ConfirmDialog, cx, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
 import { AgentSettings } from "./components/AgentSettings";
 import { CalendarSettings } from "./components/CalendarSettings";
@@ -22,6 +22,8 @@ export function SettingsPage() {
   const s = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
+  const signedIn = s.authUid != null;
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // downscale to a 256px square data-URL so the avatar stays tiny in localStorage
   const setAvatar = async (file: File) => {
@@ -195,8 +197,12 @@ export function SettingsPage() {
 
         {/* data */}
         <SettingsCard
-          title="Data · local-first"
-          description="Everything is stored in this browser (IndexedDB). No cloud, no account. Back up regularly — clearing site data wipes it."
+          title="Data"
+          description={
+            signedIn
+              ? "Synced to your account (cloud). This device keeps no local copy."
+              : "Exploring locally on this device. This data is not synced."
+          }
         >
           <div className="flex flex-wrap gap-2">
             <Button
@@ -224,22 +230,34 @@ export function SettingsPage() {
                 e.target.value = "";
               }}
             />
+            {!signedIn && (
+              <Button
+                variant="flat"
+                startContent={<Icon name="repeat" size={15} />}
+                onPress={() => {
+                  void s.resetDemo();
+                  s.pushToast("Demo data reset");
+                }}
+              >
+                Reset demo data
+              </Button>
+            )}
+            {!signedIn && (
+              <Button
+                variant="light"
+                startContent={<Icon name="spark" size={15} />}
+                onPress={() => s.setOnboarded(false)}
+              >
+                Replay welcome
+              </Button>
+            )}
             <Button
               variant="flat"
-              startContent={<Icon name="repeat" size={15} />}
-              onPress={() => {
-                void s.reseed();
-                s.pushToast("Demo data reset");
-              }}
+              color="danger"
+              startContent={<Icon name="trash" size={15} />}
+              onPress={() => setConfirmDelete(true)}
             >
-              Reset demo data
-            </Button>
-            <Button
-              variant="light"
-              startContent={<Icon name="spark" size={15} />}
-              onPress={() => s.setOnboarded(false)}
-            >
-              Replay welcome
+              {signedIn ? "Delete all my data" : "Delete all (this device)"}
             </Button>
           </div>
         </SettingsCard>
@@ -259,6 +277,28 @@ export function SettingsPage() {
             adapters — drop in keys to enable. See HANDOFF.md.
           </p>
         </SettingsCard>
+        <ConfirmDialog
+          open={confirmDelete}
+          title={s.authUid ? "Delete all your account data?" : "Delete all data on this device?"}
+          body={
+            <span>
+              This permanently removes {s.authUid ? "your account's" : "this device's"} values,
+              goals, habits, tasks, and journal. This can't be undone.{" "}
+              <button type="button" className="text-primary underline" onClick={doExport}>
+                Export a backup first
+              </button>
+              .
+            </span>
+          }
+          confirmLabel="Delete everything"
+          danger
+          onConfirm={() => {
+            void s.deleteAllData();
+            setConfirmDelete(false);
+            s.pushToast("All data deleted");
+          }}
+          onClose={() => setConfirmDelete(false)}
+        />
       </div>
     </div>
   );
