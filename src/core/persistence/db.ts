@@ -17,6 +17,7 @@ export class VegaDB extends Dexie {
   vocab!: Table<VocabEntry, string>;
   reviews!: Table<Review, string>;
   journal!: Table<DayEntry, string>;
+  meta!: Table<{ key: string; dirty?: boolean }, string>;
 
   constructor() {
     super("vega-life-os");
@@ -33,6 +34,12 @@ export class VegaDB extends Dexie {
     this.version(1).stores(stores);
     this.version(2).stores({ ...stores, reviews: "id, periodKey" });
     this.version(3).stores({ ...stores, reviews: "id, periodKey", journal: "id, date" });
+    this.version(4).stores({
+      ...stores,
+      reviews: "id, periodKey",
+      journal: "id, date",
+      meta: "key",
+    });
   }
 }
 
