@@ -21,6 +21,9 @@
     "scan:secrets": "gitleaks git . --no-banner --redact",
     "sast": "semgrep ci",
     "e2e": "playwright test",
+    "deploy": "npm run build && npx -y firebase-tools@15 deploy --only hosting --project vega-life-os --non-interactive",
+    "deploy:preview": "npm run build && npx -y firebase-tools@15 hosting:channel:deploy preview --expires 7d --project vega-life-os --non-interactive",
+    "deploy:rollback": "npx -y firebase-tools@15 hosting:rollback --project vega-life-os",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deadcode && npm run test && npm run dupes && npm run scan:secrets && npm run audit:deps && npm run e2e",
     "prepare": "husky"
   },

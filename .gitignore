@@ -19,6 +19,13 @@ dist-ssr
 # Agent worktrees (transient, auto-managed)
 .claude/worktrees/
 
+# Autonomous-build-loop run state (transient)
+.autoloop/
+
+# Firebase deploy cache + playwright-cli scratch (transient)
+.firebase/
+.playwright-cli/
+
 # Scheduled-tasks runtime lock (not source)
 .claude/scheduled_tasks.lock
 
