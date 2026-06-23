@@ -3,6 +3,7 @@ import {
   BookOpen,
   Briefcase,
   Calendar,
+  CalendarOff,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -109,6 +110,7 @@ export const Ic: Record<IconName, LucideIcon> = {
   flame: Flame,
   copy: Copy,
   clipboard: ClipboardList,
+  "calendar-off": CalendarOff,
 };
 
 export function Icon({

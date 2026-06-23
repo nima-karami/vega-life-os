@@ -101,6 +101,145 @@ describe("relinkTaskToHabit", () => {
   });
 });
 
+describe("date→time invariant (no date ⇒ no time)", () => {
+  it("clearing a timed task's date cascades time→null, preserving duration", () => {
+    const { get } = makeSlice({
+      tasks: [
+        instance({
+          kind: "oneoff",
+          habitId: null,
+          date: "2026-06-25",
+          time: "09:00",
+          durationMin: 60,
+        }),
+      ],
+    });
+    get().updateTask("t1", { date: null });
+    const t = get().tasks[0];
+    expect(t.date).toBeNull();
+    expect(t.time).toBeNull();
+    expect(t.durationMin).toBe(60);
+  });
+
+  it("coerces a time set on a dateless task to null", () => {
+    const { get } = makeSlice({
+      tasks: [instance({ kind: "oneoff", habitId: null, date: null, time: null })],
+    });
+    get().updateTask("t1", { time: "11:00" });
+    expect(get().tasks[0].time).toBeNull();
+  });
+
+  it("keeps an existing time when a real date is set (all-day stays valid for null time)", () => {
+    const { get } = makeSlice({
+      tasks: [instance({ kind: "oneoff", habitId: null, date: "2026-06-25", time: "09:00" })],
+    });
+    get().updateTask("t1", { date: "2026-06-26" });
+    const t = get().tasks[0];
+    expect(t.date).toBe("2026-06-26");
+    expect(t.time).toBe("09:00");
+  });
+
+  it("normalizes per-task on a bulk date-clear", () => {
+    const mk = (id: string): Task =>
+      instance({ id, kind: "oneoff", habitId: null, date: "2026-06-25", time: "08:00" });
+    const { get } = makeSlice({ tasks: [mk("a"), mk("b")] });
+    get().bulkUpdateTasks(["a", "b"], { date: null });
+    for (const t of get().tasks) {
+      expect(t.date).toBeNull();
+      expect(t.time).toBeNull();
+    }
+  });
+
+  it("never lets addTask construct an invalid dateless-but-timed task", () => {
+    const { get } = makeSlice();
+    const t = get().addTask({ date: null, time: "10:00" });
+    expect(t.date).toBeNull();
+    expect(t.time).toBeNull();
+  });
+});
+
+describe("unscheduleTask", () => {
+  it("clears date+time, flips todo→open, preserves duration and links", () => {
+    const { get } = makeSlice({
+      tasks: [
+        instance({
+          kind: "oneoff",
+          habitId: null,
+          date: "2026-06-25",
+          time: "09:00",
+          durationMin: 90,
+          status: "todo",
+          goalId: "g1",
+          valueId: "v1",
+        }),
+      ],
+    });
+    get().unscheduleTask("t1");
+    const t = get().tasks[0];
+    expect(t.date).toBeNull();
+    expect(t.time).toBeNull();
+    expect(t.status).toBe("open");
+    expect(t.durationMin).toBe(90);
+    expect(t.goalId).toBe("g1");
+    expect(t.valueId).toBe("v1");
+  });
+
+  it("preserves a done/skip status", () => {
+    const { get } = makeSlice({
+      tasks: [
+        instance({
+          kind: "oneoff",
+          habitId: null,
+          date: "2026-06-25",
+          time: "07:00",
+          status: "done",
+        }),
+      ],
+    });
+    get().unscheduleTask("t1");
+    const t = get().tasks[0];
+    expect(t.date).toBeNull();
+    expect(t.time).toBeNull();
+    expect(t.status).toBe("done");
+  });
+
+  it("detaches a habit instance", () => {
+    const { get } = makeSlice({
+      tasks: [
+        instance({
+          kind: "habit",
+          habitId: "h1",
+          detached: false,
+          date: "2026-06-25",
+          time: "06:30",
+        }),
+      ],
+    });
+    get().unscheduleTask("t1");
+    const t = get().tasks[0];
+    expect(t.detached).toBe(true);
+    expect(t.date).toBeNull();
+    expect(t.time).toBeNull();
+  });
+
+  it("is a safe no-op on a missing id", () => {
+    const { get } = makeSlice({ tasks: [instance()] });
+    expect(() => get().unscheduleTask("nope")).not.toThrow();
+    expect(get().tasks).toHaveLength(1);
+  });
+
+  it("is idempotent on an already-backlog open task (no spurious status change)", () => {
+    const { get } = makeSlice({
+      tasks: [instance({ kind: "oneoff", habitId: null, date: null, time: null, status: "open" })],
+    });
+    get().unscheduleTask("t1");
+    const t = get().tasks[0];
+    expect(t.date).toBeNull();
+    expect(t.time).toBeNull();
+    expect(t.status).toBe("open");
+  });
+});
+
 describe("bulkUpdateTasks / bulkRemoveTasks", () => {
   const oneoff = (id: string, over: Partial<Task> = {}): Task => ({
     id,

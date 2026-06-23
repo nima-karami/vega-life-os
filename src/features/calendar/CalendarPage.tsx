@@ -70,6 +70,7 @@ export function CalendarPage() {
   const values = useStore((s) => s.values);
   const updateTask = useStore((s) => s.updateTask);
   const relinkTaskToHabit = useStore((s) => s.relinkTaskToHabit);
+  const unscheduleTask = useStore((s) => s.unscheduleTask);
   const bulkUpdateTasks = useStore((s) => s.bulkUpdateTasks);
   const bulkRemoveTasks = useStore((s) => s.bulkRemoveTasks);
   const addTask = useStore((s) => s.addTask);
@@ -773,6 +774,11 @@ export function CalendarPage() {
     removeTask(t.id);
     pushToast("Task deleted");
   };
+  const unschedule = (t: Task) => {
+    unscheduleTask(t.id);
+    pushToast("Moved to backlog");
+    setAnnounce("Moved to backlog");
+  };
 
   // Shared chip menus. Timed chips: Copy · Delete · (Relink). All-day chips also
   // get Open and "Schedule to time…" (the keyboard path for drag-to-schedule).
@@ -780,6 +786,7 @@ export function CalendarPage() {
     const relink = relinkItemFor(t);
     return [
       { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
+      { label: "Unschedule", icon: "calendar-off", onSelect: () => unschedule(t) },
       { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
       ...(relink ? [relink] : []),
     ];
@@ -789,8 +796,9 @@ export function CalendarPage() {
     return [
       { label: "Open", icon: "edit", onSelect: () => openTask(t) },
       { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
-      { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
       { label: "Schedule to time…", icon: "clock", onSelect: () => setScheduleTask(t) },
+      { label: "Unschedule", icon: "calendar-off", onSelect: () => unschedule(t) },
+      { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
       ...(relink ? [relink] : []),
     ];
   };
