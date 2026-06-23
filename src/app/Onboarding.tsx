@@ -16,6 +16,7 @@ export function Onboarding() {
   const seedDemo = useStore((s) => s.seedDemo);
   const setOnboarded = useStore((s) => s.setOnboarded);
   const [busy, setBusy] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const reduce = useReducedMotion();
 
   const explore = async () => {
@@ -68,9 +69,26 @@ export function Onboarding() {
         </div>
 
         {firebaseEnabled ? (
-          <div className="mt-8">
-            <AuthForm autoFocus />
-          </div>
+          showAuth ? (
+            <div className="mt-8 space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowAuth(false)}
+                className="text-tiny text-default-500 transition-colors hover:text-foreground"
+              >
+                ← Back
+              </button>
+              <AuthForm autoFocus />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAuth(true)}
+              className="mt-8 flex w-full items-center justify-center gap-2 rounded-medium bg-primary py-3 text-small font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Icon name="user" size={14} /> Sign in or create account
+            </button>
+          )
         ) : (
           <p className="mt-8 rounded-medium border border-divider bg-content1 px-4 py-3 text-small leading-relaxed text-default-500">
             Cloud sign-in isn't configured on this build. You can explore VEGA with sample data
@@ -78,7 +96,7 @@ export function Onboarding() {
           </p>
         )}
 
-        <div className="mt-6">
+        <div className="mt-3">
           <button
             type="button"
             disabled={busy}
