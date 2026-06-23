@@ -25,7 +25,7 @@ export function SignInGate() {
   };
 
   const cancel = () => {
-    void signOutUser(); // back to signed-out; onAuthChange(null) restores the sandbox
+    void signOutUser(); // abort sign-in: signs back out → onAuthChange(null) is a noop; sandbox stays intact
     useStore.setState({ pendingSignIn: null });
   };
 

@@ -168,7 +168,8 @@ export const useStore = create<RootState>((set, get, api) => ({
   confirmPendingSignIn: async () => {
     const uid = get().pendingSignIn;
     if (!uid) return;
-    set({ pendingSignIn: null });
+    setPersistAuth(uid);
+    set({ authUid: uid, pendingSignIn: null });
     await loadAccount(uid, set, get);
   },
 
@@ -222,6 +223,19 @@ export const useStore = create<RootState>((set, get, api) => ({
   onAuthChange: async (uid: string | null) => {
     const routing = persistence as RoutingAdapter;
     const t = authTransition(get().authUid, uid, get().authResolved);
+
+    // Dirty-sandbox sign-in: park WITHOUT committing auth state or switching the
+    // delegate, so cancelling (which signs back out → onAuthChange(null)) classifies
+    // as a noop and leaves the sandbox fully intact. Auth is committed only in
+    // confirmPendingSignIn once the user chooses to continue.
+    if (t === "sign-in" && uid) {
+      const hasRows = !(await new DexieAdapter().isEmpty());
+      if (isSandboxDirty(await getSandboxDirty(), hasRows)) {
+        set({ authResolved: true, pendingSignIn: uid });
+        return;
+      }
+    }
+
     setPersistAuth(uid);
     set({ authUid: uid, authResolved: true });
 
@@ -237,11 +251,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       return;
     }
     if (t === "sign-in" && uid) {
-      const hasRows = !(await new DexieAdapter().isEmpty());
-      if (isSandboxDirty(await getSandboxDirty(), hasRows)) {
-        set({ pendingSignIn: uid }); // SignInGate (Task 6) resolves this
-        return;
-      }
+      // clean (non-dirty) sign-in — the gate above already handled the dirty case
       await loadAccount(uid, set, get);
       return;
     }
