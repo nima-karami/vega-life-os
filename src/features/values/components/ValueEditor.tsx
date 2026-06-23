@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import { valueColor } from "../color";
+import { VALUE_HUES, VALUE_PALETTE, valueColor } from "../color";
 import type { Value } from "../model";
 import { EditorField, HuePicker, IconPicker } from "./editor-bits";
 
@@ -40,26 +40,15 @@ const VALUE_ICONS: IconName[] = [
   "globe",
 ];
 
-/** Vapor marker hues offered in the editor (preset swatches only — no free hex). */
-const HUES = [
-  "#3B82C4",
-  "#2F9E74",
-  "#C2622E",
-  "#8A4FC9",
-  "#0E8C8C",
-  "#B14A7A",
-  "#6b7280",
-  "#0d1117",
-] as const;
-
 interface ValueDraft {
   name: string;
   desc: string;
   icon: IconName;
+  /** "" = auto (order-based color) until the user picks a swatch. */
   hue: string;
 }
 
-const BLANK: ValueDraft = { name: "", desc: "", icon: "compass", hue: HUES[0] };
+const BLANK: ValueDraft = { name: "", desc: "", icon: "compass", hue: "" };
 
 export function ValueEditor({
   valueId,
@@ -91,7 +80,7 @@ export function ValueEditor({
   const isOpen = creating || !!value;
   // Fields read from the live record when editing, or the local draft when creating.
   const view = value ?? draft;
-  const color = value ? valueColor(value) : draft.hue;
+  const color = value ? valueColor(value) : draft.hue || VALUE_PALETTE[0];
 
   const setField = (patch: Partial<ValueDraft>) => {
     if (value) update(value.id, patch);
@@ -159,7 +148,11 @@ export function ValueEditor({
               </EditorField>
 
               <EditorField label="Marker hue">
-                <HuePicker value={view.hue} options={HUES} onSelect={(hue) => setField({ hue })} />
+                <HuePicker
+                  value={view.hue}
+                  options={VALUE_HUES}
+                  onSelect={(hue) => setField({ hue })}
+                />
               </EditorField>
             </ModalBody>
 

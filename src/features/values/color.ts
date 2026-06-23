@@ -19,15 +19,23 @@ export const VALUE_PALETTE = [
   "#B14A7A", // magenta
 ] as const;
 
+/** The colors offered in the value editor's hue picker (the palette + a slate + ink). */
+export const VALUE_HUES = [...VALUE_PALETTE, "#6b7280", "#0d1117"] as const;
+const PICKABLE = new Set<string>(VALUE_HUES);
+
 /** Neutral fallback — CSS custom property reference (muted text color) */
 export const VALUE_COLOR_FALLBACK = "var(--color-muted)";
 
 /**
- * Pure function — returns a stable CSS color hex for a value, based on `order`.
- * - Same order → same color across sessions (deterministic, never random).
+ * Pure function — returns the CSS color for a value.
+ * - An explicitly chosen hue (one of `VALUE_HUES`) wins.
+ * - Otherwise a stable, distinct color by `order` (legacy/unset hues fall here, so
+ *   nothing regresses to the old monochrome grays).
  * - Unknown / null value → neutral fallback, never throws.
  */
-export function valueColor(value: Pick<{ order: number }, "order"> | undefined | null): string {
+export function valueColor(value: { hue?: string; order?: number } | undefined | null): string {
   if (value == null) return VALUE_COLOR_FALLBACK;
-  return VALUE_PALETTE[value.order % VALUE_PALETTE.length];
+  if (value.hue && PICKABLE.has(value.hue)) return value.hue;
+  if (typeof value.order === "number") return VALUE_PALETTE[value.order % VALUE_PALETTE.length];
+  return VALUE_COLOR_FALLBACK;
 }
