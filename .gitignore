@@ -19,6 +19,9 @@ dist-ssr
 # Agent worktrees (transient, auto-managed)
 .claude/worktrees/
 
+# Scheduled-tasks runtime lock (not source)
+.claude/scheduled_tasks.lock
+
 # Playwright runtime-QA artifacts
 /test-results/
 /playwright-report/
