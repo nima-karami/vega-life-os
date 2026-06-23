@@ -25,7 +25,7 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
   return (
     <section
       aria-label="Morning gratitude"
-      className="mx-auto flex min-h-[60vh] w-full max-w-md flex-col justify-center gap-6 px-4 py-10"
+      className="flex w-full max-w-md flex-col gap-6 px-4 py-10"
     >
       <div className="flex flex-col items-center gap-3 text-center">
         <div className="grid h-12 w-12 place-items-center rounded-full bg-content2 text-primary">

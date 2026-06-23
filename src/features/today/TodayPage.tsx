@@ -124,7 +124,7 @@ export function TodayPage() {
 
   if (showGratitudeGate) {
     return (
-      <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
+      <div className="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center px-4 py-6 sm:py-10">
         <div aria-live="polite" className="sr-only">
           {announce}
         </div>
