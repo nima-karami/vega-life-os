@@ -91,9 +91,36 @@ describe("partitionToday()", () => {
   });
 
   it("returns empty groups for a day with no tasks", () => {
-    const { remaining, done } = partitionToday([], TODAY);
+    const { remaining, done, habits } = partitionToday([], TODAY);
     expect(remaining).toEqual([]);
     expect(done).toEqual([]);
+    expect(habits).toEqual([]);
+  });
+
+  it("routes anytime-habit instances to the habits strip, excluded from remaining/done", () => {
+    const tasks = [
+      task({ id: "task", status: "todo" }),
+      task({ id: "h-todo", kind: "habit", habitId: "h1", time: null, status: "todo" }),
+      task({ id: "h-done", kind: "habit", habitId: "h2", time: null, status: "done" }),
+    ];
+    const { remaining, done, habits } = partitionToday(tasks, TODAY);
+    expect(remaining.map((t) => t.id)).toEqual(["task"]);
+    expect(done.map((t) => t.id)).toEqual([]);
+    expect(habits.map((t) => t.id)).toEqual(["h-todo", "h-done"]);
+  });
+
+  it("keeps a timed habit instance in the task lists, not the strip", () => {
+    const tasks = [task({ id: "h", kind: "habit", habitId: "h1", time: "08:00", status: "todo" })];
+    const { remaining, habits } = partitionToday(tasks, TODAY);
+    expect(remaining.map((t) => t.id)).toEqual(["h"]);
+    expect(habits).toEqual([]);
+  });
+
+  it("keeps an untimed one-off in remaining (only habit-kind untimed go to the strip)", () => {
+    const tasks = [task({ id: "o", kind: "oneoff", time: null, status: "todo" })];
+    const { remaining, habits } = partitionToday(tasks, TODAY);
+    expect(remaining.map((t) => t.id)).toEqual(["o"]);
+    expect(habits).toEqual([]);
   });
 });
 

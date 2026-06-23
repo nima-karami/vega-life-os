@@ -25,6 +25,12 @@ describe("isSchedulable", () => {
     expect(isSchedulable(task({ date: null }))).toBe(false);
     expect(isSchedulable(task({ status: "skip" }))).toBe(false);
   });
+
+  it("never pushes anytime-habit instances (kind habit, no time)", () => {
+    expect(isSchedulable(task({ kind: "habit", habitId: "h1", time: null }))).toBe(false);
+    // a timed habit instance still syncs
+    expect(isSchedulable(task({ kind: "habit", habitId: "h1", time: "08:00" }))).toBe(true);
+  });
 });
 
 describe("toGEvent", () => {

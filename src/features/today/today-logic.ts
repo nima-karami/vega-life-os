@@ -6,29 +6,34 @@
 import { reorderByIds } from "@/core/lib/reorder";
 import type { Goal } from "@/features/goals/model";
 import type { Task, TaskStatus } from "@/features/tasks/model";
-import { dayQueue, isResolved } from "@/features/tasks/selectors";
+import { dayQueue, isAnytimeHabit, isResolved } from "@/features/tasks/selectors";
 
 export interface TodayGroups {
   /** open | todo — still to do today, sorted by time then order */
   remaining: Task[];
   /** done | skip — resolved today, sorted by time then order */
   done: Task[];
+  /** anytime habit instances — shown in the Daily-habits strip, excluded from the task lists */
+  habits: Task[];
 }
 
 /**
- * Partition today's queue into Remaining (open|todo) and Done (done|skip).
- * Reuses `dayQueue` so both groups inherit the canonical time→order sort,
- * and `isResolved` so the Remaining/Done boundary matches the rest of the app.
+ * Partition today's queue into Remaining (open|todo), Done (done|skip), and the
+ * anytime-habit strip. Anytime habits are pulled out first so they never appear
+ * in the task lists or the day's "X of Y" count. Reuses `dayQueue` for the
+ * canonical time→order sort and `isResolved` for the Remaining/Done boundary.
  */
 export function partitionToday(tasks: Task[], date: string): TodayGroups {
   const queue = dayQueue(tasks, date);
   const remaining: Task[] = [];
   const done: Task[] = [];
+  const habits: Task[] = [];
   for (const t of queue) {
-    if (isResolved(t)) done.push(t);
+    if (isAnytimeHabit(t)) habits.push(t);
+    else if (isResolved(t)) done.push(t);
     else remaining.push(t);
   }
-  return { remaining, done };
+  return { remaining, done, habits };
 }
 
 /** Local draft state for the inline "Add a task" capture flow. */

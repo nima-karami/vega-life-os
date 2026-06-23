@@ -134,9 +134,9 @@ export function GoalEditor({
                 variant="bordered"
               />
 
-              {/* status — radiogroup */}
+              {/* status — segmented toggle buttons */}
               <EditorField label="Status">
-                <div role="radiogroup" aria-label="Status" className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {GOAL_STATUSES.map((st) => (
                     <SegmentButton
                       key={st}
@@ -161,7 +161,7 @@ export function GoalEditor({
 
               {/* timeframe */}
               <EditorField label={`Timeframe · ${periodLabel(goal.start, goal.end)}`}>
-                <div role="radiogroup" aria-label="Timeframe" className="flex gap-1.5">
+                <div className="flex gap-1.5">
                   {TF_CHIPS.map((c) => (
                     <SegmentButton
                       key={c.id}
@@ -342,7 +342,7 @@ function StepRow({
   );
 }
 
-/** A quiet segmented control cell (ARIA radio). Selected = primary fill; calm sentence case. */
+/** A segmented-control cell: a HeroUI toggle Button (aria-pressed); selected = primary fill. */
 function SegmentButton({
   selected,
   onClick,
@@ -353,20 +353,15 @@ function SegmentButton({
   children: React.ReactNode;
 }) {
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a segmented control; native radios can't carry the segmented styling, so the ARIA radio pattern is intentional
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onClick}
-      className={cx(
-        "flex-1 rounded-medium border px-2 py-1.5 text-tiny font-medium transition-colors",
-        selected
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-divider text-default-500 hover:border-primary",
-      )}
+    <Button
+      size="sm"
+      aria-pressed={selected}
+      color={selected ? "primary" : "default"}
+      variant={selected ? "solid" : "bordered"}
+      onPress={onClick}
+      className="flex-1"
     >
       {children}
-    </button>
+    </Button>
   );
 }

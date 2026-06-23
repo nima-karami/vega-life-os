@@ -2,7 +2,8 @@ import { Button, Card, CardBody } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { CalendarPopover, Icon, IconButton, SortableList } from "@/core/ui";
+import { CalendarPopover, cx, Icon, IconButton, SortableList } from "@/core/ui";
+import { habitStreak } from "@/features/habits";
 import {
   DayEditor,
   type DayEntry,
@@ -17,7 +18,7 @@ import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
 import type { Task } from "@/features/tasks/model";
-import { dayCounts } from "@/features/tasks/selectors";
+import { dayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
 import { partitionToday, reorderTasksInDay, toggleDone } from "./today-logic";
 
 /**
@@ -57,8 +58,19 @@ export function TodayPage() {
   const showReflection =
     isToday && !reflectSkipped && !isReflected(todayEntry) && dayReflectable(tasks, today);
 
-  const { remaining, done } = useMemo(() => partitionToday(tasks, viewDate), [tasks, viewDate]);
-  const counts = useMemo(() => dayCounts(tasks, viewDate), [tasks, viewDate]);
+  const { remaining, done, habits } = useMemo(
+    () => partitionToday(tasks, viewDate),
+    [tasks, viewDate],
+  );
+  // Anytime habits live in their own strip and don't count toward the day's task progress.
+  const counts = useMemo(
+    () =>
+      dayCounts(
+        tasks.filter((t) => !isAnytimeHabit(t)),
+        viewDate,
+      ),
+    [tasks, viewDate],
+  );
 
   const isEmpty = counts.total === 0;
   const allDone = counts.total > 0 && remaining.length === 0;
@@ -88,6 +100,12 @@ export function TodayPage() {
   function handleSkip(task: Task) {
     setStatus(task.id, "skip");
     setAnnounce("Skipped");
+  }
+
+  function handleToggleHabit(task: Task) {
+    const next = task.status === "done" ? "todo" : "done";
+    setStatus(task.id, next);
+    setAnnounce(next === "done" ? `${task.title}, done` : `${task.title}, not done`);
   }
 
   function handleUnskip(task: Task) {
@@ -251,6 +269,8 @@ export function TodayPage() {
           )}
         </section>
 
+        {habits.length > 0 && <DailyHabits items={habits} onToggle={handleToggleHabit} />}
+
         {done.length > 0 && (
           <section aria-label="Done" className="flex flex-col gap-3">
             <h2 className="text-small font-medium text-default-500">Done</h2>
@@ -306,6 +326,77 @@ export function TodayPage() {
 
       <TaskDrawer task={editingTask} onClose={() => setEditing(null)} />
     </div>
+  );
+}
+
+/** Compact checklist of the day's anytime habits — its own strip, separate from the to-do list. */
+function DailyHabits({ items, onToggle }: { items: Task[]; onToggle: (t: Task) => void }) {
+  const habitDefs = useStore((s) => s.habits);
+  const tasks = useStore((s) => s.tasks);
+  const iconOf = (habitId: string | null) =>
+    habitDefs.find((h) => h.id === habitId)?.icon ?? "repeat";
+  const doneCount = items.filter((t) => t.status === "done").length;
+
+  return (
+    <section aria-label="Daily habits" className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-small font-medium text-foreground">Daily habits</h2>
+        <span className="text-tiny tabular-nums text-default-500">
+          {doneCount} of {items.length}
+        </span>
+      </div>
+      <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
+        <CardBody className="gap-0.5 p-2">
+          <ul className="flex flex-col">
+            {items.map((t) => {
+              const done = t.status === "done";
+              const streak = habitStreak(tasks, t.habitId ?? "");
+              return (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() => onToggle(t)}
+                    aria-pressed={done}
+                    aria-label={done ? `Mark ${t.title} not done` : `Mark ${t.title} done`}
+                    className="flex w-full items-center gap-3 rounded-medium px-2 py-2 text-left transition-colors hover:bg-content2"
+                  >
+                    <span
+                      className={cx(
+                        "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
+                        done
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-default-300 text-transparent",
+                      )}
+                    >
+                      {done && <Icon name="check" size={12} />}
+                    </span>
+                    <Icon
+                      name={iconOf(t.habitId)}
+                      size={15}
+                      className="shrink-0 text-default-400"
+                    />
+                    <span
+                      className={cx(
+                        "min-w-0 flex-1 truncate text-small",
+                        done ? "text-default-500 line-through" : "text-foreground",
+                      )}
+                    >
+                      {t.title}
+                    </span>
+                    {streak > 0 && (
+                      <span className="flex shrink-0 items-center gap-1 text-tiny tabular-nums text-default-500">
+                        <Icon name="flame" size={12} />
+                        {streak}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </CardBody>
+      </Card>
+    </section>
   );
 }
 

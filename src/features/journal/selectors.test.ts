@@ -43,4 +43,25 @@ describe("dayReflectable", () => {
       ),
     ).toBe(true);
   });
+
+  it("ignores anytime habits — an unticked daily habit doesn't block reflection", () => {
+    expect(
+      dayReflectable(
+        [
+          task({ id: "a", status: "done" }),
+          task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "todo" }),
+        ],
+        "2026-06-22",
+      ),
+    ).toBe(true);
+  });
+
+  it("false when the only tasks are anytime habits (no real to-dos)", () => {
+    expect(
+      dayReflectable(
+        [task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "done" })],
+        "2026-06-22",
+      ),
+    ).toBe(false);
+  });
 });

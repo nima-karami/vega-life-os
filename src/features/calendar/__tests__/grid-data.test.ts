@@ -51,6 +51,11 @@ describe("untimedTasksForDay", () => {
     const t = task({ id: "a", date: null, time: null });
     expect(untimedTasksForDay([t], D)).toEqual([]);
   });
+  it("excludes anytime-habit instances (kind habit, no time)", () => {
+    const habit = task({ id: "a", date: D, time: null, kind: "habit", habitId: "h1" });
+    const oneoff = task({ id: "b", date: D, time: null, kind: "oneoff" });
+    expect(untimedTasksForDay([habit, oneoff], D)).toEqual([oneoff]);
+  });
 });
 
 describe("unscheduledTasks", () => {

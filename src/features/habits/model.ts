@@ -7,8 +7,8 @@ export interface Habit {
   goalId: string | null;
   valueId: string;
   icon: IconName;
-  /** "HH:mm" preferred time-of-day */
-  time: string;
+  /** "HH:mm" preferred time-of-day, or null for an "anytime" (untimed) habit */
+  time: string | null;
   /** human-readable recurrence label, e.g. "Every day", "Weekdays" */
   recurrence: string;
   /** length-7 mask, Mon..Sun, 1 = active that weekday */

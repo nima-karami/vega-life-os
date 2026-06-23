@@ -2,6 +2,9 @@ import type { Task, TaskStatus } from "./model";
 
 export const isResolved = (t: Task) => t.status === "done" || t.status === "skip";
 
+/** An "anytime" habit instance: a habit-kind task with no time (all-day, tracked in the Daily-habits strip, not the calendar). */
+export const isAnytimeHabit = (t: Task) => t.kind === "habit" && t.time === null;
+
 export const byTime = (a: Task, b: Task) =>
   (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.order - b.order;
 

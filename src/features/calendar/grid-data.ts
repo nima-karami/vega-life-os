@@ -15,9 +15,13 @@ export function timedTasksForDay(tasks: Task[], dayIso: string): Task[] {
   return tasks.filter((t) => t.time != null && t.date === dayIso);
 }
 
-/** Dated-but-untimed tasks for a given ISO day (the all-day row). */
+/**
+ * Dated-but-untimed ONE-OFF tasks for a given ISO day (the all-day row).
+ * Anytime-habit instances (kind "habit", time null) are excluded — they live in
+ * Today's Daily-habits strip, not the calendar.
+ */
 export function untimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
-  return tasks.filter((t) => t.date === dayIso && t.time == null);
+  return tasks.filter((t) => t.date === dayIso && t.time == null && t.kind !== "habit");
 }
 
 /** Backlog tasks with no date, ordered by their `order` field. */

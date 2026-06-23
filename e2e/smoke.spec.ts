@@ -594,3 +594,53 @@ test("goal steps: inline rename and reorder", async ({ page }) => {
 
   await expect.poll(stepOrder).toEqual(["Bravo", "Alpha renamed", "Charlie"]);
 });
+
+test("anytime habit: shows in the Daily habits strip, not the task list or calendar", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  await passGratitudeGate(page);
+
+  // The seeded anytime habit "Drink water" lives in the Daily habits strip.
+  const strip = page.getByRole("region", { name: "Daily habits" });
+  await expect(strip).toBeVisible();
+  await expect(strip.getByText("Drink water")).toBeVisible();
+
+  // It is not duplicated into the Remaining task list.
+  await expect(
+    page.getByRole("region", { name: "Remaining" }).getByText("Drink water"),
+  ).toHaveCount(0);
+
+  // Checking it toggles its state.
+  await strip.getByRole("button", { name: "Mark Drink water done" }).click();
+  await expect(strip.getByRole("button", { name: "Mark Drink water not done" })).toBeVisible();
+
+  // It never appears on the calendar (off-calendar by design).
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Drink water")).toHaveCount(0);
+});
+
+test("habit editor: the Anytime toggle creates an untimed habit", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/habits", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: "Add habit" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByPlaceholder("What do you want to repeat?").fill("Stretch");
+
+  // Switch to Anytime — time + duration disappear.
+  await dialog.getByRole("button", { name: "Anytime" }).click();
+  await expect(dialog.getByText("No set time", { exact: false })).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Create habit" }).click();
+  await expect(dialog).toBeHidden();
+
+  // The new habit shows as "Anytime" on the Habits page (time saved as null, not 09:00).
+  const card = page.getByRole("button", { name: "Edit Stretch" });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("Anytime")).toBeVisible();
+});

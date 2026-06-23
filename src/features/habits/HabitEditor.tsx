@@ -1,5 +1,6 @@
 import {
   Button,
+  ButtonGroup,
   Input,
   Modal,
   ModalBody,
@@ -15,7 +16,13 @@ import { useStore } from "@/core/store";
 import { DurationStepper, Icon, TimePicker } from "@/core/ui";
 import { goalsForValue } from "@/features/goals/selectors";
 import { valueColor } from "@/features/values/color";
-import { detachedCount, recurrenceLabel, resetGoalForValue, validateDraft } from "./editor";
+import {
+  ANYTIME_LABEL,
+  detachedCount,
+  recurrenceLabel,
+  resetGoalForValue,
+  validateDraft,
+} from "./editor";
 import type { Habit } from "./model";
 
 /** Day picker order is fixed Mon..Sun to match the model's days[7] mask. */
@@ -34,7 +41,8 @@ interface Draft {
   valueId: string;
   goalId: string | null;
   icon: IconName;
-  time: string;
+  /** "HH:mm" or null for an anytime (untimed) habit */
+  time: string | null;
   days: number[];
   durationMin: number;
 }
@@ -173,7 +181,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
             <ModalHeader className="flex flex-col gap-1">
               <span className="text-lg font-semibold">{draft.name.trim() || "New habit"}</span>
               <span className="text-xs font-normal text-default-500">
-                {recurrenceLabel(draft.days)} · {draft.time}
+                {recurrenceLabel(draft.days)} · {draft.time ?? ANYTIME_LABEL}
               </span>
             </ModalHeader>
 
@@ -299,27 +307,62 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                 )}
               </fieldset>
 
-              <div className="flex flex-wrap gap-3">
-                <div className="min-w-[140px] flex-1">
-                  <TimePicker
-                    label="time"
-                    value={draft.time}
-                    clearable={false}
-                    onChange={(v) => set("time", v ?? draft.time)}
-                  />
-                </div>
-                <div className="min-w-[140px] flex-1">
-                  <DurationStepper
-                    label="duration"
-                    value={draft.durationMin}
-                    min={1}
-                    max={1440}
-                    onChange={(v) => set("durationMin", v)}
-                  />
-                </div>
+              {/* When: scheduled (has a time → calendar slot) vs anytime (no time → daily strip) */}
+              <div>
+                <span className="mb-1.5 block text-tiny text-default-500">When</span>
+                <ButtonGroup fullWidth>
+                  <Button
+                    size="sm"
+                    aria-pressed={draft.time != null}
+                    color={draft.time != null ? "primary" : "default"}
+                    variant={draft.time != null ? "solid" : "bordered"}
+                    onPress={() => set("time", draft.time ?? "09:00")}
+                  >
+                    Scheduled
+                  </Button>
+                  <Button
+                    size="sm"
+                    aria-pressed={draft.time == null}
+                    color={draft.time == null ? "primary" : "default"}
+                    variant={draft.time == null ? "solid" : "bordered"}
+                    onPress={() => set("time", null)}
+                  >
+                    Anytime
+                  </Button>
+                </ButtonGroup>
+                {draft.time == null && (
+                  <p className="mt-1.5 text-xs text-default-500">
+                    No set time — tracked in your daily habits, off the calendar.
+                  </p>
+                )}
               </div>
-              {touched && errors.durationMin && (
-                <p className="text-xs text-danger">{errors.durationMin}</p>
+
+              {/* Time + duration only apply to a scheduled (timed) habit. */}
+              {draft.time != null && (
+                <>
+                  <div className="flex flex-wrap gap-3">
+                    <div className="min-w-[140px] flex-1">
+                      <TimePicker
+                        label="time"
+                        value={draft.time}
+                        clearable={false}
+                        onChange={(v) => v && set("time", v)}
+                      />
+                    </div>
+                    <div className="min-w-[140px] flex-1">
+                      <DurationStepper
+                        label="duration"
+                        value={draft.durationMin}
+                        min={1}
+                        max={1440}
+                        onChange={(v) => set("durationMin", v)}
+                      />
+                    </div>
+                  </div>
+                  {touched && errors.durationMin && (
+                    <p className="text-xs text-danger">{errors.durationMin}</p>
+                  )}
+                </>
               )}
 
               {/* Detached advisory */}

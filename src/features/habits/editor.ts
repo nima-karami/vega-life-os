@@ -11,6 +11,9 @@ import type { Task } from "@/features/tasks/model";
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
+/** Shown wherever a habit's time would appear when the habit has no time (untimed). */
+export const ANYTIME_LABEL = "Anytime";
+
 /**
  * Human label derived from the 7-day mask (Mon..Sun). `days` is the source of
  * truth; `recurrence` must always be written together with it so they never

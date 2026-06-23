@@ -7,7 +7,7 @@ import type { Goal } from "@/features/goals/model";
 import { valueColor } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
 import { DeleteHabitDialog } from "./DeleteHabitDialog";
-import { recurrenceLabel } from "./editor";
+import { ANYTIME_LABEL, recurrenceLabel } from "./editor";
 import { HabitEditor } from "./HabitEditor";
 import type { Habit } from "./model";
 
@@ -154,9 +154,15 @@ function HabitCard({
               <span aria-hidden="true">·</span>
               <span>{recurrenceLabel(habit.days)}</span>
               <span aria-hidden="true">·</span>
-              <span className="tabular-nums">{habit.time}</span>
-              <span aria-hidden="true">·</span>
-              <span>{fmtDuration(habit.durationMin)}</span>
+              {habit.time ? (
+                <>
+                  <span className="tabular-nums">{habit.time}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{fmtDuration(habit.durationMin)}</span>
+                </>
+              ) : (
+                <span>{ANYTIME_LABEL}</span>
+              )}
             </div>
           </div>
         </button>

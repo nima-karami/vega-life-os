@@ -10,8 +10,13 @@ export interface GEvent {
   status?: string; // "cancelled" for deletions in incremental sync
 }
 
-/** A VEGA task is "schedulable" to the calendar when it has a date. */
-export const isSchedulable = (t: Task): boolean => t.date !== null && t.status !== "skip";
+/**
+ * A VEGA task is "schedulable" to Google Calendar when it has a date and isn't
+ * skipped. Anytime-habit instances (kind "habit", no time) are personal daily
+ * trackers, not calendar events, so they are never pushed.
+ */
+export const isSchedulable = (t: Task): boolean =>
+  t.date !== null && t.status !== "skip" && !(t.kind === "habit" && t.time === null);
 
 /** Build the Google event body for a VEGA task. Timed if it has a time, else all-day. */
 export function toGEvent(t: Task): GEvent {

@@ -21,7 +21,8 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       goalId: patch.goalId ?? null,
       valueId: patch.valueId ?? get().values[0]?.id ?? "",
       icon: patch.icon ?? "repeat",
-      time: patch.time ?? "09:00",
+      // preserve an explicit null (anytime); only default when time is omitted
+      time: patch.time === undefined ? "09:00" : patch.time,
       recurrence: patch.recurrence ?? "Every day",
       days: patch.days ?? [1, 1, 1, 1, 1, 1, 1],
       durationMin: patch.durationMin ?? 30,

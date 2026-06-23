@@ -256,6 +256,19 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       durationMin: 30,
       createdAt,
     },
+    {
+      // an "anytime" habit — no time; tracked in Today's Daily-habits strip, off the calendar
+      id: "h9",
+      name: "Drink water",
+      goalId: null,
+      valueId: "v3",
+      icon: "spark",
+      time: null,
+      recurrence: "Every day",
+      days: [1, 1, 1, 1, 1, 1, 1],
+      durationMin: 5,
+      createdAt,
+    },
   ];
   ds.habits = habits;
 
@@ -266,7 +279,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
 
   // morning-ish tasks (time < 14:00) on `today` count as done; later ones todo
   const today = iso(ref);
-  const statusForDate = (dateStr: string, time: string): TaskStatus => {
+  const statusForDate = (dateStr: string, time: string | null): TaskStatus => {
     if (dateStr < today) {
       const r = rng();
       if (r < 0.12) return "skip";
@@ -274,6 +287,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       return "done";
     }
     if (dateStr === today) {
+      if (!time) return "todo"; // anytime habit: leave today's unchecked so it can be ticked
       const hour = parseInt(time.slice(0, 2), 10);
       return hour < 14 ? "done" : "todo";
     }
