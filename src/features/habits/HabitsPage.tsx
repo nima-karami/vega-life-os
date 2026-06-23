@@ -22,9 +22,9 @@ export function HabitsPage() {
   const habits = useStore((s) => s.habits);
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
-  const addHabit = useStore((s) => s.addHabit);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Memoized lookup maps so per-card lineage is O(1), not O(N) .find per card.
@@ -34,10 +34,11 @@ export function HabitsPage() {
   const editing = editingId ? (habits.find((h) => h.id === editingId) ?? null) : null;
   const deleting = deletingId ? (habits.find((h) => h.id === deletingId) ?? null) : null;
 
-  const createHabit = useCallback(() => {
-    const habit = addHabit();
-    setEditingId(habit.id);
-  }, [addHabit]);
+  const createHabit = useCallback(() => setCreating(true), []);
+  const closeEditor = useCallback(() => {
+    setEditingId(null);
+    setCreating(false);
+  }, []);
 
   // Register "new habit" with the command bar while this view is mounted.
   useRegisterCommands(
@@ -49,9 +50,8 @@ export function HabitsPage() {
           icon: "repeat" as const,
           keywords: "new habit create recurring routine",
           run: ({ navigate, close }) => {
-            const habit = useStore.getState().addHabit();
             navigate("/habits");
-            setEditingId(habit.id);
+            setCreating(true);
             close();
           },
         },
@@ -92,14 +92,12 @@ export function HabitsPage() {
         )}
       </div>
 
-      {editing && (
-        <HabitEditor
-          habit={editing}
-          isOpen={editingId !== null}
-          onClose={() => setEditingId(null)}
-          onRequestDelete={() => setDeletingId(editing.id)}
-        />
-      )}
+      <HabitEditor
+        habit={editing}
+        isOpen={editingId !== null || creating}
+        onClose={closeEditor}
+        onRequestDelete={() => editing && setDeletingId(editing.id)}
+      />
       {deleting && (
         <DeleteHabitDialog
           habit={deleting}

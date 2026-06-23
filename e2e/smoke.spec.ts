@@ -516,3 +516,37 @@ test("settings: delete all (this device) empties the sandbox", async ({ page }) 
   await page.goto("/today", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible();
 });
+
+// ─── Deferred create: cancelling "Add" persists nothing ──────────────────────
+
+test("habits: cancelling Add creates no habit", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/habits", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const cards = page.getByRole("button", { name: /^Edit / });
+  const before = await cards.count();
+
+  await page.getByRole("button", { name: "Add habit" }).click();
+  await expect(page.getByRole("button", { name: "Create habit" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  await expect(page.getByRole("button", { name: "Create habit" })).toBeHidden();
+  await expect(cards).toHaveCount(before);
+});
+
+test("values: cancelling Add creates no value", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/values", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const cards = page.getByRole("button", { name: /^Edit / });
+  const before = await cards.count();
+
+  await page.getByRole("button", { name: "Add value" }).click();
+  await expect(page.getByRole("button", { name: "Create value" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  await expect(page.getByRole("button", { name: "Create value" })).toBeHidden();
+  await expect(cards).toHaveCount(before);
+});

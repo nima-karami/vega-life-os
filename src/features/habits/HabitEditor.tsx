@@ -51,13 +51,25 @@ function draftFrom(habit: Habit): Draft {
   };
 }
 
+function blankDraft(valueId: string): Draft {
+  return {
+    name: "",
+    valueId,
+    goalId: null,
+    icon: "repeat",
+    time: "09:00",
+    days: [1, 1, 1, 1, 1, 1, 1],
+    durationMin: 30,
+  };
+}
+
 export interface HabitEditorProps {
-  /** The habit being edited. The editor always edits an existing record
-   *  (the page creates a habit first via addHabit, then opens it). */
-  habit: Habit;
+  /** The habit being edited, or null to create a new one (nothing is persisted
+   *  until the user saves). */
+  habit: Habit | null;
   isOpen: boolean;
   onClose: () => void;
-  /** Open the delete confirmation for this habit. */
+  /** Open the delete confirmation for this habit (edit mode only). */
   onRequestDelete: () => void;
 }
 
@@ -65,27 +77,31 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const tasks = useStore((s) => s.tasks);
-  const habitExists = useStore((s) => s.habits.some((h) => h.id === habit.id));
+  const habitExists = useStore((s) => (habit ? s.habits.some((h) => h.id === habit.id) : true));
   const updateHabit = useStore((s) => s.updateHabit);
+  const addHabit = useStore((s) => s.addHabit);
   const pushToast = useStore((s) => s.pushToast);
 
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(habit));
+  const isCreate = habit === null;
+  const [draft, setDraft] = useState<Draft>(() =>
+    habit ? draftFrom(habit) : blankDraft(values[0]?.id ?? ""),
+  );
   const [touched, setTouched] = useState(false);
 
   // Reseed the draft each time the editor opens on a (possibly different) habit.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reseed only when the editor opens for a habit
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reseed only when the editor opens
   useEffect(() => {
     if (isOpen) {
-      setDraft(draftFrom(habit));
+      setDraft(habit ? draftFrom(habit) : blankDraft(values[0]?.id ?? ""));
       setTouched(false);
     }
-  }, [isOpen, habit.id]);
+  }, [isOpen, habit?.id]);
 
   const goalOptions = useMemo(() => goalsForValue(goals, draft.valueId), [goals, draft.valueId]);
   const errors = validateDraft(draft);
   const hasErrors = Object.keys(errors).length > 0;
   const activeDays = draft.days.some((d) => d === 1);
-  const detached = detachedCount(tasks, habit.id);
+  const detached = habit ? detachedCount(tasks, habit.id) : 0;
 
   const set = <K extends keyof Draft>(key: K, val: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: val }));
@@ -109,7 +125,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const onSave = () => {
     setTouched(true);
     if (hasErrors) return;
-    updateHabit(habit.id, {
+    const patch = {
       name: draft.name.trim(),
       valueId: draft.valueId,
       goalId: draft.goalId,
@@ -118,8 +134,14 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
       days: draft.days,
       recurrence: recurrenceLabel(draft.days),
       durationMin: draft.durationMin,
-    });
-    pushToast("Habit saved");
+    };
+    if (habit) {
+      updateHabit(habit.id, patch);
+      pushToast("Habit saved");
+    } else {
+      addHabit(patch);
+      pushToast("Habit added");
+    }
     onClose();
   };
 
@@ -309,21 +331,23 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
               )}
             </ModalBody>
 
-            <ModalFooter className="justify-between">
-              <Button
-                color="danger"
-                variant="light"
-                startContent={<Icon name="trash" size={15} />}
-                onPress={onRequestDelete}
-              >
-                Delete
-              </Button>
+            <ModalFooter className={isCreate ? "justify-end" : "justify-between"}>
+              {!isCreate && (
+                <Button
+                  color="danger"
+                  variant="light"
+                  startContent={<Icon name="trash" size={15} />}
+                  onPress={onRequestDelete}
+                >
+                  Delete
+                </Button>
+              )}
               <div className="flex gap-2">
                 <Button variant="light" onPress={onClose}>
                   Cancel
                 </Button>
                 <Button color="primary" isDisabled={touched && hasErrors} onPress={onSave}>
-                  Save
+                  {isCreate ? "Create habit" : "Save"}
                 </Button>
               </div>
             </ModalFooter>

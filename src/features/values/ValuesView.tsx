@@ -39,7 +39,6 @@ export function ValuesView() {
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
-  const addValue = useStore((s) => s.addValue);
   const addGoal = useStore((s) => s.addGoal);
   const updateValue = useStore((s) => s.updateValue);
   const removeValue = useStore((s) => s.removeValue);
@@ -47,6 +46,7 @@ export function ValuesView() {
   const pushToast = useStore((s) => s.pushToast);
 
   const [valueEditId, setValueEditId] = useState<string | null>(null);
+  const [creatingValue, setCreatingValue] = useState(false);
   const [goalEditId, setGoalEditId] = useState<string | null>(null);
   const [confirmValue, setConfirmValue] = useState<Value | null>(null);
   const [confirmGoalId, setConfirmGoalId] = useState<string | null>(null);
@@ -56,11 +56,7 @@ export function ValuesView() {
 
   const sortedValues = useMemo(() => [...values].sort((a, b) => a.order - b.order), [values]);
 
-  const createValue = useCallback(() => {
-    const v = addValue();
-    setValueEditId(v.id);
-    announce("Value added");
-  }, [addValue, announce]);
+  const createValue = useCallback(() => setCreatingValue(true), []);
 
   const createGoal = useCallback(
     (valueId?: string) => {
@@ -161,9 +157,14 @@ export function ValuesView() {
 
       <ValueEditor
         valueId={valueEditId}
-        onClose={() => setValueEditId(null)}
+        creating={creatingValue}
+        onClose={() => {
+          setValueEditId(null);
+          setCreatingValue(false);
+        }}
         onDelete={(v) => {
           setValueEditId(null);
+          setCreatingValue(false);
           setConfirmValue(v);
         }}
       />
