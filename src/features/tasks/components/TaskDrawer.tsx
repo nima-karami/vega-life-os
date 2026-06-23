@@ -25,12 +25,18 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   const updateTask = useStore((s) => s.updateTask);
   const removeTask = useStore((s) => s.removeTask);
   const setStatus = useStore((s) => s.setStatus);
+  const relinkTaskToHabit = useStore((s) => s.relinkTaskToHabit);
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
+  const habits = useStore((s) => s.habits);
   const pushToast = useStore((s) => s.pushToast);
 
   // Goals scoped to the task's value (when set) — keeps the link coherent.
   const goalOptions = task?.valueId ? goals.filter((g) => g.valueId === task.valueId) : goals;
+
+  // Relink is offered only for a detached habit instance; disabled if its parent is gone.
+  const isDetachedHabit = !!task && task.kind === "habit" && task.detached;
+  const parentExists = !!task?.habitId && habits.some((h) => h.id === task.habitId);
 
   return (
     <Modal
@@ -138,6 +144,30 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                   placeholder="Context, links, why it moved…"
                 />
               </Section>
+
+              {isDetachedHabit && (
+                <Section label="Habit">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="flat"
+                    isDisabled={!parentExists}
+                    startContent={<Icon name="link" size={14} />}
+                    onPress={() => {
+                      relinkTaskToHabit(task.id);
+                      pushToast("Relinked to habit");
+                    }}
+                  >
+                    {parentExists ? "Relink to habit" : "Parent habit no longer exists"}
+                  </Button>
+                  {parentExists && (
+                    <p className="text-tiny text-default-500">
+                      Resets the title, time, duration, value and goal to the habit; keeps this day
+                      and status.
+                    </p>
+                  )}
+                </Section>
+              )}
             </ModalBody>
 
             <ModalFooter className="justify-between">

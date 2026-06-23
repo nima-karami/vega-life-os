@@ -16,6 +16,9 @@ export interface TasksSlice {
   cycleStatus: (id: string) => void;
   setNote: (id: string, note: string) => void;
   moveTask: (id: string, date: string | null, time?: string | null) => void;
+  /** snap a detached habit instance back to its template (schedule + lineage + title);
+   *  no-op unless it's a detached habit instance whose parent habit still exists */
+  relinkTaskToHabit: (id: string) => void;
   /** fill the visible week with any missing habit instances; returns count made */
   planWeek: (ref?: Date) => number;
   /** keep the runway populated: ensure habit instances exist from today forward */
@@ -111,6 +114,22 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     const t = get().tasks.find((x) => x.id === id);
     if (t && t.kind === "habit") patch.detached = true;
     get().updateTask(id, patch);
+  },
+
+  relinkTaskToHabit: (id) => {
+    const t = get().tasks.find((x) => x.id === id);
+    if (t?.kind !== "habit" || !t.detached || !t.habitId) return;
+    const h = get().habits.find((x) => x.id === t.habitId);
+    if (!h) return;
+    // Snap back schedule + lineage + title; keep the instance's date/status/note/order.
+    get().updateTask(id, {
+      title: h.name,
+      time: h.time,
+      durationMin: h.durationMin,
+      goalId: h.goalId,
+      valueId: h.valueId,
+      detached: false,
+    });
   },
 
   planWeek: (ref = new Date()) => {

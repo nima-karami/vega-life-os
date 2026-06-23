@@ -364,6 +364,23 @@ export function buildSeed(ref: Date = new Date()): Dataset {
     note: "",
     order,
   });
+  // an all-day (dated, untimed) one-off — sits in the calendar's all-day row,
+  // draggable onto the grid or schedulable via its menu
+  tasks.push({
+    id: tid(),
+    title: "Pick up dry cleaning",
+    kind: "oneoff",
+    habitId: null,
+    goalId: null,
+    valueId: "v4",
+    date: dayISO(1),
+    time: null,
+    durationMin: 60,
+    status: "todo",
+    detached: false,
+    note: "Ready after 4pm.",
+    order,
+  });
   ds.tasks = tasks;
 
   // ---------------- BACKLOG (undated one-offs) ----------------

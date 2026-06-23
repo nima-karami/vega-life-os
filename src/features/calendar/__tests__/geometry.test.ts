@@ -5,6 +5,8 @@ import {
   clampStart,
   DAY_END,
   DAY_START,
+  DROP_DURATION,
+  dropToSchedule,
   fmtMin,
   HOUR_PX,
   isOffWindow,
@@ -80,6 +82,21 @@ describe("minuteAtOffset", () => {
     expect(minuteAtOffset(-100)).toBe(DAY_START);
     // far below clamps to last slot
     expect(minuteAtOffset(HOUR_PX * 100)).toBe(DAY_END - SNAP);
+  });
+});
+
+describe("dropToSchedule", () => {
+  it("schedules a fixed 60-minute block at the snapped drop minute", () => {
+    expect(dropToSchedule(HOUR_PX)).toEqual({
+      startMin: DAY_START + 60,
+      durationMin: DROP_DURATION,
+    });
+  });
+  it("clamps so a 60-min block near the day's end stays inside the window", () => {
+    expect(dropToSchedule(HOUR_PX * 100).startMin).toBe(DAY_END - DROP_DURATION);
+  });
+  it("clamps an above-window drop to the window start", () => {
+    expect(dropToSchedule(-100)).toEqual({ startMin: DAY_START, durationMin: DROP_DURATION });
   });
 });
 

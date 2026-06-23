@@ -48,6 +48,19 @@ export const isOffWindow = (startMin: number) => startMin < DAY_START || startMi
 export const minuteAtOffset = (offsetPx: number) =>
   clampStart(snap(DAY_START + (offsetPx / HOUR_PX) * 60));
 
+/** Fixed duration (minutes) given to an all-day task dropped onto the grid. */
+export const DROP_DURATION = 60;
+
+/**
+ * Resolve an all-day → grid drop at a pixel offset into a scheduled block: the
+ * snapped start clamped so a {@link DROP_DURATION} block ends by {@link DAY_END}.
+ * The caller converts `startMin` to "HH:mm" via {@link fmtMin} and supplies the day.
+ */
+export const dropToSchedule = (offsetPx: number): { startMin: number; durationMin: number } => ({
+  startMin: Math.max(DAY_START, Math.min(minuteAtOffset(offsetPx), DAY_END - DROP_DURATION)),
+  durationMin: DROP_DURATION,
+});
+
 export type DragMode = "move" | "top" | "bottom";
 
 export interface DragOrigin {

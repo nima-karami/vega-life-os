@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { addMinutes, fmtShort, minutesOf, weekDays, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { ContextMenu, cx, FloatingMenu, Icon, type MenuItem } from "@/core/ui";
+import { ContextMenu, cx, FloatingMenu, Icon, type MenuItem, TimePicker } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
@@ -14,7 +14,9 @@ import {
   chipTop,
   DAY_END,
   DAY_START,
+  DROP_DURATION,
   type DragMode,
+  dropToSchedule,
   fmtMin,
   GUTTER,
   HOUR_PX,
@@ -27,12 +29,16 @@ import { timedTasksForDay, unscheduledTasks, untimedTasksForDay } from "./grid-d
 
 interface DragState {
   id: string;
-  mode: DragMode;
+  /** "schedule" = an all-day chip being dragged onto the timed grid. */
+  mode: DragMode | "schedule";
   origDate: string;
   origStart: number;
   origDur: number;
   grabMin: number;
   moved: boolean;
+  /** pointer origin for the all-day drag threshold (schedule mode only). */
+  startX: number;
+  startY: number;
 }
 interface Preview {
   date: string;
@@ -45,7 +51,9 @@ const MOBILE_QUERY = "(max-width: 639px)";
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
   const goals = useStore((s) => s.goals);
+  const habits = useStore((s) => s.habits);
   const updateTask = useStore((s) => s.updateTask);
+  const relinkTaskToHabit = useStore((s) => s.relinkTaskToHabit);
   const addTask = useStore((s) => s.addTask);
   const removeTask = useStore((s) => s.removeTask);
   const duplicateTask = useStore((s) => s.duplicateTask);
@@ -66,6 +74,8 @@ export function CalendarPage() {
     time: string;
   } | null>(null);
   const [scheduleSlot, setScheduleSlot] = useState<{ date: string; time: string } | null>(null);
+  // "Schedule to time…" — the keyboard path that gives an all-day chip a time.
+  const [scheduleTask, setScheduleTask] = useState<Task | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
   const [mobile, setMobile] = useState(
@@ -97,6 +107,7 @@ export function CalendarPage() {
       icon: "calendar",
       keywords: "calendar today week",
       run: ({ close }) => {
+        if (dragRef.current) cancelDrag();
         setWeekRef(new Date());
         close();
       },
@@ -230,11 +241,71 @@ export function CalendarPage() {
       origDur: t.durationMin,
       grabMin: pointerMin - origStart,
       moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
     };
     const p = { date: t.date, start: origStart, durationMin: t.durationMin };
     previewRef.current = p;
     setPreview(p);
     setDragId(t.id);
+  };
+
+  // Begin dragging an all-day chip onto the timed grid (drag-to-schedule).
+  const beginScheduleDrag = (e: React.PointerEvent, t: Task) => {
+    if (e.button !== 0) return;
+    if (!gridRef.current || !t.date) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = {
+      id: t.id,
+      mode: "schedule",
+      origDate: t.date,
+      origStart: 0,
+      origDur: DROP_DURATION,
+      grabMin: 0,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+    };
+    const p = { date: t.date, start: DAY_START, durationMin: DROP_DURATION };
+    previewRef.current = p;
+    setPreview(p);
+    setDragId(t.id);
+  };
+
+  // Abandon an in-flight drag with no change (Esc / navigation).
+  const cancelDrag = () => {
+    dragRef.current = null;
+    previewRef.current = null;
+    setDragId(null);
+    setPreview(null);
+  };
+
+  // Give an all-day task a time without dragging (the keyboard schedule path).
+  const scheduleToTime = (t: Task, time: string) => {
+    updateTask(t.id, {
+      time,
+      durationMin: DROP_DURATION,
+      ...(t.status === "open" ? { status: "todo" as const } : {}),
+    });
+    pushToast(`Scheduled "${t.title}"`);
+    setAnnounce(`Scheduled ${t.title} at ${time}`);
+  };
+
+  // The relink action for a task's context menu, or null when relink doesn't apply.
+  const relinkItemFor = (t: Task): MenuItem | null => {
+    if (t.kind !== "habit" || !t.detached) return null;
+    const exists = t.habitId != null && habits.some((h) => h.id === t.habitId);
+    return {
+      label: exists ? "Relink to habit" : "Parent habit no longer exists",
+      icon: "link",
+      disabled: !exists,
+      onSelect: () => {
+        relinkTaskToHabit(t.id);
+        pushToast("Relinked to habit");
+        setAnnounce("Relinked to habit");
+      },
+    };
   };
 
   const tasksRef = useRef(tasks);
@@ -246,6 +317,27 @@ export function CalendarPage() {
 
   // Resolve a drag release: commit a real change, or treat a no-move as a tap.
   const endDrag = (d: DragState, p: Preview) => {
+    if (d.mode === "schedule") {
+      const t = tasksRef.current.find((x) => x.id === d.id);
+      if (!d.moved) {
+        if (t) openTask(t); // a tap on an all-day chip still opens it
+        return;
+      }
+      commitRef.current(d.id, {
+        date: p.date,
+        time: fmtMin(p.start),
+        durationMin: DROP_DURATION,
+        ...(t?.status === "open" ? { status: "todo" } : {}),
+      });
+      setAnnounce(
+        `Scheduled ${t?.title ?? "task"} on ${p.date}, ${fmtMin(p.start)}–${addMinutes(fmtMin(p.start), DROP_DURATION)}`,
+      );
+      justDragged.current = true;
+      setTimeout(() => {
+        justDragged.current = false;
+      }, 0);
+      return;
+    }
     const changed = p.date !== d.origDate || p.start !== d.origStart || p.durationMin !== d.origDur;
     if (changed) {
       commitRef.current(d.id, { date: p.date, time: fmtMin(p.start), durationMin: p.durationMin });
@@ -282,11 +374,23 @@ export function CalendarPage() {
       const grid = gridRef.current;
       if (!d || !grid) return;
       const rect = grid.getBoundingClientRect();
-      const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
       const cols = dragDaysRef.current;
       const colW = (rect.width - GUTTER) / cols.length;
       let dayIdx = Math.floor((e.clientX - rect.left - GUTTER) / colW);
       dayIdx = Math.max(0, Math.min(cols.length - 1, dayIdx));
+
+      if (d.mode === "schedule") {
+        // ignore sub-threshold jitter so a tap still opens the chip
+        if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 4) return;
+        d.moved = true;
+        const { startMin } = dropToSchedule(e.clientY - rect.top);
+        const next = { date: cols[dayIdx].iso, start: startMin, durationMin: DROP_DURATION };
+        previewRef.current = next;
+        setPreview(next);
+        return;
+      }
+
+      const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
       const next = resolveDrag(
         d.mode,
         { origDate: d.origDate, origStart: d.origStart, origDur: d.origDur },
@@ -305,11 +409,21 @@ export function CalendarPage() {
       setDragId(null);
       setPreview(null);
     };
+    // Esc abandons the gesture with no change.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      dragRef.current = null;
+      previewRef.current = null;
+      setDragId(null);
+      setPreview(null);
+    };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp, { once: true });
+    window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("keydown", onKey);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragId]);
@@ -319,7 +433,43 @@ export function CalendarPage() {
       ? { date: preview.date, start: preview.start, durationMin: preview.durationMin }
       : { date: t.date ?? "", start: minutesOf(t.time ?? "00:00"), durationMin: t.durationMin };
 
+  // The chip currently dragged, and whether it's an all-day → grid schedule drag.
+  const dragTask = dragId ? tasks.find((t) => t.id === dragId) : null;
+  const scheduleDragging = dragTask != null && dragTask.time == null;
+
+  const copyToClipboard = (t: Task) => {
+    copyTask(t);
+    pasteSuppressUntil.current = Date.now() + 400;
+    pushToast("Copied — click a slot or chip to paste");
+  };
+  const deleteTask = (t: Task) => {
+    removeTask(t.id);
+    pushToast("Task deleted");
+  };
+
+  // Shared chip menus. Timed chips: Copy · Delete · (Relink). All-day chips also
+  // get Open and "Schedule to time…" (the keyboard path for drag-to-schedule).
+  const timedMenuItems = (t: Task): MenuItem[] => {
+    const relink = relinkItemFor(t);
+    return [
+      { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
+      { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
+      ...(relink ? [relink] : []),
+    ];
+  };
+  const allDayMenuItems = (t: Task): MenuItem[] => {
+    const relink = relinkItemFor(t);
+    return [
+      { label: "Open", icon: "edit", onSelect: () => openTask(t) },
+      { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
+      { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
+      { label: "Schedule to time…", icon: "clock", onSelect: () => setScheduleTask(t) },
+      ...(relink ? [relink] : []),
+    ];
+  };
+
   const gotoPrev = () => {
+    if (dragRef.current) cancelDrag();
     if (mobile) {
       if (activeDay > 0) setActiveDay((i) => i - 1);
       else {
@@ -331,6 +481,7 @@ export function CalendarPage() {
     }
   };
   const gotoNext = () => {
+    if (dragRef.current) cancelDrag();
     if (mobile) {
       if (activeDay < 6) setActiveDay((i) => i + 1);
       else {
@@ -342,6 +493,7 @@ export function CalendarPage() {
     }
   };
   const gotoToday = () => {
+    if (dragRef.current) cancelDrag();
     setWeekRef(new Date());
     setAnnounce("Showing this week");
   };
@@ -517,7 +669,14 @@ export function CalendarPage() {
               {visibleDays.map((d) => (
                 <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-divider p-1">
                   {untimedTasksForDay(tasks, d.iso).map((t) => (
-                    <AllDayChip key={t.id} task={t} onOpen={() => openTask(t)} />
+                    <AllDayChip
+                      key={t.id}
+                      task={t}
+                      dragging={dragId === t.id}
+                      onPointerDownBody={(e) => beginScheduleDrag(e, t)}
+                      onOpen={() => openTask(t)}
+                      menuItems={allDayMenuItems(t)}
+                    />
                   ))}
                 </div>
               ))}
@@ -575,6 +734,19 @@ export function CalendarPage() {
                         />
                       ))}
                       {d.today && <NowLine />}
+                      {isTarget && preview && scheduleDragging && (
+                        <div
+                          className="pointer-events-none absolute inset-x-0.5 z-30 overflow-hidden rounded-[2px] border-l-[3px] border-primary bg-content1/80 px-1.5 py-1 shadow-medium ring-1 ring-primary"
+                          style={{
+                            top: chipTop(preview.start),
+                            height: chipHeight(preview.durationMin),
+                          }}
+                        >
+                          <span className="block truncate text-[11px] leading-tight text-foreground">
+                            {dragTask?.title}
+                          </span>
+                        </div>
+                      )}
                       {isTarget && preview && (
                         <div
                           className="pointer-events-none absolute inset-x-0 z-40 flex items-center gap-1"
@@ -594,19 +766,12 @@ export function CalendarPage() {
                           eff={effective(t)}
                           dragging={dragId === t.id}
                           dim={Boolean(focusGoalId) && t.goalId !== focusGoalId}
+                          detached={t.kind === "habit" && t.detached}
                           onPointerDownBody={(e) => beginDrag(e, t, "move")}
                           onPointerDownTop={(e) => beginDrag(e, t, "top")}
                           onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
                           onOpen={() => openTask(t)}
-                          onCopy={() => {
-                            copyTask(t);
-                            pasteSuppressUntil.current = Date.now() + 400;
-                            pushToast("Copied — click a slot or chip to paste");
-                          }}
-                          onDelete={() => {
-                            removeTask(t.id);
-                            pushToast("Task deleted");
-                          }}
+                          menuItems={timedMenuItems(t)}
                         />
                       ))}
                     </div>
@@ -738,6 +903,41 @@ export function CalendarPage() {
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      {/* "Schedule to time…" — give an all-day chip a time without dragging */}
+      <Modal
+        isOpen={!!scheduleTask}
+        onClose={() => setScheduleTask(null)}
+        placement="center"
+        scrollBehavior="inside"
+        backdrop="blur"
+        aria-label="Schedule to a time"
+      >
+        <ModalContent>
+          <ModalHeader className="flex-col items-start gap-0.5">
+            <span className="text-medium font-semibold text-foreground">Schedule to a time</span>
+            {scheduleTask?.date && (
+              <span className="text-small font-normal text-default-500">
+                {scheduleTask.title} · {fmtShort(scheduleTask.date)}
+              </span>
+            )}
+          </ModalHeader>
+          <ModalBody className="pb-6">
+            <p className="text-small text-default-500">
+              Pick a start time. It becomes a {DROP_DURATION}-minute block.
+            </p>
+            <TimePicker
+              label="time"
+              value={scheduleTask?.time ?? "09:00"}
+              clearable={false}
+              onChange={(time) => {
+                if (scheduleTask && time) scheduleToTime(scheduleTask, time);
+                setScheduleTask(null);
+              }}
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
@@ -792,23 +992,23 @@ function TimedChip({
   eff,
   dragging,
   dim,
+  detached,
   onPointerDownBody,
   onPointerDownTop,
   onPointerDownBottom,
   onOpen,
-  onCopy,
-  onDelete,
+  menuItems,
 }: {
   task: Task;
   eff: { start: number; durationMin: number };
   dragging: boolean;
   dim: boolean;
+  detached: boolean;
   onPointerDownBody: (e: React.PointerEvent) => void;
   onPointerDownTop: (e: React.PointerEvent) => void;
   onPointerDownBottom: (e: React.PointerEvent) => void;
   onOpen: () => void;
-  onCopy: () => void;
-  onDelete: () => void;
+  menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
   const top = chipTop(eff.start);
@@ -820,12 +1020,7 @@ function TimedChip({
     : task.time;
 
   return (
-    <ContextMenu
-      items={[
-        { label: "Copy", icon: "copy", onSelect: onCopy },
-        { label: "Delete", icon: "trash", danger: true, onSelect: onDelete },
-      ]}
-    >
+    <ContextMenu items={menuItems}>
       <button
         type="button"
         data-block
@@ -836,9 +1031,9 @@ function TimedChip({
             onOpen();
           }
         }}
-        aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${resolved ? `, ${task.status}` : ""}`}
+        aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-medium border-l-[3px] bg-content1 px-1.5 py-1 text-left shadow-small",
+          "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-content1 px-1.5 py-1 text-left shadow-small",
           resolved && "bg-content2",
           dim ? "opacity-30" : "opacity-100",
           dragging
@@ -851,13 +1046,18 @@ function TimedChip({
           borderColor: accent,
         }}
       >
-        {off && (
-          <span
-            className="absolute right-1 top-1 text-default-400"
-            title="Outside the visible hours"
-            aria-hidden="true"
-          >
-            <Icon name="alert" size={10} />
+        {(off || detached) && (
+          <span className="absolute right-1 top-1 flex items-center gap-0.5 text-default-400">
+            {detached && (
+              <span title="Edited away from its habit" aria-hidden="true">
+                <Icon name="unlink" size={10} />
+              </span>
+            )}
+            {off && (
+              <span title="Outside the visible hours" aria-hidden="true">
+                <Icon name="alert" size={10} />
+              </span>
+            )}
           </span>
         )}
         <span
@@ -886,21 +1086,45 @@ function TimedChip({
   );
 }
 
-function AllDayChip({ task, onOpen }: { task: Task; onOpen: () => void }) {
+function AllDayChip({
+  task,
+  dragging,
+  onPointerDownBody,
+  onOpen,
+  menuItems,
+}: {
+  task: Task;
+  dragging: boolean;
+  onPointerDownBody: (e: React.PointerEvent) => void;
+  onOpen: () => void;
+  menuItems: MenuItem[];
+}) {
   const accent = useValueColor(task.valueId);
   const resolved = task.status === "done" || task.status === "skip";
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={`${task.title}, all day${resolved ? `, ${task.status}` : ""}`}
-      className="block w-full truncate rounded-small border-l-[3px] bg-content1 px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-small"
-      style={{ borderColor: accent }}
-    >
-      <span className={cx("truncate", resolved && "text-default-500 line-through")}>
-        {task.title}
-      </span>
-    </button>
+    <ContextMenu items={menuItems}>
+      <button
+        type="button"
+        data-block
+        onPointerDown={onPointerDownBody}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        aria-label={`${task.title}, all day${resolved ? `, ${task.status}` : ""}`}
+        className={cx(
+          "block w-full cursor-grab touch-none select-none truncate rounded-[2px] border-l-[3px] bg-content1 px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-small",
+          dragging && "opacity-40",
+        )}
+        style={{ borderColor: accent }}
+      >
+        <span className={cx("truncate", resolved && "text-default-500 line-through")}>
+          {task.title}
+        </span>
+      </button>
+    </ContextMenu>
   );
 }
 

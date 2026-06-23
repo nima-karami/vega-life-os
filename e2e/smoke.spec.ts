@@ -310,6 +310,71 @@ test("calendar: schedule an existing task from the slot menu", async ({ page }) 
   await expect(page.getByText(picked, { exact: true })).toBeVisible();
 });
 
+test("calendar: all-day chip right-click → menu parity (Open · Copy · Delete · Schedule)", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // The seeded all-day task lives in the all-day row (this week, always visible).
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+
+  await chip.click({ button: "right" });
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem", { name: "Open" })).toBeVisible({ timeout: 10_000 });
+  await expect(menu.getByRole("menuitem", { name: "Copy" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Schedule to time…" })).toBeVisible();
+});
+
+test("calendar: 'Schedule to time…' gives an all-day task a time (leaves the all-day row)", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const allDay = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(allDay).toBeVisible({ timeout: 10_000 });
+  await allDay.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Schedule to time…" }).click();
+
+  // The schedule-to-time dialog opens; pick a start time from the picker.
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Schedule to a time", { timeout: 10_000 });
+  await dialog.getByRole("button", { name: /^09:00/ }).click(); // open the time popover
+  // The popover portals outside the aria-modal; target its slot by exact text.
+  await page.locator('button:text-is("10:00")').click();
+
+  // It is now a 60-min timed block and no longer in the all-day row.
+  await expect(page.getByRole("button", { name: "Pick up dry cleaning, all day" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /Pick up dry cleaning, 10:00–11:00/ }),
+  ).toBeVisible();
+});
+
+test("calendar: relink a detached habit instance snaps it back to the template", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Seed has a detached h1 instance ("Read — finish 'Sapiens' ch.9", Wed 20:00).
+  const detached = page.getByRole("button", { name: /Read — finish 'Sapiens' ch.9, .*detached/ });
+  await expect(detached).toBeVisible({ timeout: 10_000 });
+
+  await detached.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Relink to habit" }).click();
+
+  // Confirms the action ran; the custom title is gone (snapped back to the template,
+  // which renders identically to h1's other daily instances).
+  await expect(page.getByText("Relinked to habit").first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: /Read — finish 'Sapiens'/ })).toHaveCount(0);
+});
+
 // ─── Settings: appearance accent re-tints the whole app ───────────────────────
 
 const primaryToken = (page: import("@playwright/test").Page) =>
