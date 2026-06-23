@@ -1,11 +1,6 @@
 import { type FirebaseApp, initializeApp } from "firebase/app";
 import { type Auth, getAuth } from "firebase/auth";
-import {
-  type Firestore,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-} from "firebase/firestore";
+import { type Firestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
 
 /**
  * Firebase is optional. With no VITE_FIREBASE_* env vars the app runs fully
@@ -27,10 +22,8 @@ let dbInstance: Firestore | null = null;
 if (firebaseEnabled) {
   app = initializeApp(cfg);
   authInstance = getAuth(app);
-  // Offline cache + multi-tab — this is the local-first sync engine.
-  dbInstance = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  });
+  // Cloud-only for real data: memory cache, no app data persisted to disk.
+  dbInstance = initializeFirestore(app, { localCache: memoryLocalCache() });
 }
 
 export const auth = authInstance;
