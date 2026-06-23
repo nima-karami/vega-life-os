@@ -1,5 +1,7 @@
 import { Card } from "@heroui/react";
-import { cx, Icon, Lineage, Menu, type MenuItem, valueStripeStyle } from "@/core/ui";
+import { useStore } from "@/core/store";
+import { cx, Icon, Lineage, Menu, type MenuItem, StreakBadge, valueStripeStyle } from "@/core/ui";
+import { habitStreak } from "@/features/habits";
 import { useTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "../model";
 
@@ -28,6 +30,8 @@ export function TaskCard({
   onDelete: (t: Task) => void;
 }) {
   const lineage = useTaskLineage(task.id);
+  const tasks = useStore((s) => s.tasks);
+  const streak = task.habitId != null ? habitStreak(tasks, task.habitId) : 0;
   const done = task.status === "done";
   const skipped = task.status === "skip";
   const resolved = done || skipped;
@@ -101,6 +105,7 @@ export function TaskCard({
               {task.time}
             </span>
           )}
+          <StreakBadge streak={streak} />
           {task.detached && (
             <Icon
               name="unlink"

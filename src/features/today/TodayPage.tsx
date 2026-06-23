@@ -2,7 +2,15 @@ import { Button, Card, CardBody } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { CalendarPopover, cx, Icon, IconButton, SortableList, UndoBar } from "@/core/ui";
+import {
+  CalendarPopover,
+  cx,
+  Icon,
+  IconButton,
+  SortableList,
+  StreakBadge,
+  UndoBar,
+} from "@/core/ui";
 import { habitStreak } from "@/features/habits";
 import {
   DayEditor,
@@ -17,9 +25,17 @@ import {
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
+import { useTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "@/features/tasks/model";
 import { dayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
-import { partitionToday, reorderTasksInDay, toggleDone } from "./today-logic";
+import { valueColor } from "@/features/values/color";
+import {
+  partitionToday,
+  reorderTasksInDay,
+  sortDailyHabits,
+  splitRemaining,
+  toggleDone,
+} from "./today-logic";
 
 /**
  * Today — the calm focus surface.
@@ -249,22 +265,14 @@ export function TodayPage() {
                 : "Nothing scheduled for this day — add a task above, or press ⌘K."}
             </p>
           ) : (
-            <SortableList
-              items={remaining}
-              getId={(t) => t.id}
-              getLabel={(t) => t.title}
+            <RemainingTasks
+              remaining={remaining}
+              onOpen={setEditing}
+              onToggleDone={handleToggleDone}
+              onSkip={handleSkip}
+              onUnskip={handleUnskip}
+              onDelete={handleDelete}
               onReorder={handleReorderTasks}
-              className="flex flex-col gap-3"
-              renderItem={(task) => (
-                <TaskCard
-                  task={task}
-                  onOpen={setEditing}
-                  onToggleDone={handleToggleDone}
-                  onSkip={handleSkip}
-                  onUnskip={handleUnskip}
-                  onDelete={handleDelete}
-                />
-              )}
             />
           )}
         </section>
@@ -329,12 +337,64 @@ export function TodayPage() {
   );
 }
 
+/**
+ * Remaining tasks in the single time→order sequence. Timed tasks (forced into
+ * their slot by the time sort) render as plain, non-draggable cards; only untimed
+ * tasks — whose relative position is genuinely governed by `order` — get a drag
+ * handle via SortableList. `byTime` puts all timed before all untimed, so the
+ * timed prefix then the untimed list reproduces the existing visual order.
+ */
+function RemainingTasks({
+  remaining,
+  onOpen,
+  onToggleDone,
+  onSkip,
+  onUnskip,
+  onDelete,
+  onReorder,
+}: {
+  remaining: Task[];
+  onOpen: (t: Task) => void;
+  onToggleDone: (t: Task) => void;
+  onSkip: (t: Task) => void;
+  onUnskip: (t: Task) => void;
+  onDelete: (t: Task) => void;
+  onReorder: (activeId: string, overId: string) => void;
+}) {
+  const { timed, untimed } = splitRemaining(remaining);
+  const card = (task: Task) => (
+    <TaskCard
+      task={task}
+      onOpen={onOpen}
+      onToggleDone={onToggleDone}
+      onSkip={onSkip}
+      onUnskip={onUnskip}
+      onDelete={onDelete}
+    />
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      {timed.map((task) => (
+        <div key={task.id}>{card(task)}</div>
+      ))}
+      {untimed.length > 0 && (
+        <SortableList
+          items={untimed}
+          getId={(t) => t.id}
+          getLabel={(t) => t.title}
+          onReorder={onReorder}
+          className="flex flex-col gap-3"
+          renderItem={card}
+        />
+      )}
+    </div>
+  );
+}
+
 /** Compact checklist of the day's anytime habits — its own strip, separate from the to-do list. */
 function DailyHabits({ items, onToggle }: { items: Task[]; onToggle: (t: Task) => void }) {
-  const habitDefs = useStore((s) => s.habits);
-  const tasks = useStore((s) => s.tasks);
-  const iconOf = (habitId: string | null) =>
-    habitDefs.find((h) => h.id === habitId)?.icon ?? "repeat";
+  const sorted = useMemo(() => sortDailyHabits(items), [items]);
   const doneCount = items.filter((t) => t.status === "done").length;
 
   return (
@@ -348,55 +408,64 @@ function DailyHabits({ items, onToggle }: { items: Task[]; onToggle: (t: Task) =
       <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
         <CardBody className="gap-0.5 p-2">
           <ul className="flex flex-col">
-            {items.map((t) => {
-              const done = t.status === "done";
-              const streak = habitStreak(tasks, t.habitId ?? "");
-              return (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    onClick={() => onToggle(t)}
-                    aria-pressed={done}
-                    aria-label={done ? `Mark ${t.title} not done` : `Mark ${t.title} done`}
-                    className="flex w-full items-center gap-3 rounded-medium px-2 py-2 text-left transition-colors hover:bg-content2"
-                  >
-                    <span
-                      className={cx(
-                        "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
-                        done
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-default-300 text-transparent",
-                      )}
-                    >
-                      {done && <Icon name="check" size={12} />}
-                    </span>
-                    <Icon
-                      name={iconOf(t.habitId)}
-                      size={15}
-                      className="shrink-0 text-default-400"
-                    />
-                    <span
-                      className={cx(
-                        "min-w-0 flex-1 truncate text-small",
-                        done ? "text-default-500 line-through" : "text-foreground",
-                      )}
-                    >
-                      {t.title}
-                    </span>
-                    {streak > 0 && (
-                      <span className="flex shrink-0 items-center gap-1 text-tiny tabular-nums text-default-500">
-                        <Icon name="flame" size={12} />
-                        {streak}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
+            {sorted.map((t) => (
+              <DailyHabitRow key={t.id} task={t} onToggle={onToggle} />
+            ))}
           </ul>
         </CardBody>
       </Card>
     </section>
+  );
+}
+
+/** A single Daily-habits row — toggle, icon, title, value tag, and streak badge. */
+function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => void }) {
+  const habitDefs = useStore((s) => s.habits);
+  const tasks = useStore((s) => s.tasks);
+  const lineage = useTaskLineage(task.id);
+  const done = task.status === "done";
+  const streak = habitStreak(tasks, task.habitId ?? "");
+  const icon = habitDefs.find((h) => h.id === task.habitId)?.icon ?? "repeat";
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onToggle(task)}
+        aria-pressed={done}
+        aria-label={done ? `Mark ${task.title} not done` : `Mark ${task.title} done`}
+        className="flex w-full items-center gap-3 rounded-medium px-2 py-2 text-left transition-colors hover:bg-content2"
+      >
+        <span
+          className={cx(
+            "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
+            done
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-default-300 text-transparent",
+          )}
+        >
+          {done && <Icon name="check" size={12} />}
+        </span>
+        <Icon name={icon} size={15} className="shrink-0 text-default-400" />
+        <span
+          className={cx(
+            "min-w-0 flex-1 truncate text-small",
+            done ? "text-default-500 line-through" : "text-foreground",
+          )}
+        >
+          {task.title}
+        </span>
+        {lineage?.value && (
+          <span
+            className="shrink-0 truncate text-tiny font-medium"
+            style={{ color: valueColor(lineage.value) }}
+          >
+            {lineage.value.name}
+          </span>
+        )}
+        <StreakBadge streak={streak} />
+      </button>
+    </li>
   );
 }
 

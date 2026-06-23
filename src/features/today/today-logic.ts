@@ -102,3 +102,36 @@ export function reorderTasksInDay(
   const { remaining } = partitionToday(tasks, date);
   return reorderByIds(remaining, activeId, overId);
 }
+
+/**
+ * Split the Remaining group into timed (scheduled, `time !== null`) and untimed
+ * rows, preserving the incoming time→order sequence. `byTime` already sorts all
+ * timed tasks before all untimed ones, so timed is a clean prefix and untimed a
+ * clean suffix — concatenating them back reproduces the original order. Only
+ * untimed rows are draggable; timed rows are fixed by the time sort.
+ */
+export function splitRemaining(remaining: Task[]): { timed: Task[]; untimed: Task[] } {
+  const timed: Task[] = [];
+  const untimed: Task[] = [];
+  for (const t of remaining) (t.time !== null ? timed : untimed).push(t);
+  return { timed, untimed };
+}
+
+/**
+ * Daily-habits strip ordering: alphabetical by title (locale-aware,
+ * case-insensitive), ties broken by `order` then `id`. Returns a sorted copy —
+ * never mutates the input.
+ */
+export function sortDailyHabits(items: Task[]): Task[] {
+  return [...items].sort(
+    (a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: "base" }) ||
+      a.order - b.order ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+/** Canonical accessible name for a streak; singular only at exactly 1. */
+export function streakLabel(n: number): string {
+  return `${n}-day streak`;
+}
