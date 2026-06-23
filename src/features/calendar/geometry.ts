@@ -1,3 +1,5 @@
+import { addDays, format, parseISO } from "date-fns";
+
 /**
  * Pure grid geometry for the week calendar.
  *
@@ -60,6 +62,55 @@ export const dropToSchedule = (offsetPx: number): { startMin: number; durationMi
   startMin: Math.max(DAY_START, Math.min(minuteAtOffset(offsetPx), DAY_END - DROP_DURATION)),
   durationMin: DROP_DURATION,
 });
+
+/** An axis-aligned pixel box, grid-content-relative (left/top/right/bottom). */
+export interface Box {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** A chip's pixel box tagged with its task id. */
+export interface ChipBox extends Box {
+  id: string;
+}
+
+/** Ids of chips whose pixel boxes intersect the marquee rect (all grid-content-relative). */
+export function marqueeHits(rect: Box, boxes: ChipBox[]): string[] {
+  return boxes
+    .filter(
+      (b) =>
+        b.left < rect.right && b.right > rect.left && b.top < rect.bottom && b.bottom > rect.top,
+    )
+    .map((b) => b.id);
+}
+
+/** A timed selection member for a group move. */
+export interface ShiftItem {
+  id: string;
+  /** ISO yyyy-mm-dd */
+  date: string;
+  start: number;
+  durationMin: number;
+}
+
+/**
+ * Shift each timed item by (dayDelta days, minDelta minutes), each clamped to the
+ * window by **its own** duration (the same "move" rule {@link resolveDrag} uses).
+ * All-day members are shifted by the caller (day-delta only, stay untimed).
+ */
+export function shiftSelection(
+  items: ShiftItem[],
+  dayDelta: number,
+  minDelta: number,
+): { id: string; date: string; start: number }[] {
+  return items.map((it) => ({
+    id: it.id,
+    date: format(addDays(parseISO(it.date), dayDelta), "yyyy-MM-dd"),
+    start: Math.max(DAY_START, Math.min(DAY_END - it.durationMin, it.start + minDelta)),
+  }));
+}
 
 export type DragMode = "move" | "top" | "bottom";
 

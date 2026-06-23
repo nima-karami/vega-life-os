@@ -19,6 +19,10 @@ export interface TasksSlice {
   /** snap a detached habit instance back to its template (schedule + lineage + title);
    *  no-op unless it's a detached habit instance whose parent habit still exists */
   relinkTaskToHabit: (id: string) => void;
+  /** apply one patch to many tasks at once (each persisted) */
+  bulkUpdateTasks: (ids: string[], patch: Partial<Task>) => void;
+  /** remove many tasks at once; returns their snapshots so a bulk delete can be undone */
+  bulkRemoveTasks: (ids: string[]) => Task[];
   /** fill the visible week with any missing habit instances; returns count made */
   planWeek: (ref?: Date) => number;
   /** keep the runway populated: ensure habit instances exist from today forward */
@@ -130,6 +134,28 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       valueId: h.valueId,
       detached: false,
     });
+  },
+
+  bulkUpdateTasks: (ids, patch) => {
+    const idset = new Set(ids);
+    const updated: Task[] = [];
+    set((s) => ({
+      tasks: s.tasks.map((t) => {
+        if (!idset.has(t.id)) return t;
+        const next = { ...t, ...patch, id: t.id };
+        updated.push(next);
+        return next;
+      }),
+    }));
+    for (const t of updated) savePut("tasks", t);
+  },
+
+  bulkRemoveTasks: (ids) => {
+    const idset = new Set(ids);
+    const removed = get().tasks.filter((t) => idset.has(t.id));
+    set((s) => ({ tasks: s.tasks.filter((t) => !idset.has(t.id)) }));
+    for (const t of removed) saveRemove("tasks", t.id);
+    return removed;
   },
 
   planWeek: (ref = new Date()) => {

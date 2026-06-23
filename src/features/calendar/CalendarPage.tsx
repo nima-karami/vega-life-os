@@ -1,15 +1,18 @@
 import { Button, Card, Chip, Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
-import { addDays } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { addMinutes, fmtShort, minutesOf, weekDays, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { ContextMenu, cx, FloatingMenu, Icon, type MenuItem, TimePicker } from "@/core/ui";
-import type { Task } from "@/features/tasks";
+import { ContextMenu, cx, FloatingMenu, Icon, type MenuItem, TimePicker, UndoBar } from "@/core/ui";
+import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
+import { BulkActionBar } from "./BulkActionBar";
 import { CalendarSync } from "./CalendarSync";
 import {
+  type Box,
+  type ChipBox,
   chipHeight,
   chipTop,
   DAY_END,
@@ -22,8 +25,10 @@ import {
   HOUR_PX,
   HOURS,
   isOffWindow,
+  marqueeHits,
   minuteAtOffset,
   resolveDrag,
+  shiftSelection,
 } from "./geometry";
 import { timedTasksForDay, unscheduledTasks, untimedTasksForDay } from "./grid-data";
 
@@ -39,6 +44,16 @@ interface DragState {
   /** pointer origin for the all-day drag threshold (schedule mode only). */
   startX: number;
   startY: number;
+  /** when set, the move shifts a whole selection by the anchor's delta. */
+  group?: GroupMember[];
+}
+
+interface GroupMember {
+  id: string;
+  date: string;
+  start: number;
+  durationMin: number;
+  allDay: boolean;
 }
 interface Preview {
   date: string;
@@ -52,8 +67,11 @@ export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
+  const values = useStore((s) => s.values);
   const updateTask = useStore((s) => s.updateTask);
   const relinkTaskToHabit = useStore((s) => s.relinkTaskToHabit);
+  const bulkUpdateTasks = useStore((s) => s.bulkUpdateTasks);
+  const bulkRemoveTasks = useStore((s) => s.bulkRemoveTasks);
   const addTask = useStore((s) => s.addTask);
   const removeTask = useStore((s) => s.removeTask);
   const duplicateTask = useStore((s) => s.duplicateTask);
@@ -93,6 +111,26 @@ export function CalendarPage() {
   const pasteSuppressUntil = useRef(0);
   const [dragId, setDragId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
+
+  // ── Multi-select ──────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const selectedRef = useRef(selectedIds);
+  selectedRef.current = selectedIds;
+  // last-clicked chip — the anchor for Shift-range select
+  const anchorRef = useRef<{ id: string; zone: "timed" | "allday"; day: string } | null>(null);
+  const [marquee, setMarquee] = useState<Box | null>(null);
+  const [provisional, setProvisional] = useState<Set<string>>(() => new Set());
+  const marqueeRef = useRef<{
+    startX: number;
+    startY: number;
+    add: boolean;
+    moved: boolean;
+  } | null>(null);
+  const [pendingUndo, setPendingUndo] = useState<Task[] | null>(null);
+  const gridHoverRef = useRef(false);
+
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
   const clipRef = useRef(clipboardTask);
   clipRef.current = clipboardTask;
@@ -215,7 +253,7 @@ export function CalendarPage() {
 
   // commit a schedule change; a moved/resized habit instance detaches.
   const commit = (id: string, patch: Partial<Task>) => {
-    const t = tasks.find((x) => x.id === id);
+    const t = tasksRef.current.find((x) => x.id === id);
     try {
       if (t?.kind === "habit") updateTask(id, { ...patch, detached: true });
       else updateTask(id, patch);
@@ -225,11 +263,164 @@ export function CalendarPage() {
     }
   };
 
+  // ── Selection helpers ───────────────────────────────────────────────────────
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    anchorRef.current = null;
+  };
+  // visual order of the chips in a zone+day (timed by start, all-day by row order)
+  const orderedIdsFor = (zone: "timed" | "allday", day: string) =>
+    zone === "timed"
+      ? timedTasksForDay(tasksRef.current, day)
+          .slice()
+          .sort((a, b) => minutesOf(a.time ?? "00:00") - minutesOf(b.time ?? "00:00"))
+          .map((t) => t.id)
+      : untimedTasksForDay(tasksRef.current, day).map((t) => t.id);
+
+  const toggleSelect = (t: Task, zone: "timed" | "allday") => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(t.id)) next.delete(t.id);
+      else next.add(t.id);
+      return next;
+    });
+    anchorRef.current = { id: t.id, zone, day: t.date ?? "" };
+  };
+
+  const rangeSelect = (t: Task, zone: "timed" | "allday") => {
+    const a = anchorRef.current;
+    if (!a || a.zone !== zone || a.day !== t.date) {
+      toggleSelect(t, zone);
+      return;
+    }
+    const order = orderedIdsFor(zone, t.date ?? "");
+    const i1 = order.indexOf(a.id);
+    const i2 = order.indexOf(t.id);
+    if (i1 < 0 || i2 < 0) {
+      toggleSelect(t, zone);
+      return;
+    }
+    const [lo, hi] = i1 < i2 ? [i1, i2] : [i2, i1];
+    const range = order.slice(lo, hi + 1);
+    setSelectedIds((prev) => new Set([...prev, ...range]));
+  };
+
+  // ── Group move + bulk actions ───────────────────────────────────────────────
+  // Shift a set of tasks by (dayDelta days, minDelta minutes): timed members clamp
+  // by their own duration; all-day members move day-only and stay untimed.
+  const applyGroupShift = (members: Task[], dayDelta: number, minDelta: number) => {
+    const timed = members.filter((m) => m.time != null && m.date != null);
+    const shifts = shiftSelection(
+      timed.map((m) => ({
+        id: m.id,
+        date: m.date as string,
+        start: minutesOf(m.time as string),
+        durationMin: m.durationMin,
+      })),
+      dayDelta,
+      minDelta,
+    );
+    for (const s of shifts) commit(s.id, { date: s.date, time: fmtMin(s.start) });
+    for (const m of members) {
+      if (m.time == null && m.date != null) {
+        commit(m.id, { date: format(addDays(parseISO(m.date), dayDelta), "yyyy-MM-dd") });
+      }
+    }
+    setAnnounce(`Moved ${members.length} ${members.length === 1 ? "task" : "tasks"}`);
+  };
+
+  const selectedTasks = () => tasksRef.current.filter((t) => selectedRef.current.has(t.id));
+
+  // earliest selected member (date, then start) — the reschedule anchor
+  const selectionAnchor = (): Task | null => {
+    const list = selectedTasks();
+    if (list.length === 0) return null;
+    return list.slice().sort((a, b) => {
+      const da = a.date ?? "";
+      const db = b.date ?? "";
+      if (da !== db) return da < db ? -1 : 1;
+      return minutesOf(a.time ?? fmtMin(DAY_START)) - minutesOf(b.time ?? fmtMin(DAY_START));
+    })[0];
+  };
+
+  const bulkReschedule = (newDate: string, newTime: string) => {
+    const anchor = selectionAnchor();
+    if (!anchor) return;
+    const anchorStart = anchor.time ? minutesOf(anchor.time) : DAY_START;
+    const dayDelta = differenceInCalendarDays(parseISO(newDate), parseISO(anchor.date as string));
+    applyGroupShift(selectedTasks(), dayDelta, minutesOf(newTime) - anchorStart);
+    clearSelection();
+  };
+
+  const bulkSetStatus = (status: TaskStatus) => {
+    const ids = [...selectedRef.current];
+    bulkUpdateTasks(ids, { status });
+    setAnnounce(`Set ${ids.length} ${ids.length === 1 ? "task" : "tasks"} to ${status}`);
+    clearSelection();
+  };
+
+  const bulkRelineage = (valueId: string | null, goalId: string | null) => {
+    bulkUpdateTasks([...selectedRef.current], { valueId, goalId });
+    setAnnounce("Updated value or goal");
+    clearSelection();
+  };
+
+  const bulkDelete = () => {
+    const ids = [...selectedRef.current];
+    if (ids.length === 0) return;
+    const removed = bulkRemoveTasks(ids);
+    clearSelection();
+    setPendingUndo(removed);
+    setAnnounce(`${removed.length} ${removed.length === 1 ? "task" : "tasks"} deleted`);
+  };
+  const bulkDeleteRef = useRef(bulkDelete);
+  bulkDeleteRef.current = bulkDelete;
+
+  const undoBulkDelete = () => {
+    if (!pendingUndo) return;
+    for (const t of pendingUndo) addTask(t);
+    setAnnounce(`Restored ${pendingUndo.length} ${pendingUndo.length === 1 ? "task" : "tasks"}`);
+    setPendingUndo(null);
+  };
+
+  // Snapshot the current selection's members as group-move origins.
+  const captureGroup = (): GroupMember[] =>
+    selectedTasks()
+      .filter((m) => m.date != null)
+      .map((m) => ({
+        id: m.id,
+        date: m.date as string,
+        start: m.time ? minutesOf(m.time) : 0,
+        durationMin: m.durationMin,
+        allDay: m.time == null,
+      }));
+
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
+    // Selection via modifier-click (desktop only; resize edges ignore it).
+    if (mode === "move" && !mobile) {
+      if (e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        rangeSelect(t, "timed");
+        return;
+      }
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSelect(t, "timed");
+        return;
+      }
+    }
     e.preventDefault();
     e.stopPropagation();
+    // Group move when dragging a member of a multi-selection; otherwise a lone
+    // chip drag clears any selection first.
+    const inSelection = selectedRef.current.has(t.id);
+    const group =
+      mode === "move" && inSelection && selectedRef.current.size > 1 ? captureGroup() : undefined;
+    if (mode === "move" && !inSelection) clearSelection();
     const rect = gridRef.current.getBoundingClientRect();
     const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
     const origStart = minutesOf(t.time);
@@ -243,6 +434,7 @@ export function CalendarPage() {
       moved: false,
       startX: e.clientX,
       startY: e.clientY,
+      group,
     };
     const p = { date: t.date, start: origStart, durationMin: t.durationMin };
     previewRef.current = p;
@@ -254,8 +446,24 @@ export function CalendarPage() {
   const beginScheduleDrag = (e: React.PointerEvent, t: Task) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.date) return;
+    // Selection via modifier-click (desktop only).
+    if (!mobile) {
+      if (e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        rangeSelect(t, "allday");
+        return;
+      }
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSelect(t, "allday");
+        return;
+      }
+    }
     e.preventDefault();
     e.stopPropagation();
+    if (!selectedRef.current.has(t.id)) clearSelection();
     dragRef.current = {
       id: t.id,
       mode: "schedule",
@@ -279,6 +487,70 @@ export function CalendarPage() {
     previewRef.current = null;
     setDragId(null);
     setPreview(null);
+  };
+
+  // Rubber-band selection: press-drag on empty timed-grid space (desktop only).
+  const beginMarquee = (e: React.PointerEvent) => {
+    if (mobile || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("[data-block]")) return;
+    const grid = gridRef.current;
+    if (!grid) return;
+    const add = e.metaKey || e.ctrlKey || e.shiftKey;
+    marqueeRef.current = { startX: e.clientX, startY: e.clientY, add, moved: false };
+    let lastHits: string[] = [];
+
+    const chipBoxes = (): ChipBox[] => {
+      const r = grid.getBoundingClientRect();
+      return [...grid.querySelectorAll<HTMLElement>("[data-chip-id]")].map((el) => {
+        const b = el.getBoundingClientRect();
+        return {
+          id: el.dataset.chipId as string,
+          left: b.left - r.left,
+          top: b.top - r.top,
+          right: b.right - r.left,
+          bottom: b.bottom - r.top,
+        };
+      });
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      const m = marqueeRef.current;
+      if (!m) return;
+      if (!m.moved && Math.hypot(ev.clientX - m.startX, ev.clientY - m.startY) < 4) return;
+      m.moved = true;
+      const r = grid.getBoundingClientRect();
+      const box: Box = {
+        left: Math.min(m.startX, ev.clientX) - r.left,
+        top: Math.min(m.startY, ev.clientY) - r.top,
+        right: Math.max(m.startX, ev.clientX) - r.left,
+        bottom: Math.max(m.startY, ev.clientY) - r.top,
+      };
+      lastHits = marqueeHits(box, chipBoxes());
+      setMarquee(box);
+      setProvisional(new Set(lastHits));
+    };
+    const onUp = () => {
+      const m = marqueeRef.current;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      marqueeRef.current = null;
+      setMarquee(null);
+      setProvisional(new Set());
+      if (!m?.moved) return; // a plain click falls through to onColumnClick
+      setSelectedIds((prev) => {
+        const next = m.add ? new Set(prev) : new Set<string>();
+        for (const id of lastHits) next.add(id);
+        return next;
+      });
+      anchorRef.current = null;
+      setAnnounce(`${lastHits.length} ${lastHits.length === 1 ? "task" : "tasks"} selected`);
+      justDragged.current = true;
+      setTimeout(() => {
+        justDragged.current = false;
+      }, 0);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   };
 
   // Give an all-day task a time without dragging (the keyboard schedule path).
@@ -308,8 +580,6 @@ export function CalendarPage() {
     };
   };
 
-  const tasksRef = useRef(tasks);
-  tasksRef.current = tasks;
   const commitRef = useRef(commit);
   commitRef.current = commit;
   const replaceWithRef = useRef(replaceWith);
@@ -338,6 +608,18 @@ export function CalendarPage() {
       }, 0);
       return;
     }
+    // Group move: shift every selected member by the anchor's delta.
+    if (d.group && d.moved) {
+      const dayDelta = differenceInCalendarDays(parseISO(p.date), parseISO(d.origDate));
+      const minDelta = p.start - d.origStart;
+      const members = tasksRef.current.filter((t) => d.group?.some((g) => g.id === t.id));
+      applyGroupShift(members, dayDelta, minDelta);
+      justDragged.current = true;
+      setTimeout(() => {
+        justDragged.current = false;
+      }, 0);
+      return;
+    }
     const changed = p.date !== d.origDate || p.start !== d.origStart || p.durationMin !== d.origDur;
     if (changed) {
       commitRef.current(d.id, { date: p.date, time: fmtMin(p.start), durationMin: p.durationMin });
@@ -350,12 +632,13 @@ export function CalendarPage() {
       }, 0);
       return;
     }
-    // a tap (no movement): paste-replace if armed, else open the task
+    // a tap (no movement): paste-replace if armed, else clear selection + open
     if (d.mode !== "move" || d.moved) return;
     if (clipRef.current) {
       replaceWithRef.current(d.id, clipRef.current);
       return;
     }
+    clearSelection();
     const t = tasksRef.current.find((x) => x.id === d.id);
     if (t) openTask(t);
   };
@@ -428,10 +711,54 @@ export function CalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragId]);
 
-  const effective = (t: Task) =>
-    dragId === t.id && preview
-      ? { date: preview.date, start: preview.start, durationMin: preview.durationMin }
-      : { date: t.date ?? "", start: minutesOf(t.time ?? "00:00"), durationMin: t.durationMin };
+  // Selection keyboard: Ctrl/Cmd+A (grid hovered) select-all, Esc clear, Delete remove.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) {
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && gridHoverRef.current) {
+        e.preventDefault();
+        const ids = dragDaysRef.current
+          .flatMap((d) => [
+            ...timedTasksForDay(tasksRef.current, d.iso),
+            ...untimedTasksForDay(tasksRef.current, d.iso),
+          ])
+          .map((t) => t.id);
+        setSelectedIds(new Set(ids));
+        anchorRef.current = null;
+        setAnnounce(`${ids.length} ${ids.length === 1 ? "task" : "tasks"} selected`);
+        return;
+      }
+      if (e.key === "Escape" && selectedRef.current.size > 0) {
+        setSelectedIds(new Set());
+        anchorRef.current = null;
+        return;
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedRef.current.size > 0) {
+        e.preventDefault();
+        bulkDeleteRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const effective = (t: Task) => {
+    if (dragId === t.id && preview) {
+      return { date: preview.date, start: preview.start, durationMin: preview.durationMin };
+    }
+    // a non-anchor member of a live group drag shifts by the anchor's delta
+    const d = dragRef.current;
+    const member = d?.group?.find((g) => g.id === t.id && !g.allDay);
+    if (d?.group && preview && dragId && member) {
+      const dayDelta = differenceInCalendarDays(parseISO(preview.date), parseISO(d.origDate));
+      const [shifted] = shiftSelection([member], dayDelta, preview.start - d.origStart);
+      return { date: shifted.date, start: shifted.start, durationMin: member.durationMin };
+    }
+    return { date: t.date ?? "", start: minutesOf(t.time ?? "00:00"), durationMin: t.durationMin };
+  };
 
   // The chip currently dragged, and whether it's an all-day → grid schedule drag.
   const dragTask = dragId ? tasks.find((t) => t.id === dragId) : null;
@@ -470,6 +797,7 @@ export function CalendarPage() {
 
   const gotoPrev = () => {
     if (dragRef.current) cancelDrag();
+    clearSelection();
     if (mobile) {
       if (activeDay > 0) setActiveDay((i) => i - 1);
       else {
@@ -482,6 +810,7 @@ export function CalendarPage() {
   };
   const gotoNext = () => {
     if (dragRef.current) cancelDrag();
+    clearSelection();
     if (mobile) {
       if (activeDay < 6) setActiveDay((i) => i + 1);
       else {
@@ -494,6 +823,7 @@ export function CalendarPage() {
   };
   const gotoToday = () => {
     if (dragRef.current) cancelDrag();
+    clearSelection();
     setWeekRef(new Date());
     setAnnounce("Showing this week");
   };
@@ -628,7 +958,16 @@ export function CalendarPage() {
       )}
 
       {/* ── Week grid ────────────────────────────────────────────── */}
-      <Card shadow="sm" className="overflow-hidden">
+      <Card
+        shadow="sm"
+        className="overflow-hidden"
+        onMouseEnter={() => {
+          gridHoverRef.current = true;
+        }}
+        onMouseLeave={() => {
+          gridHoverRef.current = false;
+        }}
+      >
         <div className="overflow-x-auto">
           <div className={mobile ? "min-w-0" : "min-w-[720px]"}>
             {/* day headers */}
@@ -673,6 +1012,7 @@ export function CalendarPage() {
                       key={t.id}
                       task={t}
                       dragging={dragId === t.id}
+                      selected={selectedIds.has(t.id)}
                       onPointerDownBody={(e) => beginScheduleDrag(e, t)}
                       onOpen={() => openTask(t)}
                       menuItems={allDayMenuItems(t)}
@@ -686,7 +1026,7 @@ export function CalendarPage() {
             <div className="relative overflow-y-auto" style={{ maxHeight: "calc(100vh - 360px)" }}>
               <div
                 ref={gridRef}
-                className={cx("grid", dragId && "select-none")}
+                className={cx("relative grid", (dragId || marquee) && "select-none")}
                 style={{
                   gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)`,
                   height: HOURS.length * HOUR_PX,
@@ -702,6 +1042,19 @@ export function CalendarPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* marquee rubber-band */}
+                {marquee && (
+                  <div
+                    className="pointer-events-none absolute z-40 rounded-[2px] border border-primary/40 bg-primary/10"
+                    style={{
+                      left: marquee.left,
+                      top: marquee.top,
+                      width: marquee.right - marquee.left,
+                      height: marquee.bottom - marquee.top,
+                    }}
+                  />
+                )}
 
                 {/* day columns */}
                 {visibleDays.map((d) => {
@@ -719,6 +1072,7 @@ export function CalendarPage() {
                       <button
                         type="button"
                         aria-label={`Add task on ${d.dow}, ${fmtShort(d.iso)}${d.today ? ", today" : ""}`}
+                        onPointerDown={beginMarquee}
                         onClick={(e) => onColumnClick(e, d.iso)}
                         onContextMenu={(e) => onColumnContextMenu(e, d.iso)}
                         className={cx(
@@ -767,6 +1121,8 @@ export function CalendarPage() {
                           dragging={dragId === t.id}
                           dim={Boolean(focusGoalId) && t.goalId !== focusGoalId}
                           detached={t.kind === "habit" && t.detached}
+                          selected={selectedIds.has(t.id)}
+                          provisional={provisional.has(t.id)}
                           onPointerDownBody={(e) => beginDrag(e, t, "move")}
                           onPointerDownTop={(e) => beginDrag(e, t, "top")}
                           onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
@@ -832,6 +1188,27 @@ export function CalendarPage() {
         task={selected ? (tasks.find((t) => t.id === selected.id) ?? null) : null}
         onClose={closeEditor}
       />
+
+      {selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          anchor={selectionAnchor()}
+          values={values}
+          goals={goals}
+          onSetStatus={bulkSetStatus}
+          onReschedule={bulkReschedule}
+          onRelineage={bulkRelineage}
+          onDelete={bulkDelete}
+          onClear={clearSelection}
+        />
+      )}
+
+      {pendingUndo && (
+        <UndoBar
+          message={`${pendingUndo.length} ${pendingUndo.length === 1 ? "task" : "tasks"} deleted`}
+          onUndo={undoBulkDelete}
+        />
+      )}
 
       {/* Right-click an empty slot → add / paste / schedule */}
       {slotMenu && (
@@ -993,6 +1370,8 @@ function TimedChip({
   dragging,
   dim,
   detached,
+  selected,
+  provisional,
   onPointerDownBody,
   onPointerDownTop,
   onPointerDownBottom,
@@ -1004,6 +1383,8 @@ function TimedChip({
   dragging: boolean;
   dim: boolean;
   detached: boolean;
+  selected: boolean;
+  provisional: boolean;
   onPointerDownBody: (e: React.PointerEvent) => void;
   onPointerDownTop: (e: React.PointerEvent) => void;
   onPointerDownBottom: (e: React.PointerEvent) => void;
@@ -1024,6 +1405,8 @@ function TimedChip({
       <button
         type="button"
         data-block
+        data-chip-id={task.id}
+        aria-pressed={selected}
         onPointerDown={onPointerDownBody}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -1031,11 +1414,13 @@ function TimedChip({
             onOpen();
           }
         }}
-        aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${resolved ? `, ${task.status}` : ""}`}
+        aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
           "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-content1 px-1.5 py-1 text-left shadow-small",
           resolved && "bg-content2",
           dim ? "opacity-30" : "opacity-100",
+          selected && "z-20 ring-2 ring-primary",
+          provisional && !selected && "z-20 ring-2 ring-primary/40",
           dragging
             ? "z-30 cursor-grabbing shadow-medium ring-1 ring-primary"
             : "transition-[top,height] duration-75",
@@ -1089,12 +1474,14 @@ function TimedChip({
 function AllDayChip({
   task,
   dragging,
+  selected,
   onPointerDownBody,
   onOpen,
   menuItems,
 }: {
   task: Task;
   dragging: boolean;
+  selected: boolean;
   onPointerDownBody: (e: React.PointerEvent) => void;
   onOpen: () => void;
   menuItems: MenuItem[];
@@ -1106,6 +1493,7 @@ function AllDayChip({
       <button
         type="button"
         data-block
+        aria-pressed={selected}
         onPointerDown={onPointerDownBody}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -1113,10 +1501,11 @@ function AllDayChip({
             onOpen();
           }
         }}
-        aria-label={`${task.title}, all day${resolved ? `, ${task.status}` : ""}`}
+        aria-label={`${task.title}, all day${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
           "block w-full cursor-grab touch-none select-none truncate rounded-[2px] border-l-[3px] bg-content1 px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-small",
           dragging && "opacity-40",
+          selected && "ring-2 ring-primary",
         )}
         style={{ borderColor: accent }}
       >

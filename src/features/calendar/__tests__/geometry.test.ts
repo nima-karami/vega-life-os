@@ -11,9 +11,11 @@ import {
   HOUR_PX,
   isOffWindow,
   MIN_CHIP_PX,
+  marqueeHits,
   minuteAtOffset,
   resolveDrag,
   SNAP,
+  shiftSelection,
   snap,
 } from "../geometry";
 
@@ -97,6 +99,45 @@ describe("dropToSchedule", () => {
   });
   it("clamps an above-window drop to the window start", () => {
     expect(dropToSchedule(-100)).toEqual({ startMin: DAY_START, durationMin: DROP_DURATION });
+  });
+});
+
+describe("marqueeHits", () => {
+  const boxes = [
+    { id: "a", left: 0, top: 0, right: 10, bottom: 10 },
+    { id: "b", left: 50, top: 50, right: 60, bottom: 60 },
+    { id: "c", left: 100, top: 100, right: 110, bottom: 110 },
+  ];
+  it("returns ids of chips intersecting the rect", () => {
+    expect(marqueeHits({ left: 5, top: 5, right: 55, bottom: 55 }, boxes)).toEqual(["a", "b"]);
+  });
+  it("returns nothing when the rect hits no chip", () => {
+    expect(marqueeHits({ left: 200, top: 200, right: 300, bottom: 300 }, boxes)).toEqual([]);
+  });
+  it("counts edge-touching as a miss (strict overlap)", () => {
+    // rect right edge at x=0 exactly touches box a's left edge → no overlap
+    expect(marqueeHits({ left: -10, top: -10, right: 0, bottom: 0 }, boxes)).toEqual([]);
+  });
+});
+
+describe("shiftSelection", () => {
+  const items = [
+    { id: "a", date: "2026-06-22", start: 9 * 60, durationMin: 60 },
+    { id: "b", date: "2026-06-22", start: 10 * 60, durationMin: 30 },
+  ];
+  it("shifts every item by the same day and minute delta", () => {
+    expect(shiftSelection(items, 1, 60)).toEqual([
+      { id: "a", date: "2026-06-23", start: 10 * 60 },
+      { id: "b", date: "2026-06-23", start: 11 * 60 },
+    ]);
+  });
+  it("clamps each item by its own duration at the window edge", () => {
+    const r = shiftSelection(items, 0, 10_000);
+    expect(r[0].start).toBe(DAY_END - 60);
+    expect(r[1].start).toBe(DAY_END - 30);
+  });
+  it("clamps to the window start when shifted before 05:00", () => {
+    expect(shiftSelection(items, 0, -10_000).every((x) => x.start === DAY_START)).toBe(true);
   });
 });
 

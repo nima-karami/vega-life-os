@@ -375,6 +375,70 @@ test("calendar: relink a detached habit instance snaps it back to the template",
   await expect(page.getByRole("button", { name: /Read — finish 'Sapiens'/ })).toHaveCount(0);
 });
 
+test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const a = page.getByRole("button", { name: /^Update ID card, 13:00/ });
+  const b = page.getByRole("button", { name: /^Mock interview w\/ Dana, 16:00/ });
+  await a.scrollIntoViewIfNeeded();
+  await a.click({ modifiers: ["ControlOrMeta"] });
+  await b.click({ modifiers: ["ControlOrMeta"] });
+
+  const bar = page.getByRole("toolbar", { name: "Bulk actions" });
+  await expect(bar).toContainText("2 selected", { timeout: 10_000 });
+  await expect(a).toHaveAttribute("aria-pressed", "true");
+
+  // Esc clears the selection and hides the bar.
+  await page.keyboard.press("Escape");
+  await expect(bar).toBeHidden();
+});
+
+test("calendar: bulk delete removes the selection and Undo restores it", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const a = page.getByRole("button", { name: /^Update ID card, 13:00/ });
+  const b = page.getByRole("button", { name: /^Mock interview w\/ Dana, 16:00/ });
+  await a.scrollIntoViewIfNeeded();
+  await a.click({ modifiers: ["ControlOrMeta"] });
+  await b.click({ modifiers: ["ControlOrMeta"] });
+
+  await page
+    .getByRole("toolbar", { name: "Bulk actions" })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await expect(page.getByRole("button", { name: /^Update ID card/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Mock interview w\/ Dana/ })).toHaveCount(0);
+
+  // Undo brings the whole batch back.
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Mock interview w\/ Dana, 16:00/ })).toBeVisible();
+});
+
+test("calendar: bulk Set status marks the whole selection done", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const card = page.getByRole("button", { name: /^Update ID card, 13:00/ });
+  await card.scrollIntoViewIfNeeded();
+  await card.click({ modifiers: ["ControlOrMeta"] });
+
+  await page
+    .getByRole("toolbar", { name: "Bulk actions" })
+    .getByRole("button", { name: "Set status" })
+    .click();
+  await page.getByRole("menuitem", { name: "Done" }).click();
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:00.*done/ })).toBeVisible();
+});
+
 // ─── Settings: appearance accent re-tints the whole app ───────────────────────
 
 const primaryToken = (page: import("@playwright/test").Page) =>

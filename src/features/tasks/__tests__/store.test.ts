@@ -100,3 +100,43 @@ describe("relinkTaskToHabit", () => {
     expect(get().tasks[0].detached).toBe(true);
   });
 });
+
+describe("bulkUpdateTasks / bulkRemoveTasks", () => {
+  const oneoff = (id: string, over: Partial<Task> = {}): Task => ({
+    id,
+    title: id,
+    kind: "oneoff",
+    habitId: null,
+    goalId: null,
+    valueId: null,
+    date: "2026-06-22",
+    time: "09:00",
+    durationMin: 30,
+    status: "todo",
+    detached: false,
+    note: "",
+    order: 0,
+    ...over,
+  });
+
+  it("applies one patch to only the targeted tasks", () => {
+    const { get } = makeSlice({ tasks: [oneoff("a"), oneoff("b"), oneoff("c")] });
+    get().bulkUpdateTasks(["a", "c"], { status: "done" });
+    const byId = Object.fromEntries(get().tasks.map((t) => [t.id, t.status]));
+    expect(byId).toEqual({ a: "done", b: "todo", c: "done" });
+  });
+
+  it("removes many and returns their snapshots, then can restore via addTask with id", () => {
+    const { get } = makeSlice({ tasks: [oneoff("a"), oneoff("b"), oneoff("c")] });
+    const removed = get().bulkRemoveTasks(["a", "b"]);
+    expect(removed.map((t) => t.id)).toEqual(["a", "b"]);
+    expect(get().tasks.map((t) => t.id)).toEqual(["c"]);
+    // undo: re-add preserving original ids/fields
+    for (const t of removed) get().addTask(t);
+    expect(
+      get()
+        .tasks.map((t) => t.id)
+        .sort(),
+    ).toEqual(["a", "b", "c"]);
+  });
+});
