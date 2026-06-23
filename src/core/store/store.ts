@@ -32,7 +32,10 @@ async function loadAccount(
 ) {
   unsubscribeRemote?.();
   unsubscribeRemote = null;
-  if (!db) return;
+  if (!db) {
+    set({ loadFailed: true, ready: true });
+    return;
+  }
   const routing = persistence as RoutingAdapter;
   const cloud = new FirestoreAdapter(db, uid);
   routing.setDelegate(cloud);
