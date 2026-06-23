@@ -1,3 +1,4 @@
+export { AddButton } from "./AddButton";
 export { DotMeter, Gauge, ProgressBar, Radar, Sparkline } from "./charts";
 export { ConfirmDialog } from "./confirm";
 export { ContextMenu, FloatingMenu } from "./contextmenu";

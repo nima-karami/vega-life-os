@@ -200,7 +200,7 @@ test("add-a-task captures a title and the card appears in Remaining", async ({ p
 
   // Expand the inline capture and type a title.
   await page
-    .getByRole("button", { name: /^Add a task$/ })
+    .getByRole("button", { name: /^Add task$/ })
     .first()
     .click();
   const titleInput = page.getByRole("textbox", { name: "Task title" });

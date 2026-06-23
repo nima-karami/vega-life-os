@@ -14,7 +14,7 @@ import { Button, Card, CardBody, Chip } from "@heroui/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, Icon, Menu } from "@/core/ui";
+import { AddButton, ConfirmDialog, Icon, Menu } from "@/core/ui";
 import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalEditor } from "@/features/goals/components/GoalEditor";
 import { habitStreak } from "@/features/habits";
@@ -112,76 +112,52 @@ export function ValuesView() {
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       {region}
 
-      <header className="flex items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            What you're building toward
-          </h1>
-          <p className="mt-2 text-small text-default-500">
-            Goals ladder up to a value — each with a timeframe and a state. Habits keep them moving.
-          </p>
-        </div>
-        <Button
-          ref={addBtnRef}
-          color="primary"
-          size="sm"
-          className="shrink-0"
-          startContent={<Icon name="plus" size={16} />}
-          onPress={createValue}
-        >
-          Add value
-        </Button>
+      <header>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          What you're building toward
+        </h1>
+        <p className="mt-2 text-small text-default-500">
+          Goals ladder up to a value — each with a timeframe and a state. Habits keep them moving.
+        </p>
       </header>
 
-      {sortedValues.length > 0 ? (
-        <ul className="mt-8 space-y-5">
-          {sortedValues.map((v, i) => (
-            <li key={v.id}>
-              <ValueCard
-                value={v}
-                isFirst={i === 0}
-                isLast={i === sortedValues.length - 1}
-                onEdit={() => setValueEditId(v.id)}
-                onAddGoal={() => createGoal(v.id)}
-                onMove={(dir) => moveValue(v, dir)}
-                onDelete={() => setConfirmValue(v)}
-                onEditGoal={setGoalEditId}
-                onMoveGoal={(goalId, dir, label) => {
-                  const valueGoals = goals
-                    .filter((g) => g.valueId === v.id)
-                    .sort((a, b) => a.order - b.order);
-                  const changes = reorderedOrders(valueGoals, goalId, dir);
-                  if (!changes.length) return;
-                  for (const c of changes) useStore.getState().updateGoal(c.id, { order: c.order });
-                  announce(`Moved ${label} ${dir}`);
-                }}
-                onDeleteGoal={setConfirmGoalId}
-                onStatusAnnounce={announce}
-              />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Card shadow="sm" className="mt-10 border border-divider bg-content1">
-          <CardBody className="grid place-items-center gap-3 p-12 text-center">
-            <Icon name="tree" size={28} className="text-default-400" />
-            <p className="text-large font-medium text-foreground">Start with what matters</p>
-            <p className="max-w-sm text-small text-default-500">
-              Add your first value — the "why" that gives every goal and task downstream its
-              meaning.
-            </p>
-            <Button
-              color="primary"
-              size="sm"
-              className="mt-1"
-              startContent={<Icon name="plus" size={16} />}
-              onPress={createValue}
-            >
-              Add your first value
-            </Button>
-          </CardBody>
-        </Card>
-      )}
+      <div className="mt-8 flex flex-col gap-5">
+        <AddButton ref={addBtnRef} label="Add value" onPress={createValue} />
+        {sortedValues.length === 0 ? (
+          <p className="text-small text-default-500">
+            No values yet — the "why" behind every goal and task downstream.
+          </p>
+        ) : (
+          <ul className="space-y-5">
+            {sortedValues.map((v, i) => (
+              <li key={v.id}>
+                <ValueCard
+                  value={v}
+                  isFirst={i === 0}
+                  isLast={i === sortedValues.length - 1}
+                  onEdit={() => setValueEditId(v.id)}
+                  onAddGoal={() => createGoal(v.id)}
+                  onMove={(dir) => moveValue(v, dir)}
+                  onDelete={() => setConfirmValue(v)}
+                  onEditGoal={setGoalEditId}
+                  onMoveGoal={(goalId, dir, label) => {
+                    const valueGoals = goals
+                      .filter((g) => g.valueId === v.id)
+                      .sort((a, b) => a.order - b.order);
+                    const changes = reorderedOrders(valueGoals, goalId, dir);
+                    if (!changes.length) return;
+                    for (const c of changes)
+                      useStore.getState().updateGoal(c.id, { order: c.order });
+                    announce(`Moved ${label} ${dir}`);
+                  }}
+                  onDeleteGoal={setConfirmGoalId}
+                  onStatusAnnounce={announce}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <ValueEditor
         valueId={valueEditId}

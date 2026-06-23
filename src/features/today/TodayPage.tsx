@@ -223,55 +223,57 @@ export function TodayPage() {
 
       {/* Body */}
       <div className="mt-8 flex flex-col gap-8">
-        {isEmpty ? (
-          <EmptyToday date={viewDate} isToday={isToday} />
-        ) : (
-          <>
-            <section aria-label="Remaining" className="flex flex-col gap-3">
-              {allDone ? (
-                <AllDoneMarker isToday={isToday} />
-              ) : (
-                <h2 className="text-small font-medium text-foreground">Remaining</h2>
-              )}
-              <AddTaskInline date={viewDate} onAdded={(t) => setAnnounce(`Added ${t}`)} />
-              {remaining.map((task, i) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onOpen={setEditing}
-                  onToggleDone={handleToggleDone}
-                  onSkip={handleSkip}
-                  onUnskip={handleUnskip}
-                  onMoveUp={(t) => handleReorder(t, "up")}
-                  onMoveDown={(t) => handleReorder(t, "down")}
-                  onDelete={handleDelete}
-                  canMoveUp={i > 0}
-                  canMoveDown={i < remaining.length - 1}
-                />
-              ))}
-            </section>
+        <section aria-label="Remaining" className="flex flex-col gap-3">
+          {allDone ? (
+            <AllDoneMarker isToday={isToday} />
+          ) : (
+            !isEmpty && <h2 className="text-small font-medium text-foreground">Remaining</h2>
+          )}
+          <AddTaskInline date={viewDate} onAdded={(t) => setAnnounce(`Added ${t}`)} />
+          {isEmpty ? (
+            <p className="text-small text-default-500">
+              {isToday
+                ? "Nothing scheduled yet — add a task above, or press ⌘K to ask VEGA."
+                : "Nothing scheduled for this day — add a task above, or press ⌘K."}
+            </p>
+          ) : (
+            remaining.map((task, i) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onOpen={setEditing}
+                onToggleDone={handleToggleDone}
+                onSkip={handleSkip}
+                onUnskip={handleUnskip}
+                onMoveUp={(t) => handleReorder(t, "up")}
+                onMoveDown={(t) => handleReorder(t, "down")}
+                onDelete={handleDelete}
+                canMoveUp={i > 0}
+                canMoveDown={i < remaining.length - 1}
+              />
+            ))
+          )}
+        </section>
 
-            {done.length > 0 && (
-              <section aria-label="Done" className="flex flex-col gap-3">
-                <h2 className="text-small font-medium text-default-500">Done</h2>
-                {done.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onOpen={setEditing}
-                    onToggleDone={handleToggleDone}
-                    onSkip={handleSkip}
-                    onUnskip={handleUnskip}
-                    onMoveUp={NOOP}
-                    onMoveDown={NOOP}
-                    onDelete={handleDelete}
-                    canMoveUp={false}
-                    canMoveDown={false}
-                  />
-                ))}
-              </section>
-            )}
-          </>
+        {done.length > 0 && (
+          <section aria-label="Done" className="flex flex-col gap-3">
+            <h2 className="text-small font-medium text-default-500">Done</h2>
+            {done.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onOpen={setEditing}
+                onToggleDone={handleToggleDone}
+                onSkip={handleSkip}
+                onUnskip={handleUnskip}
+                onMoveUp={NOOP}
+                onMoveDown={NOOP}
+                onDelete={handleDelete}
+                canMoveUp={false}
+                canMoveDown={false}
+              />
+            ))}
+          </section>
         )}
       </div>
 
@@ -316,31 +318,6 @@ export function TodayPage() {
 }
 
 const NOOP = () => {};
-
-function EmptyToday({ date, isToday }: { date: string; isToday: boolean }) {
-  return (
-    <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
-      <CardBody className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-        <div className="grid h-12 w-12 place-items-center rounded-full bg-content2 text-default-500">
-          <Icon name="spark" size={20} />
-        </div>
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">
-            {isToday ? "Nothing scheduled for today" : "Nothing scheduled for this day"}
-          </h2>
-          <p className="mx-auto mt-2 max-w-sm text-small text-default-500">
-            {isToday
-              ? "Today is your calm focus surface. Add what you want to do, or press ⌘K to ask VEGA."
-              : "Add what you want to do on this day, or press ⌘K to ask VEGA."}
-          </p>
-        </div>
-        <div className="w-full max-w-sm">
-          <AddTaskInline date={date} />
-        </div>
-      </CardBody>
-    </Card>
-  );
-}
 
 function AllDoneMarker({ isToday }: { isToday: boolean }) {
   return (

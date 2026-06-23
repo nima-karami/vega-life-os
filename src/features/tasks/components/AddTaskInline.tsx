@@ -1,7 +1,7 @@
 import { Button, Card, CardBody, Input } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { Icon, Label, NONE, Select } from "@/core/ui";
+import { AddButton, Label, NONE, Select } from "@/core/ui";
 import { buildTaskPatch, type CaptureDraft, goalsForValue } from "@/features/today/today-logic";
 
 const EMPTY: CaptureDraft = { title: "", valueId: null, goalId: null, habitId: null };
@@ -83,17 +83,7 @@ export function AddTaskInline({
   }
 
   if (!open) {
-    return (
-      <Button
-        type="button"
-        variant="flat"
-        onPress={() => setOpen(true)}
-        startContent={<Icon name="plus" size={16} />}
-        className="w-full justify-start font-normal text-default-500 data-[hover=true]:text-foreground"
-      >
-        Add a task
-      </Button>
-    );
+    return <AddButton label="Add task" onPress={() => setOpen(true)} />;
   }
 
   return (

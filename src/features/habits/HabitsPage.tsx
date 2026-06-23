@@ -2,7 +2,7 @@ import { Button, Card, CardBody } from "@heroui/react";
 import { useCallback, useMemo, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
-import { Icon } from "@/core/ui";
+import { AddButton, Icon } from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
 import { valueColor } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
@@ -62,42 +62,35 @@ export function HabitsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Habits</h1>
-          <p className="mt-1 text-sm text-default-500">
-            Behaviors that repeat on a schedule and auto-create your daily tasks.
-          </p>
-        </div>
-        {habits.length > 0 && (
-          <Button
-            color="primary"
-            className="shrink-0"
-            startContent={<Icon name="plus" size={16} />}
-            onPress={createHabit}
-          >
-            New habit
-          </Button>
-        )}
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Habits</h1>
+        <p className="mt-1 text-sm text-default-500">
+          Behaviors that repeat on a schedule and auto-create your daily tasks.
+        </p>
       </header>
 
-      {habits.length === 0 ? (
-        <EmptyState onCreate={createHabit} />
-      ) : (
-        <ul className="mt-8 flex flex-col gap-3">
-          {habits.map((h) => (
-            <li key={h.id}>
-              <HabitCard
-                habit={h}
-                value={valueById.get(h.valueId)}
-                goal={h.goalId ? goalById.get(h.goalId) : undefined}
-                onOpen={() => setEditingId(h.id)}
-                onDelete={() => setDeletingId(h.id)}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="mt-8 flex flex-col gap-3">
+        <AddButton label="Add habit" onPress={createHabit} />
+        {habits.length === 0 ? (
+          <p className="text-small text-default-500">
+            No habits yet — they repeat on a schedule and auto-create your daily tasks.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {habits.map((h) => (
+              <li key={h.id}>
+                <HabitCard
+                  habit={h}
+                  value={valueById.get(h.valueId)}
+                  goal={h.goalId ? goalById.get(h.goalId) : undefined}
+                  onOpen={() => setEditingId(h.id)}
+                  onDelete={() => setDeletingId(h.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {editing && (
         <HabitEditor
@@ -178,31 +171,6 @@ function HabitCard({
           className="shrink-0 text-default-400 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100"
         >
           <Icon name="trash" size={16} />
-        </Button>
-      </CardBody>
-    </Card>
-  );
-}
-
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-  return (
-    <Card shadow="none" className="mt-10 border border-dashed border-divider bg-content1">
-      <CardBody className="flex flex-col items-center px-6 py-14 text-center">
-        <span className="grid h-12 w-12 place-items-center rounded-full bg-content2 text-default-500">
-          <Icon name="repeat" size={22} />
-        </span>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Build a routine</h2>
-        <p className="mt-1 max-w-sm text-sm text-default-500">
-          Habits repeat on a schedule and auto-create your daily tasks. Define one once and it shows
-          up on the days it should.
-        </p>
-        <Button
-          color="primary"
-          className="mt-6"
-          startContent={<Icon name="plus" size={16} />}
-          onPress={onCreate}
-        >
-          Create your first habit
         </Button>
       </CardBody>
     </Card>
