@@ -360,3 +360,84 @@ test("today: the date picker jumps to a chosen day", async ({ page }) => {
   // We've left "today" — the jump-back affordance is now shown.
   await expect(page.getByRole("button", { name: "Jump to today" })).toBeVisible();
 });
+
+// ─── Daily reflection: morning gratitude gate ────────────────────────────────
+
+test("today: gratitude gate blocks tasks until ≥1 is written, with no skip", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+
+  // The gate is shown; the task surface is not reachable yet.
+  const cont = page.getByRole("button", { name: "Continue to today" });
+  await expect(cont).toBeVisible({ timeout: 15_000 });
+  await expect(cont).toBeDisabled();
+  await expect(page.getByRole("region", { name: "Remaining" })).toBeHidden();
+
+  // There is no skip control anywhere on the gate.
+  await expect(page.getByRole("button", { name: /skip/i })).toHaveCount(0);
+
+  // Writing one gratitude enables Continue and reveals the tasks.
+  await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("Sunshine");
+  await expect(cont).toBeEnabled();
+  await cont.click();
+  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+
+  // Reloading goes straight to tasks (gate satisfied, data-driven).
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+});
+
+// ─── Daily reflection: end-of-day reflection step ────────────────────────────
+
+test("today: reflection step appears once all tasks are resolved, and can be skipped", async ({
+  page,
+}) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+
+  // Resolve every remaining task via its "Mark … done" control.
+  const remaining = page.getByRole("region", { name: "Remaining" });
+  await expect(remaining).toBeVisible({ timeout: 15_000 });
+  for (;;) {
+    const next = remaining.getByRole("button", { name: /^Mark .+ done$/ }).first();
+    if (!(await next.isVisible().catch(() => false))) break;
+    await next.click();
+  }
+
+  // The full-screen reflection step now shows.
+  const reflectHeading = page.getByRole("heading", { name: "Reflect on today" });
+  await expect(reflectHeading).toBeVisible({ timeout: 10_000 });
+
+  // Minimal skip returns to the all-done task view and does not re-yank.
+  await page.getByRole("button", { name: "Skip reflection" }).click();
+  await expect(reflectHeading).toBeHidden();
+  await expect(page.getByText("Nothing left for today")).toBeVisible();
+});
+
+// ─── Daily reflection: journal editor edit / delete / undo ───────────────────
+
+test("today: journal editor saves a note and supports delete + undo", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+
+  // Open the editor and write a journal note.
+  await page.getByRole("button", { name: /^Journal$|^Edit entry$/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Journal" }).fill("A calm, productive day.");
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  // The Journal button now reflects an existing entry.
+  await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
+
+  // Delete via the editor → confirm → undo restores it.
+  await page.getByRole("button", { name: "Edit entry" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: "Delete this day's entry?" })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await expect(page.locator("span").filter({ hasText: /^Entry deleted$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
+});

@@ -129,6 +129,16 @@ export function TodayPage() {
           {announce}
         </div>
         <GratitudeStep date={today} onContinue={() => setAnnounce("Gratitude saved")} />
+        {pendingJournalUndo && (
+          <UndoBar
+            message="Entry deleted"
+            onUndo={() => {
+              restoreDayEntry(pendingJournalUndo);
+              setPendingJournalUndo(null);
+              setAnnounce("Entry restored");
+            }}
+          />
+        )}
       </div>
     );
   }
