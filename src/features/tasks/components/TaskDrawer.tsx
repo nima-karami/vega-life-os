@@ -26,6 +26,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   const removeTask = useStore((s) => s.removeTask);
   const setStatus = useStore((s) => s.setStatus);
   const relinkTaskToHabit = useStore((s) => s.relinkTaskToHabit);
+  const unscheduleTask = useStore((s) => s.unscheduleTask);
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
@@ -171,19 +172,34 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
             </ModalBody>
 
             <ModalFooter className="justify-between">
-              <Button
-                type="button"
-                variant="light"
-                color="danger"
-                startContent={<Icon name="trash" size={15} />}
-                onPress={() => {
-                  removeTask(task.id);
-                  pushToast("Task deleted");
-                  onClose();
-                }}
-              >
-                Delete
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="light"
+                  color="danger"
+                  startContent={<Icon name="trash" size={15} />}
+                  onPress={() => {
+                    removeTask(task.id);
+                    pushToast("Task deleted");
+                    onClose();
+                  }}
+                >
+                  Delete
+                </Button>
+                {task.date && (
+                  <Button
+                    type="button"
+                    variant="light"
+                    startContent={<Icon name="calendar-off" size={15} />}
+                    onPress={() => {
+                      unscheduleTask(task.id);
+                      pushToast("Moved to backlog");
+                    }}
+                  >
+                    Unschedule
+                  </Button>
+                )}
+              </div>
               <Button type="button" color="primary" onPress={onClose}>
                 Done
               </Button>

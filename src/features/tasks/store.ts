@@ -5,6 +5,11 @@ import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Task, TaskStatus } from "./model";
 
+/** Enforce the invariant: a task with no date can't carry a time. */
+function normalizeSchedule(t: Task): Task {
+  return t.date === null && t.time !== null ? { ...t, time: null } : t;
+}
+
 export interface TasksSlice {
   tasks: Task[];
   addTask: (patch?: Partial<Task>) => Task;
@@ -16,6 +21,8 @@ export interface TasksSlice {
   cycleStatus: (id: string) => void;
   setNote: (id: string, note: string) => void;
   moveTask: (id: string, date: string | null, time?: string | null) => void;
+  /** clear date+time in one tap (todo→open; habit instance detaches); safe no-op on missing */
+  unscheduleTask: (id: string) => void;
   /** snap a detached habit instance back to its template (schedule + lineage + title);
    *  no-op unless it's a detached habit instance whose parent habit still exists */
   relinkTaskToHabit: (id: string) => void;
@@ -34,7 +41,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   addTask: (patch = {}) => {
     const order = get().tasks.length;
-    const task: Task = {
+    const task: Task = normalizeSchedule({
       id: patch.id ?? uid("t_"),
       title: patch.title ?? "New task",
       kind: patch.kind ?? "oneoff",
@@ -49,7 +56,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       detached: patch.detached ?? false,
       note: patch.note ?? "",
       order: patch.order ?? order,
-    };
+    });
     set((s) => ({ tasks: [...s.tasks, task] }));
     savePut("tasks", task);
     return task;
@@ -60,7 +67,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== id) return t;
-        next = { ...t, ...patch, id };
+        next = normalizeSchedule({ ...t, ...patch, id });
         return next;
       }),
     }));
@@ -120,6 +127,15 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     get().updateTask(id, patch);
   },
 
+  unscheduleTask: (id) => {
+    const t = get().tasks.find((x) => x.id === id);
+    if (!t) return;
+    const patch: Partial<Task> = { date: null, time: null };
+    if (t.status === "todo") patch.status = "open"; // done/skip preserved
+    if (t.kind === "habit") patch.detached = true;
+    get().updateTask(id, patch);
+  },
+
   relinkTaskToHabit: (id) => {
     const t = get().tasks.find((x) => x.id === id);
     if (t?.kind !== "habit" || !t.detached || !t.habitId) return;
@@ -142,7 +158,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (!idset.has(t.id)) return t;
-        const next = { ...t, ...patch, id: t.id };
+        const next = normalizeSchedule({ ...t, ...patch, id: t.id });
         updated.push(next);
         return next;
       }),
