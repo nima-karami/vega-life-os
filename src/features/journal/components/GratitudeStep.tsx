@@ -36,9 +36,6 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             What are you grateful for today?
           </h1>
-          <p className="mx-auto mt-1 max-w-xs text-small text-default-500">
-            Name at least one to start your day.
-          </p>
         </div>
       </div>
 
