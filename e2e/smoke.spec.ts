@@ -437,7 +437,7 @@ test("today: journal editor saves a note and supports delete + undo", async ({ p
     .filter({ hasText: "Delete this day's entry?" })
     .getByRole("button", { name: "Delete" })
     .click();
-  await expect(page.locator("span").filter({ hasText: /^Entry deleted$/ })).toBeVisible();
+  await expect(page.locator(".fixed").getByText("Entry deleted", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
 });
