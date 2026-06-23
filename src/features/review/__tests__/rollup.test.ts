@@ -27,6 +27,7 @@ function value(order: number, id: string, name: string): Value {
     energy: 0.5,
     desc: "",
     order,
+    archivedAt: null,
   };
 }
 

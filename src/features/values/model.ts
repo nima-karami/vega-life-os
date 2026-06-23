@@ -12,4 +12,6 @@ export interface Value {
   energy: number;
   desc: string;
   order: number;
+  /** ISO-8601 timestamp when archived; null = active (non-destructive lifecycle) */
+  archivedAt: string | null;
 }

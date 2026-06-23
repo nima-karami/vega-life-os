@@ -16,6 +16,7 @@ const value: Value = {
   energy: 0.8,
   desc: "Health",
   order: 0,
+  archivedAt: null,
 };
 
 const goal: Goal = {

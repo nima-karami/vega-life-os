@@ -1,5 +1,6 @@
 import { weekDays } from "@/core/lib/date";
 import type { Goal } from "@/features/goals/model";
+import { isGoalClosed } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { Task } from "@/features/tasks/model";
 import type { Value } from "./model";
@@ -35,3 +36,27 @@ export function valueRollup(
 }
 
 export const sortedValues = (values: Value[]) => [...values].sort((a, b) => a.order - b.order);
+
+/** Active values (archivedAt === null), by display order. */
+export const activeValues = (values: Value[]): Value[] =>
+  values.filter((v) => v.archivedAt === null).sort((a, b) => a.order - b.order);
+
+/** Archived values (archivedAt !== null), most recently archived first. */
+export const archivedValues = (values: Value[]): Value[] =>
+  values
+    .filter((v) => v.archivedAt !== null)
+    .sort((a, b) => ((a.archivedAt ?? "") < (b.archivedAt ?? "") ? 1 : -1));
+
+/** Split a value's goals into open (active/backlog/paused) and closed (done/abandoned). */
+export function splitGoals(goals: Goal[]): { open: Goal[]; closed: Goal[] } {
+  const open: Goal[] = [];
+  const closed: Goal[] = [];
+  for (const g of goals) (isGoalClosed(g.status) ? closed : open).push(g);
+  return { open, closed };
+}
+
+/** Counts where "active" means open/working (active + backlog + paused). */
+export function goalCounts(goals: Goal[]): { active: number; closed: number } {
+  const { open, closed } = splitGoals(goals);
+  return { active: open.length, closed: closed.length };
+}

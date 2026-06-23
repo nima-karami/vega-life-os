@@ -51,6 +51,7 @@ export const ICON_NAMES = [
   "copy",
   "clipboard",
   "calendar-off",
+  "archive",
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];

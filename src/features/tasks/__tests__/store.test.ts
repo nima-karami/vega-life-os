@@ -14,12 +14,17 @@ interface Habit {
   valueId: string;
   time: string | null;
   durationMin: number;
+  days?: number[];
+}
+interface Value {
+  id: string;
+  archivedAt: string | null;
 }
 
 /** Minimal harness: drive the slice with a local state object, supplying the
- *  cross-slice `habits` that relinkTaskToHabit reaches for. */
-function makeSlice(seed: { tasks?: Task[]; habits?: Habit[] } = {}) {
-  type State = TasksSlice & { habits: Habit[] };
+ *  cross-slice `habits`/`values` that the tasks slice reaches for. */
+function makeSlice(seed: { tasks?: Task[]; habits?: Habit[]; values?: Value[] } = {}) {
+  type State = TasksSlice & { habits: Habit[]; values: Value[] };
   let state = {} as State;
   const set = (partial: Partial<State> | ((s: State) => Partial<State>)) => {
     state = { ...state, ...(typeof partial === "function" ? partial(state) : partial) };
@@ -27,6 +32,7 @@ function makeSlice(seed: { tasks?: Task[]; habits?: Habit[] } = {}) {
   const get = () => state;
   state = {
     habits: seed.habits ?? [],
+    values: seed.values ?? [],
     // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
     ...createTasksSlice(set as any, get as any, {} as any),
   } as State;
@@ -277,5 +283,46 @@ describe("bulkUpdateTasks / bulkRemoveTasks", () => {
         .tasks.map((t) => t.id)
         .sort(),
     ).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("habit instance generation skips archived values", () => {
+  const everyday = [1, 1, 1, 1, 1, 1, 1];
+  const habitOn = (id: string, valueId: string): Habit => ({
+    id,
+    name: id,
+    goalId: null,
+    valueId,
+    time: "08:00",
+    durationMin: 30,
+    days: everyday,
+  });
+
+  it("ensureUpcoming generates for active-value habits but not archived-value ones", () => {
+    const { get } = makeSlice({
+      habits: [habitOn("hActive", "vA"), habitOn("hArchived", "vZ")],
+      values: [
+        { id: "vA", archivedAt: null },
+        { id: "vZ", archivedAt: "2026-06-01T00:00:00.000Z" },
+      ],
+    });
+    get().ensureUpcoming(2);
+    const habitIds = new Set(get().tasks.map((t) => t.habitId));
+    expect(habitIds.has("hActive")).toBe(true);
+    expect(habitIds.has("hArchived")).toBe(false);
+  });
+
+  it("planWeek skips habits whose parent value is archived", () => {
+    const { get } = makeSlice({
+      habits: [habitOn("hActive", "vA"), habitOn("hArchived", "vZ")],
+      values: [
+        { id: "vA", archivedAt: null },
+        { id: "vZ", archivedAt: "2026-06-01T00:00:00.000Z" },
+      ],
+    });
+    get().planWeek(new Date("2026-06-24"));
+    const habitIds = new Set(get().tasks.map((t) => t.habitId));
+    expect(habitIds.has("hActive")).toBe(true);
+    expect(habitIds.has("hArchived")).toBe(false);
   });
 });

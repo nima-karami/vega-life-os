@@ -176,11 +176,17 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   planWeek: (ref = new Date()) => {
     const { tasks, habits, addTask } = get();
+    const archivedValueIds = new Set(
+      get()
+        .values.filter((v) => v.archivedAt !== null)
+        .map((v) => v.id),
+    );
     const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     let made = 0;
     for (const d of weekDays(ref)) {
       const dow = dowIndex(d.iso);
       for (const h of habits) {
+        if (archivedValueIds.has(h.valueId)) continue;
         if (!h.days[dow]) continue;
         if (existing.has(`${h.id}@${d.iso}`)) continue;
         addTask({
@@ -202,6 +208,11 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   ensureUpcoming: (daysAhead = 14) => {
     const { tasks, habits, addTask } = get();
+    const archivedValueIds = new Set(
+      get()
+        .values.filter((v) => v.archivedAt !== null)
+        .map((v) => v.id),
+    );
     const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     const start = new Date();
     let made = 0;
@@ -209,6 +220,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       const iso = format(addDays(start, i), "yyyy-MM-dd");
       const dow = dowIndex(iso);
       for (const h of habits) {
+        if (archivedValueIds.has(h.valueId)) continue;
         if (!h.days[dow]) continue;
         if (existing.has(`${h.id}@${iso}`)) continue;
         addTask({

@@ -1,4 +1,5 @@
 import {
+  Archive,
   Bell,
   BookOpen,
   Briefcase,
@@ -111,6 +112,7 @@ export const Ic: Record<IconName, LucideIcon> = {
   copy: Copy,
   clipboard: ClipboardList,
   "calendar-off": CalendarOff,
+  archive: Archive,
 };
 
 export function Icon({

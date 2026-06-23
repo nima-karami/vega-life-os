@@ -44,6 +44,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       energy: 0.58,
       order: 0,
       desc: "Act on what scares me, lean into hard conversations.",
+      archivedAt: null,
     },
     {
       id: "v2",
@@ -54,6 +55,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       energy: 0.82,
       order: 1,
       desc: "Be here. Less screen, more attention.",
+      archivedAt: null,
     },
     {
       id: "v3",
@@ -64,6 +66,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       energy: 0.66,
       order: 2,
       desc: "Protect sleep, body and mind so the rest holds.",
+      archivedAt: null,
     },
     {
       id: "v4",
@@ -74,6 +77,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       energy: 0.34,
       order: 3,
       desc: "Keep the foundations steady — money, home, admin.",
+      archivedAt: null,
     },
     {
       id: "v5",
@@ -84,6 +88,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
       energy: 0.5,
       order: 4,
       desc: "Move daily, eat well, keep the engine running.",
+      archivedAt: null,
     },
   ];
   ds.values = values;
