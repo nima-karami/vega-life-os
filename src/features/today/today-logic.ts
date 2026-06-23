@@ -3,6 +3,7 @@
  * Kept separate from the React components so it can be unit-tested in the
  * node vitest environment (no DOM). Components import these helpers.
  */
+import { reorderByIds } from "@/core/lib/reorder";
 import type { Goal } from "@/features/goals/model";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import { dayQueue, isResolved } from "@/features/tasks/selectors";
@@ -79,41 +80,20 @@ export interface OrderUpdate {
 }
 
 /**
- * Keyboard / menu reorder within the day's Remaining group.
- * Swaps the target task's `order` with its visible neighbour in the given
- * direction. Returns the minimal set of {id, order} updates to apply, or an
- * empty array when the move is a no-op (edge of the list / not found).
+ * Drag-and-drop reorder within the day's Remaining group: move `activeId` onto
+ * `overId`'s slot, renumbering the group to its new visual sequence. Returns the
+ * minimal {id, order} updates to apply, or an empty array for a no-op.
  *
  * Only the Remaining group of `date` participates — resolved tasks and other
- * days are never touched.
+ * days are never touched. (Tasks still sort by time first, so `order` is the
+ * tiebreaker among same-time tasks.)
  */
-export function reorderWithinDay(
+export function reorderTasksInDay(
   tasks: Task[],
   date: string,
-  id: string,
-  direction: "up" | "down",
+  activeId: string,
+  overId: string,
 ): OrderUpdate[] {
   const { remaining } = partitionToday(tasks, date);
-  const idx = remaining.findIndex((t) => t.id === id);
-  if (idx === -1) return [];
-
-  const neighbourIdx = direction === "up" ? idx - 1 : idx + 1;
-  if (neighbourIdx < 0 || neighbourIdx >= remaining.length) return [];
-
-  const current = remaining[idx];
-  const neighbour = remaining[neighbourIdx];
-
-  // Swap their order values. If they tie (e.g. both null time, equal order),
-  // nudge so the intended direction is reflected deterministically.
-  let currentOrder = neighbour.order;
-  let neighbourOrder = current.order;
-  if (currentOrder === neighbourOrder) {
-    if (direction === "down") currentOrder = neighbourOrder + 1;
-    else neighbourOrder = currentOrder + 1;
-  }
-
-  return [
-    { id: current.id, order: currentOrder },
-    { id: neighbour.id, order: neighbourOrder },
-  ];
+  return reorderByIds(remaining, activeId, overId);
 }

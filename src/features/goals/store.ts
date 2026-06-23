@@ -1,6 +1,7 @@
 import { addDays, format } from "date-fns";
 import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
+import { arrayMove } from "@/core/lib/reorder";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Goal, Subgoal } from "./model";
@@ -13,6 +14,8 @@ export interface GoalsSlice {
   addSubgoal: (goalId: string, name: string) => void;
   toggleSubgoal: (goalId: string, subId: string) => void;
   removeSubgoal: (goalId: string, subId: string) => void;
+  renameSubgoal: (goalId: string, subId: string, name: string) => void;
+  reorderSubgoals: (goalId: string, activeId: string, overId: string) => void;
 }
 
 function deriveProgress(subgoals: Subgoal[], fallback: number): number {
@@ -106,6 +109,36 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
         if (g.id !== goalId) return g;
         const subgoals = g.subgoals.filter((sb) => sb.id !== subId);
         next = { ...g, subgoals, progress: deriveProgress(subgoals, g.progress) };
+        return next;
+      }),
+    }));
+    if (next) savePut("goals", next);
+  },
+
+  renameSubgoal: (goalId, subId, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    let next: Goal | undefined;
+    set((s) => ({
+      goals: s.goals.map((g) => {
+        if (g.id !== goalId) return g;
+        const subgoals = g.subgoals.map((sb) => (sb.id === subId ? { ...sb, name: trimmed } : sb));
+        next = { ...g, subgoals };
+        return next;
+      }),
+    }));
+    if (next) savePut("goals", next);
+  },
+
+  reorderSubgoals: (goalId, activeId, overId) => {
+    let next: Goal | undefined;
+    set((s) => ({
+      goals: s.goals.map((g) => {
+        if (g.id !== goalId) return g;
+        const from = g.subgoals.findIndex((sb) => sb.id === activeId);
+        const to = g.subgoals.findIndex((sb) => sb.id === overId);
+        if (from === -1 || to === -1 || from === to) return g;
+        next = { ...g, subgoals: arrayMove(g.subgoals, from, to) };
         return next;
       }),
     }));

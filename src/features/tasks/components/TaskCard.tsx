@@ -10,7 +10,7 @@ import type { Task } from "../model";
  * the title, the lineage row (value name · → goal · Habit pill), and the
  * optional time metadata. Resolved tasks (done/skip) are visually
  * de-emphasised. A hover/keyboard overflow menu provides the non-pointer paths
- * for skip, reorder, and delete.
+ * for skip and delete. (Reorder handle, for Remaining rows, is owned by SortableList.)
  */
 export function TaskCard({
   task,
@@ -18,22 +18,14 @@ export function TaskCard({
   onToggleDone,
   onSkip,
   onUnskip,
-  onMoveUp,
-  onMoveDown,
   onDelete,
-  canMoveUp,
-  canMoveDown,
 }: {
   task: Task;
   onOpen: (t: Task) => void;
   onToggleDone: (t: Task) => void;
   onSkip: (t: Task) => void;
   onUnskip: (t: Task) => void;
-  onMoveUp: (t: Task) => void;
-  onMoveDown: (t: Task) => void;
   onDelete: (t: Task) => void;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
 }) {
   const lineage = useTaskLineage(task.id);
   const done = task.status === "done";
@@ -46,22 +38,6 @@ export function TaskCard({
     skipped
       ? { label: "Unskip", icon: "check", onSelect: () => onUnskip(task) }
       : { label: "Skip", icon: "skip", onSelect: () => onSkip(task) },
-    ...(!resolved
-      ? [
-          {
-            label: "Move up",
-            icon: "chevU" as const,
-            onSelect: () => onMoveUp(task),
-            disabled: !canMoveUp,
-          },
-          {
-            label: "Move down",
-            icon: "chevD" as const,
-            onSelect: () => onMoveDown(task),
-            disabled: !canMoveDown,
-          },
-        ]
-      : []),
     { label: "Edit", icon: "edit", onSelect: () => onOpen(task) },
     { label: "Delete", icon: "trash", danger: true, onSelect: () => onDelete(task) },
   ];

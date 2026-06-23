@@ -4,8 +4,8 @@
  * Lists every value (colour, icon, name, description) with its goals
  * grouped beneath, full CRUD via HeroUI modal editors and a custom cascade-aware
  * confirm (never window.confirm), free status transitions, subgoal-derived
- * progress, closed-goal de-emphasis, reorder (menu + keyboard), empty states, and
- * "New value"/"New goal" command-bar entries.
+ * progress, closed-goal de-emphasis, drag-and-drop reorder (pointer + keyboard),
+ * empty states, and "New value"/"New goal" command-bar entries.
  *
  * The data layer is reused unchanged — every mutation goes through existing store
  * actions; logic-bearing display rules live in pure, unit-tested helpers.
@@ -13,8 +13,9 @@
 import { Button, Card, CardBody, Chip } from "@heroui/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
+import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
-import { AddButton, ConfirmDialog, Icon, Menu } from "@/core/ui";
+import { AddButton, ConfirmDialog, Icon, Menu, SortableList } from "@/core/ui";
 import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalEditor } from "@/features/goals/components/GoalEditor";
 import { habitStreak } from "@/features/habits";
@@ -22,7 +23,6 @@ import { cascadeCounts, cascadeMessage } from "./cascade";
 import { valueColor } from "./color";
 import { ValueEditor } from "./components/ValueEditor";
 import type { Value } from "./model";
-import { type MoveDirection, reorderedOrders } from "./reorder";
 
 /** Small polite live-region announcer (sighted users see these changes; SR users wouldn't). */
 function useAnnouncer() {
@@ -41,6 +41,7 @@ export function ValuesView() {
   const habits = useStore((s) => s.habits);
   const addGoal = useStore((s) => s.addGoal);
   const updateValue = useStore((s) => s.updateValue);
+  const updateGoal = useStore((s) => s.updateGoal);
   const removeValue = useStore((s) => s.removeValue);
   const removeGoal = useStore((s) => s.removeGoal);
   const pushToast = useStore((s) => s.pushToast);
@@ -91,12 +92,26 @@ export function ValuesView() {
     },
   ]);
 
-  const moveValue = (value: Value, direction: MoveDirection) => {
-    const changes = reorderedOrders(sortedValues, value.id, direction);
-    if (!changes.length) return;
-    for (const c of changes) updateValue(c.id, { order: c.order });
-    announce(`Moved ${value.name} ${direction}`);
-  };
+  const reorderValues = useCallback(
+    (activeId: string, overId: string) => {
+      for (const c of reorderByIds(sortedValues, activeId, overId))
+        updateValue(c.id, { order: c.order });
+      announce("Values reordered");
+    },
+    [sortedValues, updateValue, announce],
+  );
+
+  const reorderGoals = useCallback(
+    (valueId: string, activeId: string, overId: string) => {
+      const valueGoals = goals
+        .filter((g) => g.valueId === valueId)
+        .sort((a, b) => a.order - b.order);
+      for (const c of reorderByIds(valueGoals, activeId, overId))
+        updateGoal(c.id, { order: c.order });
+      announce("Goals reordered");
+    },
+    [goals, updateGoal, announce],
+  );
 
   const confirmCounts = confirmValue
     ? cascadeCounts(confirmValue.id, { goals, habits })
@@ -124,34 +139,25 @@ export function ValuesView() {
             No values yet — the "why" behind every goal and task downstream.
           </p>
         ) : (
-          <ul className="space-y-5">
-            {sortedValues.map((v, i) => (
-              <li key={v.id}>
-                <ValueCard
-                  value={v}
-                  isFirst={i === 0}
-                  isLast={i === sortedValues.length - 1}
-                  onEdit={() => setValueEditId(v.id)}
-                  onAddGoal={() => createGoal(v.id)}
-                  onMove={(dir) => moveValue(v, dir)}
-                  onDelete={() => setConfirmValue(v)}
-                  onEditGoal={setGoalEditId}
-                  onMoveGoal={(goalId, dir, label) => {
-                    const valueGoals = goals
-                      .filter((g) => g.valueId === v.id)
-                      .sort((a, b) => a.order - b.order);
-                    const changes = reorderedOrders(valueGoals, goalId, dir);
-                    if (!changes.length) return;
-                    for (const c of changes)
-                      useStore.getState().updateGoal(c.id, { order: c.order });
-                    announce(`Moved ${label} ${dir}`);
-                  }}
-                  onDeleteGoal={setConfirmGoalId}
-                  onStatusAnnounce={announce}
-                />
-              </li>
-            ))}
-          </ul>
+          <SortableList
+            items={sortedValues}
+            getId={(v) => v.id}
+            getLabel={(v) => v.name}
+            onReorder={reorderValues}
+            className="space-y-5"
+            renderItem={(v) => (
+              <ValueCard
+                value={v}
+                onEdit={() => setValueEditId(v.id)}
+                onAddGoal={() => createGoal(v.id)}
+                onDelete={() => setConfirmValue(v)}
+                onEditGoal={setGoalEditId}
+                onReorderGoals={(activeId, overId) => reorderGoals(v.id, activeId, overId)}
+                onDeleteGoal={setConfirmGoalId}
+                onStatusAnnounce={announce}
+              />
+            )}
+          />
         )}
       </div>
 
@@ -218,26 +224,20 @@ export function ValuesView() {
 
 function ValueCard({
   value,
-  isFirst,
-  isLast,
   onEdit,
   onAddGoal,
-  onMove,
   onDelete,
   onEditGoal,
-  onMoveGoal,
+  onReorderGoals,
   onDeleteGoal,
   onStatusAnnounce,
 }: {
   value: Value;
-  isFirst: boolean;
-  isLast: boolean;
   onEdit: () => void;
   onAddGoal: () => void;
-  onMove: (dir: MoveDirection) => void;
   onDelete: () => void;
   onEditGoal: (id: string) => void;
-  onMoveGoal: (goalId: string, dir: MoveDirection, label: string) => void;
+  onReorderGoals: (activeId: string, overId: string) => void;
   onDeleteGoal: (id: string) => void;
   onStatusAnnounce: (msg: string) => void;
 }) {
@@ -284,13 +284,6 @@ function ValueCard({
             items={[
               { label: "Edit details", icon: "edit", onSelect: onEdit },
               { label: "Add goal", icon: "plus", onSelect: onAddGoal },
-              { label: "Move up", icon: "chevU", disabled: isFirst, onSelect: () => onMove("up") },
-              {
-                label: "Move down",
-                icon: "chevD",
-                disabled: isLast,
-                onSelect: () => onMove("down"),
-              },
               { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
             ]}
           />
@@ -311,21 +304,22 @@ function ValueCard({
           </div>
 
           {vGoals.length > 0 ? (
-            <ul className="space-y-2.5">
-              {vGoals.map((g, i) => (
-                <li key={g.id}>
-                  <GoalCard
-                    goalId={g.id}
-                    isFirst={i === 0}
-                    isLast={i === vGoals.length - 1}
-                    onEdit={() => onEditGoal(g.id)}
-                    onMove={(dir) => onMoveGoal(g.id, dir, g.name)}
-                    onDelete={() => onDeleteGoal(g.id)}
-                    onStatusAnnounce={onStatusAnnounce}
-                  />
-                </li>
-              ))}
-            </ul>
+            <SortableList
+              items={vGoals}
+              getId={(g) => g.id}
+              getLabel={(g) => g.name}
+              onReorder={onReorderGoals}
+              className="space-y-2.5"
+              nested
+              renderItem={(g) => (
+                <GoalCard
+                  goalId={g.id}
+                  onEdit={() => onEditGoal(g.id)}
+                  onDelete={() => onDeleteGoal(g.id)}
+                  onStatusAnnounce={onStatusAnnounce}
+                />
+              )}
+            />
           ) : (
             <div className="flex items-center justify-between rounded-medium border border-dashed border-divider px-3 py-3">
               <span className="text-small text-default-500">No goals yet.</span>

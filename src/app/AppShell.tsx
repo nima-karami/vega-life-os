@@ -27,7 +27,7 @@ export function AppShell() {
           </div>
         </header>
       )}
-      <main id="main-content" className="min-h-0 flex-1 overflow-y-auto">
+      <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <Outlet />
       </main>
     </div>

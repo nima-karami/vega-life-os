@@ -5,7 +5,7 @@ import {
   buildTaskPatch,
   goalsForValue,
   partitionToday,
-  reorderWithinDay,
+  reorderTasksInDay,
   toggleDone,
 } from "../today-logic";
 
@@ -184,34 +184,35 @@ describe("toggleDone()", () => {
   });
 });
 
-// ─── reorderWithinDay ────────────────────────────────────────────────────────
+// ─── reorderTasksInDay ───────────────────────────────────────────────────────
 
-describe("reorderWithinDay()", () => {
+describe("reorderTasksInDay()", () => {
   const tasks = [
     task({ id: "a", time: null, order: 0, status: "todo" }),
     task({ id: "b", time: null, order: 1, status: "todo" }),
     task({ id: "c", time: null, order: 2, status: "todo" }),
   ];
 
-  it("moving down swaps order with the next visible task", () => {
-    const updates = reorderWithinDay(tasks, TODAY, "a", "down");
-    // a and b swap order positions
+  it("dragging the first task onto the last renumbers it to the end", () => {
+    const updates = reorderTasksInDay(tasks, TODAY, "a", "c");
     const byId = Object.fromEntries(updates.map((u) => [u.id, u.order]));
-    expect(byId.a).toBeGreaterThan(byId.b);
+    // new visual order is b, c, a → a moves to index 2
+    expect(byId.a).toBe(2);
+    expect(byId.a).toBeGreaterThan(byId.c ?? 1);
   });
 
-  it("moving up swaps order with the previous visible task", () => {
-    const updates = reorderWithinDay(tasks, TODAY, "c", "up");
+  it("dragging the last task onto the first renumbers it to the front", () => {
+    const updates = reorderTasksInDay(tasks, TODAY, "c", "a");
     const byId = Object.fromEntries(updates.map((u) => [u.id, u.order]));
-    expect(byId.c).toBeLessThan(byId.b);
+    expect(byId.c).toBe(0);
   });
 
-  it("moving the first task up is a no-op (empty updates)", () => {
-    expect(reorderWithinDay(tasks, TODAY, "a", "up")).toEqual([]);
+  it("dropping a task on itself is a no-op (empty updates)", () => {
+    expect(reorderTasksInDay(tasks, TODAY, "a", "a")).toEqual([]);
   });
 
-  it("moving the last task down is a no-op (empty updates)", () => {
-    expect(reorderWithinDay(tasks, TODAY, "c", "down")).toEqual([]);
+  it("an unknown id is a no-op (empty updates)", () => {
+    expect(reorderTasksInDay(tasks, TODAY, "zzz", "a")).toEqual([]);
   });
 
   it("only reorders within the remaining group of the given day", () => {
@@ -220,9 +221,9 @@ describe("reorderWithinDay()", () => {
       task({ id: "b", order: 1, status: "done" }),
       task({ id: "c", order: 2, status: "todo" }),
     ];
-    // a moving down should swap with c (next remaining), skipping done b
-    const updates = reorderWithinDay(mixed, TODAY, "a", "down");
-    const ids = updates.map((u) => u.id).sort();
-    expect(ids).toEqual(["a", "c"]);
+    // a dragged onto c → only remaining tasks (a, c) participate; done b untouched
+    const updates = reorderTasksInDay(mixed, TODAY, "a", "c");
+    expect(updates.every((u) => u.id !== "b")).toBe(true);
+    expect(updates.length).toBeGreaterThan(0);
   });
 });

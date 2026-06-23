@@ -19,5 +19,6 @@ export {
   Stars,
   Tag,
 } from "./primitives";
+export { SortableList } from "./SortableList";
 export type { SelectOption } from "./select";
 export { NONE, Select } from "./select";

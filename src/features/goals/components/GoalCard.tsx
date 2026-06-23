@@ -35,18 +35,12 @@ const STATUS_COLOR: Record<GoalStatus, "default" | "primary" | "success"> = {
 
 export function GoalCard({
   goalId,
-  isFirst,
-  isLast,
   onEdit,
-  onMove,
   onDelete,
   onStatusAnnounce,
 }: {
   goalId: string;
-  isFirst: boolean;
-  isLast: boolean;
   onEdit: () => void;
-  onMove: (dir: "up" | "down") => void;
   onDelete: () => void;
   onStatusAnnounce: (msg: string) => void;
 }) {
@@ -122,13 +116,6 @@ export function GoalCard({
           }
           items={[
             { label: "Edit details", icon: "edit", onSelect: onEdit },
-            { label: "Move up", icon: "chevU", disabled: isFirst, onSelect: () => onMove("up") },
-            {
-              label: "Move down",
-              icon: "chevD",
-              disabled: isLast,
-              onSelect: () => onMove("down"),
-            },
             { label: "Delete goal", icon: "trash", danger: true, onSelect: onDelete },
           ]}
         />

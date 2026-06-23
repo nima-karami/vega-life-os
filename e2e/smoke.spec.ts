@@ -550,3 +550,47 @@ test("values: cancelling Add creates no value", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Create value" })).toBeHidden();
   await expect(cards).toHaveCount(before);
 });
+
+test("goal steps: inline rename and reorder", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/values", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Create a fresh goal — opens the goal editor on an empty step list.
+  await page.getByRole("button", { name: "Add goal" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  // Add three steps.
+  const stepInput = dialog.getByRole("textbox", { name: "Add a step" });
+  for (const name of ["Alpha", "Bravo", "Charlie"]) {
+    await stepInput.fill(name);
+    await stepInput.press("Enter");
+    await expect(dialog.getByRole("button", { name: `Reorder ${name}` })).toBeVisible();
+  }
+
+  // Inline rename: click the step name, edit, commit with Enter.
+  await dialog.getByRole("button", { name: "Alpha", exact: true }).click();
+  const edit = dialog.getByRole("textbox", { name: "Edit Alpha" });
+  await edit.fill("Alpha renamed");
+  await edit.press("Enter");
+  await expect(dialog.getByRole("button", { name: "Reorder Alpha renamed" })).toBeVisible();
+
+  const stepOrder = () =>
+    dialog
+      .locator('[aria-label^="Reorder "]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")?.replace("Reorder ", "")));
+
+  expect(await stepOrder()).toEqual(["Alpha renamed", "Bravo", "Charlie"]);
+
+  // Keyboard reorder (the accessible path): focus the handle, Space to pick up,
+  // ArrowDown one slot, Space to drop. Settle between keys so dnd-kit can measure.
+  await dialog.getByRole("button", { name: "Reorder Alpha renamed" }).focus();
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("Space");
+
+  await expect.poll(stepOrder).toEqual(["Bravo", "Alpha renamed", "Charlie"]);
+});

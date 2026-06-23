@@ -17,8 +17,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { cx, DatePicker, Icon, Select } from "@/core/ui";
+import { cx, DatePicker, Icon, Select, SortableList } from "@/core/ui";
 import { EditorField, FractionSlider, IconPicker } from "@/features/values/components/editor-bits";
+import type { Subgoal } from "../model";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
 import { goalProgressIsDerived, goalProgressPercent, statusChangePatch } from "../presentation";
 import { detectTimeframe, periodLabel, presetRange, type Timeframe } from "../timeframe";
@@ -64,6 +65,8 @@ export function GoalEditor({
   const addSubgoal = useStore((s) => s.addSubgoal);
   const toggleSubgoal = useStore((s) => s.toggleSubgoal);
   const removeSubgoal = useStore((s) => s.removeSubgoal);
+  const renameSubgoal = useStore((s) => s.renameSubgoal);
+  const reorderSubgoals = useStore((s) => s.reorderSubgoals);
 
   const [newSub, setNewSub] = useState("");
   const [forceCustom, setForceCustom] = useState(false);
@@ -201,35 +204,24 @@ export function GoalEditor({
                 />
               )}
 
-              {/* subgoals */}
+              {/* subgoals — drag to reorder, click a name to rename */}
               <EditorField label="Steps">
                 <div className="space-y-1.5">
-                  {goal.subgoals.map((s) => (
-                    <div key={s.id} className="group flex items-center gap-2">
-                      <Checkbox
-                        size="sm"
-                        isSelected={s.done}
-                        onValueChange={() => toggleSubgoal(goal.id, s.id)}
-                        aria-label={s.name}
+                  <SortableList
+                    items={goal.subgoals}
+                    getId={(s) => s.id}
+                    getLabel={(s) => s.name}
+                    onReorder={(activeId, overId) => reorderSubgoals(goal.id, activeId, overId)}
+                    className="space-y-1.5"
+                    renderItem={(s) => (
+                      <StepRow
+                        sub={s}
+                        onToggle={() => toggleSubgoal(goal.id, s.id)}
+                        onRemove={() => removeSubgoal(goal.id, s.id)}
+                        onRename={(name) => renameSubgoal(goal.id, s.id, name)}
                       />
-                      <span
-                        className={cx(
-                          "flex-1 text-small",
-                          s.done ? "text-default-500 line-through" : "text-foreground",
-                        )}
-                      >
-                        {s.name}
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${s.name}`}
-                        onClick={() => removeSubgoal(goal.id, s.id)}
-                        className="text-default-400 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                      >
-                        <Icon name="close" size={14} />
-                      </button>
-                    </div>
-                  ))}
+                    )}
+                  />
                   <Input
                     size="sm"
                     variant="bordered"
@@ -274,6 +266,79 @@ export function GoalEditor({
         )}
       </ModalContent>
     </Modal>
+  );
+}
+
+/** A goal step: done toggle, click-to-rename name, remove. (Reorder handle is owned by SortableList.) */
+function StepRow({
+  sub,
+  onToggle,
+  onRemove,
+  onRename,
+}: {
+  sub: Subgoal;
+  onToggle: () => void;
+  onRemove: () => void;
+  onRename: (name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(sub.name);
+
+  const commit = () => {
+    setEditing(false);
+    const t = text.trim();
+    if (t && t !== sub.name) onRename(t);
+    else setText(sub.name);
+  };
+
+  return (
+    <div className="group flex items-center gap-1.5">
+      <Checkbox size="sm" isSelected={sub.done} onValueChange={onToggle} aria-label={sub.name} />
+      {editing ? (
+        <Input
+          size="sm"
+          variant="bordered"
+          autoFocus
+          value={text}
+          onValueChange={setText}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+            if (e.key === "Escape") {
+              setText(sub.name);
+              setEditing(false);
+            }
+          }}
+          aria-label={`Edit ${sub.name}`}
+          className="flex-1"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setText(sub.name);
+            setEditing(true);
+          }}
+          className={cx(
+            "flex-1 text-left text-small",
+            sub.done ? "text-default-500 line-through" : "text-foreground",
+          )}
+        >
+          {sub.name}
+        </button>
+      )}
+      <button
+        type="button"
+        aria-label={`Remove ${sub.name}`}
+        onClick={onRemove}
+        className="text-default-400 opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+      >
+        <Icon name="close" size={14} />
+      </button>
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@ import { Button, Card, CardBody } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { CalendarPopover, Icon, IconButton } from "@/core/ui";
+import { CalendarPopover, Icon, IconButton, SortableList } from "@/core/ui";
 import {
   DayEditor,
   type DayEntry,
@@ -18,7 +18,7 @@ import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
 import type { Task } from "@/features/tasks/model";
 import { dayCounts } from "@/features/tasks/selectors";
-import { partitionToday, reorderWithinDay, toggleDone } from "./today-logic";
+import { partitionToday, reorderTasksInDay, toggleDone } from "./today-logic";
 
 /**
  * Today — the calm focus surface.
@@ -95,17 +95,11 @@ export function TodayPage() {
     setAnnounce("Marked not done");
   }
 
-  function handleReorder(task: Task, direction: "up" | "down") {
-    const updates = reorderWithinDay(tasks, viewDate, task.id, direction);
+  function handleReorderTasks(activeId: string, overId: string) {
+    const updates = reorderTasksInDay(tasks, viewDate, activeId, overId);
     if (updates.length === 0) return;
     for (const u of updates) updateTask(u.id, { order: u.order });
-    const nextTasks = tasks.map((t) => {
-      const hit = updates.find((u) => u.id === t.id);
-      return hit ? { ...t, order: hit.order } : t;
-    });
-    const pos =
-      partitionToday(nextTasks, viewDate).remaining.findIndex((t) => t.id === task.id) + 1;
-    setAnnounce(`Moved to position ${pos} of ${remaining.length}`);
+    setAnnounce("Tasks reordered");
   }
 
   function handleDelete(task: Task) {
@@ -237,21 +231,23 @@ export function TodayPage() {
                 : "Nothing scheduled for this day — add a task above, or press ⌘K."}
             </p>
           ) : (
-            remaining.map((task, i) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onOpen={setEditing}
-                onToggleDone={handleToggleDone}
-                onSkip={handleSkip}
-                onUnskip={handleUnskip}
-                onMoveUp={(t) => handleReorder(t, "up")}
-                onMoveDown={(t) => handleReorder(t, "down")}
-                onDelete={handleDelete}
-                canMoveUp={i > 0}
-                canMoveDown={i < remaining.length - 1}
-              />
-            ))
+            <SortableList
+              items={remaining}
+              getId={(t) => t.id}
+              getLabel={(t) => t.title}
+              onReorder={handleReorderTasks}
+              className="flex flex-col gap-3"
+              renderItem={(task) => (
+                <TaskCard
+                  task={task}
+                  onOpen={setEditing}
+                  onToggleDone={handleToggleDone}
+                  onSkip={handleSkip}
+                  onUnskip={handleUnskip}
+                  onDelete={handleDelete}
+                />
+              )}
+            />
           )}
         </section>
 
@@ -266,11 +262,7 @@ export function TodayPage() {
                 onToggleDone={handleToggleDone}
                 onSkip={handleSkip}
                 onUnskip={handleUnskip}
-                onMoveUp={NOOP}
-                onMoveDown={NOOP}
                 onDelete={handleDelete}
-                canMoveUp={false}
-                canMoveDown={false}
               />
             ))}
           </section>
@@ -316,8 +308,6 @@ export function TodayPage() {
     </div>
   );
 }
-
-const NOOP = () => {};
 
 function AllDoneMarker({ isToday }: { isToday: boolean }) {
   return (
