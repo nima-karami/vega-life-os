@@ -4,12 +4,13 @@ import type { CollectionName, CollectionSnapshot, Dataset } from "@/core/persist
 import {
   buildSeed,
   COLLECTIONS,
+  DexieAdapter,
   emptyDataset,
   persistence,
   type RoutingAdapter,
 } from "@/core/persistence";
-import { DexieAdapter } from "@/core/persistence/dexie-adapter";
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
+import { setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { createGoalsSlice } from "@/features/goals/store";
 import { createHabitsSlice } from "@/features/habits/store";
 import { createJournalSlice } from "@/features/journal/store";
@@ -49,6 +50,10 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createUiSlice(set, get, api),
 
   ready: false,
+  authUid: null,
+  authResolved: false,
+  pendingSignIn: null,
+  loadFailed: false,
 
   bootstrap: async () => {
     await persistence.init();
@@ -67,6 +72,7 @@ export const useStore = create<RootState>((set, get, api) => ({
         persistence.bulkPut("reviews", seed.reviews),
         persistence.bulkPut("journal", seed.journal),
       ]);
+      void setSandboxDirty(false);
     }
     const data = await persistence.loadAll();
     set({
@@ -117,6 +123,7 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   wipe: async () => {
     await persistence.clearAll();
+    void setSandboxDirty(false);
     set({
       values: [],
       goals: [],
@@ -129,6 +136,36 @@ export const useStore = create<RootState>((set, get, api) => ({
       journal: [],
     });
   },
+
+  clearLocal: async () => {
+    await new DexieAdapter().clearAll();
+  },
+
+  resetDemo: async () => {
+    if (get().authUid) return; // never touch a real account
+    await new DexieAdapter().clearAll();
+    const seed = buildSeed();
+    await Promise.all(COLLECTIONS.map((col) => persistence.bulkPut(col, seed[col] as never)));
+    set({
+      values: seed.values,
+      goals: seed.goals,
+      habits: seed.habits,
+      tasks: seed.tasks,
+      books: seed.books,
+      movies: seed.movies,
+      vocab: seed.vocab,
+      reviews: seed.reviews,
+      journal: seed.journal,
+    });
+    void setSandboxDirty(false);
+  },
+
+  deleteAllData: async () => {
+    await persistence.clearAll();
+    set({ ...emptyDataset() });
+  },
+
+  confirmPendingSignIn: async () => {},
 
   exportJSON: () => {
     const s = get();

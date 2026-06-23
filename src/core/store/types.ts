@@ -17,9 +17,17 @@ export interface RootState
     JournalSlice,
     UiSlice {
   ready: boolean;
+  authUid: string | null;
+  authResolved: boolean;
+  pendingSignIn: string | null;
+  loadFailed: boolean;
   bootstrap: () => Promise<void>;
   reseed: () => Promise<void>;
   wipe: () => Promise<void>;
+  resetDemo: () => Promise<void>;
+  deleteAllData: () => Promise<void>;
+  clearLocal: () => Promise<void>;
+  confirmPendingSignIn: () => Promise<void>;
   exportJSON: () => string;
   importJSON: (text: string) => Promise<boolean>;
   applyRemote: (snap: import("@/core/persistence").CollectionSnapshot) => void;
