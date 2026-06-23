@@ -109,14 +109,10 @@ suffix) and `dangerouslyAllowBrowser: true`. Do **not** add `budget_tokens`,
 `temperature`, `top_p`, or `top_k` — the adaptive-thinking endpoint **400s** on them.
 SDK types lag the runtime payload, hence the deliberate cast in `anthropic-agent.ts`.
 
-## 9. Reference-only directories
+## 9. Workflow & hygiene
 
-`ui-inspo/` is **reference only**. Never edit, lint, format, or import from it.
-All tooling is scoped to `src/`. `.env.local` is a
-gitignored Firebase secret — never read it into output or commit it.
-
-## 10. Workflow & hygiene
-
+- All tooling is scoped to `src/`. `.env.local` is a gitignored Firebase secret —
+  never read it into output or commit it.
 - **Commit/push only when the user asks.** Don't auto-commit or auto-push.
 - Before any commit, run `git status` and confirm **only intended files** are staged.
 - Commit message bodies end with:

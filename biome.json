@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!dist", "!ui-inspo", "!public", "!**/*.tsbuildinfo"]
+    "includes": ["**", "!dist", "!public", "!**/*.tsbuildinfo"]
   },
   "css": {
     "parser": {
