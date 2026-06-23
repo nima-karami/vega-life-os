@@ -22,7 +22,7 @@ export interface RootState
   pendingSignIn: string | null;
   loadFailed: boolean;
   bootstrap: () => Promise<void>;
-  wipe: () => Promise<void>;
+  seedDemo: () => Promise<void>;
   resetDemo: () => Promise<void>;
   deleteAllData: () => Promise<void>;
   clearLocal: () => Promise<void>;

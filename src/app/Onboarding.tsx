@@ -1,7 +1,9 @@
-import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useState } from "react";
+import { firebaseEnabled } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
+import { AuthForm } from "./AuthForm";
 
 const STEPS = [
   { v: "Value", d: "What you stand for — your gravitational centers." },
@@ -10,37 +12,25 @@ const STEPS = [
   { v: "Task", d: "The atom you actually check off today." },
 ];
 
-/**
- * First-run onboarding — re-skinned to vapor. Behavior is unchanged: capture an
- * optional operator name, then either seed demo data or start empty.
- */
 export function Onboarding() {
+  const seedDemo = useStore((s) => s.seedDemo);
   const setOnboarded = useStore((s) => s.setOnboarded);
-  const setOperatorName = useStore((s) => s.setOperatorName);
-  const wipe = useStore((s) => s.wipe);
-  const operatorName = useStore((s) => s.operatorName);
-  const [name, setName] = useState(operatorName === "Operator" ? "" : operatorName);
   const [busy, setBusy] = useState(false);
-  const nameRef = useRef<HTMLInputElement>(null);
+  const reduce = useReducedMotion();
 
-  useEffect(() => {
-    nameRef.current?.focus();
-  }, []);
-
-  const finish = async (mode: "demo" | "empty") => {
+  const explore = async () => {
     setBusy(true);
-    if (name.trim()) setOperatorName(name.trim());
-    if (mode === "empty") await wipe();
+    await seedDemo();
     setOnboarded(true);
   };
 
   return (
-    <div className="grid h-screen place-items-center bg-background px-4 text-foreground">
+    <div className="min-h-screen overflow-y-auto bg-background px-4 py-10 text-foreground">
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={reduce ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-lg"
+        className="mx-auto w-full max-w-lg"
       >
         <div className="mb-8 flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-medium bg-primary text-primary-foreground">
@@ -73,40 +63,30 @@ export function Onboarding() {
           ))}
         </div>
 
-        <label className="mt-8 flex flex-col gap-1.5 rounded-medium border border-divider bg-content1 px-4 py-3">
-          <span className="text-tiny text-default-500">Operator name</span>
-          <input
-            ref={nameRef}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void finish("demo");
-            }}
-            placeholder="What should we call you?"
-            className="w-full bg-transparent text-medium outline-none placeholder:text-default-400"
-          />
-        </label>
+        {firebaseEnabled ? (
+          <div className="mt-8">
+            <AuthForm autoFocus />
+          </div>
+        ) : (
+          <p className="mt-8 rounded-medium border border-divider bg-content1 px-4 py-3 text-small leading-relaxed text-default-500">
+            Cloud sign-in isn't configured on this build. You can explore VEGA with sample data
+            below.
+          </p>
+        )}
 
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-6">
           <button
             type="button"
             disabled={busy}
-            onClick={() => finish("demo")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-medium bg-primary py-3 text-small font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            onClick={() => void explore()}
+            className="flex w-full items-center justify-center gap-2 rounded-medium border border-divider bg-content1 py-3 text-small font-medium text-foreground transition-colors hover:border-primary disabled:opacity-50"
           >
             <Icon name="spark" size={14} /> Explore with sample data
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => finish("empty")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-medium border border-divider bg-content1 py-3 text-small font-medium text-foreground transition-colors hover:border-primary disabled:opacity-50"
-          >
-            <Icon name="plus" size={14} /> Start empty
-          </button>
         </div>
+
         <p className="mt-4 text-center text-tiny text-default-400">
-          Local-first · your data stays in this browser · switch anytime in Settings
+          Your data syncs to your account. Sample data stays on this device only.
         </p>
       </motion.div>
     </div>

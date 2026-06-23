@@ -70,6 +70,27 @@ test("boots to /today — no TopBar, no NavRow, omni trigger visible", async ({ 
   expect(errors, `runtime errors:\n${errors.join("\n")}`).toEqual([]);
 });
 
+test("onboarding: cloud-first welcome (sign-in unavailable variant in CI)", async ({ page }) => {
+  // Fresh context: clear any onboarded flag so the welcome screen shows.
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.evaluate(() => localStorage.removeItem("vega.onboarded"));
+  await page.reload({ waitUntil: "networkidle" });
+
+  // Sample-data path is present (and is the available path with Firebase off).
+  const explore = page.getByRole("button", { name: /explore with sample data/i });
+  await expect(explore).toBeVisible({ timeout: 15_000 });
+
+  // The removed local option and the dropped name capture are gone.
+  await expect(page.getByRole("button", { name: /start empty/i })).toHaveCount(0);
+  await expect(page.getByPlaceholder(/what should we call you/i)).toHaveCount(0);
+
+  // Choosing sample data seeds the sandbox and enters the app (lands on the gate).
+  await explore.click();
+  await expect(page.getByRole("button", { name: "Continue to today" })).toBeVisible({
+    timeout: 15_000,
+  });
+});
+
 const V1_ROUTES: { path: string; name: string }[] = [
   { path: "/today", name: "today" },
   { path: "/values", name: "values-goals" },

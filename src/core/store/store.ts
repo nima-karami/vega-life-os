@@ -84,27 +84,9 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   bootstrap: async () => {
     await persistence.init();
-    // Only auto-seed on a genuine first run. Once onboarded, an empty DB means the
-    // user chose "start empty" — don't force the demo back on reload.
-    if ((await persistence.isEmpty()) && !get().onboarded) {
-      const seed = buildSeed();
-      await Promise.all([
-        persistence.bulkPut("values", seed.values),
-        persistence.bulkPut("goals", seed.goals),
-        persistence.bulkPut("habits", seed.habits),
-        persistence.bulkPut("tasks", seed.tasks),
-        persistence.bulkPut("books", seed.books),
-        persistence.bulkPut("movies", seed.movies),
-        persistence.bulkPut("vocab", seed.vocab),
-        persistence.bulkPut("reviews", seed.reviews),
-        persistence.bulkPut("journal", seed.journal),
-      ]);
-      void setSandboxDirty(false);
-    }
     const data = await persistence.loadAll();
     set({
       values: data.values.sort((a, b) => a.order - b.order),
-      // migrate goals from before the status field existed
       goals: data.goals
         .map((g) => ({ ...g, status: g.status ?? "active" }))
         .sort((a, b) => a.order - b.order),
@@ -117,24 +99,17 @@ export const useStore = create<RootState>((set, get, api) => ({
       journal: data.journal.sort((a, b) => (a.date < b.date ? 1 : -1)),
       ready: true,
     });
-    // keep the runway populated so habits actually recur without manual planning
     get().ensureUpcoming(14);
   },
 
-  wipe: async () => {
-    await persistence.clearAll();
-    void setSandboxDirty(false);
-    set({
-      values: [],
-      goals: [],
-      habits: [],
-      tasks: [],
-      books: [],
-      movies: [],
-      vocab: [],
-      reviews: [],
-      journal: [],
-    });
+  seedDemo: async () => {
+    if (get().authUid) return;
+    if (await persistence.isEmpty()) {
+      const seed = buildSeed();
+      await Promise.all(COLLECTIONS.map((col) => persistence.bulkPut(col, seed[col] as never)));
+      void setSandboxDirty(false);
+    }
+    await get().bootstrap();
   },
 
   clearLocal: async () => {
@@ -261,6 +236,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       routing.setDelegate(new DexieAdapter());
       await get().clearLocal();
       void setSandboxDirty(false);
+      get().setOnboarded(false);
       set({ ...emptyDataset(), pendingSignIn: null, loadFailed: false, ready: true });
     }
   },
