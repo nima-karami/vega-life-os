@@ -126,7 +126,7 @@ export const ACTION_COMMANDS: ActionCommand[] = [
     icon: "repeat",
     keywords: "reseed reset demo data",
     run: ({ store, close }) => {
-      void store.getState().reseed();
+      void store.getState().resetDemo();
       store.getState().pushToast("Demo data reset");
       close();
     },

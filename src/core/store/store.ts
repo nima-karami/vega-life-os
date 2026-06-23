@@ -121,33 +121,6 @@ export const useStore = create<RootState>((set, get, api) => ({
     get().ensureUpcoming(14);
   },
 
-  reseed: async () => {
-    await persistence.clearAll();
-    const seed = buildSeed();
-    await Promise.all([
-      persistence.bulkPut("values", seed.values),
-      persistence.bulkPut("goals", seed.goals),
-      persistence.bulkPut("habits", seed.habits),
-      persistence.bulkPut("tasks", seed.tasks),
-      persistence.bulkPut("books", seed.books),
-      persistence.bulkPut("movies", seed.movies),
-      persistence.bulkPut("vocab", seed.vocab),
-      persistence.bulkPut("reviews", seed.reviews),
-      persistence.bulkPut("journal", seed.journal),
-    ]);
-    set({
-      values: seed.values,
-      goals: seed.goals,
-      habits: seed.habits,
-      tasks: seed.tasks,
-      books: seed.books,
-      movies: seed.movies,
-      vocab: seed.vocab,
-      reviews: seed.reviews,
-      journal: seed.journal,
-    });
-  },
-
   wipe: async () => {
     await persistence.clearAll();
     void setSandboxDirty(false);

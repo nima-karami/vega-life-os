@@ -22,7 +22,6 @@ export interface RootState
   pendingSignIn: string | null;
   loadFailed: boolean;
   bootstrap: () => Promise<void>;
-  reseed: () => Promise<void>;
   wipe: () => Promise<void>;
   resetDemo: () => Promise<void>;
   deleteAllData: () => Promise<void>;
