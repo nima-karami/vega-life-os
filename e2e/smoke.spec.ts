@@ -441,3 +441,29 @@ test("today: journal editor saves a note and supports delete + undo", async ({ p
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
 });
+
+// ─── Data lifecycle: signed-out sandbox scope ────────────────────────────────
+
+test("settings: reset demo data is available signed-out and reloads the sandbox", async ({
+  page,
+}) => {
+  await page.goto("/settings", { waitUntil: "networkidle" });
+  await expect(page.getByRole("button", { name: "Reset demo data" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole("button", { name: "Reset demo data" }).click();
+  await expect(page.locator(".fixed").getByText("Demo data reset", { exact: true })).toBeVisible();
+});
+
+test("settings: delete all (this device) empties the sandbox", async ({ page }) => {
+  await page.goto("/settings", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Delete all (this device)" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete everything" }).click();
+  await expect(page.locator(".fixed").getByText("All data deleted", { exact: true })).toBeVisible();
+  // App still functional after a wipe.
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible();
+});
