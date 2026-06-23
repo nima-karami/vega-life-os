@@ -10,7 +10,7 @@ import {
   type RoutingAdapter,
 } from "@/core/persistence";
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
-import { setSandboxDirty } from "@/core/persistence/sandbox-meta";
+import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { createGoalsSlice } from "@/features/goals/store";
 import { createHabitsSlice } from "@/features/habits/store";
 import { createJournalSlice } from "@/features/journal/store";
@@ -18,10 +18,34 @@ import { createLibrarySlice } from "@/features/library/store";
 import { createReviewSlice } from "@/features/review/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
+import { authTransition } from "./auth-transition";
+import { setPersistAuth } from "./persist";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
 
 let unsubscribeRemote: (() => void) | null = null;
+
+async function loadAccount(
+  uid: string,
+  set: (p: Partial<RootState>) => void,
+  get: () => RootState,
+) {
+  unsubscribeRemote?.();
+  unsubscribeRemote = null;
+  if (!db) return;
+  const routing = persistence as RoutingAdapter;
+  const cloud = new FirestoreAdapter(db, uid);
+  routing.setDelegate(cloud);
+  await get().clearLocal(); // abandon the local sandbox — never uploaded
+  try {
+    const data = await cloud.loadAll();
+    set({ ...(sorted(data) as Partial<RootState>), loadFailed: false, ready: true });
+    get().ensureUpcoming(14);
+    unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
+  } catch {
+    set({ loadFailed: true, ready: true });
+  }
+}
 
 /** Apply the same per-collection ordering bootstrap() uses. */
 function sorted(data: Partial<Dataset>): Partial<Dataset> {
@@ -165,7 +189,12 @@ export const useStore = create<RootState>((set, get, api) => ({
     set({ ...emptyDataset() });
   },
 
-  confirmPendingSignIn: async () => {},
+  confirmPendingSignIn: async () => {
+    const uid = get().pendingSignIn;
+    if (!uid) return;
+    set({ pendingSignIn: null });
+    await loadAccount(uid, set, get);
+  },
 
   exportJSON: () => {
     const s = get();
@@ -216,24 +245,37 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   onAuthChange: async (uid: string | null) => {
     const routing = persistence as RoutingAdapter;
-    unsubscribeRemote?.();
-    unsubscribeRemote = null;
+    const t = authTransition(get().authUid, uid, get().authResolved);
+    setPersistAuth(uid);
+    set({ authUid: uid, authResolved: true });
 
-    if (uid && db) {
-      const cloud = new FirestoreAdapter(db, uid);
-      // First sign-in on this account: push local data up once.
-      if (await cloud.isEmpty()) {
-        const local = await new DexieAdapter().loadAll();
-        await Promise.all(COLLECTIONS.map((col) => cloud.bulkPut(col, local[col] as never)));
-      }
-      routing.setDelegate(cloud);
-      const data = await cloud.loadAll();
-      set({ ...(sorted(data) as Partial<RootState>), ready: true });
-      get().ensureUpcoming(14);
-      unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
-    } else {
+    if (t === "noop") return;
+
+    if (t === "initial-sandbox") {
       routing.setDelegate(new DexieAdapter());
       await get().bootstrap();
+      return;
+    }
+    if (t === "initial-account" || t === "switch-account") {
+      if (uid) await loadAccount(uid, set, get);
+      return;
+    }
+    if (t === "sign-in" && uid) {
+      const hasRows = !(await new DexieAdapter().isEmpty());
+      if (isSandboxDirty(await getSandboxDirty(), hasRows)) {
+        set({ pendingSignIn: uid }); // SignInGate (Task 6) resolves this
+        return;
+      }
+      await loadAccount(uid, set, get);
+      return;
+    }
+    if (t === "sign-out") {
+      unsubscribeRemote?.();
+      unsubscribeRemote = null;
+      routing.setDelegate(new DexieAdapter());
+      await get().clearLocal();
+      void setSandboxDirty(false);
+      set({ ...emptyDataset(), pendingSignIn: null, loadFailed: false, ready: true });
     }
   },
 }));

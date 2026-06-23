@@ -13,18 +13,14 @@ import { Toast } from "./Toast";
 
 /** Top-level provider: boots data, applies vapor theme, owns the global ⌘K layer. */
 export function RootBoot() {
-  const bootstrap = useStore((s) => s.bootstrap);
   const ready = useStore((s) => s.ready);
   const accent = useStore((s) => s.accent);
   const onboarded = useStore((s) => s.onboarded);
+  const authUid = useStore((s) => s.authUid);
   const toggleCommand = useStore((s) => s.toggleCommand);
   const navigate = useNavigate();
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
 
   useEffect(() => {
     const onAuthChange = useStore.getState().onAuthChange;
@@ -139,7 +135,7 @@ export function RootBoot() {
     );
   }
 
-  if (!onboarded) return <Onboarding />;
+  if (!authUid && !onboarded) return <Onboarding />;
 
   return (
     <>
