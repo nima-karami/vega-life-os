@@ -5,14 +5,14 @@ import { GLOBAL_SHORTCUTS, GO_SHORTCUTS } from "./keymap";
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-grid min-w-[20px] place-items-center rounded bg-default-100 px-1.5 py-0.5 font-mono text-tiny text-default-500">
+    <kbd className="inline-grid min-w-[20px] place-items-center rounded bg-surface-secondary px-1.5 py-0.5 font-mono text-xs text-muted">
       {children}
     </kbd>
   );
 }
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-tiny font-medium text-default-500">{children}</span>;
+  return <span className="text-xs font-medium text-muted">{children}</span>;
 }
 
 export function Shortcuts() {
@@ -30,19 +30,19 @@ export function Shortcuts() {
           onClick={close}
         >
           <motion.div
-            className="w-full max-w-xl overflow-hidden rounded-large border border-divider bg-content1 shadow-medium"
+            className="w-full max-w-xl overflow-hidden rounded-[16px] border border-border bg-surface shadow-md"
             initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 10, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-divider px-4 py-3">
-              <h2 className="text-medium font-semibold text-foreground">Keyboard shortcuts</h2>
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h2 className="text-base font-semibold text-foreground">Keyboard shortcuts</h2>
               <button
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="text-default-500 transition-colors hover:text-foreground"
+                className="text-muted transition-colors hover:text-foreground"
               >
                 <Icon name="close" size={18} />
               </button>
@@ -53,10 +53,10 @@ export function Shortcuts() {
                 <div className="mt-2.5 space-y-1.5">
                   {GO_SHORTCUTS.map((s) => (
                     <div key={s.key} className="flex items-center justify-between">
-                      <span className="text-small text-foreground">{s.label}</span>
+                      <span className="text-sm text-foreground">{s.label}</span>
                       <span className="flex items-center gap-1">
                         <Key>G</Key>
-                        <span className="text-default-400">›</span>
+                        <span className="text-muted">›</span>
                         <Key>{s.key.toUpperCase()}</Key>
                       </span>
                     </div>
@@ -68,12 +68,12 @@ export function Shortcuts() {
                 <div className="mt-2.5 space-y-1.5">
                   {GLOBAL_SHORTCUTS.map((s) => (
                     <div key={s.keys} className="flex items-center justify-between">
-                      <span className="text-small text-foreground">{s.label}</span>
+                      <span className="text-sm text-foreground">{s.label}</span>
                       <Key>{s.keys}</Key>
                     </div>
                   ))}
                 </div>
-                <p className="mt-5 text-tiny leading-relaxed text-default-500">
+                <p className="mt-5 text-xs leading-relaxed text-muted">
                   Shortcuts are ignored while typing in a field. Open this anytime with
                   <span className="mx-1">
                     <Key>?</Key>

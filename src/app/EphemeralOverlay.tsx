@@ -27,27 +27,27 @@ export function EphemeralOverlay() {
           onClick={() => clear(null)}
         >
           <motion.div
-            className="w-full max-w-xl overflow-hidden rounded-large border border-divider bg-content1 shadow-medium"
+            className="w-full max-w-xl overflow-hidden rounded-[16px] border border-border bg-surface shadow-md"
             initial={{ y: -10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -10, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between border-b border-divider px-4 py-3">
+            <div className="flex items-start justify-between border-b border-border px-4 py-3">
               <div>
-                <span className="text-tiny font-medium text-default-500">Generated view</span>
+                <span className="text-xs font-medium text-muted">Generated view</span>
                 <h2 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-foreground">
                   {ephemeral.title}
                 </h2>
                 {ephemeral.subtitle && (
-                  <p className="mt-1 text-tiny text-default-500">{ephemeral.subtitle}</p>
+                  <p className="mt-1 text-xs text-muted">{ephemeral.subtitle}</p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => clear(null)}
                 aria-label="Close"
-                className="text-default-500 transition-colors hover:text-foreground"
+                className="text-muted transition-colors hover:text-foreground"
               >
                 <Icon name="close" size={18} />
               </button>
@@ -56,7 +56,7 @@ export function EphemeralOverlay() {
               {ephemeral.lines && (
                 <div className="space-y-1.5">
                   {ephemeral.lines.map((l) => (
-                    <p key={l} className="text-small text-foreground">
+                    <p key={l} className="text-sm text-foreground">
                       {l}
                     </p>
                   ))}
@@ -70,9 +70,7 @@ export function EphemeralOverlay() {
                     ))}
                   </div>
                 ) : (
-                  <p className="py-8 text-center text-small text-default-500">
-                    Nothing here. Clear skies.
-                  </p>
+                  <p className="py-8 text-center text-sm text-muted">Nothing here. Clear skies.</p>
                 ))}
             </div>
           </motion.div>

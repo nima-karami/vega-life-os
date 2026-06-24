@@ -24,19 +24,19 @@ export function OmniTrigger() {
       }}
       className="
         flex w-full items-center gap-3
-        rounded-medium border border-divider
-        bg-content1
+        rounded-[12px] border border-border
+        bg-surface
         px-4 py-3
         text-left
-        shadow-small
+        shadow-sm
         transition-colors duration-150
-        hover:border-primary
+        hover:border-accent
         focus-visible:outline-2 focus-visible:outline-focus focus-visible:outline-offset-2
       "
     >
-      <Icon name="search" size={16} className="shrink-0 text-default-500" />
-      <span className="flex-1 text-small text-default-500">Search, navigate, or ask…</span>
-      <kbd className="hidden rounded bg-default-100 px-1.5 py-0.5 font-mono text-tiny text-default-500 sm:inline">
+      <Icon name="search" size={16} className="shrink-0 text-muted" />
+      <span className="flex-1 text-sm text-muted">Search, navigate, or ask…</span>
+      <kbd className="hidden rounded bg-surface-secondary px-1.5 py-0.5 font-mono text-xs text-muted sm:inline">
         ⌘K
       </kbd>
     </button>

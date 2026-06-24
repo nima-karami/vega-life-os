@@ -1,4 +1,4 @@
-import { Button, Card, CardBody } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import { useCallback, useMemo, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
@@ -105,7 +105,7 @@ export function HabitsPage() {
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Habits</h1>
-        <p className="mt-1 text-sm text-default-500">
+        <p className="mt-1 text-sm text-muted">
           Behaviors that repeat on a schedule and auto-create your daily tasks.
         </p>
       </header>
@@ -114,7 +114,7 @@ export function HabitsPage() {
         <AddButton label="Add habit" onPress={createHabit} />
 
         {active.length === 0 ? (
-          <p className="text-small text-default-500">
+          <p className="text-sm text-muted">
             No habits yet — they repeat on a schedule and auto-create your daily tasks.
           </p>
         ) : (
@@ -124,7 +124,7 @@ export function HabitsPage() {
                 <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${
-                      group.value ? "" : "bg-default-300"
+                      group.value ? "" : "bg-surface-secondary"
                     }`}
                     style={group.value ? { background: valueColor(group.value) } : undefined}
                     aria-hidden="true"
@@ -188,12 +188,16 @@ function HabitCard({
   ];
 
   return (
-    <Card shadow="sm" className={`group ${isArchived ? "opacity-60" : ""}`}>
-      <CardBody className="flex flex-row items-center gap-3 p-4">
+    <Card
+      className={`group rounded-[16px] border border-border bg-surface ${
+        isArchived ? "opacity-60" : ""
+      }`}
+    >
+      <Card.Content className="flex flex-row items-center gap-3 p-4">
         <button
           type="button"
           onClick={onOpen}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-medium text-left outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-[12px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
           aria-label={isArchived ? `Edit ${habit.name}, archived` : `Edit ${habit.name}`}
         >
           <span
@@ -206,12 +210,12 @@ function HabitCard({
             <p className="flex items-center gap-2 truncate text-base font-medium text-foreground">
               {habit.name}
               {isArchived && (
-                <span className="rounded-full bg-default-200 px-1.5 py-0.5 text-[10px] font-medium text-default-500">
+                <span className="rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted">
                   Archived
                 </span>
               )}
             </p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-default-500">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
               <span className="inline-flex items-center gap-1.5">
                 <span
                   className="inline-block h-2 w-2 rounded-full"
@@ -241,17 +245,17 @@ function HabitCard({
           trigger={
             <Button
               isIconOnly
-              variant="light"
+              variant="ghost"
               size="sm"
               aria-label={`Actions for ${habit.name}`}
-              className="shrink-0 text-default-400"
+              className="shrink-0 text-muted"
             >
               <Icon name="dots" size={16} />
             </Button>
           }
           items={menuItems}
         />
-      </CardBody>
+      </Card.Content>
     </Card>
   );
 }

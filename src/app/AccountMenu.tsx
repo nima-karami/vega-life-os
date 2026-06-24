@@ -1,5 +1,5 @@
-import { Avatar, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react";
-import { useEffect, useState } from "react";
+import { Avatar, Dropdown } from "@heroui/react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { firebaseEnabled, onAuth, signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
@@ -17,11 +17,19 @@ function initials(name: string) {
   );
 }
 
+function AccountAvatar({ src, label }: { src?: string; label: string }) {
+  return (
+    <Avatar size="sm" className="bg-surface-secondary text-xs text-muted">
+      {src ? <Avatar.Image src={src} alt="" /> : null}
+      <Avatar.Fallback>{label}</Avatar.Fallback>
+    </Avatar>
+  );
+}
+
 /**
  * Global account button — the avatar in the top-right of every route (rendered by
  * AppShell). Opens a menu with the operator profile summary plus quick access to
- * Settings and sign-out, so identity/account is reachable everywhere instead of
- * being buried in the Settings page.
+ * Settings and sign-out, so identity/account is reachable everywhere.
  */
 export function AccountMenu() {
   const navigate = useNavigate();
@@ -40,81 +48,50 @@ export function AccountMenu() {
     pushToast("Signed out");
   };
 
-  const authItem = !firebaseEnabled
-    ? []
-    : authEmail
-      ? [
-          <DropdownItem
-            key="signout"
-            startContent={<Icon name="repeat" size={14} />}
-            onPress={() => void signOut()}
-          >
-            Sign out
-          </DropdownItem>,
-        ]
-      : [
-          <DropdownItem
-            key="signin"
-            startContent={<Icon name="user" size={14} />}
-            onPress={() => navigate("/settings")}
-          >
-            Sign in & sync
-          </DropdownItem>,
-        ];
+  const authItem: ReactNode = !firebaseEnabled ? null : authEmail ? (
+    <Dropdown.Item id="signout" textValue="Sign out" onAction={() => void signOut()}>
+      <Icon name="repeat" size={14} />
+      Sign out
+    </Dropdown.Item>
+  ) : (
+    <Dropdown.Item id="signin" textValue="Sign in & sync" onAction={() => navigate("/settings")}>
+      <Icon name="user" size={14} />
+      Sign in & sync
+    </Dropdown.Item>
+  );
 
   return (
-    <Dropdown placement="bottom-end" offset={8}>
-      <DropdownTrigger>
-        <button
-          type="button"
-          aria-label="Account menu"
-          className="grid h-11 w-11 place-items-center rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
-        >
-          <Avatar
-            size="sm"
-            src={avatar || undefined}
-            name={initials(name)}
-            className="bg-content2 text-tiny text-default-500"
-            getInitials={(n) => n}
-          />
-        </button>
-      </DropdownTrigger>
+    <Dropdown>
+      <Dropdown.Trigger
+        aria-label="Account menu"
+        className="grid h-11 w-11 place-items-center rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+      >
+        <AccountAvatar src={avatar || undefined} label={initials(name)} />
+      </Dropdown.Trigger>
 
-      <DropdownMenu aria-label="Account" className="min-w-[224px]">
-        {[
-          <DropdownItem
-            key="profile"
-            isReadOnly
-            showDivider
+      <Dropdown.Popover placement="bottom end" offset={8}>
+        <Dropdown.Menu aria-label="Account" className="min-w-[224px]">
+          <Dropdown.Item
+            id="profile"
+            isDisabled
             textValue="Profile"
-            className="cursor-default data-[hover=true]:bg-transparent"
+            className="cursor-default opacity-100"
           >
             <div className="flex items-center gap-2.5">
-              <Avatar
-                size="sm"
-                src={avatar || undefined}
-                name={initials(name)}
-                className="bg-content2 text-tiny text-default-500"
-                getInitials={(n) => n}
-              />
+              <AccountAvatar src={avatar || undefined} label={initials(name)} />
               <div className="min-w-0">
-                <p className="truncate text-small font-medium text-foreground">
-                  {name || "Operator"}
-                </p>
-                {email && <p className="truncate text-tiny text-default-500">{email}</p>}
+                <p className="truncate text-sm font-medium text-foreground">{name || "Operator"}</p>
+                {email && <p className="truncate text-xs text-muted">{email}</p>}
               </div>
             </div>
-          </DropdownItem>,
-          <DropdownItem
-            key="settings"
-            startContent={<Icon name="sliders" size={14} />}
-            onPress={() => navigate("/settings")}
-          >
+          </Dropdown.Item>
+          <Dropdown.Item id="settings" textValue="Settings" onAction={() => navigate("/settings")}>
+            <Icon name="sliders" size={14} />
             Settings
-          </DropdownItem>,
-          ...authItem,
-        ]}
-      </DropdownMenu>
+          </Dropdown.Item>
+          {authItem}
+        </Dropdown.Menu>
+      </Dropdown.Popover>
     </Dropdown>
   );
 }

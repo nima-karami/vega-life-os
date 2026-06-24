@@ -32,10 +32,10 @@ export function MoodPicker({
             title={MOOD_LABEL[m]}
             onClick={() => onChange(m)}
             className={cx(
-              "grid h-9 w-9 place-items-center rounded-full border text-small font-medium tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus",
+              "grid h-9 w-9 place-items-center rounded-full border text-sm font-medium tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus",
               selected
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-divider text-default-500 hover:border-default-400 hover:text-foreground",
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-border text-muted hover:border-border hover:text-foreground",
             )}
           >
             {m}

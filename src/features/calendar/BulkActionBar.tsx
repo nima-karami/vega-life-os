@@ -1,4 +1,4 @@
-import { Button, Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
+import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useState } from "react";
 import { DatePicker, Icon, Menu, NONE, Select, TimePicker, useCompactModal } from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
@@ -46,6 +46,19 @@ export function BulkActionBar({
   const goalOptions = lineage?.valueId ? goals.filter((g) => g.valueId === lineage.valueId) : goals;
   const responsive = useCompactModal("sm");
 
+  const rescheduleState = useOverlayState({
+    isOpen: !!reschedule,
+    onOpenChange: (next) => {
+      if (!next) setReschedule(null);
+    },
+  });
+  const lineageState = useOverlayState({
+    isOpen: !!lineage,
+    onOpenChange: (next) => {
+      if (!next) setLineage(null);
+    },
+  });
+
   return (
     <>
       <div
@@ -53,20 +66,17 @@ export function BulkActionBar({
         aria-label="Bulk actions"
         className="safe-mb pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4"
       >
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-medium border border-divider bg-content1 px-3 py-2 shadow-medium">
-          <span className="px-1 text-small font-medium text-foreground">{count} selected</span>
-          <span className="mx-0.5 h-5 w-px bg-divider" />
-          <Button
-            size="sm"
-            variant="flat"
-            startContent={<Icon name="clock" size={14} />}
-            onPress={openReschedule}
-          >
+        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-[12px] border border-border bg-surface px-3 py-2 shadow-lg">
+          <span className="px-1 text-sm font-medium text-foreground">{count} selected</span>
+          <span className="mx-0.5 h-5 w-px bg-border" />
+          <Button size="sm" variant="secondary" onPress={openReschedule}>
+            <Icon name="clock" size={14} />
             Reschedule…
           </Button>
           <Menu
             trigger={
-              <Button size="sm" variant="flat" startContent={<Icon name="check" size={14} />}>
+              <Button size="sm" variant="secondary">
+                <Icon name="check" size={14} />
                 Set status
               </Button>
             }
@@ -75,28 +85,19 @@ export function BulkActionBar({
               onSelect: () => onSetStatus(s),
             }))}
           />
-          <Button
-            size="sm"
-            variant="flat"
-            startContent={<Icon name="tree" size={14} />}
-            onPress={openLineage}
-          >
+          <Button size="sm" variant="secondary" onPress={openLineage}>
+            <Icon name="tree" size={14} />
             Value or goal…
           </Button>
-          <Button
-            size="sm"
-            variant="flat"
-            color="danger"
-            startContent={<Icon name="trash" size={14} />}
-            onPress={onDelete}
-          >
+          <Button size="sm" variant="danger-soft" onPress={onDelete}>
+            <Icon name="trash" size={14} />
             Delete
           </Button>
-          <span className="mx-0.5 h-5 w-px bg-divider" />
+          <span className="mx-0.5 h-5 w-px bg-border" />
           <Button
             isIconOnly
             size="sm"
-            variant="light"
+            variant="ghost"
             aria-label="Clear selection"
             onPress={onClear}
           >
@@ -106,100 +107,96 @@ export function BulkActionBar({
       </div>
 
       {/* Reschedule — shift the whole selection by the delta to a new anchor start */}
-      <Modal
-        isOpen={!!reschedule}
-        onClose={() => setReschedule(null)}
-        backdrop="blur"
-        aria-label="Reschedule selected tasks"
-        {...responsive}
-      >
-        <ModalContent>
-          <ModalHeader className="flex-col items-start gap-0.5">
-            <span className="text-medium font-semibold text-foreground">Reschedule {count}</span>
-            <span className="text-small font-normal text-default-500">
-              The rest shift by the same amount.
-            </span>
-          </ModalHeader>
-          <ModalBody className="gap-3 pb-6">
-            {reschedule && (
-              <>
-                <DatePicker
-                  label="anchor day"
-                  value={reschedule.date || null}
-                  onChange={(date) => date && setReschedule({ ...reschedule, date })}
-                />
-                <TimePicker
-                  label="anchor time"
-                  value={reschedule.time}
-                  clearable={false}
-                  onChange={(time) => time && setReschedule({ ...reschedule, time })}
-                />
-                <Button
-                  color="primary"
-                  isDisabled={!reschedule.date}
-                  onPress={() => {
-                    onReschedule(reschedule.date, reschedule.time);
-                    setReschedule(null);
-                  }}
-                >
-                  Move {count} {count === 1 ? "task" : "tasks"}
-                </Button>
-              </>
-            )}
-          </ModalBody>
-        </ModalContent>
+      <Modal state={rescheduleState}>
+        <Modal.Backdrop variant="blur" />
+        <Modal.Container {...responsive}>
+          <Modal.Dialog aria-label="Reschedule selected tasks">
+            <Modal.Header className="flex-col items-start gap-0.5">
+              <Modal.Heading className="text-base font-semibold text-foreground">
+                Reschedule {count}
+              </Modal.Heading>
+              <span className="text-sm font-normal text-muted">
+                The rest shift by the same amount.
+              </span>
+            </Modal.Header>
+            <Modal.Body className="gap-3 pb-6">
+              {reschedule && (
+                <>
+                  <DatePicker
+                    label="anchor day"
+                    value={reschedule.date || null}
+                    onChange={(date) => date && setReschedule({ ...reschedule, date })}
+                  />
+                  <TimePicker
+                    label="anchor time"
+                    value={reschedule.time}
+                    clearable={false}
+                    onChange={(time) => time && setReschedule({ ...reschedule, time })}
+                  />
+                  <Button
+                    variant="primary"
+                    isDisabled={!reschedule.date}
+                    onPress={() => {
+                      onReschedule(reschedule.date, reschedule.time);
+                      setReschedule(null);
+                    }}
+                  >
+                    Move {count} {count === 1 ? "task" : "tasks"}
+                  </Button>
+                </>
+              )}
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
       </Modal>
 
       {/* Change value / goal for the whole selection */}
-      <Modal
-        isOpen={!!lineage}
-        onClose={() => setLineage(null)}
-        backdrop="blur"
-        aria-label="Change value or goal"
-        {...responsive}
-      >
-        <ModalContent>
-          <ModalHeader className="flex-col items-start gap-0.5">
-            <span className="text-medium font-semibold text-foreground">
-              Value or goal for {count}
-            </span>
-          </ModalHeader>
-          <ModalBody className="gap-3 pb-6">
-            {lineage && (
-              <>
-                <Select
-                  ariaLabel="Value"
-                  value={lineage.valueId ?? NONE}
-                  onValueChange={(v) =>
-                    setLineage({ valueId: v === NONE ? null : v, goalId: null })
-                  }
-                  options={[
-                    { value: NONE, label: "No value" },
-                    ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
-                  ]}
-                />
-                <Select
-                  ariaLabel="Goal"
-                  value={lineage.goalId ?? NONE}
-                  onValueChange={(g) => setLineage({ ...lineage, goalId: g === NONE ? null : g })}
-                  options={[
-                    { value: NONE, label: "No goal" },
-                    ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
-                  ]}
-                />
-                <Button
-                  color="primary"
-                  onPress={() => {
-                    onRelineage(lineage.valueId, lineage.goalId);
-                    setLineage(null);
-                  }}
-                >
-                  Apply to {count} {count === 1 ? "task" : "tasks"}
-                </Button>
-              </>
-            )}
-          </ModalBody>
-        </ModalContent>
+      <Modal state={lineageState}>
+        <Modal.Backdrop variant="blur" />
+        <Modal.Container {...responsive}>
+          <Modal.Dialog aria-label="Change value or goal">
+            <Modal.Header className="flex-col items-start gap-0.5">
+              <Modal.Heading className="text-base font-semibold text-foreground">
+                Value or goal for {count}
+              </Modal.Heading>
+            </Modal.Header>
+            <Modal.Body className="gap-3 pb-6">
+              {lineage && (
+                <>
+                  <Select
+                    ariaLabel="Value"
+                    value={lineage.valueId ?? NONE}
+                    onValueChange={(v) =>
+                      setLineage({ valueId: v === NONE ? null : v, goalId: null })
+                    }
+                    options={[
+                      { value: NONE, label: "No value" },
+                      ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
+                    ]}
+                  />
+                  <Select
+                    ariaLabel="Goal"
+                    value={lineage.goalId ?? NONE}
+                    onValueChange={(g) => setLineage({ ...lineage, goalId: g === NONE ? null : g })}
+                    options={[
+                      { value: NONE, label: "No goal" },
+                      ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
+                    ]}
+                  />
+                  <Button
+                    variant="primary"
+                    onPress={() => {
+                      onRelineage(lineage.valueId, lineage.goalId);
+                      setLineage(null);
+                    }}
+                  >
+                    Apply to {count} {count === 1 ? "task" : "tasks"}
+                  </Button>
+                </>
+              )}
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
       </Modal>
     </>
   );

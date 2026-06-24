@@ -130,24 +130,24 @@ export function CommandBar() {
               exit={{ y: -8, opacity: 0 }}
               transition={{ duration: 0.14 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xl overflow-hidden rounded-large border border-divider bg-content1 shadow-medium"
+              className="w-full max-w-xl overflow-hidden rounded-[16px] border border-border bg-surface shadow-md"
             >
               <Command label="Command palette" className="flex flex-col">
                 {/* Input */}
-                <div className="flex items-center gap-2.5 border-b border-divider px-4 py-3">
-                  <Icon name="search" size={16} className="shrink-0 text-default-500" />
+                <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+                  <Icon name="search" size={16} className="shrink-0 text-muted" />
                   <Command.Input
                     autoFocus
                     value={query}
                     onValueChange={setQuery}
                     placeholder="Search, navigate, or ask…"
-                    className="w-full bg-transparent text-small text-foreground outline-none placeholder:text-default-400"
+                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) quickAdd();
                       if (e.key === "Escape") close();
                     }}
                   />
-                  <kbd className="rounded bg-default-100 px-1.5 py-0.5 font-mono text-tiny text-default-500">
+                  <kbd className="rounded bg-surface-secondary px-1.5 py-0.5 font-mono text-xs text-muted">
                     ESC
                   </kbd>
                 </div>
@@ -155,13 +155,13 @@ export function CommandBar() {
                 {/* Results */}
                 <Command.List className="max-h-[52dvh] overflow-y-auto p-1.5">
                   {thinking && (
-                    <div className="flex items-center gap-2 px-3 py-2 text-tiny text-default-500">
-                      <Icon name="spark" size={13} className="animate-pulse text-primary" />
+                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted">
+                      <Icon name="spark" size={13} className="animate-pulse text-accent" />
                       Thinking…
                     </div>
                   )}
                   {reply && (
-                    <p className="mb-1 rounded-small bg-default-100 px-3 py-2.5 text-small leading-relaxed text-foreground">
+                    <p className="mb-1 rounded-[8px] bg-surface-secondary px-3 py-2.5 text-sm leading-relaxed text-foreground">
                       {reply}
                     </p>
                   )}
@@ -170,7 +170,7 @@ export function CommandBar() {
                     <button
                       type="button"
                       onClick={quickAdd}
-                      className="text-small font-medium text-primary underline-offset-4 hover:underline"
+                      className="text-sm font-medium text-accent underline-offset-4 hover:underline"
                     >
                       + Add &ldquo;{query}&rdquo; to backlog
                     </button>
@@ -180,7 +180,7 @@ export function CommandBar() {
                   {smart.length > 0 && (
                     <Command.Group
                       heading="Smart actions"
-                      className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-tiny [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-default-500"
+                      className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted"
                     >
                       {smart.map((a) => (
                         <CmdItem
@@ -201,7 +201,7 @@ export function CommandBar() {
                   {/* Navigate group */}
                   <Command.Group
                     heading="Navigate"
-                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-tiny [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-default-500"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted"
                   >
                     {NAV_COMMANDS.map((n) => (
                       <CmdItem
@@ -211,9 +211,7 @@ export function CommandBar() {
                         value={`go ${n.label} ${n.sublabel ?? ""} ${n.keywords ?? ""}`}
                       >
                         {n.label}
-                        {n.sublabel && (
-                          <span className="ml-2 text-default-500">— {n.sublabel}</span>
-                        )}
+                        {n.sublabel && <span className="ml-2 text-muted">— {n.sublabel}</span>}
                       </CmdItem>
                     ))}
                   </Command.Group>
@@ -221,7 +219,7 @@ export function CommandBar() {
                   {/* Actions group */}
                   <Command.Group
                     heading="Actions"
-                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-tiny [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-default-500"
+                    className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted"
                   >
                     {allActions.map((cmd) => (
                       <CmdItem
@@ -263,16 +261,16 @@ function CmdItem({
       onSelect={onSelect}
       className="
         flex cursor-pointer items-center gap-2.5
-        rounded-small
+        rounded-[8px]
         px-2.5 py-2
-        text-small text-foreground
+        text-sm text-foreground
         transition-colors duration-100
         data-[selected=true]:bg-default/40
         data-[selected=true]:text-foreground
-        data-[selected=true]:[&_svg]:text-primary
+        data-[selected=true]:[&_svg]:text-accent
       "
     >
-      <Icon name={icon} size={14} className="shrink-0 text-default-500" />
+      <Icon name={icon} size={14} className="shrink-0 text-muted" />
       <span className="flex items-center">{children}</span>
     </Command.Item>
   );

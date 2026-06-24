@@ -67,7 +67,7 @@ export function Gauge({
             {pct}
             <span className="text-[0.5em] font-semibold">%</span>
           </span>
-          {sub && <span className="mt-0.5 text-tiny text-default-500">{sub}</span>}
+          {sub && <span className="mt-0.5 text-xs text-muted">{sub}</span>}
         </div>
       )}
     </div>

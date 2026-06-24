@@ -3,20 +3,11 @@
  * `updateValue` (no Save button). If the target value is removed out from under
  * it (cascade), the editor detects the missing entity and closes (not-found state).
  */
-import {
-  Button,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Textarea,
-} from "@heroui/react";
-import { useEffect, useState } from "react";
+import { Button, Modal, useOverlayState } from "@heroui/react";
+import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { Icon, IconField, useCompactModal } from "@/core/ui";
+import { cx, Icon, IconField, useCompactModal } from "@/core/ui";
 import { VALUE_HUES, VALUE_PALETTE, valueColor } from "../color";
 import type { Value } from "../model";
 import { EditorField, HuePicker } from "./editor-bits";
@@ -59,6 +50,10 @@ export function ValueEditor({
   }, [valueId, value, onClose]);
 
   const isOpen = creating || !!value;
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isOpen && creating) nameRef.current?.focus();
+  }, [isOpen, creating]);
   // Fields read from the live record when editing, or the local draft when creating.
   const view = value ?? draft;
   const color = value ? valueColor(value) : draft.hue || VALUE_PALETTE[0];
@@ -76,93 +71,102 @@ export function ValueEditor({
   };
 
   const responsive = useCompactModal();
+  const state = useOverlayState({
+    isOpen,
+    onOpenChange: (next) => {
+      if (!next) onClose();
+    },
+  });
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      backdrop="blur"
-      aria-label={creating ? "New value" : "Edit value"}
-      {...responsive}
-    >
-      <ModalContent>
-        {isOpen && (
-          <>
-            <ModalHeader className="flex items-center gap-3">
-              <span
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-                style={{ background: color }}
-              >
-                <Icon name={view.icon} size={18} className="text-white" />
-              </span>
-              <span className="text-medium font-semibold text-foreground">
-                {creating ? "New value" : "Value"}
-              </span>
-            </ModalHeader>
+    <Modal state={state}>
+      <Modal.Backdrop variant="blur" />
+      <Modal.Container {...responsive}>
+        <Modal.Dialog aria-label={creating ? "New value" : "Edit value"}>
+          {isOpen && (
+            <>
+              <Modal.Header className="flex items-center gap-3">
+                <span
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                  style={{ background: color }}
+                >
+                  <Icon name={view.icon} size={18} className="text-white" />
+                </span>
+                <Modal.Heading className="text-base font-semibold text-foreground">
+                  {creating ? "New value" : "Value"}
+                </Modal.Heading>
+              </Modal.Header>
 
-            <ModalBody className="space-y-5">
-              <Input
-                label="Name"
-                labelPlacement="outside"
-                placeholder="New value"
-                value={view.name}
-                onValueChange={(name) => setField({ name })}
-                variant="bordered"
-                autoFocus={creating}
-              />
+              <Modal.Body className="space-y-5">
+                <label className="block space-y-1.5">
+                  <span className="text-xs text-muted">Name</span>
+                  <input
+                    ref={nameRef}
+                    type="text"
+                    placeholder="New value"
+                    value={view.name}
+                    onChange={(e) => setField({ name: e.target.value })}
+                    className={FIELD_CLASS}
+                  />
+                </label>
 
-              <Textarea
-                label="What it means to you"
-                labelPlacement="outside"
-                placeholder="A sentence on why this matters…"
-                value={view.desc}
-                onValueChange={(desc) => setField({ desc })}
-                variant="bordered"
-                minRows={3}
-              />
+                <label className="block space-y-1.5">
+                  <span className="text-xs text-muted">What it means to you</span>
+                  <textarea
+                    placeholder="A sentence on why this matters…"
+                    value={view.desc}
+                    onChange={(e) => setField({ desc: e.target.value })}
+                    rows={3}
+                    className={cx(FIELD_CLASS, "resize-y")}
+                  />
+                </label>
 
-              <EditorField label="Icon">
-                <IconField value={view.icon} onSelect={(icon) => setField({ icon })} />
-              </EditorField>
+                <EditorField label="Icon">
+                  <IconField value={view.icon} onSelect={(icon) => setField({ icon })} />
+                </EditorField>
 
-              <EditorField label="Marker hue">
-                <HuePicker
-                  value={view.hue}
-                  options={VALUE_HUES}
-                  onSelect={(hue) => setField({ hue })}
-                />
-              </EditorField>
-            </ModalBody>
+                <EditorField label="Marker hue">
+                  <HuePicker
+                    value={view.hue}
+                    options={VALUE_HUES}
+                    onSelect={(hue) => setField({ hue })}
+                  />
+                </EditorField>
+              </Modal.Body>
 
-            {creating ? (
-              <ModalFooter className="justify-end gap-2">
-                <Button size="sm" variant="light" onPress={onClose}>
-                  Cancel
-                </Button>
-                <Button size="sm" color="primary" isDisabled={!draft.name.trim()} onPress={create}>
-                  Create value
-                </Button>
-              </ModalFooter>
-            ) : (
-              value && (
-                <ModalFooter className="justify-between">
+              {creating ? (
+                <Modal.Footer className="justify-end gap-2">
+                  <Button size="sm" variant="ghost" onPress={onClose}>
+                    Cancel
+                  </Button>
                   <Button
                     size="sm"
-                    variant="light"
-                    color="danger"
-                    startContent={<Icon name="trash" size={14} />}
-                    onPress={() => onDelete(value)}
+                    variant="primary"
+                    isDisabled={!draft.name.trim()}
+                    onPress={create}
                   >
-                    Delete value
+                    Create value
                   </Button>
-                  <Button size="sm" color="primary" onPress={onClose}>
-                    Done
-                  </Button>
-                </ModalFooter>
-              )
-            )}
-          </>
-        )}
-      </ModalContent>
+                </Modal.Footer>
+              ) : (
+                value && (
+                  <Modal.Footer className="justify-between">
+                    <Button size="sm" variant="danger-soft" onPress={() => onDelete(value)}>
+                      <Icon name="trash" size={14} />
+                      Delete value
+                    </Button>
+                    <Button size="sm" variant="primary" onPress={onClose}>
+                      Done
+                    </Button>
+                  </Modal.Footer>
+                )
+              )}
+            </>
+          )}
+        </Modal.Dialog>
+      </Modal.Container>
     </Modal>
   );
 }
+
+const FIELD_CLASS =
+  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";

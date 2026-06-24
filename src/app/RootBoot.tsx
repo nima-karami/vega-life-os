@@ -143,7 +143,7 @@ export function RootBoot() {
   if (!ready) {
     content = (
       <div className="grid h-dvh place-items-center bg-background">
-        <span className="animate-pulse text-small text-default-500">Booting VEGA…</span>
+        <span className="animate-pulse text-sm text-muted">Booting VEGA…</span>
       </div>
     );
   } else if (!authUid && !onboarded) {

@@ -1,4 +1,4 @@
-import { Button, Card, Chip, Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
+import { Button, Card, Modal, useOverlayState } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
@@ -848,6 +848,18 @@ export function CalendarPage() {
   const visibleDays = mobile ? [days[activeDay]] : days;
   const backlog = useMemo(() => unscheduledTasks(tasks), [tasks]);
   const modalResponsive = useCompactModal();
+  const scheduleSlotState = useOverlayState({
+    isOpen: !!scheduleSlot,
+    onOpenChange: (next) => {
+      if (!next) setScheduleSlot(null);
+    },
+  });
+  const scheduleTaskState = useOverlayState({
+    isOpen: !!scheduleTask,
+    onOpenChange: (next) => {
+      if (!next) setScheduleTask(null);
+    },
+  });
 
   // assign a backlog task to a day (non-drag keyboard/menu pathway)
   const scheduleBacklog = (t: Task, dayIso: string) => {
@@ -863,7 +875,7 @@ export function CalendarPage() {
       </span>
 
       {/* ── Nav header ───────────────────────────────────────────── */}
-      <Card shadow="sm" className="mb-5">
+      <Card className="mb-5 rounded-[16px] border border-border bg-surface">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-5">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -871,14 +883,14 @@ export function CalendarPage() {
                 ? `${visibleDays[0].dow} · ${fmtShort(visibleDays[0].iso)}`
                 : `${fmtShort(days[0].iso)} – ${fmtShort(days[6].iso)}`}
             </h1>
-            <p className="mt-1 text-small text-default-500">Habit instances + scheduled tasks</p>
+            <p className="mt-1 text-sm text-muted">Habit instances + scheduled tasks</p>
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
             <Button
               isIconOnly
               size="sm"
-              variant="light"
+              variant="ghost"
               aria-label={mobile ? "Previous day" : "Previous week"}
               onPress={gotoPrev}
             >
@@ -886,7 +898,7 @@ export function CalendarPage() {
             </Button>
             <Button
               size="sm"
-              variant="flat"
+              variant="secondary"
               onPress={gotoToday}
               aria-current={days.some((d) => d.today) ? "date" : undefined}
             >
@@ -895,7 +907,7 @@ export function CalendarPage() {
             <Button
               isIconOnly
               size="sm"
-              variant="light"
+              variant="ghost"
               aria-label={mobile ? "Next day" : "Next week"}
               onPress={gotoNext}
             >
@@ -912,7 +924,7 @@ export function CalendarPage() {
       {/* ── Focus filter ─────────────────────────────────────────── */}
       {goals.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-small text-default-500">Focus</span>
+          <span className="text-sm text-muted">Focus</span>
           <FilterChip active={!focusGoalId} onClick={() => setFocusGoal(null)}>
             All
           </FilterChip>
@@ -938,15 +950,15 @@ export function CalendarPage() {
               onClick={() => setActiveDay(i)}
               aria-current={i === activeDay ? "date" : undefined}
               className={cx(
-                "flex min-w-[44px] flex-col items-center rounded-medium border px-2.5 py-1.5 transition-colors",
+                "flex min-w-[44px] flex-col items-center rounded-[12px] border px-2.5 py-1.5 transition-colors",
                 i === activeDay
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-divider bg-content1 text-foreground",
-                d.today && i !== activeDay && "ring-1 ring-primary",
+                  ? "border-accent bg-accent text-accent-foreground"
+                  : "border-border bg-surface text-foreground",
+                d.today && i !== activeDay && "ring-1 ring-accent",
               )}
             >
-              <span className="text-tiny text-default-500">{d.dow}</span>
-              <span className="text-small font-semibold">{String(d.dom).padStart(2, "0")}</span>
+              <span className="text-xs text-muted">{d.dow}</span>
+              <span className="text-sm font-semibold">{String(d.dom).padStart(2, "0")}</span>
             </button>
           ))}
         </div>
@@ -954,21 +966,21 @@ export function CalendarPage() {
 
       {/* ── Paste banner ─────────────────────────────────────────── */}
       {clipboardTask && (
-        <Card shadow="sm" className="mb-4">
+        <Card className="mb-4 rounded-[16px] border border-border bg-surface">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-            <Icon name="clipboard" size={15} className="text-default-500" />
-            <span className="text-small text-foreground">Copied “{clipboardTask.title}”</span>
-            <span className="text-small text-default-500">
+            <Icon name="clipboard" size={15} className="text-muted" />
+            <span className="text-sm text-foreground">Copied “{clipboardTask.title}”</span>
+            <span className="text-sm text-muted">
               — click an empty slot to place it, or a chip to replace
             </span>
             <Button
               size="sm"
-              variant="light"
+              variant="ghost"
               onPress={clearClipboard}
               aria-label="Cancel paste"
-              startContent={<Icon name="close" size={12} />}
-              className="ml-auto text-default-500"
+              className="ml-auto text-muted"
             >
+              <Icon name="close" size={12} />
               Cancel · Esc
             </Button>
           </div>
@@ -977,8 +989,7 @@ export function CalendarPage() {
 
       {/* ── Week grid ────────────────────────────────────────────── */}
       <Card
-        shadow="sm"
-        className="overflow-hidden"
+        className="overflow-hidden rounded-[16px] border border-border bg-surface"
         onMouseEnter={() => {
           gridHoverRef.current = true;
         }}
@@ -990,26 +1001,29 @@ export function CalendarPage() {
           <div className={mobile ? "min-w-0" : "min-w-[720px]"}>
             {/* day headers */}
             <div
-              className="grid border-b border-divider"
+              className="grid border-b border-border"
               style={{ gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)` }}
             >
               <div />
               {visibleDays.map((d) => (
                 <div
                   key={d.iso}
-                  className={cx("border-l border-divider px-2.5 py-2.5", d.today && "bg-content2")}
+                  className={cx(
+                    "border-l border-border px-2.5 py-2.5",
+                    d.today && "bg-surface-secondary",
+                  )}
                 >
-                  <span className="text-tiny text-default-500">{d.dow}</span>
+                  <span className="text-xs text-muted">{d.dow}</span>
                   <span
                     className={cx(
                       "ml-1.5 text-lg font-semibold",
-                      d.today ? "text-primary" : "text-foreground",
+                      d.today ? "text-accent" : "text-foreground",
                     )}
                   >
                     {String(d.dom).padStart(2, "0")}
                   </span>
                   {d.today && (
-                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle" />
+                    <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" />
                   )}
                 </div>
               ))}
@@ -1017,14 +1031,14 @@ export function CalendarPage() {
 
             {/* all-day / untimed row */}
             <div
-              className="grid border-b border-divider"
+              className="grid border-b border-border"
               style={{ gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)` }}
             >
               <div className="flex items-center justify-end px-1.5 py-1">
-                <span className="text-tiny text-default-400">All day</span>
+                <span className="text-xs text-muted">All day</span>
               </div>
               {visibleDays.map((d) => (
-                <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-divider p-1">
+                <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-border p-1">
                   {untimedTasksForDay(tasks, d.iso).map((t) => (
                     <AllDayChip
                       key={t.id}
@@ -1054,7 +1068,7 @@ export function CalendarPage() {
                 <div className="relative">
                   {HOURS.map((h, i) => (
                     <div key={h} className="absolute right-1.5" style={{ top: i * HOUR_PX - 5 }}>
-                      <span className="text-[9px] tabular-nums text-default-400">
+                      <span className="text-[9px] tabular-nums text-muted">
                         {String(h).padStart(2, "0")}:00
                       </span>
                     </div>
@@ -1064,7 +1078,7 @@ export function CalendarPage() {
                 {/* marquee rubber-band */}
                 {marquee && (
                   <div
-                    className="pointer-events-none absolute z-40 rounded-[2px] border border-primary/40 bg-primary/10"
+                    className="pointer-events-none absolute z-40 rounded-[2px] border border-accent/40 bg-accent/10"
                     style={{
                       left: marquee.left,
                       top: marquee.top,
@@ -1082,9 +1096,9 @@ export function CalendarPage() {
                     <div
                       key={d.iso}
                       className={cx(
-                        "relative border-l border-divider",
-                        d.today && "bg-content2/40",
-                        isTarget && "bg-content2",
+                        "relative border-l border-border",
+                        d.today && "bg-surface-secondary/40",
+                        isTarget && "bg-surface-secondary",
                       )}
                     >
                       <button
@@ -1101,14 +1115,14 @@ export function CalendarPage() {
                       {HOURS.map((h, i) => (
                         <div
                           key={h}
-                          className="pointer-events-none absolute left-0 right-0 border-t border-divider/60"
+                          className="pointer-events-none absolute left-0 right-0 border-t border-border/60"
                           style={{ top: i * HOUR_PX }}
                         />
                       ))}
                       {d.today && <NowLine />}
                       {isTarget && preview && scheduleDragging && (
                         <div
-                          className="pointer-events-none absolute inset-x-0.5 z-30 overflow-hidden rounded-[2px] border-l-[3px] border-primary bg-content1/80 px-1.5 py-1 shadow-medium ring-1 ring-primary"
+                          className="pointer-events-none absolute inset-x-0.5 z-30 overflow-hidden rounded-[2px] border-l-[3px] border-accent bg-surface/80 px-1.5 py-1 shadow-md ring-1 ring-accent"
                           style={{
                             top: chipTop(preview.start),
                             height: chipHeight(preview.durationMin),
@@ -1124,7 +1138,7 @@ export function CalendarPage() {
                           className="pointer-events-none absolute inset-x-0 z-40 flex items-center gap-1"
                           style={{ top: chipTop(preview.start) }}
                         >
-                          <span className="-translate-y-1/2 rounded-medium bg-foreground px-1.5 py-0.5 text-[9px] tabular-nums leading-none text-background shadow-small">
+                          <span className="-translate-y-1/2 rounded-[12px] bg-foreground px-1.5 py-0.5 text-[9px] tabular-nums leading-none text-background shadow-sm">
                             {fmtMin(preview.start)}–
                             {addMinutes(fmtMin(preview.start), preview.durationMin)}
                           </span>
@@ -1156,7 +1170,7 @@ export function CalendarPage() {
               {/* empty-week hint */}
               {visibleDays.every((d) => timedTasksForDay(tasks, d.iso).length === 0) && (
                 <div className="pointer-events-none absolute inset-x-0 top-1/3 text-center">
-                  <p className="text-small text-default-500">
+                  <p className="text-sm text-muted">
                     Nothing scheduled {mobile ? "this day" : "this week"} — click a slot to add
                   </p>
                 </div>
@@ -1167,7 +1181,7 @@ export function CalendarPage() {
       </Card>
 
       {/* ── Unscheduled rail ─────────────────────────────────────── */}
-      <Card shadow="sm" className="mt-5" as="section">
+      <Card className="mt-5 rounded-[16px] border border-border bg-surface">
         <button
           type="button"
           onClick={() => setRailOpen((o) => !o)}
@@ -1175,15 +1189,15 @@ export function CalendarPage() {
           aria-controls="unscheduled-rail"
           className="flex w-full items-center gap-2 px-5 py-3.5 text-left"
         >
-          <Icon name={railOpen ? "chevD" : "chevR"} size={14} className="text-default-500" />
-          <span className="text-small font-medium text-foreground">
+          <Icon name={railOpen ? "chevD" : "chevR"} size={14} className="text-muted" />
+          <span className="text-sm font-medium text-foreground">
             Unscheduled ({backlog.length})
           </span>
         </button>
         {railOpen && (
-          <div id="unscheduled-rail" className="border-t border-divider p-4">
+          <div id="unscheduled-rail" className="border-t border-border p-4">
             {backlog.length === 0 ? (
-              <p className="text-small text-default-500">No unscheduled tasks</p>
+              <p className="text-sm text-muted">No unscheduled tasks</p>
             ) : (
               <ul className="space-y-1.5">
                 {backlog.map((t) => (
@@ -1260,76 +1274,74 @@ export function CalendarPage() {
       )}
 
       {/* Schedule-existing-task picker (from the slot menu) */}
-      <Modal
-        isOpen={!!scheduleSlot}
-        onClose={() => setScheduleSlot(null)}
-        backdrop="blur"
-        aria-label="Schedule an existing task"
-        {...modalResponsive}
-      >
-        <ModalContent>
-          <ModalHeader className="flex-col items-start gap-0.5">
-            <span className="text-medium font-semibold text-foreground">Schedule a task</span>
-            {scheduleSlot && (
-              <span className="text-small font-normal text-default-500">
-                {fmtShort(scheduleSlot.date)} · {scheduleSlot.time}
-              </span>
-            )}
-          </ModalHeader>
-          <ModalBody className="pb-6">
-            {backlog.length === 0 ? (
-              <p className="text-small text-default-500">No unscheduled tasks.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {backlog.map((t) => (
-                  <li key={t.id}>
-                    <ScheduleRow
-                      task={t}
-                      onPick={() => {
-                        if (scheduleSlot) scheduleAt(t, scheduleSlot.date, scheduleSlot.time);
-                        setScheduleSlot(null);
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </ModalBody>
-        </ModalContent>
+      <Modal state={scheduleSlotState}>
+        <Modal.Backdrop variant="blur" />
+        <Modal.Container {...modalResponsive}>
+          <Modal.Dialog aria-label="Schedule an existing task">
+            <Modal.Header className="flex-col items-start gap-0.5">
+              <Modal.Heading className="text-base font-semibold text-foreground">
+                Schedule a task
+              </Modal.Heading>
+              {scheduleSlot && (
+                <span className="text-sm font-normal text-muted">
+                  {fmtShort(scheduleSlot.date)} · {scheduleSlot.time}
+                </span>
+              )}
+            </Modal.Header>
+            <Modal.Body className="pb-6">
+              {backlog.length === 0 ? (
+                <p className="text-sm text-muted">No unscheduled tasks.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {backlog.map((t) => (
+                    <li key={t.id}>
+                      <ScheduleRow
+                        task={t}
+                        onPick={() => {
+                          if (scheduleSlot) scheduleAt(t, scheduleSlot.date, scheduleSlot.time);
+                          setScheduleSlot(null);
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
       </Modal>
 
       {/* "Schedule to time…" — give an all-day chip a time without dragging */}
-      <Modal
-        isOpen={!!scheduleTask}
-        onClose={() => setScheduleTask(null)}
-        backdrop="blur"
-        aria-label="Schedule to a time"
-        {...modalResponsive}
-      >
-        <ModalContent>
-          <ModalHeader className="flex-col items-start gap-0.5">
-            <span className="text-medium font-semibold text-foreground">Schedule to a time</span>
-            {scheduleTask?.date && (
-              <span className="text-small font-normal text-default-500">
-                {scheduleTask.title} · {fmtShort(scheduleTask.date)}
-              </span>
-            )}
-          </ModalHeader>
-          <ModalBody className="pb-6">
-            <p className="text-small text-default-500">
-              Pick a start time. It becomes a {DROP_DURATION}-minute block.
-            </p>
-            <TimePicker
-              label="time"
-              value={scheduleTask?.time ?? "09:00"}
-              clearable={false}
-              onChange={(time) => {
-                if (scheduleTask && time) scheduleToTime(scheduleTask, time);
-                setScheduleTask(null);
-              }}
-            />
-          </ModalBody>
-        </ModalContent>
+      <Modal state={scheduleTaskState}>
+        <Modal.Backdrop variant="blur" />
+        <Modal.Container {...modalResponsive}>
+          <Modal.Dialog aria-label="Schedule to a time">
+            <Modal.Header className="flex-col items-start gap-0.5">
+              <Modal.Heading className="text-base font-semibold text-foreground">
+                Schedule to a time
+              </Modal.Heading>
+              {scheduleTask?.date && (
+                <span className="text-sm font-normal text-muted">
+                  {scheduleTask.title} · {fmtShort(scheduleTask.date)}
+                </span>
+              )}
+            </Modal.Header>
+            <Modal.Body className="pb-6">
+              <p className="text-sm text-muted">
+                Pick a start time. It becomes a {DROP_DURATION}-minute block.
+              </p>
+              <TimePicker
+                label="time"
+                value={scheduleTask?.time ?? "09:00"}
+                clearable={false}
+                onChange={(time) => {
+                  if (scheduleTask && time) scheduleToTime(scheduleTask, time);
+                  setScheduleTask(null);
+                }}
+              />
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
       </Modal>
     </div>
   );
@@ -1341,14 +1353,14 @@ function ScheduleRow({ task, onPick }: { task: Task; onPick: () => void }) {
     <button
       type="button"
       onClick={onPick}
-      className="flex w-full items-center gap-2.5 rounded-medium border border-divider bg-content1 px-3 py-2 text-left transition-colors hover:border-primary"
+      className="flex w-full items-center gap-2.5 rounded-[12px] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-accent"
     >
       <span
         className="h-2 w-2 shrink-0 rounded-full"
         style={{ background: accent }}
         aria-hidden="true"
       />
-      <span className="truncate text-small text-foreground">{task.title}</span>
+      <span className="truncate text-sm text-foreground">{task.title}</span>
     </button>
   );
 }
@@ -1365,18 +1377,19 @@ function FilterChip({
   children: React.ReactNode;
 }) {
   return (
-    <Chip
-      as="button"
+    <button
       type="button"
-      size="sm"
-      variant={active ? "solid" : "bordered"}
-      color={active ? "primary" : "default"}
       onClick={onClick}
       aria-pressed={active}
-      className={cx("cursor-pointer", !active && "text-default-500")}
+      className={cx(
+        "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "bg-accent text-accent-foreground"
+          : "bg-surface-secondary text-muted hover:text-foreground",
+      )}
     >
       {children}
-    </Chip>
+    </button>
   );
 }
 
@@ -1432,13 +1445,13 @@ function TimedChip({
         }}
         aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-content1 px-1.5 py-1 text-left shadow-small",
-          resolved && "bg-content2",
+          "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-surface px-1.5 py-1 text-left shadow-sm",
+          resolved && "bg-surface-secondary",
           dim ? "opacity-30" : "opacity-100",
-          selected && "z-20 ring-2 ring-primary",
-          provisional && !selected && "z-20 ring-2 ring-primary/40",
+          selected && "z-20 ring-2 ring-accent",
+          provisional && !selected && "z-20 ring-2 ring-accent/40",
           dragging
-            ? "z-30 cursor-grabbing shadow-medium ring-1 ring-primary"
+            ? "z-30 cursor-grabbing shadow-md ring-1 ring-accent"
             : "transition-[top,height] duration-75",
         )}
         style={{
@@ -1448,7 +1461,7 @@ function TimedChip({
         }}
       >
         {(off || detached) && (
-          <span className="absolute right-1 top-1 flex items-center gap-0.5 text-default-400">
+          <span className="absolute right-1 top-1 flex items-center gap-0.5 text-muted">
             {detached && (
               <span title="Edited away from its habit" aria-hidden="true">
                 <Icon name="unlink" size={10} />
@@ -1468,19 +1481,19 @@ function TimedChip({
         <span
           className={cx(
             "block truncate text-[11px] leading-tight text-foreground",
-            resolved && "text-default-500 line-through",
+            resolved && "text-muted line-through",
           )}
         >
           {task.title}
         </span>
         {height > 34 && (
-          <span className="mt-0.5 block text-[9px] tabular-nums text-default-500">{timeLabel}</span>
+          <span className="mt-0.5 block text-[9px] tabular-nums text-muted">{timeLabel}</span>
         )}
         <span
           onPointerDown={onPointerDownBottom}
           className="absolute inset-x-0 bottom-0 z-10 flex h-1.5 cursor-ns-resize items-end justify-center opacity-0 group-hover:opacity-100"
         >
-          <span className="mb-px h-0.5 w-5 rounded-full bg-default-300" />
+          <span className="mb-px h-0.5 w-5 rounded-full bg-border" />
         </span>
       </button>
     </ContextMenu>
@@ -1519,15 +1532,13 @@ function AllDayChip({
         }}
         aria-label={`${task.title}, all day${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          "block w-full cursor-grab touch-none select-none truncate rounded-[2px] border-l-[3px] bg-content1 px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-small",
+          "block w-full cursor-grab touch-none select-none truncate rounded-[2px] border-l-[3px] bg-surface px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm",
           dragging && "opacity-40",
-          selected && "ring-2 ring-primary",
+          selected && "ring-2 ring-accent",
         )}
         style={{ borderColor: accent }}
       >
-        <span className={cx("truncate", resolved && "text-default-500 line-through")}>
-          {task.title}
-        </span>
+        <span className={cx("truncate", resolved && "text-muted line-through")}>{task.title}</span>
       </button>
     </ContextMenu>
   );
@@ -1549,23 +1560,22 @@ function BacklogItem({
         type="button"
         onClick={onOpen}
         aria-label={`${task.title}, unscheduled`}
-        className="flex flex-1 items-center gap-2 truncate rounded-medium border border-divider bg-content1 px-2.5 py-1.5 text-left transition-colors hover:border-primary"
+        className="flex flex-1 items-center gap-2 truncate rounded-[12px] border border-border bg-surface px-2.5 py-1.5 text-left transition-colors hover:border-accent"
       >
         <span
           className="h-2 w-2 shrink-0 rounded-full"
           style={{ background: accent }}
           aria-hidden="true"
         />
-        <span className="truncate text-small text-foreground">{task.title}</span>
+        <span className="truncate text-sm text-foreground">{task.title}</span>
       </button>
       <Button
         isIconOnly
         size="sm"
-        variant="light"
+        variant="ghost"
         onPress={onSchedule}
         aria-label={`Schedule ${task.title} for today`}
-        title="Schedule for today"
-        className="shrink-0 text-default-500"
+        className="shrink-0 text-muted"
       >
         <Icon name="calendar" size={14} />
       </Button>
@@ -1582,8 +1592,8 @@ function NowLine() {
       className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
       style={{ top: chipTop(cur) }}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-      <span className="h-px flex-1 bg-primary/50" />
+      <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+      <span className="h-px flex-1 bg-accent/50" />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Button, Input } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useState } from "react";
 import {
   AGENT_MODELS,
@@ -31,18 +31,18 @@ export function AgentSettings() {
       description="Paste an Anthropic API key to make ⌘K reason over your real data (plan the week, triage the backlog). Stored only in this browser; calls go straight to Anthropic. Without a key, ⌘K uses the built-in offline parser."
     >
       <div className="flex flex-col gap-5">
-        <Input
-          type="password"
-          label="Anthropic API key"
-          labelPlacement="outside"
-          value={key}
-          onValueChange={setKey}
-          placeholder="sk-ant-…"
-          variant="bordered"
-          radius="md"
-        />
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Anthropic API key</span>
+          <input
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="sk-ant-…"
+            className="w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent"
+          />
+        </label>
         <div>
-          <span className="text-small font-medium text-foreground">Model</span>
+          <span className="text-sm font-medium text-foreground">Model</span>
           <div className="mt-2 flex flex-wrap gap-2">
             {AGENT_MODELS.map((m) => {
               const active = model === m.id;
@@ -50,8 +50,7 @@ export function AgentSettings() {
                 <Button
                   key={m.id}
                   size="sm"
-                  variant={active ? "solid" : "bordered"}
-                  color={active ? "primary" : "default"}
+                  variant={active ? "primary" : "outline"}
                   aria-pressed={active}
                   onPress={() => pick(m.id)}
                 >
@@ -62,7 +61,8 @@ export function AgentSettings() {
           </div>
         </div>
         <div>
-          <Button color="primary" startContent={<Icon name="spark" size={15} />} onPress={save}>
+          <Button variant="primary" onPress={save}>
+            <Icon name="spark" size={15} />
             Save key
           </Button>
         </div>

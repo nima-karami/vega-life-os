@@ -153,9 +153,7 @@ export function CalendarPopover({
           >
             <Icon name="chevL" size={15} />
           </button>
-          <span className="text-small font-semibold tracking-tight">
-            {format(view, "MMMM yyyy")}
-          </span>
+          <span className="text-sm font-semibold tracking-tight">{format(view, "MMMM yyyy")}</span>
           <button
             type="button"
             onClick={() => setView(addMonths(view, 1))}

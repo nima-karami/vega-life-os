@@ -1,4 +1,4 @@
-import { Tab, Tabs } from "@heroui/react";
+import { Button, ButtonGroup } from "@heroui/react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
@@ -44,21 +44,26 @@ export function AnalyticsPage() {
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             How it's actually going
           </h1>
-          <p className="mt-1 text-sm text-default-500">
-            Your follow-through, then time to reflect.
-          </p>
+          <p className="mt-1 text-sm text-muted">Your follow-through, then time to reflect.</p>
         </div>
-        <Tabs
-          aria-label="Analytics sections"
-          selectedKey={section}
-          onSelectionChange={(key) => setSection(key as Section)}
-          variant="light"
-          radius="md"
-          color="primary"
-        >
-          <Tab key="analytics" title="Analytics" />
-          <Tab key="review" title="Review" />
-        </Tabs>
+        <ButtonGroup aria-label="Analytics sections">
+          <Button
+            size="sm"
+            variant={section === "analytics" ? "primary" : "secondary"}
+            aria-pressed={section === "analytics"}
+            onPress={() => setSection("analytics")}
+          >
+            Analytics
+          </Button>
+          <Button
+            size="sm"
+            variant={section === "review" ? "primary" : "secondary"}
+            aria-pressed={section === "review"}
+            onPress={() => setSection("review")}
+          >
+            Review
+          </Button>
+        </ButtonGroup>
       </header>
 
       {section === "analytics" ? <AnalyticsSection /> : <ReviewSection />}
@@ -103,11 +108,11 @@ function AnalyticsSection() {
   if (!hasTasks) {
     return (
       <Panel className="p-8 text-center">
-        <Icon name="chart" size={28} className="mx-auto text-default-400" />
+        <Icon name="chart" size={28} className="mx-auto text-muted" />
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
           Nothing to chart yet
         </h2>
-        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-default-500">
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
           Your follow-through, consistency, and balance show up here once you start logging tasks.
           Open the command bar (⌘K) to add your first one.
         </p>
@@ -118,22 +123,23 @@ function AnalyticsSection() {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-tiny text-default-500" aria-live="polite">
+        <p className="text-xs text-muted" aria-live="polite">
           Showing the last {days} day{days === 1 ? "" : "s"}
         </p>
-        <Tabs
-          aria-label="Time range"
-          selectedKey={range}
-          onSelectionChange={(key) => setRange(key as TimeRange)}
-          size="sm"
-          variant="light"
-          radius="md"
-          color="primary"
-        >
+        <ButtonGroup aria-label="Time range">
           {RANGE_OPTIONS.map((o) => (
-            <Tab key={o.id} title={o.id} aria-label={o.label} />
+            <Button
+              key={o.id}
+              size="sm"
+              variant={range === o.id ? "primary" : "secondary"}
+              aria-pressed={range === o.id}
+              aria-label={o.label}
+              onPress={() => setRange(o.id)}
+            >
+              {o.id}
+            </Button>
           ))}
-        </Tabs>
+        </ButtonGroup>
       </div>
 
       {insightList.length > 0 && (
@@ -142,8 +148,8 @@ function AnalyticsSection() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {insightList.map((text) => (
               <div key={text} className="flex items-start gap-2.5">
-                <Icon name="spark" size={14} className="mt-0.5 shrink-0 text-primary" />
-                <p className="text-small leading-relaxed text-foreground">{text}</p>
+                <Icon name="spark" size={14} className="mt-0.5 shrink-0 text-accent" />
+                <p className="text-sm leading-relaxed text-foreground">{text}</p>
               </div>
             ))}
           </div>
@@ -152,9 +158,7 @@ function AnalyticsSection() {
 
       {!tasksInRange && (
         <Panel className="mb-6 p-6 text-center">
-          <p className="text-small text-default-500">
-            No activity in this range — try a wider one.
-          </p>
+          <p className="text-sm text-muted">No activity in this range — try a wider one.</p>
         </Panel>
       )}
 
@@ -170,7 +174,7 @@ function AnalyticsSection() {
               {Math.round(overall * 100)}%
             </p>
             <Label className="mt-1">follow-through</Label>
-            <p className="mt-2 text-tiny text-default-500">resolved vs. scheduled</p>
+            <p className="mt-2 text-xs text-muted">resolved vs. scheduled</p>
           </div>
         </Panel>
 
@@ -184,10 +188,10 @@ function AnalyticsSection() {
                 width={760}
                 height={70}
                 className="w-full"
-                color="hsl(var(--heroui-primary))"
+                color="var(--color-accent)"
               />
             ) : (
-              <p className="py-6 text-tiny text-default-400">
+              <p className="py-6 text-xs text-muted">
                 Not enough weekly data yet — keep logging to see the trend.
               </p>
             )}
@@ -210,7 +214,7 @@ function AnalyticsSection() {
                   <div
                     key={`mlabel-${col[0]?.iso ?? ci}`}
                     style={{ width: 13 }}
-                    className="shrink-0 overflow-visible whitespace-nowrap text-[8px] text-default-400"
+                    className="shrink-0 overflow-visible whitespace-nowrap text-[8px] text-muted"
                   >
                     {mk ? mk.label : ""}
                   </div>
@@ -231,7 +235,7 @@ function AnalyticsSection() {
                   <span
                     key={d.key}
                     style={{ height: 13 }}
-                    className="text-[8px] leading-[13px] text-default-400"
+                    className="text-[8px] leading-[13px] text-muted"
                   >
                     {d.label}
                   </span>
@@ -250,7 +254,7 @@ function AnalyticsSection() {
               {[0, 0.25, 0.45, 0.7, 1].map((o) => (
                 <span
                   key={`legend-${o}`}
-                  className={o ? "" : "border border-divider"}
+                  className={o ? "" : "border border-border"}
                   style={{
                     width: 11,
                     height: 11,
@@ -261,7 +265,7 @@ function AnalyticsSection() {
                 />
               ))}
               <Label>more</Label>
-              <span className="ml-3 text-tiny text-default-500">daily completion</span>
+              <span className="ml-3 text-xs text-muted">daily completion</span>
             </div>
           </div>
         </Panel>
@@ -277,7 +281,7 @@ function AnalyticsSection() {
               >
                 <div className="flex w-full flex-col justify-end" style={{ height: 110 }}>
                   <div
-                    className="w-full rounded-t-[2px] bg-default-200"
+                    className="w-full rounded-t-[2px] bg-surface-secondary"
                     style={{ height: `${(d.total / maxDaily) * 100}%`, minHeight: d.total ? 2 : 0 }}
                   >
                     <div
@@ -289,20 +293,20 @@ function AnalyticsSection() {
                     />
                   </div>
                 </div>
-                <span className="mt-1 text-[7px] text-default-400">{d.label}</span>
+                <span className="mt-1 text-[7px] text-muted">{d.label}</span>
               </div>
             ))}
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <span className="flex items-center gap-1 text-tiny text-default-500">
+            <span className="flex items-center gap-1 text-xs text-muted">
               <span
                 className="inline-block h-2 w-2 rounded-[2px]"
                 style={{ background: CHART_PRIMARY }}
               />{" "}
               done
             </span>
-            <span className="flex items-center gap-1 text-tiny text-default-500">
-              <span className="inline-block h-2 w-2 rounded-[2px] bg-default-200" /> scheduled
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <span className="inline-block h-2 w-2 rounded-[2px] bg-surface-secondary" /> scheduled
             </span>
           </div>
         </Panel>
@@ -333,12 +337,12 @@ function AnalyticsSection() {
               return (
                 <div key={g.id}>
                   <div className="flex items-center justify-between">
-                    <span className="text-small text-foreground">{g.name}</span>
-                    <span className={cx("text-tiny", pace >= 0 ? "text-success" : "text-danger")}>
+                    <span className="text-sm text-foreground">{g.name}</span>
+                    <span className={cx("text-xs", pace >= 0 ? "text-success" : "text-danger")}>
                       {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
                     </span>
                   </div>
-                  <div className="relative mt-2 h-2 rounded-full bg-default-200">
+                  <div className="relative mt-2 h-2 rounded-full bg-surface-secondary">
                     <div
                       className="absolute left-0 top-0 h-2 rounded-full"
                       style={{ width: `${g.progress * 100}%`, background: CHART_PRIMARY }}
@@ -353,7 +357,7 @@ function AnalyticsSection() {
               );
             })}
             {!goals.length && (
-              <p className="text-small text-default-400">No goals yet to track against pace.</p>
+              <p className="text-sm text-muted">No goals yet to track against pace.</p>
             )}
           </div>
         </Panel>
@@ -364,21 +368,19 @@ function AnalyticsSection() {
           <div className="mt-4 space-y-2.5">
             {habitRanked.map(({ h, rate }) => (
               <div key={h.id} className="flex items-center gap-2">
-                <span className="w-24 shrink-0 truncate text-tiny text-default-500">{h.name}</span>
-                <div className="h-3 flex-1 rounded-full bg-default-200">
+                <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
+                <div className="h-3 flex-1 rounded-full bg-surface-secondary">
                   <div
                     className="h-3 rounded-full"
                     style={{ width: `${rate * 100}%`, background: CHART_PRIMARY }}
                   />
                 </div>
-                <span className="w-8 text-right text-tiny tabular-nums text-default-500">
+                <span className="w-8 text-right text-xs tabular-nums text-muted">
                   {Math.round(rate * 100)}%
                 </span>
               </div>
             ))}
-            {!habitRanked.length && (
-              <p className="text-small text-default-400">No habits to measure yet.</p>
-            )}
+            {!habitRanked.length && <p className="text-sm text-muted">No habits to measure yet.</p>}
           </div>
         </Panel>
       </div>
@@ -400,14 +402,14 @@ function ValueBalanceBar({
   const color = useValueColor(valueId);
   return (
     <div className="flex items-center gap-2">
-      <span className="w-20 shrink-0 truncate text-tiny text-default-500">{name}</span>
-      <div className="h-3 flex-1 rounded-full bg-default-200">
+      <span className="w-20 shrink-0 truncate text-xs text-muted">{name}</span>
+      <div className="h-3 flex-1 rounded-full bg-surface-secondary">
         <div
           className="h-3 rounded-full"
           style={{ width: `${(count / max) * 100}%`, background: color }}
         />
       </div>
-      <span className="w-6 text-right text-tiny tabular-nums text-default-500">{count}</span>
+      <span className="w-6 text-right text-xs tabular-nums text-muted">{count}</span>
     </div>
   );
 }
@@ -417,7 +419,7 @@ function HeatCell({ cell }: { cell: GridCell }) {
     return (
       <div
         style={{ width: 13, height: 13, borderRadius: 2 }}
-        className="border border-dashed border-divider"
+        className="border border-dashed border-border"
       />
     );
   }
@@ -426,7 +428,7 @@ function HeatCell({ cell }: { cell: GridCell }) {
       <div
         title={cell.iso}
         style={{ width: 13, height: 13, borderRadius: 2 }}
-        className="border border-divider"
+        className="border border-border"
       />
     );
   }

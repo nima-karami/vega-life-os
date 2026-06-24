@@ -1,10 +1,11 @@
-import { Textarea } from "@heroui/react";
+import { useEffect, useRef } from "react";
 import { GRATITUDE_ITEM_MAX, GRATITUDE_SLOTS } from "../model";
+
+const SLOT_KEYS = Array.from({ length: GRATITUDE_SLOTS }, (_, i) => `gratitude-slot-${i}`);
 
 /**
  * GRATITUDE_SLOTS auto-growing text areas bound to a single string[]; pads to
- * slot count. Multiline so long entries wrap and stay fully visible (the old
- * single-line Input truncated anything past a sentence).
+ * slot count. Multiline so long entries wrap and stay fully visible.
  */
 export function GratitudeFields({
   value,
@@ -16,6 +17,11 @@ export function GratitudeFields({
   autoFocus?: boolean;
 }) {
   const slots = Array.from({ length: GRATITUDE_SLOTS }, (_, i) => value[i] ?? "");
+  const firstRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (autoFocus) firstRef.current?.focus();
+  }, [autoFocus]);
+
   const setSlot = (i: number, text: string) => {
     const next = [...slots];
     next[i] = text;
@@ -24,19 +30,16 @@ export function GratitudeFields({
   return (
     <div className="flex flex-col gap-2">
       {slots.map((slot, i) => (
-        <Textarea
-          // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length positional slots
-          key={i}
+        <textarea
+          key={SLOT_KEYS[i]}
+          ref={i === 0 ? firstRef : undefined}
           value={slot}
-          onValueChange={(t) => setSlot(i, t)}
+          onChange={(e) => setSlot(i, e.target.value)}
           aria-label={`Grateful for, item ${i + 1}`}
           placeholder={i === 0 ? "Something you're grateful for…" : "And…"}
-          variant="bordered"
-          radius="md"
-          minRows={1}
-          maxRows={8}
+          rows={1}
           maxLength={GRATITUDE_ITEM_MAX}
-          autoFocus={autoFocus && i === 0}
+          className="min-h-10 w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent"
         />
       ))}
     </div>

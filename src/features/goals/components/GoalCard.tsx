@@ -6,7 +6,7 @@
  * All mutations go through unchanged store actions; display rules come from the
  * unit-tested presentation helpers.
  */
-import { Checkbox, Chip, Progress } from "@heroui/react";
+import { Checkbox, Chip, ProgressBar } from "@heroui/react";
 import { useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
@@ -25,9 +25,9 @@ const STATUS_ICON: Record<GoalStatus, IconName> = {
 };
 
 /** HeroUI Chip color per status (calm semantic tones; never colour-only — icon + label too). */
-const STATUS_COLOR: Record<GoalStatus, "default" | "primary" | "success"> = {
+const STATUS_COLOR: Record<GoalStatus, "default" | "accent" | "success"> = {
   backlog: "default",
-  active: "primary",
+  active: "accent",
   paused: "default",
   done: "success",
   abandoned: "default",
@@ -72,7 +72,7 @@ export function GoalCard({
   return (
     <div
       className={cx(
-        "rounded-medium border border-divider bg-content2/40 p-3.5",
+        "rounded-[12px] border border-border bg-surface-secondary/40 p-3.5",
         closed && "opacity-60",
       )}
     >
@@ -81,7 +81,7 @@ export function GoalCard({
           type="button"
           onClick={onEdit}
           aria-label="Edit goal"
-          className="shrink-0 text-default-400 hover:text-foreground"
+          className="shrink-0 text-muted hover:text-foreground"
         >
           <Icon name={goal.icon} size={15} />
         </button>
@@ -89,7 +89,7 @@ export function GoalCard({
           type="button"
           onClick={onEdit}
           className={cx(
-            "min-w-0 flex-1 truncate text-left text-small font-medium text-foreground hover:underline",
+            "min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground hover:underline",
             goal.status === "abandoned" && "line-through",
           )}
         >
@@ -97,10 +97,11 @@ export function GoalCard({
         </button>
         <Chip
           size="sm"
-          variant="flat"
+          variant="soft"
           color={STATUS_COLOR[goal.status]}
-          startContent={<Icon name={STATUS_ICON[goal.status]} size={11} className="ml-0.5" />}
+          className="gap-1 rounded-full"
         >
+          <Icon name={STATUS_ICON[goal.status]} size={11} />
           {GOAL_STATUS_LABEL[goal.status]}
         </Chip>
         <Menu
@@ -109,7 +110,7 @@ export function GoalCard({
             <button
               type="button"
               aria-label="Goal actions"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-medium text-default-400 hover:bg-content3 hover:text-foreground"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-[12px] text-muted hover:bg-surface-secondary hover:text-foreground"
             >
               <Icon name="dots" size={15} />
             </button>
@@ -121,25 +122,22 @@ export function GoalCard({
         />
       </div>
 
-      <Progress
-        aria-label="Progress"
-        size="sm"
-        radius="full"
-        color="primary"
-        value={pct}
-        className="mt-3"
-      />
+      <ProgressBar aria-label="Progress" value={pct} className="mt-3">
+        <ProgressBar.Track className="h-1.5 overflow-hidden rounded-full bg-surface-secondary">
+          <ProgressBar.Fill className="h-full rounded-full bg-accent" />
+        </ProgressBar.Track>
+      </ProgressBar>
       <div className="mt-2 flex items-center gap-3">
         <button
           type="button"
           onClick={onEdit}
-          className="flex items-center gap-1 text-tiny text-default-500 hover:text-foreground"
+          className="flex items-center gap-1 text-xs text-muted hover:text-foreground"
         >
           <Icon name="calendar" size={11} /> {periodLabel(goal.start, goal.end)}
         </button>
-        <span className="text-tiny tabular-nums text-default-500">{pct}%</span>
+        <span className="text-xs tabular-nums text-muted">{pct}%</span>
         {pace && (
-          <span className={cx("ml-auto text-tiny", pace.behind ? "text-warning" : "text-success")}>
+          <span className={cx("ml-auto text-xs", pace.behind ? "text-warning" : "text-success")}>
             {pace.text}
           </span>
         )}
@@ -150,18 +148,21 @@ export function GoalCard({
           {goal.subgoals.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
               <Checkbox
-                size="sm"
                 isSelected={s.done}
-                onValueChange={() => onToggleSub(s.id)}
+                onChange={() => onToggleSub(s.id)}
                 aria-label={s.name}
-                classNames={{
-                  label: cx(
-                    "text-small",
-                    s.done ? "text-default-500 line-through" : "text-foreground",
-                  ),
-                }}
+                className="flex items-center gap-2"
               >
-                {s.name}
+                <Checkbox.Control>
+                  <Checkbox.Indicator>
+                    <Icon name="check" size={11} />
+                  </Checkbox.Indicator>
+                </Checkbox.Control>
+                <span
+                  className={cx("text-sm", s.done ? "text-muted line-through" : "text-foreground")}
+                >
+                  {s.name}
+                </span>
               </Checkbox>
             </li>
           ))}
@@ -170,9 +171,9 @@ export function GoalCard({
 
       {linked.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-tiny text-default-400">Drives</span>
+          <span className="text-xs text-muted">Drives</span>
           {linked.map((h) => (
-            <Chip key={h.id} size="sm" variant="flat" className="text-default-500">
+            <Chip key={h.id} size="sm" variant="soft" className="rounded-full text-muted">
               {h.name}
             </Chip>
           ))}
