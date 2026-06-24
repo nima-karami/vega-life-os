@@ -1,49 +1,23 @@
 /**
- * Accent → theme tokens.
+ * Accent → theme tokens (HeroUI v3).
  *
- * The Appearance accent picker re-tints the whole app. After the calm-HeroUI
- * redesign every primary surface (buttons, chips, active nav, the calendar
- * now-line, links) reads HeroUI's `--heroui-primary*` tokens, so a custom accent
- * has to override those — not just the legacy `--color-accent` var a few older
- * surfaces (date picker, charts) still use.
+ * The Appearance accent picker re-tints the whole app. In v3 the brand color is
+ * the single `--accent` token (plus `--accent-foreground`, and calculated
+ * `--accent-hover`/`--accent-soft` states) — there are no numbered scales. So a
+ * custom accent overrides those v3 tokens, plus the legacy `--color-accent` var a
+ * few older surfaces (date picker, charts) still read.
  *
  * `accentVars(hex)` returns the exact CSS custom properties to set on the root.
  * An empty/invalid hex returns `{}` — the caller clears any overrides so the
- * configured theme default (slate, from hero.ts) shows through.
+ * configured theme default (slate) shows through.
  *
  * Pure + deterministic so it can be unit-tested without a DOM.
  */
-
-/** HeroUI primary scale steps, lightest → darkest. 500 is the DEFAULT. */
-const SCALE = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
-
-/**
- * Per-step blend toward white (positive: lighter than base) or black (negative:
- * darker). 500 is the base color untouched. Tuned to read like a normal HeroUI
- * tonal ramp while staying strictly monotonic for any base lightness.
- */
-const MIX: Record<(typeof SCALE)[number], number> = {
-  50: 0.9,
-  100: 0.8,
-  200: 0.62,
-  300: 0.42,
-  400: 0.2,
-  500: 0,
-  600: -0.16,
-  700: -0.32,
-  800: -0.48,
-  900: -0.64,
-};
 
 interface Rgb {
   r: number;
   g: number;
   b: number;
-}
-interface Hsl {
-  h: number;
-  s: number;
-  l: number;
 }
 
 /** Parse `#rgb` / `#rrggbb` (any case) → 0–255 channels, or null if malformed. */
@@ -67,25 +41,6 @@ function toHex({ r, g, b }: Rgb): string {
   return `#${c(r)}${c(g)}${c(b)}`;
 }
 
-function rgbToHsl({ r, g, b }: Rgb): Hsl {
-  const rn = r / 255;
-  const gn = g / 255;
-  const bn = b / 255;
-  const max = Math.max(rn, gn, bn);
-  const min = Math.min(rn, gn, bn);
-  const l = (max + min) / 2;
-  const d = max - min;
-  if (d === 0) return { h: 0, s: 0, l: l * 100 };
-  const s = d / (1 - Math.abs(2 * l - 1));
-  let h: number;
-  if (max === rn) h = ((gn - bn) / d) % 6;
-  else if (max === gn) h = (bn - rn) / d + 2;
-  else h = (rn - gn) / d + 4;
-  h *= 60;
-  if (h < 0) h += 360;
-  return { h, s: s * 100, l: l * 100 };
-}
-
 /** WCAG relative luminance (0 black → 1 white). */
 function luminance({ r, g, b }: Rgb): number {
   const lin = (c: number) => {
@@ -95,26 +50,21 @@ function luminance({ r, g, b }: Rgb): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
-/** Round to 2 decimals, dropping a trailing `.0` (HeroUI emits e.g. `43.14` and `210`). */
-function n2(n: number): string {
-  return String(Math.round(n * 100) / 100);
-}
-
-/** Format an HSL as HeroUI's space-separated `"H S% L%"` channel string. */
-function channels({ h, s, l }: Hsl): string {
-  return `${n2(h)} ${n2(s)}% ${n2(l)}%`;
-}
-
 /**
  * Every CSS custom property `accentVars` may set, as a stable list. The applier
- * iterates this (not just the current map's keys) so switching to "Default" — or
- * to a lighter accent that emits fewer keys — clears every previously-set var.
+ * iterates this (not just the current map's keys) so switching to "Default"
+ * clears every previously-set var.
+ *
+ * v3 calculated states use color-mix() over the base `--accent`, matching the
+ * HeroUI default theme's own `--accent-hover` / `--accent-soft` formulas.
  */
 export const ACCENT_VAR_KEYS: readonly string[] = [
-  "--heroui-primary",
-  ...SCALE.map((s) => `--heroui-primary-${s}`),
-  "--heroui-primary-foreground",
-  "--heroui-focus",
+  "--accent",
+  "--accent-foreground",
+  "--accent-hover",
+  "--accent-soft",
+  "--accent-soft-foreground",
+  "--focus",
   "--color-accent",
   "--color-accent-foreground",
 ];
@@ -123,7 +73,6 @@ export function accentVars(hex: string): Record<string, string> {
   const rgb = parseHex(hex);
   if (!rgb) return {};
 
-  const base = rgbToHsl(rgb);
   const normHex = toHex(rgb);
 
   // Foreground: whichever of white / near-black contrasts better with the base.
@@ -131,25 +80,18 @@ export function accentVars(hex: string): Record<string, string> {
   const onWhite = (1.0 + 0.05) / (lum + 0.05);
   const onBlack = (lum + 0.05) / (0.0 + 0.05);
   const darkFg = onBlack >= onWhite;
-  const fgChannels = darkFg ? "0 0% 12%" : "0 0% 100%";
   const fgHex = darkFg ? "#1f1f1f" : "#ffffff";
 
-  const vars: Record<string, string> = {
-    "--heroui-primary-foreground": fgChannels,
+  return {
+    "--accent": normHex,
+    "--accent-foreground": fgHex,
+    // Calculated states mirror @heroui/styles' default-theme formulas.
+    "--accent-hover": `color-mix(in oklab, ${normHex} 90%, ${fgHex} 10%)`,
+    "--accent-soft": `color-mix(in oklab, ${normHex} 12%, var(--surface) 88%)`,
+    "--accent-soft-foreground": normHex,
+    "--focus": normHex,
+    // Legacy aliases still read by the date picker + charts.
     "--color-accent": normHex,
     "--color-accent-foreground": fgHex,
   };
-
-  for (const step of SCALE) {
-    const mix = MIX[step];
-    const l = mix >= 0 ? base.l + (100 - base.l) * mix : base.l * (1 + mix);
-    const value = channels({ h: base.h, s: base.s, l });
-    vars[`--heroui-primary-${step}`] = value;
-    if (step === 500) {
-      vars["--heroui-primary"] = value;
-      vars["--heroui-focus"] = value;
-    }
-  }
-
-  return vars;
 }

@@ -1,15 +1,58 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-@import "tailwindcss";
-@plugin "../../../hero";
-/* Tailwind v4 must scan HeroUI's theme dist so component classes are generated
-   (without this, HeroUI Checkbox/Input/etc. render unstyled). */
-@source "../../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+/* HeroUI v3 ships styles as a standalone CSS layer (it imports tailwindcss
+   itself). This replaces the v2 heroui() Tailwind plugin + theme-dist @source
+   scanning. */
+@import "@heroui/styles";
+
+/* ============================================================
+   VEGA Life OS — Calm palette over HeroUI v3 CSS-variable tokens.
+   v3 themes via CSS variables (OKLCH). We re-express the calm identity
+   (soft off-white canvas, white surfaces, desaturated slate-blue accent,
+   muted status colors) by overriding the v3 default-theme tokens. The
+   selector list mirrors @heroui/styles' default theme so our values win.
+   ============================================================ */
+:root,
+.light,
+.default,
+[data-theme="light"],
+[data-theme="default"],
+[data-theme="vapor"] {
+  /* Canvas & surfaces */
+  --background: oklch(0.9759 0.0013 106.42); /* #F7F7F6 */
+  --surface: oklch(1 0 0); /* #FFFFFF */
+  --surface-secondary: oklch(0.9639 0.0013 106.42); /* #F3F3F2 */
+  --surface-tertiary: oklch(0.9398 0.0013 106.42); /* #EBEBEA */
+  --overlay: oklch(1 0 0); /* white floating surfaces */
+
+  /* Text */
+  --foreground: oklch(0.2174 0.0019 106.56); /* #1A1A19 */
+  --muted: oklch(0.551 0.0234 264.36); /* #6B7280 — WCAG 4.5:1 on white */
+
+  /* Neutral default */
+  --default: oklch(0.9122 0.0027 106.45); /* #E2E2E0 */
+
+  /* Calm accent — desaturated slate-blue */
+  --accent: oklch(0.5268 0.0629 249.1); /* #4E6E8E */
+  --accent-foreground: oklch(1 0 0);
+
+  /* Muted status colors */
+  --success: oklch(0.5908 0.0936 164.54); /* #3F8F6F sage */
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.6264 0.1248 70.45); /* #B7791F amber */
+  --warning-foreground: oklch(1 0 0);
+  --danger: oklch(0.5863 0.1417 26.54); /* #C2554D terracotta */
+  --danger-foreground: oklch(1 0 0);
+
+  /* Hairlines & radius — keep the calm soft separation */
+  --border: rgba(0, 0, 0, 0.08);
+  --separator: rgba(0, 0, 0, 0.08);
+  --radius: 0.75rem; /* 12px base; v3 derives sm/md/lg/xl from this */
+}
 
 /* ============================================================
    VEGA Life OS — Calm token bridge (Tailwind v4 @theme)
-   These --color-* tokens are re-pointed to the calm HeroUI palette
-   (see hero.ts / design-system.md) so any not-yet-migrated
-   `var(--color-*)` markup adopts the calm look automatically.
+   These --color-* tokens are re-pointed to the calm palette so any
+   not-yet-migrated `var(--color-*)` markup adopts the calm look.
    ============================================================ */
 @theme {
   /* Canvas & surface — match HeroUI background / content1 */
@@ -158,7 +201,7 @@
   /* Notion-style journal prose — shared by the editor (ProseMirror) and the
      read-only render. Calm typographic scale on HeroUI tokens. */
   .journal-prose {
-    color: hsl(var(--heroui-foreground));
+    color: var(--foreground);
     font-size: 1rem;
     line-height: 1.7;
   }
@@ -215,21 +258,21 @@
     flex: 1 1 auto;
   }
   .journal-prose blockquote {
-    border-left: 3px solid hsl(var(--heroui-default-300));
+    border-left: 3px solid var(--color-fog);
     padding-left: 1em;
     margin: 0.8em 0;
-    color: hsl(var(--heroui-default-500));
+    color: var(--color-muted);
   }
   .journal-prose code {
     font-family: var(--font-mono);
     font-size: 0.875em;
-    background: hsl(var(--heroui-default-100));
+    background: var(--color-paper-2);
     padding: 0.15em 0.35em;
     border-radius: 0.3em;
   }
   .journal-prose pre {
     font-family: var(--font-mono);
-    background: hsl(var(--heroui-default-100));
+    background: var(--color-paper-2);
     padding: 0.8em 1em;
     border-radius: var(--radius-md);
     overflow-x: auto;
@@ -241,18 +284,18 @@
   }
   .journal-prose hr {
     border: none;
-    border-top: 1px solid hsl(var(--heroui-divider));
+    border-top: 1px solid var(--color-line);
     margin: 1.2em 0;
   }
   .journal-prose a {
-    color: hsl(var(--heroui-primary));
+    color: var(--color-accent);
     text-decoration: underline;
     text-underline-offset: 2px;
   }
   /* Placeholder shown on the empty editor (TipTap Placeholder extension). */
   .journal-prose p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
-    color: hsl(var(--heroui-default-400));
+    color: var(--color-mist);
     float: left;
     height: 0;
     pointer-events: none;
