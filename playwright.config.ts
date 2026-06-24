@@ -16,10 +16,20 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:5180",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  // Two servers: the dev server for the app smoke suite, and a built preview for the
+  // PWA proof (the service worker + injected manifest link only exist in a build).
+  webServer: [
+    {
+      command: "npm run dev",
+      url: "http://localhost:5180",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: "vite build && vite preview --port 5179 --strictPort",
+      url: "http://localhost:5179",
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+    },
+  ],
 });

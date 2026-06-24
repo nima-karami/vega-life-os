@@ -67,8 +67,22 @@ export interface UiSlice {
   copyTask: (t: Task) => void;
   clearClipboard: () => void;
 
-  toast: string | null;
+  toast: ToastState | null;
   pushToast: (msg: string) => void;
+  /** A sticky toast with a single action (e.g. the PWA "Reload" prompt). Stays until dismissed or acted on. */
+  pushActionToast: (msg: string, action: ToastAction) => void;
+  dismissToast: () => void;
+}
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface ToastState {
+  message: string;
+  action?: ToastAction;
+  sticky?: boolean;
 }
 
 const THEME_KEY = "vega.theme";
@@ -201,10 +215,13 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   clearClipboard: () => set({ clipboardTask: null }),
 
   toast: null,
-  pushToast: (toast) => {
+  pushToast: (message) => {
+    const toast: ToastState = { message };
     set({ toast });
     setTimeout(() => {
       if (get().toast === toast) set({ toast: null });
     }, 2600);
   },
+  pushActionToast: (message, action) => set({ toast: { message, action, sticky: true } }),
+  dismissToast: () => set({ toast: null }),
 });
