@@ -70,6 +70,7 @@
   body,
   #root {
     height: 100%;
+    min-height: 100dvh;
   }
   body {
     margin: 0;
@@ -261,6 +262,19 @@
 @layer utilities {
   .surface {
     background: var(--color-surface);
+  }
+  /* Safe-area insets for the app root and fixed/sticky chrome (notch, home
+     indicator). Paired with viewport-fit=cover in index.html. */
+  .safe-inset-x {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .safe-pt {
+    padding-top: env(safe-area-inset-top);
+  }
+  /* Lift a bottom-fixed bar above the home indicator (adds to existing offset). */
+  .safe-mb {
+    margin-bottom: env(safe-area-inset-bottom);
   }
   .text-balance {
     text-wrap: balance;

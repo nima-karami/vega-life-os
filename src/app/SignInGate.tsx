@@ -1,6 +1,7 @@
 import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/react";
 import { signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
+import { useCompactModal } from "@/core/ui";
 
 /**
  * Shown when signing in while the local sandbox is dirty. Sign-in does not merge
@@ -29,8 +30,9 @@ export function SignInGate() {
     useStore.setState({ pendingSignIn: null });
   };
 
+  const responsive = useCompactModal("sm");
   return (
-    <Modal isOpen={!!pending} onClose={cancel} placement="center" backdrop="blur" size="sm">
+    <Modal isOpen={!!pending} onClose={cancel} backdrop="blur" {...responsive}>
       <ModalContent>
         <ModalHeader className="text-large font-semibold tracking-tight">
           Use your account on this device?

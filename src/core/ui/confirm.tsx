@@ -1,4 +1,5 @@
 import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/react";
+import { useCompactModal } from "./useCompactModal";
 
 /** A centered, calm confirm modal on HeroUI — replaces window.confirm. API unchanged. */
 export function ConfirmDialog({
@@ -20,8 +21,9 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const responsive = useCompactModal("sm");
   return (
-    <Modal isOpen={open} onClose={onClose} placement="center" backdrop="blur" size="sm">
+    <Modal isOpen={open} onClose={onClose} backdrop="blur" {...responsive}>
       <ModalContent>
         <ModalHeader className="text-large font-semibold tracking-tight">{title}</ModalHeader>
         {body && (

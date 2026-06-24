@@ -16,7 +16,7 @@ import {
 } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, DatePicker, Icon, IconField, Select, SortableList } from "@/core/ui";
+import { cx, DatePicker, Icon, IconField, Select, SortableList, useCompactModal } from "@/core/ui";
 import { EditorField, FractionSlider } from "@/features/values/components/editor-bits";
 import type { Subgoal } from "../model";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
@@ -85,15 +85,9 @@ export function GoalEditor({
     setNewSub("");
   };
 
+  const responsive = useCompactModal();
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      placement="center"
-      scrollBehavior="inside"
-      backdrop="blur"
-      aria-label="Edit goal"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} backdrop="blur" aria-label="Edit goal" {...responsive}>
       <ModalContent>
         {goal && (
           <>

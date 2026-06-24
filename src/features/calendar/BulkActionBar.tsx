@@ -1,6 +1,6 @@
 import { Button, Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/react";
 import { useState } from "react";
-import { DatePicker, Icon, Menu, NONE, Select, TimePicker } from "@/core/ui";
+import { DatePicker, Icon, Menu, NONE, Select, TimePicker, useCompactModal } from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
 import { STATUS_LABEL, type Task, type TaskStatus } from "@/features/tasks";
 import type { Value } from "@/features/values/model";
@@ -44,15 +44,16 @@ export function BulkActionBar({
   const openLineage = () => setLineage({ valueId: null, goalId: null });
 
   const goalOptions = lineage?.valueId ? goals.filter((g) => g.valueId === lineage.valueId) : goals;
+  const responsive = useCompactModal("sm");
 
   return (
     <>
       <div
         role="toolbar"
         aria-label="Bulk actions"
-        className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4"
+        className="safe-mb pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4"
       >
-        <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 rounded-medium border border-divider bg-content1 px-3 py-2 shadow-medium">
+        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-medium border border-divider bg-content1 px-3 py-2 shadow-medium">
           <span className="px-1 text-small font-medium text-foreground">{count} selected</span>
           <span className="mx-0.5 h-5 w-px bg-divider" />
           <Button
@@ -108,9 +109,9 @@ export function BulkActionBar({
       <Modal
         isOpen={!!reschedule}
         onClose={() => setReschedule(null)}
-        placement="center"
         backdrop="blur"
         aria-label="Reschedule selected tasks"
+        {...responsive}
       >
         <ModalContent>
           <ModalHeader className="flex-col items-start gap-0.5">
@@ -153,9 +154,9 @@ export function BulkActionBar({
       <Modal
         isOpen={!!lineage}
         onClose={() => setLineage(null)}
-        placement="center"
         backdrop="blur"
         aria-label="Change value or goal"
+        {...responsive}
       >
         <ModalContent>
           <ModalHeader className="flex-col items-start gap-0.5">

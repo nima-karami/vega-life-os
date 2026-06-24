@@ -1,5 +1,6 @@
 import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/react";
 import { useStore } from "@/core/store";
+import { useCompactModal } from "@/core/ui";
 import type { Habit } from "./model";
 import { habitInstances } from "./selectors";
 
@@ -21,6 +22,7 @@ export function DeleteHabitDialog({ habit, isOpen, onClose, onDeleted }: DeleteH
   const pushToast = useStore((s) => s.pushToast);
 
   const instanceCount = habitInstances(tasks, habit.id).length;
+  const responsive = useCompactModal("sm");
 
   const onConfirm = () => {
     removeHabit(habit.id);
@@ -30,14 +32,7 @@ export function DeleteHabitDialog({ habit, isOpen, onClose, onDeleted }: DeleteH
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      placement="center"
-      role="alertdialog"
-      backdrop="blur"
-      size="sm"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} role="alertdialog" backdrop="blur" {...responsive}>
       <ModalContent>
         <ModalHeader className="text-base font-semibold">Delete “{habit.name}”?</ModalHeader>
         <ModalBody>

@@ -20,7 +20,7 @@ export function EphemeralOverlay() {
     <AnimatePresence>
       {ephemeral && (
         <motion.div
-          className="fixed inset-0 z-40 grid place-items-start justify-center bg-black/40 px-4 pt-[10vh] backdrop-blur-sm"
+          className="safe-inset-x fixed inset-0 z-40 grid place-items-start justify-center bg-black/40 px-4 pt-[10dvh] backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -52,7 +52,7 @@ export function EphemeralOverlay() {
                 <Icon name="close" size={18} />
               </button>
             </div>
-            <div className="max-h-[58vh] overflow-y-auto p-4">
+            <div className="max-h-[58dvh] overflow-y-auto p-4">
               {ephemeral.lines && (
                 <div className="space-y-1.5">
                   {ephemeral.lines.map((l) => (

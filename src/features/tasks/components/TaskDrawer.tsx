@@ -10,7 +10,7 @@ import {
 } from "@heroui/react";
 import { fmtLong } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { DatePicker, Icon, Label, NONE, Select, TimeRange } from "@/core/ui";
+import { DatePicker, Icon, Label, NONE, Select, TimeRange, useCompactModal } from "@/core/ui";
 import { STATUS_LABEL, type Task, type TaskStatus } from "../model";
 
 const STATUSES: TaskStatus[] = ["open", "todo", "done", "skip"];
@@ -38,16 +38,10 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   // Relink is offered only for a detached habit instance; disabled if its parent is gone.
   const isDetachedHabit = !!task && task.kind === "habit" && task.detached;
   const parentExists = !!task?.habitId && habits.some((h) => h.id === task.habitId);
+  const responsive = useCompactModal();
 
   return (
-    <Modal
-      isOpen={!!task}
-      onClose={onClose}
-      placement="center"
-      scrollBehavior="inside"
-      backdrop="blur"
-      aria-label="Edit task"
-    >
+    <Modal isOpen={!!task} onClose={onClose} backdrop="blur" aria-label="Edit task" {...responsive}>
       <ModalContent>
         {task && (
           <>

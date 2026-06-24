@@ -26,3 +26,4 @@ export { StreakBadge } from "./StreakBadge";
 export type { SelectOption } from "./select";
 export { NONE, Select } from "./select";
 export { UndoBar } from "./UndoBar";
+export { useCompact, useCompactModal } from "./useCompactModal";

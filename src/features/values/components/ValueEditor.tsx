@@ -16,7 +16,7 @@ import {
 import { useEffect, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { Icon, IconField } from "@/core/ui";
+import { Icon, IconField, useCompactModal } from "@/core/ui";
 import { VALUE_HUES, VALUE_PALETTE, valueColor } from "../color";
 import type { Value } from "../model";
 import { EditorField, HuePicker } from "./editor-bits";
@@ -75,14 +75,14 @@ export function ValueEditor({
     onClose();
   };
 
+  const responsive = useCompactModal();
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      placement="center"
-      scrollBehavior="inside"
       backdrop="blur"
       aria-label={creating ? "New value" : "Edit value"}
+      {...responsive}
     >
       <ModalContent>
         {isOpen && (

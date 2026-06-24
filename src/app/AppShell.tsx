@@ -19,10 +19,12 @@ export function AppShell() {
   // Header (search bar + account menu) is dropped while gated. Keep it a sibling of
   // <main> so <main>'s tree position is stable and TodayPage isn't remounted on toggle.
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="safe-inset-x safe-pt flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {!gated && (
         <header className="relative shrink-0 px-4 pt-5 pb-3">
-          <div className="mx-auto w-full max-w-2xl">
+          {/* Reserve room on the right for the absolute account avatar so the
+              search trigger never slides under it on a narrow phone. */}
+          <div className="mx-auto w-full max-w-2xl pr-11 sm:pr-0">
             <OmniTrigger />
           </div>
           <div className="absolute right-4 top-1/2 -translate-y-1/2">

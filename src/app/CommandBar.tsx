@@ -118,7 +118,7 @@ export function CommandBar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="fixed inset-0 z-50 grid place-items-start justify-center bg-black/40 px-4 pt-[12vh] backdrop-blur-sm"
+            className="safe-inset-x fixed inset-0 z-50 grid place-items-start justify-center bg-black/40 px-4 pt-[12dvh] backdrop-blur-sm"
             onClick={close}
             role="dialog"
             aria-modal="true"
@@ -153,7 +153,7 @@ export function CommandBar() {
                 </div>
 
                 {/* Results */}
-                <Command.List className="max-h-[52vh] overflow-y-auto p-1.5">
+                <Command.List className="max-h-[52dvh] overflow-y-auto p-1.5">
                   {thinking && (
                     <div className="flex items-center gap-2 px-3 py-2 text-tiny text-default-500">
                       <Icon name="spark" size={13} className="animate-pulse text-primary" />

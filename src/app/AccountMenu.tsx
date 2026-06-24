@@ -68,7 +68,7 @@ export function AccountMenu() {
         <button
           type="button"
           aria-label="Account menu"
-          className="rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+          className="grid h-11 w-11 place-items-center rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
         >
           <Avatar
             size="sm"

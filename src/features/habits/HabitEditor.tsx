@@ -13,7 +13,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { DurationStepper, Icon, IconField, TimePicker } from "@/core/ui";
+import { DurationStepper, Icon, IconField, TimePicker, useCompactModal } from "@/core/ui";
 import { goalsForValue } from "@/features/goals/selectors";
 import { valueColor } from "@/features/values/color";
 import {
@@ -164,14 +164,9 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
     onClose();
   };
 
+  const responsive = useCompactModal();
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      placement="center"
-      scrollBehavior="inside"
-      backdrop="blur"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} backdrop="blur" {...responsive}>
       <ModalContent>
         {!habitExists ? (
           <>

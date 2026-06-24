@@ -4,7 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { addMinutes, fmtShort, minutesOf, weekDays, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { ContextMenu, cx, FloatingMenu, Icon, type MenuItem, TimePicker, UndoBar } from "@/core/ui";
+import {
+  ContextMenu,
+  cx,
+  FloatingMenu,
+  Icon,
+  type MenuItem,
+  TimePicker,
+  UndoBar,
+  useCompactModal,
+} from "@/core/ui";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
@@ -838,6 +847,7 @@ export function CalendarPage() {
 
   const visibleDays = mobile ? [days[activeDay]] : days;
   const backlog = useMemo(() => unscheduledTasks(tasks), [tasks]);
+  const modalResponsive = useCompactModal();
 
   // assign a backlog task to a day (non-drag keyboard/menu pathway)
   const scheduleBacklog = (t: Task, dayIso: string) => {
@@ -1031,7 +1041,7 @@ export function CalendarPage() {
             </div>
 
             {/* timed grid body */}
-            <div className="relative overflow-y-auto" style={{ maxHeight: "calc(100vh - 360px)" }}>
+            <div className="relative overflow-y-auto" style={{ maxHeight: "calc(100dvh - 360px)" }}>
               <div
                 ref={gridRef}
                 className={cx("relative grid", (dragId || marquee) && "select-none")}
@@ -1253,10 +1263,9 @@ export function CalendarPage() {
       <Modal
         isOpen={!!scheduleSlot}
         onClose={() => setScheduleSlot(null)}
-        placement="center"
-        scrollBehavior="inside"
         backdrop="blur"
         aria-label="Schedule an existing task"
+        {...modalResponsive}
       >
         <ModalContent>
           <ModalHeader className="flex-col items-start gap-0.5">
@@ -1293,10 +1302,9 @@ export function CalendarPage() {
       <Modal
         isOpen={!!scheduleTask}
         onClose={() => setScheduleTask(null)}
-        placement="center"
-        scrollBehavior="inside"
         backdrop="blur"
         aria-label="Schedule to a time"
+        {...modalResponsive}
       >
         <ModalContent>
           <ModalHeader className="flex-col items-start gap-0.5">
