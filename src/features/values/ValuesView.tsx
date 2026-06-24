@@ -7,21 +7,21 @@
  * progress, closed-goal de-emphasis, drag-and-drop reorder (pointer + keyboard),
  * empty states, and "New value"/"New goal" command-bar entries.
  *
- * A page-level Active | Archived filter splits values by their non-destructive
- * `archivedAt` lifecycle; archived values render read-only (their goals/habits/
- * task history survive untouched). Each card's goals header tucks closed goals
- * (done/abandoned) behind a per-value toggle.
+ * Active values show by default; archived ones (non-destructive `archivedAt`
+ * lifecycle) tuck behind a quiet "Show archived (N)" disclosure and render
+ * read-only (their goals/habits/task history survive untouched). Closed goals
+ * (done/abandoned) hide behind the same disclosure pattern, per value.
  *
  * The data layer is reused unchanged — every mutation goes through existing store
  * actions; logic-bearing display rules live in pure, unit-tested helpers.
  */
-import { Button, ButtonGroup, Card, CardBody, Chip } from "@heroui/react";
+import { Button, Card, CardBody, Chip } from "@heroui/react";
 import { format } from "date-fns";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
-import { AddButton, ConfirmDialog, cx, Icon, Menu, SortableList } from "@/core/ui";
+import { AddButton, ConfirmDialog, cx, Disclosure, Icon, Menu, SortableList } from "@/core/ui";
 import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalEditor } from "@/features/goals/components/GoalEditor";
 import { habitStreak } from "@/features/habits";
@@ -29,9 +29,7 @@ import { cascadeCounts, cascadeMessage } from "./cascade";
 import { valueColor } from "./color";
 import { ValueEditor } from "./components/ValueEditor";
 import type { Value } from "./model";
-import { activeValues, archivedValues, goalCounts, splitGoals } from "./selectors";
-
-type Filter = "active" | "archived";
+import { activeValues, archivedValues, splitGoals } from "./selectors";
 
 /** Small polite live-region announcer (sighted users see these changes; SR users wouldn't). */
 function useAnnouncer() {
@@ -57,7 +55,6 @@ export function ValuesView() {
   const unarchiveValue = useStore((s) => s.unarchiveValue);
   const pushToast = useStore((s) => s.pushToast);
 
-  const [filter, setFilter] = useState<Filter>("active");
   const [valueEditId, setValueEditId] = useState<string | null>(null);
   const [creatingValue, setCreatingValue] = useState(false);
   const [goalEditId, setGoalEditId] = useState<string | null>(null);
@@ -69,7 +66,6 @@ export function ValuesView() {
 
   const active = useMemo(() => activeValues(values), [values]);
   const archived = useMemo(() => archivedValues(values), [values]);
-  const shown = filter === "active" ? active : archived;
 
   const createValue = useCallback(() => setCreatingValue(true), []);
 
@@ -144,14 +140,6 @@ export function ValuesView() {
     [unarchiveValue, pushToast, announce],
   );
 
-  const setFilterTo = useCallback(
-    (f: Filter) => {
-      setFilter(f);
-      announce(f === "active" ? "Showing active values" : "Showing archived values");
-    },
-    [announce],
-  );
-
   const confirmCounts = confirmValue
     ? cascadeCounts(confirmValue.id, { goals, habits })
     : { goals: 0, habits: 0 };
@@ -159,73 +147,31 @@ export function ValuesView() {
   const confirmGoal = goals.find((g) => g.id === confirmGoalId) ?? null;
 
   const emptyMessage =
-    filter === "archived"
-      ? "No archived values yet. Archiving a value tucks it here, read-only, with its goals and history intact."
-      : archived.length > 0
-        ? `No active values — ${archived.length} archived.`
-        : 'No values yet — the "why" behind every goal and task downstream.';
+    archived.length > 0
+      ? `No active values — ${archived.length} archived.`
+      : 'No values yet — the "why" behind every goal and task downstream.';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       {region}
 
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           What you're building toward
         </h1>
-        <p className="mt-2 text-small text-default-500">
+        <p className="mt-1 text-small text-default-500">
           Goals ladder up to a value — each with a timeframe and a state. Habits keep them moving.
         </p>
       </header>
 
-      <div className="mt-6">
-        <ButtonGroup size="sm" radius="full" aria-label="Filter values">
-          <Button
-            aria-pressed={filter === "active"}
-            color={filter === "active" ? "primary" : "default"}
-            variant={filter === "active" ? "solid" : "bordered"}
-            onPress={() => setFilterTo("active")}
-          >
-            Active
-          </Button>
-          <Button
-            aria-pressed={filter === "archived"}
-            color={filter === "archived" ? "primary" : "default"}
-            variant={filter === "archived" ? "solid" : "bordered"}
-            onPress={() => setFilterTo("archived")}
-          >
-            Archived
-          </Button>
-        </ButtonGroup>
-      </div>
+      <div className="mt-8 flex flex-col gap-5">
+        <AddButton ref={addBtnRef} label="Add value" onPress={createValue} />
 
-      <div className="mt-6 flex flex-col gap-5">
-        {filter === "active" && (
-          <AddButton ref={addBtnRef} label="Add value" onPress={createValue} />
-        )}
-        {shown.length === 0 ? (
+        {active.length === 0 ? (
           <p className="text-small text-default-500">{emptyMessage}</p>
-        ) : filter === "archived" ? (
-          <div className="space-y-5">
-            {shown.map((v) => (
-              <ValueCard
-                key={v.id}
-                value={v}
-                archived
-                onEdit={() => {}}
-                onAddGoal={() => {}}
-                onArchiveToggle={() => onUnarchive(v.id)}
-                onDelete={() => setConfirmValue(v)}
-                onEditGoal={() => {}}
-                onReorderGoals={() => {}}
-                onDeleteGoal={() => {}}
-                onStatusAnnounce={announce}
-              />
-            ))}
-          </div>
         ) : (
           <SortableList
-            items={shown}
+            items={active}
             getId={(v) => v.id}
             getLabel={(v) => v.name}
             onReorder={reorderValues}
@@ -246,6 +192,30 @@ export function ValuesView() {
             )}
           />
         )}
+
+        <Disclosure
+          label="archived"
+          count={archived.length}
+          onToggle={(open) => announce(open ? "Showing archived values" : "Archived values hidden")}
+        >
+          <div className="space-y-5">
+            {archived.map((v) => (
+              <ValueCard
+                key={v.id}
+                value={v}
+                archived
+                onEdit={() => {}}
+                onAddGoal={() => {}}
+                onArchiveToggle={() => onUnarchive(v.id)}
+                onDelete={() => setConfirmValue(v)}
+                onEditGoal={() => {}}
+                onReorderGoals={() => {}}
+                onDeleteGoal={() => {}}
+                onStatusAnnounce={announce}
+              />
+            ))}
+          </div>
+        </Disclosure>
       </div>
 
       <ValueEditor
@@ -468,22 +438,6 @@ function ValueGoals({
   const goals = useStore((s) => s.goals);
   const vGoals = goals.filter((g) => g.valueId === valueId).sort((a, b) => a.order - b.order);
   const { open, closed } = splitGoals(vGoals);
-  const counts = goalCounts(vGoals);
-  const hasClosed = closed.length > 0;
-
-  const [showClosed, setShowClosed] = useState(false);
-
-  const goalsLabel = `Goals (${counts.active} active · ${counts.closed} closed)`;
-
-  const toggleClosed = () => {
-    const next = !showClosed;
-    setShowClosed(next);
-    onStatusAnnounce(
-      next
-        ? `${counts.closed} closed ${counts.closed === 1 ? "goal" : "goals"} shown`
-        : "closed goals hidden",
-    );
-  };
 
   const renderGoal = (id: string) => (
     <GoalCard
@@ -497,23 +451,9 @@ function ValueGoals({
   return (
     <div className="mt-5 space-y-3">
       <div className="flex items-center justify-between">
-        {hasClosed ? (
-          <button
-            type="button"
-            onClick={toggleClosed}
-            aria-expanded={showClosed}
-            className="flex items-center gap-1 text-tiny text-default-500 hover:text-foreground"
-          >
-            <Icon
-              name="chevD"
-              size={13}
-              className={cx("transition-transform", showClosed && "rotate-180")}
-            />
-            {goalsLabel}
-          </button>
-        ) : (
-          <span className="text-tiny text-default-500">{goalsLabel}</span>
-        )}
+        <span className="text-tiny font-medium uppercase tracking-wide text-default-400">
+          Goals
+        </span>
         {!archived && (
           <Button
             size="sm"
@@ -546,9 +486,7 @@ function ValueGoals({
       ) : (
         <>
           {open.length === 0 ? (
-            <p className="px-1 text-small text-default-500">
-              No open goals — {counts.closed} closed.
-            </p>
+            <p className="px-1 text-small text-default-500">No open goals.</p>
           ) : archived ? (
             <div className="space-y-2.5">{open.map((g) => renderGoal(g.id))}</div>
           ) : (
@@ -563,9 +501,19 @@ function ValueGoals({
             />
           )}
 
-          {showClosed && hasClosed && (
+          <Disclosure
+            label="closed"
+            count={closed.length}
+            onToggle={(o) =>
+              onStatusAnnounce(
+                o
+                  ? `${closed.length} closed ${closed.length === 1 ? "goal" : "goals"} shown`
+                  : "closed goals hidden",
+              )
+            }
+          >
             <div className="space-y-2.5">{closed.map((g) => renderGoal(g.id))}</div>
-          )}
+          </Disclosure>
         </>
       )}
     </div>

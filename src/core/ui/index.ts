@@ -3,6 +3,7 @@ export { DotMeter, Gauge, ProgressBar, Radar, Sparkline } from "./charts";
 export { ConfirmDialog } from "./confirm";
 export { ContextMenu, FloatingMenu } from "./contextmenu";
 export { cx } from "./cx";
+export { Disclosure } from "./Disclosure";
 export { CalendarPopover, DatePicker, DurationStepper, TimePicker, TimeRange } from "./datetime";
 export { Ic, Icon } from "./icons";
 export { Lineage, valueStripeStyle } from "./lineage";

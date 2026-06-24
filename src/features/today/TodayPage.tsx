@@ -225,7 +225,7 @@ export function TodayPage() {
             />
           </div>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {relativeDay(viewDate, today)}
         </h1>
         <div className="flex items-center gap-2">

@@ -1,8 +1,8 @@
-import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
+import { Button, Card, CardBody } from "@heroui/react";
 import { useCallback, useMemo, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
-import { AddButton, Icon, Menu, type MenuItem } from "@/core/ui";
+import { AddButton, Disclosure, Icon, Menu, type MenuItem } from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
 import { valueColor } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
@@ -19,8 +19,6 @@ function fmtDuration(min: number): string {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
-type View = "active" | "archived";
-
 export function HabitsPage() {
   const habits = useStore((s) => s.habits);
   const values = useStore((s) => s.values);
@@ -32,7 +30,6 @@ export function HabitsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [view, setView] = useState<View>("active");
 
   // Memoized lookup maps so per-card lineage is O(1), not O(N) .find per card.
   const valueById = useMemo(() => new Map(values.map((v) => [v.id, v])), [values]);
@@ -113,58 +110,36 @@ export function HabitsPage() {
         </p>
       </header>
 
-      <div className="mt-8 flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <AddButton label="Add habit" onPress={createHabit} />
-          <ButtonGroup size="sm" aria-label="Show habits">
-            <Button
-              aria-pressed={view === "active"}
-              color={view === "active" ? "primary" : "default"}
-              variant={view === "active" ? "solid" : "bordered"}
-              onPress={() => setView("active")}
-            >
-              Active
-            </Button>
-            <Button
-              aria-pressed={view === "archived"}
-              color={view === "archived" ? "primary" : "default"}
-              variant={view === "archived" ? "solid" : "bordered"}
-              onPress={() => setView("archived")}
-            >
-              Archived
-            </Button>
-          </ButtonGroup>
-        </div>
+      <div className="mt-8 flex flex-col gap-6">
+        <AddButton label="Add habit" onPress={createHabit} />
 
-        {view === "active" ? (
-          active.length === 0 ? (
-            <p className="text-small text-default-500">
-              No habits yet — they repeat on a schedule and auto-create your daily tasks.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {groups.map((group) => (
-                <section key={group.value?.id ?? "__none__"} className="flex flex-col gap-3">
-                  <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <span
-                      className={`inline-block h-2.5 w-2.5 rounded-full ${
-                        group.value ? "" : "bg-default-300"
-                      }`}
-                      style={group.value ? { background: valueColor(group.value) } : undefined}
-                      aria-hidden="true"
-                    />
-                    {group.value ? group.value.name : "No value"}
-                  </h2>
-                  <ul className="flex flex-col gap-3">{group.habits.map(renderItem)}</ul>
-                </section>
-              ))}
-            </div>
-          )
-        ) : archivedList.length === 0 ? (
-          <p className="text-small text-default-500">No archived habits.</p>
+        {active.length === 0 ? (
+          <p className="text-small text-default-500">
+            No habits yet — they repeat on a schedule and auto-create your daily tasks.
+          </p>
         ) : (
-          <ul className="flex flex-col gap-3">{archivedList.map(renderItem)}</ul>
+          <div className="flex flex-col gap-6">
+            {groups.map((group) => (
+              <section key={group.value?.id ?? "__none__"} className="flex flex-col gap-3">
+                <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <span
+                    className={`inline-block h-2.5 w-2.5 rounded-full ${
+                      group.value ? "" : "bg-default-300"
+                    }`}
+                    style={group.value ? { background: valueColor(group.value) } : undefined}
+                    aria-hidden="true"
+                  />
+                  {group.value ? group.value.name : "No value"}
+                </h2>
+                <ul className="flex flex-col gap-3">{group.habits.map(renderItem)}</ul>
+              </section>
+            ))}
+          </div>
         )}
+
+        <Disclosure label="archived" count={archivedList.length}>
+          <ul className="flex flex-col gap-3">{archivedList.map(renderItem)}</ul>
+        </Disclosure>
       </div>
 
       <HabitEditor
