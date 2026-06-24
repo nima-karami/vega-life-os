@@ -71,6 +71,17 @@ describe("conflictingHabits", () => {
     expect(conflictingHabits([other], { days: sun, time: "11:00" }, null)).toEqual([]);
   });
 
+  it("treats a legacy candidate with no archivedAt field as active", () => {
+    // Pre-archiving records lack the field (undefined) — must still conflict.
+    const legacy = {
+      ...habit({ id: "h2", time: "11:00", days: sun }),
+      archivedAt: undefined,
+    } as unknown as Habit;
+    expect(
+      conflictingHabits([legacy], { days: sun, time: "11:00" }, null).map((h) => h.id),
+    ).toEqual(["h2"]);
+  });
+
   it("returns all conflicting habits when several share the slot", () => {
     const a = habit({ id: "a", name: "A", time: "11:00", days: sun });
     const b = habit({ id: "b", name: "B", time: "11:00", days: sun });

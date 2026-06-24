@@ -94,7 +94,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
 
   archiveHabit: (id) => {
     const habit = get().habits.find((h) => h.id === id);
-    if (!habit || habit.archivedAt !== null) return; // idempotent
+    if (!habit || (habit.archivedAt ?? null) !== null) return; // idempotent
     const next: Habit = { ...habit, archivedAt: new Date().toISOString() };
     // strip the same future-instance set a schedule change rebuilds — but DON'T
     // regenerate (archived habits have no future). Past/detached instances stay.
@@ -110,7 +110,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
 
   unarchiveHabit: (id) => {
     const habit = get().habits.find((h) => h.id === id);
-    if (!habit || habit.archivedAt === null) return; // idempotent
+    if (!habit || (habit.archivedAt ?? null) === null) return; // idempotent
     const next: Habit = { ...habit, archivedAt: null };
     set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
     savePut("habits", next);

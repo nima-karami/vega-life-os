@@ -37,14 +37,14 @@ export function valueRollup(
 
 export const sortedValues = (values: Value[]) => [...values].sort((a, b) => a.order - b.order);
 
-/** Active values (archivedAt === null), by display order. */
+/** Active values (no archivedAt), by display order. Absent field = active. */
 export const activeValues = (values: Value[]): Value[] =>
-  values.filter((v) => v.archivedAt === null).sort((a, b) => a.order - b.order);
+  values.filter((v) => (v.archivedAt ?? null) === null).sort((a, b) => a.order - b.order);
 
-/** Archived values (archivedAt !== null), most recently archived first. */
+/** Archived values (archivedAt set), most recently archived first. */
 export const archivedValues = (values: Value[]): Value[] =>
   values
-    .filter((v) => v.archivedAt !== null)
+    .filter((v) => (v.archivedAt ?? null) !== null)
     .sort((a, b) => ((a.archivedAt ?? "") < (b.archivedAt ?? "") ? 1 : -1));
 
 /** Split a value's goals into open (active/backlog/paused) and closed (done/abandoned). */

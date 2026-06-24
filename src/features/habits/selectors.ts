@@ -79,7 +79,7 @@ export function conflictingHabits(
   return habits.filter(
     (h) =>
       h.id !== excludeId &&
-      h.archivedAt === null &&
+      (h.archivedAt ?? null) === null &&
       h.time != null &&
       h.time === draft.time &&
       h.days.some((on, i) => on === 1 && draft.days[i] === 1),

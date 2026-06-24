@@ -49,6 +49,13 @@ describe("activeValues / archivedValues", () => {
     const archived = archivedValues(values).length;
     expect(active + archived).toBe(values.length);
   });
+
+  it("treats a legacy value with no archivedAt field as active (not archived)", () => {
+    // Records created before archiving have archivedAt absent (undefined).
+    const legacy = { ...value("legacy", 5, null), archivedAt: undefined } as unknown as Value;
+    expect(activeValues([legacy]).map((v) => v.id)).toEqual(["legacy"]);
+    expect(archivedValues([legacy])).toEqual([]);
+  });
 });
 
 describe("splitGoals / goalCounts", () => {

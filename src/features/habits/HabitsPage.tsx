@@ -38,8 +38,8 @@ export function HabitsPage() {
   const valueById = useMemo(() => new Map(values.map((v) => [v.id, v])), [values]);
   const goalById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
 
-  const active = useMemo(() => habits.filter((h) => h.archivedAt === null), [habits]);
-  const archived = useMemo(() => habits.filter((h) => h.archivedAt !== null), [habits]);
+  const active = useMemo(() => habits.filter((h) => (h.archivedAt ?? null) === null), [habits]);
+  const archived = useMemo(() => habits.filter((h) => (h.archivedAt ?? null) !== null), [habits]);
   const groups = useMemo(() => groupHabitsByValue(active, values), [active, values]);
   const archivedList = useMemo(() => sortArchived(archived), [archived]);
 
@@ -203,7 +203,7 @@ function HabitCard({
   onDelete: () => void;
 }) {
   const color = valueColor(value);
-  const isArchived = habit.archivedAt !== null;
+  const isArchived = (habit.archivedAt ?? null) !== null;
 
   const menuItems: MenuItem[] = [
     isArchived

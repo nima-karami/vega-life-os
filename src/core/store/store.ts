@@ -57,7 +57,14 @@ async function loadAccount(
 /** Apply the same per-collection ordering bootstrap() uses. */
 function sorted(data: Partial<Dataset>): Partial<Dataset> {
   const out: Partial<Dataset> = { ...data };
-  if (data.values) out.values = [...data.values].sort((a, b) => a.order - b.order);
+  // Normalize archivedAt on read: records created before archiving lack the field
+  // (undefined); coerce to null so they classify as active, not archived.
+  if (data.values)
+    out.values = data.values
+      .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null }))
+      .sort((a, b) => a.order - b.order);
+  if (data.habits)
+    out.habits = data.habits.map((h) => ({ ...h, archivedAt: h.archivedAt ?? null }));
   if (data.goals)
     out.goals = data.goals
       .map((g) => ({ ...g, status: g.status ?? "active" }))
@@ -96,7 +103,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       goals: data.goals
         .map((g) => ({ ...g, status: g.status ?? "active" }))
         .sort((a, b) => a.order - b.order),
-      habits: data.habits,
+      habits: data.habits.map((h) => ({ ...h, archivedAt: h.archivedAt ?? null })),
       tasks: data.tasks,
       books: data.books.sort((a, b) => a.order - b.order),
       movies: data.movies.sort((a, b) => a.order - b.order),
