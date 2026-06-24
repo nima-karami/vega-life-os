@@ -1,7 +1,7 @@
-import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/react";
+import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useCompactModal } from "./useCompactModal";
 
-/** A centered, calm confirm modal on HeroUI — replaces window.confirm. API unchanged. */
+/** A centered, calm confirm modal on HeroUI v3 — replaces window.confirm. API unchanged. */
 export function ConfirmDialog({
   open,
   title,
@@ -22,24 +22,36 @@ export function ConfirmDialog({
   onClose: () => void;
 }) {
   const responsive = useCompactModal("sm");
+  const state = useOverlayState({
+    isOpen: open,
+    onOpenChange: (next) => {
+      if (!next) onClose();
+    },
+  });
+
   return (
-    <Modal isOpen={open} onClose={onClose} backdrop="blur" {...responsive}>
-      <ModalContent>
-        <ModalHeader className="text-large font-semibold tracking-tight">{title}</ModalHeader>
-        {body && (
-          <ModalBody>
-            <div className="text-small leading-relaxed text-default-500">{body}</div>
-          </ModalBody>
-        )}
-        <ModalFooter>
-          <Button variant="light" onPress={onClose}>
-            {cancelLabel}
-          </Button>
-          <Button autoFocus color={danger ? "danger" : "primary"} onPress={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
+    <Modal state={state}>
+      <Modal.Backdrop variant="blur" />
+      <Modal.Container {...responsive}>
+        <Modal.Dialog>
+          <Modal.Header>
+            <Modal.Heading className="text-lg font-semibold tracking-tight">{title}</Modal.Heading>
+          </Modal.Header>
+          {body && (
+            <Modal.Body>
+              <div className="text-sm leading-relaxed text-muted">{body}</div>
+            </Modal.Body>
+          )}
+          <Modal.Footer>
+            <Button variant="ghost" onPress={onClose}>
+              {cancelLabel}
+            </Button>
+            <Button autoFocus variant={danger ? "danger" : "primary"} onPress={onConfirm}>
+              {confirmLabel}
+            </Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
     </Modal>
   );
 }
