@@ -15,7 +15,7 @@ export function ProfileStep() {
   };
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4 py-10 text-foreground">
+    <div className="safe-inset-x grid min-h-dvh place-items-center bg-background px-4 py-10 text-foreground">
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

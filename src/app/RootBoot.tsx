@@ -142,7 +142,7 @@ export function RootBoot() {
   let content: React.ReactNode;
   if (!ready) {
     content = (
-      <div className="grid h-screen place-items-center bg-background">
+      <div className="grid h-dvh place-items-center bg-background">
         <span className="animate-pulse text-small text-default-500">Booting VEGA…</span>
       </div>
     );

@@ -288,7 +288,11 @@ function IconGrid({
   onFocusCell: (i: number) => void;
 }) {
   return (
-    <fieldset aria-label={label} className="grid grid-cols-8 gap-1.5" onKeyDown={onKeyDown}>
+    <fieldset
+      aria-label={label}
+      className="grid grid-cols-6 gap-1.5 sm:grid-cols-8"
+      onKeyDown={onKeyDown}
+    >
       {names.map((name, i) => {
         const flatIndex = offset + i;
         const selected = name === value;

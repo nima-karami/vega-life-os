@@ -110,7 +110,7 @@ export function TaskFilterBar({
         variant="flat"
         size="sm"
         startContent={<Icon name="search" size={14} className="text-default-400" />}
-        className="w-52"
+        className="w-full sm:w-52"
       />
 
       {/* date range */}

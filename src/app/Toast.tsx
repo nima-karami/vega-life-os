@@ -24,7 +24,7 @@ export function Toast() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 20, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className={`fixed bottom-5 left-1/2 z-50 -translate-x-1/2 ${
+          className={`safe-mb fixed bottom-5 left-1/2 z-50 -translate-x-1/2 ${
             toast.action ? "pointer-events-auto" : "pointer-events-none"
           }`}
         >

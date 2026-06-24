@@ -3,7 +3,7 @@ import { Button, Card, CardBody } from "@heroui/react";
 /** Inline undo affordance for a recent destructive action (no native confirm). */
 export function UndoBar({ message, onUndo }: { message: string; onUndo: () => void }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4">
+    <div className="safe-mb pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4">
       <Card
         shadow="sm"
         radius="md"
