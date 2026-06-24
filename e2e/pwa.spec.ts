@@ -82,10 +82,13 @@ test("a service worker registers and controls the page", async ({ page }) => {
   );
 
   // Once activated and controlling, navigator.serviceWorker.controller is set.
-  await page.reload({ waitUntil: "networkidle" });
-  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {
-    timeout: 20_000,
-  });
+  // With registerType "prompt" (no skipWaiting/clientsClaim) the controller is
+  // only set on a navigation that occurs after activation, so reload until it is.
+  await expect(async () => {
+    await page.reload({ waitUntil: "networkidle" });
+    const controlled = await page.evaluate(() => !!navigator.serviceWorker.controller);
+    expect(controlled).toBe(true);
+  }).toPass({ timeout: 30_000 });
   const scope = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.getRegistration();
     return reg?.scope ?? "";
