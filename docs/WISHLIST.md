@@ -52,8 +52,46 @@ Status: `spec ready` → buildable now · `needs spec` → run feature-spec firs
   `/manifest.webmanifest`; Workbox `navigateFallback` must agree with the SPA
   rewrite; install/Add-to-Home-Screen + SW-update timing are manual on-device smoke.
 
+### 4. Full mobile-phone usability
+- **Status:** spec ready
+- **Tier:** FULL · **Type:** UI
+- **Spec:** [docs/specs/2026-06-23-mobile-responsive-usability.md](specs/2026-06-23-mobile-responsive-usability.md)
+- **Summary:** Make every route and dialog fully usable on a phone (320–430px): no
+  horizontal overflow, no overlapping elements, ≥44px tap targets, sheet-style
+  dialogs that keep actions above the keyboard, single-day calendar, touch drag with
+  non-drag fallback, `dvh` height + safe-area insets. **Full pass, not an MVP** — §6
+  "Required" is the deliverable.
+- **Key constraints:** authored autonomously — **3 flagged decisions in §13**
+  (highest `high`: kept command-bar-only nav, did NOT add a bottom nav). UI-touching,
+  so **run after the HeroUI v3 migration (#1)**. Automatable: mobile-viewport
+  Playwright (no-overflow per route, dialog fits); manual on-device smoke for touch
+  drag + keyboard avoidance + safe areas.
+
+### 5. Full-screen journal with a Notion-style markdown editor
+- **Status:** spec ready
+- **Tier:** FULL · **Type:** UI
+- **Spec:** [docs/specs/2026-06-23-journal-rich-editor.md](specs/2026-06-23-journal-rich-editor.md)
+- **Summary:** Replace the cramped day-entry modal with a dedicated full-screen page
+  (`/journal/:date`), make gratitude fields multiline/auto-grow (no more truncation),
+  and turn the journal body into a Notion-style **TipTap v3** editor with a slash menu
+  (headings, lists, checkboxes, quote, code, divider, marks, links) stored as
+  **Markdown** (no migration; plain-text entries stay valid). Full text blocks, no
+  media. **Full build, not MVP.**
+- **Key constraints:** headless TipTap styled with HeroUI tokens (no competing UI
+  lib); link scheme safety + `rel=noopener`; read-only Markdown sanitized (allowlist);
+  autosave debounced + flush-on-leave reusing `upsertDayEntry`/empty-discard; editor
+  reused in `ReflectionStep`; gate allowlists the route. UI-touching → **run after
+  HeroUI v3 (#1)**; coordinate with mobile (#4).
+
 ---
 
 ## Bug fixes
 
-_(to be added — user will provide)_
+### Habit duration stepper — off-grid math + unrealistic 1-min floor
+- **Status:** done (local, uncommitted) — fixed this session
+- **What:** Stepping a habit's duration 30→15→1 then up gave 16 and stayed stuck off
+  the 15-min grid forever. Root cause: `DurationStepper` did raw `value ± step` then
+  clamped to an off-grid `min` (1). Fixed with a pure snap-to-grid `stepValue`
+  helper (`src/core/ui/stepper.ts` + unit test). Also raised the realistic floor:
+  habit duration min/step now 15 (control + `validateDraft` + test) — a 1-minute
+  calendar block isn't realistic.
