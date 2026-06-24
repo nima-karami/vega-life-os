@@ -591,23 +591,27 @@ test("today: reflection step appears once all tasks are resolved, and can be ski
 
 // ─── Daily reflection: journal editor edit / delete / undo ───────────────────
 
-test("today: journal editor saves a note and supports delete + undo", async ({ page }) => {
+test("today: journal page saves a note and supports delete + undo", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
   await passGratitudeGate(page);
 
-  // Open the editor and write a journal note.
+  // Open the full-screen journal page and write a note in the rich editor.
   await page.getByRole("button", { name: /^Journal$|^Edit entry$/ }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("textbox", { name: "Journal" }).fill("A calm, productive day.");
-  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(page).toHaveURL(/\/journal\/\d{4}-\d{2}-\d{2}$/);
+  const editor = page.getByRole("textbox", { name: "Journal" });
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await editor.pressSequentially("A calm, productive day.");
+  await expect(editor).toContainText("A calm, productive day.");
 
-  // The Journal button now reflects an existing entry.
+  // Back to Today — the entry persisted (button now says "Edit entry").
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page).toHaveURL(/\/(today)?$/);
   await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
 
-  // Delete via the editor → confirm → undo restores it.
+  // Re-open, delete via the confirm dialog, then undo restores it.
   await page.getByRole("button", { name: "Edit entry" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Delete entry" }).click();
   await page
     .getByRole("dialog")
     .filter({ hasText: "Delete this day's entry?" })
@@ -615,6 +619,7 @@ test("today: journal editor saves a note and supports delete + undo", async ({ p
     .click();
   await expect(page.locator(".fixed").getByText("Entry deleted", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
 });
 

@@ -38,6 +38,9 @@ export default defineConfig({
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/sw\.js$/, /^\/manifest\.webmanifest$/],
         cleanupOutdatedCaches: true,
+        // The rich-editor chunk (TipTap/ProseMirror) exceeds the 2 MiB default;
+        // allow precaching larger chunks so the SW build succeeds.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ],
