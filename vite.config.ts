@@ -39,7 +39,6 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/sw\.js$/, /^\/manifest\.webmanifest$/],
         cleanupOutdatedCaches: true,
       },
-      devOptions: { enabled: true },
     }),
   ],
   resolve: {

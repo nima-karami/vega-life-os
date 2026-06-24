@@ -17,6 +17,7 @@ interface ManifestIcon {
   purpose?: string;
 }
 interface Manifest {
+  id?: string;
   name?: string;
   short_name?: string;
   start_url?: string;
@@ -38,6 +39,7 @@ test("links a valid manifest with required fields and 192/512 + maskable icons",
   expect(res.status()).toBe(200);
   const manifest = (await res.json()) as Manifest;
 
+  expect(manifest.id).toBe("/");
   expect(manifest.name).toBe("VEGA · Life OS");
   expect(manifest.short_name).toBe("VEGA");
   expect(manifest.start_url).toBe("/");

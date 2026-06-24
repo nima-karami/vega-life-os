@@ -1,10 +1,21 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
+import { useEffect } from "react";
 import { useStore } from "@/core/store";
 
 export function Toast() {
   const toast = useStore((s) => s.toast);
   const dismissToast = useStore((s) => s.dismissToast);
+
+  useEffect(() => {
+    if (!toast?.sticky && !toast?.action) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissToast();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toast, dismissToast]);
+
   return (
     <AnimatePresence>
       {toast && (
