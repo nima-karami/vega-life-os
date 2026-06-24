@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/react";
 import { posToDOMRect } from "@tiptap/react";
 import { Bold, Code, Italic, Link2, Link2Off, Strikethrough } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useCompact } from "@/core/ui";
 import { isSafeHref } from "./extensions";
 
 interface MarkBtn {
@@ -48,6 +49,7 @@ const MARKS: MarkBtn[] = [
  * inline marks and a link popover. Hidden when the selection is empty.
  */
 export function JournalBubbleMenu({ editor }: { editor: Editor }) {
+  const compact = useCompact();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkValue, setLinkValue] = useState("");
@@ -114,11 +116,15 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
 
   const linkActive = editor.isActive("link");
 
+  // Compact: dock the toolbar to the bottom (above the keyboard) instead of
+  // floating over the selection, where it's hidden by the caret/handles.
+  const wrapperClass = compact
+    ? "safe-mb fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-2"
+    : "fixed z-50 -translate-x-1/2 -translate-y-full pb-2";
+  const wrapperStyle = compact ? undefined : { top: pos.top, left: pos.left };
+
   return (
-    <div
-      className="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
-      style={{ top: pos.top, left: pos.left }}
-    >
+    <div className={wrapperClass} style={wrapperStyle}>
       {linkOpen ? (
         <form
           onSubmit={applyLink}

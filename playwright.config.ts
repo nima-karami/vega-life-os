@@ -15,7 +15,20 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /mobile\.spec\.ts/,
+    },
+    {
+      // Mobile pass: a touch-capable phone profile. The spec drives several
+      // narrow widths itself (320/360/390/430) via setViewportSize.
+      name: "mobile-chromium",
+      use: { ...devices["Pixel 7"] },
+      testMatch: /mobile\.spec\.ts/,
+    },
+  ],
   // Two servers: the dev server for the app smoke suite, and a built preview for the
   // PWA proof (the service worker + injected manifest link only exist in a build).
   webServer: [

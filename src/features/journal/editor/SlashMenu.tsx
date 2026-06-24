@@ -147,7 +147,7 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
 
   if (props.items.length === 0) {
     return (
-      <div className="w-60 rounded-medium border border-divider bg-content1 p-2 text-small text-default-500 shadow-medium">
+      <div className="w-full rounded-medium border border-divider bg-content1 p-2 text-small text-default-500 shadow-medium sm:w-60">
         No matches
       </div>
     );
@@ -159,7 +159,7 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
       tabIndex={-1}
       aria-label="Insert block"
       aria-activedescendant={`slash-opt-${active}`}
-      className="max-h-72 w-60 overflow-y-auto rounded-medium border border-divider bg-content1 p-1 shadow-medium outline-none"
+      className="max-h-72 w-full overflow-y-auto rounded-medium border border-divider bg-content1 p-1 shadow-medium outline-none sm:w-60"
     >
       {props.items.map((item, i) => {
         const ItemIcon = item.icon;
@@ -219,7 +219,27 @@ export const SlashMenu = Extension.create({
           let renderer: ReactRenderer<SlashListHandle, SlashListProps>;
           let popup: HTMLDivElement;
 
+          const isCompact = () => window.matchMedia("(max-width: 639px)").matches;
+
+          // Desktop: an anchored popup under the caret. Compact: a bottom sheet
+          // that sits above the keyboard, where the caret popup would be hidden.
           const reposition = (rect: (() => DOMRect | null) | null | undefined) => {
+            if (isCompact()) {
+              popup.style.position = "fixed";
+              popup.style.top = "auto";
+              popup.style.left = "0";
+              popup.style.right = "0";
+              popup.style.bottom = "0";
+              popup.style.paddingBottom = "env(safe-area-inset-bottom)";
+              popup.style.background = "hsl(var(--heroui-content1))";
+              popup.style.borderTop = "1px solid hsl(var(--heroui-divider))";
+              return;
+            }
+            popup.style.position = "absolute";
+            popup.style.inset = "";
+            popup.style.background = "";
+            popup.style.borderTop = "";
+            popup.style.paddingBottom = "";
             const r = rect?.();
             if (!r) return;
             popup.style.top = `${r.bottom + 6 + window.scrollY}px`;
@@ -230,7 +250,6 @@ export const SlashMenu = Extension.create({
             onStart: (props) => {
               renderer = new ReactRenderer(SlashList, { props, editor: props.editor });
               popup = document.createElement("div");
-              popup.style.position = "absolute";
               popup.style.zIndex = "60";
               popup.appendChild(renderer.element);
               document.body.appendChild(popup);
