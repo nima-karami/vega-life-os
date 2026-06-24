@@ -1,8 +1,9 @@
 name: deploy
 
+# Manual-only. The app is deployed via `npm run deploy` (Firebase CLI). To enable
+# auto-deploy on push to main, add the `push: branches: [main]` trigger back and set
+# the FIREBASE_SERVICE_ACCOUNT + VITE_* repo secrets.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
