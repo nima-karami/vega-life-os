@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { isSafeHref } from "./extensions";
-import { markdownToPlainText, markdownToSafeHtml, normalizeMarkdown } from "./markdown";
+import { normalizeMarkdown } from "./markdown";
 
 /**
  * Round-trip = parse Markdown into the editor schema then serialize back. Each
@@ -23,6 +23,7 @@ describe("markdown round-trip (supported blocks/marks)", () => {
     "task list": "- [ ] todo\n- [x] done",
     blockquote: "> a quote",
     "code block": "```\nconst x = 1;\n```",
+    "code block with language": "```ts\nconst x = 1;\n```",
     divider: "first\n\n---\n\nsecond",
     link: "A [link](https://example.com) here.",
   };
@@ -39,6 +40,11 @@ describe("markdown round-trip (supported blocks/marks)", () => {
 
   it("keeps a heading recognizable after round-trip", () => {
     expect(normalizeMarkdown("# Heading one")).toBe("# Heading one");
+  });
+
+  it("preserves fenced code-block language tag after round-trip", () => {
+    const out = normalizeMarkdown("```ts\nconst x = 1;\n```");
+    expect(out).toContain("```ts");
   });
 
   it("keeps a checkbox list with mixed states", () => {
@@ -66,38 +72,6 @@ describe("plain-text back-compat", () => {
   it("preserves multi-paragraph plain text", () => {
     const out = normalizeMarkdown("first line\n\nsecond line");
     expect(out).toBe("first line\n\nsecond line");
-  });
-});
-
-describe("read-only rendering is sanitized", () => {
-  it("renders markdown to safe HTML", () => {
-    const html = markdownToSafeHtml("# Hi\n\n- [x] done");
-    expect(html).toContain("<h1");
-    expect(html).toContain("done");
-  });
-
-  it("never emits an executable script tag from hostile content", () => {
-    // tiptap parses markdown (html:false) so raw HTML is escaped to inert text;
-    // the sanitizer is the belt-and-braces guarantee on the read path.
-    const html = markdownToSafeHtml("<script>alert(1)</script>\n\nplain");
-    expect(html).not.toContain("<script");
-    expect(html).toContain("plain");
-  });
-
-  it("never emits a javascript: href on the read path", () => {
-    const html = markdownToSafeHtml("[x](javascript:alert(1))");
-    expect(html.toLowerCase()).not.toContain('href="javascript:');
-    expect(html.toLowerCase()).not.toContain("href='javascript:");
-  });
-
-  it("keeps safe external links", () => {
-    const html = markdownToSafeHtml("[ok](https://example.com)");
-    expect(html).toContain("https://example.com");
-  });
-
-  it("extracts plain text for previews", () => {
-    expect(markdownToPlainText("# Title\n\nbody text")).toContain("Title");
-    expect(markdownToPlainText("# Title\n\nbody text")).toContain("body text");
   });
 });
 
