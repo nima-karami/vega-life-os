@@ -26,9 +26,7 @@ export function TaskRow({
 
   return (
     <div className={cx("group flex items-center gap-3 py-2.5", resolved && "opacity-55")}>
-      <span className="w-11 shrink-0 text-tiny tabular-nums text-default-500">
-        {task.time ?? "—"}
-      </span>
+      <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{task.time ?? "—"}</span>
 
       <button
         type="button"
@@ -41,20 +39,18 @@ export function TaskRow({
         />
         <span
           className={cx(
-            "truncate text-small text-foreground",
+            "truncate text-sm text-foreground",
             resolved && "line-through decoration-1",
           )}
         >
           {task.title}
         </span>
-        {task.detached && <Icon name="unlink" size={12} className="shrink-0 text-default-400" />}
-        {task.note && <Icon name="note" size={12} className="shrink-0 text-default-400" />}
+        {task.detached && <Icon name="unlink" size={12} className="shrink-0 text-muted" />}
+        {task.note && <Icon name="note" size={12} className="shrink-0 text-muted" />}
       </button>
 
       <div className="hidden items-center gap-1.5 sm:flex">
-        {showDate && task.date && (
-          <span className="text-tiny text-default-400">{task.date.slice(5)}</span>
-        )}
+        {showDate && task.date && <span className="text-xs text-muted">{task.date.slice(5)}</span>}
         {task.kind === "habit" && <Tag>Habit</Tag>}
         <Tag>{value ? value.name : ALIGN_LABEL[alignOf(task)]}</Tag>
       </div>
@@ -66,8 +62,8 @@ export function TaskRow({
         className={cx(
           "grid h-6 w-6 shrink-0 place-items-center rounded-full border transition-colors",
           box.solid
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-default-300 text-transparent hover:border-primary",
+            ? "border-accent bg-accent text-accent-foreground"
+            : "border-border text-transparent hover:border-accent",
         )}
       >
         {box.icon && <Icon name={box.icon} size={13} />}

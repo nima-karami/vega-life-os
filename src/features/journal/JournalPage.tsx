@@ -63,7 +63,7 @@ function JournalEditorView({ date }: { date: string }) {
             type="button"
             onClick={goBack}
             aria-label="Back"
-            className="grid h-9 w-9 place-items-center rounded-medium text-default-500 outline-none transition-colors hover:bg-default/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+            className="grid h-9 w-9 place-items-center rounded-[12px] text-muted outline-none transition-colors hover:bg-default/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Icon name="chevL" size={18} />
           </button>
@@ -71,11 +71,11 @@ function JournalEditorView({ date }: { date: string }) {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               {relativeDay(date, todayISO())}
             </h1>
-            <p className="text-small text-default-500">{fmtLong(date)}</p>
+            <p className="text-sm text-muted">{fmtLong(date)}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span role="status" aria-live="polite" className="text-tiny text-default-400">
+          <span role="status" aria-live="polite" className="text-xs text-muted">
             {saved ? "Saved" : "Saving…"}
           </span>
           <button
@@ -83,7 +83,7 @@ function JournalEditorView({ date }: { date: string }) {
             onClick={() => setConfirmOpen(true)}
             disabled={!entry}
             aria-label="Delete entry"
-            className="grid h-9 w-9 place-items-center rounded-medium text-default-500 outline-none transition-colors hover:bg-danger/10 hover:text-danger focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid h-9 w-9 place-items-center rounded-[12px] text-muted outline-none transition-colors hover:bg-danger/10 hover:text-danger focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Icon name="trash" size={17} />
           </button>

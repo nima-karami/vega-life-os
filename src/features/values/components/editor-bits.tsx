@@ -10,7 +10,7 @@ import { cx, Icon } from "@/core/ui";
 export function EditorField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <span className="text-tiny text-default-500">{label}</span>
+      <span className="text-xs text-muted">{label}</span>
       {children}
     </div>
   );
@@ -44,7 +44,7 @@ export function HuePicker({
             onClick={() => onSelect(h)}
             className={cx(
               "grid h-8 w-8 place-items-center rounded-full border-2 transition-transform hover:scale-110",
-              selected ? "border-foreground" : "border-divider",
+              selected ? "border-foreground" : "border-border",
             )}
             style={{ background: h }}
           >
@@ -75,21 +75,23 @@ export function FractionSlider({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-tiny text-default-500">{label}</span>
-        <span className="text-tiny tabular-nums text-foreground">{Math.round(value * 100)}%</span>
+        <span className="text-xs text-muted">{label}</span>
+        <span className="text-xs tabular-nums text-foreground">{Math.round(value * 100)}%</span>
       </div>
       <Slider
         aria-label={label}
-        size="sm"
-        color="primary"
         minValue={0}
         maxValue={1}
         step={0.05}
         value={value}
         isDisabled={isDisabled}
         onChange={(v) => onChange(Array.isArray(v) ? v[0] : v)}
-        getValue={(v) => `${Math.round((Array.isArray(v) ? v[0] : v) * 100)}%`}
-      />
+      >
+        <Slider.Track>
+          <Slider.Fill />
+          <Slider.Thumb />
+        </Slider.Track>
+      </Slider>
     </div>
   );
 }

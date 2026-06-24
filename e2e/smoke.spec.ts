@@ -441,27 +441,25 @@ test("calendar: bulk Set status marks the whole selection done", async ({ page }
 
 // ─── Settings: appearance accent re-tints the whole app ───────────────────────
 
-const primaryToken = (page: import("@playwright/test").Page) =>
-  page.evaluate(() =>
-    getComputedStyle(document.documentElement).getPropertyValue("--heroui-primary").trim(),
-  );
+// HeroUI v3 themes via the single --accent token (a hex set at runtime by the
+// value-hue picker). The inline override on <html> is empty when no custom accent
+// is active (the slate default comes from the theme stylesheet, not inline style).
+const accentOverride = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => document.documentElement.style.getPropertyValue("--accent").trim());
 
-test("settings: choosing an accent re-tints the HeroUI primary and persists; Default reverts", async ({
+test("settings: choosing an accent re-tints the HeroUI accent and persists; Default reverts", async ({
   page,
 }) => {
   await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  // Baseline = the configured slate primary.
-  const slate = await primaryToken(page);
-  expect(slate).toBe("210 29.09% 43.14%");
+  // Baseline = no inline override (the configured slate default shows through).
+  expect(await accentOverride(page)).toBe("");
 
-  // Pick Teal → the primary token changes to the teal hue everywhere.
+  // Pick Teal → the --accent token is overridden to the teal hex everywhere.
   await page.getByRole("button", { name: "Teal", exact: true }).click();
-  await expect.poll(() => primaryToken(page)).not.toBe(slate);
-  const teal = await primaryToken(page);
-  expect(teal).toBe("173.96 61.78% 44.12%"); // #2bb6a8 → HSL channels
+  await expect.poll(() => accentOverride(page)).toBe("#2bb6a8");
 
   // A primary-colored control actually adopts it (not just the raw var).
   const exportBtn = page.getByRole("button", { name: /Export backup/ });
@@ -469,11 +467,11 @@ test("settings: choosing an accent re-tints the HeroUI primary and persists; Def
 
   // Persists across reload.
   await page.reload({ waitUntil: "networkidle" });
-  await expect.poll(() => primaryToken(page)).toBe(teal);
+  await expect.poll(() => accentOverride(page)).toBe("#2bb6a8");
 
-  // Default clears the override → back to slate.
+  // Default clears the override → back to the slate default (no inline override).
   await page.getByRole("button", { name: "Default", exact: true }).click();
-  await expect.poll(() => primaryToken(page)).toBe(slate);
+  await expect.poll(() => accentOverride(page)).toBe("");
 });
 
 test("settings: About reflects the signed-out (sample data) state", async ({ page }) => {

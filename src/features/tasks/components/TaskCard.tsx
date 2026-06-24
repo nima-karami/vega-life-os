@@ -48,10 +48,8 @@ export function TaskCard({
 
   return (
     <Card
-      shadow="sm"
-      radius="lg"
       className={cx(
-        "group relative flex flex-row items-start gap-3 border border-divider bg-content1 py-3 pe-3 ps-4",
+        "group relative flex flex-row items-start gap-3 rounded-[16px] border border-border bg-surface py-3 pe-3 ps-4",
         resolved && "opacity-60",
       )}
       style={valueStripeStyle(lineage ?? { fromHabit: false })}
@@ -65,10 +63,10 @@ export function TaskCard({
         className={cx(
           "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
           done
-            ? "border-primary bg-primary text-primary-foreground"
+            ? "border-accent bg-accent text-accent-foreground"
             : skipped
-              ? "border-default-300 text-default-500"
-              : "border-default-300 text-transparent hover:border-primary",
+              ? "border-border text-muted"
+              : "border-border text-transparent hover:border-accent",
         )}
       >
         {done && <Icon name="check" size={12} />}
@@ -84,14 +82,14 @@ export function TaskCard({
         <span className="flex w-full items-center gap-2">
           <span
             className={cx(
-              "min-w-0 truncate text-small text-foreground",
+              "min-w-0 truncate text-sm text-foreground",
               done && "line-through decoration-1",
             )}
           >
             {task.title}
           </span>
           {skipped && (
-            <span className="shrink-0 rounded-full bg-content2 px-1.5 py-0.5 text-tiny font-medium text-default-500">
+            <span className="shrink-0 rounded-full bg-surface-secondary px-1.5 py-0.5 text-xs font-medium text-muted">
               Skipped
             </span>
           )}
@@ -100,34 +98,24 @@ export function TaskCard({
         <span className="flex w-full flex-wrap items-center gap-x-2 gap-y-1">
           {lineage && <Lineage lineage={lineage} variant="card" />}
           {task.time && (
-            <span className="inline-flex items-center gap-1 text-tiny tabular-nums text-default-500">
+            <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted">
               <Icon name="clock" size={11} />
               {task.time}
             </span>
           )}
           <StreakBadge streak={streak} />
           {task.detached && (
-            <Icon
-              name="unlink"
-              size={12}
-              className="text-default-500"
-              aria-label="Detached from habit"
-            />
+            <Icon name="unlink" size={12} className="text-muted" aria-label="Detached from habit" />
           )}
         </span>
       </button>
 
       {/* Overflow menu — keyboard path for skip / reorder / delete */}
       <Menu
-        trigger={
-          <button
-            type="button"
-            aria-label={`Actions for ${task.title}`}
-            className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-medium text-default-500 opacity-0 transition-opacity hover:bg-content2 focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <Icon name="dots" size={16} />
-          </button>
-        }
+        isIconOnly
+        triggerLabel={`Actions for ${task.title}`}
+        triggerClassName="mt-0.5 shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+        triggerContent={<Icon name="dots" size={16} />}
         items={menuItems}
       />
     </Card>

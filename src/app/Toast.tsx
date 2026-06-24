@@ -31,14 +31,14 @@ export function Toast() {
           <div
             role="status"
             aria-live="polite"
-            className="flex items-center gap-3 rounded-medium border border-divider bg-content1 px-4 py-2.5 text-small text-foreground shadow-medium"
+            className="flex items-center gap-3 rounded-[12px] border border-border bg-surface px-4 py-2.5 text-sm text-foreground shadow-md"
           >
             <span>{toast.message}</span>
             {toast.action && (
               <button
                 type="button"
                 onClick={toast.action.onClick}
-                className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2"
+                className="font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-2"
               >
                 {toast.action.label}
               </button>
@@ -48,7 +48,7 @@ export function Toast() {
                 type="button"
                 aria-label="Dismiss"
                 onClick={dismissToast}
-                className="text-default-400 hover:text-foreground"
+                className="text-muted hover:text-foreground"
               >
                 <X className="size-4" />
               </button>

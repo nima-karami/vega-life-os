@@ -147,7 +147,7 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
 
   if (props.items.length === 0) {
     return (
-      <div className="w-full rounded-medium border border-divider bg-content1 p-2 text-small text-default-500 shadow-medium sm:w-60">
+      <div className="w-full rounded-[12px] border border-border bg-surface p-2 text-sm text-muted shadow-md sm:w-60">
         No matches
       </div>
     );
@@ -159,7 +159,7 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
       tabIndex={-1}
       aria-label="Insert block"
       aria-activedescendant={`slash-opt-${active}`}
-      className="max-h-72 w-full overflow-y-auto rounded-medium border border-divider bg-content1 p-1 shadow-medium outline-none sm:w-60"
+      className="max-h-72 w-full overflow-y-auto rounded-[12px] border border-border bg-surface p-1 shadow-md outline-none sm:w-60"
     >
       {props.items.map((item, i) => {
         const ItemIcon = item.icon;
@@ -176,20 +176,20 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
               e.preventDefault();
               select(i);
             }}
-            className={`flex w-full items-center gap-2.5 rounded-small px-2 py-1.5 text-left outline-none ${
-              selected ? "bg-primary/10 text-foreground" : "text-default-600"
+            className={`flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none ${
+              selected ? "bg-accent/10 text-foreground" : "text-muted"
             }`}
           >
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-small border border-divider bg-content2 text-default-500">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] border border-border bg-surface-secondary text-muted">
               <ItemIcon size={15} strokeWidth={1.75} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-small font-medium text-foreground">
+              <span className="block truncate text-sm font-medium text-foreground">
                 {item.title}
               </span>
-              <span className="block truncate text-tiny text-default-400">{item.hint}</span>
+              <span className="block truncate text-xs text-muted">{item.hint}</span>
             </span>
-            {selected && <ChevronRight size={13} className="shrink-0 text-default-400" />}
+            {selected && <ChevronRight size={13} className="shrink-0 text-muted" />}
           </button>
         );
       })}
@@ -231,13 +231,13 @@ export const SlashMenu = Extension.create({
               popup.style.right = "0";
               popup.style.bottom = "0";
               popup.style.paddingBottom = "env(safe-area-inset-bottom)";
-              popup.classList.add("bg-content1", "border-t", "border-divider");
+              popup.classList.add("bg-surface", "border-t", "border-border");
               return;
             }
             popup.style.position = "absolute";
             popup.style.inset = "";
             popup.style.paddingBottom = "";
-            popup.classList.remove("bg-content1", "border-t", "border-divider");
+            popup.classList.remove("bg-surface", "border-t", "border-border");
             const r = rect?.();
             if (!r) return;
             popup.style.top = `${r.bottom + 6 + window.scrollY}px`;

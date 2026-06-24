@@ -8,11 +8,11 @@ export const AddButton = forwardRef<HTMLButtonElement, { label: string; onPress:
     <Button
       ref={ref}
       type="button"
-      variant="flat"
+      variant="secondary"
       onPress={onPress}
-      startContent={<Icon name="plus" size={16} />}
-      className="w-full justify-start font-normal text-default-500 data-[hover=true]:text-foreground"
+      className="w-full justify-start font-normal text-muted data-[hovered=true]:text-foreground"
     >
+      <Icon name="plus" size={16} />
       {label}
     </Button>
   ),

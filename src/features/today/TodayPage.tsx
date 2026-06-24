@@ -1,4 +1,4 @@
-import { Button, Card, CardBody } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
@@ -173,7 +173,7 @@ export function TodayPage() {
       {/* Header — date + day navigation + progress */}
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-small text-default-500">{fmtLong(viewDate)}</p>
+          <p className="text-sm text-muted">{fmtLong(viewDate)}</p>
           <div className="flex items-center gap-0.5">
             <IconButton
               name="chevL"
@@ -186,18 +186,9 @@ export function TodayPage() {
               onChange={(v) => v && setViewDate(v)}
               showClear={false}
               align="end"
-              trigger={
-                // Plain <button> (not IconButton) so HeroUI's PopoverTrigger can
-                // attach its ref and anchor the popover. Styled to match the chevrons.
-                <button
-                  type="button"
-                  aria-label="Pick a date"
-                  title="Pick a date"
-                  className="inline-grid h-8 w-8 place-items-center rounded-small text-default-500 outline-none transition-colors hover:bg-default/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                  <Icon name="calendar" size={16} />
-                </button>
-              }
+              triggerLabel="Pick a date"
+              triggerClassName="inline-grid h-8 w-8 place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+              triggerContent={<Icon name="calendar" size={16} />}
             />
             <IconButton
               name="chevR"
@@ -211,14 +202,14 @@ export function TodayPage() {
           {relativeDay(viewDate, today)}
         </h1>
         <div className="flex items-center gap-2">
-          <p className="text-small text-default-500">
+          <p className="text-sm text-muted">
             {isEmpty ? "Nothing scheduled" : `${counts.done} of ${counts.total} done`}
           </p>
           {!isToday && (
             <button
               type="button"
               onClick={() => setViewDate(today)}
-              className="text-small text-primary underline-offset-2 hover:underline"
+              className="text-sm text-accent underline-offset-2 hover:underline"
             >
               Jump to today
             </button>
@@ -237,11 +228,11 @@ export function TodayPage() {
           {allDone ? (
             <AllDoneMarker isToday={isToday} />
           ) : (
-            !isEmpty && <h2 className="text-small font-medium text-foreground">Remaining</h2>
+            !isEmpty && <h2 className="text-sm font-medium text-foreground">Remaining</h2>
           )}
           <AddTaskInline date={viewDate} onAdded={(t) => setAnnounce(`Added ${t}`)} />
           {isEmpty ? (
-            <p className="text-small text-default-500">
+            <p className="text-sm text-muted">
               {isToday
                 ? "Nothing scheduled yet — add a task above, or press ⌘K to ask VEGA."
                 : "Nothing scheduled for this day — add a task above, or press ⌘K."}
@@ -263,7 +254,7 @@ export function TodayPage() {
 
         {done.length > 0 && (
           <section aria-label="Done" className="flex flex-col gap-3">
-            <h2 className="text-small font-medium text-default-500">Done</h2>
+            <h2 className="text-sm font-medium text-muted">Done</h2>
             {done.map((task) => (
               <TaskCard
                 key={task.id}
@@ -280,14 +271,11 @@ export function TodayPage() {
       </div>
 
       <div className="mt-8 flex justify-center">
-        <Button
-          variant="flat"
-          startContent={<Icon name="note" size={15} />}
-          onPress={() => navigate(`/journal/${viewDate}`)}
-        >
+        <Button variant="secondary" onPress={() => navigate(`/journal/${viewDate}`)}>
+          <Icon name="note" size={15} />
           {entryStatus(viewEntry) === "none" ? "Journal" : "Edit entry"}
           {entryStatus(viewEntry) !== "none" && (
-            <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
           )}
         </Button>
       </div>
@@ -362,19 +350,19 @@ function DailyHabits({ items, onToggle }: { items: Task[]; onToggle: (t: Task) =
   return (
     <section aria-label="Daily habits" className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-small font-medium text-foreground">Daily habits</h2>
-        <span className="text-tiny tabular-nums text-default-500">
+        <h2 className="text-sm font-medium text-foreground">Daily habits</h2>
+        <span className="text-xs tabular-nums text-muted">
           {doneCount} of {items.length}
         </span>
       </div>
-      <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
-        <CardBody className="gap-0.5 p-2">
+      <Card className="rounded-[16px] border border-border bg-surface">
+        <div className="flex flex-col gap-0.5 p-2">
           <ul className="flex flex-col">
             {sorted.map((t) => (
               <DailyHabitRow key={t.id} task={t} onToggle={onToggle} />
             ))}
           </ul>
-        </CardBody>
+        </div>
       </Card>
     </section>
   );
@@ -396,30 +384,30 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
         onClick={() => onToggle(task)}
         aria-pressed={done}
         aria-label={done ? `Mark ${task.title} not done` : `Mark ${task.title} done`}
-        className="flex w-full items-center gap-3 rounded-medium px-2 py-2 text-left transition-colors hover:bg-content2"
+        className="flex w-full items-center gap-3 rounded-[12px] px-2 py-2 text-left transition-colors hover:bg-surface-secondary"
       >
         <span
           className={cx(
             "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
             done
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-default-300 text-transparent",
+              ? "border-accent bg-accent text-accent-foreground"
+              : "border-border text-transparent",
           )}
         >
           {done && <Icon name="check" size={12} />}
         </span>
-        <Icon name={icon} size={15} className="shrink-0 text-default-400" />
+        <Icon name={icon} size={15} className="shrink-0 text-muted" />
         <span
           className={cx(
-            "min-w-0 flex-1 truncate text-small",
-            done ? "text-default-500 line-through" : "text-foreground",
+            "min-w-0 flex-1 truncate text-sm",
+            done ? "text-muted line-through" : "text-foreground",
           )}
         >
           {task.title}
         </span>
         {lineage?.value && (
           <span
-            className="shrink-0 truncate text-tiny font-medium"
+            className="shrink-0 truncate text-xs font-medium"
             style={{ color: valueColor(lineage.value) }}
           >
             {lineage.value.name}
@@ -433,20 +421,18 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
 
 function AllDoneMarker({ isToday }: { isToday: boolean }) {
   return (
-    <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
-      <CardBody className="flex flex-row items-center gap-3 px-4 py-3">
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+    <Card className="rounded-[16px] border border-border bg-surface">
+      <div className="flex flex-row items-center gap-3 px-4 py-3">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-accent-foreground">
           <Icon name="check" size={16} />
         </div>
         <div>
-          <p className="text-small font-medium text-foreground">
+          <p className="text-sm font-medium text-foreground">
             {isToday ? "Nothing left for today" : "Nothing left for this day"}
           </p>
-          <p className="text-tiny text-default-500">
-            Everything is resolved. Add another if you like.
-          </p>
+          <p className="text-xs text-muted">Everything is resolved. Add another if you like.</p>
         </div>
-      </CardBody>
+      </div>
     </Card>
   );
 }

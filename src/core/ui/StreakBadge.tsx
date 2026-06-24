@@ -17,7 +17,7 @@ export function StreakBadge({ streak, className }: { streak: number; className?:
       role="img"
       aria-label={streakLabel(streak)}
       className={cx(
-        "inline-flex shrink-0 items-center gap-1 text-tiny tabular-nums text-default-500",
+        "inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted",
         className,
       )}
     >

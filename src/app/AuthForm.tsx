@@ -1,13 +1,20 @@
-import { Button, Input } from "@heroui/react";
-import { useState } from "react";
+import { Button } from "@heroui/react";
+import { useEffect, useRef, useState } from "react";
 import { authErrorMessage, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
+
+const FIELD =
+  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
 
 export function AuthForm({ autoFocus = false }: { autoFocus?: boolean }) {
   const pushToast = useStore((s) => s.pushToast);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
+  const emailRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (autoFocus) emailRef.current?.focus();
+  }, [autoFocus]);
 
   const google = async () => {
     setBusy(true);
@@ -46,20 +53,15 @@ export function AuthForm({ autoFocus = false }: { autoFocus?: boolean }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Button
-        color="primary"
-        startContent={<Icon name="spark" size={15} />}
-        isDisabled={busy}
-        onPress={() => void google()}
-        className="w-full"
-      >
+      <Button variant="primary" isDisabled={busy} onPress={() => void google()} className="w-full">
+        <Icon name="spark" size={15} />
         Continue with Google
       </Button>
 
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-divider" />
-        <span className="text-tiny text-default-500">or email</span>
-        <div className="h-px flex-1 bg-divider" />
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted">or email</span>
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <form
@@ -69,45 +71,41 @@ export function AuthForm({ autoFocus = false }: { autoFocus?: boolean }) {
           void emailAuth("in");
         }}
       >
-        <Input
-          type="email"
-          label="Email"
-          labelPlacement="outside"
-          autoComplete="email"
-          autoFocus={autoFocus}
-          value={form.email}
-          onValueChange={(v) => setForm((f) => ({ ...f, email: v }))}
-          placeholder="you@example.com"
-          variant="bordered"
-          radius="md"
-        />
-        <Input
-          type="password"
-          label="Password"
-          labelPlacement="outside"
-          autoComplete="current-password"
-          value={form.password}
-          onValueChange={(v) => setForm((f) => ({ ...f, password: v }))}
-          placeholder="at least 6 characters"
-          variant="bordered"
-          radius="md"
-        />
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Email</span>
+          <input
+            ref={emailRef}
+            type="email"
+            autoComplete="email"
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            placeholder="you@example.com"
+            className={FIELD}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">Password</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={form.password}
+            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+            placeholder="at least 6 characters"
+            className={FIELD}
+          />
+        </label>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="submit"
-            color="primary"
-            startContent={<Icon name="mail" size={15} />}
-            isDisabled={busy}
-          >
+          <Button type="submit" variant="primary" isDisabled={busy}>
+            <Icon name="mail" size={15} />
             Sign in
           </Button>
           <Button
             type="button"
-            variant="bordered"
-            startContent={<Icon name="plus" size={15} />}
+            variant="outline"
             isDisabled={busy}
             onPress={() => void emailAuth("up")}
           >
+            <Icon name="plus" size={15} />
             Create account
           </Button>
         </div>

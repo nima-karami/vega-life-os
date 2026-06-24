@@ -20,10 +20,10 @@ export function CalendarSettings() {
   if (!gcalConfigured) {
     return (
       <SettingsCard title="Google Calendar">
-        <p className="text-small leading-relaxed text-default-500">
-          Set <Code size="sm">VITE_GOOGLE_CLIENT_ID</Code> in <Code size="sm">.env.local</Code> to
-          enable two-way calendar sync. Your VEGA time-blocks then appear in Google Calendar, and
-          the Calendar app on your phone handles the reminders.
+        <p className="text-sm leading-relaxed text-muted">
+          Set <Code>VITE_GOOGLE_CLIENT_ID</Code> in <Code>.env.local</Code> to enable two-way
+          calendar sync. Your VEGA time-blocks then appear in Google Calendar, and the Calendar app
+          on your phone handles the reminders.
         </p>
       </SettingsCard>
     );
@@ -69,30 +69,18 @@ export function CalendarSettings() {
       <div className="flex flex-wrap gap-2">
         {on ? (
           <>
-            <Button
-              color="primary"
-              startContent={<Icon name="repeat" size={15} />}
-              isDisabled={busy}
-              onPress={() => void sync()}
-            >
+            <Button variant="primary" isDisabled={busy} onPress={() => void sync()}>
+              <Icon name="repeat" size={15} />
               Sync now
             </Button>
-            <Button
-              variant="flat"
-              color="danger"
-              startContent={<Icon name="close" size={15} />}
-              onPress={disconnect}
-            >
+            <Button variant="danger-soft" onPress={disconnect}>
+              <Icon name="close" size={15} />
               Disconnect
             </Button>
           </>
         ) : (
-          <Button
-            color="primary"
-            startContent={<Icon name="calendar" size={15} />}
-            isDisabled={busy}
-            onPress={() => void connect()}
-          >
+          <Button variant="primary" isDisabled={busy} onPress={() => void connect()}>
+            <Icon name="calendar" size={15} />
             Connect Google Calendar
           </Button>
         )}

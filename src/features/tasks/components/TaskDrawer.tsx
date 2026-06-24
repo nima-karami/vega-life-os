@@ -1,13 +1,4 @@
-import {
-  Button,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Textarea,
-} from "@heroui/react";
+import { Button, Modal, useOverlayState } from "@heroui/react";
 import { fmtLong } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { DatePicker, Icon, Label, NONE, Select, TimeRange, useCompactModal } from "@/core/ui";
@@ -39,168 +30,177 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   const isDetachedHabit = !!task && task.kind === "habit" && task.detached;
   const parentExists = !!task?.habitId && habits.some((h) => h.id === task.habitId);
   const responsive = useCompactModal();
+  const state = useOverlayState({
+    isOpen: !!task,
+    onOpenChange: (next) => {
+      if (!next) onClose();
+    },
+  });
 
   return (
-    <Modal isOpen={!!task} onClose={onClose} backdrop="blur" aria-label="Edit task" {...responsive}>
-      <ModalContent>
-        {task && (
-          <>
-            <ModalHeader className="text-small font-medium text-default-500">Edit task</ModalHeader>
+    <Modal state={state}>
+      <Modal.Backdrop variant="blur" />
+      <Modal.Container {...responsive}>
+        <Modal.Dialog aria-label="Edit task">
+          {task && (
+            <>
+              <Modal.Header>
+                <Modal.Heading className="text-sm font-medium text-muted">Edit task</Modal.Heading>
+              </Modal.Header>
 
-            <ModalBody className="space-y-6">
-              <Input
-                value={task.title}
-                onValueChange={(title) => updateTask(task.id, { title })}
-                aria-label="Task title"
-                variant="flat"
-                size="lg"
-                classNames={{ input: "text-xl font-semibold" }}
-              />
+              <Modal.Body className="space-y-6">
+                <input
+                  type="text"
+                  value={task.title}
+                  onChange={(e) => updateTask(task.id, { title: e.target.value })}
+                  aria-label="Task title"
+                  className="h-12 w-full rounded-[12px] border border-border bg-surface px-3 text-xl font-semibold text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
+                />
 
-              <Section label="Status">
-                <div className="grid grid-cols-4 gap-1.5">
-                  {STATUSES.map((s) => (
+                <Section label="Status">
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {STATUSES.map((s) => (
+                      <Button
+                        key={s}
+                        type="button"
+                        size="sm"
+                        aria-pressed={task.status === s}
+                        variant={task.status === s ? "primary" : "secondary"}
+                        onPress={() => setStatus(task.id, s)}
+                      >
+                        {STATUS_LABEL[s]}
+                      </Button>
+                    ))}
+                  </div>
+                </Section>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <SelectField label="Value">
+                    <Select
+                      ariaLabel="Value"
+                      value={task.valueId ?? NONE}
+                      onValueChange={(v) =>
+                        updateTask(task.id, {
+                          valueId: v === NONE ? null : v,
+                          goalId:
+                            v !== NONE &&
+                            task.goalId &&
+                            goals.find((g) => g.id === task.goalId)?.valueId !== v
+                              ? null
+                              : task.goalId,
+                        })
+                      }
+                      options={[
+                        { value: NONE, label: "None" },
+                        ...values.map((v) => ({ value: v.id, label: v.name })),
+                      ]}
+                    />
+                  </SelectField>
+                  <SelectField label="Goal">
+                    <Select
+                      ariaLabel="Goal"
+                      value={task.goalId ?? NONE}
+                      onValueChange={(v) => updateTask(task.id, { goalId: v === NONE ? null : v })}
+                      options={[
+                        { value: NONE, label: "None" },
+                        ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
+                      ]}
+                    />
+                  </SelectField>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <DatePicker
+                    label="Date"
+                    value={task.date}
+                    onChange={(date) => updateTask(task.id, { date })}
+                  />
+                  <TimeRange
+                    label="Time block"
+                    value={{ time: task.time, durationMin: task.durationMin }}
+                    onChange={({ time, durationMin }) => updateTask(task.id, { time, durationMin })}
+                  />
+                </div>
+
+                {task.date && (
+                  <p className="text-xs text-muted">
+                    {fmtLong(task.date)}
+                    {task.time ? ` · ${task.time}` : ""}
+                  </p>
+                )}
+
+                <Section label="Note">
+                  <textarea
+                    value={task.note}
+                    onChange={(e) => updateTask(task.id, { note: e.target.value })}
+                    rows={4}
+                    aria-label="Note"
+                    placeholder="Context, links, why it moved…"
+                    className="w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
+                  />
+                </Section>
+
+                {isDetachedHabit && (
+                  <Section label="Habit">
                     <Button
-                      key={s}
                       type="button"
                       size="sm"
-                      radius="sm"
-                      color={task.status === s ? "primary" : "default"}
-                      variant={task.status === s ? "solid" : "flat"}
-                      onPress={() => setStatus(task.id, s)}
+                      variant="secondary"
+                      isDisabled={!parentExists}
+                      onPress={() => {
+                        relinkTaskToHabit(task.id);
+                        pushToast("Relinked to habit");
+                      }}
                     >
-                      {STATUS_LABEL[s]}
+                      <Icon name="link" size={14} />
+                      {parentExists ? "Relink to habit" : "Parent habit no longer exists"}
                     </Button>
-                  ))}
-                </div>
-              </Section>
-
-              <div className="grid grid-cols-2 gap-3">
-                <SelectField label="Value">
-                  <Select
-                    ariaLabel="Value"
-                    value={task.valueId ?? NONE}
-                    onValueChange={(v) =>
-                      updateTask(task.id, {
-                        valueId: v === NONE ? null : v,
-                        goalId:
-                          v !== NONE &&
-                          task.goalId &&
-                          goals.find((g) => g.id === task.goalId)?.valueId !== v
-                            ? null
-                            : task.goalId,
-                      })
-                    }
-                    options={[
-                      { value: NONE, label: "None" },
-                      ...values.map((v) => ({ value: v.id, label: v.name })),
-                    ]}
-                  />
-                </SelectField>
-                <SelectField label="Goal">
-                  <Select
-                    ariaLabel="Goal"
-                    value={task.goalId ?? NONE}
-                    onValueChange={(v) => updateTask(task.id, { goalId: v === NONE ? null : v })}
-                    options={[
-                      { value: NONE, label: "None" },
-                      ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
-                    ]}
-                  />
-                </SelectField>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <DatePicker
-                  label="Date"
-                  value={task.date}
-                  onChange={(date) => updateTask(task.id, { date })}
-                />
-                <TimeRange
-                  label="Time block"
-                  value={{ time: task.time, durationMin: task.durationMin }}
-                  onChange={({ time, durationMin }) => updateTask(task.id, { time, durationMin })}
-                />
-              </div>
-
-              {task.date && (
-                <p className="text-tiny text-default-500">
-                  {fmtLong(task.date)}
-                  {task.time ? ` · ${task.time}` : ""}
-                </p>
-              )}
-
-              <Section label="Note">
-                <Textarea
-                  value={task.note}
-                  onValueChange={(note) => updateTask(task.id, { note })}
-                  minRows={4}
-                  variant="flat"
-                  placeholder="Context, links, why it moved…"
-                />
-              </Section>
-
-              {isDetachedHabit && (
-                <Section label="Habit">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="flat"
-                    isDisabled={!parentExists}
-                    startContent={<Icon name="link" size={14} />}
-                    onPress={() => {
-                      relinkTaskToHabit(task.id);
-                      pushToast("Relinked to habit");
-                    }}
-                  >
-                    {parentExists ? "Relink to habit" : "Parent habit no longer exists"}
-                  </Button>
-                  {parentExists && (
-                    <p className="text-tiny text-default-500">
-                      Resets the title, time, duration, value and goal to the habit; keeps this day
-                      and status.
-                    </p>
-                  )}
-                </Section>
-              )}
-            </ModalBody>
-
-            <ModalFooter className="justify-between">
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  variant="light"
-                  color="danger"
-                  startContent={<Icon name="trash" size={15} />}
-                  onPress={() => {
-                    removeTask(task.id);
-                    pushToast("Task deleted");
-                    onClose();
-                  }}
-                >
-                  Delete
-                </Button>
-                {task.date && (
-                  <Button
-                    type="button"
-                    variant="light"
-                    startContent={<Icon name="calendar-off" size={15} />}
-                    onPress={() => {
-                      unscheduleTask(task.id);
-                      pushToast("Moved to backlog");
-                    }}
-                  >
-                    Unschedule
-                  </Button>
+                    {parentExists && (
+                      <p className="text-xs text-muted">
+                        Resets the title, time, duration, value and goal to the habit; keeps this
+                        day and status.
+                      </p>
+                    )}
+                  </Section>
                 )}
-              </div>
-              <Button type="button" color="primary" onPress={onClose}>
-                Done
-              </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
+              </Modal.Body>
+
+              <Modal.Footer className="justify-between" render={(props) => <footer {...props} />}>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="danger-soft"
+                    onPress={() => {
+                      removeTask(task.id);
+                      pushToast("Task deleted");
+                      onClose();
+                    }}
+                  >
+                    <Icon name="trash" size={15} />
+                    Delete
+                  </Button>
+                  {task.date && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onPress={() => {
+                        unscheduleTask(task.id);
+                        pushToast("Moved to backlog");
+                      }}
+                    >
+                      <Icon name="calendar-off" size={15} />
+                      Unschedule
+                    </Button>
+                  )}
+                </div>
+                <Button type="button" variant="primary" onPress={onClose}>
+                  Done
+                </Button>
+              </Modal.Footer>
+            </>
+          )}
+        </Modal.Dialog>
+      </Modal.Container>
     </Modal>
   );
 }

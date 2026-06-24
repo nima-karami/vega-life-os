@@ -1,4 +1,3 @@
-import { Textarea } from "@heroui/react";
 import { addDays, format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { fmtShort, todayISO, weekDays, weekStartOf } from "@/core/lib/date";
@@ -23,6 +22,9 @@ const PAST_PAGE = 50;
 
 /** Calm primary tone for chart strokes/fills (matches HeroUI primary). */
 const CHART_PRIMARY = "var(--color-accent)";
+
+const REVIEW_FIELD_CLASS =
+  "w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 export function ReviewSection() {
   const tasks = useStore((s) => s.tasks);
@@ -92,7 +94,7 @@ export function ReviewSection() {
       <div className="mb-6 flex flex-wrap items-end gap-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">Weekly review</h2>
-          <p className="mt-1 text-sm text-default-500">
+          <p className="mt-1 text-sm text-muted">
             {fmtShort(days[0].iso)} – {fmtShort(days[6].iso)}
             {isThisWeek && " · in progress"}
             {isFuture && " · upcoming"}
@@ -102,13 +104,13 @@ export function ReviewSection() {
           <IconButton
             name="chevL"
             label="Previous week"
-            onClick={() => requestWeek(addDays(weekStartOf(weekRef), -7))}
+            onPress={() => requestWeek(addDays(weekStartOf(weekRef), -7))}
           />
-          <Button onClick={() => requestWeek(new Date())}>This week</Button>
+          <Button onPress={() => requestWeek(new Date())}>This week</Button>
           <IconButton
             name="chevR"
             label="Next week"
-            onClick={() => requestWeek(addDays(weekStartOf(weekRef), 7))}
+            onPress={() => requestWeek(addDays(weekStartOf(weekRef), 7))}
           />
         </div>
       </div>
@@ -129,7 +131,7 @@ export function ReviewSection() {
           {noActivity ? (
             <Panel className="p-6">
               <SectionHead title="this week" meta="empty" />
-              <p className="mt-3 text-small leading-relaxed text-default-500">
+              <p className="mt-3 text-sm leading-relaxed text-muted">
                 Nothing logged this week yet — but you can still write a reflection below.
               </p>
             </Panel>
@@ -149,14 +151,14 @@ export function ReviewSection() {
                 <div className="mt-3 space-y-1.5">
                   {roll.habitRows.map(({ h, rate, done, total }) => (
                     <div key={h.id} className="flex items-center justify-between">
-                      <span className="truncate text-tiny text-default-500">{h.name}</span>
-                      <span className="text-tiny tabular-nums text-default-500">
+                      <span className="truncate text-xs text-muted">{h.name}</span>
+                      <span className="text-xs tabular-nums text-muted">
                         {done}/{total} · {Math.round(rate * 100)}%
                       </span>
                     </div>
                   ))}
                   {!roll.habitRows.length && (
-                    <p className="text-small text-default-400">No habits scheduled this week.</p>
+                    <p className="text-sm text-muted">No habits scheduled this week.</p>
                   )}
                 </div>
               </Panel>
@@ -173,11 +175,11 @@ export function ReviewSection() {
                 {roll.wins.map((t) => (
                   <li key={t.id} className="flex items-start gap-2">
                     <Icon name="check" size={12} className="mt-0.5 shrink-0 text-success" />
-                    <span className="text-small text-foreground">{t.title}</span>
+                    <span className="text-sm text-foreground">{t.title}</span>
                   </li>
                 ))}
                 {!roll.wins.length && (
-                  <li className="text-small text-default-400">No goal-work completed yet.</li>
+                  <li className="text-sm text-muted">No goal-work completed yet.</li>
                 )}
               </ul>
             </Panel>
@@ -187,14 +189,13 @@ export function ReviewSection() {
                 {roll.slipped.map((t) => (
                   <li key={t.id} className="flex items-start gap-2">
                     <Icon name="alert" size={12} className="mt-0.5 shrink-0 text-danger" />
-                    <span className="text-small text-default-500">
-                      {t.title}{" "}
-                      <span className="text-tiny text-default-400">{t.date?.slice(5)}</span>
+                    <span className="text-sm text-muted">
+                      {t.title} <span className="text-xs text-muted">{t.date?.slice(5)}</span>
                     </span>
                   </li>
                 ))}
                 {!roll.slipped.length && (
-                  <li className="text-small text-default-400">Nothing left behind. Clean week.</li>
+                  <li className="text-sm text-muted">Nothing left behind. Clean week.</li>
                 )}
               </ul>
             </Panel>
@@ -211,27 +212,22 @@ export function ReviewSection() {
             </div>
             <div className="mt-4 space-y-4">
               {REVIEW_PROMPTS.map((q, i) => (
-                <Textarea
-                  key={q}
-                  label={q}
-                  labelPlacement="outside"
-                  value={answers[i]}
-                  isDisabled={saving}
-                  onValueChange={(val) => setAnswers((a) => a.map((x, j) => (j === i ? val : x)))}
-                  minRows={2}
-                  variant="bordered"
-                  placeholder="…"
-                />
+                <label key={q} className="block space-y-1.5">
+                  <span className="text-xs text-muted">{q}</span>
+                  <textarea
+                    value={answers[i]}
+                    disabled={saving}
+                    onChange={(e) =>
+                      setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))
+                    }
+                    rows={2}
+                    placeholder="…"
+                    className={REVIEW_FIELD_CLASS}
+                  />
+                </label>
               ))}
               <div className="flex justify-end">
-                <Button
-                  solid
-                  icon="check"
-                  onClick={save}
-                  disabled={saving}
-                  aria-busy={saving}
-                  aria-disabled={saving}
-                >
+                <Button solid icon="check" onPress={save} isDisabled={saving} aria-busy={saving}>
                   {saving ? "Saving…" : existing ? "Update reflection" : "Save reflection"}
                 </Button>
               </div>
@@ -250,17 +246,13 @@ export function ReviewSection() {
                     aria-current={r.periodKey === periodKey ? "true" : undefined}
                     onClick={() => requestWeek(new Date(`${r.periodKey}T00:00`))}
                     className={cx(
-                      "flex w-full items-center gap-3 rounded-medium border px-3 py-2 text-left transition-colors hover:border-primary",
-                      r.periodKey === periodKey ? "border-primary" : "border-divider",
+                      "flex w-full items-center gap-3 rounded-[12px] border px-3 py-2 text-left transition-colors hover:border-accent",
+                      r.periodKey === periodKey ? "border-accent" : "border-border",
                     )}
                   >
-                    <span className="text-small text-foreground">
-                      week of {fmtShort(r.periodKey)}
-                    </span>
-                    <span className="text-tiny text-default-500">
-                      {Math.round(r.completion * 100)}%
-                    </span>
-                    <span className="ml-auto truncate text-tiny text-default-400">
+                    <span className="text-sm text-foreground">week of {fmtShort(r.periodKey)}</span>
+                    <span className="text-xs text-muted">{Math.round(r.completion * 100)}%</span>
+                    <span className="ml-auto truncate text-xs text-muted">
                       {r.prompts.find((p) => p.a)?.a ?? "—"}
                     </span>
                   </button>
@@ -268,7 +260,7 @@ export function ReviewSection() {
               </div>
               {reviews.length > shown && (
                 <div className="mt-3 flex justify-center">
-                  <Button onClick={() => setShown((n) => n + PAST_PAGE)}>
+                  <Button onPress={() => setShown((n) => n + PAST_PAGE)}>
                     Show more ({reviews.length - shown})
                   </Button>
                 </div>
@@ -313,14 +305,14 @@ function ValueBar({
   const color = useValueColor(valueId);
   return (
     <div className="flex items-center gap-2">
-      <span className="w-16 shrink-0 truncate text-tiny text-default-500">{name}</span>
-      <div className="h-2.5 flex-1 rounded-full bg-default-200">
+      <span className="w-16 shrink-0 truncate text-xs text-muted">{name}</span>
+      <div className="h-2.5 flex-1 rounded-full bg-surface-secondary">
         <div
           className="h-2.5 rounded-full"
           style={{ width: `${(n / max) * 100}%`, background: color }}
         />
       </div>
-      <span className="w-5 text-right text-tiny text-default-500">{n}</span>
+      <span className="w-5 text-right text-xs text-muted">{n}</span>
     </div>
   );
 }

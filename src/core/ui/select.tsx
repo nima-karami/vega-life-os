@@ -1,4 +1,4 @@
-import { Select as HSelect, SelectItem } from "@heroui/react";
+import { Select as HSelect, ListBox } from "@heroui/react";
 import type { ReactNode } from "react";
 import { cx } from "./cx";
 
@@ -16,9 +16,10 @@ export interface SelectOption {
 }
 
 /**
- * Dropdown on HeroUI Select (react-aria), near-default flat look. Shares the
+ * Dropdown on HeroUI v3 Select (react-aria), near-default flat look. Shares the
  * overlay system with HeroUI Modal so keyboard nav + screen-reader semantics work
- * when nested inside a modal. API unchanged from the legacy primitive.
+ * when nested inside a modal. API unchanged from the legacy primitive. v3 splits
+ * collection identity into `id` (selection) + `textValue` (type-ahead/a11y).
  */
 export function Select({
   value,
@@ -38,35 +39,36 @@ export function Select({
   return (
     <HSelect
       aria-label={ariaLabel}
-      size="sm"
-      variant="flat"
-      selectedKeys={value ? [value] : []}
-      disallowEmptySelection
-      onSelectionChange={(keys) => {
-        const next = Array.from(keys)[0];
-        if (next != null) onValueChange(String(next));
+      selectedKey={value || null}
+      onSelectionChange={(key) => {
+        if (key != null) onValueChange(String(key));
       }}
       placeholder={placeholder}
-      items={options}
-      renderValue={(items) => items.map((it) => <span key={it.key}>{it.textValue}</span>)}
-      classNames={{ base: cx("w-full", className) }}
+      className={cx("w-full", className)}
     >
-      {(option: SelectOption) => (
-        <SelectItem
-          key={option.value}
-          textValue={typeof option.label === "string" ? option.label : String(option.value)}
-          startContent={
-            option.hue ? (
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full border border-divider"
-                style={{ background: option.hue }}
-              />
-            ) : undefined
-          }
-        >
-          {option.label}
-        </SelectItem>
-      )}
+      <HSelect.Trigger>
+        <HSelect.Value />
+        <HSelect.Indicator />
+      </HSelect.Trigger>
+      <HSelect.Popover>
+        <ListBox items={options}>
+          {(option: SelectOption) => (
+            <ListBox.Item
+              id={option.value}
+              key={option.value}
+              textValue={typeof option.label === "string" ? option.label : String(option.value)}
+            >
+              {option.hue ? (
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-border"
+                  style={{ background: option.hue }}
+                />
+              ) : null}
+              {option.label}
+            </ListBox.Item>
+          )}
+        </ListBox>
+      </HSelect.Popover>
     </HSelect>
   );
 }

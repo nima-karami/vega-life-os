@@ -1,20 +1,24 @@
-import {
-  Popover as HPopover,
-  PopoverContent,
-  type PopoverProps,
-  PopoverTrigger,
-} from "@heroui/react";
-import type { ReactNode } from "react";
+import { Popover as HPopover } from "@heroui/react";
+import type { ComponentProps, ReactNode } from "react";
 import { cx } from "./cx";
 
+type Placement = NonNullable<ComponentProps<typeof HPopover.Content>["placement"]>;
+
 /**
- * Popover on HeroUI (react-aria) — shares the overlay system with HeroUI Modal,
- * so it works correctly when nested inside a modal (no aria-hidden / focus-trap
- * conflicts that a body-portaled Radix popover hits). Used for the custom
- * date/time pickers and any floating editor that needs to escape overflow clipping.
+ * Popover on HeroUI v3 (react-aria) — shares the overlay system with HeroUI
+ * Modal, so it works correctly when nested inside a modal. Used for the custom
+ * date/time pickers and any floating editor that needs to escape overflow
+ * clipping. v3 composes: Popover (Root) → Popover.Trigger → Popover.Content.
+ *
+ * In v3 `Popover.Trigger` IS the interactive trigger (a focusable role=button),
+ * so the trigger must be its *content* (icon/label/markup), never a nested
+ * <button> — that would double up the button role. `triggerContent` is rendered
+ * inside the trigger; `triggerClassName`/`triggerLabel` style + name it.
  */
 export function Popover({
-  trigger,
+  triggerContent,
+  triggerClassName,
+  triggerLabel,
   children,
   align = "start",
   side = "bottom",
@@ -22,7 +26,9 @@ export function Popover({
   onOpenChange,
   className,
 }: {
-  trigger: ReactNode;
+  triggerContent: ReactNode;
+  triggerClassName?: string;
+  triggerLabel?: string;
   children: ReactNode;
   align?: "start" | "center" | "end";
   side?: "top" | "bottom" | "left" | "right";
@@ -30,12 +36,16 @@ export function Popover({
   onOpenChange?: (v: boolean) => void;
   className?: string;
 }) {
-  const placement = (align === "center" ? side : `${side}-${align}`) as PopoverProps["placement"];
+  const placement = (align === "center" ? side : `${side} ${align}`) as Placement;
 
   return (
-    <HPopover isOpen={open} onOpenChange={onOpenChange} placement={placement} offset={6}>
-      <PopoverTrigger>{trigger}</PopoverTrigger>
-      <PopoverContent className={cx("p-0", className)}>{children}</PopoverContent>
+    <HPopover isOpen={open} onOpenChange={onOpenChange}>
+      <HPopover.Trigger aria-label={triggerLabel} className={triggerClassName}>
+        {triggerContent}
+      </HPopover.Trigger>
+      <HPopover.Content placement={placement} offset={6} className={cx("p-0", className)}>
+        {children}
+      </HPopover.Content>
     </HPopover>
   );
 }

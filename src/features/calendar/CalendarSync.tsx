@@ -21,9 +21,9 @@ import {
 import { deriveSyncPhase, formatLastSynced, type SyncPhase, syncStatusText } from "./sync-status";
 
 const DOT: Record<SyncPhase, string> = {
-  "not-configured": "bg-default-400",
-  disconnected: "bg-default-400",
-  syncing: "bg-primary animate-pulse",
+  "not-configured": "bg-muted",
+  disconnected: "bg-muted",
+  syncing: "bg-accent animate-pulse",
   error: "bg-danger",
   "needs-reconnect": "bg-danger",
   connected: "bg-success",
@@ -112,7 +112,7 @@ export function CalendarSync() {
       <span
         role="status"
         aria-live="polite"
-        className="inline-flex items-center gap-1.5 text-small text-default-500"
+        className="inline-flex items-center gap-1.5 text-sm text-muted"
         title={lastSynced ? new Date(lastSynced).toLocaleString() : undefined}
       >
         <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", DOT[phase])} aria-hidden="true" />
@@ -167,13 +167,13 @@ function SyncButton({
   return (
     <Button
       size="sm"
-      variant="flat"
+      variant="secondary"
       onPress={onClick}
       isDisabled={disabled}
       aria-busy={busy || undefined}
       aria-label={typeof children === "string" ? children : undefined}
-      startContent={<Icon name={icon} size={13} className={cx(busy && "animate-spin")} />}
     >
+      <Icon name={icon} size={13} className={cx(busy && "animate-spin")} />
       {children}
     </Button>
   );

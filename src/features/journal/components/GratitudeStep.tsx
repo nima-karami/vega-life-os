@@ -28,11 +28,11 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
       className="flex w-full max-w-md flex-col gap-6 px-4 py-10"
     >
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="grid h-12 w-12 place-items-center rounded-full bg-content2 text-primary">
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-surface-secondary text-accent">
           <Icon name="heart" size={22} />
         </div>
         <div>
-          <p className="text-small text-default-500">{relativeDay(date, todayISO())}</p>
+          <p className="text-sm text-muted">{relativeDay(date, todayISO())}</p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             What are you grateful for today?
           </h1>
@@ -42,7 +42,7 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
       <GratitudeFields value={slots} onChange={setSlots} autoFocus />
 
       <Button
-        color="primary"
+        variant="primary"
         size="lg"
         className="w-full"
         isDisabled={!canContinue}
@@ -51,7 +51,7 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
         Continue to today
       </Button>
       {!canContinue && (
-        <p className="text-center text-tiny text-default-400">Add at least one to continue.</p>
+        <p className="text-center text-xs text-muted">Add at least one to continue.</p>
       )}
     </section>
   );

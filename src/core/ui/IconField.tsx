@@ -1,4 +1,4 @@
-import { Button, Input } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
@@ -66,9 +66,13 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
     setActive((i) => Math.min(i, Math.max(0, flatNames.length - 1)));
   }, [flatNames.length]);
 
-  // Auto-focus search on open.
+  // Auto-focus search on open. Retry on the next frame in case the input ref
+  // isn't attached yet (panel mounting inside a just-opened dialog).
   useEffect(() => {
-    if (open) searchRef.current?.focus();
+    if (!open) return;
+    searchRef.current?.focus();
+    const id = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(id);
   }, [open]);
 
   const pick = (icon: IconName) => {
@@ -121,8 +125,17 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
   const onSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      if (searching) setQuery("");
-      else collapse(true);
+      // Stop the Escape from bubbling to an enclosing Modal/dialog, which would
+      // otherwise also dismiss the editor the icon panel lives inside.
+      e.stopPropagation();
+      if (searching) {
+        setQuery("");
+        // Keep focus pinned to the search box across the re-render so the
+        // transient blur doesn't escape the field and collapse the panel.
+        searchRef.current?.focus();
+      } else {
+        collapse(true);
+      }
       return;
     }
     if (e.key === "ArrowDown" && flatNames.length > 0) {
@@ -132,9 +145,24 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
   };
 
   // Focus leaving the whole field (Tab out / click elsewhere in the editor)
-  // collapses without changing the selection.
+  // collapses without changing the selection. A blur with a null relatedTarget
+  // is a transient re-render blur (controlled input updating) — re-check the live
+  // activeElement on the next frame so we never collapse while focus is still in
+  // the field, which would race the two-step Esc.
   const onBlurCapture = (e: React.FocusEvent) => {
-    if (!rootRef.current?.contains(e.relatedTarget as Node | null)) collapse(false);
+    const next = e.relatedTarget as Node | null;
+    if (next) {
+      if (!rootRef.current?.contains(next)) collapse(false);
+      return;
+    }
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      // Only collapse if focus genuinely left the field for the document body
+      // (a real click on empty space), not a transient null-blur mid-render.
+      if (active && active !== document.body && !rootRef.current?.contains(active)) {
+        collapse(false);
+      }
+    });
   };
 
   return (
@@ -143,25 +171,20 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
         ref={triggerRef}
         type="button"
         size="sm"
-        variant="bordered"
+        variant="outline"
         isDisabled={isDisabled}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={`${label}: change`}
         onPress={() => (open ? collapse(false) : openPanel())}
-        startContent={<Icon name={value} size={16} />}
-        endContent={
-          <Icon
-            name="chevD"
-            size={14}
-            className={cx(
-              "transition-transform motion-reduce:transition-none",
-              open && "rotate-180",
-            )}
-          />
-        }
       >
+        <Icon name={value} size={16} />
         Change
+        <Icon
+          name="chevD"
+          size={14}
+          className={cx("transition-transform motion-reduce:transition-none", open && "rotate-180")}
+        />
       </Button>
 
       <p aria-live="polite" aria-atomic="true" className="sr-only">
@@ -169,20 +192,24 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
       </p>
 
       {open && (
-        <div id={panelId} className="rounded-medium border border-divider bg-content1 p-2">
-          <Input
-            ref={searchRef}
-            size="sm"
-            variant="bordered"
-            aria-label="Search icons"
-            placeholder="Search icons…"
-            value={query}
-            onValueChange={setQuery}
-            onKeyDown={onSearchKeyDown}
-            startContent={<Icon name="search" size={14} className="text-default-400" />}
-            isClearable
-            onClear={() => setQuery("")}
-          />
+        <div id={panelId} className="rounded-[12px] border border-border bg-surface p-2">
+          <div className="relative">
+            <Icon
+              name="search"
+              size={14}
+              className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 text-muted"
+            />
+            <input
+              ref={searchRef}
+              type="text"
+              aria-label="Search icons"
+              placeholder="Search icons…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onSearchKeyDown}
+              className="w-full rounded-[12px] border border-border bg-surface py-2 pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent"
+            />
+          </div>
 
           <p aria-live="polite" className="sr-only">
             {searching ? `${results.length} ${results.length === 1 ? "icon" : "icons"}` : ""}
@@ -191,7 +218,7 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
           <div className="mt-2 max-h-64 overflow-y-auto overscroll-contain pr-1">
             {searching ? (
               results.length === 0 ? (
-                <p className="px-1 py-6 text-center text-tiny text-default-500">
+                <p className="px-1 py-6 text-center text-xs text-muted">
                   No icons match “{query.trim()}”
                 </p>
               ) : (
@@ -260,7 +287,7 @@ function offsetBefore(groups: ReturnType<typeof groupedCatalog>, index: number):
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-tiny text-default-500">{label}</p>
+      <p className="text-xs text-muted">{label}</p>
       {children}
     </div>
   );
@@ -310,11 +337,11 @@ function IconGrid({
             onFocus={() => onFocusCell(flatIndex)}
             onClick={() => onPick(name)}
             className={cx(
-              "grid aspect-square min-h-[44px] place-items-center rounded-medium border transition-colors",
-              "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-content1",
+              "grid aspect-square min-h-[44px] place-items-center rounded-[12px] border transition-colors",
+              "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
               selected
-                ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1 ring-offset-content1"
-                : "border-divider text-default-500 hover:border-primary",
+                ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent ring-offset-1 ring-offset-surface"
+                : "border-border text-muted hover:border-accent",
             )}
           >
             <Icon name={name} size={18} />

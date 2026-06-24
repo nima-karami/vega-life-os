@@ -1,4 +1,4 @@
-import { Button, Chip, Input } from "@heroui/react";
+import { Button } from "@heroui/react";
 import {
   endOfMonth,
   endOfWeek,
@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { alignOf } from "@/core/lib/align";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { Icon, Label, NONE, Select } from "@/core/ui";
+import { cx, Icon, Label, NONE, Select } from "@/core/ui";
 import type { Task } from "../model";
 
 export type DateRange = "all" | "today" | "week" | "month";
@@ -102,33 +102,33 @@ export function TaskFilterBar({
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
       {/* search */}
-      <Input
-        value={filters.query}
-        onValueChange={(query) => set({ query })}
-        placeholder="Search tasks…"
-        aria-label="Search tasks"
-        variant="flat"
-        size="sm"
-        startContent={<Icon name="search" size={14} className="text-default-400" />}
-        className="w-full sm:w-52"
-      />
+      <div className="relative w-full sm:w-52">
+        <Icon
+          name="search"
+          size={14}
+          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
+        />
+        <input
+          type="text"
+          value={filters.query}
+          onChange={(e) => set({ query: e.target.value })}
+          placeholder="Search tasks…"
+          aria-label="Search tasks"
+          className="h-9 w-full rounded-[12px] border border-border bg-surface pl-8 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
+        />
+      </div>
 
       {/* date range */}
       <div className="flex items-center gap-1.5">
         <Label>When</Label>
         {RANGES.map((r) => (
-          <Chip
+          <ChipToggle
             key={r.id}
-            as="button"
-            type="button"
-            size="sm"
-            radius="full"
-            variant={filters.range === r.id ? "solid" : "flat"}
-            color={filters.range === r.id ? "primary" : "default"}
-            onClick={() => set({ range: r.id })}
+            active={filters.range === r.id}
+            onPress={() => set({ range: r.id })}
           >
             {r.label}
-          </Chip>
+          </ChipToggle>
         ))}
       </div>
 
@@ -162,32 +162,45 @@ export function TaskFilterBar({
       <div className="flex items-center gap-1.5">
         <Label>Type</Label>
         {TYPES.map((t) => (
-          <Chip
-            key={t.id}
-            as="button"
-            type="button"
-            size="sm"
-            radius="full"
-            variant={filters.type === t.id ? "solid" : "flat"}
-            color={filters.type === t.id ? "primary" : "default"}
-            onClick={() => set({ type: t.id })}
-          >
+          <ChipToggle key={t.id} active={filters.type === t.id} onPress={() => set({ type: t.id })}>
             {t.label}
-          </Chip>
+          </ChipToggle>
         ))}
       </div>
 
       {active && (
-        <Button
-          type="button"
-          size="sm"
-          variant="light"
-          startContent={<Icon name="close" size={14} />}
-          onPress={onClear}
-        >
+        <Button type="button" size="sm" variant="ghost" onPress={onClear}>
+          <Icon name="close" size={14} />
           Clear
         </Button>
       )}
     </div>
+  );
+}
+
+/** Calm pill toggle — a native button styled like a chip, with aria-pressed for SR state. */
+function ChipToggle({
+  active,
+  onPress,
+  children,
+}: {
+  active: boolean;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onPress}
+      className={cx(
+        "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "bg-accent text-accent-foreground"
+          : "bg-surface-secondary text-muted hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }

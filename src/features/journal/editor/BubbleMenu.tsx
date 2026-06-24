@@ -128,7 +128,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
       {linkOpen ? (
         <form
           onSubmit={applyLink}
-          className="flex items-center gap-1 rounded-medium border border-divider bg-content1 p-1 shadow-medium"
+          className="flex items-center gap-1 rounded-[12px] border border-border bg-surface p-1 shadow-md"
         >
           <input
             ref={linkInputRef}
@@ -137,11 +137,11 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
             onKeyDown={(e) => e.key === "Escape" && setLinkOpen(false)}
             placeholder="https://…"
             aria-label="Link URL"
-            className="h-8 w-52 rounded-small bg-transparent px-2 text-small text-foreground outline-none placeholder:text-default-400"
+            className="h-8 w-52 rounded-[8px] bg-transparent px-2 text-sm text-foreground outline-none placeholder:text-muted"
           />
           <button
             type="submit"
-            className="grid h-8 w-8 place-items-center rounded-small text-primary hover:bg-primary/10"
+            className="grid h-8 w-8 place-items-center rounded-[8px] text-accent hover:bg-accent/10"
             aria-label="Apply link"
           >
             <Link2 size={15} />
@@ -153,7 +153,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
                 editor.chain().focus().extendMarkRange("link").unsetLink().run();
                 setLinkOpen(false);
               }}
-              className="grid h-8 w-8 place-items-center rounded-small text-danger hover:bg-danger/10"
+              className="grid h-8 w-8 place-items-center rounded-[8px] text-danger hover:bg-danger/10"
               aria-label="Remove link"
             >
               <Link2Off size={15} />
@@ -164,7 +164,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
         <div
           role="toolbar"
           aria-label="Text formatting"
-          className="flex items-center gap-0.5 rounded-medium border border-divider bg-content1 p-1 shadow-medium"
+          className="flex items-center gap-0.5 rounded-[12px] border border-border bg-surface p-1 shadow-md"
         >
           {MARKS.map((m) => {
             const MarkIcon = m.icon;
@@ -179,10 +179,10 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
                   e.preventDefault();
                   m.toggle(editor);
                 }}
-                className={`grid h-8 w-8 place-items-center rounded-small ${
+                className={`grid h-8 w-8 place-items-center rounded-[8px] ${
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-default-600 hover:bg-content2"
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted hover:bg-surface-secondary"
                 }`}
               >
                 <MarkIcon size={15} strokeWidth={2} />
@@ -198,10 +198,10 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
               e.preventDefault();
               openLink();
             }}
-            className={`grid h-8 w-8 place-items-center rounded-small ${
+            className={`grid h-8 w-8 place-items-center rounded-[8px] ${
               linkActive
-                ? "bg-primary text-primary-foreground"
-                : "text-default-600 hover:bg-content2"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted hover:bg-surface-secondary"
             }`}
           >
             <Link2 size={15} strokeWidth={2} />

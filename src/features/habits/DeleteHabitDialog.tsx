@@ -1,6 +1,5 @@
-import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/react";
 import { useStore } from "@/core/store";
-import { useCompactModal } from "@/core/ui";
+import { ConfirmDialog } from "@/core/ui";
 import type { Habit } from "./model";
 import { habitInstances } from "./selectors";
 
@@ -22,7 +21,6 @@ export function DeleteHabitDialog({ habit, isOpen, onClose, onDeleted }: DeleteH
   const pushToast = useStore((s) => s.pushToast);
 
   const instanceCount = habitInstances(tasks, habit.id).length;
-  const responsive = useCompactModal("sm");
 
   const onConfirm = () => {
     removeHabit(habit.id);
@@ -31,29 +29,21 @@ export function DeleteHabitDialog({ habit, isOpen, onClose, onDeleted }: DeleteH
     onDeleted();
   };
 
+  const detail =
+    instanceCount > 0
+      ? `This removes it and its ${instanceCount} scheduled task${instanceCount === 1 ? "" : "s"}. This can't be undone.`
+      : "This removes it and its scheduled tasks. This can't be undone.";
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} role="alertdialog" backdrop="blur" {...responsive}>
-      <ModalContent>
-        <ModalHeader className="text-base font-semibold">Delete “{habit.name}”?</ModalHeader>
-        <ModalBody>
-          <p className="text-sm text-default-500">
-            This removes it
-            {instanceCount > 0
-              ? ` and its ${instanceCount} scheduled task${instanceCount === 1 ? "" : "s"}.`
-              : " and its scheduled tasks."}{" "}
-            This can&apos;t be undone.
-          </p>
-        </ModalBody>
-        <ModalFooter>
-          {/* Cancel gets initial focus (safer default for a destructive dialog). */}
-          <Button variant="light" onPress={onClose} autoFocus>
-            Cancel
-          </Button>
-          <Button color="danger" onPress={onConfirm}>
-            Delete
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+    <ConfirmDialog
+      open={isOpen}
+      title={`Delete “${habit.name}”?`}
+      body={detail}
+      confirmLabel="Delete"
+      cancelLabel="Cancel"
+      danger
+      onConfirm={onConfirm}
+      onClose={onClose}
+    />
   );
 }

@@ -1,5 +1,7 @@
-import type { ModalProps } from "@heroui/react";
+import type { Modal } from "@heroui/react";
 import { useEffect, useState } from "react";
+
+type ContainerProps = Modal["ContainerProps"];
 
 const COMPACT_QUERY = "(max-width: 639px)";
 
@@ -18,14 +20,16 @@ export function useCompact(): boolean {
 }
 
 /**
- * Responsive HeroUI Modal props: a full-screen sheet on a phone (sticky header +
- * footer, inside-scrolling body, actions stay above the keyboard) and a centered
- * dialog on ≥ sm — desktop rendering is unchanged. Spread onto a `<Modal>`; pass
- * `size` to override the centered (desktop) size.
+ * Responsive HeroUI v3 Modal.Container props: a full-screen sheet on a phone
+ * (inside-scrolling body, actions stay above the keyboard) and a centered dialog
+ * on ≥ sm — desktop rendering is unchanged. Spread onto a `<Modal.Container>`;
+ * pass `size` to override the centered (desktop) size.
  */
-export function useCompactModal(size: ModalProps["size"] = "md"): Partial<ModalProps> {
+export function useCompactModal(
+  size: ContainerProps["size"] = "md",
+): Pick<ContainerProps, "size" | "scroll" | "placement"> {
   const compact = useCompact();
   return compact
-    ? { size: "full", scrollBehavior: "inside", placement: "center" }
-    : { size, scrollBehavior: "inside", placement: "center" };
+    ? { size: "full", scroll: "inside", placement: "center" }
+    : { size, scroll: "inside", placement: "center" };
 }

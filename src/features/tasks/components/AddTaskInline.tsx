@@ -1,4 +1,4 @@
-import { Button, Card, CardBody, Input } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { AddButton, Label, NONE, Select } from "@/core/ui";
@@ -87,82 +87,79 @@ export function AddTaskInline({
   }
 
   return (
-    <Card shadow="sm" radius="lg" className="border border-divider bg-content1">
-      <CardBody
-        as="form"
-        aria-label="Add a task"
-        className="gap-4 p-4"
-        onSubmit={(e: React.FormEvent) => {
-          e.preventDefault();
-          commit();
-        }}
-        onKeyDown={(e: React.KeyboardEvent) => {
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            close();
-          }
-        }}
-      >
-        <Input
-          ref={titleRef}
-          value={draft.title}
-          onValueChange={(title) => setDraft((d) => ({ ...d, title }))}
-          maxLength={200}
-          placeholder="What needs doing today?"
-          aria-label="Task title"
-          variant="flat"
-          size="lg"
-        />
+    <form
+      aria-label="Add a task"
+      className="flex flex-col gap-4 rounded-[16px] border border-border bg-surface p-4"
+      onSubmit={(e: React.FormEvent) => {
+        e.preventDefault();
+        commit();
+      }}
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          close();
+        }
+      }}
+    >
+      <input
+        ref={titleRef}
+        type="text"
+        value={draft.title}
+        onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+        maxLength={200}
+        placeholder="What needs doing today?"
+        aria-label="Task title"
+        className="h-11 w-full rounded-[12px] border border-border bg-surface px-3 text-lg text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
+      />
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Picker label="Value">
-            <Select
-              ariaLabel="Value"
-              value={draft.valueId ?? NONE}
-              onValueChange={(v) => chooseValue(v === NONE ? null : v)}
-              placeholder="None"
-              options={[
-                { value: NONE, label: "None" },
-                ...values.map((v) => ({ value: v.id, label: v.name })),
-              ]}
-            />
-          </Picker>
-          <Picker label="Goal">
-            <Select
-              ariaLabel="Goal"
-              value={draft.goalId ?? NONE}
-              onValueChange={(v) => setDraft((d) => ({ ...d, goalId: v === NONE ? null : v }))}
-              placeholder="None"
-              options={[
-                { value: NONE, label: "None" },
-                ...valueGoals.map((g) => ({ value: g.id, label: g.name })),
-              ]}
-            />
-          </Picker>
-          <Picker label="Habit">
-            <Select
-              ariaLabel="Habit"
-              value={draft.habitId ?? NONE}
-              onValueChange={(v) => chooseHabit(v === NONE ? null : v)}
-              placeholder="None"
-              options={[
-                { value: NONE, label: "None" },
-                ...habits.map((h) => ({ value: h.id, label: h.name })),
-              ]}
-            />
-          </Picker>
-        </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <Picker label="Value">
+          <Select
+            ariaLabel="Value"
+            value={draft.valueId ?? NONE}
+            onValueChange={(v) => chooseValue(v === NONE ? null : v)}
+            placeholder="None"
+            options={[
+              { value: NONE, label: "None" },
+              ...values.map((v) => ({ value: v.id, label: v.name })),
+            ]}
+          />
+        </Picker>
+        <Picker label="Goal">
+          <Select
+            ariaLabel="Goal"
+            value={draft.goalId ?? NONE}
+            onValueChange={(v) => setDraft((d) => ({ ...d, goalId: v === NONE ? null : v }))}
+            placeholder="None"
+            options={[
+              { value: NONE, label: "None" },
+              ...valueGoals.map((g) => ({ value: g.id, label: g.name })),
+            ]}
+          />
+        </Picker>
+        <Picker label="Habit">
+          <Select
+            ariaLabel="Habit"
+            value={draft.habitId ?? NONE}
+            onValueChange={(v) => chooseHabit(v === NONE ? null : v)}
+            placeholder="None"
+            options={[
+              { value: NONE, label: "None" },
+              ...habits.map((h) => ({ value: h.id, label: h.name })),
+            ]}
+          />
+        </Picker>
+      </div>
 
-        <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="light" onPress={close}>
-            Cancel
-          </Button>
-          <Button type="submit" color="primary" isDisabled={!canCommit}>
-            Add task
-          </Button>
-        </div>
-      </CardBody>
-    </Card>
+      <div className="flex items-center justify-end gap-2">
+        <Button type="button" variant="ghost" onPress={close}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" isDisabled={!canCommit}>
+          Add task
+        </Button>
+      </div>
+    </form>
   );
 }
 

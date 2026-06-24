@@ -33,7 +33,7 @@ export function Disclosure({
         type="button"
         aria-expanded={open}
         onClick={toggle}
-        className="flex items-center gap-1 text-small text-default-500 transition-colors hover:text-foreground"
+        className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
       >
         {open ? `Hide ${label}` : `Show ${label} (${count})`}
         <Icon
