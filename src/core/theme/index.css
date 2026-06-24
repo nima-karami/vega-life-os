@@ -153,6 +153,109 @@
     background: var(--color-surface);
     border: 1px solid var(--color-line);
   }
+
+  /* Notion-style journal prose — shared by the editor (ProseMirror) and the
+     read-only render. Calm typographic scale on HeroUI tokens. */
+  .journal-prose {
+    color: hsl(var(--heroui-foreground));
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+  .journal-prose :first-child {
+    margin-top: 0;
+  }
+  .journal-prose h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 1.3em 0 0.5em;
+  }
+  .journal-prose h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 1.2em 0 0.4em;
+  }
+  .journal-prose h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 1.1em 0 0.3em;
+  }
+  .journal-prose p {
+    margin: 0.5em 0;
+  }
+  .journal-prose ul,
+  .journal-prose ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+  }
+  .journal-prose ul {
+    list-style: disc;
+  }
+  .journal-prose ol {
+    list-style: decimal;
+  }
+  .journal-prose li {
+    margin: 0.15em 0;
+  }
+  .journal-prose ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0.25em;
+  }
+  .journal-prose ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+  }
+  .journal-prose ul[data-type="taskList"] li > label {
+    margin-top: 0.3em;
+    user-select: none;
+  }
+  .journal-prose ul[data-type="taskList"] li > div {
+    flex: 1 1 auto;
+  }
+  .journal-prose blockquote {
+    border-left: 3px solid hsl(var(--heroui-default-300));
+    padding-left: 1em;
+    margin: 0.8em 0;
+    color: hsl(var(--heroui-default-500));
+  }
+  .journal-prose code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: hsl(var(--heroui-default-100));
+    padding: 0.15em 0.35em;
+    border-radius: 0.3em;
+  }
+  .journal-prose pre {
+    font-family: var(--font-mono);
+    background: hsl(var(--heroui-default-100));
+    padding: 0.8em 1em;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin: 0.8em 0;
+  }
+  .journal-prose pre code {
+    background: none;
+    padding: 0;
+  }
+  .journal-prose hr {
+    border: none;
+    border-top: 1px solid hsl(var(--heroui-divider));
+    margin: 1.2em 0;
+  }
+  .journal-prose a {
+    color: hsl(var(--heroui-primary));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  /* Placeholder shown on the empty editor (TipTap Placeholder extension). */
+  .journal-prose p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--heroui-default-400));
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
 }
 
 @layer utilities {

@@ -1,10 +1,10 @@
 // src/features/journal/components/ReflectionStep.tsx
-import { Button, Textarea } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useState } from "react";
 import { relativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Icon, Label } from "@/core/ui";
-import { JOURNAL_MAX } from "../model";
+import { RichJournalEditor } from "../editor";
 import { MoodPicker } from "./MoodPicker";
 
 /** Full-screen end-of-day reflection. Save writes mood+journal; Skip is minimal. */
@@ -33,7 +33,7 @@ export function ReflectionStep({
   return (
     <section
       aria-label="Reflect on today"
-      className="mx-auto flex min-h-[60vh] w-full max-w-md flex-col justify-center gap-6 px-4 py-10"
+      className="mx-auto flex min-h-[60vh] w-full max-w-xl flex-col justify-center gap-6 px-4 py-10"
     >
       <div className="flex flex-col items-center gap-3 text-center">
         <div className="grid h-12 w-12 place-items-center rounded-full bg-content2 text-primary">
@@ -59,15 +59,13 @@ export function ReflectionStep({
 
       <div>
         <Label className="mb-2">Journal</Label>
-        <Textarea
-          value={journal}
-          onValueChange={setJournal}
-          aria-label="Journal"
-          placeholder="A line or two on how the day went…"
-          variant="bordered"
-          minRows={4}
-          maxLength={JOURNAL_MAX}
-        />
+        <div className="rounded-medium border border-divider bg-content1 px-3 py-2">
+          <RichJournalEditor
+            value={journal}
+            onChange={setJournal}
+            placeholder="A line or two on how the day went… type / for commands"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col items-center gap-3">

@@ -1,5 +1,6 @@
 import { Button, Card, CardBody } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
@@ -13,8 +14,6 @@ import {
 } from "@/core/ui";
 import { habitStreak } from "@/features/habits";
 import {
-  DayEditor,
-  type DayEntry,
   dayReflectable,
   entryStatus,
   GratitudeStep,
@@ -51,6 +50,8 @@ export function TodayPage() {
   const [viewDate, setViewDate] = useState(today);
   const isToday = viewDate === today;
 
+  const navigate = useNavigate();
+
   const tasks = useStore((s) => s.tasks);
   const setStatus = useStore((s) => s.setStatus);
   const updateTask = useStore((s) => s.updateTask);
@@ -58,7 +59,6 @@ export function TodayPage() {
   const addTask = useStore((s) => s.addTask);
 
   const journal = useStore((s) => s.journal);
-  const restoreDayEntry = useStore((s) => s.restoreDayEntry);
 
   const todayEntry = journal.find((e) => e.date === today);
   const viewEntry = journal.find((e) => e.date === viewDate);
@@ -66,9 +66,7 @@ export function TodayPage() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [announce, setAnnounce] = useState("");
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
-  const [journalOpen, setJournalOpen] = useState(false);
   const [reflectSkipped, setReflectSkipped] = useState(false);
-  const [pendingJournalUndo, setPendingJournalUndo] = useState<DayEntry | null>(null);
 
   const showGratitudeGate = isToday && !hasGratitude(todayEntry);
   const showReflection =
@@ -100,12 +98,6 @@ export function TodayPage() {
     const id = setTimeout(() => setPendingUndo(null), 6000);
     return () => clearTimeout(id);
   }, [pendingUndo]);
-
-  useEffect(() => {
-    if (!pendingJournalUndo) return;
-    const id = setTimeout(() => setPendingJournalUndo(null), 6000);
-    return () => clearTimeout(id);
-  }, [pendingJournalUndo]);
 
   function handleToggleDone(task: Task) {
     const next = toggleDone(task);
@@ -157,16 +149,6 @@ export function TodayPage() {
           {announce}
         </div>
         <GratitudeStep date={today} onContinue={() => setAnnounce("Gratitude saved")} />
-        {pendingJournalUndo && (
-          <UndoBar
-            message="Entry deleted"
-            onUndo={() => {
-              restoreDayEntry(pendingJournalUndo);
-              setPendingJournalUndo(null);
-              setAnnounce("Entry restored");
-            }}
-          />
-        )}
       </div>
     );
   }
@@ -301,7 +283,7 @@ export function TodayPage() {
         <Button
           variant="flat"
           startContent={<Icon name="note" size={15} />}
-          onPress={() => setJournalOpen(true)}
+          onPress={() => navigate(`/journal/${viewDate}`)}
         >
           {entryStatus(viewEntry) === "none" ? "Journal" : "Edit entry"}
           {entryStatus(viewEntry) !== "none" && (
@@ -311,26 +293,6 @@ export function TodayPage() {
       </div>
 
       {pendingUndo && <UndoBar message="Task deleted" onUndo={undoDelete} />}
-
-      <DayEditor
-        date={viewDate}
-        open={journalOpen}
-        onClose={() => setJournalOpen(false)}
-        onDeleted={(entry) => {
-          setPendingJournalUndo(entry);
-          setAnnounce("Entry deleted");
-        }}
-      />
-      {pendingJournalUndo && (
-        <UndoBar
-          message="Entry deleted"
-          onUndo={() => {
-            restoreDayEntry(pendingJournalUndo);
-            setPendingJournalUndo(null);
-            setAnnounce("Entry restored");
-          }}
-        />
-      )}
 
       <TaskDrawer task={editingTask} onClose={() => setEditing(null)} />
     </div>

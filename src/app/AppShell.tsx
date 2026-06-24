@@ -9,9 +9,12 @@ export function AppShell() {
   const gated = useStore((s) => gratitudeRequired(s.journal, todayISO()));
   const { pathname } = useLocation();
   const onToday = pathname === "/" || pathname === "/today";
+  // The journal page is allowlisted: gratitude written there satisfies the gate
+  // reactively (it reads s.journal), dismissing the overlay with no extra wiring.
+  const onJournal = pathname.startsWith("/journal/");
 
   // Hard morning gate: every other route bounces to /today's gratitude step.
-  if (gated && !onToday) return <Navigate to="/today" replace />;
+  if (gated && !onToday && !onJournal) return <Navigate to="/today" replace />;
 
   // Header (search bar + account menu) is dropped while gated. Keep it a sibling of
   // <main> so <main>'s tree position is stable and TodayPage isn't remounted on toggle.

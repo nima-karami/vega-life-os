@@ -1,7 +1,11 @@
-import { Input } from "@heroui/react";
+import { Textarea } from "@heroui/react";
 import { GRATITUDE_ITEM_MAX, GRATITUDE_SLOTS } from "../model";
 
-/** GRATITUDE_SLOTS text inputs bound to a single string[]; pads to slot count. */
+/**
+ * GRATITUDE_SLOTS auto-growing text areas bound to a single string[]; pads to
+ * slot count. Multiline so long entries wrap and stay fully visible (the old
+ * single-line Input truncated anything past a sentence).
+ */
 export function GratitudeFields({
   value,
   onChange,
@@ -20,7 +24,7 @@ export function GratitudeFields({
   return (
     <div className="flex flex-col gap-2">
       {slots.map((slot, i) => (
-        <Input
+        <Textarea
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length positional slots
           key={i}
           value={slot}
@@ -29,6 +33,8 @@ export function GratitudeFields({
           placeholder={i === 0 ? "Something you're grateful for…" : "And…"}
           variant="bordered"
           radius="md"
+          minRows={1}
+          maxRows={8}
           maxLength={GRATITUDE_ITEM_MAX}
           autoFocus={autoFocus && i === 0}
         />

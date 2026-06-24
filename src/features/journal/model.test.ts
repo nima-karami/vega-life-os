@@ -48,6 +48,12 @@ describe("predicates", () => {
   });
 });
 
+describe("limits", () => {
+  it("JOURNAL_MAX gives rich-writing room (50k)", () => {
+    expect(JOURNAL_MAX).toBe(50_000);
+  });
+});
+
 describe("mergeDayEntry", () => {
   it("creates a new entry from a patch (stamps timestamps + id)", () => {
     const out = mergeDayEntry(undefined, "2026-06-22", { gratitude: ["sun"] }, "t1");

@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { HabitsPage } from "@/features/habits/HabitsPage";
+import { JournalPage } from "@/features/journal";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { TodayPage } from "@/features/today/TodayPage";
 import { ValuesView } from "@/features/values";
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
           { path: "values", element: <ValuesView /> },
           { path: "habits", element: <HabitsPage /> },
           { path: "calendar", element: <CalendarPage /> },
+          { path: "journal/:date", element: <JournalPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "settings", element: <SettingsPage /> },
           // Catch removed routes + unknown paths → 404 recovery
