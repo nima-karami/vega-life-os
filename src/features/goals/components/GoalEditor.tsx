@@ -15,33 +15,13 @@ import {
   ModalHeader,
 } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
-import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { cx, DatePicker, Icon, Select, SortableList } from "@/core/ui";
-import { EditorField, FractionSlider, IconPicker } from "@/features/values/components/editor-bits";
+import { cx, DatePicker, Icon, IconField, Select, SortableList } from "@/core/ui";
+import { EditorField, FractionSlider } from "@/features/values/components/editor-bits";
 import type { Subgoal } from "../model";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
 import { goalProgressIsDerived, goalProgressPercent, statusChangePatch } from "../presentation";
 import { detectTimeframe, periodLabel, presetRange, type Timeframe } from "../timeframe";
-
-const GOAL_ICONS: IconName[] = [
-  "target",
-  "briefcase",
-  "book",
-  "heart",
-  "flash",
-  "chart",
-  "spark",
-  "compass",
-  "eye",
-  "shield",
-  "languages",
-  "repeat",
-  "globe",
-  "sliders",
-  "card",
-  "flame",
-];
 
 const TF_CHIPS: { id: Timeframe; label: string }[] = [
   { id: "quarter", label: "Quarter" },
@@ -240,11 +220,7 @@ export function GoalEditor({
 
               {/* icon */}
               <EditorField label="Icon">
-                <IconPicker
-                  value={goal.icon}
-                  options={GOAL_ICONS}
-                  onSelect={(icon) => update(goal.id, { icon })}
-                />
+                <IconField value={goal.icon} onSelect={(icon) => update(goal.id, { icon })} />
               </EditorField>
             </ModalBody>
 

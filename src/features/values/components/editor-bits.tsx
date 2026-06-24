@@ -4,7 +4,6 @@
  * editors don't copy-paste picker markup (keeps jscpd duplication low).
  */
 import { Slider } from "@heroui/react";
-import type { IconName } from "@/core/lib/icon-names";
 import { cx, Icon } from "@/core/ui";
 
 /** Section wrapper with a small, quiet label above its control (sentence case). */
@@ -13,49 +12,6 @@ export function EditorField({ label, children }: { label: string; children: Reac
     <div className="space-y-2">
       <span className="text-tiny text-default-500">{label}</span>
       {children}
-    </div>
-  );
-}
-
-/**
- * Accessible icon picker — a radiogroup of icon cells. Selection is shown with
- * a filled (primary) cell + ring, never colour alone; each cell is aria-labelled.
- */
-export function IconPicker({
-  value,
-  options,
-  onSelect,
-  label = "Icon",
-}: {
-  value: IconName;
-  options: IconName[];
-  onSelect: (icon: IconName) => void;
-  label?: string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={label} className="grid grid-cols-8 gap-1.5">
-      {options.map((ic) => {
-        const selected = value === ic;
-        return (
-          // biome-ignore lint/a11y/useSemanticElements: a visual icon grid; a native radio input can't render the glyph cell, so the ARIA radio pattern is intentional
-          <button
-            type="button"
-            key={ic}
-            role="radio"
-            aria-checked={selected}
-            aria-label={ic}
-            onClick={() => onSelect(ic)}
-            className={cx(
-              "grid aspect-square place-items-center rounded-medium border transition-colors",
-              selected
-                ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-1 ring-offset-content1"
-                : "border-divider text-default-500 hover:border-primary",
-            )}
-          >
-            <Icon name={ic} size={16} />
-          </button>
-        );
-      })}
     </div>
   );
 }

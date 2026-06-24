@@ -11,9 +11,9 @@ import {
   SelectItem,
 } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
-import { ICON_NAMES, type IconName } from "@/core/lib/icon-names";
+import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { DurationStepper, Icon, TimePicker } from "@/core/ui";
+import { DurationStepper, Icon, IconField, TimePicker } from "@/core/ui";
 import { goalsForValue } from "@/features/goals/selectors";
 import { valueColor } from "@/features/values/color";
 import {
@@ -272,33 +272,15 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                 </Select>
               </div>
 
-              {/* Icon picker — fieldset/legend names the group; toggle buttons
-                  expose selection via aria-pressed (single-select enforced in handler) */}
-              <fieldset>
-                <legend className="mb-1.5 block text-tiny text-default-500">Icon</legend>
-                <div className="flex flex-wrap gap-1.5">
-                  {ICON_NAMES.map((name) => {
-                    const selected = draft.icon === name;
-                    return (
-                      <button
-                        type="button"
-                        key={name}
-                        aria-pressed={selected}
-                        aria-label={name}
-                        disabled={isArchived}
-                        onClick={() => set("icon", name)}
-                        className={`grid h-8 w-8 place-items-center rounded-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          selected
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-content2 text-default-500 hover:bg-content3"
-                        }`}
-                      >
-                        <Icon name={name} size={15} />
-                      </button>
-                    );
-                  })}
-                </div>
-              </fieldset>
+              {/* Icon */}
+              <div>
+                <span className="mb-1.5 block text-tiny text-default-500">Icon</span>
+                <IconField
+                  value={draft.icon}
+                  onSelect={(icon) => set("icon", icon)}
+                  isDisabled={isArchived}
+                />
+              </div>
 
               {/* Schedule: weekday picker + time + duration */}
               <fieldset>

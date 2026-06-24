@@ -16,29 +16,10 @@ import {
 import { useEffect, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { Icon } from "@/core/ui";
+import { Icon, IconField } from "@/core/ui";
 import { VALUE_HUES, VALUE_PALETTE, valueColor } from "../color";
 import type { Value } from "../model";
-import { EditorField, HuePicker, IconPicker } from "./editor-bits";
-
-const VALUE_ICONS: IconName[] = [
-  "compass",
-  "heart",
-  "shield",
-  "eye",
-  "target",
-  "briefcase",
-  "book",
-  "spark",
-  "flame",
-  "sun",
-  "moon",
-  "orbit",
-  "languages",
-  "repeat",
-  "chart",
-  "globe",
-];
+import { EditorField, HuePicker } from "./editor-bits";
 
 interface ValueDraft {
   name: string;
@@ -140,11 +121,7 @@ export function ValueEditor({
               />
 
               <EditorField label="Icon">
-                <IconPicker
-                  value={view.icon}
-                  options={VALUE_ICONS}
-                  onSelect={(icon) => setField({ icon })}
-                />
+                <IconField value={view.icon} onSelect={(icon) => setField({ icon })} />
               </EditorField>
 
               <EditorField label="Marker hue">

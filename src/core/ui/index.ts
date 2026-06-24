@@ -5,6 +5,7 @@ export { ContextMenu, FloatingMenu } from "./contextmenu";
 export { cx } from "./cx";
 export { Disclosure } from "./Disclosure";
 export { CalendarPopover, DatePicker, DurationStepper, TimePicker, TimeRange } from "./datetime";
+export { IconField } from "./IconField";
 export { Ic, Icon } from "./icons";
 export { Lineage, valueStripeStyle } from "./lineage";
 export type { MenuItem } from "./menu";
