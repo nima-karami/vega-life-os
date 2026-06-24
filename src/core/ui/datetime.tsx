@@ -15,6 +15,7 @@ import { minutesOf } from "@/core/lib/date";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 import { Popover } from "./popover";
+import { stepValue } from "./stepper";
 
 const DOW = [
   { key: "mon", label: "M" },
@@ -327,13 +328,12 @@ export function DurationStepper({
     const m = mins % 60;
     return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
   };
-  const set = (v: number) => onChange(Math.min(max, Math.max(min, v)));
   return (
     <PickerField label={label}>
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => set(value - step)}
+          onClick={() => onChange(stepValue(value, -1, { step, min, max }))}
           aria-label="Decrease duration"
           className="grid h-6 w-6 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)] text-[var(--color-muted)] transition-colors duration-150 hover:border-[var(--color-accent)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)] disabled:opacity-30"
           disabled={value <= min}
@@ -345,7 +345,7 @@ export function DurationStepper({
         </span>
         <button
           type="button"
-          onClick={() => set(value + step)}
+          onClick={() => onChange(stepValue(value, 1, { step, min, max }))}
           aria-label="Increase duration"
           className="grid h-6 w-6 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)] text-[var(--color-muted)] transition-colors duration-150 hover:border-[var(--color-accent)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)] disabled:opacity-30"
           disabled={value >= max}

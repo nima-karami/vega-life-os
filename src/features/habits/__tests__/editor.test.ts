@@ -80,8 +80,10 @@ describe("validateDraft", () => {
     expect(validateDraft({ ...base, name: "   " }).name).toBeTruthy();
   });
 
-  it("rejects a duration below 1", () => {
+  it("rejects a duration below 15 minutes", () => {
     expect(validateDraft({ ...base, durationMin: 0 }).durationMin).toBeTruthy();
+    expect(validateDraft({ ...base, durationMin: 10 }).durationMin).toBeTruthy();
+    expect(validateDraft({ ...base, durationMin: 15 }).durationMin).toBeUndefined();
   });
 });
 

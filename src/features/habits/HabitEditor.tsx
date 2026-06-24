@@ -385,7 +385,8 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                       <DurationStepper
                         label="duration"
                         value={draft.durationMin}
-                        min={1}
+                        step={15}
+                        min={15}
                         max={1440}
                         onChange={(v) => set("durationMin", v)}
                       />

@@ -55,8 +55,8 @@ export interface DraftValidation {
 export function validateDraft(draft: { name: string; durationMin: number }): DraftValidation {
   const errors: DraftValidation = {};
   if (!draft.name.trim()) errors.name = "Name is required";
-  if (!Number.isFinite(draft.durationMin) || draft.durationMin < 1) {
-    errors.durationMin = "Duration must be at least 1 minute";
+  if (!Number.isFinite(draft.durationMin) || draft.durationMin < 15) {
+    errors.durationMin = "Duration must be at least 15 minutes";
   }
   return errors;
 }
