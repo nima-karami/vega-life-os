@@ -150,6 +150,7 @@ import {
   Send,
   Server,
   Shield,
+  ShieldCheck,
   Ship,
   SlidersHorizontal,
   Smartphone,
@@ -164,6 +165,7 @@ import {
   Store,
   Sun,
   Tag,
+  Target,
   Telescope,
   Tent,
   Terminal,
@@ -228,7 +230,7 @@ export const Ic: Record<IconName, LucideIcon> = {
   archive: Archive,
 
   // Focus & goals
-  target: Crosshair,
+  target: Target,
   compass: Compass,
   flag: Flag,
   trophy: Trophy,
@@ -415,7 +417,7 @@ export const Ic: Record<IconName, LucideIcon> = {
   shield: Shield,
   eye: Eye,
   zap: Zap,
-  "anchor-2": Anchor,
+  "anchor-2": ShieldCheck,
   infinity: InfinityIcon,
   orbit: Orbit,
   languages: Languages,

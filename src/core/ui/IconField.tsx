@@ -24,6 +24,7 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [liveMsg, setLiveMsg] = useState("");
 
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -55,6 +56,11 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
     if (returnFocus) triggerRef.current?.focus();
   };
 
+  const openPanel = () => {
+    setLiveMsg("");
+    setOpen(true);
+  };
+
   // Keep the active index in range as the result set changes.
   useEffect(() => {
     setActive((i) => Math.min(i, Math.max(0, flatNames.length - 1)));
@@ -66,6 +72,7 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
   }, [open]);
 
   const pick = (icon: IconName) => {
+    setLiveMsg(`Selected ${icon}`);
     onSelect(icon);
     collapse(true);
   };
@@ -141,7 +148,7 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={`${label}: change`}
-        onPress={() => (open ? collapse(false) : setOpen(true))}
+        onPress={() => (open ? collapse(false) : openPanel())}
         startContent={<Icon name={value} size={16} />}
         endContent={
           <Icon
@@ -156,6 +163,10 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
       >
         Change
       </Button>
+
+      <p aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveMsg}
+      </p>
 
       {open && (
         <div id={panelId} className="rounded-medium border border-divider bg-content1 p-2">
