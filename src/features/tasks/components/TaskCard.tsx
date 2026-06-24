@@ -112,15 +112,10 @@ export function TaskCard({
 
       {/* Overflow menu — keyboard path for skip / reorder / delete */}
       <Menu
-        trigger={
-          <button
-            type="button"
-            aria-label={`Actions for ${task.title}`}
-            className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-[12px] text-muted opacity-0 transition-opacity hover:bg-surface-secondary focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <Icon name="dots" size={16} />
-          </button>
-        }
+        isIconOnly
+        triggerLabel={`Actions for ${task.title}`}
+        triggerClassName="mt-0.5 shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+        triggerContent={<Icon name="dots" size={16} />}
         items={menuItems}
       />
     </Card>

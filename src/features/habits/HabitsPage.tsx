@@ -1,4 +1,4 @@
-import { Button, Card } from "@heroui/react";
+import { Card } from "@heroui/react";
 import { useCallback, useMemo, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
@@ -242,17 +242,10 @@ function HabitCard({
         </button>
         <Menu
           align="end"
-          trigger={
-            <Button
-              isIconOnly
-              variant="ghost"
-              size="sm"
-              aria-label={`Actions for ${habit.name}`}
-              className="shrink-0 text-muted"
-            >
-              <Icon name="dots" size={16} />
-            </Button>
-          }
+          isIconOnly
+          triggerLabel={`Actions for ${habit.name}`}
+          triggerClassName="shrink-0"
+          triggerContent={<Icon name="dots" size={16} />}
           items={menuItems}
         />
       </Card.Content>

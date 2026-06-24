@@ -1,4 +1,4 @@
-import { Button, SearchField } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
@@ -66,9 +66,13 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
     setActive((i) => Math.min(i, Math.max(0, flatNames.length - 1)));
   }, [flatNames.length]);
 
-  // Auto-focus search on open.
+  // Auto-focus search on open. Retry on the next frame in case the input ref
+  // isn't attached yet (panel mounting inside a just-opened dialog).
   useEffect(() => {
-    if (open) searchRef.current?.focus();
+    if (!open) return;
+    searchRef.current?.focus();
+    const id = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(id);
   }, [open]);
 
   const pick = (icon: IconName) => {
@@ -121,8 +125,17 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
   const onSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      if (searching) setQuery("");
-      else collapse(true);
+      // Stop the Escape from bubbling to an enclosing Modal/dialog, which would
+      // otherwise also dismiss the editor the icon panel lives inside.
+      e.stopPropagation();
+      if (searching) {
+        setQuery("");
+        // Keep focus pinned to the search box across the re-render so the
+        // transient blur doesn't escape the field and collapse the panel.
+        searchRef.current?.focus();
+      } else {
+        collapse(true);
+      }
       return;
     }
     if (e.key === "ArrowDown" && flatNames.length > 0) {
@@ -132,9 +145,24 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
   };
 
   // Focus leaving the whole field (Tab out / click elsewhere in the editor)
-  // collapses without changing the selection.
+  // collapses without changing the selection. A blur with a null relatedTarget
+  // is a transient re-render blur (controlled input updating) — re-check the live
+  // activeElement on the next frame so we never collapse while focus is still in
+  // the field, which would race the two-step Esc.
   const onBlurCapture = (e: React.FocusEvent) => {
-    if (!rootRef.current?.contains(e.relatedTarget as Node | null)) collapse(false);
+    const next = e.relatedTarget as Node | null;
+    if (next) {
+      if (!rootRef.current?.contains(next)) collapse(false);
+      return;
+    }
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      // Only collapse if focus genuinely left the field for the document body
+      // (a real click on empty space), not a transient null-blur mid-render.
+      if (active && active !== document.body && !rootRef.current?.contains(active)) {
+        collapse(false);
+      }
+    });
   };
 
   return (
@@ -165,20 +193,23 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
 
       {open && (
         <div id={panelId} className="rounded-[12px] border border-border bg-surface p-2">
-          <SearchField
-            aria-label="Search icons"
-            value={query}
-            onChange={setQuery}
-            onKeyDown={onSearchKeyDown}
-          >
-            <SearchField.Group>
-              <SearchField.SearchIcon>
-                <Icon name="search" size={14} className="text-muted" />
-              </SearchField.SearchIcon>
-              <SearchField.Input ref={searchRef} placeholder="Search icons…" />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
+          <div className="relative">
+            <Icon
+              name="search"
+              size={14}
+              className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 text-muted"
+            />
+            <input
+              ref={searchRef}
+              type="text"
+              aria-label="Search icons"
+              placeholder="Search icons…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onSearchKeyDown}
+              className="w-full rounded-[12px] border border-border bg-surface py-2 pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent"
+            />
+          </div>
 
           <p aria-live="polite" className="sr-only">
             {searching ? `${results.length} ${results.length === 1 ? "icon" : "icons"}` : ""}

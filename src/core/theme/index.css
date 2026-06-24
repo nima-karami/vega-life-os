@@ -109,6 +109,14 @@
     border-color: var(--color-line);
     box-sizing: border-box;
   }
+
+  /* A modal/alert-dialog backdrop animating out (~100ms) must not keep
+     intercepting clicks on the surface below it — otherwise a control revealed
+     right after close (e.g. an Undo bar) is briefly unclickable. */
+  .modal__backdrop[data-exiting="true"],
+  .alert-dialog__backdrop[data-exiting="true"] {
+    pointer-events: none;
+  }
   html,
   body,
   #root {

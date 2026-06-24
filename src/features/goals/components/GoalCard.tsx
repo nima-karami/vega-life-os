@@ -106,15 +106,9 @@ export function GoalCard({
         </Chip>
         <Menu
           align="end"
-          trigger={
-            <button
-              type="button"
-              aria-label="Goal actions"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-[12px] text-muted hover:bg-surface-secondary hover:text-foreground"
-            >
-              <Icon name="dots" size={15} />
-            </button>
-          }
+          isIconOnly
+          triggerLabel="Goal actions"
+          triggerContent={<Icon name="dots" size={15} />}
           items={[
             { label: "Edit details", icon: "edit", onSelect: onEdit },
             { label: "Delete goal", icon: "trash", danger: true, onSelect: onDelete },

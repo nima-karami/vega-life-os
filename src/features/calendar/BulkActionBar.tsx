@@ -74,12 +74,13 @@ export function BulkActionBar({
             Reschedule…
           </Button>
           <Menu
-            trigger={
-              <Button size="sm" variant="secondary">
+            triggerContent={
+              <>
                 <Icon name="check" size={14} />
                 Set status
-              </Button>
+              </>
             }
+            triggerClassName="text-foreground"
             items={STATUS_CHOICES.map((s) => ({
               label: STATUS_LABEL[s],
               onSelect: () => onSetStatus(s),

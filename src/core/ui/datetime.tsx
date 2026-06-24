@@ -100,13 +100,14 @@ export function DatePicker({
         value={value}
         onChange={onChange}
         align="start"
-        trigger={
-          <button type="button" className={triggerCx}>
+        triggerClassName={triggerCx}
+        triggerContent={
+          <>
             <span className={value ? "" : "text-[var(--color-muted)]"}>
               {value ? format(parseISO(value), "EEE · MMM d, yyyy") : "No date"}
             </span>
             <Icon name="calendar" size={13} className="shrink-0 text-[var(--color-muted)]" />
-          </button>
+          </>
         }
       />
     </PickerField>
@@ -121,13 +122,17 @@ export function DatePicker({
 export function CalendarPopover({
   value,
   onChange,
-  trigger,
+  triggerContent,
+  triggerClassName,
+  triggerLabel,
   align = "start",
   showClear = true,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
-  trigger: React.ReactNode;
+  triggerContent: React.ReactNode;
+  triggerClassName?: string;
+  triggerLabel?: string;
   align?: "start" | "end";
   showClear?: boolean;
 }) {
@@ -142,7 +147,14 @@ export function CalendarPopover({
   const today = new Date();
 
   return (
-    <Popover open={open} onOpenChange={setOpen} align={align} trigger={trigger}>
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      align={align}
+      triggerContent={triggerContent}
+      triggerClassName={triggerClassName}
+      triggerLabel={triggerLabel}
+    >
       <div className="w-[252px] p-3">
         <div className="flex items-center justify-between">
           <button
@@ -260,11 +272,12 @@ export function TimePicker({
         open={open}
         onOpenChange={setOpen}
         align="start"
-        trigger={
-          <button type="button" className={triggerCx}>
+        triggerClassName={triggerCx}
+        triggerContent={
+          <>
             <span className={value ? "" : "text-[var(--color-muted)]"}>{value ?? "No time"}</span>
             <Icon name="clock" size={13} className="shrink-0 text-[var(--color-muted)]" />
-          </button>
+          </>
         }
       >
         <div ref={colRef} className="flex max-h-[240px] w-[128px] flex-col overflow-y-auto p-1.5">
@@ -406,8 +419,9 @@ export function TimeRange({
         open={open}
         onOpenChange={setOpen}
         align="start"
-        trigger={
-          <button type="button" className={triggerCx}>
+        triggerClassName={triggerCx}
+        triggerContent={
+          <>
             <span className={value.time ? "" : "text-[var(--color-muted)]"}>
               {value.time && end != null ? `${value.time} – ${fmtMin(end)}` : "No time"}
             </span>
@@ -419,7 +433,7 @@ export function TimeRange({
               )}
               <Icon name="clock" size={13} className="text-[var(--color-muted)]" />
             </span>
-          </button>
+          </>
         }
       >
         <div className="w-[228px] p-1.5">

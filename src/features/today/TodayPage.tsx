@@ -186,18 +186,9 @@ export function TodayPage() {
               onChange={(v) => v && setViewDate(v)}
               showClear={false}
               align="end"
-              trigger={
-                // Plain <button> (not IconButton) so HeroUI's PopoverTrigger can
-                // attach its ref and anchor the popover. Styled to match the chevrons.
-                <button
-                  type="button"
-                  aria-label="Pick a date"
-                  title="Pick a date"
-                  className="inline-grid h-8 w-8 place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-default/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                  <Icon name="calendar" size={16} />
-                </button>
-              }
+              triggerLabel="Pick a date"
+              triggerClassName="inline-grid h-8 w-8 place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+              triggerContent={<Icon name="calendar" size={16} />}
             />
             <IconButton
               name="chevR"

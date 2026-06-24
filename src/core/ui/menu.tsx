@@ -1,6 +1,7 @@
 import { Dropdown } from "@heroui/react";
 import type { ReactNode } from "react";
 import type { IconName } from "@/core/lib/icon-names";
+import { cx } from "./cx";
 import { Icon } from "./icons";
 
 export interface MenuItem {
@@ -13,16 +14,25 @@ export interface MenuItem {
 }
 
 /**
- * Row/overflow action menu on HeroUI v3 Dropdown (near-default look) —
- * keyboard-navigable and on the same overlay system as HeroUI Modal. API
- * unchanged. v3 collection items carry an explicit `id` + `textValue`.
+ * Row/overflow action menu on HeroUI v3 Dropdown. In v3 `Dropdown.Trigger` IS the
+ * trigger button (built on react-aria), so the trigger must be its *content*
+ * (icon/label), never a nested <button>. `triggerContent` is rendered inside the
+ * trigger; `triggerClassName`/`triggerLabel`/`isIconOnly` style it. v3 collection
+ * items carry an explicit `id` + `textValue`.
  */
 export function Menu({
-  trigger,
+  triggerContent,
+  triggerLabel,
+  triggerClassName,
+  isIconOnly,
   items,
   align = "end",
 }: {
-  trigger: ReactNode;
+  triggerContent: ReactNode;
+  triggerLabel?: string;
+  triggerClassName?: string;
+  /** Pads/sizes the trigger as a square icon button. */
+  isIconOnly?: boolean;
   items: MenuItem[];
   align?: "start" | "center" | "end";
 }) {
@@ -31,7 +41,16 @@ export function Menu({
 
   return (
     <Dropdown>
-      <Dropdown.Trigger>{trigger}</Dropdown.Trigger>
+      <Dropdown.Trigger
+        aria-label={triggerLabel}
+        className={cx(
+          "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium text-muted transition-colors outline-none hover:bg-surface-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent data-[hovered=true]:text-foreground",
+          isIconOnly ? "h-8 w-8 shrink-0" : "px-3 py-1.5",
+          triggerClassName,
+        )}
+      >
+        {triggerContent}
+      </Dropdown.Trigger>
       <Dropdown.Popover placement={placement} offset={6}>
         <Dropdown.Menu aria-label="Actions">
           {items.map((it) => (

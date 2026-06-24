@@ -165,7 +165,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                 )}
               </Modal.Body>
 
-              <Modal.Footer className="justify-between">
+              <Modal.Footer className="justify-between" render={(props) => <footer {...props} />}>
                 <div className="flex gap-1">
                   <Button
                     type="button"

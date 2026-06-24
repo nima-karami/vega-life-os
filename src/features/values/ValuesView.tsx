@@ -352,15 +352,9 @@ function ValueCard({
           )}
           <Menu
             align="end"
-            trigger={
-              <button
-                type="button"
-                aria-label={`${value.name} actions`}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-[12px] text-muted hover:bg-surface-secondary hover:text-foreground"
-              >
-                <Icon name="dots" size={16} />
-              </button>
-            }
+            isIconOnly
+            triggerLabel={`${value.name} actions`}
+            triggerContent={<Icon name="dots" size={16} />}
             items={
               archived
                 ? [
