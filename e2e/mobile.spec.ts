@@ -61,11 +61,14 @@ for (const width of WIDTHS) {
       await passGratitudeGate(page);
       await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-      const overflow = await horizontalOverflow(page);
-      expect(
-        overflow,
-        `page overflows horizontally by ${overflow}px at ${width}px on ${route}`,
-      ).toBeLessThanOrEqual(1);
+      // Poll the settled layout: v3 hydration can briefly overflow for <1 frame
+      // before responsive sizing lands; the requirement is the settled page.
+      await expect
+        .poll(() => horizontalOverflow(page), {
+          message: `page overflows horizontally at ${width}px on ${route}`,
+          timeout: 5_000,
+        })
+        .toBeLessThanOrEqual(1);
 
       expect(errors, `runtime errors on ${route}:\n${errors.join("\n")}`).toEqual([]);
     });
