@@ -177,7 +177,7 @@ function AnalyticsSection() {
         {/* weekly trend */}
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Weekly trend" meta={`${weeks} wk`} />
-          <div className="mt-4">
+          <div className="mt-4 overflow-x-auto">
             {enoughWeekly ? (
               <Sparkline
                 points={weekly}

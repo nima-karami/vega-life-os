@@ -104,8 +104,7 @@ export function SortableList<T>({
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    // Touch needs a press-and-hold so a quick swipe scrolls instead of dragging
-    // (WCAG 2.5.7 — keyboard reorder via the handle remains the non-drag path).
+    // Press-and-hold on touch lets quick swipes scroll rather than drag (WCAG 2.5.7).
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );

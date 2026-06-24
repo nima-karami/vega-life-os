@@ -274,7 +274,7 @@
   }
   /* Lift a bottom-fixed bar above the home indicator (adds to existing offset). */
   .safe-mb {
-    margin-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .text-balance {
     text-wrap: balance;

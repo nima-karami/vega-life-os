@@ -88,8 +88,8 @@ test("header search trigger and account control do not overlap (360px)", async (
   // They must not horizontally overlap: the trigger ends before the account starts.
   expect(a.x + a.width, "search trigger overlaps the account control").toBeLessThanOrEqual(b.x + 1);
   // Account control is a comfortable tap target.
-  expect(b.width).toBeGreaterThanOrEqual(40);
-  expect(b.height).toBeGreaterThanOrEqual(40);
+  expect(b.width).toBeGreaterThanOrEqual(44);
+  expect(b.height).toBeGreaterThanOrEqual(44);
 });
 
 test("habit editor opens as a sheet, scrolls, keeps title + actions visible, and closes (360px)", async ({
@@ -140,4 +140,23 @@ test("calendar shows a single-day view with day navigation and no page overflow 
   // Page body does not scroll sideways (the grid scrolls inside its own region).
   const overflow = await horizontalOverflow(page);
   expect(overflow, `calendar page overflows by ${overflow}px`).toBeLessThanOrEqual(1);
+});
+
+test("analytics sparkline/charts are in a contained-scroll region (360px)", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.goto("/analytics", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // The page itself must not overflow horizontally.
+  const overflow = await horizontalOverflow(page);
+  expect(overflow, `analytics page overflows by ${overflow}px`).toBeLessThanOrEqual(1);
+
+  // The sparkline wrapper has overflow-x-auto so the fixed-width SVG is scroll-contained.
+  const sparklineContainer = page.locator(".overflow-x-auto").first();
+  await expect(sparklineContainer).toBeAttached();
+  const containerBox = await sparklineContainer.boundingBox();
+  if (containerBox) {
+    expect(containerBox.width).toBeLessThanOrEqual(360 + 1);
+  }
 });

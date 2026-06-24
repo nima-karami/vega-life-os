@@ -22,8 +22,7 @@ export function AppShell() {
     <div className="safe-inset-x safe-pt flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {!gated && (
         <header className="relative shrink-0 px-4 pt-5 pb-3">
-          {/* Reserve room on the right for the absolute account avatar so the
-              search trigger never slides under it on a narrow phone. */}
+          {/* Reserve right space so the search trigger doesn't slide under the avatar. */}
           <div className="mx-auto w-full max-w-2xl pr-11 sm:pr-0">
             <OmniTrigger />
           </div>

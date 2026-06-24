@@ -231,15 +231,13 @@ export const SlashMenu = Extension.create({
               popup.style.right = "0";
               popup.style.bottom = "0";
               popup.style.paddingBottom = "env(safe-area-inset-bottom)";
-              popup.style.background = "hsl(var(--heroui-content1))";
-              popup.style.borderTop = "1px solid hsl(var(--heroui-divider))";
+              popup.classList.add("bg-content1", "border-t", "border-divider");
               return;
             }
             popup.style.position = "absolute";
             popup.style.inset = "";
-            popup.style.background = "";
-            popup.style.borderTop = "";
             popup.style.paddingBottom = "";
+            popup.classList.remove("bg-content1", "border-t", "border-divider");
             const r = rect?.();
             if (!r) return;
             popup.style.top = `${r.bottom + 6 + window.scrollY}px`;
