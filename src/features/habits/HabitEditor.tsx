@@ -175,254 +175,255 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   });
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur" />
-      <Modal.Container {...responsive}>
-        <Modal.Dialog aria-label={isCreate ? "New habit" : "Edit habit"}>
-          {!habitExists ? (
-            <>
-              <Modal.Header>
-                <Modal.Heading>This habit no longer exists</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
-                <p className="text-sm text-muted">
-                  It was removed elsewhere. You can close this and create a new one.
-                </p>
-              </Modal.Body>
-              <Modal.Footer>
-                <Button variant="ghost" onPress={onClose}>
-                  Close
-                </Button>
-              </Modal.Footer>
-            </>
-          ) : (
-            <>
-              <Modal.Header className="flex flex-col gap-1">
-                <Modal.Heading className="text-lg font-semibold">
-                  {draft.name.trim() || "New habit"}
-                </Modal.Heading>
-                <span className="text-xs font-normal text-muted">
-                  {recurrenceLabel(draft.days)} · {draft.time ?? ANYTIME_LABEL}
-                </span>
-              </Modal.Header>
-
-              <Modal.Body className="gap-4 space-y-4">
-                {/* Archived banner — editing a retired habit is gated behind unarchive,
-                  because archived habits don't regenerate instances. */}
-                {isArchived && habit && (
-                  <ArchivedBanner
-                    onUnarchive={() => {
-                      unarchiveHabit(habit.id);
-                      pushToast("Habit unarchived");
-                    }}
-                  />
-                )}
-
-                {/* Name */}
-                <label className="block space-y-1.5">
-                  <span className="text-xs text-muted">Name</span>
-                  <input
-                    ref={nameRef}
-                    type="text"
-                    placeholder="What do you want to repeat?"
-                    value={draft.name}
-                    onChange={(e) => set("name", e.target.value)}
-                    maxLength={120}
-                    aria-invalid={touched && !!errors.name}
-                    disabled={isArchived}
-                    className={cx(
-                      FIELD_CLASS,
-                      touched &&
-                        errors.name &&
-                        "border-danger focus:border-danger focus:ring-danger",
-                    )}
-                  />
-                  {touched && errors.name && <p className="text-xs text-danger">{errors.name}</p>}
-                </label>
-
-                {/* Value + Goal */}
-                <div className="flex flex-wrap gap-3">
-                  <div
-                    className={cx(
-                      "min-w-[160px] flex-1 space-y-1.5",
-                      isArchived && "pointer-events-none opacity-50",
-                    )}
-                  >
-                    <span className="text-xs text-muted">Value</span>
-                    <Select
-                      ariaLabel="Value"
-                      value={draft.valueId || NONE}
-                      onValueChange={(v) => onValueChange(v === NONE ? "" : v)}
-                      options={[
-                        { value: NONE, label: "No value" },
-                        ...values.map((v) => ({
-                          value: v.id,
-                          label: v.name,
-                          hue: valueColor(v),
-                        })),
-                      ]}
-                    />
-                  </div>
-
-                  <div
-                    className={cx(
-                      "min-w-[160px] flex-1 space-y-1.5",
-                      (isArchived || !draft.valueId) && "pointer-events-none opacity-50",
-                    )}
-                  >
-                    <span className="text-xs text-muted">Goal</span>
-                    <Select
-                      ariaLabel="Goal"
-                      value={draft.goalId ?? NONE}
-                      onValueChange={(v) => set("goalId", v === NONE ? null : v)}
-                      options={[
-                        { value: NONE, label: "No goal" },
-                        ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                {/* Icon */}
-                <div>
-                  <span className="mb-1.5 block text-xs text-muted">Icon</span>
-                  <IconField
-                    value={draft.icon}
-                    onSelect={(icon) => set("icon", icon)}
-                    isDisabled={isArchived}
-                  />
-                </div>
-
-                {/* Schedule: weekday picker + time + duration */}
-                <fieldset>
-                  <legend className="mb-1.5 block text-xs text-muted">Active days</legend>
-                  <div className="flex gap-1.5">
-                    {WEEKDAYS.map((d, i) => {
-                      const on = !!draft.days[i];
-                      return (
-                        <button
-                          type="button"
-                          key={d.full}
-                          aria-pressed={on}
-                          aria-label={d.full}
-                          disabled={isArchived}
-                          onClick={() => toggleDay(i)}
-                          className={`grid h-9 w-9 place-items-center rounded-[12px] text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                            on
-                              ? "bg-accent text-accent-foreground"
-                              : "bg-surface-secondary text-muted hover:bg-muted"
-                          }`}
-                        >
-                          {d.short}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {!activeDays && (
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
-                      <Icon name="alert" size={13} />
-                      No active days — this won&apos;t create any tasks.
-                    </p>
-                  )}
-                </fieldset>
-
-                {/* When: scheduled (has a time → calendar slot) vs anytime (no time → daily strip) */}
-                <div>
-                  <span className="mb-1.5 block text-xs text-muted">When</span>
-                  <ButtonGroup fullWidth>
-                    <Button
-                      size="sm"
-                      aria-pressed={draft.time != null}
-                      variant={draft.time != null ? "primary" : "outline"}
-                      isDisabled={isArchived}
-                      onPress={() => set("time", draft.time ?? "09:00")}
-                    >
-                      Scheduled
-                    </Button>
-                    <Button
-                      size="sm"
-                      aria-pressed={draft.time == null}
-                      variant={draft.time == null ? "primary" : "outline"}
-                      isDisabled={isArchived}
-                      onPress={() => set("time", null)}
-                    >
-                      Anytime
-                    </Button>
-                  </ButtonGroup>
-                  {draft.time == null && (
-                    <p className="mt-1.5 text-xs text-muted">
-                      No set time — tracked in your daily habits, off the calendar.
-                    </p>
-                  )}
-                </div>
-
-                {/* Time + duration only apply to a scheduled (timed) habit. */}
-                {draft.time != null && (
-                  <div
-                    className={`flex flex-col gap-1.5 ${
-                      isArchived ? "pointer-events-none opacity-50" : ""
-                    }`}
-                  >
-                    <div className="flex flex-wrap gap-3">
-                      <div className="min-w-[140px] flex-1">
-                        <TimePicker
-                          label="time"
-                          value={draft.time}
-                          clearable={false}
-                          onChange={(v) => v && set("time", v)}
-                        />
-                      </div>
-                      <div className="min-w-[140px] flex-1">
-                        <DurationStepper
-                          label="duration"
-                          value={draft.durationMin}
-                          step={15}
-                          min={15}
-                          max={1440}
-                          onChange={(v) => set("durationMin", v)}
-                        />
-                      </div>
-                    </div>
-                    {touched && errors.durationMin && (
-                      <p className="text-xs text-danger">{errors.durationMin}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Conflict note — advisory, never blocks Save. Lives in an aria-live
-                  region so SR users hear it update as days/time change. */}
-                <ConflictNote text={conflictText} />
-
-                {/* Detached advisory */}
-                {detached > 0 && (
-                  <p className="text-xs text-muted">
-                    {detached} instance{detached === 1 ? " was" : "s were"} customized and
-                    won&apos;t change.
+      <Modal.Backdrop variant="blur">
+        <Modal.Container {...responsive}>
+          <Modal.Dialog aria-label={isCreate ? "New habit" : "Edit habit"}>
+            {!habitExists ? (
+              <>
+                <Modal.Header>
+                  <Modal.Heading>This habit no longer exists</Modal.Heading>
+                </Modal.Header>
+                <Modal.Body>
+                  <p className="text-sm text-muted">
+                    It was removed elsewhere. You can close this and create a new one.
                   </p>
-                )}
-              </Modal.Body>
-
-              <Modal.Footer className={isCreate ? "justify-end" : "justify-between"}>
-                {!isCreate && (
-                  <Button variant="danger-soft" onPress={onRequestDelete}>
-                    <Icon name="trash" size={15} />
-                    Delete
-                  </Button>
-                )}
-                <div className="flex gap-2">
+                </Modal.Body>
+                <Modal.Footer>
                   <Button variant="ghost" onPress={onClose}>
-                    {isArchived ? "Close" : "Cancel"}
+                    Close
                   </Button>
-                  {!isArchived && (
-                    <Button variant="primary" isDisabled={touched && hasErrors} onPress={onSave}>
-                      {isCreate ? "Create habit" : "Save"}
+                </Modal.Footer>
+              </>
+            ) : (
+              <>
+                <Modal.Header className="flex flex-col gap-1">
+                  <Modal.Heading className="text-lg font-semibold">
+                    {draft.name.trim() || "New habit"}
+                  </Modal.Heading>
+                  <span className="text-xs font-normal text-muted">
+                    {recurrenceLabel(draft.days)} · {draft.time ?? ANYTIME_LABEL}
+                  </span>
+                </Modal.Header>
+
+                <Modal.Body className="gap-4 space-y-4">
+                  {/* Archived banner — editing a retired habit is gated behind unarchive,
+                  because archived habits don't regenerate instances. */}
+                  {isArchived && habit && (
+                    <ArchivedBanner
+                      onUnarchive={() => {
+                        unarchiveHabit(habit.id);
+                        pushToast("Habit unarchived");
+                      }}
+                    />
+                  )}
+
+                  {/* Name */}
+                  <label className="block space-y-1.5">
+                    <span className="text-xs text-muted">Name</span>
+                    <input
+                      ref={nameRef}
+                      type="text"
+                      placeholder="What do you want to repeat?"
+                      value={draft.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      maxLength={120}
+                      aria-invalid={touched && !!errors.name}
+                      disabled={isArchived}
+                      className={cx(
+                        FIELD_CLASS,
+                        touched &&
+                          errors.name &&
+                          "border-danger focus:border-danger focus:ring-danger",
+                      )}
+                    />
+                    {touched && errors.name && <p className="text-xs text-danger">{errors.name}</p>}
+                  </label>
+
+                  {/* Value + Goal */}
+                  <div className="flex flex-wrap gap-3">
+                    <div
+                      className={cx(
+                        "min-w-[160px] flex-1 space-y-1.5",
+                        isArchived && "pointer-events-none opacity-50",
+                      )}
+                    >
+                      <span className="text-xs text-muted">Value</span>
+                      <Select
+                        ariaLabel="Value"
+                        value={draft.valueId || NONE}
+                        onValueChange={(v) => onValueChange(v === NONE ? "" : v)}
+                        options={[
+                          { value: NONE, label: "No value" },
+                          ...values.map((v) => ({
+                            value: v.id,
+                            label: v.name,
+                            hue: valueColor(v),
+                          })),
+                        ]}
+                      />
+                    </div>
+
+                    <div
+                      className={cx(
+                        "min-w-[160px] flex-1 space-y-1.5",
+                        (isArchived || !draft.valueId) && "pointer-events-none opacity-50",
+                      )}
+                    >
+                      <span className="text-xs text-muted">Goal</span>
+                      <Select
+                        ariaLabel="Goal"
+                        value={draft.goalId ?? NONE}
+                        onValueChange={(v) => set("goalId", v === NONE ? null : v)}
+                        options={[
+                          { value: NONE, label: "No goal" },
+                          ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Icon */}
+                  <div>
+                    <span className="mb-1.5 block text-xs text-muted">Icon</span>
+                    <IconField
+                      value={draft.icon}
+                      onSelect={(icon) => set("icon", icon)}
+                      isDisabled={isArchived}
+                    />
+                  </div>
+
+                  {/* Schedule: weekday picker + time + duration */}
+                  <fieldset>
+                    <legend className="mb-1.5 block text-xs text-muted">Active days</legend>
+                    <div className="flex gap-1.5">
+                      {WEEKDAYS.map((d, i) => {
+                        const on = !!draft.days[i];
+                        return (
+                          <button
+                            type="button"
+                            key={d.full}
+                            aria-pressed={on}
+                            aria-label={d.full}
+                            disabled={isArchived}
+                            onClick={() => toggleDay(i)}
+                            className={`grid h-9 w-9 place-items-center rounded-[12px] text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                              on
+                                ? "bg-accent text-accent-foreground"
+                                : "bg-surface-secondary text-muted hover:bg-muted"
+                            }`}
+                          >
+                            {d.short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!activeDays && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
+                        <Icon name="alert" size={13} />
+                        No active days — this won&apos;t create any tasks.
+                      </p>
+                    )}
+                  </fieldset>
+
+                  {/* When: scheduled (has a time → calendar slot) vs anytime (no time → daily strip) */}
+                  <div>
+                    <span className="mb-1.5 block text-xs text-muted">When</span>
+                    <ButtonGroup fullWidth>
+                      <Button
+                        size="sm"
+                        aria-pressed={draft.time != null}
+                        variant={draft.time != null ? "primary" : "outline"}
+                        isDisabled={isArchived}
+                        onPress={() => set("time", draft.time ?? "09:00")}
+                      >
+                        Scheduled
+                      </Button>
+                      <Button
+                        size="sm"
+                        aria-pressed={draft.time == null}
+                        variant={draft.time == null ? "primary" : "outline"}
+                        isDisabled={isArchived}
+                        onPress={() => set("time", null)}
+                      >
+                        Anytime
+                      </Button>
+                    </ButtonGroup>
+                    {draft.time == null && (
+                      <p className="mt-1.5 text-xs text-muted">
+                        No set time — tracked in your daily habits, off the calendar.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Time + duration only apply to a scheduled (timed) habit. */}
+                  {draft.time != null && (
+                    <div
+                      className={`flex flex-col gap-1.5 ${
+                        isArchived ? "pointer-events-none opacity-50" : ""
+                      }`}
+                    >
+                      <div className="flex flex-wrap gap-3">
+                        <div className="min-w-[140px] flex-1">
+                          <TimePicker
+                            label="time"
+                            value={draft.time}
+                            clearable={false}
+                            onChange={(v) => v && set("time", v)}
+                          />
+                        </div>
+                        <div className="min-w-[140px] flex-1">
+                          <DurationStepper
+                            label="duration"
+                            value={draft.durationMin}
+                            step={15}
+                            min={15}
+                            max={1440}
+                            onChange={(v) => set("durationMin", v)}
+                          />
+                        </div>
+                      </div>
+                      {touched && errors.durationMin && (
+                        <p className="text-xs text-danger">{errors.durationMin}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Conflict note — advisory, never blocks Save. Lives in an aria-live
+                  region so SR users hear it update as days/time change. */}
+                  <ConflictNote text={conflictText} />
+
+                  {/* Detached advisory */}
+                  {detached > 0 && (
+                    <p className="text-xs text-muted">
+                      {detached} instance{detached === 1 ? " was" : "s were"} customized and
+                      won&apos;t change.
+                    </p>
+                  )}
+                </Modal.Body>
+
+                <Modal.Footer className={isCreate ? "justify-end" : "justify-between"}>
+                  {!isCreate && (
+                    <Button variant="danger-soft" onPress={onRequestDelete}>
+                      <Icon name="trash" size={15} />
+                      Delete
                     </Button>
                   )}
-                </div>
-              </Modal.Footer>
-            </>
-          )}
-        </Modal.Dialog>
-      </Modal.Container>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" onPress={onClose}>
+                      {isArchived ? "Close" : "Cancel"}
+                    </Button>
+                    {!isArchived && (
+                      <Button variant="primary" isDisabled={touched && hasErrors} onPress={onSave}>
+                        {isCreate ? "Create habit" : "Save"}
+                      </Button>
+                    )}
+                  </div>
+                </Modal.Footer>
+              </>
+            )}
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

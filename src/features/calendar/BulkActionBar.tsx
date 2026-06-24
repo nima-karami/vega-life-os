@@ -109,95 +109,99 @@ export function BulkActionBar({
 
       {/* Reschedule — shift the whole selection by the delta to a new anchor start */}
       <Modal state={rescheduleState}>
-        <Modal.Backdrop variant="blur" />
-        <Modal.Container {...responsive}>
-          <Modal.Dialog aria-label="Reschedule selected tasks">
-            <Modal.Header className="flex-col items-start gap-0.5">
-              <Modal.Heading className="text-base font-semibold text-foreground">
-                Reschedule {count}
-              </Modal.Heading>
-              <span className="text-sm font-normal text-muted">
-                The rest shift by the same amount.
-              </span>
-            </Modal.Header>
-            <Modal.Body className="gap-3 pb-6">
-              {reschedule && (
-                <>
-                  <DatePicker
-                    label="anchor day"
-                    value={reschedule.date || null}
-                    onChange={(date) => date && setReschedule({ ...reschedule, date })}
-                  />
-                  <TimePicker
-                    label="anchor time"
-                    value={reschedule.time}
-                    clearable={false}
-                    onChange={(time) => time && setReschedule({ ...reschedule, time })}
-                  />
-                  <Button
-                    variant="primary"
-                    isDisabled={!reschedule.date}
-                    onPress={() => {
-                      onReschedule(reschedule.date, reschedule.time);
-                      setReschedule(null);
-                    }}
-                  >
-                    Move {count} {count === 1 ? "task" : "tasks"}
-                  </Button>
-                </>
-              )}
-            </Modal.Body>
-          </Modal.Dialog>
-        </Modal.Container>
+        <Modal.Backdrop variant="blur">
+          <Modal.Container {...responsive}>
+            <Modal.Dialog aria-label="Reschedule selected tasks">
+              <Modal.Header className="flex-col items-start gap-0.5">
+                <Modal.Heading className="text-base font-semibold text-foreground">
+                  Reschedule {count}
+                </Modal.Heading>
+                <span className="text-sm font-normal text-muted">
+                  The rest shift by the same amount.
+                </span>
+              </Modal.Header>
+              <Modal.Body className="gap-3 pb-6">
+                {reschedule && (
+                  <>
+                    <DatePicker
+                      label="anchor day"
+                      value={reschedule.date || null}
+                      onChange={(date) => date && setReschedule({ ...reschedule, date })}
+                    />
+                    <TimePicker
+                      label="anchor time"
+                      value={reschedule.time}
+                      clearable={false}
+                      onChange={(time) => time && setReschedule({ ...reschedule, time })}
+                    />
+                    <Button
+                      variant="primary"
+                      isDisabled={!reschedule.date}
+                      onPress={() => {
+                        onReschedule(reschedule.date, reschedule.time);
+                        setReschedule(null);
+                      }}
+                    >
+                      Move {count} {count === 1 ? "task" : "tasks"}
+                    </Button>
+                  </>
+                )}
+              </Modal.Body>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
 
       {/* Change value / goal for the whole selection */}
       <Modal state={lineageState}>
-        <Modal.Backdrop variant="blur" />
-        <Modal.Container {...responsive}>
-          <Modal.Dialog aria-label="Change value or goal">
-            <Modal.Header className="flex-col items-start gap-0.5">
-              <Modal.Heading className="text-base font-semibold text-foreground">
-                Value or goal for {count}
-              </Modal.Heading>
-            </Modal.Header>
-            <Modal.Body className="gap-3 pb-6">
-              {lineage && (
-                <>
-                  <Select
-                    ariaLabel="Value"
-                    value={lineage.valueId ?? NONE}
-                    onValueChange={(v) =>
-                      setLineage({ valueId: v === NONE ? null : v, goalId: null })
-                    }
-                    options={[
-                      { value: NONE, label: "No value" },
-                      ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
-                    ]}
-                  />
-                  <Select
-                    ariaLabel="Goal"
-                    value={lineage.goalId ?? NONE}
-                    onValueChange={(g) => setLineage({ ...lineage, goalId: g === NONE ? null : g })}
-                    options={[
-                      { value: NONE, label: "No goal" },
-                      ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
-                    ]}
-                  />
-                  <Button
-                    variant="primary"
-                    onPress={() => {
-                      onRelineage(lineage.valueId, lineage.goalId);
-                      setLineage(null);
-                    }}
-                  >
-                    Apply to {count} {count === 1 ? "task" : "tasks"}
-                  </Button>
-                </>
-              )}
-            </Modal.Body>
-          </Modal.Dialog>
-        </Modal.Container>
+        <Modal.Backdrop variant="blur">
+          <Modal.Container {...responsive}>
+            <Modal.Dialog aria-label="Change value or goal">
+              <Modal.Header className="flex-col items-start gap-0.5">
+                <Modal.Heading className="text-base font-semibold text-foreground">
+                  Value or goal for {count}
+                </Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="gap-3 pb-6">
+                {lineage && (
+                  <>
+                    <Select
+                      ariaLabel="Value"
+                      value={lineage.valueId ?? NONE}
+                      onValueChange={(v) =>
+                        setLineage({ valueId: v === NONE ? null : v, goalId: null })
+                      }
+                      options={[
+                        { value: NONE, label: "No value" },
+                        ...values.map((v) => ({ value: v.id, label: v.name, hue: v.hue })),
+                      ]}
+                    />
+                    <Select
+                      ariaLabel="Goal"
+                      value={lineage.goalId ?? NONE}
+                      onValueChange={(g) =>
+                        setLineage({ ...lineage, goalId: g === NONE ? null : g })
+                      }
+                      options={[
+                        { value: NONE, label: "No goal" },
+                        ...goalOptions.map((g) => ({ value: g.id, label: g.name })),
+                      ]}
+                    />
+                    <Button
+                      variant="primary"
+                      onPress={() => {
+                        onRelineage(lineage.valueId, lineage.goalId);
+                        setLineage(null);
+                      }}
+                    >
+                      Apply to {count} {count === 1 ? "task" : "tasks"}
+                    </Button>
+                  </>
+                )}
+              </Modal.Body>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
     </>
   );

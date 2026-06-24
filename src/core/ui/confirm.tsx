@@ -31,27 +31,30 @@ export function ConfirmDialog({
 
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur" />
-      <Modal.Container {...responsive}>
-        <Modal.Dialog>
-          <Modal.Header>
-            <Modal.Heading className="text-lg font-semibold tracking-tight">{title}</Modal.Heading>
-          </Modal.Header>
-          {body && (
-            <Modal.Body>
-              <div className="text-sm leading-relaxed text-muted">{body}</div>
-            </Modal.Body>
-          )}
-          <Modal.Footer>
-            <Button variant="ghost" onPress={onClose}>
-              {cancelLabel}
-            </Button>
-            <Button autoFocus variant={danger ? "danger" : "primary"} onPress={onConfirm}>
-              {confirmLabel}
-            </Button>
-          </Modal.Footer>
-        </Modal.Dialog>
-      </Modal.Container>
+      <Modal.Backdrop variant="blur">
+        <Modal.Container {...responsive}>
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading className="text-lg font-semibold tracking-tight">
+                {title}
+              </Modal.Heading>
+            </Modal.Header>
+            {body && (
+              <Modal.Body>
+                <div className="text-sm leading-relaxed text-muted">{body}</div>
+              </Modal.Body>
+            )}
+            <Modal.Footer>
+              <Button variant="ghost" onPress={onClose}>
+                {cancelLabel}
+              </Button>
+              <Button autoFocus variant={danger ? "danger" : "primary"} onPress={onConfirm}>
+                {confirmLabel}
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

@@ -1275,73 +1275,75 @@ export function CalendarPage() {
 
       {/* Schedule-existing-task picker (from the slot menu) */}
       <Modal state={scheduleSlotState}>
-        <Modal.Backdrop variant="blur" />
-        <Modal.Container {...modalResponsive}>
-          <Modal.Dialog aria-label="Schedule an existing task">
-            <Modal.Header className="flex-col items-start gap-0.5">
-              <Modal.Heading className="text-base font-semibold text-foreground">
-                Schedule a task
-              </Modal.Heading>
-              {scheduleSlot && (
-                <span className="text-sm font-normal text-muted">
-                  {fmtShort(scheduleSlot.date)} · {scheduleSlot.time}
-                </span>
-              )}
-            </Modal.Header>
-            <Modal.Body className="pb-6">
-              {backlog.length === 0 ? (
-                <p className="text-sm text-muted">No unscheduled tasks.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {backlog.map((t) => (
-                    <li key={t.id}>
-                      <ScheduleRow
-                        task={t}
-                        onPick={() => {
-                          if (scheduleSlot) scheduleAt(t, scheduleSlot.date, scheduleSlot.time);
-                          setScheduleSlot(null);
-                        }}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Modal.Body>
-          </Modal.Dialog>
-        </Modal.Container>
+        <Modal.Backdrop variant="blur">
+          <Modal.Container {...modalResponsive}>
+            <Modal.Dialog aria-label="Schedule an existing task">
+              <Modal.Header className="flex-col items-start gap-0.5">
+                <Modal.Heading className="text-base font-semibold text-foreground">
+                  Schedule a task
+                </Modal.Heading>
+                {scheduleSlot && (
+                  <span className="text-sm font-normal text-muted">
+                    {fmtShort(scheduleSlot.date)} · {scheduleSlot.time}
+                  </span>
+                )}
+              </Modal.Header>
+              <Modal.Body className="pb-6">
+                {backlog.length === 0 ? (
+                  <p className="text-sm text-muted">No unscheduled tasks.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {backlog.map((t) => (
+                      <li key={t.id}>
+                        <ScheduleRow
+                          task={t}
+                          onPick={() => {
+                            if (scheduleSlot) scheduleAt(t, scheduleSlot.date, scheduleSlot.time);
+                            setScheduleSlot(null);
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Modal.Body>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
 
       {/* "Schedule to time…" — give an all-day chip a time without dragging */}
       <Modal state={scheduleTaskState}>
-        <Modal.Backdrop variant="blur" />
-        <Modal.Container {...modalResponsive}>
-          <Modal.Dialog aria-label="Schedule to a time">
-            <Modal.Header className="flex-col items-start gap-0.5">
-              <Modal.Heading className="text-base font-semibold text-foreground">
-                Schedule to a time
-              </Modal.Heading>
-              {scheduleTask?.date && (
-                <span className="text-sm font-normal text-muted">
-                  {scheduleTask.title} · {fmtShort(scheduleTask.date)}
-                </span>
-              )}
-            </Modal.Header>
-            <Modal.Body className="pb-6">
-              <p className="text-sm text-muted">
-                Pick a start time. It becomes a {DROP_DURATION}-minute block.
-              </p>
-              <TimePicker
-                label="time"
-                value={scheduleTask?.time ?? "09:00"}
-                clearable={false}
-                onChange={(time) => {
-                  if (scheduleTask && time) scheduleToTime(scheduleTask, time);
-                  setScheduleTask(null);
-                }}
-              />
-            </Modal.Body>
-          </Modal.Dialog>
-        </Modal.Container>
+        <Modal.Backdrop variant="blur">
+          <Modal.Container {...modalResponsive}>
+            <Modal.Dialog aria-label="Schedule to a time">
+              <Modal.Header className="flex-col items-start gap-0.5">
+                <Modal.Heading className="text-base font-semibold text-foreground">
+                  Schedule to a time
+                </Modal.Heading>
+                {scheduleTask?.date && (
+                  <span className="text-sm font-normal text-muted">
+                    {scheduleTask.title} · {fmtShort(scheduleTask.date)}
+                  </span>
+                )}
+              </Modal.Header>
+              <Modal.Body className="pb-6">
+                <p className="text-sm text-muted">
+                  Pick a start time. It becomes a {DROP_DURATION}-minute block.
+                </p>
+                <TimePicker
+                  label="time"
+                  value={scheduleTask?.time ?? "09:00"}
+                  clearable={false}
+                  onChange={(time) => {
+                    if (scheduleTask && time) scheduleToTime(scheduleTask, time);
+                    setScheduleTask(null);
+                  }}
+                />
+              </Modal.Body>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
     </div>
   );

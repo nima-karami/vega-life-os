@@ -85,161 +85,162 @@ export function GoalEditor({
   });
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur" />
-      <Modal.Container {...responsive}>
-        <Modal.Dialog aria-label="Edit goal">
-          {goal && (
-            <>
-              <Modal.Header className="flex items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border border-border text-foreground">
-                  <Icon name={goal.icon} size={18} />
-                </span>
-                <Modal.Heading className="text-base font-semibold text-foreground">
-                  Goal
-                </Modal.Heading>
-              </Modal.Header>
+      <Modal.Backdrop variant="blur">
+        <Modal.Container {...responsive}>
+          <Modal.Dialog aria-label="Edit goal">
+            {goal && (
+              <>
+                <Modal.Header className="flex items-center gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border border-border text-foreground">
+                    <Icon name={goal.icon} size={18} />
+                  </span>
+                  <Modal.Heading className="text-base font-semibold text-foreground">
+                    Goal
+                  </Modal.Heading>
+                </Modal.Header>
 
-              <Modal.Body className="space-y-5">
-                <label className="block space-y-1.5">
-                  <span className="text-xs text-muted">Name</span>
-                  <input
-                    type="text"
-                    placeholder="New goal"
-                    value={goal.name}
-                    onChange={(e) => update(goal.id, { name: e.target.value })}
-                    className={FIELD_CLASS}
-                  />
-                </label>
-
-                {/* status — segmented toggle buttons */}
-                <EditorField label="Status">
-                  <div className="flex flex-wrap gap-1.5">
-                    {GOAL_STATUSES.map((st) => (
-                      <SegmentButton
-                        key={st}
-                        selected={goal.status === st}
-                        onClick={() => update(goal.id, statusChangePatch(st))}
-                      >
-                        {GOAL_STATUS_LABEL[st]}
-                      </SegmentButton>
-                    ))}
-                  </div>
-                </EditorField>
-
-                {/* serves value */}
-                <EditorField label="In service of">
-                  <Select
-                    ariaLabel="Value"
-                    value={goal.valueId}
-                    onValueChange={(v) => update(goal.id, { valueId: v })}
-                    options={values.map((v) => ({ value: v.id, label: v.name, hue: v.hue }))}
-                  />
-                </EditorField>
-
-                {/* timeframe */}
-                <EditorField label={`Timeframe · ${periodLabel(goal.start, goal.end)}`}>
-                  <div className="flex gap-1.5">
-                    {TF_CHIPS.map((c) => (
-                      <SegmentButton
-                        key={c.id}
-                        selected={activeTf === c.id}
-                        onClick={() => pickTf(c.id)}
-                      >
-                        {c.label}
-                      </SegmentButton>
-                    ))}
-                  </div>
-                  {activeTf === "custom" && (
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <DatePicker
-                        label="start"
-                        value={goal.start}
-                        onChange={(d) => d && update(goal.id, { start: d })}
-                      />
-                      <DatePicker
-                        label="end"
-                        value={goal.end}
-                        onChange={(d) => d && update(goal.id, { end: d })}
-                      />
-                    </div>
-                  )}
-                </EditorField>
-
-                {/* progress */}
-                {derived ? (
-                  <EditorField label={`Progress · ${goalProgressPercent(goal)}%`}>
-                    <p className="text-xs text-muted">
-                      Tracked from {goal.subgoals.filter((s) => s.done).length}/
-                      {goal.subgoals.length} steps below.
-                    </p>
-                  </EditorField>
-                ) : (
-                  <FractionSlider
-                    label="Progress"
-                    value={goal.progress}
-                    onChange={(progress) => update(goal.id, { progress })}
-                  />
-                )}
-
-                {/* subgoals — drag to reorder, click a name to rename */}
-                <EditorField label="Steps">
-                  <div className="space-y-1.5">
-                    <SortableList
-                      items={goal.subgoals}
-                      getId={(s) => s.id}
-                      getLabel={(s) => s.name}
-                      onReorder={(activeId, overId) => reorderSubgoals(goal.id, activeId, overId)}
-                      className="space-y-1.5"
-                      renderItem={(s) => (
-                        <StepRow
-                          sub={s}
-                          onToggle={() => toggleSubgoal(goal.id, s.id)}
-                          onRemove={() => removeSubgoal(goal.id, s.id)}
-                          onRename={(name) => renameSubgoal(goal.id, s.id, name)}
-                        />
-                      )}
+                <Modal.Body className="space-y-5">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs text-muted">Name</span>
+                    <input
+                      type="text"
+                      placeholder="New goal"
+                      value={goal.name}
+                      onChange={(e) => update(goal.id, { name: e.target.value })}
+                      className={FIELD_CLASS}
                     />
-                    <div className="relative">
-                      <Icon
-                        name="plus"
-                        size={13}
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-                      />
-                      <input
-                        type="text"
-                        aria-label="Add a step"
-                        placeholder="Add a step…"
-                        value={newSub}
-                        onChange={(e) => setNewSub(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") commitSub();
-                          if (e.key === "Escape") setNewSub("");
-                        }}
-                        className={cx(FIELD_CLASS, "pl-8")}
-                      />
+                  </label>
+
+                  {/* status — segmented toggle buttons */}
+                  <EditorField label="Status">
+                    <div className="flex flex-wrap gap-1.5">
+                      {GOAL_STATUSES.map((st) => (
+                        <SegmentButton
+                          key={st}
+                          selected={goal.status === st}
+                          onClick={() => update(goal.id, statusChangePatch(st))}
+                        >
+                          {GOAL_STATUS_LABEL[st]}
+                        </SegmentButton>
+                      ))}
                     </div>
-                  </div>
-                </EditorField>
+                  </EditorField>
 
-                {/* icon */}
-                <EditorField label="Icon">
-                  <IconField value={goal.icon} onSelect={(icon) => update(goal.id, { icon })} />
-                </EditorField>
-              </Modal.Body>
+                  {/* serves value */}
+                  <EditorField label="In service of">
+                    <Select
+                      ariaLabel="Value"
+                      value={goal.valueId}
+                      onValueChange={(v) => update(goal.id, { valueId: v })}
+                      options={values.map((v) => ({ value: v.id, label: v.name, hue: v.hue }))}
+                    />
+                  </EditorField>
 
-              <Modal.Footer className="justify-between">
-                <Button size="sm" variant="danger-soft" onPress={() => onDelete(goal.id)}>
-                  <Icon name="trash" size={14} />
-                  Delete goal
-                </Button>
-                <Button size="sm" variant="primary" onPress={onClose}>
-                  Done
-                </Button>
-              </Modal.Footer>
-            </>
-          )}
-        </Modal.Dialog>
-      </Modal.Container>
+                  {/* timeframe */}
+                  <EditorField label={`Timeframe · ${periodLabel(goal.start, goal.end)}`}>
+                    <div className="flex gap-1.5">
+                      {TF_CHIPS.map((c) => (
+                        <SegmentButton
+                          key={c.id}
+                          selected={activeTf === c.id}
+                          onClick={() => pickTf(c.id)}
+                        >
+                          {c.label}
+                        </SegmentButton>
+                      ))}
+                    </div>
+                    {activeTf === "custom" && (
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        <DatePicker
+                          label="start"
+                          value={goal.start}
+                          onChange={(d) => d && update(goal.id, { start: d })}
+                        />
+                        <DatePicker
+                          label="end"
+                          value={goal.end}
+                          onChange={(d) => d && update(goal.id, { end: d })}
+                        />
+                      </div>
+                    )}
+                  </EditorField>
+
+                  {/* progress */}
+                  {derived ? (
+                    <EditorField label={`Progress · ${goalProgressPercent(goal)}%`}>
+                      <p className="text-xs text-muted">
+                        Tracked from {goal.subgoals.filter((s) => s.done).length}/
+                        {goal.subgoals.length} steps below.
+                      </p>
+                    </EditorField>
+                  ) : (
+                    <FractionSlider
+                      label="Progress"
+                      value={goal.progress}
+                      onChange={(progress) => update(goal.id, { progress })}
+                    />
+                  )}
+
+                  {/* subgoals — drag to reorder, click a name to rename */}
+                  <EditorField label="Steps">
+                    <div className="space-y-1.5">
+                      <SortableList
+                        items={goal.subgoals}
+                        getId={(s) => s.id}
+                        getLabel={(s) => s.name}
+                        onReorder={(activeId, overId) => reorderSubgoals(goal.id, activeId, overId)}
+                        className="space-y-1.5"
+                        renderItem={(s) => (
+                          <StepRow
+                            sub={s}
+                            onToggle={() => toggleSubgoal(goal.id, s.id)}
+                            onRemove={() => removeSubgoal(goal.id, s.id)}
+                            onRename={(name) => renameSubgoal(goal.id, s.id, name)}
+                          />
+                        )}
+                      />
+                      <div className="relative">
+                        <Icon
+                          name="plus"
+                          size={13}
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                        />
+                        <input
+                          type="text"
+                          aria-label="Add a step"
+                          placeholder="Add a step…"
+                          value={newSub}
+                          onChange={(e) => setNewSub(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitSub();
+                            if (e.key === "Escape") setNewSub("");
+                          }}
+                          className={cx(FIELD_CLASS, "pl-8")}
+                        />
+                      </div>
+                    </div>
+                  </EditorField>
+
+                  {/* icon */}
+                  <EditorField label="Icon">
+                    <IconField value={goal.icon} onSelect={(icon) => update(goal.id, { icon })} />
+                  </EditorField>
+                </Modal.Body>
+
+                <Modal.Footer className="justify-between">
+                  <Button size="sm" variant="danger-soft" onPress={() => onDelete(goal.id)}>
+                    <Icon name="trash" size={14} />
+                    Delete goal
+                  </Button>
+                  <Button size="sm" variant="primary" onPress={onClose}>
+                    Done
+                  </Button>
+                </Modal.Footer>
+              </>
+            )}
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

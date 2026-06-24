@@ -79,91 +79,92 @@ export function ValueEditor({
   });
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur" />
-      <Modal.Container {...responsive}>
-        <Modal.Dialog aria-label={creating ? "New value" : "Edit value"}>
-          {isOpen && (
-            <>
-              <Modal.Header className="flex items-center gap-3">
-                <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-                  style={{ background: color }}
-                >
-                  <Icon name={view.icon} size={18} className="text-white" />
-                </span>
-                <Modal.Heading className="text-base font-semibold text-foreground">
-                  {creating ? "New value" : "Value"}
-                </Modal.Heading>
-              </Modal.Header>
-
-              <Modal.Body className="space-y-5">
-                <label className="block space-y-1.5">
-                  <span className="text-xs text-muted">Name</span>
-                  <input
-                    ref={nameRef}
-                    type="text"
-                    placeholder="New value"
-                    value={view.name}
-                    onChange={(e) => setField({ name: e.target.value })}
-                    className={FIELD_CLASS}
-                  />
-                </label>
-
-                <label className="block space-y-1.5">
-                  <span className="text-xs text-muted">What it means to you</span>
-                  <textarea
-                    placeholder="A sentence on why this matters…"
-                    value={view.desc}
-                    onChange={(e) => setField({ desc: e.target.value })}
-                    rows={3}
-                    className={cx(FIELD_CLASS, "resize-y")}
-                  />
-                </label>
-
-                <EditorField label="Icon">
-                  <IconField value={view.icon} onSelect={(icon) => setField({ icon })} />
-                </EditorField>
-
-                <EditorField label="Marker hue">
-                  <HuePicker
-                    value={view.hue}
-                    options={VALUE_HUES}
-                    onSelect={(hue) => setField({ hue })}
-                  />
-                </EditorField>
-              </Modal.Body>
-
-              {creating ? (
-                <Modal.Footer className="justify-end gap-2">
-                  <Button size="sm" variant="ghost" onPress={onClose}>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    isDisabled={!draft.name.trim()}
-                    onPress={create}
+      <Modal.Backdrop variant="blur">
+        <Modal.Container {...responsive}>
+          <Modal.Dialog aria-label={creating ? "New value" : "Edit value"}>
+            {isOpen && (
+              <>
+                <Modal.Header className="flex items-center gap-3">
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                    style={{ background: color }}
                   >
-                    Create value
-                  </Button>
-                </Modal.Footer>
-              ) : (
-                value && (
-                  <Modal.Footer className="justify-between">
-                    <Button size="sm" variant="danger-soft" onPress={() => onDelete(value)}>
-                      <Icon name="trash" size={14} />
-                      Delete value
+                    <Icon name={view.icon} size={18} className="text-white" />
+                  </span>
+                  <Modal.Heading className="text-base font-semibold text-foreground">
+                    {creating ? "New value" : "Value"}
+                  </Modal.Heading>
+                </Modal.Header>
+
+                <Modal.Body className="space-y-5">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs text-muted">Name</span>
+                    <input
+                      ref={nameRef}
+                      type="text"
+                      placeholder="New value"
+                      value={view.name}
+                      onChange={(e) => setField({ name: e.target.value })}
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs text-muted">What it means to you</span>
+                    <textarea
+                      placeholder="A sentence on why this matters…"
+                      value={view.desc}
+                      onChange={(e) => setField({ desc: e.target.value })}
+                      rows={3}
+                      className={cx(FIELD_CLASS, "resize-y")}
+                    />
+                  </label>
+
+                  <EditorField label="Icon">
+                    <IconField value={view.icon} onSelect={(icon) => setField({ icon })} />
+                  </EditorField>
+
+                  <EditorField label="Marker hue">
+                    <HuePicker
+                      value={view.hue}
+                      options={VALUE_HUES}
+                      onSelect={(hue) => setField({ hue })}
+                    />
+                  </EditorField>
+                </Modal.Body>
+
+                {creating ? (
+                  <Modal.Footer className="justify-end gap-2">
+                    <Button size="sm" variant="ghost" onPress={onClose}>
+                      Cancel
                     </Button>
-                    <Button size="sm" variant="primary" onPress={onClose}>
-                      Done
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      isDisabled={!draft.name.trim()}
+                      onPress={create}
+                    >
+                      Create value
                     </Button>
                   </Modal.Footer>
-                )
-              )}
-            </>
-          )}
-        </Modal.Dialog>
-      </Modal.Container>
+                ) : (
+                  value && (
+                    <Modal.Footer className="justify-between">
+                      <Button size="sm" variant="danger-soft" onPress={() => onDelete(value)}>
+                        <Icon name="trash" size={14} />
+                        Delete value
+                      </Button>
+                      <Button size="sm" variant="primary" onPress={onClose}>
+                        Done
+                      </Button>
+                    </Modal.Footer>
+                  )
+                )}
+              </>
+            )}
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }
