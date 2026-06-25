@@ -9,7 +9,12 @@ const listFmt = new Intl.ListFormat(undefined, { style: "long", type: "conjuncti
 /** The habit's schedule, with a weekly/interval-1 fallback for legacy records. */
 export function habitSchedule(h: Habit): HabitSchedule {
   return (
-    h.schedule ?? { type: "weekly", days: h.days, interval: 1, anchor: h.createdAt.slice(0, 10) }
+    h.schedule ?? {
+      type: "weekly",
+      days: h.days,
+      interval: 1,
+      anchor: (h.createdAt ?? todayISO()).slice(0, 10),
+    }
   );
 }
 

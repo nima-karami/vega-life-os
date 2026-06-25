@@ -16,6 +16,10 @@ interface Habit {
   durationMin: number;
   days?: number[];
   archivedAt?: string | null;
+  createdAt?: string;
+  schedule?:
+    | { type: "weekly"; days: number[]; interval: number; anchor: string }
+    | { type: "monthly"; daysOfMonth: number[]; lastDay: boolean };
 }
 
 interface Value {
@@ -372,5 +376,51 @@ describe("habit instance generation skips archived values", () => {
     const habitIds = new Set(get().tasks.map((t) => t.habitId));
     expect(habitIds.has("hActive")).toBe(true);
     expect(habitIds.has("hArchived")).toBe(false);
+  });
+});
+
+describe("materialize — cadence-aware generation", () => {
+  const baseHabit = (over: Record<string, unknown>): Habit => ({
+    id: "h1",
+    name: "H",
+    goalId: null,
+    valueId: "v1",
+    time: null,
+    durationMin: 30,
+    days: [1, 1, 1, 1, 1, 1, 1],
+    createdAt: "2026-06-01",
+    archivedAt: null,
+    ...over,
+  });
+
+  it("an every-2-weeks habit generates only on active weeks", () => {
+    const { get } = makeSlice({
+      values: [{ id: "v1" }],
+      habits: [
+        baseHabit({
+          schedule: {
+            type: "weekly",
+            days: [1, 1, 1, 1, 1, 1, 1],
+            interval: 2,
+            anchor: "2026-06-03",
+          },
+        }),
+      ],
+    });
+    get().planWeek(new Date("2026-06-03")); // week 0 → active
+    get().planWeek(new Date("2026-06-10")); // week 1 → off
+    const dates = get().tasks.map((t) => t.date);
+    expect(dates).toContain("2026-06-03");
+    expect(dates).not.toContain("2026-06-10");
+  });
+
+  it("a monthly-on-the-1st habit generates one instance on the 1st within the runway", () => {
+    const { get } = makeSlice({
+      values: [{ id: "v1" }],
+      habits: [baseHabit({ schedule: { type: "monthly", daysOfMonth: [1], lastDay: false } })],
+    });
+    get().planWeek(new Date("2026-07-01"));
+    expect(get().tasks.filter((t) => t.date === "2026-07-01")).toHaveLength(1);
+    expect(get().tasks.filter((t) => t.date === "2026-07-02")).toHaveLength(0);
   });
 });

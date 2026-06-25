@@ -1,9 +1,10 @@
 import { addDays, format } from "date-fns";
-import { dowIndex, weekDays } from "@/core/lib/date";
+import { weekDays } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Habit } from "@/features/habits/model";
+import { isActiveOn } from "@/features/habits/recurrence";
 import type { Task, TaskStatus } from "./model";
 
 /** Enforce the invariant: a task with no date can't carry a time. */
@@ -199,9 +200,8 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     let made = 0;
     for (const d of weekDays(ref)) {
-      const dow = dowIndex(d.iso);
       for (const h of generating) {
-        if (!h.days[dow]) continue;
+        if (!isActiveOn(h, d.iso)) continue;
         if (existing.has(`${h.id}@${d.iso}`)) continue;
         addTask({
           title: h.name,
@@ -228,9 +228,8 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     let made = 0;
     for (let i = 0; i <= daysAhead; i++) {
       const iso = format(addDays(start, i), "yyyy-MM-dd");
-      const dow = dowIndex(iso);
       for (const h of generating) {
-        if (!h.days[dow]) continue;
+        if (!isActiveOn(h, iso)) continue;
         if (existing.has(`${h.id}@${iso}`)) continue;
         addTask({
           title: h.name,
