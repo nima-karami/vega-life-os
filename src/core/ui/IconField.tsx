@@ -199,7 +199,7 @@ export function IconField({
             {searching ? `${results.length} ${results.length === 1 ? "icon" : "icons"}` : ""}
           </p>
 
-          <div className="mt-3 max-h-72 overflow-x-hidden overflow-y-auto overscroll-contain pr-0.5">
+          <div className="mt-3 max-h-72 overflow-x-hidden overflow-y-auto overscroll-contain p-1.5">
             {searching ? (
               results.length === 0 ? (
                 <p className="px-1 py-6 text-center text-xs text-muted">
