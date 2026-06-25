@@ -43,7 +43,11 @@ export function Popover({
       <HPopover.Trigger aria-label={triggerLabel} className={triggerClassName}>
         {triggerContent}
       </HPopover.Trigger>
-      <HPopover.Content placement={placement} offset={6} className={cx("p-0", className)}>
+      <HPopover.Content
+        placement={placement}
+        offset={6}
+        className={cx("rounded-[10px] p-0", className)}
+      >
         {children}
       </HPopover.Content>
     </HPopover>

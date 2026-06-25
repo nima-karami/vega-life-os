@@ -141,22 +141,22 @@ export function GoalCard({
         <ul className="mt-3 space-y-1">
           {goal.subgoals.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
-              <Checkbox
-                isSelected={s.done}
-                onChange={() => onToggleSub(s.id)}
-                aria-label={s.name}
-                className="flex items-center gap-2"
-              >
-                <Checkbox.Control>
-                  <Checkbox.Indicator>
-                    <Icon name="check" size={11} />
-                  </Checkbox.Indicator>
-                </Checkbox.Control>
-                <span
-                  className={cx("text-sm", s.done ? "text-muted line-through" : "text-foreground")}
-                >
-                  {s.name}
-                </span>
+              <Checkbox isSelected={s.done} onChange={() => onToggleSub(s.id)} aria-label={s.name}>
+                <Checkbox.Content className="flex items-center gap-2">
+                  <Checkbox.Control>
+                    <Checkbox.Indicator>
+                      <Icon name="check" size={11} />
+                    </Checkbox.Indicator>
+                  </Checkbox.Control>
+                  <span
+                    className={cx(
+                      "text-sm",
+                      s.done ? "text-muted line-through" : "text-foreground",
+                    )}
+                  >
+                    {s.name}
+                  </span>
+                </Checkbox.Content>
               </Checkbox>
             </li>
           ))}

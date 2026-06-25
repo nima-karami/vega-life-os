@@ -50,7 +50,7 @@ export function Select({
         <HSelect.Value />
         <HSelect.Indicator />
       </HSelect.Trigger>
-      <HSelect.Popover>
+      <HSelect.Popover className="w-[var(--trigger-width)] rounded-[10px]">
         <ListBox items={options}>
           {(option: SelectOption) => (
             <ListBox.Item
@@ -58,13 +58,18 @@ export function Select({
               key={option.value}
               textValue={typeof option.label === "string" ? option.label : String(option.value)}
             >
-              {option.hue ? (
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-border"
-                  style={{ background: option.hue }}
-                />
-              ) : null}
-              {option.label}
+              {/* Flex row so the hue dot keeps its size in BOTH the dropdown item and
+              the trigger (Select.Value renders this same node; an inline dot collapses
+              to a sliver). */}
+              <span className="flex items-center gap-2">
+                {option.hue ? (
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full border border-border"
+                    style={{ background: option.hue }}
+                  />
+                ) : null}
+                {option.label}
+              </span>
             </ListBox.Item>
           )}
         </ListBox>

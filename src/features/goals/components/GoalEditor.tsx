@@ -189,7 +189,7 @@ export function GoalEditor({
                         getId={(s) => s.id}
                         getLabel={(s) => s.name}
                         onReorder={(activeId, overId) => reorderSubgoals(goal.id, activeId, overId)}
-                        className="space-y-1.5"
+                        className="space-y-1.5 pl-6"
                         renderItem={(s) => (
                           <StepRow
                             sub={s}
@@ -274,11 +274,13 @@ function StepRow({
   return (
     <div className="group flex items-center gap-1.5">
       <Checkbox isSelected={sub.done} onChange={onToggle} aria-label={sub.name}>
-        <Checkbox.Control>
-          <Checkbox.Indicator>
-            <Icon name="check" size={11} />
-          </Checkbox.Indicator>
-        </Checkbox.Control>
+        <Checkbox.Content>
+          <Checkbox.Control>
+            <Checkbox.Indicator>
+              <Icon name="check" size={11} />
+            </Checkbox.Indicator>
+          </Checkbox.Control>
+        </Checkbox.Content>
       </Checkbox>
       {editing ? (
         <input

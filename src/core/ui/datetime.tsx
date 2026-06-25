@@ -280,7 +280,10 @@ export function TimePicker({
           </>
         }
       >
-        <div ref={colRef} className="flex max-h-[240px] w-[128px] flex-col overflow-y-auto p-1.5">
+        <div
+          ref={colRef}
+          className="flex max-h-[240px] w-[var(--trigger-width)] min-w-[128px] flex-col overflow-y-auto p-1.5"
+        >
           {value && clearable && (
             <button
               type="button"
