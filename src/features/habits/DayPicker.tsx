@@ -13,12 +13,8 @@ const WEEKDAYS = [
   { short: "S", full: "Sunday" },
 ] as const;
 
-/**
- * Weekday selector for a habit's active-days mask. Plain click toggles a day;
- * Shift-click selects the contiguous range from the last-clicked day; right-click
- * "solos" a day (isolates it), and right-clicking the soloed day again restores
- * the previous selection (Photoshop layer behaviour).
- */
+/** Weekday selector for a habit's active-days mask: click toggles, Shift-click ranges,
+ * right-click solos a day (and restores on repeat) — Photoshop-layer behaviour. */
 export function DayPicker({
   value,
   onChange,

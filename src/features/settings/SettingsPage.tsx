@@ -263,7 +263,7 @@ export function SettingsPage() {
           </div>
           <p className="mt-4 text-xs leading-relaxed text-muted">
             Cross-device sync is live when you sign in. Live AI and Google Calendar import are
-            architected behind swappable adapters — drop in keys to enable. See HANDOFF.md.
+            architected behind swappable adapters — drop in keys to enable.
           </p>
         </SettingsCard>
         <ConfirmDialog

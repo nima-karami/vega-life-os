@@ -1,9 +1,4 @@
-/**
- * Goal editor — HeroUI centered Modal (vapor). Live per-field autosave. Preserves
- * all data semantics: free status transitions, done→progress 100%, timeframe
- * presets, subgoal-derived progress (manual control disabled when subgoals exist).
- * Auto-closes if its target goal is removed (not-found).
- */
+/** Goal editor modal with live per-field autosave; auto-closes if its goal is removed. */
 import { Button, Checkbox, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";

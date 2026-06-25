@@ -82,7 +82,6 @@ function AnalyticsSection() {
   const habits = useStore((s) => s.habits);
   const journal = useStore((s) => s.journal);
 
-  // range persists in-memory for the session (D3)
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
   const days = rangeToDays(range);
   const weeks = rangeToWeeks(range);
@@ -103,7 +102,6 @@ function AnalyticsSection() {
     [habits, tasks],
   );
 
-  // signal availability
   const hasTasks = tasks.some((t) => t.date);
   const tasksInRange = daily.some((d) => d.total > 0);
   const enoughWeekly = weekly.filter((w) => w > 0).length >= 2;
@@ -182,7 +180,6 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
-        {/* weekly trend */}
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Weekly trend" meta={`${weeks} wk`} />
           <div className="mt-4 overflow-x-auto">
@@ -206,7 +203,7 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
-        {/* reflection trackers — same "consistency" category, stacked beside the heatmap */}
+        {/* reflection trackers — same "consistency" category, paired with the heatmap */}
         <Panel className="p-6 lg:col-span-1">
           <SectionHead title="Reflection" meta={`${days}d`} />
           <div className="mt-4 space-y-5">
@@ -215,7 +212,6 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
-        {/* consistency heatmap */}
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Consistency" meta="22 wk" />
           <div className="mt-4 overflow-x-auto">
@@ -283,7 +279,6 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
-        {/* daily completion bars */}
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Daily completion" meta={`${days}d`} />
           <div className="mt-4 flex items-end gap-[3px]" style={{ height: 120 }}>
@@ -324,7 +319,6 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
-        {/* balance by value */}
         <Panel className="p-6">
           <SectionHead title="Balance" meta={`${days}d`} />
           <div className="mt-4 space-y-2.5">
@@ -340,7 +334,6 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
-        {/* goal trajectory */}
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Goal trajectory" meta="pace" />
           <div className="mt-4 space-y-4">
@@ -375,7 +368,6 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
-        {/* habit consistency */}
         <Panel className="p-6">
           <SectionHead title="Habit consistency" meta="rate" />
           <div className="mt-4 space-y-2.5">

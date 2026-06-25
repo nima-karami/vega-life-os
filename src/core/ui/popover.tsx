@@ -5,15 +5,9 @@ import { cx } from "./cx";
 type Placement = NonNullable<ComponentProps<typeof HPopover.Content>["placement"]>;
 
 /**
- * Popover on HeroUI v3 (react-aria) — shares the overlay system with HeroUI
- * Modal, so it works correctly when nested inside a modal. Used for the custom
- * date/time pickers and any floating editor that needs to escape overflow
- * clipping. v3 composes: Popover (Root) → Popover.Trigger → Popover.Content.
- *
- * In v3 `Popover.Trigger` IS the interactive trigger (a focusable role=button),
- * so the trigger must be its *content* (icon/label/markup), never a nested
- * <button> — that would double up the button role. `triggerContent` is rendered
- * inside the trigger; `triggerClassName`/`triggerLabel` style + name it.
+ * Popover on HeroUI v3 — shares the overlay system with Modal so it works nested in one.
+ * `Popover.Trigger` IS the focusable button, so `triggerContent` must be its content
+ * (icon/label), never a nested <button>.
  */
 export function Popover({
   triggerContent,

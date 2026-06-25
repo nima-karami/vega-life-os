@@ -37,11 +37,8 @@ const fmtLen = (mins: number) => {
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 };
 
-/**
- * Scroll the slot marked `data-sel="true"` to the middle of its scroll column.
- * Lists are unmounted while closed, so on each open they reset to the top — this
- * brings the already-selected time back into view without the user scrolling.
- */
+/** Center the slot marked data-sel="true" in its scroll column on open — lists unmount
+ * while closed, so they'd otherwise reopen scrolled to the top. */
 function useCenterSelected(open: boolean, ...cols: React.RefObject<HTMLDivElement | null>[]) {
   const colsRef = useRef(cols);
   colsRef.current = cols;
@@ -244,12 +241,8 @@ export function CalendarPopover({
   );
 }
 
-/**
- * 15-minute-slot time picker on a HeroUI Select (react-aria) so the dropdown
- * matches the field width and gets standard keyboard/type-ahead/a11y. The trigger
- * is rendered bare inside the shared PickerField chrome. value/onChange use
- * "HH:mm" or null (null = the "No time" option when clearable).
- */
+/** 15-minute-slot time picker on a HeroUI Select so the dropdown matches the field width
+ * and gets standard a11y. value/onChange use "HH:mm" or null. */
 export function TimePicker({
   label = "time",
   value,

@@ -9,11 +9,8 @@ import { SlashMenu } from "./SlashMenu";
 const DEBOUNCE_MS = 600;
 const DEBOUNCE_CAP_MS = 1000;
 
-/**
- * The shared Notion-style journal editor. Reads/writes Markdown via tiptap-markdown,
- * autosaves on a 600ms idle debounce (hard-capped at 1000ms) and flushes pending
- * saves synchronously on blur and on unmount so no keystroke is lost.
- */
+/** Shared Notion-style journal editor (tiptap-markdown). Autosaves on a 600ms idle
+ * debounce (capped 1000ms) and flushes on blur/unmount so no keystroke is lost. */
 export function RichJournalEditor({
   value,
   onChange,

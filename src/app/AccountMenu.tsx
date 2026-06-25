@@ -34,11 +34,7 @@ function AccountAvatar({
   );
 }
 
-/**
- * Global account button — the avatar in the top-right of every route (rendered by
- * AppShell). Opens a menu with the operator profile summary plus quick access to
- * Settings and sign-out, so identity/account is reachable everywhere.
- */
+/** Global account avatar (top-right of every route): profile summary, Settings, sign-out. */
 export function AccountMenu() {
   const navigate = useNavigate();
   const name = useStore((s) => s.operatorName);

@@ -1,15 +1,5 @@
-/**
- * <Lineage> — reusable display primitive for the Value → Goal → Habit chain.
- *
- * Renders:
- * - Value name in its valueColor
- * - Logical "→" separator + goal name (muted) when a goal exists (RTL-aware via CSS logical flow)
- * - "Habit" pill when lineage.fromHabit
- * - "Unlinked" in muted color when no value/goal/habit
- *
- * The value-colored left stripe is NOT rendered here — it's a layout concern for
- * the owning card (Today slice). Export `valueStripeStyle()` for card owners.
- */
+/** Value → Goal → Habit chain as inline text. The value-colored left stripe is the
+ * owning card's concern — use `valueStripeStyle()` for it. */
 import type { TaskLineage } from "@/features/tasks/lineage";
 import { valueColor } from "@/features/values/color";
 import { cx } from "./cx";
@@ -41,9 +31,7 @@ export function Lineage({ lineage, variant = "inline", className }: LineageProps
           {value && <span style={{ color: valueColor(value), fontWeight: 500 }}>{value.name}</span>}
           {goal && (
             <>
-              {/* shrink-0 so the arrow never wraps away from / collapses under the goal.
-              (No `separator` class — that collides with HeroUI's global .separator,
-              which renders a full-width 1px rule.) */}
+              {/* shrink-0, and NOT class "separator" — that HeroUI global is a full-width rule */}
               <span aria-hidden="true" className="shrink-0" style={{ color: "var(--color-muted)" }}>
                 →
               </span>

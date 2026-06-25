@@ -1,11 +1,4 @@
-/**
- * Goal card (calm HeroUI re-skin) shown nested under a value.
- * Renders status (text + icon + colour, never colour-only), headline progress,
- * timeframe, pace badge (hidden for closed goals), inline subgoal toggles, and a
- * row actions menu. Closed goals are de-emphasised; abandoned strikes the name.
- * All mutations go through unchanged store actions; display rules come from the
- * unit-tested presentation helpers.
- */
+/** Goal card nested under a value: status, progress, timeframe, pace, subgoal toggles, actions. */
 import { Checkbox, Chip, ProgressBar } from "@heroui/react";
 import { useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";

@@ -49,4 +49,4 @@ Vite · React 18 · TypeScript · Tailwind v4 · Zustand · Dexie (IndexedDB) ·
 react-three-fiber + three · framer-motion · cmdk · date-fns.
 
 Feature-sliced architecture (`src/features/<name>/`), cross-cutting concerns in
-`src/core/`. See **HANDOFF.md** for architecture and the deferred cloud seams.
+`src/core/`.

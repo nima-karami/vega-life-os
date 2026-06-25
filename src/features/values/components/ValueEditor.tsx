@@ -1,8 +1,4 @@
-/**
- * Value editor — HeroUI centered Modal (vapor). Live per-field autosave through
- * `updateValue` (no Save button). If the target value is removed out from under
- * it (cascade), the editor detects the missing entity and closes (not-found state).
- */
+/** Value editor modal with live per-field autosave; auto-closes if its value is removed. */
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";

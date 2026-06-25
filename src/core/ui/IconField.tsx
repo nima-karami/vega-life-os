@@ -22,19 +22,16 @@ export interface IconFieldProps {
   iconSize?: number;
 }
 
-// Structural only — no shape/border, so a caller's triggerClassName can fully
-// own those without clsx leaving two conflicting utilities in the class list.
+// Structural only (no shape/border) so a caller's triggerClassName can own those
+// without clsx leaving two conflicting utilities in the class list.
 const TRIGGER_BASE =
   "grid h-9 w-9 shrink-0 place-items-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface";
 const TRIGGER_DEFAULT = "rounded-[12px] border border-border text-foreground hover:border-accent";
 
 /**
- * Notion-style icon picker: a small icon "placeholder" button that opens a
- * POPOVER with a search box + grouped/searchable grid — it never expands the
- * surrounding dialog. Idle = catalog grouped by category with the current
- * selection pinned; searching = a flat filtered grid. Single tab stop into the
- * grid (roving tabindex). The Popover (react-aria) handles outside-click close,
- * Escape, and focus return to the trigger.
+ * Notion-style icon picker: a small trigger that opens a popover with a search box +
+ * grouped/searchable grid, so it never resizes the surrounding dialog. Roving-tabindex
+ * grid; the Popover handles outside-click/Escape/focus return.
  */
 export function IconField({
   value,
