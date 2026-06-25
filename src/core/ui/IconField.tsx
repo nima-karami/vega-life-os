@@ -1,9 +1,10 @@
-import { Button } from "@heroui/react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
 import { type CatalogEntry, filterCatalog, groupedCatalog } from "./icon-catalog";
 import { Icon } from "./icons";
+import { Popover } from "./popover";
 
 const GRID_COLS = 8;
 
@@ -12,29 +13,49 @@ export interface IconFieldProps {
   onSelect: (icon: IconName) => void;
   label?: string;
   isDisabled?: boolean;
+  /** Extra classes on the trigger badge (shape/colour). */
+  triggerClassName?: string;
+  /** Inline styles on the trigger badge (e.g. a value's hue background). */
+  triggerStyle?: CSSProperties;
+  /** Classes on the glyph itself (e.g. text-white over a coloured badge). */
+  iconClassName?: string;
+  iconSize?: number;
 }
 
+// Structural only — no shape/border, so a caller's triggerClassName can fully
+// own those without clsx leaving two conflicting utilities in the class list.
+const TRIGGER_BASE =
+  "grid h-9 w-9 shrink-0 place-items-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface";
+const TRIGGER_DEFAULT = "rounded-[12px] border border-border text-foreground hover:border-accent";
+
 /**
- * Shared icon picker: a trigger button that expands an inline, fixed-height,
- * inner-scroll panel. Idle = catalog grouped by category with the current
+ * Notion-style icon picker: a small icon "placeholder" button that opens a
+ * POPOVER with a search box + grouped/searchable grid — it never expands the
+ * surrounding dialog. Idle = catalog grouped by category with the current
  * selection pinned; searching = a flat filtered grid. Single tab stop into the
- * grid (roving tabindex); never a focus trap.
+ * grid (roving tabindex). The Popover (react-aria) handles outside-click close,
+ * Escape, and focus return to the trigger.
  */
-export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconFieldProps) {
+export function IconField({
+  value,
+  onSelect,
+  label = "Icon",
+  isDisabled,
+  triggerClassName,
+  triggerStyle,
+  iconClassName,
+  iconSize = 18,
+}: IconFieldProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [liveMsg, setLiveMsg] = useState("");
 
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const panelId = useId();
 
   const searching = query.trim().length > 0;
 
-  // Flat list of names rendered in DOM order — drives roving tabindex + arrow nav.
   const groups = useMemo(() => groupedCatalog(), []);
   const results = useMemo(() => filterCatalog(query), [query]);
   const pinned: CatalogEntry | null = useMemo(
@@ -48,29 +69,23 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
     return names;
   }, [searching, results, groups, pinned]);
 
-  // Reset transient state whenever the panel collapses.
-  const collapse = (returnFocus: boolean) => {
-    setOpen(false);
-    setQuery("");
-    setActive(0);
-    if (returnFocus) triggerRef.current?.focus();
-  };
-
-  const openPanel = () => {
-    setLiveMsg("");
-    setOpen(true);
-  };
+  // Reset transient state whenever the popover closes.
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setActive(0);
+    }
+  }, [open]);
 
   // Keep the active index in range as the result set changes.
   useEffect(() => {
     setActive((i) => Math.min(i, Math.max(0, flatNames.length - 1)));
   }, [flatNames.length]);
 
-  // Auto-focus search on open. Retry on the next frame in case the input ref
-  // isn't attached yet (panel mounting inside a just-opened dialog).
+  // Auto-focus search on open. Retry next frame in case the popover content
+  // isn't mounted yet.
   useEffect(() => {
     if (!open) return;
-    searchRef.current?.focus();
     const id = requestAnimationFrame(() => searchRef.current?.focus());
     return () => cancelAnimationFrame(id);
   }, [open]);
@@ -78,7 +93,7 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
   const pick = (icon: IconName) => {
     setLiveMsg(`Selected ${icon}`);
     onSelect(icon);
-    collapse(true);
+    setOpen(false);
   };
 
   const focusCell = (i: number) => {
@@ -121,21 +136,14 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
     focusCell(next);
   };
 
-  // Two-step Esc: clear a non-empty query first, else collapse + return focus.
+  // Two-step Esc: clear a non-empty query first (keep the popover open), else let
+  // it bubble so the Popover closes and returns focus to the trigger.
   const onSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && searching) {
       e.preventDefault();
-      // Stop the Escape from bubbling to an enclosing Modal/dialog, which would
-      // otherwise also dismiss the editor the icon panel lives inside.
       e.stopPropagation();
-      if (searching) {
-        setQuery("");
-        // Keep focus pinned to the search box across the re-render so the
-        // transient blur doesn't escape the field and collapse the panel.
-        searchRef.current?.focus();
-      } else {
-        collapse(true);
-      }
+      setQuery("");
+      searchRef.current?.focus();
       return;
     }
     if (e.key === "ArrowDown" && flatNames.length > 0) {
@@ -144,55 +152,34 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
     }
   };
 
-  // Focus leaving the whole field (Tab out / click elsewhere in the editor)
-  // collapses without changing the selection. A blur with a null relatedTarget
-  // is a transient re-render blur (controlled input updating) — re-check the live
-  // activeElement on the next frame so we never collapse while focus is still in
-  // the field, which would race the two-step Esc.
-  const onBlurCapture = (e: React.FocusEvent) => {
-    const next = e.relatedTarget as Node | null;
-    if (next) {
-      if (!rootRef.current?.contains(next)) collapse(false);
-      return;
-    }
-    requestAnimationFrame(() => {
-      const active = document.activeElement;
-      // Only collapse if focus genuinely left the field for the document body
-      // (a real click on empty space), not a transient null-blur mid-render.
-      if (active && active !== document.body && !rootRef.current?.contains(active)) {
-        collapse(false);
-      }
-    });
-  };
+  if (isDisabled) {
+    return (
+      <span
+        role="img"
+        aria-label={`${label}: ${value}`}
+        className={cx(TRIGGER_BASE, triggerClassName ?? TRIGGER_DEFAULT, "opacity-50")}
+        style={triggerStyle}
+      >
+        <Icon name={value} size={iconSize} className={iconClassName} />
+      </span>
+    );
+  }
 
   return (
-    <div ref={rootRef} className="space-y-2" onBlurCapture={onBlurCapture}>
-      <Button
-        ref={triggerRef}
-        type="button"
-        size="sm"
-        variant="outline"
-        isDisabled={isDisabled}
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-label={`${label}: change`}
-        onPress={() => (open ? collapse(false) : openPanel())}
-      >
-        <Icon name={value} size={16} />
-        Change
-        <Icon
-          name="chevD"
-          size={14}
-          className={cx("transition-transform motion-reduce:transition-none", open && "rotate-180")}
-        />
-      </Button>
-
+    <>
       <p aria-live="polite" aria-atomic="true" className="sr-only">
         {liveMsg}
       </p>
-
-      {open && (
-        <div id={panelId} className="rounded-[12px] border border-border bg-surface p-2">
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        align="start"
+        triggerLabel={`${label}: ${value} — change`}
+        triggerClassName={cx(TRIGGER_BASE, triggerClassName ?? TRIGGER_DEFAULT)}
+        triggerStyle={triggerStyle}
+        triggerContent={<Icon name={value} size={iconSize} className={iconClassName} />}
+      >
+        <div className="w-[300px] max-w-[calc(100vw-2rem)] p-2">
           <div className="relative">
             <Icon
               name="search"
@@ -207,7 +194,7 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onSearchKeyDown}
-              className="w-full rounded-[12px] border border-border bg-surface py-2 pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent"
+              className="w-full rounded-[10px] border border-border bg-surface py-2 pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent"
             />
           </div>
 
@@ -273,8 +260,8 @@ export function IconField({ value, onSelect, label = "Icon", isDisabled }: IconF
             )}
           </div>
         </div>
-      )}
-    </div>
+      </Popover>
+    </>
   );
 }
 
@@ -337,7 +324,7 @@ function IconGrid({
             onFocus={() => onFocusCell(flatIndex)}
             onClick={() => onPick(name)}
             className={cx(
-              "grid aspect-square min-h-[44px] place-items-center rounded-[12px] border transition-colors",
+              "grid aspect-square min-h-[40px] place-items-center rounded-[10px] border transition-colors",
               "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
               selected
                 ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent ring-offset-1 ring-offset-surface"

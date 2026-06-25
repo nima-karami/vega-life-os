@@ -85,12 +85,13 @@ export function ValueEditor({
             {isOpen && (
               <>
                 <Modal.Header className="flex items-center gap-3">
-                  <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-                    style={{ background: color }}
-                  >
-                    <Icon name={view.icon} size={18} className="text-white" />
-                  </span>
+                  <IconField
+                    value={view.icon}
+                    onSelect={(icon) => setField({ icon })}
+                    triggerClassName="rounded-full border border-transparent hover:border-foreground/30"
+                    triggerStyle={{ background: color }}
+                    iconClassName="text-white"
+                  />
                   <Modal.Heading className="text-base font-semibold text-foreground">
                     {creating ? "New value" : "Value"}
                   </Modal.Heading>
@@ -119,10 +120,6 @@ export function ValueEditor({
                       className={cx(FIELD_CLASS, "resize-y")}
                     />
                   </label>
-
-                  <EditorField label="Icon">
-                    <IconField value={view.icon} onSelect={(icon) => setField({ icon })} />
-                  </EditorField>
 
                   <EditorField label="Marker hue">
                     <HuePicker

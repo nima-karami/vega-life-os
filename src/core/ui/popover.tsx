@@ -1,5 +1,5 @@
 import { Popover as HPopover } from "@heroui/react";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { cx } from "./cx";
 
 type Placement = NonNullable<ComponentProps<typeof HPopover.Content>["placement"]>;
@@ -18,6 +18,7 @@ type Placement = NonNullable<ComponentProps<typeof HPopover.Content>["placement"
 export function Popover({
   triggerContent,
   triggerClassName,
+  triggerStyle,
   triggerLabel,
   children,
   align = "start",
@@ -28,6 +29,7 @@ export function Popover({
 }: {
   triggerContent: ReactNode;
   triggerClassName?: string;
+  triggerStyle?: CSSProperties;
   triggerLabel?: string;
   children: ReactNode;
   align?: "start" | "center" | "end";
@@ -40,7 +42,7 @@ export function Popover({
 
   return (
     <HPopover isOpen={open} onOpenChange={onOpenChange}>
-      <HPopover.Trigger aria-label={triggerLabel} className={triggerClassName}>
+      <HPopover.Trigger aria-label={triggerLabel} className={triggerClassName} style={triggerStyle}>
         {triggerContent}
       </HPopover.Trigger>
       <HPopover.Content

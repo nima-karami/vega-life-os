@@ -91,9 +91,7 @@ export function GoalEditor({
             {goal && (
               <>
                 <Modal.Header className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border border-border text-foreground">
-                    <Icon name={goal.icon} size={18} />
-                  </span>
+                  <IconField value={goal.icon} onSelect={(icon) => update(goal.id, { icon })} />
                   <Modal.Heading className="text-base font-semibold text-foreground">
                     Goal
                   </Modal.Heading>
@@ -219,11 +217,6 @@ export function GoalEditor({
                         />
                       </div>
                     </div>
-                  </EditorField>
-
-                  {/* icon */}
-                  <EditorField label="Icon">
-                    <IconField value={goal.icon} onSelect={(icon) => update(goal.id, { icon })} />
                   </EditorField>
                 </Modal.Body>
 

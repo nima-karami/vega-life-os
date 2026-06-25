@@ -196,13 +196,20 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
               </>
             ) : (
               <>
-                <Modal.Header className="flex flex-col gap-1">
-                  <Modal.Heading className="text-lg font-semibold">
-                    {draft.name.trim() || "New habit"}
-                  </Modal.Heading>
-                  <span className="text-xs font-normal text-muted">
-                    {recurrenceLabel(draft.days)} · {draft.time ?? ANYTIME_LABEL}
-                  </span>
+                <Modal.Header className="flex items-center gap-3">
+                  <IconField
+                    value={draft.icon}
+                    onSelect={(icon) => set("icon", icon)}
+                    isDisabled={isArchived}
+                  />
+                  <div className="flex flex-col gap-1">
+                    <Modal.Heading className="text-lg font-semibold">
+                      {draft.name.trim() || "New habit"}
+                    </Modal.Heading>
+                    <span className="text-xs font-normal text-muted">
+                      {recurrenceLabel(draft.days)} · {draft.time ?? ANYTIME_LABEL}
+                    </span>
+                  </div>
                 </Modal.Header>
 
                 <Modal.Body className="gap-4 space-y-4">
@@ -280,16 +287,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                         ]}
                       />
                     </div>
-                  </div>
-
-                  {/* Icon */}
-                  <div>
-                    <span className="mb-1.5 block text-xs text-muted">Icon</span>
-                    <IconField
-                      value={draft.icon}
-                      onSelect={(icon) => set("icon", icon)}
-                      isDisabled={isArchived}
-                    />
                   </div>
 
                   {/* Schedule: weekday picker + time + duration */}
