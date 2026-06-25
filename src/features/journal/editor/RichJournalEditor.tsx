@@ -72,7 +72,7 @@ export function RichJournalEditor({
         "aria-multiline": "true",
         "aria-label": ariaLabel,
         class:
-          "journal-prose min-h-[50vh] max-w-none px-1 py-2 leading-relaxed outline-none focus:outline-none",
+          "journal-prose min-h-[50vh] max-w-none leading-relaxed outline-none focus:outline-none",
       },
     },
     onUpdate: ({ editor }) => queueSave(getEditorMarkdown(editor)),
@@ -94,7 +94,7 @@ export function RichJournalEditor({
   if (!editor) return null;
 
   return (
-    <div className="relative">
+    <div className="relative rounded-[12px] border border-border bg-surface px-3 py-2.5 transition-colors focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
       <JournalBubbleMenu editor={editor} />
       <EditorContent editor={editor} />
     </div>
