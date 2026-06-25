@@ -206,8 +206,17 @@ function AnalyticsSection() {
           </div>
         </Panel>
 
+        {/* reflection trackers — same "consistency" category, stacked beside the heatmap */}
+        <Panel className="p-6 lg:col-span-1">
+          <SectionHead title="Reflection" meta={`${days}d`} />
+          <div className="mt-4 space-y-5">
+            <ReflectionRow label="Journaled" icon="note" stat={reflection.journaled} />
+            <ReflectionRow label="Gratitude" icon="heart" stat={reflection.gratitude} />
+          </div>
+        </Panel>
+
         {/* consistency heatmap */}
-        <Panel className="p-6 lg:col-span-3">
+        <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Consistency" meta="22 wk" />
           <div className="mt-4 overflow-x-auto">
             <div className="mb-1 flex gap-[3px]">
@@ -385,15 +394,6 @@ function AnalyticsSection() {
               </div>
             ))}
             {!habitRanked.length && <p className="text-sm text-muted">No habits to measure yet.</p>}
-          </div>
-        </Panel>
-
-        {/* reflection — journaling + gratitude as built-in daily habits */}
-        <Panel className="p-6 lg:col-span-3">
-          <SectionHead title="Reflection" meta={`${days}d`} />
-          <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-2">
-            <ReflectionRow label="Journaled" icon="note" stat={reflection.journaled} />
-            <ReflectionRow label="Gratitude" icon="heart" stat={reflection.gratitude} />
           </div>
         </Panel>
       </div>
