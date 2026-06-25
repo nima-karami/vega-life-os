@@ -24,9 +24,8 @@ export interface WeekDay {
   index: number; // 0..6, Mon..Sun
 }
 
-export function weekDays(ref: Date = new Date()): WeekDay[] {
+export function weekDays(ref: Date = new Date(), today: string = todayISO(ref)): WeekDay[] {
   const ws = weekStartOf(ref);
-  const today = todayISO(ref);
   return Array.from({ length: 7 }, (_, i) => {
     const d = addDays(ws, i);
     const dISO = format(d, "yyyy-MM-dd");

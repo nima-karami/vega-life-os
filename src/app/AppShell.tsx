@@ -1,12 +1,16 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { todayISO } from "@/core/lib/date";
+import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
 import { gratitudeRequired } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
 import { OmniTrigger } from "./OmniTrigger";
 
 export function AppShell() {
-  const gated = useStore((s) => gratitudeRequired(s.journal, todayISO()));
+  // Subscribing to the live date here re-renders the whole routed subtree at the
+  // day rollover, so every todayISO()-derived surface (goal phase, today labels,
+  // habit/streak "today", the gratitude gate) refreshes without per-page wiring.
+  const today = useTodayISO();
+  const gated = useStore((s) => gratitudeRequired(s.journal, today));
   const { pathname } = useLocation();
   const onToday = pathname === "/" || pathname === "/today";
   // The journal page is allowlisted: gratitude written there satisfies the gate

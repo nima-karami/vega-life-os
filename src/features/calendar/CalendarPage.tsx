@@ -2,6 +2,7 @@ import { Button, Card, Modal, useOverlayState } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
+import { useNowMs, useTodayISO } from "@/core/lib/clock";
 import { addMinutes, fmtShort, minutesOf, weekDays, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
@@ -145,7 +146,8 @@ export function CalendarPage() {
   const clipRef = useRef(clipboardTask);
   clipRef.current = clipboardTask;
 
-  const days = useMemo(() => weekDays(weekRef), [weekRef]);
+  const todayIso = useTodayISO();
+  const days = useMemo(() => weekDays(weekRef, todayIso), [weekRef, todayIso]);
 
   // Per-view commands (calendar is reachable via the command bar; these add actions).
   useRegisterCommands([
@@ -1586,7 +1588,7 @@ function BacklogItem({
 }
 
 function NowLine() {
-  const now = new Date();
+  const now = new Date(useNowMs());
   const cur = now.getHours() * 60 + now.getMinutes();
   if (cur < DAY_START || cur > DAY_END) return null;
   return (
