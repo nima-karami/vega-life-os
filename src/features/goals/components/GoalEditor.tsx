@@ -6,8 +6,20 @@ import { cx, DatePicker, Icon, IconField, Select, SortableList, useCompactModal 
 import { EditorField, FractionSlider } from "@/features/values/components/editor-bits";
 import type { Subgoal } from "../model";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
-import { goalProgressIsDerived, goalProgressPercent, statusChangePatch } from "../presentation";
-import { detectTimeframe, periodLabel, presetRange, type Timeframe } from "../timeframe";
+import {
+  coerceStatus,
+  goalProgressIsDerived,
+  goalProgressPercent,
+  statusChangePatch,
+} from "../presentation";
+import { goalPhase } from "../selectors";
+import {
+  detectTimeframe,
+  periodLabel,
+  periodStep,
+  presetRangeOn,
+  type Timeframe,
+} from "../timeframe";
 
 const TF_CHIPS: { id: Timeframe; label: string }[] = [
   { id: "quarter", label: "Quarter" },
@@ -36,11 +48,13 @@ export function GoalEditor({
 
   const [newSub, setNewSub] = useState("");
   const [forceCustom, setForceCustom] = useState(false);
+  const [coercedTo, setCoercedTo] = useState<string | null>(null);
   const prevGoalId = useRef(goalId);
   if (prevGoalId.current !== goalId) {
     prevGoalId.current = goalId;
     setForceCustom(false);
     setNewSub("");
+    setCoercedTo(null);
   }
 
   // Not-found: target goal removed while open → close.
@@ -51,7 +65,16 @@ export function GoalEditor({
   const isOpen = !!goal;
   const detected = goal ? detectTimeframe(goal.start, goal.end) : "custom";
   const activeTf: Timeframe = forceCustom ? "custom" : detected;
+  const presetGrain = activeTf === "custom" ? "quarter" : activeTf;
   const derived = goal ? goalProgressIsDerived(goal) : false;
+  const upcoming = goal ? goalPhase(goal) === "upcoming" : false;
+
+  const reschedule = (range: { start: string; end: string }) => {
+    if (!goal) return;
+    const status = coerceStatus(goal.status, goalPhase({ ...goal, ...range }));
+    update(goal.id, status !== goal.status ? { ...range, status } : range);
+    setCoercedTo(status !== goal.status ? periodLabel(range.start, range.end) : null);
+  };
 
   const pickTf = (tf: Timeframe) => {
     if (!goal) return;
@@ -60,7 +83,7 @@ export function GoalEditor({
       return;
     }
     setForceCustom(false);
-    update(goal.id, presetRange(tf));
+    reschedule(presetRangeOn(tf, goal.start));
   };
 
   const commitSub = () => {
@@ -104,19 +127,26 @@ export function GoalEditor({
                     />
                   </label>
 
-                  {/* status — segmented toggle buttons */}
+                  {/* status — segmented toggle buttons; active/paused gated while upcoming */}
                   <EditorField label="Status">
                     <div className="flex flex-wrap gap-1.5">
                       {GOAL_STATUSES.map((st) => (
                         <SegmentButton
                           key={st}
                           selected={goal.status === st}
+                          isDisabled={upcoming && (st === "active" || st === "paused")}
                           onClick={() => update(goal.id, statusChangePatch(st))}
                         >
                           {GOAL_STATUS_LABEL[st]}
                         </SegmentButton>
                       ))}
                     </div>
+                    {upcoming && (
+                      <p className="text-xs text-muted">
+                        Starts {periodLabel(goal.start, goal.end)} — activate when its period
+                        begins.
+                      </p>
+                    )}
                   </EditorField>
 
                   {/* serves value */}
@@ -129,7 +159,7 @@ export function GoalEditor({
                     />
                   </EditorField>
 
-                  {/* timeframe */}
+                  {/* timeframe — grain chips + period navigator (or custom date pickers) */}
                   <EditorField label={`Timeframe · ${periodLabel(goal.start, goal.end)}`}>
                     <div className="flex gap-1.5">
                       {TF_CHIPS.map((c) => (
@@ -142,19 +172,49 @@ export function GoalEditor({
                         </SegmentButton>
                       ))}
                     </div>
+                    {activeTf !== "custom" && (
+                      <div className="flex items-center justify-center gap-3 pt-2">
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          variant="outline"
+                          aria-label={`Previous ${presetGrain}`}
+                          onPress={() => reschedule(periodStep(goal.start, presetGrain, -1))}
+                        >
+                          <Icon name="chevL" size={15} />
+                        </Button>
+                        <span className="min-w-[7rem] text-center text-sm font-medium tabular-nums text-foreground">
+                          {periodLabel(goal.start, goal.end)}
+                        </span>
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          variant="outline"
+                          aria-label={`Next ${presetGrain}`}
+                          onPress={() => reschedule(periodStep(goal.start, presetGrain, 1))}
+                        >
+                          <Icon name="chevR" size={15} />
+                        </Button>
+                      </div>
+                    )}
                     {activeTf === "custom" && (
                       <div className="grid grid-cols-2 gap-3 pt-2">
                         <DatePicker
                           label="start"
                           value={goal.start}
-                          onChange={(d) => d && update(goal.id, { start: d })}
+                          onChange={(d) => d && reschedule({ start: d, end: goal.end })}
                         />
                         <DatePicker
                           label="end"
                           value={goal.end}
-                          onChange={(d) => d && update(goal.id, { end: d })}
+                          onChange={(d) => d && reschedule({ start: goal.start, end: d })}
                         />
                       </div>
+                    )}
+                    {coercedTo && (
+                      <p className="pt-1 text-xs text-warning">
+                        Moved to Backlog — starts {coercedTo}.
+                      </p>
                     )}
                   </EditorField>
 
@@ -325,16 +385,19 @@ function StepRow({
 function SegmentButton({
   selected,
   onClick,
+  isDisabled,
   children,
 }: {
   selected: boolean;
   onClick: () => void;
+  isDisabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Button
       size="sm"
       aria-pressed={selected}
+      isDisabled={isDisabled}
       variant={selected ? "primary" : "outline"}
       onPress={onClick}
       className="flex-1"
