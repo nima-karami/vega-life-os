@@ -41,15 +41,15 @@ export function Lineage({ lineage, variant = "inline", className }: LineageProps
           {value && <span style={{ color: valueColor(value), fontWeight: 500 }}>{value.name}</span>}
           {goal && (
             <>
-              {/* Direction-aware separator: logical-flow arrow (LTR→, RTL←) via CSS */}
-              <span
-                aria-hidden="true"
-                style={{ color: "var(--color-muted)" }}
-                className="separator"
-              >
+              {/* shrink-0 so the arrow never wraps away from / collapses under the goal.
+              (No `separator` class — that collides with HeroUI's global .separator,
+              which renders a full-width 1px rule.) */}
+              <span aria-hidden="true" className="shrink-0" style={{ color: "var(--color-muted)" }}>
                 →
               </span>
-              <span style={{ color: "var(--color-muted)" }}>{goal.name}</span>
+              <span className="min-w-0 break-words" style={{ color: "var(--color-muted)" }}>
+                {goal.name}
+              </span>
             </>
           )}
           {fromHabit && (
