@@ -15,6 +15,8 @@ import {
   type GridCell,
   insights,
   overallRate,
+  type ReflectionStat,
+  reflectionStats,
   weeklyRate,
 } from "./selectors";
 
@@ -78,6 +80,7 @@ function AnalyticsSection() {
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
+  const journal = useStore((s) => s.journal);
 
   // range persists in-memory for the session (D3)
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
@@ -90,6 +93,7 @@ function AnalyticsSection() {
   const byValue = useMemo(() => completedByValue(tasks, days), [tasks, days]);
   // consistency grid is the long view — fixed window regardless of range
   const grid = useMemo(() => consistencyGrid(tasks, 22), [tasks]);
+  const reflection = useMemo(() => reflectionStats(journal, days), [journal, days]);
   const insightList = useMemo(() => insights(tasks, habits), [tasks, habits]);
   const maxValueCount = Math.max(1, ...Object.values(byValue));
   const maxDaily = Math.max(1, ...daily.map((d) => d.total));
@@ -383,6 +387,54 @@ function AnalyticsSection() {
             {!habitRanked.length && <p className="text-sm text-muted">No habits to measure yet.</p>}
           </div>
         </Panel>
+
+        {/* reflection — journaling + gratitude as built-in daily habits */}
+        <Panel className="p-6 lg:col-span-3">
+          <SectionHead title="Reflection" meta={`${days}d`} />
+          <div className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-2">
+            <ReflectionRow label="Journaled" icon="note" stat={reflection.journaled} />
+            <ReflectionRow label="Gratitude" icon="heart" stat={reflection.gratitude} />
+          </div>
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+function ReflectionRow({
+  label,
+  icon,
+  stat,
+}: {
+  label: string;
+  icon: "note" | "heart";
+  stat: ReflectionStat;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-sm text-foreground">
+          <Icon name={icon} size={14} className="text-muted" />
+          {label}
+        </span>
+        <span className="text-xs tabular-nums text-muted">
+          {stat.count} of {stat.series.length} days · {stat.streak}-day streak
+        </span>
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-[3px]">
+        {stat.series.map((d) => (
+          <span
+            key={d.iso}
+            title={`${d.iso}${d.on ? " · logged" : ""}`}
+            className={d.on ? "" : "border border-border"}
+            style={{
+              width: 11,
+              height: 11,
+              borderRadius: 2,
+              background: d.on ? CHART_PRIMARY : "transparent",
+            }}
+          />
+        ))}
       </div>
     </div>
   );

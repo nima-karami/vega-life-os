@@ -2,6 +2,7 @@ import { addDays, format, startOfWeek, subDays } from "date-fns";
 import { dowIndex } from "@/core/lib/date";
 import { habitStreak } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
+import { type DayEntry, hasGratitude } from "@/features/journal/model";
 import type { Task } from "@/features/tasks/model";
 
 export interface DayStat {
@@ -143,6 +144,55 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
   }
 
   return out.slice(0, 4);
+}
+
+// ─── Reflection (journaling + gratitude as built-in daily habits) ────────────
+
+export interface ReflectionStat {
+  /** Per-day flags over the window, oldest first. */
+  series: { iso: string; on: boolean }[];
+  /** Days logged in the window. */
+  count: number;
+  /** Consecutive days up to today (today not-yet-done doesn't break the chain). */
+  streak: number;
+  rate: number;
+}
+
+export interface ReflectionStats {
+  journaled: ReflectionStat;
+  gratitude: ReflectionStat;
+}
+
+const journaledDay = (e?: DayEntry): boolean => !!e && e.journal.trim() !== "";
+
+function reflectionStat(
+  byDate: Map<string, DayEntry>,
+  n: number,
+  pred: (e?: DayEntry) => boolean,
+): ReflectionStat {
+  const series = Array.from({ length: n }, (_, i) => {
+    const iso = format(subDays(new Date(), n - 1 - i), "yyyy-MM-dd");
+    return { iso, on: pred(byDate.get(iso)) };
+  });
+  const count = series.filter((d) => d.on).length;
+  let i = series.length - 1;
+  // Today not logged yet shouldn't read as a broken streak — start from yesterday.
+  if (i >= 0 && !series[i].on) i--;
+  let streak = 0;
+  for (; i >= 0; i--) {
+    if (series[i].on) streak++;
+    else break;
+  }
+  return { series, count, streak, rate: n ? count / n : 0 };
+}
+
+/** Journaling + gratitude logged per day over the last n days — habit-style tracking. */
+export function reflectionStats(journal: DayEntry[], n = 28): ReflectionStats {
+  const byDate = new Map(journal.map((e) => [e.date, e]));
+  return {
+    journaled: reflectionStat(byDate, n, journaledDay),
+    gratitude: reflectionStat(byDate, n, hasGratitude),
+  };
 }
 
 export interface GridCell {
