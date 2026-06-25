@@ -7,9 +7,10 @@ import type { Goal } from "@/features/goals/model";
 import { valueColor } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
 import { DeleteHabitDialog } from "./DeleteHabitDialog";
-import { ANYTIME_LABEL, recurrenceLabel } from "./editor";
+import { ANYTIME_LABEL } from "./editor";
 import { HabitEditor } from "./HabitEditor";
 import type { Habit } from "./model";
+import { habitSchedule, recurrenceText } from "./recurrence";
 import { groupHabitsByValue, sortArchived } from "./selectors";
 
 function fmtDuration(min: number): string {
@@ -226,7 +227,7 @@ function HabitCard({
                 {goal ? ` → ${goal.name}` : ""}
               </span>
               <span aria-hidden="true">·</span>
-              <span>{recurrenceLabel(habit.days)}</span>
+              <span>{recurrenceText(habitSchedule(habit))}</span>
               <span aria-hidden="true">·</span>
               {habit.time ? (
                 <>

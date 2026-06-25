@@ -1,5 +1,6 @@
 import { Button, ButtonGroup, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { todayISO } from "@/core/lib/date";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import {
@@ -14,16 +15,16 @@ import {
 } from "@/core/ui";
 import { goalsForValue } from "@/features/goals/selectors";
 import { valueColor } from "@/features/values/color";
-import { DayPicker } from "./DayPicker";
 import {
   ANYTIME_LABEL,
   conflictNote,
   detachedCount,
-  recurrenceLabel,
   resetGoalForValue,
   validateDraft,
 } from "./editor";
-import type { Habit } from "./model";
+import type { Habit, HabitSchedule } from "./model";
+import { type RepeatMode, RepeatPicker } from "./RepeatPicker";
+import { habitSchedule, nextOccurrence, recurrenceText } from "./recurrence";
 import { conflictingHabits } from "./selectors";
 
 interface Draft {
@@ -35,17 +36,29 @@ interface Draft {
   time: string | null;
   days: number[];
   durationMin: number;
+  repeat: RepeatMode;
+  interval: number;
+  anchor: string;
+  daysOfMonth: number[];
+  lastDay: boolean;
 }
 
 function draftFrom(habit: Habit): Draft {
+  const s = habitSchedule(habit);
+  const monthly = s.type === "monthly";
   return {
     name: habit.name,
     valueId: habit.valueId,
     goalId: habit.goalId,
     icon: habit.icon,
     time: habit.time,
-    days: [...habit.days],
+    days: s.type === "weekly" ? [...s.days] : [...habit.days],
     durationMin: habit.durationMin,
+    repeat: monthly ? "monthly" : s.interval > 1 ? "nweekly" : "weekly",
+    interval: s.type === "weekly" && s.interval > 1 ? s.interval : 2,
+    anchor: s.type === "weekly" ? s.anchor : todayISO(),
+    daysOfMonth: monthly ? [...s.daysOfMonth] : [new Date().getDate()],
+    lastDay: monthly ? s.lastDay : false,
   };
 }
 
@@ -58,6 +71,23 @@ function blankDraft(valueId: string): Draft {
     time: "09:00",
     days: [1, 1, 1, 1, 1, 1, 1],
     durationMin: 30,
+    repeat: "weekly",
+    interval: 2,
+    anchor: todayISO(),
+    daysOfMonth: [new Date().getDate()],
+    lastDay: false,
+  };
+}
+
+function buildSchedule(d: Draft): HabitSchedule {
+  if (d.repeat === "monthly") {
+    return { type: "monthly", daysOfMonth: d.daysOfMonth, lastDay: d.lastDay };
+  }
+  return {
+    type: "weekly",
+    days: d.days,
+    interval: d.repeat === "nweekly" ? d.interval : 1,
+    anchor: d.anchor,
   };
 }
 
@@ -104,13 +134,29 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const isArchived = habit?.archivedAt != null;
 
   const conflicts = useMemo(
-    () => conflictingHabits(habits, { days: draft.days, time: draft.time }, habit?.id ?? null),
-    [habits, draft.days, draft.time, habit?.id],
+    () =>
+      draft.repeat === "weekly"
+        ? conflictingHabits(habits, { days: draft.days, time: draft.time }, habit?.id ?? null)
+        : [],
+    [habits, draft.repeat, draft.days, draft.time, habit?.id],
   );
   const conflictText = conflictNote(conflicts, draft.days);
 
+  const schedule = buildSchedule(draft);
+  const nextDate = nextOccurrence(schedule);
+
   const set = <K extends keyof Draft>(key: K, val: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: val }));
+
+  const setMode = (m: RepeatMode) =>
+    setDraft((d) => ({
+      ...d,
+      repeat: m,
+      ...(m === "nweekly" && d.repeat !== "nweekly"
+        ? { anchor: todayISO(), interval: Math.max(2, d.interval) }
+        : {}),
+    }));
+  const setInterval = (n: number) => setDraft((d) => ({ ...d, interval: n, anchor: todayISO() }));
 
   const onValueChange = (valueId: string) => {
     setDraft((d) => ({
@@ -130,7 +176,8 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
       icon: draft.icon,
       time: draft.time,
       days: draft.days,
-      recurrence: recurrenceLabel(draft.days),
+      schedule,
+      recurrence: recurrenceText(schedule),
       durationMin: draft.durationMin,
     };
     if (habit) {
@@ -188,7 +235,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                       {draft.name.trim() || "New habit"}
                     </Modal.Heading>
                     <span className="text-xs font-normal text-muted">
-                      {recurrenceLabel(draft.days)} · {draft.time ?? ANYTIME_LABEL}
+                      {recurrenceText(schedule)} · {draft.time ?? ANYTIME_LABEL}
                     </span>
                   </div>
                 </Modal.Header>
@@ -270,11 +317,21 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                     </div>
                   </div>
 
-                  {/* Schedule: weekday picker + time + duration */}
-                  <DayPicker
-                    value={draft.days}
-                    onChange={(days) => set("days", days)}
+                  {/* Schedule: repeat mode + contextual sub-controls */}
+                  <RepeatPicker
+                    mode={draft.repeat}
+                    days={draft.days}
+                    interval={draft.interval}
+                    daysOfMonth={draft.daysOfMonth}
+                    lastDay={draft.lastDay}
+                    nextDate={nextDate}
                     disabled={isArchived}
+                    onModeChange={setMode}
+                    onDaysChange={(days) => set("days", days)}
+                    onIntervalChange={setInterval}
+                    onMonthChange={({ days, lastDay }) =>
+                      setDraft((d) => ({ ...d, daysOfMonth: days, lastDay }))
+                    }
                   />
 
                   {/* When: scheduled (has a time → calendar slot) vs anytime (no time → daily strip) */}
