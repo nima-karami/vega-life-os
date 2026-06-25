@@ -1,4 +1,4 @@
-import { todayISO } from "@/core/lib/date";
+import { daysBetween, todayISO } from "@/core/lib/date";
 import type { Task } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
 import type { Habit } from "./model";
@@ -10,24 +10,107 @@ export const habitInstances = (tasks: Task[], habitId: string) =>
     .filter((t) => t.habitId === habitId && t.date)
     .sort((a, b) => ((a.date ?? "") < (b.date ?? "") ? -1 : 1));
 
-/**
- * Consecutive most-recent completed instances (date <= today). "skip" is
- * neutral (doesn't count, doesn't break); first missed "todo" in the past breaks.
- */
-export function habitStreak(tasks: Task[], habitId: string): number {
-  const today = todayISO();
-  const past = habitInstances(tasks, habitId)
-    .filter((t) => (t.date ?? "") <= today)
-    .reverse();
-  let streak = 0;
-  for (const t of past) {
-    if (t.status === "done") streak++;
-    else if (t.status === "skip") continue;
-    else if (t.date === today)
-      continue; // today not done *yet* — the day isn't over
-    else break; // an unresolved instance in the past = a real miss
+const LONG_STREAK_MIN = 7;
+const RECOVERY_LEN = 3;
+const MEND_COOLDOWN_DAYS = 14;
+
+// Resolved history oldest→newest: "D" done, "M" a past miss. Skips and a still-pending
+// instance dated today are dropped (neutral / the day isn't over).
+function streakSeq(
+  tasks: Task[],
+  habitId: string,
+  today: string,
+): { kind: "D" | "M"; date: string }[] {
+  const seq: { kind: "D" | "M"; date: string }[] = [];
+  for (const t of habitInstances(tasks, habitId)) {
+    const date = t.date as string;
+    if (date > today) continue;
+    if (t.status === "skip") continue;
+    if (t.status === "done") seq.push({ kind: "D", date });
+    else if (date !== today) seq.push({ kind: "M", date });
   }
-  return streak;
+  return seq;
+}
+
+// Streak of the fully-resolved prefix seq[0..end), bridging one earned single-miss.
+// Returns the count and the newest bridge date used (for the cooldown check).
+function resolvedStreak(
+  seq: { kind: "D" | "M"; date: string }[],
+  end: number,
+): { count: number; lastBridge: string | null } {
+  let i = end - 1;
+  let trailing = 0;
+  while (i >= 0 && seq[i].kind === "D") {
+    trailing++;
+    i--;
+  }
+  if (i < 0) return { count: trailing, lastBridge: null };
+
+  let misses = 0;
+  const missDate = seq[i].date;
+  while (i >= 0 && seq[i].kind === "M") {
+    misses++;
+    i--;
+  }
+  const before = resolvedStreak(seq, i + 1);
+  const bridgeable =
+    misses === 1 &&
+    before.count >= LONG_STREAK_MIN &&
+    trailing >= RECOVERY_LEN &&
+    (before.lastBridge === null || daysBetween(missDate, before.lastBridge) >= MEND_COOLDOWN_DAYS);
+  return bridgeable
+    ? { count: before.count + trailing, lastBridge: missDate }
+    : { count: trailing, lastBridge: null };
+}
+
+/**
+ * Streak with mending: a single slip on a long run (>= LONG_STREAK_MIN) is bridged once
+ * re-earned by RECOVERY_LEN consecutive completions, at most one bridge per
+ * MEND_COOLDOWN_DAYS. While recovering it HOLDS at the pre-miss value (state "healing").
+ */
+export function streakState(
+  tasks: Task[],
+  habitId: string,
+  today: string = todayISO(),
+): {
+  count: number;
+  state: "solid" | "healing" | "broken";
+  recovery?: { done: number; needed: number };
+} {
+  const seq = streakSeq(tasks, habitId, today);
+
+  let i = seq.length - 1;
+  let trailing = 0;
+  while (i >= 0 && seq[i].kind === "D") {
+    trailing++;
+    i--;
+  }
+  if (i < 0) return { count: trailing, state: trailing > 0 ? "solid" : "broken" };
+
+  let misses = 0;
+  const missDate = seq[i].date;
+  while (i >= 0 && seq[i].kind === "M") {
+    misses++;
+    i--;
+  }
+  const before = resolvedStreak(seq, i + 1);
+  const eligible =
+    misses === 1 &&
+    before.count >= LONG_STREAK_MIN &&
+    (before.lastBridge === null || daysBetween(missDate, before.lastBridge) >= MEND_COOLDOWN_DAYS);
+
+  if (!eligible) return { count: trailing, state: trailing > 0 ? "solid" : "broken" };
+  if (trailing >= RECOVERY_LEN) return { count: before.count + trailing, state: "solid" };
+  return {
+    count: before.count,
+    state: "healing",
+    recovery: { done: trailing, needed: RECOVERY_LEN },
+  };
+}
+
+// Consecutive completed instances, mending applied. Thin wrapper for existing call sites.
+export function habitStreak(tasks: Task[], habitId: string): number {
+  return streakState(tasks, habitId).count;
 }
 
 /** done / (done + missed), skips excluded, over past+today instances. */
