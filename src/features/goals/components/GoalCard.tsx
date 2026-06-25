@@ -5,7 +5,7 @@ import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import { cx, Icon, Menu } from "@/core/ui";
 import { GOAL_STATUS_LABEL, type GoalStatus, isGoalClosed } from "../model";
-import { goalPaceBadge, goalProgressPercent } from "../presentation";
+import { goalPaceBadge, goalProgressPercent, goalScheduleBadge } from "../presentation";
 import { habitsForGoal } from "../selectors";
 import { periodLabel } from "../timeframe";
 
@@ -24,6 +24,16 @@ const STATUS_COLOR: Record<GoalStatus, "default" | "accent" | "success"> = {
   paused: "default",
   done: "success",
   abandoned: "default",
+};
+
+/** Schedule-badge presentation per kind (icon + semantic tone; never colour-only). */
+const SCHEDULE_STYLE: Record<
+  "scheduled" | "ready" | "overdue",
+  { icon: IconName; className: string }
+> = {
+  scheduled: { icon: "clock", className: "text-muted" },
+  ready: { icon: "spark", className: "text-accent" },
+  overdue: { icon: "alert", className: "text-warning" },
 };
 
 export function GoalCard({
@@ -46,6 +56,7 @@ export function GoalCard({
 
   const closed = isGoalClosed(goal.status);
   const pace = goalPaceBadge(goal);
+  const schedule = goalScheduleBadge(goal);
   const pct = goalProgressPercent(goal);
   const linked = habitsForGoal(habits, goal.id);
 
@@ -123,7 +134,18 @@ export function GoalCard({
           <Icon name="calendar" size={11} /> {periodLabel(goal.start, goal.end)}
         </button>
         <span className="text-xs tabular-nums text-muted">{pct}%</span>
-        {pace && (
+        {schedule && (
+          <span
+            className={cx(
+              "ml-auto flex items-center gap-1 text-xs",
+              SCHEDULE_STYLE[schedule.kind].className,
+            )}
+          >
+            <Icon name={SCHEDULE_STYLE[schedule.kind].icon} size={11} />
+            {schedule.text}
+          </span>
+        )}
+        {pace && !schedule && (
           <span className={cx("ml-auto text-xs", pace.behind ? "text-warning" : "text-success")}>
             {pace.text}
           </span>
