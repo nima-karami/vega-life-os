@@ -1,3 +1,4 @@
+import { Select as HSelect, ListBox } from "@heroui/react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -15,6 +16,7 @@ import { minutesOf } from "@/core/lib/date";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 import { Popover } from "./popover";
+import { NONE } from "./select";
 import { stepValue } from "./stepper";
 
 const DOW = [
@@ -242,7 +244,12 @@ export function CalendarPopover({
   );
 }
 
-/** 15-minute-slot time picker. value/onChange use "HH:mm" or null. */
+/**
+ * 15-minute-slot time picker on a HeroUI Select (react-aria) so the dropdown
+ * matches the field width and gets standard keyboard/type-ahead/a11y. The trigger
+ * is rendered bare inside the shared PickerField chrome. value/onChange use
+ * "HH:mm" or null (null = the "No time" option when clearable).
+ */
 export function TimePicker({
   label = "time",
   value,
@@ -258,9 +265,6 @@ export function TimePicker({
   endHour?: number;
   clearable?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const colRef = useRef<HTMLDivElement>(null);
-  useCenterSelected(open, colRef);
   const slots: string[] = [];
   for (let m = startHour * 60; m <= endHour * 60; m += 15) {
     slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
@@ -268,55 +272,38 @@ export function TimePicker({
 
   return (
     <PickerField label={label}>
-      <Popover
-        open={open}
-        onOpenChange={setOpen}
-        align="start"
-        triggerClassName={triggerCx}
-        triggerContent={
-          <>
-            <span className={value ? "" : "text-[var(--color-muted)]"}>{value ?? "No time"}</span>
-            <Icon name="clock" size={13} className="shrink-0 text-[var(--color-muted)]" />
-          </>
-        }
+      <HSelect
+        aria-label={label}
+        selectedKey={value ?? NONE}
+        onSelectionChange={(k) => {
+          if (k != null) onChange(k === NONE ? null : String(k));
+        }}
+        placeholder="No time"
       >
-        <div
-          ref={colRef}
-          className="flex max-h-[240px] w-[var(--trigger-width)] min-w-[128px] flex-col overflow-y-auto p-1.5"
-        >
-          {value && clearable && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-                setOpen(false);
-              }}
-              className="rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left font-sans text-[11px] font-medium text-[var(--color-muted)] transition-colors duration-150 hover:text-[var(--color-signal)]"
-            >
-              Clear
-            </button>
+        <HSelect.Trigger
+          className={cx(
+            triggerCx,
+            "h-auto min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none",
           )}
-          {slots.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                onChange(t);
-                setOpen(false);
-              }}
-              data-sel={value === t}
-              className={cx(
-                "rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left font-sans text-[13px] tabular-nums transition-colors duration-150",
-                value === t
-                  ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-                  : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)]",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </Popover>
+        >
+          <HSelect.Value />
+          <Icon name="clock" size={13} className="shrink-0 text-[var(--color-muted)]" />
+        </HSelect.Trigger>
+        <HSelect.Popover className="w-[var(--trigger-width)] rounded-[10px]">
+          <ListBox className="max-h-[260px] overflow-y-auto">
+            {clearable ? (
+              <ListBox.Item id={NONE} textValue="No time">
+                No time
+              </ListBox.Item>
+            ) : null}
+            {slots.map((t) => (
+              <ListBox.Item id={t} key={t} textValue={t}>
+                {t}
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </HSelect.Popover>
+      </HSelect>
     </PickerField>
   );
 }

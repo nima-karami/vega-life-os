@@ -344,9 +344,10 @@ test("calendar: 'Schedule to time…' gives an all-day task a time (leaves the a
   // The schedule-to-time dialog opens; pick a start time from the picker.
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Schedule to a time", { timeout: 10_000 });
-  await dialog.getByRole("button", { name: /^09:00/ }).click(); // open the time popover
-  // The popover portals outside the aria-modal; target its slot by exact text.
-  await page.locator('button:text-is("10:00")').click();
+  // Open the time Select (trigger shows the current value) and pick a new start.
+  await dialog.getByRole("button").filter({ hasText: "09:00" }).first().click();
+  // The listbox portals outside the aria-modal; its options have role=option.
+  await page.getByRole("option", { name: "10:00", exact: true }).click();
 
   // It is now a 60-min timed block and no longer in the all-day row.
   await expect(page.getByRole("button", { name: "Pick up dry cleaning, all day" })).toHaveCount(0);
