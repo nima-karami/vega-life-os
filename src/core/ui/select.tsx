@@ -8,6 +8,26 @@ import { cx } from "./cx";
  */
 export const NONE = "∅none";
 
+/**
+ * Scroll the selected option into view when a Select opens. Verified that
+ * react-aria-components Select in this HeroUI build neither focuses nor scrolls
+ * the selected option on open (the listbox opens with aria-activedescendant unset
+ * and scrollTop 0), and HeroUI exposes no prop for it — so long lists like the
+ * time picker would otherwise open at the top. One frame after open the portaled
+ * listbox is painted; react-aria doesn't scroll, so this won't fight it.
+ */
+export function scrollSelectedIntoView() {
+  // One short tick after open: HeroUI's popover lays out + plays its entrance
+  // animation over a few frames, so a same-frame scroll clamps to a not-yet-final
+  // scrollHeight. By here the listbox has its full height and react-aria still
+  // isn't scrolling, so this lands cleanly.
+  setTimeout(() => {
+    document
+      .querySelector<HTMLElement>('[role="listbox"] [aria-selected="true"]')
+      ?.scrollIntoView({ block: "center" });
+  }, 80);
+}
+
 export interface SelectOption {
   value: string;
   label: ReactNode;
@@ -42,6 +62,9 @@ export function Select({
       selectedKey={value || null}
       onSelectionChange={(key) => {
         if (key != null) onValueChange(String(key));
+      }}
+      onOpenChange={(open) => {
+        if (open) scrollSelectedIntoView();
       }}
       placeholder={placeholder}
       className={cx("w-full", className)}

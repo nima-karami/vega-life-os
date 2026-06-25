@@ -16,7 +16,7 @@ import { minutesOf } from "@/core/lib/date";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 import { Popover } from "./popover";
-import { NONE } from "./select";
+import { NONE, scrollSelectedIntoView } from "./select";
 import { stepValue } from "./stepper";
 
 const DOW = [
@@ -278,6 +278,9 @@ export function TimePicker({
         onSelectionChange={(k) => {
           if (k != null) onChange(k === NONE ? null : String(k));
         }}
+        onOpenChange={(open) => {
+          if (open) scrollSelectedIntoView();
+        }}
         placeholder="No time"
       >
         <HSelect.Trigger
@@ -290,7 +293,7 @@ export function TimePicker({
           <Icon name="clock" size={13} className="shrink-0 text-[var(--color-muted)]" />
         </HSelect.Trigger>
         <HSelect.Popover className="w-[var(--trigger-width)] rounded-[10px]">
-          <ListBox className="max-h-[260px] overflow-y-auto">
+          <ListBox>
             {clearable ? (
               <ListBox.Item id={NONE} textValue="No time">
                 No time
