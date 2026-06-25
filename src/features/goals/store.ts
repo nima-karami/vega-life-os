@@ -1,10 +1,9 @@
-import { addDays, format } from "date-fns";
-import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { arrayMove } from "@/core/lib/reorder";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Goal, Subgoal } from "./model";
+import { presetRange } from "./timeframe";
 
 export interface GoalsSlice {
   goals: Goal[];
@@ -28,14 +27,15 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
 
   addGoal: (patch = {}) => {
     const order = get().goals.length;
+    const quarter = presetRange("quarter");
     const goal: Goal = {
       id: patch.id ?? uid("g_"),
       valueId: patch.valueId ?? get().values[0]?.id ?? "",
       name: patch.name ?? "New goal",
       icon: patch.icon ?? "target",
       status: patch.status ?? "active",
-      start: patch.start ?? todayISO(),
-      end: patch.end ?? format(addDays(new Date(), 30), "yyyy-MM-dd"),
+      start: patch.start ?? quarter.start,
+      end: patch.end ?? quarter.end,
       progress: patch.progress ?? 0,
       subgoals: patch.subgoals ?? [],
       order: patch.order ?? order,

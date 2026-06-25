@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { goalPhase } from "../selectors";
 import { createGoalsSlice, type GoalsSlice } from "../store";
+import { detectTimeframe } from "../timeframe";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
@@ -24,6 +26,15 @@ function seedGoalWithSteps(get: () => GoalsSlice, names: string[]) {
   for (const n of names) get().addSubgoal(g.id, n);
   return get().goals.find((x) => x.id === g.id);
 }
+
+describe("goals slice — addGoal defaults", () => {
+  it("defaults a new goal's window to the current quarter", () => {
+    const { get } = makeSlice();
+    const g = get().addGoal({ valueId: "v1", name: "Goal" });
+    expect(detectTimeframe(g.start, g.end)).toBe("quarter");
+    expect(goalPhase(g)).toBe("current");
+  });
+});
 
 describe("goals slice — subgoal actions", () => {
   it("renames a step, trimming whitespace", () => {
