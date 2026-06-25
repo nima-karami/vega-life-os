@@ -93,6 +93,7 @@ export function Select({
                 ) : null}
                 {option.label}
               </span>
+              <ListBox.Item.Indicator />
             </ListBox.Item>
           )}
         </ListBox>

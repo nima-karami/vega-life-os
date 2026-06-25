@@ -297,11 +297,13 @@ export function TimePicker({
             {clearable ? (
               <ListBox.Item id={NONE} textValue="No time">
                 No time
+                <ListBox.Item.Indicator />
               </ListBox.Item>
             ) : null}
             {slots.map((t) => (
               <ListBox.Item id={t} key={t} textValue={t}>
                 {t}
+                <ListBox.Item.Indicator />
               </ListBox.Item>
             ))}
           </ListBox>
