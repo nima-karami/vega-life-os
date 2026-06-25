@@ -14,6 +14,7 @@ import {
 } from "@/core/ui";
 import { goalsForValue } from "@/features/goals/selectors";
 import { valueColor } from "@/features/values/color";
+import { DayPicker } from "./DayPicker";
 import {
   ANYTIME_LABEL,
   conflictNote,
@@ -24,17 +25,6 @@ import {
 } from "./editor";
 import type { Habit } from "./model";
 import { conflictingHabits } from "./selectors";
-
-/** Day picker order is fixed Mon..Sun to match the model's days[7] mask. */
-const WEEKDAYS = [
-  { short: "M", full: "Monday" },
-  { short: "T", full: "Tuesday" },
-  { short: "W", full: "Wednesday" },
-  { short: "T", full: "Thursday" },
-  { short: "F", full: "Friday" },
-  { short: "S", full: "Saturday" },
-  { short: "S", full: "Sunday" },
-] as const;
 
 interface Draft {
   name: string;
@@ -110,7 +100,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const goalOptions = useMemo(() => goalsForValue(goals, draft.valueId), [goals, draft.valueId]);
   const errors = validateDraft(draft);
   const hasErrors = Object.keys(errors).length > 0;
-  const activeDays = draft.days.some((d) => d === 1);
   const detached = habit ? detachedCount(tasks, habit.id) : 0;
   const isArchived = habit?.archivedAt != null;
 
@@ -129,14 +118,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
       valueId,
       goalId: resetGoalForValue(d.goalId, valueId, goals),
     }));
-  };
-
-  const toggleDay = (i: number) => {
-    setDraft((d) => {
-      const days = [...d.days];
-      days[i] = days[i] ? 0 : 1;
-      return { ...d, days };
-    });
   };
 
   const onSave = () => {
@@ -290,37 +271,11 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   </div>
 
                   {/* Schedule: weekday picker + time + duration */}
-                  <fieldset>
-                    <legend className="mb-1.5 block text-xs text-muted">Active days</legend>
-                    <div className="flex gap-1.5">
-                      {WEEKDAYS.map((d, i) => {
-                        const on = !!draft.days[i];
-                        return (
-                          <button
-                            type="button"
-                            key={d.full}
-                            aria-pressed={on}
-                            aria-label={d.full}
-                            disabled={isArchived}
-                            onClick={() => toggleDay(i)}
-                            className={`grid h-9 w-9 place-items-center rounded-[12px] text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                              on
-                                ? "bg-accent text-accent-foreground"
-                                : "bg-surface-secondary text-muted hover:bg-muted"
-                            }`}
-                          >
-                            {d.short}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {!activeDays && (
-                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
-                        <Icon name="alert" size={13} />
-                        No active days — this won&apos;t create any tasks.
-                      </p>
-                    )}
-                  </fieldset>
+                  <DayPicker
+                    value={draft.days}
+                    onChange={(days) => set("days", days)}
+                    disabled={isArchived}
+                  />
 
                   {/* When: scheduled (has a time → calendar slot) vs anytime (no time → daily strip) */}
                   <div>
