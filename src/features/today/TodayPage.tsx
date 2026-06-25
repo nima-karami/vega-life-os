@@ -12,7 +12,7 @@ import {
   StreakBadge,
   UndoBar,
 } from "@/core/ui";
-import { habitStreak } from "@/features/habits";
+import { streakState } from "@/features/habits";
 import {
   dayReflectable,
   entryStatus,
@@ -374,7 +374,7 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
   const tasks = useStore((s) => s.tasks);
   const lineage = useTaskLineage(task.id);
   const done = task.status === "done";
-  const streak = habitStreak(tasks, task.habitId ?? "");
+  const streak = streakState(tasks, task.habitId ?? "");
   const icon = habitDefs.find((h) => h.id === task.habitId)?.icon ?? "repeat";
 
   return (
@@ -413,7 +413,11 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
             {lineage.value.name}
           </span>
         )}
-        <StreakBadge streak={streak} />
+        <StreakBadge
+          streak={streak.count}
+          state={streak.state === "healing" ? "healing" : "solid"}
+          recovery={streak.recovery}
+        />
       </button>
     </li>
   );

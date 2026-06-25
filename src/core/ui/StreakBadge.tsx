@@ -3,26 +3,44 @@ import { cx } from "./cx";
 import { Icon } from "./icons";
 
 /**
- * StreakBadge — the canonical flame + integer streak indicator.
- *
- * Visible: a decorative flame glyph followed by the bare integer (no unit
- * suffix). The unit is supplied to assistive tech via the accessible name
- * `"{n}-day streak"`. Renders nothing when the streak is not positive, matching
- * the Daily-habits strip. Reused by the strip and by habit-sourced task cards.
+ * StreakBadge — flame + integer streak indicator. While `state === "healing"` (a long
+ * streak mid-recovery after a single slip) the flame is greyed and a `done/needed` hint
+ * is shown; the accessible name gains ", healing — {done} of {needed}". Renders nothing
+ * when the streak is not positive.
  */
-export function StreakBadge({ streak, className }: { streak: number; className?: string }) {
+export function StreakBadge({
+  streak,
+  state = "solid",
+  recovery,
+  className,
+}: {
+  streak: number;
+  state?: "solid" | "healing";
+  recovery?: { done: number; needed: number };
+  className?: string;
+}) {
   if (streak <= 0) return null;
+  const healing = state === "healing";
+  const label =
+    healing && recovery
+      ? `${streakLabel(streak)}, healing — ${recovery.done} of ${recovery.needed}`
+      : streakLabel(streak);
   return (
     <span
       role="img"
-      aria-label={streakLabel(streak)}
+      aria-label={label}
       className={cx(
         "inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted",
         className,
       )}
     >
-      <Icon name="flame" size={12} aria-hidden />
+      <Icon name="flame" size={12} aria-hidden className={healing ? "opacity-40" : undefined} />
       {streak}
+      {healing && recovery && (
+        <span className="text-[10px] tabular-nums">
+          {recovery.done}/{recovery.needed}
+        </span>
+      )}
     </span>
   );
 }
