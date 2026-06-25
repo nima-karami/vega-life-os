@@ -11,7 +11,10 @@ const IGNORE = [/Download the React DevTools/i, /\[vite\]/i, /Firebase/i];
 const WIDTHS = [320, 360, 390, 430];
 
 async function bootSandbox(page: import("@playwright/test").Page) {
-  await page.goto("/", { waitUntil: "networkidle" });
+  // domcontentloaded (not networkidle) — networkidle is flaky under the full
+  // suite's parallel load + the eager editor chunk + SW; the explicit element
+  // waits below are the real synchronization.
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const omni = page.getByTestId("omni-trigger");
   const main = page.locator("main");
@@ -57,7 +60,7 @@ for (const width of WIDTHS) {
       });
 
       await page.setViewportSize({ width, height: 780 });
-      await page.goto(route, { waitUntil: "networkidle" });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
       await passGratitudeGate(page);
       await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -77,7 +80,7 @@ for (const width of WIDTHS) {
 
 test("header search trigger and account control do not overlap (360px)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
-  await page.goto("/today", { waitUntil: "networkidle" });
+  await page.goto("/today", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
 
   const trigger = page.getByTestId("omni-trigger");
@@ -99,7 +102,7 @@ test("habit editor opens as a sheet, scrolls, keeps title + actions visible, and
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 720 });
-  await page.goto("/habits", { waitUntil: "networkidle" });
+  await page.goto("/habits", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -118,8 +121,8 @@ test("habit editor opens as a sheet, scrolls, keeps title + actions visible, and
   const create = dialog.getByRole("button", { name: "Create habit" });
   await expect(create).toBeVisible();
 
-  // Body scrolls independently — the icon field is far down the form.
-  await dialog.getByRole("button", { name: /Icon: change/ }).scrollIntoViewIfNeeded();
+  // Body scrolls independently — the schedule controls are far down the form.
+  await dialog.getByRole("button", { name: "Anytime" }).scrollIntoViewIfNeeded();
   // Footer action remains visible after scrolling the body.
   await expect(create).toBeVisible();
 
@@ -132,7 +135,7 @@ test("calendar shows a single-day view with day navigation and no page overflow 
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 780 });
-  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -147,7 +150,7 @@ test("calendar shows a single-day view with day navigation and no page overflow 
 
 test("analytics sparkline/charts are in a contained-scroll region (360px)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
-  await page.goto("/analytics", { waitUntil: "networkidle" });
+  await page.goto("/analytics", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
