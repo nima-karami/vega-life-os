@@ -1,9 +1,10 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { gratitudeRequired } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
 import { OmniTrigger } from "./OmniTrigger";
+import { PageTransition } from "./PageTransition";
 
 export function AppShell() {
   const gated = useStore((s) => gratitudeRequired(s.journal, todayISO()));
@@ -36,7 +37,7 @@ export function AppShell() {
         </header>
       )}
       <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <Outlet />
+        <PageTransition />
       </main>
     </div>
   );
