@@ -1,4 +1,7 @@
 import {
+  addMonths,
+  addQuarters,
+  addYears,
   endOfMonth,
   endOfQuarter,
   endOfYear,
@@ -33,6 +36,30 @@ export function detectTimeframe(start: string, end: string): Timeframe {
     if (r.start === start && r.end === end) return tf;
   }
   return "custom";
+}
+
+/** start/end of the preset `grain` containing `isoDate` (used to snap on grain switch). */
+export function presetRangeOn(
+  grain: Exclude<Timeframe, "custom">,
+  isoDate: string,
+): { start: string; end: string } {
+  return presetRange(grain, parseISO(isoDate));
+}
+
+/** One preset unit forward (dir=1) or back (dir=-1) from the goal's current start. */
+export function periodStep(
+  start: string,
+  grain: Exclude<Timeframe, "custom">,
+  dir: 1 | -1,
+): { start: string; end: string } {
+  const ref = parseISO(start);
+  const moved =
+    grain === "quarter"
+      ? addQuarters(ref, dir)
+      : grain === "month"
+        ? addMonths(ref, dir)
+        : addYears(ref, dir);
+  return presetRange(grain, moved);
 }
 
 /** Friendly period label: "Q2 2026" · "Jun 2026" · "2026" · "Jun 3 – Jul 13". */
