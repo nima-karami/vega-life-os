@@ -6,7 +6,7 @@ import { type CatalogEntry, filterCatalog, groupedCatalog } from "./icon-catalog
 import { Icon } from "./icons";
 import { Popover } from "./popover";
 
-const GRID_COLS = 8;
+const GRID_COLS = 6;
 
 export interface IconFieldProps {
   value: IconName;
@@ -179,7 +179,7 @@ export function IconField({
         triggerStyle={triggerStyle}
         triggerContent={<Icon name={value} size={iconSize} className={iconClassName} />}
       >
-        <div className="w-[300px] max-w-[calc(100vw-2rem)] p-2">
+        <div className="w-[340px] max-w-[calc(100vw-2rem)] p-3">
           <div className="relative">
             <Icon
               name="search"
@@ -202,7 +202,7 @@ export function IconField({
             {searching ? `${results.length} ${results.length === 1 ? "icon" : "icons"}` : ""}
           </p>
 
-          <div className="mt-2 max-h-64 overflow-y-auto overscroll-contain pr-1">
+          <div className="mt-3 max-h-72 overflow-x-hidden overflow-y-auto overscroll-contain pr-0.5">
             {searching ? (
               results.length === 0 ? (
                 <p className="px-1 py-6 text-center text-xs text-muted">
@@ -222,7 +222,7 @@ export function IconField({
                 />
               )
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {pinned && (
                   <Section label="Current">
                     <IconGrid
@@ -302,11 +302,7 @@ function IconGrid({
   onFocusCell: (i: number) => void;
 }) {
   return (
-    <fieldset
-      aria-label={label}
-      className="grid grid-cols-6 gap-1.5 sm:grid-cols-8"
-      onKeyDown={onKeyDown}
-    >
+    <fieldset aria-label={label} className="grid grid-cols-6 gap-2" onKeyDown={onKeyDown}>
       {names.map((name, i) => {
         const flatIndex = offset + i;
         const selected = name === value;
@@ -324,7 +320,7 @@ function IconGrid({
             onFocus={() => onFocusCell(flatIndex)}
             onClick={() => onPick(name)}
             className={cx(
-              "grid aspect-square min-h-[40px] place-items-center rounded-[10px] border transition-colors",
+              "grid aspect-square min-h-[2.5rem] place-items-center rounded-[10px] border transition-colors",
               "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
               selected
                 ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent ring-offset-1 ring-offset-surface"
