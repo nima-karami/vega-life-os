@@ -30,11 +30,13 @@ function SortableRow({
   id,
   label,
   nested,
+  wholeRow,
   children,
 }: {
   id: string;
   label: string;
   nested: boolean;
+  wholeRow: boolean;
   children: ReactNode;
 }) {
   const {
@@ -47,14 +49,38 @@ function SortableRow({
     isDragging,
   } = useSortable({ id });
   const group = nested ? ROW_GROUP.inner : ROW_GROUP.outer;
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 1 : undefined,
+  };
+
+  // Whole-row drag: the row itself is the activator (grab cursor, no handle). For
+  // editors where a left-edge handle would be clipped by a scroll container. A 6px
+  // activation distance keeps clicks on the row's controls working; inline-edit
+  // inputs stop pointer/key propagation so typing never starts a drag.
+  if (wholeRow) {
+    return (
+      <li
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label={label}
+        style={style}
+        className={cx(
+          "relative cursor-grab touch-none active:cursor-grabbing",
+          isDragging && "opacity-80",
+        )}
+      >
+        {children}
+      </li>
+    );
+  }
+
   return (
     <li
       ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 1 : undefined,
-      }}
+      style={style}
       className={cx(group.li, "relative", isDragging && "opacity-80")}
     >
       {/* Notion-style handle: just outside the row's left edge, revealed on hover/focus. */}
@@ -92,6 +118,7 @@ export function SortableList<T>({
   renderItem,
   className,
   nested = false,
+  wholeRowDrag = false,
 }: {
   items: T[];
   getId: (item: T) => string;
@@ -101,6 +128,8 @@ export function SortableList<T>({
   className?: string;
   /** Set on a list rendered inside another sortable row, so hover reveal stays scoped to its own rows. */
   nested?: boolean;
+  /** Drag the whole row (grab cursor, no left handle) — for modals/editors where a left-edge handle is clipped. */
+  wholeRowDrag?: boolean;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -124,6 +153,7 @@ export function SortableList<T>({
               id={getId(item)}
               label={`Reorder ${getLabel(item)}`}
               nested={nested}
+              wholeRow={wholeRowDrag}
             >
               {renderItem(item)}
             </SortableRow>

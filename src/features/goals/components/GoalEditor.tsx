@@ -93,7 +93,7 @@ export function GoalEditor({
                 </Modal.Header>
 
                 <Modal.Body className="space-y-5">
-                  <label className="block space-y-1.5">
+                  <label className="block space-y-2.5">
                     <span className="text-xs text-muted">Name</span>
                     <input
                       type="text"
@@ -182,7 +182,8 @@ export function GoalEditor({
                         getId={(s) => s.id}
                         getLabel={(s) => s.name}
                         onReorder={(activeId, overId) => reorderSubgoals(goal.id, activeId, overId)}
-                        className="space-y-1.5 pl-6"
+                        className="space-y-1.5"
+                        wholeRowDrag
                         renderItem={(s) => (
                           <StepRow
                             sub={s}
@@ -277,7 +278,10 @@ function StepRow({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onBlur={commit}
+          // stop the row's whole-row drag from claiming text selection / the space key
+          onPointerDown={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
+            e.stopPropagation();
             if (e.key === "Enter") {
               e.preventDefault();
               commit();

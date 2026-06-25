@@ -9,7 +9,7 @@ import { cx, Icon } from "@/core/ui";
 /** Section wrapper with a small, quiet label above its control (sentence case). */
 export function EditorField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <span className="text-xs text-muted">{label}</span>
       {children}
     </div>
@@ -73,7 +73,7 @@ export function FractionSlider({
   isDisabled?: boolean;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted">{label}</span>
         <span className="text-xs tabular-nums text-foreground">{Math.round(value * 100)}%</span>

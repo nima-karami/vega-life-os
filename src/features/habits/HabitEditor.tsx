@@ -206,7 +206,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   )}
 
                   {/* Name */}
-                  <label className="block space-y-1.5">
+                  <label className="block space-y-2.5">
                     <span className="text-xs text-muted">Name</span>
                     <input
                       ref={nameRef}
@@ -231,7 +231,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   <div className="flex flex-wrap gap-3">
                     <div
                       className={cx(
-                        "min-w-[160px] flex-1 space-y-1.5",
+                        "min-w-[160px] flex-1 space-y-2.5",
                         isArchived && "pointer-events-none opacity-50",
                       )}
                     >
@@ -253,7 +253,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
 
                     <div
                       className={cx(
-                        "min-w-[160px] flex-1 space-y-1.5",
+                        "min-w-[160px] flex-1 space-y-2.5",
                         (isArchived || !draft.valueId) && "pointer-events-none opacity-50",
                       )}
                     >
@@ -279,7 +279,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
 
                   {/* When: scheduled (has a time → calendar slot) vs anytime (no time → daily strip) */}
                   <div>
-                    <span className="mb-1.5 block text-xs text-muted">When</span>
+                    <span className="mb-2.5 block text-xs text-muted">When</span>
                     <ButtonGroup fullWidth>
                       <Button
                         size="sm"

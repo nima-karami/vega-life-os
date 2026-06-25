@@ -94,7 +94,7 @@ export function ValueEditor({
                 </Modal.Header>
 
                 <Modal.Body className="space-y-5">
-                  <label className="block space-y-1.5">
+                  <label className="block space-y-2.5">
                     <span className="text-xs text-muted">Name</span>
                     <input
                       ref={nameRef}
@@ -106,7 +106,7 @@ export function ValueEditor({
                     />
                   </label>
 
-                  <label className="block space-y-1.5">
+                  <label className="block space-y-2.5">
                     <span className="text-xs text-muted">What it means to you</span>
                     <textarea
                       placeholder="A sentence on why this matters…"
