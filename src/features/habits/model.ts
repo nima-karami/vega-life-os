@@ -1,5 +1,9 @@
 import type { IconName } from "@/core/lib/icon-names";
 
+export type HabitSchedule =
+  | { type: "weekly"; days: number[]; interval: number; anchor: string }
+  | { type: "monthly"; daysOfMonth: number[]; lastDay: boolean };
+
 export interface Habit {
   id: string;
   name: string;
@@ -13,6 +17,8 @@ export interface Habit {
   recurrence: string;
   /** length-7 mask, Mon..Sun, 1 = active that weekday */
   days: number[];
+  /** Cadence source of truth. Absent on legacy records → derived weekly/interval-1 from `days`. */
+  schedule?: HabitSchedule;
   durationMin: number;
   /** ISO date the habit was created (for rate windows) */
   createdAt: string;
