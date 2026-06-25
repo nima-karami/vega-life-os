@@ -1,9 +1,10 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
 import { gratitudeRequired } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
 import { OmniTrigger } from "./OmniTrigger";
+import { PageTransition } from "./PageTransition";
 
 export function AppShell() {
   // Subscribing to the live date here re-renders the whole routed subtree at the
@@ -40,7 +41,7 @@ export function AppShell() {
         </header>
       )}
       <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <Outlet />
+        <PageTransition />
       </main>
     </div>
   );
