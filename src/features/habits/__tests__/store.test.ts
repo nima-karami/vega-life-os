@@ -75,6 +75,31 @@ describe("addHabit — time handling", () => {
   });
 });
 
+describe("updateHabit — schedule change rebuilds future instances", () => {
+  it("strips future undone non-detached instances, re-runs ensureUpcoming, and persists the schedule", () => {
+    const { get } = makeSlice({
+      tasks: [
+        inst({ id: "future", date: "2999-01-01" }),
+        inst({ id: "past", date: "2000-01-01" }),
+        inst({ id: "detached", date: "2999-02-01", detached: true }),
+      ],
+    });
+    get().addHabit({ id: "h1", name: "Journal" });
+    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+
+    get().updateHabit("h1", {
+      schedule: { type: "monthly", daysOfMonth: [1], lastDay: false },
+    });
+
+    const ids = get()
+      .tasks.map((t) => t.id)
+      .sort();
+    expect(ids).toEqual(["detached", "past"]); // "future" stripped
+    expect(get().ensureUpcoming).toHaveBeenCalled();
+    expect(get().habits[0].schedule).toEqual({ type: "monthly", daysOfMonth: [1], lastDay: false });
+  });
+});
+
 describe("archiveHabit / unarchiveHabit", () => {
   it("archives: sets archivedAt and strips future undone non-detached instances", () => {
     const { get } = makeSlice({
