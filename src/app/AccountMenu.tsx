@@ -17,9 +17,17 @@ function initials(name: string) {
   );
 }
 
-function AccountAvatar({ src, label }: { src?: string; label: string }) {
+function AccountAvatar({
+  src,
+  label,
+  size = "sm",
+}: {
+  src?: string;
+  label: string;
+  size?: "sm" | "md";
+}) {
   return (
-    <Avatar size="sm" className="bg-surface-secondary text-xs text-muted">
+    <Avatar size={size} className="bg-surface-secondary text-xs text-muted">
       {src ? <Avatar.Image src={src} alt="" /> : null}
       <Avatar.Fallback>{label}</Avatar.Fallback>
     </Avatar>
@@ -66,7 +74,7 @@ export function AccountMenu() {
         aria-label="Account menu"
         className="grid h-11 w-11 place-items-center rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
       >
-        <AccountAvatar src={avatar || undefined} label={initials(name)} />
+        <AccountAvatar src={avatar || undefined} label={initials(name)} size="md" />
       </Dropdown.Trigger>
 
       <Dropdown.Popover placement="bottom end" offset={8}>

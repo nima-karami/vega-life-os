@@ -22,12 +22,16 @@ export function AppShell() {
     <div className="safe-inset-x safe-pt flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {!gated && (
         <header className="relative shrink-0 px-4 pt-5 pb-3">
-          {/* Reserve right space so the search trigger doesn't slide under the avatar. */}
-          <div className="mx-auto w-full max-w-2xl pr-11 sm:pr-0">
-            <OmniTrigger />
-          </div>
-          <div className="absolute right-4 top-1/2 -translate-y-1/2">
-            <AccountMenu />
+          {/* Mobile: search + avatar share one centered, vertically-aligned row with
+          breathing room. Desktop (sm+): the avatar floats at the far right while the
+          search stays centered. */}
+          <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <OmniTrigger />
+            </div>
+            <div className="shrink-0 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2">
+              <AccountMenu />
+            </div>
           </div>
         </header>
       )}
