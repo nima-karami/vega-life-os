@@ -1,6 +1,7 @@
 import { addDays, format, startOfWeek } from "date-fns";
 import type { Goal } from "@/features/goals/model";
-import type { Habit } from "@/features/habits/model";
+import type { Habit, HabitSchedule } from "@/features/habits/model";
+import { isActiveOn } from "@/features/habits/recurrence";
 import type { Book, Movie, VocabEntry } from "@/features/library/model";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
@@ -162,8 +163,14 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   ds.goals = goals;
 
   // ---------------- HABITS ----------------
-  // days: Mon..Sun mask
   const createdAt = iso(addDays(weekStart, -60));
+  // weekly schedule from a Mon..Sun mask (interval 1; anchor irrelevant at interval 1)
+  const wk = (days: number[]): HabitSchedule => ({
+    type: "weekly",
+    days,
+    interval: 1,
+    anchor: createdAt.slice(0, 10),
+  });
   const habits: Habit[] = (
     [
       {
@@ -173,8 +180,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v2",
         icon: "book",
         time: "21:30",
-        recurrence: "Every day",
-        days: [1, 1, 1, 1, 1, 1, 1],
+        schedule: wk([1, 1, 1, 1, 1, 1, 1]),
         durationMin: 60,
         createdAt,
       },
@@ -185,8 +191,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v1",
         icon: "briefcase",
         time: "09:00",
-        recurrence: "Weekdays",
-        days: [1, 1, 1, 1, 1, 0, 0],
+        schedule: wk([1, 1, 1, 1, 1, 0, 0]),
         durationMin: 45,
         createdAt,
       },
@@ -197,8 +202,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v3",
         icon: "heart",
         time: "22:30",
-        recurrence: "Every day",
-        days: [1, 1, 1, 1, 1, 1, 1],
+        schedule: wk([1, 1, 1, 1, 1, 1, 1]),
         durationMin: 30,
         createdAt,
       },
@@ -209,8 +213,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v5",
         icon: "zap",
         time: "07:30",
-        recurrence: "Mon / Wed / Fri",
-        days: [1, 0, 1, 0, 1, 0, 0],
+        schedule: wk([1, 0, 1, 0, 1, 0, 0]),
         durationMin: 45,
         createdAt,
       },
@@ -221,8 +224,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v4",
         icon: "card",
         time: "10:00",
-        recurrence: "Monthly · 1st",
-        days: [1, 0, 0, 0, 0, 0, 0],
+        schedule: { type: "monthly", daysOfMonth: [1], lastDay: false },
         durationMin: 45,
         createdAt,
       },
@@ -233,8 +235,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v3",
         icon: "heart",
         time: "18:30",
-        recurrence: "Every day",
-        days: [1, 1, 1, 1, 1, 1, 1],
+        schedule: wk([1, 1, 1, 1, 1, 1, 1]),
         durationMin: 15,
         createdAt,
       },
@@ -245,8 +246,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v2",
         icon: "eye",
         time: "19:00",
-        recurrence: "Sundays",
-        days: [0, 0, 0, 0, 0, 0, 1],
+        schedule: wk([0, 0, 0, 0, 0, 0, 1]),
         durationMin: 40,
         createdAt,
       },
@@ -257,8 +257,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v5",
         icon: "zap",
         time: "18:00",
-        recurrence: "Tue / Thu / Sat",
-        days: [0, 1, 0, 1, 0, 1, 0],
+        schedule: wk([0, 1, 0, 1, 0, 1, 0]),
         durationMin: 30,
         createdAt,
       },
@@ -270,8 +269,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
         valueId: "v3",
         icon: "spark",
         time: null,
-        recurrence: "Every day",
-        days: [1, 1, 1, 1, 1, 1, 1],
+        schedule: wk([1, 1, 1, 1, 1, 1, 1]),
         durationMin: 5,
         createdAt,
       },
@@ -306,9 +304,8 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   const TO = 6;
   for (const h of habits) {
     for (let off = FROM; off <= TO; off++) {
-      const dow = ((off % 7) + 7) % 7; // weekStart is Monday -> index 0
-      if (!h.days[dow]) continue;
       const dateStr = iso(addDays(weekStart, off));
+      if (!isActiveOn(h, dateStr)) continue;
       const status = statusForDate(dateStr, h.time);
       tasks.push({
         id: tid(),

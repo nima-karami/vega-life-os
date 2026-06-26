@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { dowIndex } from "@/core/lib/date";
 import type { Habit, HabitSchedule } from "../model";
 import {
-  habitSchedule,
   isActiveOn,
   isActiveOnSchedule,
   nextOccurrence,
+  normalizeHabit,
   recurrenceText,
   weeklyMask,
 } from "../recurrence";
@@ -111,15 +111,50 @@ describe("weeklyMask", () => {
   });
 });
 
-describe("habitSchedule fallback", () => {
-  it("derives weekly/interval-1 from a legacy habit with no schedule", () => {
-    const h = { days: [1, 0, 1, 0, 0, 0, 0], createdAt: "2026-01-05T08:00:00.000Z" } as Habit;
-    expect(habitSchedule(h)).toEqual({
+describe("normalizeHabit", () => {
+  it("backfills schedule from a legacy habit's days and strips dead fields", () => {
+    const out = normalizeHabit({
+      id: "h1",
+      name: "x",
+      goalId: null,
+      valueId: "v",
+      icon: "repeat",
+      time: null,
+      durationMin: 30,
+      archivedAt: null,
+      createdAt: "2026-01-05T08:00:00.000Z",
+      days: [1, 0, 1, 0, 0, 0, 0],
+      recurrence: "Mon / Wed",
+    } as never);
+    expect(out.schedule).toEqual({
       type: "weekly",
       days: [1, 0, 1, 0, 0, 0, 0],
       interval: 1,
       anchor: "2026-01-05",
     });
-    expect(isActiveOn(h, "2026-06-01")).toBe(true); // a Monday, mask index 0 on
+    expect("days" in out).toBe(false);
+    expect("recurrence" in out).toBe(false);
+    expect(isActiveOn(out, "2026-06-01")).toBe(true); // a Monday, mask index 0 on
+  });
+
+  it("preserves an existing schedule untouched (monthly)", () => {
+    const schedule = { type: "monthly", daysOfMonth: [15], lastDay: false } as const;
+    const out = normalizeHabit({
+      id: "h2",
+      name: "y",
+      goalId: null,
+      valueId: "v",
+      icon: "repeat",
+      time: null,
+      durationMin: 30,
+      archivedAt: null,
+      createdAt: "2026-06-25",
+      schedule,
+      days: [1, 1, 1, 1, 1, 1, 1],
+      recurrence: "Monthly on the 15th",
+    } as never);
+    expect(out.schedule).toEqual(schedule);
+    expect("days" in out).toBe(false);
+    expect("recurrence" in out).toBe(false);
   });
 });

@@ -3,6 +3,13 @@ import type { Value } from "@/features/values/model";
 import type { Habit } from "../model";
 import { conflictingHabits, groupHabitsByValue, sortArchived } from "../selectors";
 
+const weekly = (days: number[]): Habit["schedule"] => ({
+  type: "weekly",
+  days,
+  interval: 1,
+  anchor: "2026-01-01",
+});
+
 const habit = (over: Partial<Habit> = {}): Habit => ({
   id: "h1",
   name: "Habit",
@@ -10,8 +17,7 @@ const habit = (over: Partial<Habit> = {}): Habit => ({
   valueId: "v1",
   icon: "repeat",
   time: "11:00",
-  recurrence: "Every day",
-  days: [1, 1, 1, 1, 1, 1, 1],
+  schedule: weekly([1, 1, 1, 1, 1, 1, 1]),
   durationMin: 30,
   createdAt: "2026-01-01",
   archivedAt: null,
@@ -36,45 +42,50 @@ describe("conflictingHabits", () => {
   const sun = [0, 0, 0, 0, 0, 0, 1];
 
   it("flags another timed habit sharing the same HH:mm and a weekday", () => {
-    const other = habit({ id: "h2", name: "Morning run", time: "11:00", days: sun });
+    const other = habit({ id: "h2", name: "Morning run", time: "11:00", schedule: weekly(sun) });
     const out = conflictingHabits([other], { days: sun, time: "11:00" }, null);
     expect(out.map((h) => h.id)).toEqual(["h2"]);
   });
 
   it("returns [] when the time differs", () => {
-    const other = habit({ id: "h2", time: "12:00", days: sun });
+    const other = habit({ id: "h2", time: "12:00", schedule: weekly(sun) });
     expect(conflictingHabits([other], { days: sun, time: "11:00" }, null)).toEqual([]);
   });
 
   it("returns [] when no weekday overlaps", () => {
-    const other = habit({ id: "h2", time: "11:00", days: [1, 0, 0, 0, 0, 0, 0] });
+    const other = habit({ id: "h2", time: "11:00", schedule: weekly([1, 0, 0, 0, 0, 0, 0]) });
     expect(conflictingHabits([other], { days: sun, time: "11:00" }, null)).toEqual([]);
   });
 
   it("returns [] for an untimed draft", () => {
-    const other = habit({ id: "h2", time: "11:00", days: sun });
+    const other = habit({ id: "h2", time: "11:00", schedule: weekly(sun) });
     expect(conflictingHabits([other], { days: sun, time: null }, null)).toEqual([]);
   });
 
   it("excludes an untimed candidate", () => {
-    const other = habit({ id: "h2", time: null, days: sun });
+    const other = habit({ id: "h2", time: null, schedule: weekly(sun) });
     expect(conflictingHabits([other], { days: sun, time: "11:00" }, null)).toEqual([]);
   });
 
   it("excludes the habit being edited (excludeId)", () => {
-    const self = habit({ id: "h1", time: "11:00", days: sun });
+    const self = habit({ id: "h1", time: "11:00", schedule: weekly(sun) });
     expect(conflictingHabits([self], { days: sun, time: "11:00" }, "h1")).toEqual([]);
   });
 
   it("excludes an archived candidate", () => {
-    const other = habit({ id: "h2", time: "11:00", days: sun, archivedAt: "2026-06-01T00:00:00Z" });
+    const other = habit({
+      id: "h2",
+      time: "11:00",
+      schedule: weekly(sun),
+      archivedAt: "2026-06-01T00:00:00Z",
+    });
     expect(conflictingHabits([other], { days: sun, time: "11:00" }, null)).toEqual([]);
   });
 
   it("treats a legacy candidate with no archivedAt field as active", () => {
     // Pre-archiving records lack the field (undefined) — must still conflict.
     const legacy = {
-      ...habit({ id: "h2", time: "11:00", days: sun }),
+      ...habit({ id: "h2", time: "11:00", schedule: weekly(sun) }),
       archivedAt: undefined,
     } as unknown as Habit;
     expect(
@@ -83,8 +94,8 @@ describe("conflictingHabits", () => {
   });
 
   it("returns all conflicting habits when several share the slot", () => {
-    const a = habit({ id: "a", name: "A", time: "11:00", days: sun });
-    const b = habit({ id: "b", name: "B", time: "11:00", days: sun });
+    const a = habit({ id: "a", name: "A", time: "11:00", schedule: weekly(sun) });
+    const b = habit({ id: "b", name: "B", time: "11:00", schedule: weekly(sun) });
     const out = conflictingHabits([a, b], { days: sun, time: "11:00" }, null);
     expect(out.map((h) => h.id).sort()).toEqual(["a", "b"]);
   });

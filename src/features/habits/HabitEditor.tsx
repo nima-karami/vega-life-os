@@ -52,7 +52,7 @@ function draftFrom(habit: Habit): Draft {
     goalId: habit.goalId,
     icon: habit.icon,
     time: habit.time,
-    days: s.type === "weekly" ? [...s.days] : [...habit.days],
+    days: s.type === "weekly" ? [...s.days] : [1, 1, 1, 1, 1, 1, 1],
     durationMin: habit.durationMin,
     repeat: monthly ? "monthly" : s.interval > 1 ? "nweekly" : "weekly",
     interval: s.type === "weekly" && s.interval > 1 ? s.interval : 2,
@@ -175,9 +175,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
       goalId: draft.goalId,
       icon: draft.icon,
       time: draft.time,
-      days: draft.days,
       schedule,
-      recurrence: recurrenceText(schedule),
       durationMin: draft.durationMin,
     };
     if (habit) {

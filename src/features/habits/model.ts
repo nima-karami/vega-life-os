@@ -13,12 +13,9 @@ export interface Habit {
   icon: IconName;
   /** "HH:mm" preferred time-of-day, or null for an "anytime" (untimed) habit */
   time: string | null;
-  /** human-readable recurrence label, e.g. "Every day", "Weekdays" */
-  recurrence: string;
-  /** length-7 mask, Mon..Sun, 1 = active that weekday */
-  days: number[];
-  /** Cadence source of truth. Absent on legacy records → derived weekly/interval-1 from `days`. */
-  schedule?: HabitSchedule;
+  /** Cadence — the single source of truth. The display label is derived via
+   *  `recurrenceText(schedule)`; there is no stored label. */
+  schedule: HabitSchedule;
   durationMin: number;
   /** ISO date the habit was created (for rate windows) */
   createdAt: string;

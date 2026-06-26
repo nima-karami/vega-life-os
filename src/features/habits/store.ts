@@ -42,12 +42,15 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       icon: patch.icon ?? "repeat",
       // preserve an explicit null (anytime); only default when time is omitted
       time: patch.time === undefined ? "09:00" : patch.time,
-      recurrence: patch.recurrence ?? "Every day",
-      days: patch.days ?? [1, 1, 1, 1, 1, 1, 1],
       durationMin: patch.durationMin ?? 30,
       createdAt: patch.createdAt ?? todayISO(),
       archivedAt: patch.archivedAt ?? null,
-      schedule: patch.schedule,
+      schedule: patch.schedule ?? {
+        type: "weekly",
+        days: [1, 1, 1, 1, 1, 1, 1],
+        interval: 1,
+        anchor: (patch.createdAt ?? todayISO()).slice(0, 10),
+      },
     };
     // newest first, so a freshly added habit is visible at the top (not buried below the fold)
     set((s) => ({ habits: [habit, ...s.habits] }));
@@ -69,10 +72,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     if (next) savePut("habits", next);
     // when the schedule changes, rebuild this habit's future undone instances
     // (skipping user-detached ones) so the calendar reflects the new definition
-    if (
-      next &&
-      (patch.days !== undefined || patch.time !== undefined || patch.schedule !== undefined)
-    ) {
+    if (next && (patch.schedule !== undefined || patch.time !== undefined)) {
       const removeIds = futureUndoneInstanceIds(get, id);
       if (removeIds.length) {
         const drop = new Set(removeIds);

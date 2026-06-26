@@ -262,7 +262,7 @@ describe("ensureUpcoming — archived gating", () => {
     valueId: "v1",
     time: "07:00",
     durationMin: 30,
-    days: everyDay,
+    schedule: { type: "weekly", days: everyDay, interval: 1, anchor: "2026-01-01" },
     archivedAt: null,
     ...over,
   });
@@ -398,7 +398,7 @@ describe("habit instance generation skips archived values", () => {
     valueId,
     time: "08:00",
     durationMin: 30,
-    days: everyday,
+    schedule: { type: "weekly", days: everyday, interval: 1, anchor: "2026-01-01" },
   });
 
   it("ensureUpcoming generates for active-value habits but not archived-value ones", () => {

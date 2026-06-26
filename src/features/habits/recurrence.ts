@@ -5,16 +5,27 @@ import type { Habit, HabitSchedule } from "./model";
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const listFmt = new Intl.ListFormat(undefined, { style: "long", type: "conjunction" });
 
-/** The habit's schedule, with a weekly/interval-1 fallback for legacy records. */
+/** The habit's schedule — the single source of truth (always present post-normalize). */
 export function habitSchedule(h: Habit): HabitSchedule {
-  return (
-    h.schedule ?? {
-      type: "weekly",
-      days: h.days,
-      interval: 1,
-      anchor: (h.createdAt ?? todayISO()).slice(0, 10),
-    }
-  );
+  return h.schedule;
+}
+
+/** A stored/legacy habit shape that may still carry the retired `days`/`recurrence` fields. */
+type LegacyHabit = Habit & { days?: number[]; recurrence?: string };
+
+/** Coerce any stored or legacy habit to the consolidated shape: `schedule` present,
+ *  no `days`/`recurrence`. Derives weekly/interval-1 from a legacy `days` mask. */
+export function normalizeHabit(raw: LegacyHabit): Habit {
+  const schedule: HabitSchedule = raw.schedule ?? {
+    type: "weekly",
+    days: raw.days ?? [1, 1, 1, 1, 1, 1, 1],
+    interval: 1,
+    anchor: (raw.createdAt ?? todayISO()).slice(0, 10),
+  };
+  const { days: _days, recurrence: _recurrence, ...rest } = raw;
+  void _days;
+  void _recurrence;
+  return { ...rest, schedule };
 }
 
 const weekStartISO = (iso: string) => format(weekStartOf(parseISO(iso)), "yyyy-MM-dd");

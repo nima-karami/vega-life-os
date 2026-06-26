@@ -13,6 +13,7 @@ import {
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { createGoalsSlice } from "@/features/goals/store";
+import { normalizeHabit } from "@/features/habits/recurrence";
 import { createHabitsSlice } from "@/features/habits/store";
 import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
@@ -64,7 +65,7 @@ function sorted(data: Partial<Dataset>): Partial<Dataset> {
       .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null }))
       .sort((a, b) => a.order - b.order);
   if (data.habits)
-    out.habits = data.habits.map((h) => ({ ...h, archivedAt: h.archivedAt ?? null }));
+    out.habits = data.habits.map((h) => normalizeHabit({ ...h, archivedAt: h.archivedAt ?? null }));
   if (data.goals)
     out.goals = data.goals
       .map((g) => ({ ...g, status: g.status ?? "active" }))

@@ -97,7 +97,12 @@ describe("detachedCount", () => {
 });
 
 describe("conflictNote", () => {
-  const h = (name: string, days: number[]): Habit => ({ id: name, name, days }) as unknown as Habit;
+  const h = (name: string, days: number[]): Habit =>
+    ({
+      id: name,
+      name,
+      schedule: { type: "weekly", days, interval: 1, anchor: "2026-01-01" },
+    }) as unknown as Habit;
   const sun = [0, 0, 0, 0, 0, 0, 1];
 
   it("returns null with no conflicts", () => {

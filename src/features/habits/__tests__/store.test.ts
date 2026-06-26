@@ -52,19 +52,19 @@ const inst = (over: Partial<Task> = {}): Task =>
 describe("addHabit — time handling", () => {
   it("defaults to 09:00 when time is omitted", () => {
     const { get } = makeSlice();
-    const h = get().addHabit({ name: "Workout", days: [1, 1, 1, 1, 1, 0, 0] });
+    const h = get().addHabit({ name: "Workout" });
     expect(h.time).toBe("09:00");
   });
 
   it("preserves an explicit null time (anytime habit) instead of coercing to 09:00", () => {
     const { get } = makeSlice();
-    const h = get().addHabit({ name: "Drink water", time: null, days: [1, 1, 1, 1, 1, 1, 1] });
+    const h = get().addHabit({ name: "Drink water", time: null });
     expect(h.time).toBeNull();
   });
 
   it("schedules instances right away (ensureUpcoming) after add", () => {
     const { get } = makeSlice();
-    get().addHabit({ name: "Drink water", time: null, days: [1, 1, 1, 1, 1, 1, 1] });
+    get().addHabit({ name: "Drink water", time: null });
     expect(get().ensureUpcoming).toHaveBeenCalled();
   });
 
