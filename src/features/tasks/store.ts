@@ -223,8 +223,36 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   ensureUpcoming: (daysAhead = 14) => {
     const { tasks, habits, addTask } = get();
     const generating = generatingHabits(habits, get().values);
-    const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
     const start = new Date();
+    const today = format(start, "yyyy-MM-dd");
+    const end = format(addDays(start, daysAhead), "yyyy-MM-dd");
+
+    // Self-heal: drop future undone non-detached instances that no longer match
+    // their habit's schedule (e.g. a daily instance left behind after the habit
+    // was switched to monthly). Past, done, skipped, and detached stay untouched.
+    const habitById = new Map(generating.map((h) => [h.id, h]));
+    const stale = tasks.filter(
+      (t) =>
+        t.habitId != null &&
+        habitById.has(t.habitId) &&
+        t.date != null &&
+        t.date >= today &&
+        t.date <= end &&
+        t.status === "todo" &&
+        !t.detached &&
+        !isActiveOn(habitById.get(t.habitId) as Habit, t.date),
+    );
+    if (stale.length) {
+      const drop = new Set(stale.map((t) => t.id));
+      set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
+      for (const t of stale) saveRemove("tasks", t.id);
+    }
+
+    const existing = new Set(
+      get()
+        .tasks.filter((t) => t.habitId)
+        .map((t) => `${t.habitId}@${t.date}`),
+    );
     let made = 0;
     for (let i = 0; i <= daysAhead; i++) {
       const iso = format(addDays(start, i), "yyyy-MM-dd");

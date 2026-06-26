@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { todayISO } from "@/core/lib/date";
 import type { Task } from "../model";
 import { createTasksSlice, type TasksSlice } from "../store";
 
@@ -295,6 +296,56 @@ describe("ensureUpcoming — archived gating", () => {
   it("treats a value without an archivedAt field as active (back-compat)", () => {
     const { get } = makeSlice({ habits: [sched()], values: [{ id: "v1" }] });
     expect(get().ensureUpcoming(1)).toBeGreaterThan(0);
+  });
+});
+
+describe("ensureUpcoming — self-heals instances that no longer match the schedule", () => {
+  // A monthly day-of-month that is guaranteed not to be today.
+  const dom = new Date().getDate();
+  const notToday = dom === 1 ? 2 : 1;
+  const today = todayISO();
+  const monthly: Habit = {
+    id: "h1",
+    name: "Water plants",
+    goalId: null,
+    valueId: "v1",
+    time: null,
+    durationMin: 30,
+    archivedAt: null,
+    schedule: { type: "monthly", daysOfMonth: [notToday], lastDay: false },
+  };
+  const at = (over: Partial<Task>): Task => ({
+    id: "x",
+    title: "Water plants",
+    kind: "habit",
+    habitId: "h1",
+    goalId: null,
+    valueId: "v1",
+    date: today,
+    time: null,
+    durationMin: 30,
+    status: "todo",
+    detached: false,
+    note: "",
+    order: 0,
+    ...over,
+  });
+
+  it("prunes a future undone non-detached instance, keeping done and detached ones", () => {
+    const { get } = makeSlice({
+      habits: [monthly],
+      values: [{ id: "v1", archivedAt: null }],
+      tasks: [
+        at({ id: "stale", status: "todo", detached: false }),
+        at({ id: "done", status: "done", detached: false }),
+        at({ id: "detached", status: "todo", detached: true }),
+      ],
+    });
+    get().ensureUpcoming(0);
+    const ids = get().tasks.map((t) => t.id);
+    expect(ids).not.toContain("stale");
+    expect(ids).toContain("done");
+    expect(ids).toContain("detached");
   });
 });
 
