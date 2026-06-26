@@ -3,6 +3,7 @@ import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
 import { gratitudeRequired } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
+import { BottomNav } from "./BottomNav";
 import { OmniTrigger } from "./OmniTrigger";
 import { PageTransition } from "./PageTransition";
 
@@ -26,7 +27,7 @@ export function AppShell() {
   return (
     <div className="safe-inset-x safe-pt flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {!gated && (
-        <header className="relative shrink-0 px-4 pt-5 pb-3">
+        <header className="relative hidden shrink-0 px-4 pt-5 pb-3 sm:block">
           {/* Mobile: search + avatar share one centered, vertically-aligned row with
           breathing room. Desktop (sm+): the avatar floats at the far right while the
           search stays centered. */}
@@ -43,6 +44,7 @@ export function AppShell() {
       <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <PageTransition />
       </main>
+      {!gated && <BottomNav />}
     </div>
   );
 }

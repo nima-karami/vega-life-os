@@ -34,8 +34,18 @@ function AccountAvatar({
   );
 }
 
-/** Global account avatar (top-right of every route): profile summary, Settings, sign-out. */
-export function AccountMenu() {
+/** Global account avatar: profile summary, Settings, sign-out. Defaults to the
+ *  desktop header placement; the phone bottom-nav passes a compact trigger and an
+ *  upward (`top end`) menu. */
+export function AccountMenu({
+  placement = "bottom end",
+  avatarSize = "md",
+  triggerClassName = "grid h-11 w-11 place-items-center rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
+}: {
+  placement?: "bottom end" | "top end";
+  avatarSize?: "sm" | "md";
+  triggerClassName?: string;
+} = {}) {
   const navigate = useNavigate();
   const name = useStore((s) => s.operatorName);
   const profileEmail = useStore((s) => s.operatorEmail);
@@ -66,14 +76,11 @@ export function AccountMenu() {
 
   return (
     <Dropdown>
-      <Dropdown.Trigger
-        aria-label="Account menu"
-        className="grid h-11 w-11 place-items-center rounded-full outline-none transition-transform focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-      >
-        <AccountAvatar src={avatar || undefined} label={initials(name)} size="md" />
+      <Dropdown.Trigger aria-label="Account menu" className={triggerClassName}>
+        <AccountAvatar src={avatar || undefined} label={initials(name)} size={avatarSize} />
       </Dropdown.Trigger>
 
-      <Dropdown.Popover placement="bottom end" offset={8}>
+      <Dropdown.Popover placement={placement} offset={8}>
         <Dropdown.Menu aria-label="Account" className="min-w-[224px]">
           <Dropdown.Item
             id="profile"

@@ -78,24 +78,28 @@ for (const width of WIDTHS) {
   }
 }
 
-test("header search trigger and account control do not overlap (360px)", async ({ page }) => {
+test("phone bottom nav exposes search and account controls (360px)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
   await page.goto("/today", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  const trigger = page.getByTestId("omni-trigger");
-  const account = page.getByRole("button", { name: "Account menu" });
-  await expect(trigger).toBeVisible();
+  // Search + account live in the bottom nav on phones (no top header).
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  const search = nav.getByRole("button", { name: "Search" });
+  const account = nav.getByRole("button", { name: "Account menu" });
+  await expect(search).toBeVisible();
   await expect(account).toBeVisible();
 
-  const a = await trigger.boundingBox();
-  const b = await account.boundingBox();
-  if (!a || !b) throw new Error("missing header control bounds");
-  // They must not horizontally overlap: the trigger ends before the account starts.
-  expect(a.x + a.width, "search trigger overlaps the account control").toBeLessThanOrEqual(b.x + 1);
-  // Account control is a comfortable tap target.
-  expect(b.width).toBeGreaterThanOrEqual(44);
-  expect(b.height).toBeGreaterThanOrEqual(44);
+  // Search opens the command bar; Escape closes it.
+  await search.click();
+  await expect(page.getByRole("dialog", { name: "Command bar" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Command bar" })).toHaveCount(0);
+
+  // Account opens its menu.
+  await account.click();
+  await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
 });
 
 test("habit editor opens as a sheet, scrolls, keeps title + actions visible, and closes (360px)", async ({
@@ -129,6 +133,33 @@ test("habit editor opens as a sheet, scrolls, keeps title + actions visible, and
   // Closes.
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("phone bottom nav shows the primary tabs and navigates between routes (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 780 });
+  await page.goto("/today", { waitUntil: "domcontentloaded" });
+  await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav).toBeVisible();
+  for (const label of ["Today", "Calendar", "Habits", "Values", "Analytics"]) {
+    await expect(nav.getByRole("button", { name: label })).toBeVisible();
+  }
+
+  // Tapping a tab navigates and marks it the current page.
+  await nav.getByRole("button", { name: "Habits" }).click();
+  await expect(page).toHaveURL(/\/habits$/);
+  await expect(nav.getByRole("button", { name: "Habits" })).toHaveAttribute("aria-current", "page");
+
+  await nav.getByRole("button", { name: "Calendar" }).click();
+  await expect(page).toHaveURL(/\/calendar$/);
+  await expect(nav.getByRole("button", { name: "Calendar" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 });
 
 test("calendar shows a single-day view with day navigation and no page overflow (390px)", async ({

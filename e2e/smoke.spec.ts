@@ -56,8 +56,9 @@ test("boots to /today — no TopBar, no NavRow, omni trigger visible", async ({ 
   await page.goto("/", { waitUntil: "networkidle" });
   await passGratitudeGate(page);
 
-  // No legacy nav chrome (NavRow was a <nav>). Semantic <header>/page headers are allowed.
-  await expect(page.locator("nav")).toHaveCount(0);
+  // No nav chrome visible on desktop. The phone-only bottom nav is sm:hidden (present
+  // in the DOM but display:none here); legacy NavRow chrome stays gone.
+  await expect(page.locator("nav:visible")).toHaveCount(0);
 
   // Exactly one global omni trigger — the only navigation — present and visible.
   await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
@@ -120,8 +121,8 @@ for (const { path, name } of V1_ROUTES) {
     const text = (await main.innerText()).trim();
     expect(text.length, `view "${name}" rendered too little text`).toBeGreaterThan(40);
 
-    // No legacy nav chrome (semantic <header> is allowed in the vapor shell/pages)
-    await expect(page.locator("nav")).toHaveCount(0);
+    // No nav chrome visible on desktop (the phone-only bottom nav is sm:hidden here).
+    await expect(page.locator("nav:visible")).toHaveCount(0);
     // The global omni trigger is present on every route (the only navigation).
     await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
 
