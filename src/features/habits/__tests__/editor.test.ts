@@ -1,14 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
-import {
-  conflictNote,
-  detachedCount,
-  recurrenceLabel,
-  resetGoalForValue,
-  validateDraft,
-} from "../editor";
+import { conflictNote, detachedCount, resetGoalForValue, validateDraft } from "../editor";
 import type { Habit } from "../model";
+import { recurrenceLabel } from "../recurrence";
 
 const goal = (id: string, valueId: string): Goal => ({
   id,

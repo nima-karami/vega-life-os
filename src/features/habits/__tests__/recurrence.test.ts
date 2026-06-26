@@ -7,6 +7,7 @@ import {
   isActiveOnSchedule,
   nextOccurrence,
   recurrenceText,
+  weeklyMask,
 } from "../recurrence";
 
 const weekly = (over: Partial<Extract<HabitSchedule, { type: "weekly" }>> = {}): HabitSchedule => ({
@@ -96,6 +97,17 @@ describe("recurrenceText", () => {
     expect(recurrenceText(monthly({ daysOfMonth: [1], lastDay: true }))).toBe(
       "Monthly on the 1st and last day",
     );
+  });
+});
+
+describe("weeklyMask", () => {
+  it("returns the weekly schedule days; all-zero for a monthly habit", () => {
+    expect(weeklyMask({ schedule: weekly({ days: [1, 0, 1, 0, 0, 0, 0] }) } as Habit)).toEqual([
+      1, 0, 1, 0, 0, 0, 0,
+    ]);
+    expect(weeklyMask({ schedule: monthly({ daysOfMonth: [15] }) } as Habit)).toEqual([
+      0, 0, 0, 0, 0, 0, 0,
+    ]);
   });
 });
 

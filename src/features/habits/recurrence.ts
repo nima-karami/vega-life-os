@@ -1,6 +1,5 @@
 import { addDays, format, getDate, lastDayOfMonth, parseISO } from "date-fns";
 import { daysBetween, dowIndex, todayISO, weekStartOf } from "@/core/lib/date";
-import { recurrenceLabel } from "./editor";
 import type { Habit, HabitSchedule } from "./model";
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -38,6 +37,22 @@ export function isActiveOnSchedule(s: HabitSchedule, iso: string): boolean {
 /** Wrapper used by the materializers. */
 export function isActiveOn(h: Habit, iso: string): boolean {
   return isActiveOnSchedule(habitSchedule(h), iso);
+}
+
+/** Length-7 Mon..Sun weekday mask; a monthly habit has none (all-zero). */
+export function weeklyMask(h: Habit): number[] {
+  const s = habitSchedule(h);
+  return s.type === "weekly" ? s.days : [0, 0, 0, 0, 0, 0, 0];
+}
+
+/** Human label derived from a 7-day mask (Mon..Sun). Used as the weekly base of `recurrenceText`. */
+export function recurrenceLabel(days: number[]): string {
+  const on = days.map((d, i) => (d ? i : -1)).filter((i) => i >= 0);
+  if (on.length === 7) return "Every day";
+  if (on.length === 0) return "Never";
+  if (on.join() === "0,1,2,3,4") return "Weekdays";
+  if (on.join() === "5,6") return "Weekends";
+  return on.map((i) => DAY_SHORT[i]).join(" / ");
 }
 
 /** First active date ≥ fromIso, scanning up to 400 days; null only for a "Never" schedule. */

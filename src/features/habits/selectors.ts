@@ -2,6 +2,7 @@ import { daysBetween, todayISO } from "@/core/lib/date";
 import type { Task } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
 import type { Habit } from "./model";
+import { weeklyMask } from "./recurrence";
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
 
@@ -165,7 +166,7 @@ export function conflictingHabits(
       (h.archivedAt ?? null) === null &&
       h.time != null &&
       h.time === draft.time &&
-      h.days.some((on, i) => on === 1 && draft.days[i] === 1),
+      weeklyMask(h).some((on, i) => on === 1 && draft.days[i] === 1),
   );
 }
 

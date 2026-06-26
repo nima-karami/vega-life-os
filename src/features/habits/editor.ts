@@ -9,6 +9,7 @@
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
 import type { Habit } from "./model";
+import { weeklyMask } from "./recurrence";
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -16,20 +17,6 @@ const listFmt = new Intl.ListFormat(undefined, { style: "long", type: "conjuncti
 
 /** Shown wherever a habit's time would appear when the habit has no time (untimed). */
 export const ANYTIME_LABEL = "Anytime";
-
-/**
- * Human label derived from the 7-day mask (Mon..Sun). `days` is the source of
- * truth; `recurrence` must always be written together with it so they never
- * drift. Mirrors the existing helper exactly.
- */
-export function recurrenceLabel(days: number[]): string {
-  const on = days.map((d, i) => (d ? i : -1)).filter((i) => i >= 0);
-  if (on.length === 7) return "Every day";
-  if (on.length === 0) return "Never";
-  if (on.join() === "0,1,2,3,4") return "Weekdays";
-  if (on.join() === "5,6") return "Weekends";
-  return on.map((i) => DAY_SHORT[i]).join(" / ");
-}
 
 /**
  * Returns the goal id that should remain selected when the chosen value
@@ -79,7 +66,7 @@ export function conflictNote(conflicts: Habit[], draftDays: number[]): string | 
   if (!conflicts.length) return null;
   // shared days = draft days that any conflicting habit also runs on
   const sharedIdx = draftDays
-    .map((on, i) => (on === 1 && conflicts.some((c) => c.days[i] === 1) ? i : -1))
+    .map((on, i) => (on === 1 && conflicts.some((c) => weeklyMask(c)[i] === 1) ? i : -1))
     .filter((i) => i >= 0);
   const dayLabel = listFmt.format(sharedIdx.map((i) => DAY_SHORT[i]));
   if (conflicts.length === 1) {
