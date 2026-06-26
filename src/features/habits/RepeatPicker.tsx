@@ -57,10 +57,6 @@ export function RepeatPicker({
         </ButtonGroup>
       </div>
 
-      {(mode === "weekly" || mode === "nweekly") && (
-        <DayPicker value={days} onChange={onDaysChange} disabled={disabled} />
-      )}
-
       {mode === "nweekly" && (
         <div className="space-y-2.5">
           <span className="text-xs text-muted">Repeat every</span>
@@ -71,6 +67,10 @@ export function RepeatPicker({
             options={INTERVAL_OPTIONS.map((n) => ({ value: String(n), label: `${n} weeks` }))}
           />
         </div>
+      )}
+
+      {(mode === "weekly" || mode === "nweekly") && (
+        <DayPicker value={days} onChange={onDaysChange} disabled={disabled} />
       )}
 
       {mode === "monthly" && (

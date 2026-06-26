@@ -23,7 +23,9 @@ export function MonthDayPicker({
   const cell = (on: boolean) =>
     cx(
       "grid h-9 w-full place-items-center rounded-[10px] text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
-      on ? "bg-accent text-accent-foreground" : "bg-surface-secondary text-muted hover:bg-muted",
+      on
+        ? "bg-accent text-accent-foreground"
+        : "bg-surface-secondary text-muted hover:bg-surface-tertiary hover:text-foreground",
     );
 
   return (
