@@ -1480,8 +1480,10 @@ function TimedChip({
         )}
         <span
           onPointerDown={onPointerDownTop}
-          className="absolute inset-x-0 top-0 z-10 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100"
-        />
+          className="absolute inset-x-0 top-0 z-10 flex h-1.5 cursor-ns-resize items-start justify-center opacity-0 group-hover:opacity-100"
+        >
+          <span className="mt-px h-0.5 w-5 rounded-full bg-border" />
+        </span>
         <span
           className={cx(
             "block truncate text-[11px] leading-tight text-foreground",
