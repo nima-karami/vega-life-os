@@ -11,6 +11,7 @@ import {
   type RoutingAdapter,
 } from "@/core/persistence";
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
+import { runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
@@ -46,6 +47,7 @@ async function loadAccount(
   try {
     const data = await cloud.loadAll();
     set({ ...(sorted(data) as Partial<RootState>), loadFailed: false, ready: true });
+    runDataMigrations(get, set);
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
     get().ensureUpcoming(14);
@@ -113,6 +115,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       journal: data.journal.sort((a, b) => (a.date < b.date ? 1 : -1)),
       ready: true,
     });
+    runDataMigrations(get, set);
     get().ensureUpcoming(14);
   },
 
