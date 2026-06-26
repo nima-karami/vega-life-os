@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { savePut } from "@/core/store/persist";
 import type { DayEntry } from "./model";
 import { createJournalSlice, type JournalSlice } from "./store";
 
@@ -61,5 +62,25 @@ describe("journal slice", () => {
     expect(get().journal).toHaveLength(0);
     get().restoreDayEntry(entry);
     expect(get().getDayEntry("2026-06-22")?.id).toBe(entry.id);
+  });
+
+  it("debounces persistence: coalesces rapid edits into one save after the idle window", () => {
+    vi.useFakeTimers();
+    vi.mocked(savePut).mockClear();
+    const { get } = makeSlice();
+
+    get().upsertDayEntry("2026-07-01", { gratitude: ["a"] });
+    get().upsertDayEntry("2026-07-01", { gratitude: ["a", "b"] });
+    get().upsertDayEntry("2026-07-01", { gratitude: ["a", "b", "c"] });
+
+    // In-memory state is current immediately; nothing persisted yet.
+    expect(get().getDayEntry("2026-07-01")?.gratitude).toEqual(["a", "b", "c"]);
+    expect(savePut).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(800);
+    expect(savePut).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(savePut).mock.calls[0]?.[1]).toMatchObject({ gratitude: ["a", "b", "c"] });
+
+    vi.useRealTimers();
   });
 });

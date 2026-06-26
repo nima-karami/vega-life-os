@@ -2,6 +2,11 @@ import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { type DayEntry, mergeDayEntry } from "./model";
 
+/** Coalesce rapid edits (typing in gratitude/journal) into one persist after a short
+ *  idle. The in-memory store updates synchronously so inputs stay responsive; only the
+ *  Dexie/Firestore write is debounced. */
+const SAVE_DEBOUNCE_MS = 800;
+
 export interface JournalSlice {
   journal: DayEntry[];
   getDayEntry: (date: string) => DayEntry | undefined;
@@ -15,30 +20,62 @@ export interface JournalSlice {
   restoreDayEntry: (entry: DayEntry) => void;
 }
 
-export const createJournalSlice: Slice<JournalSlice> = (set, get) => ({
-  journal: [],
+export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
+  // Per-slice debounce state (one slice instance per store; fresh per test).
+  const pending = new Map<string, DayEntry>();
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
-  getDayEntry: (date) => get().journal.find((e) => e.date === date),
-
-  upsertDayEntry: (date, patch) => {
-    const existing = get().journal.find((e) => e.date === date);
-    const merged = mergeDayEntry(existing, date, patch, new Date().toISOString());
-    if (!merged) {
-      if (existing) get().removeDayEntry(existing.id);
-      return null;
+  const flushSaves = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
     }
-    set((s) => ({ journal: [merged, ...s.journal.filter((e) => e.id !== merged.id)] }));
-    savePut("journal", merged);
-    return merged;
-  },
+    if (pending.size === 0) return;
+    for (const entry of pending.values()) savePut("journal", entry);
+    pending.clear();
+  };
 
-  removeDayEntry: (id) => {
-    set((s) => ({ journal: s.journal.filter((e) => e.id !== id) }));
-    saveRemove("journal", id);
-  },
+  const queueSave = (entry: DayEntry) => {
+    pending.set(entry.id, entry);
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(flushSaves, SAVE_DEBOUNCE_MS);
+  };
 
-  restoreDayEntry: (entry) => {
-    set((s) => ({ journal: [entry, ...s.journal.filter((e) => e.id !== entry.id)] }));
-    savePut("journal", entry);
-  },
-});
+  // Never lose a debounced edit when the tab is hidden or closed.
+  if (typeof window !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flushSaves();
+    });
+    window.addEventListener("pagehide", flushSaves);
+  }
+
+  return {
+    journal: [],
+
+    getDayEntry: (date) => get().journal.find((e) => e.date === date),
+
+    upsertDayEntry: (date, patch) => {
+      const existing = get().journal.find((e) => e.date === date);
+      const merged = mergeDayEntry(existing, date, patch, new Date().toISOString());
+      if (!merged) {
+        if (existing) get().removeDayEntry(existing.id);
+        return null;
+      }
+      set((s) => ({ journal: [merged, ...s.journal.filter((e) => e.id !== merged.id)] }));
+      queueSave(merged);
+      return merged;
+    },
+
+    removeDayEntry: (id) => {
+      pending.delete(id);
+      set((s) => ({ journal: s.journal.filter((e) => e.id !== id) }));
+      saveRemove("journal", id);
+    },
+
+    restoreDayEntry: (entry) => {
+      pending.delete(entry.id);
+      set((s) => ({ journal: [entry, ...s.journal.filter((e) => e.id !== entry.id)] }));
+      savePut("journal", entry);
+    },
+  };
+};
