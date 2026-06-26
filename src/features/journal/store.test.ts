@@ -83,4 +83,16 @@ describe("journal slice", () => {
 
     vi.useRealTimers();
   });
+
+  it("persists immediately with { immediate: true } (the gratitude gate)", () => {
+    vi.useFakeTimers();
+    vi.mocked(savePut).mockClear();
+    const { get } = makeSlice();
+
+    get().upsertDayEntry("2026-07-02", { gratitude: ["x"] }, { immediate: true });
+    // No debounce wait — the save lands synchronously so a fast reload keeps it.
+    expect(savePut).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
 });

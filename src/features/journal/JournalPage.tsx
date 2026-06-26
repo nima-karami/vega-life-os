@@ -42,8 +42,8 @@ function JournalEditorView({ date }: { date: string }) {
     else navigate("/today");
   };
 
-  const write = (patch: Parameters<typeof upsertDayEntry>[1]) => {
-    upsertDayEntry(date, patch);
+  const write = (patch: Parameters<typeof upsertDayEntry>[1], immediate = false) => {
+    upsertDayEntry(date, patch, { immediate });
     setSaved(true);
   };
 
@@ -102,7 +102,7 @@ function JournalEditorView({ date }: { date: string }) {
           <Label className="mb-2 flex items-center gap-1.5">
             <Icon name="spark" size={13} /> Mood
           </Label>
-          <MoodPicker value={mood} onChange={(m) => write({ mood: m })} />
+          <MoodPicker value={mood} onChange={(m) => write({ mood: m }, true)} />
         </section>
 
         <section>
@@ -111,7 +111,7 @@ function JournalEditorView({ date }: { date: string }) {
           </Label>
           <RichJournalEditor
             value={journal}
-            onChange={(j) => write({ journal: j })}
+            onChange={(j) => write({ journal: j }, true)}
             onSavingChange={(s) => setSaved(!s)}
             autoFocus
           />

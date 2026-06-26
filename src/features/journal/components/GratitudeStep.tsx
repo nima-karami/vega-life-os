@@ -18,7 +18,9 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
 
   const submit = () => {
     if (!canContinue) return;
-    upsertDayEntry(date, { gratitude: slots });
+    // Persist the gate immediately — a debounced save could be lost to a fast reload,
+    // re-showing the gate.
+    upsertDayEntry(date, { gratitude: slots }, { immediate: true });
     onContinue();
   };
 

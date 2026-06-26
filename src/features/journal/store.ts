@@ -10,10 +10,13 @@ const SAVE_DEBOUNCE_MS = 800;
 export interface JournalSlice {
   journal: DayEntry[];
   getDayEntry: (date: string) => DayEntry | undefined;
-  /** Upsert the entry for `date`. Returns the entry, or null if it was empty-discarded. */
+  /** Upsert the entry for `date`. Returns the entry, or null if it was empty-discarded.
+   *  Persistence is debounced (coalesces rapid edits); pass `{ immediate: true }` for a
+   *  discrete one-shot save that must land now (e.g. the morning gratitude gate). */
   upsertDayEntry: (
     date: string,
     patch: Partial<Pick<DayEntry, "gratitude" | "mood" | "journal">>,
+    opts?: { immediate?: boolean },
   ) => DayEntry | null;
   removeDayEntry: (id: string) => void;
   /** Re-insert a previously-removed entry intact (undo). */
@@ -54,7 +57,7 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
 
     getDayEntry: (date) => get().journal.find((e) => e.date === date),
 
-    upsertDayEntry: (date, patch) => {
+    upsertDayEntry: (date, patch, opts) => {
       const existing = get().journal.find((e) => e.date === date);
       const merged = mergeDayEntry(existing, date, patch, new Date().toISOString());
       if (!merged) {
@@ -62,7 +65,12 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
         return null;
       }
       set((s) => ({ journal: [merged, ...s.journal.filter((e) => e.id !== merged.id)] }));
-      queueSave(merged);
+      if (opts?.immediate) {
+        pending.delete(merged.id);
+        savePut("journal", merged);
+      } else {
+        queueSave(merged);
+      }
       return merged;
     },
 
