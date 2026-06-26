@@ -11,7 +11,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://localhost:5180",
+    // Dedicated e2e port (NOT the dev server's 5180) so a long-running `npm run dev`
+    // can stay up — the suite boots its own isolated server and never collides.
+    baseURL: "http://localhost:5188",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -29,12 +31,13 @@ export default defineConfig({
       testMatch: /mobile\.spec\.ts/,
     },
   ],
-  // Two servers: the dev server for the app smoke suite, and a built preview for the
-  // PWA proof (the service worker + injected manifest link only exist in a build).
+  // Two servers: a dedicated dev server on 5188 (kept off the everyday 5180 so a
+  // long-running dev server survives a test run), and a built preview for the PWA
+  // proof (the service worker + injected manifest link only exist in a build).
   webServer: [
     {
-      command: "npm run dev",
-      url: "http://localhost:5180",
+      command: "npm run dev -- --port 5188 --strictPort",
+      url: "http://localhost:5188",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
