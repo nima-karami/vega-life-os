@@ -876,19 +876,17 @@ export function CalendarPage() {
         {announce}
       </span>
 
-      {/* ── Nav header ───────────────────────────────────────────── */}
-      <Card className="mb-5 rounded-[16px] border border-border bg-surface">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-5">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {mobile
-                ? `${visibleDays[0].dow} · ${fmtShort(visibleDays[0].iso)}`
-                : `${fmtShort(days[0].iso)} – ${fmtShort(days[6].iso)}`}
-            </h1>
-            <p className="mt-1 text-sm text-muted">Habit instances + scheduled tasks</p>
-          </div>
+      {/* ── Nav header — quiet, like Today (keeps the grid in view) ── */}
+      <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">
+          {mobile
+            ? `${visibleDays[0].dow} · ${fmtShort(visibleDays[0].iso)}`
+            : `${fmtShort(days[0].iso)} – ${fmtShort(days[6].iso)}`}
+        </h1>
 
-          <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+          <CalendarSync />
+          <div className="flex items-center gap-1.5">
             <Button
               isIconOnly
               size="sm"
@@ -916,12 +914,8 @@ export function CalendarPage() {
               <Icon name="chevR" size={16} />
             </Button>
           </div>
-
-          <div className="w-full pt-1">
-            <CalendarSync />
-          </div>
         </div>
-      </Card>
+      </header>
 
       {/* ── Focus filter ─────────────────────────────────────────── */}
       {goals.length > 0 && (
