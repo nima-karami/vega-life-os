@@ -135,7 +135,7 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
 
   // strongest chain
   const topChain = habits
-    .map((h) => ({ h, s: habitStreak(tasks, h.id) }))
+    .map((h) => ({ h, s: habitStreak(tasks, h) }))
     .sort((a, b) => b.s - a.s)[0];
   if (topChain && topChain.s >= 4) {
     out.push(

@@ -374,8 +374,9 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
   const tasks = useStore((s) => s.tasks);
   const lineage = useTaskLineage(task.id);
   const done = task.status === "done";
-  const streak = streakState(tasks, task.habitId ?? "");
-  const icon = habitDefs.find((h) => h.id === task.habitId)?.icon ?? "repeat";
+  const habit = habitDefs.find((h) => h.id === task.habitId);
+  const streak = habit ? streakState(tasks, habit) : null;
+  const icon = habit?.icon ?? "repeat";
 
   return (
     <li>
@@ -414,9 +415,9 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
           </span>
         )}
         <StreakBadge
-          streak={streak.count}
-          state={streak.state === "healing" ? "healing" : "solid"}
-          recovery={streak.recovery}
+          streak={streak?.count ?? 0}
+          state={streak?.state === "healing" ? "healing" : "solid"}
+          recovery={streak?.recovery}
         />
       </button>
     </li>

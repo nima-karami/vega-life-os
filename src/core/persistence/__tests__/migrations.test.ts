@@ -56,9 +56,9 @@ describe("migrateData (pure)", () => {
     const { habits, prunedTaskIds } = migrateData({
       habits: [legacyHabit()],
       tasks: [
-        task({ id: "stale", status: "todo", detached: false }),
-        task({ id: "done", status: "done", detached: false }),
-        task({ id: "detached", status: "todo", detached: true }),
+        task({ id: "stale", status: "todo", detached: false, date: "2999-01-02" }),
+        task({ id: "done", status: "done", detached: false, date: "2999-01-03" }),
+        task({ id: "detached", status: "todo", detached: true, date: "2999-01-04" }),
         task({ id: "match", date: "2999-01-15" }), // 15th → matches, kept
       ],
     });
@@ -66,6 +66,32 @@ describe("migrateData (pure)", () => {
     expect("recurrence" in habits[0]).toBe(false);
     expect(habits[0].schedule).toEqual({ type: "monthly", daysOfMonth: [15], lastDay: false });
     expect(prunedTaskIds).toEqual(["stale"]);
+  });
+
+  it("backfills slotDate and completedAt (existing dones treated as on-time)", () => {
+    const { tasks } = migrateData({
+      habits: [legacyHabit()],
+      tasks: [
+        task({ id: "open", status: "todo", date: "2999-01-15" }),
+        task({ id: "fin", status: "done", date: "2999-01-15" }),
+      ],
+    });
+    const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
+    expect(byId.open.slotDate).toBe("2999-01-15");
+    expect(byId.open.completedAt).toBeNull();
+    expect(byId.fin.slotDate).toBe("2999-01-15");
+    expect(byId.fin.completedAt).toBe("2999-01-15"); // on-time backfill
+  });
+
+  it("dedupes duplicate habitId@slotDate, keeping the resolved instance", () => {
+    const { prunedTaskIds } = migrateData({
+      habits: [legacyHabit()],
+      tasks: [
+        task({ id: "dup-todo", status: "todo", date: "2999-01-15" }),
+        task({ id: "dup-done", status: "done", date: "2999-01-15" }),
+      ],
+    });
+    expect(prunedTaskIds).toEqual(["dup-todo"]);
   });
 });
 
@@ -76,16 +102,25 @@ describe("runDataMigrations (gated + idempotent)", () => {
     const h = harness(
       "u-mig-1",
       [legacyHabit()],
-      [task({ id: "stale" }), task({ id: "keep-done", status: "done" })],
+      [
+        task({ id: "stale", date: "2999-01-02" }),
+        task({ id: "keep-done", status: "done", date: "2999-01-15" }),
+      ],
     );
 
     runDataMigrations(h.get, h.set);
 
-    expect(savePut).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(savePut).mock.calls[0]?.[0]).toBe("habits");
+    // persists the normalized habit + the surviving (backfilled) task
+    expect(
+      vi
+        .mocked(savePut)
+        .mock.calls.map((c) => c[0])
+        .sort(),
+    ).toEqual(["habits", "tasks"]);
     expect(saveRemove).toHaveBeenCalledWith("tasks", "stale");
     expect(saveRemove).toHaveBeenCalledTimes(1);
     expect(h.state().tasks.map((t) => t.id)).toEqual(["keep-done"]);
+    expect(h.state().tasks[0].slotDate).toBe("2999-01-15"); // backfilled
     expect("days" in h.state().habits[0]).toBe(false);
 
     // Second run with the marker now at DATA_VERSION → fully idempotent.
@@ -94,6 +129,6 @@ describe("runDataMigrations (gated + idempotent)", () => {
     runDataMigrations(h.get, h.set);
     expect(savePut).not.toHaveBeenCalled();
     expect(saveRemove).not.toHaveBeenCalled();
-    expect(DATA_VERSION).toBe(1);
+    expect(DATA_VERSION).toBe(2);
   });
 });

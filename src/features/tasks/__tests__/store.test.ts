@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { todayISO } from "@/core/lib/date";
+import { shiftISO, todayISO } from "@/core/lib/date";
 import type { Task } from "../model";
 import { createTasksSlice, type TasksSlice } from "../store";
 
@@ -216,13 +216,14 @@ describe("unscheduleTask", () => {
     expect(t.status).toBe("done");
   });
 
-  it("detaches a habit instance", () => {
+  it("keeps a habit instance bound (no detach) and preserves its slot", () => {
     const { get } = makeSlice({
       tasks: [
         instance({
           kind: "habit",
           habitId: "h1",
           detached: false,
+          slotDate: "2026-06-25",
           date: "2026-06-25",
           time: "06:30",
         }),
@@ -230,7 +231,8 @@ describe("unscheduleTask", () => {
     });
     get().unscheduleTask("t1");
     const t = get().tasks[0];
-    expect(t.detached).toBe(true);
+    expect(t.detached).toBe(false);
+    expect(t.slotDate).toBe("2026-06-25"); // slot still owed
     expect(t.date).toBeNull();
     expect(t.time).toBeNull();
   });
@@ -250,6 +252,76 @@ describe("unscheduleTask", () => {
     expect(t.date).toBeNull();
     expect(t.time).toBeNull();
     expect(t.status).toBe("open");
+  });
+});
+
+describe("moveTask / setStatus — slot integrity & completion stamp", () => {
+  const everyDay = [1, 1, 1, 1, 1, 1, 1];
+  const sched = (): Habit => ({
+    id: "h1",
+    name: "Run",
+    goalId: null,
+    valueId: "v1",
+    time: "07:00",
+    durationMin: 30,
+    schedule: { type: "weekly", days: everyDay, interval: 1, anchor: "2026-01-01" },
+    archivedAt: null,
+    createdAt: "2026-01-01",
+  });
+
+  it("moveTask does not detach a habit instance and preserves its slotDate", () => {
+    const { get } = makeSlice({
+      tasks: [
+        instance({
+          id: "m",
+          kind: "habit",
+          habitId: "h1",
+          detached: false,
+          slotDate: "2026-06-25",
+          date: "2026-06-25",
+        }),
+      ],
+      habits: [sched()],
+    });
+    get().moveTask("m", "2026-06-26");
+    const t = get().tasks[0];
+    expect(t.detached).toBe(false);
+    expect(t.slotDate).toBe("2026-06-25");
+    expect(t.date).toBe("2026-06-26");
+  });
+
+  it("does not regenerate the origin slot of a moved instance (no phantom)", () => {
+    const today = todayISO();
+    const { get } = makeSlice({
+      habits: [sched()],
+      values: [{ id: "v1", archivedAt: null }],
+      tasks: [
+        instance({
+          id: "m",
+          kind: "habit",
+          habitId: "h1",
+          detached: false,
+          slotDate: today,
+          date: shiftISO(today, 3),
+          status: "todo",
+        }),
+      ],
+    });
+    get().ensureUpcoming(0); // generate today's slot
+    const todaySlots = get().tasks.filter(
+      (t) => t.habitId === "h1" && (t.slotDate ?? t.date) === today,
+    );
+    expect(todaySlots).toHaveLength(1); // the moved instance still claims it
+  });
+
+  it("setStatus stamps completedAt on done and clears it on todo", () => {
+    const { get } = makeSlice({
+      tasks: [instance({ id: "s", status: "todo", completedAt: null })],
+    });
+    get().setStatus("s", "done");
+    expect(get().tasks[0].completedAt).toBeTruthy();
+    get().setStatus("s", "todo");
+    expect(get().tasks[0].completedAt).toBeNull();
   });
 });
 

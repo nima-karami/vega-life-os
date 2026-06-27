@@ -12,6 +12,9 @@ function normalizeSchedule(t: Task): Task {
   return t.date === null && t.time !== null ? { ...t, time: null } : t;
 }
 
+/** Local-time stamp for a completion (the app reasons about dates in local time). */
+const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
+
 /** Values carry `archivedAt`; an archived or missing parent value never generates. */
 type SchedValue = { id: string; archivedAt?: string | null };
 
@@ -69,6 +72,9 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       goalId: patch.goalId ?? null,
       valueId: patch.valueId ?? null,
       date: patch.date ?? null,
+      // habit instances anchor to the slot they're generated for; one-offs have none
+      slotDate: patch.slotDate ?? (patch.habitId ? (patch.date ?? null) : null),
+      completedAt: patch.completedAt ?? null,
       time: patch.time ?? null,
       durationMin: patch.durationMin ?? 30,
       // unscheduled tasks start "open" (inbox); scheduled ones start "todo"
@@ -117,7 +123,12 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== id) return t;
-        next = { ...t, status };
+        // stamp the completion time on done (keep an existing stamp), clear it otherwise
+        next = {
+          ...t,
+          status,
+          completedAt: status === "done" ? (t.completedAt ?? nowLocalISO()) : null,
+        };
         return next;
       }),
     }));
@@ -139,20 +150,19 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   },
 
   moveTask: (id, date, time) => {
+    // a habit instance keeps its slotDate (stays bound, claims its slot) — rescheduling
+    // is not a detach, so the origin day never regenerates a phantom
     const patch: Partial<Task> = { date };
     if (time !== undefined) patch.time = time;
-    // a habit instance moved off its template counts as detached
-    const t = get().tasks.find((x) => x.id === id);
-    if (t && t.kind === "habit") patch.detached = true;
     get().updateTask(id, patch);
   },
 
   unscheduleTask: (id) => {
     const t = get().tasks.find((x) => x.id === id);
     if (!t) return;
+    // slotDate is preserved (the slot is still owed); a habit instance is not detached
     const patch: Partial<Task> = { date: null, time: null };
     if (t.status === "todo") patch.status = "open"; // done/skip preserved
-    if (t.kind === "habit") patch.detached = true;
     get().updateTask(id, patch);
   },
 
@@ -197,7 +207,9 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   planWeek: (ref = new Date()) => {
     const { tasks, habits, addTask } = get();
     const generating = generatingHabits(habits, get().values);
-    const existing = new Set(tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.date}`));
+    const existing = new Set(
+      tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.slotDate ?? t.date}`),
+    );
     let made = 0;
     for (const d of weekDays(ref)) {
       for (const h of generating) {
@@ -227,21 +239,24 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     const today = format(start, "yyyy-MM-dd");
     const end = format(addDays(start, daysAhead), "yyyy-MM-dd");
 
-    // Self-heal: drop future undone non-detached instances that no longer match
-    // their habit's schedule (e.g. a daily instance left behind after the habit
-    // was switched to monthly). Past, done, skipped, and detached stay untouched.
+    // Self-heal: drop future undone non-detached instances whose *slot* no longer
+    // matches the habit's schedule (e.g. a daily instance left behind after the habit
+    // was switched to monthly). Keyed on slotDate so a moved-but-still-active instance
+    // survives. Past, done, skipped, and detached stay untouched.
     const habitById = new Map(generating.map((h) => [h.id, h]));
-    const stale = tasks.filter(
-      (t) =>
+    const stale = tasks.filter((t) => {
+      const slot = t.slotDate ?? t.date;
+      return (
         t.habitId != null &&
         habitById.has(t.habitId) &&
-        t.date != null &&
-        t.date >= today &&
-        t.date <= end &&
+        slot != null &&
+        slot >= today &&
+        slot <= end &&
         t.status === "todo" &&
         !t.detached &&
-        !isActiveOn(habitById.get(t.habitId) as Habit, t.date),
-    );
+        !isActiveOn(habitById.get(t.habitId) as Habit, slot)
+      );
+    });
     if (stale.length) {
       const drop = new Set(stale.map((t) => t.id));
       set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
@@ -251,7 +266,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     const existing = new Set(
       get()
         .tasks.filter((t) => t.habitId)
-        .map((t) => `${t.habitId}@${t.date}`),
+        .map((t) => `${t.habitId}@${t.slotDate ?? t.date}`),
     );
     let made = 0;
     for (let i = 0; i <= daysAhead; i++) {

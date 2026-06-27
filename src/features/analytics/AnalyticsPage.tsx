@@ -98,7 +98,7 @@ function AnalyticsSection() {
   const maxDaily = Math.max(1, ...daily.map((d) => d.total));
 
   const habitRanked = useMemo(
-    () => habits.map((h) => ({ h, rate: habitRate(tasks, h.id) })).sort((a, b) => b.rate - a.rate),
+    () => habits.map((h) => ({ h, rate: habitRate(tasks, h) })).sort((a, b) => b.rate - a.rate),
     [habits, tasks],
   );
 

@@ -1,8 +1,8 @@
-import { daysBetween, todayISO } from "@/core/lib/date";
-import type { Task } from "@/features/tasks/model";
+import { daysBetween, shiftISO, todayISO } from "@/core/lib/date";
+import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
 import type { Habit } from "./model";
-import { weeklyMask } from "./recurrence";
+import { isActiveOnSchedule, weeklyMask } from "./recurrence";
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
 
@@ -14,23 +14,75 @@ export const habitInstances = (tasks: Task[], habitId: string) =>
 const LONG_STREAK_MIN = 7;
 const RECOVERY_LEN = 3;
 const MEND_COOLDOWN_DAYS = 14;
+/** Days after a slot's scheduled date you may still log it on-time (forgives a
+ *  next-morning backfill). A completion later than this counts for the rate but not
+ *  the streak. An unresolved slot inside this window is pending, not yet a miss. */
+const GRACE_DAYS = 1;
 
-// Resolved history oldest→newest: "D" done, "M" a past miss. Skips and a still-pending
-// instance dated today are dropped (neutral / the day isn't over).
+/** Per scheduled slot: done on-time, done late, a genuine miss, a neutral skip, or
+ *  still-pending (today or within grace). */
+type SlotKind = "done" | "late" | "miss" | "skip" | "pending";
+
+const statusRank = (s: TaskStatus) => (s === "done" ? 3 : s === "skip" ? 2 : 1);
+
+/** Newest-by-status instance claiming each slotDate (a moved instance keeps its slot). */
+function instanceBySlot(tasks: Task[], habitId: string): Map<string, Task> {
+  const m = new Map<string, Task>();
+  for (const t of tasks) {
+    if (t.habitId !== habitId) continue;
+    const slot = t.slotDate ?? t.date;
+    if (slot == null) continue;
+    const prev = m.get(slot);
+    if (!prev || statusRank(t.status) > statusRank(prev.status)) m.set(slot, t);
+  }
+  return m;
+}
+
+function classifySlot(
+  inst: Task | undefined,
+  date: string,
+  today: string,
+  grace: number,
+): SlotKind {
+  if (inst?.status === "skip") return "skip";
+  if (inst?.status === "done") {
+    const completedOn = inst.completedAt?.slice(0, 10) ?? date;
+    return completedOn <= shiftISO(date, grace) ? "done" : "late";
+  }
+  // unresolved (todo/open/none): pending until grace elapses, then a miss
+  return date >= shiftISO(today, -grace) ? "pending" : "miss";
+}
+
+/** Schedule-driven: every active slot date from the habit's creation to today,
+ *  joined to instances by slotDate — so a never-materialized day still counts. */
+function slotKinds(
+  tasks: Task[],
+  habit: Habit,
+  today: string,
+  grace = GRACE_DAYS,
+): { date: string; kind: SlotKind }[] {
+  const bySlot = instanceBySlot(tasks, habit.id);
+  const out: { date: string; kind: SlotKind }[] = [];
+  let d = habit.createdAt.slice(0, 10);
+  while (d <= today) {
+    if (isActiveOnSchedule(habit.schedule, d)) {
+      out.push({ date: d, kind: classifySlot(bySlot.get(d), d, today, grace) });
+    }
+    d = shiftISO(d, 1);
+  }
+  return out;
+}
+
+// Resolved history oldest→newest for the streak walk: "D" on-time done, "M" miss
+// (incl. a late backfill). Skips and still-pending slots are neutral / not over.
 function streakSeq(
   tasks: Task[],
-  habitId: string,
+  habit: Habit,
   today: string,
 ): { kind: "D" | "M"; date: string }[] {
-  const seq: { kind: "D" | "M"; date: string }[] = [];
-  for (const t of habitInstances(tasks, habitId)) {
-    const date = t.date as string;
-    if (date > today) continue;
-    if (t.status === "skip") continue;
-    if (t.status === "done") seq.push({ kind: "D", date });
-    else if (date !== today) seq.push({ kind: "M", date });
-  }
-  return seq;
+  return slotKinds(tasks, habit, today)
+    .filter((k) => k.kind !== "skip" && k.kind !== "pending")
+    .map((k) => ({ kind: k.kind === "done" ? "D" : "M", date: k.date }));
 }
 
 // Streak of the fully-resolved prefix seq[0..end), bridging one earned single-miss.
@@ -71,14 +123,14 @@ function resolvedStreak(
  */
 export function streakState(
   tasks: Task[],
-  habitId: string,
+  habit: Habit,
   today: string = todayISO(),
 ): {
   count: number;
   state: "solid" | "healing" | "broken";
   recovery?: { done: number; needed: number };
 } {
-  const seq = streakSeq(tasks, habitId, today);
+  const seq = streakSeq(tasks, habit, today);
 
   let i = seq.length - 1;
   let trailing = 0;
@@ -109,43 +161,47 @@ export function streakState(
   };
 }
 
-// Consecutive completed instances, mending applied. Thin wrapper for existing call sites.
-export function habitStreak(tasks: Task[], habitId: string): number {
-  return streakState(tasks, habitId).count;
+// Consecutive completed slots, mending applied. Thin wrapper for existing call sites.
+export function habitStreak(tasks: Task[], habit: Habit, today: string = todayISO()): number {
+  return streakState(tasks, habit, today).count;
 }
 
-/** done / (done + missed), skips excluded, over past+today instances. */
-export function habitRate(tasks: Task[], habitId: string): number {
-  const today = todayISO();
-  const past = habitInstances(tasks, habitId).filter((t) => (t.date ?? "") <= today);
-  const counted = past.filter((t) => t.status !== "skip");
-  if (!counted.length) return 0;
-  const done = counted.filter((t) => t.status === "done").length;
-  return done / counted.length;
+/** done / (done + missed) over scheduled slots; a late backfill still counts as done
+ *  for the rate (only the streak penalizes lateness). Skips and pending slots excluded. */
+export function habitRate(tasks: Task[], habit: Habit, today: string = todayISO()): number {
+  let done = 0;
+  let missed = 0;
+  for (const k of slotKinds(tasks, habit, today)) {
+    if (k.kind === "done" || k.kind === "late") done++;
+    else if (k.kind === "miss") missed++;
+  }
+  const denom = done + missed;
+  return denom ? done / denom : 0;
 }
 
 /**
- * Streak "on the line" today: there's an unresolved instance scheduled today and
- * a streak worth protecting (>= threshold). Returns the streak length, else 0.
+ * Streak "on the line" today: today's scheduled slot is unresolved and a streak
+ * worth protecting (>= threshold) is at stake. Returns the streak length, else 0.
  */
-export function streakAtRisk(tasks: Task[], habitId: string, threshold = 3): number {
+export function streakAtRisk(tasks: Task[], habit: Habit, threshold = 3): number {
   const today = todayISO();
-  const todayInst = tasks.find((t) => t.habitId === habitId && t.date === today);
-  if (!todayInst || todayInst.status === "done" || todayInst.status === "skip") {
-    return 0;
-  }
-  // habitStreak now ignores a still-pending today, so it reflects the run at stake
-  const streak = habitStreak(tasks, habitId);
+  if (!isActiveOnSchedule(habit.schedule, today)) return 0;
+  const todaySlot = instanceBySlot(tasks, habit.id).get(today);
+  if (todaySlot && (todaySlot.status === "done" || todaySlot.status === "skip")) return 0;
+  const streak = streakState(tasks, habit, today).count;
   return streak >= threshold ? streak : 0;
 }
 
-/** A small completion history (most recent N), 1=done 0=miss -1=skip. */
-export function habitHistory(tasks: Task[], habitId: string, n = 14): number[] {
-  const today = todayISO();
-  return habitInstances(tasks, habitId)
-    .filter((t) => (t.date ?? "") <= today)
+/** A small completion history (most recent N scheduled slots), 1=done 0=miss -1=skip. */
+export function habitHistory(
+  tasks: Task[],
+  habit: Habit,
+  n = 14,
+  today: string = todayISO(),
+): number[] {
+  return slotKinds(tasks, habit, today)
     .slice(-n)
-    .map((t) => (t.status === "done" ? 1 : t.status === "skip" ? -1 : 0));
+    .map((k) => (k.kind === "done" || k.kind === "late" ? 1 : k.kind === "skip" ? -1 : 0));
 }
 
 /**

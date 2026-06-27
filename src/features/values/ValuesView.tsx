@@ -389,7 +389,7 @@ function ValueCard({
                 <Chip key={h.id} size="sm" variant="soft" className="gap-1">
                   <Icon name={h.icon} size={13} className="text-muted" />
                   <span className="text-foreground">{h.name}</span>
-                  <span className="text-muted">· {habitStreak(tasks, h.id)}d</span>
+                  <span className="text-muted">· {habitStreak(tasks, h)}d</span>
                 </Chip>
               ))}
             </div>
