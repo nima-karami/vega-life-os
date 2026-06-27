@@ -1,4 +1,4 @@
-import { Button, Card, Modal, useOverlayState } from "@heroui/react";
+import { Button, Card, Modal, ScrollShadow, useOverlayState } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
@@ -1051,7 +1051,7 @@ export function CalendarPage() {
             </div>
 
             {/* timed grid body */}
-            <div className="relative overflow-y-auto" style={{ maxHeight: "calc(100dvh - 360px)" }}>
+            <ScrollShadow className="relative" style={{ maxHeight: "calc(100dvh - 360px)" }}>
               <div
                 ref={gridRef}
                 className={cx("relative grid", (dragId || marquee) && "select-none")}
@@ -1171,7 +1171,7 @@ export function CalendarPage() {
                   </p>
                 </div>
               )}
-            </div>
+            </ScrollShadow>
           </div>
         </div>
       </Card>

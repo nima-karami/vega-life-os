@@ -1,3 +1,4 @@
+import { ScrollShadow } from "@heroui/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { useStore } from "@/core/store";
@@ -52,7 +53,7 @@ export function EphemeralOverlay() {
                 <Icon name="close" size={18} />
               </button>
             </div>
-            <div className="max-h-[58dvh] overflow-y-auto p-4">
+            <ScrollShadow className="max-h-[58dvh] p-4">
               {ephemeral.lines && (
                 <div className="space-y-1.5">
                   {ephemeral.lines.map((l) => (
@@ -72,7 +73,7 @@ export function EphemeralOverlay() {
                 ) : (
                   <p className="py-8 text-center text-sm text-muted">Nothing here. Clear skies.</p>
                 ))}
-            </div>
+            </ScrollShadow>
           </motion.div>
           <TaskDrawer task={selected} onClose={() => setSelected(null)} />
         </motion.div>

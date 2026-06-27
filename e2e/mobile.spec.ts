@@ -189,8 +189,8 @@ test("analytics sparkline/charts are in a contained-scroll region (360px)", asyn
   const overflow = await horizontalOverflow(page);
   expect(overflow, `analytics page overflows by ${overflow}px`).toBeLessThanOrEqual(1);
 
-  // The sparkline wrapper has overflow-x-auto so the fixed-width SVG is scroll-contained.
-  const sparklineContainer = page.locator(".overflow-x-auto").first();
+  // The sparkline wrapper is a horizontal ScrollShadow so the fixed-width SVG is scroll-contained.
+  const sparklineContainer = page.locator('[data-orientation="horizontal"]').first();
   await expect(sparklineContainer).toBeAttached();
   const containerBox = await sparklineContainer.boundingBox();
   if (containerBox) {

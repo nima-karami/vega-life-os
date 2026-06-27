@@ -1,4 +1,4 @@
-import { Button, ButtonGroup } from "@heroui/react";
+import { Button, ButtonGroup, ScrollShadow } from "@heroui/react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
@@ -182,7 +182,7 @@ function AnalyticsSection() {
 
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Weekly trend" meta={`${weeks} wk`} />
-          <div className="mt-4 overflow-x-auto">
+          <ScrollShadow orientation="horizontal" className="mt-4">
             {enoughWeekly ? (
               <Sparkline
                 points={weekly}
@@ -196,7 +196,7 @@ function AnalyticsSection() {
                 Not enough weekly data yet — keep logging to see the trend.
               </p>
             )}
-          </div>
+          </ScrollShadow>
           <div className="mt-1 flex justify-between">
             <Label>{weeks} weeks ago</Label>
             <Label>this week</Label>
@@ -214,7 +214,7 @@ function AnalyticsSection() {
 
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Consistency" meta="22 wk" />
-          <div className="mt-4 overflow-x-auto">
+          <ScrollShadow orientation="horizontal" className="mt-4">
             <div className="mb-1 flex gap-[3px]">
               <div className="w-4 shrink-0" />
               {grid.cols.map((col, ci) => {
@@ -276,7 +276,7 @@ function AnalyticsSection() {
               <Label>more</Label>
               <span className="ml-3 text-xs text-muted">daily completion</span>
             </div>
-          </div>
+          </ScrollShadow>
         </Panel>
 
         <Panel className="p-6 lg:col-span-2">

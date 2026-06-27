@@ -1,3 +1,4 @@
+import { ScrollShadow } from "@heroui/react";
 import { Extension, type Range } from "@tiptap/core";
 import type { Editor } from "@tiptap/react";
 import { ReactRenderer } from "@tiptap/react";
@@ -154,12 +155,13 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
   }
 
   return (
-    <div
+    <ScrollShadow
+      size={20}
       role="listbox"
       tabIndex={-1}
       aria-label="Insert block"
       aria-activedescendant={`slash-opt-${active}`}
-      className="max-h-72 w-full overflow-y-auto rounded-[12px] border border-border bg-surface p-1 shadow-md outline-none sm:w-60"
+      className="max-h-72 w-full rounded-[12px] border border-border bg-surface p-1 shadow-md outline-none sm:w-60"
     >
       {props.items.map((item, i) => {
         const ItemIcon = item.icon;
@@ -193,7 +195,7 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
           </button>
         );
       })}
-    </div>
+    </ScrollShadow>
   );
 });
 SlashList.displayName = "SlashList";
