@@ -56,7 +56,7 @@ function JournalEditorView({ date }: { date: string }) {
   };
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
+    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
       <header className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <button

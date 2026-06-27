@@ -3,7 +3,7 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 import { relativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { Icon } from "@/core/ui";
+import { cx, Icon } from "@/core/ui";
 import { GratitudeFields } from "./GratitudeFields";
 
 /**
@@ -52,9 +52,10 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
       >
         Continue to today
       </Button>
-      {!canContinue && (
-        <p className="text-center text-xs text-muted">Add at least one to continue.</p>
-      )}
+      {/* Always rendered so satisfying the gate never shifts the layout */}
+      <p className={cx("text-center text-xs text-muted", canContinue && "invisible")}>
+        Add at least one to continue.
+      </p>
     </section>
   );
 }
