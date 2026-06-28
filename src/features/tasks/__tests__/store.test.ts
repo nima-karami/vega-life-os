@@ -114,6 +114,66 @@ describe("relinkTaskToHabit", () => {
   });
 });
 
+describe("linkTaskToHabit", () => {
+  const workout = (): Habit => ({
+    id: "h1",
+    name: "Workout",
+    goalId: "g1",
+    valueId: "v1",
+    time: "17:00",
+    durationMin: 60,
+    schedule: { type: "weekly", days: [1, 1, 0, 1, 1, 0, 0], interval: 1, anchor: "2026-06-01" },
+    archivedAt: null,
+    createdAt: "2026-06-01",
+  });
+
+  it("links a one-off to a habit, anchoring the slot to the fulfilled occurrence", () => {
+    const { get } = makeSlice({
+      tasks: [
+        instance({
+          id: "o",
+          kind: "oneoff",
+          habitId: null,
+          slotDate: null,
+          date: "2026-06-27", // Saturday — not a scheduled day
+          valueId: null,
+          goalId: null,
+        }),
+      ],
+      habits: [workout()],
+    });
+    get().linkTaskToHabit("o", "h1");
+    const t = get().tasks[0];
+    expect(t.habitId).toBe("h1");
+    expect(t.kind).toBe("habit");
+    expect(t.slotDate).toBe("2026-06-26"); // Sat → preceding Fri slot
+    expect(t.valueId).toBe("v1");
+    expect(t.goalId).toBe("g1");
+    expect(t.detached).toBe(false);
+    expect(t.date).toBe("2026-06-27"); // landing date preserved
+  });
+
+  it("unlinks a habit instance back to a one-off", () => {
+    const { get } = makeSlice({
+      tasks: [
+        instance({
+          id: "h",
+          kind: "habit",
+          habitId: "h1",
+          slotDate: "2026-06-26",
+          date: "2026-06-26",
+        }),
+      ],
+      habits: [workout()],
+    });
+    get().linkTaskToHabit("h", null);
+    const t = get().tasks[0];
+    expect(t.habitId).toBeNull();
+    expect(t.kind).toBe("oneoff");
+    expect(t.slotDate).toBeNull();
+  });
+});
+
 describe("date→time invariant (no date ⇒ no time)", () => {
   it("clearing a timed task's date cascades time→null, preserving duration", () => {
     const { get } = makeSlice({

@@ -4,7 +4,7 @@ import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Habit } from "@/features/habits/model";
-import { isActiveOn } from "@/features/habits/recurrence";
+import { isActiveOn, slotOnOrBefore } from "@/features/habits/recurrence";
 import type { Task, TaskStatus } from "./model";
 
 /** Enforce the invariant: a task with no date can't carry a time. */
@@ -49,6 +49,9 @@ export interface TasksSlice {
   /** snap a detached habit instance back to its template (schedule + lineage + title);
    *  no-op unless it's a detached habit instance whose parent habit still exists */
   relinkTaskToHabit: (id: string) => void;
+  /** link (or, with null, unlink) a task to a habit: sets kind/lineage and anchors the
+   *  slotDate to the scheduled occurrence the task fulfils. Recovers orphaned instances. */
+  linkTaskToHabit: (id: string, habitId: string | null) => void;
   /** apply one patch to many tasks at once (each persisted) */
   bulkUpdateTasks: (ids: string[], patch: Partial<Task>) => void;
   /** remove many tasks at once; returns their snapshots so a bulk delete can be undone */
@@ -178,6 +181,28 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       durationMin: h.durationMin,
       goalId: h.goalId,
       valueId: h.valueId,
+      detached: false,
+    });
+  },
+
+  linkTaskToHabit: (id, habitId) => {
+    const t = get().tasks.find((x) => x.id === id);
+    if (!t) return;
+    if (habitId == null) {
+      get().updateTask(id, { habitId: null, kind: "oneoff", slotDate: null, detached: false });
+      return;
+    }
+    const h = get().habits.find((x) => x.id === habitId);
+    if (!h) return;
+    // anchor to the scheduled occurrence this task fulfils: its own day if scheduled,
+    // else the latest scheduled day on-or-before it (a moved/late occurrence)
+    const slot = t.date ? (slotOnOrBefore(h.schedule, t.date) ?? t.date) : null;
+    get().updateTask(id, {
+      habitId,
+      kind: "habit",
+      slotDate: slot,
+      valueId: h.valueId,
+      goalId: h.goalId,
       detached: false,
     });
   },

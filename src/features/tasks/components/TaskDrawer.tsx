@@ -16,7 +16,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   const updateTask = useStore((s) => s.updateTask);
   const removeTask = useStore((s) => s.removeTask);
   const setStatus = useStore((s) => s.setStatus);
-  const relinkTaskToHabit = useStore((s) => s.relinkTaskToHabit);
+  const linkTaskToHabit = useStore((s) => s.linkTaskToHabit);
   const unscheduleTask = useStore((s) => s.unscheduleTask);
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
@@ -25,10 +25,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
 
   // Goals scoped to the task's value (when set) — keeps the link coherent.
   const goalOptions = task?.valueId ? goals.filter((g) => g.valueId === task.valueId) : goals;
-
-  // Relink is offered only for a detached habit instance; disabled if its parent is gone.
-  const isDetachedHabit = !!task && task.kind === "habit" && task.detached;
-  const parentExists = !!task?.habitId && habits.some((h) => h.id === task.habitId);
+  const activeHabits = habits.filter((h) => (h.archivedAt ?? null) === null);
   const responsive = useCompactModal();
   const state = useOverlayState({
     isOpen: !!task,
@@ -75,6 +72,18 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                       ))}
                     </div>
                   </Section>
+
+                  <SelectField label="Habit">
+                    <Select
+                      ariaLabel="Habit"
+                      value={task.habitId ?? NONE}
+                      onValueChange={(v) => linkTaskToHabit(task.id, v === NONE ? null : v)}
+                      options={[
+                        { value: NONE, label: "None" },
+                        ...activeHabits.map((h) => ({ value: h.id, label: h.name })),
+                      ]}
+                    />
+                  </SelectField>
 
                   <div className="grid grid-cols-2 gap-3">
                     <SelectField label="Value">
@@ -145,30 +154,6 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                       className="w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
                     />
                   </Section>
-
-                  {isDetachedHabit && (
-                    <Section label="Habit">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        isDisabled={!parentExists}
-                        onPress={() => {
-                          relinkTaskToHabit(task.id);
-                          pushToast("Relinked to habit");
-                        }}
-                      >
-                        <Icon name="link" size={14} />
-                        {parentExists ? "Relink to habit" : "Parent habit no longer exists"}
-                      </Button>
-                      {parentExists && (
-                        <p className="text-xs text-muted">
-                          Resets the title, time, duration, value and goal to the habit; keeps this
-                          day and status.
-                        </p>
-                      )}
-                    </Section>
-                  )}
                 </Modal.Body>
 
                 <Modal.Footer className="justify-between" render={(props) => <footer {...props} />}>

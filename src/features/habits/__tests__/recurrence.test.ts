@@ -7,6 +7,7 @@ import {
   nextOccurrence,
   normalizeHabit,
   recurrenceText,
+  slotOnOrBefore,
   weeklyMask,
 } from "../recurrence";
 
@@ -45,6 +46,21 @@ describe("isActiveOnSchedule — weekly interval", () => {
     const onlyThat = Array.from({ length: 7 }, (_, k) => (k === idx ? 1 : 0));
     expect(isActiveOnSchedule(weekly({ days: onlyThat }), "2026-06-03")).toBe(true);
     expect(isActiveOnSchedule(weekly({ days: onlyThat }), "2026-06-04")).toBe(false);
+  });
+});
+
+describe("slotOnOrBefore — anchor a task to the slot it fulfils", () => {
+  // Mon/Tue/Thu/Fri (Mon..Sun mask)
+  const workout = weekly({ days: [1, 1, 0, 1, 1, 0, 0] });
+  it("returns the day itself when it is scheduled", () => {
+    expect(slotOnOrBefore(workout, "2026-06-26")).toBe("2026-06-26"); // Fri
+  });
+  it("walks back to the latest scheduled day for an unscheduled day", () => {
+    expect(slotOnOrBefore(workout, "2026-06-27")).toBe("2026-06-26"); // Sat → Fri
+    expect(slotOnOrBefore(workout, "2026-06-28")).toBe("2026-06-26"); // Sun → Fri
+  });
+  it("returns null for a Never schedule", () => {
+    expect(slotOnOrBefore(weekly({ days: [0, 0, 0, 0, 0, 0, 0] }), "2026-06-27")).toBeNull();
   });
 });
 

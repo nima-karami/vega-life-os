@@ -138,6 +138,32 @@ describe("streakState — late completion", () => {
   });
 });
 
+describe("streakState — rescheduled occurrence is on-time by its landing date", () => {
+  const fridayHabit = (): Habit => ({
+    id: HABIT,
+    name: "Workout",
+    goalId: null,
+    valueId: "v1",
+    icon: "repeat",
+    time: "17:00",
+    schedule: { type: "weekly", days: [0, 0, 0, 0, 1, 0, 0], interval: 1, anchor: "2026-06-05" },
+    durationMin: 60,
+    createdAt: "2026-06-05",
+    archivedAt: null,
+  });
+
+  it("counts a Friday slot done two days late on its moved (Sunday) date", () => {
+    const tasks = [
+      inst("2026-06-05", D),
+      inst("2026-06-12", D),
+      inst("2026-06-19", D),
+      // Friday 06-26 moved to Sunday 06-28 and completed that day → on-time for the slot
+      inst("2026-06-26", D, { date: "2026-06-28", completedAt: "2026-06-28T17:00:00" }),
+    ];
+    expect(streakState(tasks, fridayHabit(), "2026-06-30")).toEqual({ count: 4, state: "solid" });
+  });
+});
+
 describe("streakState — moved occurrence (slotDate)", () => {
   it("credits the slot regardless of the instance's landing date", () => {
     // 5 daily slots; the day-4 occurrence was moved to a later date but keeps slotDate.

@@ -77,6 +77,18 @@ export function nextOccurrence(s: HabitSchedule, fromIso: string = todayISO()): 
   return null;
 }
 
+/** Latest active date ≤ fromIso (the scheduled slot a task on `fromIso` most likely
+ *  fulfils), scanning back up to 400 days; null only for a "Never" schedule. */
+export function slotOnOrBefore(s: HabitSchedule, fromIso: string): string | null {
+  let d = parseISO(fromIso);
+  for (let i = 0; i < 400; i++) {
+    const iso = format(d, "yyyy-MM-dd");
+    if (isActiveOnSchedule(s, iso)) return iso;
+    d = addDays(d, -1);
+  }
+  return null;
+}
+
 const ordinal = (n: number): string => {
   const suf = ["th", "st", "nd", "rd"];
   const v = n % 100;

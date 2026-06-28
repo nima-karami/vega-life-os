@@ -47,7 +47,11 @@ function classifySlot(
   if (inst?.status === "skip") return "skip";
   if (inst?.status === "done") {
     const completedOn = inst.completedAt?.slice(0, 10) ?? date;
-    return completedOn <= shiftISO(date, grace) ? "done" : "late";
+    // a deliberately rescheduled occurrence (moved to a later day) is on-time if done by
+    // its landing date + grace — moving is intentional, unlike a forgotten late backfill
+    const landing = inst.date ?? date;
+    const deadline = shiftISO(landing > date ? landing : date, grace);
+    return completedOn <= deadline ? "done" : "late";
   }
   // unresolved (todo/open/none): pending until grace elapses, then a miss
   return date >= shiftISO(today, -grace) ? "pending" : "miss";
