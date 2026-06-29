@@ -2,6 +2,7 @@ import { Button, Code } from "@heroui/react";
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
+import { CalendarPicker } from "@/features/calendar/CalendarPicker";
 import {
   clearCalendarToken,
   gcalConfigured,
@@ -66,24 +67,27 @@ export function CalendarSettings() {
       title="Google Calendar"
       description="Two-way sync for scheduled tasks. Blocks you schedule in VEGA appear in Google Calendar (with reminders); moving or deleting a VEGA event in Google flows back here on the next sync."
     >
-      <div className="flex flex-wrap gap-2">
-        {on ? (
-          <>
-            <Button variant="primary" isDisabled={busy} onPress={() => void sync()}>
-              <Icon name="repeat" size={15} />
-              Sync now
+      <div className="flex flex-col gap-4">
+        {on && <CalendarPicker />}
+        <div className="flex flex-wrap gap-2">
+          {on ? (
+            <>
+              <Button variant="primary" isDisabled={busy} onPress={() => void sync()}>
+                <Icon name="repeat" size={15} />
+                Sync now
+              </Button>
+              <Button variant="danger-soft" onPress={disconnect}>
+                <Icon name="close" size={15} />
+                Disconnect
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" isDisabled={busy} onPress={() => void connect()}>
+              <Icon name="calendar" size={15} />
+              Connect Google Calendar
             </Button>
-            <Button variant="danger-soft" onPress={disconnect}>
-              <Icon name="close" size={15} />
-              Disconnect
-            </Button>
-          </>
-        ) : (
-          <Button variant="primary" isDisabled={busy} onPress={() => void connect()}>
-            <Icon name="calendar" size={15} />
-            Connect Google Calendar
-          </Button>
-        )}
+          )}
+        </div>
       </div>
     </SettingsCard>
   );
