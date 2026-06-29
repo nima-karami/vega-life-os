@@ -43,7 +43,42 @@ describe("gEventToCalendarEvent", () => {
       },
       "cal_personal",
     );
-    expect(e).toMatchObject({ date: "2026-07-05", time: null, allDay: true, durationMin: 0 });
+    expect(e).toMatchObject({
+      date: "2026-07-05",
+      endDate: "2026-07-05",
+      time: null,
+      allDay: true,
+      durationMin: 0,
+    });
+  });
+  it("maps a multi-day all-day event, converting the exclusive end.date to an inclusive endDate", () => {
+    const e = gEventToCalendarEvent(
+      {
+        id: "g6",
+        iCalUID: "u6",
+        start: { date: "2026-07-01" },
+        end: { date: "2026-07-06" },
+        status: "confirmed",
+      },
+      "cal_personal",
+    );
+    expect(e).toMatchObject({ date: "2026-07-01", endDate: "2026-07-05", allDay: true });
+  });
+  it("keeps a timed event's endDate on its start day (does not bleed to the next day)", () => {
+    const e = gEventToCalendarEvent(timed, "cal_personal");
+    expect(e.endDate).toBe("2026-07-11");
+  });
+  it("spans a multi-day timed event from its start day to its end day", () => {
+    const e = gEventToCalendarEvent(
+      {
+        id: "g7",
+        status: "confirmed",
+        start: { dateTime: "2026-07-01T10:00:00Z" },
+        end: { dateTime: "2026-07-05T14:00:00Z" },
+      },
+      "c",
+    );
+    expect(e).toMatchObject({ date: "2026-07-01", endDate: "2026-07-05" });
   });
   it("captures a cancelled deletion and a declined self-response", () => {
     expect(gEventToCalendarEvent({ id: "g3", status: "cancelled" }, "c").status).toBe("cancelled");
@@ -68,6 +103,7 @@ describe("calendarEventToGPatch", () => {
     const patch = calendarEventToGPatch({
       title: "Date night",
       date: "2026-07-04",
+      endDate: "2026-07-04",
       time: "19:30",
       durationMin: 90,
       allDay: false,
@@ -76,14 +112,27 @@ describe("calendarEventToGPatch", () => {
     expect(patch.start?.dateTime).toMatch(/^2026-07-04T19:30:00/);
     expect(patch.end?.dateTime).toMatch(/^2026-07-04T21:00:00/);
   });
-  it("emits an all-day start/end patch", () => {
-    const patch = calendarEventToGPatch({
+  it("emits an all-day patch whose exclusive end.date preserves the inclusive span", () => {
+    const single = calendarEventToGPatch({
       title: "Trip",
       date: "2026-07-05",
+      endDate: "2026-07-05",
       time: null,
       durationMin: 0,
       allDay: true,
     });
-    expect(patch.start?.date).toBe("2026-07-05");
+    expect(single.start?.date).toBe("2026-07-05");
+    expect(single.end?.date).toBe("2026-07-06"); // exclusive end = last day + 1
+
+    const multi = calendarEventToGPatch({
+      title: "Roadtrip",
+      date: "2026-07-01",
+      endDate: "2026-07-05",
+      time: null,
+      durationMin: 0,
+      allDay: true,
+    });
+    expect(multi.start?.date).toBe("2026-07-01");
+    expect(multi.end?.date).toBe("2026-07-06");
   });
 });

@@ -10,7 +10,8 @@ export interface CalendarEvent {
   iCalUID: string;
   calendarId: string;
   title: string;
-  date: string | null; // yyyy-MM-dd
+  date: string | null; // yyyy-MM-dd — first day
+  endDate: string | null; // yyyy-MM-dd — last day (inclusive); === date for single-day
   time: string | null; // "HH:mm", null = all-day
   durationMin: number;
   allDay: boolean;

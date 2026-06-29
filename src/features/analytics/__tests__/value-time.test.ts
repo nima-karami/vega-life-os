@@ -12,6 +12,7 @@ const ce = (over: Partial<CalendarEvent>): CalendarEvent => ({
   calendarId: "c",
   title: "X",
   date: recent,
+  endDate: recent,
   time: "20:00",
   durationMin: 180,
   allDay: false,

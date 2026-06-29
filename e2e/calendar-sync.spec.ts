@@ -85,6 +85,39 @@ test("a tagged lived event shows on the calendar and credits its value", async (
   await expect(page.locator('[data-value-total="v2"]')).toBeVisible({ timeout: 15_000 });
 });
 
+test("a multi-day Google event spans every day it covers in the all-day row", async ({ page }) => {
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  // A 7-day all-day span centred on today, so several covered days are always in the
+  // visible week regardless of where today sits in it.
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  await seedEvent(
+    page,
+    livedEvent({
+      id: "ce_span",
+      googleId: "g_span",
+      iCalUID: "u_span",
+      title: "Roadtrip",
+      date: day(-3),
+      endDate: day(3),
+      time: null,
+      allDay: true,
+      durationMin: 0,
+    }),
+  );
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(800);
+  // The span renders once per covered day column → more than one chip.
+  await expect.poll(() => page.getByText("Roadtrip").count()).toBeGreaterThan(1);
+});
+
 test("clicking an untagged lived event opens the editor", async ({ page }) => {
   await bootSandbox(page);
   await passGratitudeGate(page);

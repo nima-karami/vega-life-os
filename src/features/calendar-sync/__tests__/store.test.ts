@@ -13,6 +13,7 @@ const ev = (over: Partial<CalendarEvent>): CalendarEvent => ({
   calendarId: "cal",
   title: "Show",
   date: "2026-07-04",
+  endDate: "2026-07-04",
   time: "20:00",
   durationMin: 180,
   allDay: false,

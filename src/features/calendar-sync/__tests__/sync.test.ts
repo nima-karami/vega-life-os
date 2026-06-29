@@ -74,6 +74,7 @@ const ce = (over: Partial<CalendarEvent>): CalendarEvent => ({
   calendarId: "cal_personal",
   title: "X",
   date: "2026-07-04",
+  endDate: "2026-07-04",
   time: "10:00",
   durationMin: 30,
   allDay: false,
