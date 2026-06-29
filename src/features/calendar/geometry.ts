@@ -112,6 +112,62 @@ export function shiftSelection(
   }));
 }
 
+/** A timed item to lay out: id + start minute + duration. */
+export interface LayoutSpan {
+  id: string;
+  start: number;
+  durationMin: number;
+}
+
+/** A chip's horizontal slot: which column it sits in, out of how many. */
+export interface ColumnSlot {
+  col: number;
+  cols: number;
+}
+
+/**
+ * Side-by-side layout for overlapping timed chips (Google-Calendar style).
+ * Items are grouped into clusters of transitively-overlapping spans; within a
+ * cluster each span is greedily assigned the first free column, and every span
+ * in the cluster shares that cluster's column count. Non-overlapping spans get
+ * `{ col: 0, cols: 1 }` (full width). Pure — no DOM.
+ */
+export function layoutColumns(items: LayoutSpan[]): Record<string, ColumnSlot> {
+  const spans = items
+    .map((it) => ({ id: it.id, start: it.start, end: it.start + Math.max(it.durationMin, SNAP) }))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const out: Record<string, ColumnSlot> = {};
+  let cluster: typeof spans = [];
+  let clusterEnd = Number.NEGATIVE_INFINITY;
+
+  const flush = () => {
+    const colEnds: number[] = []; // last end-minute occupying each column
+    const colOf: Record<string, number> = {};
+    for (const s of cluster) {
+      let placed = colEnds.findIndex((end) => end <= s.start);
+      if (placed === -1) {
+        placed = colEnds.length;
+        colEnds.push(s.end);
+      } else {
+        colEnds[placed] = s.end;
+      }
+      colOf[s.id] = placed;
+    }
+    for (const s of cluster) out[s.id] = { col: colOf[s.id], cols: colEnds.length };
+    cluster = [];
+    clusterEnd = Number.NEGATIVE_INFINITY;
+  };
+
+  for (const s of spans) {
+    if (cluster.length && s.start >= clusterEnd) flush();
+    cluster.push(s);
+    clusterEnd = Math.max(clusterEnd, s.end);
+  }
+  if (cluster.length) flush();
+  return out;
+}
+
 export type DragMode = "move" | "top" | "bottom";
 
 export interface DragOrigin {

@@ -23,6 +23,7 @@ import { CalendarSync } from "./CalendarSync";
 import {
   type Box,
   type ChipBox,
+  type ColumnSlot,
   chipHeight,
   chipTop,
   DAY_END,
@@ -35,6 +36,7 @@ import {
   HOUR_PX,
   HOURS,
   isOffWindow,
+  layoutColumns,
   marqueeHits,
   minuteAtOffset,
   resolveDrag,
@@ -1087,6 +1089,12 @@ export function CalendarPage() {
                 {/* day columns */}
                 {visibleDays.map((d) => {
                   const dayTasks = tasks.filter((t) => t.time && effective(t).date === d.iso);
+                  const layout = layoutColumns(
+                    dayTasks.map((t) => {
+                      const e = effective(t);
+                      return { id: t.id, start: e.start, durationMin: e.durationMin };
+                    }),
+                  );
                   const isTarget = dragId != null && preview?.date === d.iso;
                   return (
                     <div
@@ -1146,6 +1154,7 @@ export function CalendarPage() {
                           key={t.id}
                           task={t}
                           eff={effective(t)}
+                          slot={layout[t.id] ?? { col: 0, cols: 1 }}
                           dragging={dragId === t.id}
                           dim={Boolean(focusGoalId) && t.goalId !== focusGoalId}
                           detached={t.kind === "habit" && t.detached}
@@ -1394,6 +1403,7 @@ function FilterChip({
 function TimedChip({
   task,
   eff,
+  slot,
   dragging,
   dim,
   detached,
@@ -1407,6 +1417,7 @@ function TimedChip({
 }: {
   task: Task;
   eff: { start: number; durationMin: number };
+  slot: ColumnSlot;
   dragging: boolean;
   dim: boolean;
   detached: boolean;
@@ -1421,6 +1432,9 @@ function TimedChip({
   const accent = useValueColor(task.valueId);
   const top = chipTop(eff.start);
   const height = chipHeight(eff.durationMin);
+  // side-by-side columns for overlapping chips; 2px gutters keep them distinct
+  const left = `calc(${(slot.col / slot.cols) * 100}% + 2px)`;
+  const width = `calc(${100 / slot.cols}% - 4px)`;
   const resolved = task.status === "done" || task.status === "skip";
   const off = isOffWindow(eff.start);
   const timeLabel = dragging
@@ -1443,7 +1457,7 @@ function TimedChip({
         }}
         aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          "group absolute left-0.5 right-0.5 block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-surface px-1.5 py-1 text-left shadow-sm",
+          "group absolute block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-surface px-1.5 py-1 text-left shadow-sm",
           resolved && "bg-surface-secondary",
           dim ? "opacity-30" : "opacity-100",
           selected && "z-20 ring-2 ring-accent",
@@ -1455,6 +1469,8 @@ function TimedChip({
         style={{
           top,
           height,
+          left,
+          width,
           borderColor: accent,
         }}
       >

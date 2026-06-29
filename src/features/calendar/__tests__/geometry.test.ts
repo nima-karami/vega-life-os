@@ -10,6 +10,7 @@ import {
   fmtMin,
   HOUR_PX,
   isOffWindow,
+  layoutColumns,
   MIN_CHIP_PX,
   marqueeHits,
   minuteAtOffset,
@@ -138,6 +139,57 @@ describe("shiftSelection", () => {
   });
   it("clamps to the window start when shifted before 05:00", () => {
     expect(shiftSelection(items, 0, -10_000).every((x) => x.start === DAY_START)).toBe(true);
+  });
+});
+
+describe("layoutColumns", () => {
+  it("gives a lone event the full width", () => {
+    expect(layoutColumns([{ id: "a", start: 9 * 60, durationMin: 60 }])).toEqual({
+      a: { col: 0, cols: 1 },
+    });
+  });
+  it("keeps back-to-back (non-overlapping) events full width", () => {
+    const r = layoutColumns([
+      { id: "a", start: 9 * 60, durationMin: 60 },
+      { id: "b", start: 10 * 60, durationMin: 60 },
+    ]);
+    expect(r).toEqual({ a: { col: 0, cols: 1 }, b: { col: 0, cols: 1 } });
+  });
+  it("splits two overlapping events into two side-by-side columns", () => {
+    const r = layoutColumns([
+      { id: "a", start: 9 * 60, durationMin: 60 },
+      { id: "b", start: 9 * 60 + 30, durationMin: 60 },
+    ]);
+    expect(r).toEqual({ a: { col: 0, cols: 2 }, b: { col: 1, cols: 2 } });
+  });
+  it("treats same-start zero-duration events as overlapping", () => {
+    const r = layoutColumns([
+      { id: "a", start: 9 * 60, durationMin: 0 },
+      { id: "b", start: 9 * 60, durationMin: 0 },
+    ]);
+    expect(r).toEqual({ a: { col: 0, cols: 2 }, b: { col: 1, cols: 2 } });
+  });
+  it("reuses a freed column after an earlier event ends within the cluster", () => {
+    // a 9:00–11:00 overlaps b 9:30–10:00 and c 10:00–11:00; b ends as c starts,
+    // so c reuses b's column → cluster width is 2, not 3.
+    const r = layoutColumns([
+      { id: "a", start: 9 * 60, durationMin: 120 },
+      { id: "b", start: 9 * 60 + 30, durationMin: 30 },
+      { id: "c", start: 10 * 60, durationMin: 60 },
+    ]);
+    expect(r.a).toEqual({ col: 0, cols: 2 });
+    expect(r.b).toEqual({ col: 1, cols: 2 });
+    expect(r.c).toEqual({ col: 1, cols: 2 });
+  });
+  it("keeps two separate clusters independent", () => {
+    const r = layoutColumns([
+      { id: "a", start: 9 * 60, durationMin: 60 },
+      { id: "b", start: 9 * 60 + 30, durationMin: 60 },
+      { id: "c", start: 14 * 60, durationMin: 60 },
+    ]);
+    expect(r.a.cols).toBe(2);
+    expect(r.b.cols).toBe(2);
+    expect(r.c).toEqual({ col: 0, cols: 1 });
   });
 });
 
