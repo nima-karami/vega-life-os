@@ -56,3 +56,67 @@ export function timedLivedForDay(events: CalendarEvent[], dayIso: string): Calen
 export function allDayLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
   return events.filter((e) => (e.time == null || isMultiDay(e)) && coversDay(e, dayIso));
 }
+
+/** Single-day all-day lived events for a day — the per-day cells (multi-day go in bars). */
+export function singleDayAllDayLived(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
+  return events.filter((e) => e.time == null && !isMultiDay(e) && e.date === dayIso);
+}
+
+/** One multi-day event drawn as a continuous bar across the visible day columns. */
+export interface SpanBar {
+  event: CalendarEvent;
+  startCol: number; // 0-based column where the bar starts (clamped to the visible range)
+  span: number; // number of columns it covers (≥ 1)
+  lane: number; // vertical lane, so overlapping spans stack instead of colliding
+  continuesLeft: boolean; // the event began before the first visible day
+  continuesRight: boolean; // the event ends after the last visible day
+}
+
+/**
+ * Lay out multi-day spans as continuous bars over `dayIsos` (the visible week, or a
+ * single day on mobile), packing them into lanes so overlapping spans stack. Pure;
+ * the view maps each bar to a CSS grid-column span + row.
+ */
+export function layoutSpanBars(
+  events: CalendarEvent[],
+  dayIsos: string[],
+): { bars: SpanBar[]; lanes: number } {
+  if (dayIsos.length === 0) return { bars: [], lanes: 0 };
+  const first = dayIsos[0];
+  const last = dayIsos[dayIsos.length - 1];
+  const endOf = (e: CalendarEvent) => e.endDate ?? (e.date as string);
+
+  const spans = events
+    .filter((e) => isMultiDay(e) && e.date != null && e.date <= last && endOf(e) >= first)
+    .sort((a, b) =>
+      a.date === b.date
+        ? endOf(b) < endOf(a)
+          ? -1
+          : 1
+        : (a.date as string) < (b.date as string)
+          ? -1
+          : 1,
+    );
+
+  const laneEnd: number[] = []; // last column occupied per lane
+  const bars: SpanBar[] = spans.map((e) => {
+    const start = e.date as string;
+    const end = endOf(e);
+    const startCol = start <= first ? 0 : dayIsos.indexOf(start);
+    const endCol = end >= last ? dayIsos.length - 1 : dayIsos.indexOf(end);
+    const span = Math.max(1, endCol - startCol + 1);
+    let lane = laneEnd.findIndex((c) => c < startCol);
+    if (lane === -1) lane = laneEnd.length;
+    laneEnd[lane] = endCol;
+    return {
+      event: e,
+      startCol,
+      span,
+      lane,
+      continuesLeft: start < first,
+      continuesRight: end > last,
+    };
+  });
+
+  return { bars, lanes: laneEnd.length };
+}

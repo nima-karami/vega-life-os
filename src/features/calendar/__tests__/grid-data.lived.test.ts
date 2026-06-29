@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "@/features/calendar-sync/events-model";
-import { allDayLivedForDay, timedLivedForDay } from "../grid-data";
+import {
+  allDayLivedForDay,
+  layoutSpanBars,
+  singleDayAllDayLived,
+  timedLivedForDay,
+} from "../grid-data";
 
 const e = (over: Partial<CalendarEvent>): CalendarEvent => ({
   id: "ce",
@@ -72,5 +77,63 @@ describe("lived-event grid partition", () => {
       expect(timedLivedForDay([crossMidnight], "2026-07-04")).toHaveLength(1);
       expect(allDayLivedForDay([crossMidnight], "2026-07-05")).toHaveLength(0);
     });
+  });
+});
+
+describe("layoutSpanBars", () => {
+  const week = ["07-04", "07-05", "07-06", "07-07", "07-08", "07-09", "07-10"].map(
+    (d) => `2026-${d}`,
+  );
+  const span = (over: Partial<CalendarEvent>) =>
+    e({ allDay: true, time: null, durationMin: 0, ...over });
+
+  it("places a bar across its covered columns", () => {
+    const { bars, lanes } = layoutSpanBars(
+      [span({ id: "a", date: "2026-07-05", endDate: "2026-07-08" })],
+      week,
+    );
+    expect(lanes).toBe(1);
+    expect(bars[0]).toMatchObject({
+      startCol: 1,
+      span: 4,
+      lane: 0,
+      continuesLeft: false,
+      continuesRight: false,
+    });
+  });
+
+  it("clamps to the visible range and flags continuation on both sides", () => {
+    const { bars } = layoutSpanBars(
+      [span({ id: "b", date: "2026-07-01", endDate: "2026-07-31" })],
+      week,
+    );
+    expect(bars[0]).toMatchObject({
+      startCol: 0,
+      span: 7,
+      continuesLeft: true,
+      continuesRight: true,
+    });
+  });
+
+  it("stacks overlapping spans into separate lanes but shares a lane when disjoint", () => {
+    const { bars, lanes } = layoutSpanBars(
+      [
+        span({ id: "x", date: "2026-07-04", endDate: "2026-07-06" }),
+        span({ id: "y", date: "2026-07-05", endDate: "2026-07-07" }), // overlaps x → lane 1
+        span({ id: "z", date: "2026-07-08", endDate: "2026-07-09" }), // disjoint from x → reuses lane 0
+      ],
+      week,
+    );
+    expect(lanes).toBe(2);
+    const byId = Object.fromEntries(bars.map((b) => [b.event.id, b.lane]));
+    expect(byId.x).toBe(0);
+    expect(byId.y).toBe(1);
+    expect(byId.z).toBe(0);
+  });
+
+  it("ignores single-day events; they belong to the per-day filter instead", () => {
+    const single = span({ id: "s", date: "2026-07-05", endDate: "2026-07-05" });
+    expect(layoutSpanBars([single], week).bars).toHaveLength(0);
+    expect(singleDayAllDayLived([single], "2026-07-05")).toHaveLength(1);
   });
 });

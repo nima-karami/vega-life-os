@@ -83,6 +83,45 @@ export function CalendarEventChip({
   );
 }
 
+/**
+ * A multi-day lived event drawn as one continuous bar across the all-day row's day
+ * columns. Ends are rounded only where the event actually starts/ends in view; a flush
+ * edge means it continues past the visible week. `style` carries the CSS grid placement.
+ */
+export function SpanBarChip({
+  event,
+  continuesLeft,
+  continuesRight,
+  style,
+  onOpen,
+}: {
+  event: CalendarEvent;
+  continuesLeft: boolean;
+  continuesRight: boolean;
+  style: React.CSSProperties;
+  onOpen: () => void;
+}) {
+  const accent = useValueColor(event.valueId);
+  const tagged = event.valueId != null;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${event.title}, multi-day, ${tagged ? "tagged" : "untagged"} (from Google)`}
+      className={cx(
+        "mx-px my-px flex min-w-0 items-center gap-1 overflow-hidden border-dashed bg-surface-secondary px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm",
+        !continuesLeft && "rounded-l-[3px] border-l-[3px]",
+        !continuesRight && "rounded-r-[3px]",
+        !tagged && "opacity-90",
+      )}
+      style={{ ...style, borderColor: tagged && !continuesLeft ? accent : undefined }}
+    >
+      {!continuesLeft && <Icon name="calendar" size={10} className="shrink-0 text-muted" />}
+      <span className="truncate">{event.title}</span>
+    </button>
+  );
+}
+
 /** Editor for a lived event: tag with a value/goal, edit time/title (write-back), delete. */
 export function EventEditor({
   event,

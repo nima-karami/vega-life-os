@@ -22,7 +22,7 @@ import { TaskDrawer } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
 import { BulkActionBar } from "./BulkActionBar";
 import { CalendarSync } from "./CalendarSync";
-import { CalendarEventChip, EventEditor } from "./EventEditor";
+import { CalendarEventChip, EventEditor, SpanBarChip } from "./EventEditor";
 import {
   type Box,
   type ChipBox,
@@ -46,7 +46,8 @@ import {
   shiftSelection,
 } from "./geometry";
 import {
-  allDayLivedForDay,
+  layoutSpanBars,
+  singleDayAllDayLived,
   timedLivedForDay,
   timedTasksForDay,
   unscheduledTasks,
@@ -868,6 +869,14 @@ export function CalendarPage() {
   };
 
   const visibleDays = mobile ? [days[activeDay]] : days;
+  const spanBars = useMemo(
+    () =>
+      layoutSpanBars(
+        livedEvents,
+        visibleDays.map((d) => d.iso),
+      ),
+    [livedEvents, visibleDays],
+  );
   const backlog = useMemo(() => unscheduledTasks(tasks), [tasks]);
   const modalResponsive = useCompactModal();
   const scheduleSlotState = useOverlayState({
@@ -1046,36 +1055,64 @@ export function CalendarPage() {
             </div>
 
             {/* all-day / untimed row */}
-            <div
-              className="grid border-b border-border"
-              style={{ gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)` }}
-            >
-              <div className="flex items-center justify-end px-1.5 py-1">
-                <span className="text-xs text-muted">All day</span>
-              </div>
-              {visibleDays.map((d) => (
-                <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-border p-1">
-                  {allDayLivedForDay(livedEvents, d.iso).map((ev) => (
-                    <CalendarEventChip
-                      key={ev.id}
-                      event={ev}
-                      variant="allday"
-                      onOpen={() => setEditingEvent(ev)}
-                    />
-                  ))}
-                  {untimedTasksForDay(tasks, d.iso).map((t) => (
-                    <AllDayChip
-                      key={t.id}
-                      task={t}
-                      dragging={dragId === t.id}
-                      selected={selectedIds.has(t.id)}
-                      onPointerDownBody={(e) => beginScheduleDrag(e, t)}
-                      onOpen={() => openTask(t)}
-                      menuItems={allDayMenuItems(t)}
+            <div className="border-b border-border">
+              {/* continuous multi-day bars, packed into lanes */}
+              {spanBars.lanes > 0 && (
+                <div
+                  className="grid pt-1"
+                  style={{
+                    gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)`,
+                    gridAutoRows: "20px",
+                  }}
+                >
+                  {spanBars.bars.map((bar) => (
+                    <SpanBarChip
+                      key={bar.event.id}
+                      event={bar.event}
+                      continuesLeft={bar.continuesLeft}
+                      continuesRight={bar.continuesRight}
+                      onOpen={() => setEditingEvent(bar.event)}
+                      style={{
+                        gridColumnStart: bar.startCol + 2,
+                        gridColumnEnd: bar.startCol + bar.span + 2,
+                        gridRowStart: bar.lane + 1,
+                      }}
                     />
                   ))}
                 </div>
-              ))}
+              )}
+              {/* per-day single-day all-day chips + untimed tasks */}
+              <div
+                className="grid"
+                style={{ gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)` }}
+              >
+                <div className="flex items-center justify-end px-1.5 py-1">
+                  <span className="text-xs text-muted">All day</span>
+                </div>
+                {visibleDays.map((d) => (
+                  <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-border p-1">
+                    {singleDayAllDayLived(livedEvents, d.iso).map((ev) => (
+                      <CalendarEventChip
+                        key={ev.id}
+                        event={ev}
+                        variant="allday"
+                        onOpen={() => setEditingEvent(ev)}
+                      />
+                    ))}
+                    {untimedTasksForDay(tasks, d.iso).map((t) => (
+                      <AllDayChip
+                        key={t.id}
+                        task={t}
+                        dragging={dragId === t.id}
+                        selected={selectedIds.has(t.id)}
+                        onPointerDownBody={(e) => beginScheduleDrag(e, t)}
+                        onOpen={() => openTask(t)}
+                        menuItems={allDayMenuItems(t)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* timed grid body */}

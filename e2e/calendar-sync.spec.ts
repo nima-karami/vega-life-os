@@ -113,9 +113,11 @@ test("a multi-day Google event spans every day it covers in the all-day row", as
   await passGratitudeGate(page);
 
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(800);
-  // The span renders once per covered day column → more than one chip.
-  await expect.poll(() => page.getByText("Roadtrip").count()).toBeGreaterThan(1);
+  const bar = page.getByRole("button", { name: /Roadtrip, multi-day/ });
+  await expect(bar).toHaveCount(1); // one continuous bar, not a chip per day
+  // The bar spans several day columns, so it's far wider than a single column (~160px).
+  const box = await bar.boundingBox();
+  expect(box?.width ?? 0).toBeGreaterThan(300);
 });
 
 test("clicking an untagged lived event opens the editor", async ({ page }) => {
