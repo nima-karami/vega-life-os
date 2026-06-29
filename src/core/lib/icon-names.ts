@@ -174,6 +174,7 @@ export const PICKABLE_ICON_NAMES = [
   "hourglass",
   "timer",
   "repeat",
+  "refresh-cw",
   "history",
   "calendar-check",
   "watch",

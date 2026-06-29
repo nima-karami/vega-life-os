@@ -73,7 +73,7 @@ export function CalendarSettings() {
           {on ? (
             <>
               <Button variant="primary" isDisabled={busy} onPress={() => void sync()}>
-                <Icon name="repeat" size={15} />
+                <Icon name="refresh-cw" size={15} />
                 Sync now
               </Button>
               <Button variant="danger-soft" onPress={disconnect}>

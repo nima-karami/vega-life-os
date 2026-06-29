@@ -114,7 +114,7 @@ export function CalendarSync() {
           TONE[phase],
         )}
       >
-        <Icon name="repeat" size={15} className={cx(busy && "animate-spin")} />
+        <Icon name="refresh-cw" size={15} className={cx(busy && "animate-spin")} />
       </button>
 
       <span className="sr-only" role="status" aria-live="polite">
