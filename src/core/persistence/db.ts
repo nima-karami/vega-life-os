@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { DayEntry } from "@/features/journal/model";
@@ -17,6 +18,7 @@ export class VegaDB extends Dexie {
   vocab!: Table<VocabEntry, string>;
   reviews!: Table<Review, string>;
   journal!: Table<DayEntry, string>;
+  calendarEvents!: Table<CalendarEvent, string>;
   meta!: Table<{ key: string; dirty?: boolean }, string>;
 
   constructor() {
@@ -39,6 +41,13 @@ export class VegaDB extends Dexie {
       reviews: "id, periodKey",
       journal: "id, date",
       meta: "key",
+    });
+    this.version(5).stores({
+      ...stores,
+      reviews: "id, periodKey",
+      journal: "id, date",
+      meta: "key",
+      calendarEvents: "id, calendarId, iCalUID, valueId, date",
     });
   }
 }

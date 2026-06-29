@@ -1,3 +1,4 @@
+import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { DayEntry } from "@/features/journal/model";
@@ -17,6 +18,7 @@ export interface Dataset {
   vocab: VocabEntry[];
   reviews: Review[];
   journal: DayEntry[];
+  calendarEvents: CalendarEvent[];
 }
 
 export type CollectionName = keyof Dataset;
@@ -37,6 +39,7 @@ export const COLLECTIONS: CollectionName[] = [
   "vocab",
   "reviews",
   "journal",
+  "calendarEvents",
 ];
 
 export function emptyDataset(): Dataset {
@@ -50,6 +53,7 @@ export function emptyDataset(): Dataset {
     vocab: [],
     reviews: [],
     journal: [],
+    calendarEvents: [],
   };
 }
 
