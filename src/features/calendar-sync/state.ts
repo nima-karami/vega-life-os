@@ -1,46 +1,57 @@
-const CAL = "vega.gcal.calendarId";
-const TOKEN = "vega.gcal.syncToken";
+const READ = "vega.gcal.readCalendarIds";
+const WRITE = "vega.gcal.writeCalendarId";
+const TOKEN = (cal: string) => `vega.gcal.syncToken.${cal}`;
 const ON = "vega.gcal.enabled";
+const SCOPE = "vega.gcal.scopeVersion";
+const LEGACY = "vega.gcal.calendarId";
 
-export const getCalendarId = () => {
+const read = (k: string): string | null => {
   try {
-    return localStorage.getItem(CAL) ?? "primary";
-  } catch {
-    return "primary";
-  }
-};
-export const setCalendarId = (v: string) => {
-  try {
-    localStorage.setItem(CAL, v);
-  } catch {
-    /* ignore */
-  }
-};
-export const getSyncToken = () => {
-  try {
-    return localStorage.getItem(TOKEN);
+    return localStorage.getItem(k);
   } catch {
     return null;
   }
 };
-export const setSyncToken = (v: string | null) => {
+const write = (k: string, v: string | null) => {
   try {
-    v ? localStorage.setItem(TOKEN, v) : localStorage.removeItem(TOKEN);
+    v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v);
   } catch {
     /* ignore */
   }
 };
-export const isEnabled = () => {
+
+export const getReadCalendarIds = (): string[] => {
+  const raw = read(READ);
+  if (!raw) return ["primary"];
   try {
-    return localStorage.getItem(ON) === "1";
+    const a = JSON.parse(raw);
+    return Array.isArray(a) && a.length ? a : ["primary"];
   } catch {
-    return false;
+    return ["primary"];
   }
 };
-export const setEnabled = (v: boolean) => {
-  try {
-    localStorage.setItem(ON, v ? "1" : "0");
-  } catch {
-    /* ignore */
-  }
-};
+export const setReadCalendarIds = (ids: string[]) => write(READ, JSON.stringify(ids));
+
+export const getWriteCalendarId = (): string | null => read(WRITE);
+export const setWriteCalendarId = (id: string | null) => write(WRITE, id);
+
+export const getSyncToken = (cal: string): string | null => read(TOKEN(cal));
+export const setSyncToken = (cal: string, v: string | null) => write(TOKEN(cal), v);
+
+export const isEnabled = () => read(ON) === "1";
+export const setEnabled = (v: boolean) => write(ON, v ? "1" : "0");
+
+export const getScopeVersion = () => Number(read(SCOPE) ?? "0");
+export const setScopeVersion = (n: number) => write(SCOPE, String(n));
+
+/** Rolling sync horizon (days back / forward) bounding each tokenless full list. */
+export const getWindow = () => ({ backDays: 28, fwdDays: 56 });
+
+/** One-time: an old single calendarId seeds the read-set; the write target is left to
+ *  the engine to auto-create the dedicated VEGA calendar (don't inherit primary). */
+export function migrateLegacyCalendarId() {
+  const legacy = read(LEGACY);
+  if (legacy && !read(READ)) setReadCalendarIds([legacy]);
+  if (legacy) write(LEGACY, null);
+}
+migrateLegacyCalendarId();

@@ -15,23 +15,40 @@ async function call(path: string, init: RequestInit = {}, interactive = false): 
   });
 }
 
-/** List events VEGA created (tagged with vegaTaskId), incrementally when possible. */
-export async function listVegaEvents(
+/**
+ * List a calendar's events. `filtered:true` ⇒ task-lane query (only VEGA-tagged);
+ * `filtered:false` ⇒ unfiltered lived-lane query. A syncToken is bound to its
+ * original query params, so window bounds are sent only on a tokenless full list
+ * (Google 400s if timeMin/timeMax accompany a syncToken).
+ */
+export async function listEvents(
   calendarId: string,
-  syncToken: string | null,
-  interactive = false,
+  opts: {
+    syncToken: string | null;
+    filtered: boolean;
+    window: { backDays: number; fwdDays: number };
+  },
 ): Promise<{ events: GEvent[]; nextSyncToken: string | null; expired: boolean }> {
   const cal = encodeURIComponent(calendarId);
   const events: GEvent[] = [];
   let pageToken: string | null = null;
   let nextSyncToken: string | null = null;
   do {
-    const params = new URLSearchParams({ showDeleted: "true", maxResults: "250" });
-    if (syncToken) params.set("syncToken", syncToken);
-    else params.set("privateExtendedProperty", "vegaTaskId=*"); // initial full sync: only our events
+    const params = new URLSearchParams({
+      showDeleted: "true",
+      singleEvents: "true",
+      maxResults: "250",
+    });
+    if (opts.syncToken) {
+      params.set("syncToken", opts.syncToken);
+    } else {
+      params.set("timeMin", new Date(Date.now() - opts.window.backDays * 864e5).toISOString());
+      params.set("timeMax", new Date(Date.now() + opts.window.fwdDays * 864e5).toISOString());
+      if (opts.filtered) params.set("privateExtendedProperty", "vegaTaskId=*");
+    }
     if (pageToken) params.set("pageToken", pageToken);
-    const res = await call(`${cal}/events?${params}`, {}, interactive);
-    if (res.status === 410) return { events: [], nextSyncToken: null, expired: true }; // token expired → full resync
+    const res = await call(`${cal}/events?${params}`, {}, false);
+    if (res.status === 410) return { events: [], nextSyncToken: null, expired: true };
     if (!res.ok) throw new Error(`gcal list ${res.status}`);
     const data = await res.json();
     events.push(...(data.items ?? []));

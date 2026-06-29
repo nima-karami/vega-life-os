@@ -1,57 +1,106 @@
+import { format } from "date-fns";
 import { useStore } from "@/core/store";
-import { deleteEvent, insertEvent, listVegaEvents, patchEvent } from "./gcal";
+import { savePut, saveRemove } from "@/core/store/persist";
+import { ensureVegaCalendar } from "./calendars";
+import { calendarEventToGPatch } from "./events-map";
+import { deleteEvent, insertEvent, listEvents, patchEvent } from "./gcal";
 import { computePull, computePush } from "./reconcile";
-import { getCalendarId, getSyncToken, setSyncToken } from "./state";
+import { reconcileLived } from "./reconcile-lived";
+import { getReadCalendarIds, getSyncToken, getWindow, setSyncToken } from "./state";
 
 let running = false;
 
+type Window = { backDays: number; fwdDays: number };
+
+/** Incremental list with a one-shot full-list fallback when the token has expired (410). */
+async function listWithFallback(calId: string, filtered: boolean, window: Window) {
+  let res = await listEvents(calId, { syncToken: getSyncToken(calId), filtered, window });
+  if (res.expired) {
+    setSyncToken(calId, null);
+    res = await listEvents(calId, { syncToken: null, filtered, window });
+  }
+  return res;
+}
+
+/** Pull external events from every read calendar into the mirror set. Returns rows touched. */
+async function pullLived(window: Window, todayIso: string): Promise<number> {
+  let lived = 0;
+  for (const calId of getReadCalendarIds()) {
+    const { events, nextSyncToken } = await listWithFallback(calId, false, window);
+    const existing = useStore.getState().calendarEvents.filter((e) => e.calendarId === calId);
+    const { upserts, dropIds } = reconcileLived(existing, events, calId, todayIso);
+    useStore.getState().applyLivedSync(calId, upserts, dropIds);
+    lived += upserts.length + dropIds.length;
+    if (nextSyncToken) setSyncToken(calId, nextSyncToken);
+  }
+  return lived;
+}
+
+/** Push pending lived-event deletes then edits back to Google; failures retry next cycle. */
+async function pushLived(): Promise<void> {
+  for (const e of useStore.getState().calendarEvents.filter((x) => x.pendingDelete)) {
+    await deleteEvent(e.calendarId, e.googleId);
+    useStore.setState((s) => ({ calendarEvents: s.calendarEvents.filter((x) => x.id !== e.id) }));
+    saveRemove("calendarEvents", e.id);
+  }
+  for (const e of useStore.getState().calendarEvents.filter((x) => x.vegaEditedAt)) {
+    await patchEvent(e.calendarId, e.googleId, calendarEventToGPatch(e));
+    const cleared = { ...e, vegaEditedAt: null };
+    useStore.setState((s) => ({
+      calendarEvents: s.calendarEvents.map((x) => (x.id === e.id ? cleared : x)),
+    }));
+    savePut("calendarEvents", cleared);
+  }
+}
+
+/** Reconcile VEGA tasks ⇄ the dedicated VEGA write-calendar. */
+async function runTaskLane(
+  writeCalId: string,
+  window: Window,
+): Promise<{ pushed: number; pulled: number }> {
+  const { events, nextSyncToken } = await listWithFallback(writeCalId, true, window);
+  const pull = computePull(useStore.getState().tasks, events);
+  for (const u of pull) {
+    useStore.getState().updateTask(u.taskId, {
+      date: u.date,
+      time: u.time,
+      ...(u.unscheduled ? { status: "open" } : {}),
+    });
+  }
+  const live = events.filter((e) => e.status !== "cancelled");
+  const seen = new Set(live.map((e) => e.extendedProperties?.private?.vegaTaskId).filter(Boolean));
+  const ops = computePush(useStore.getState().tasks, live);
+  for (const op of ops) {
+    if (op.kind === "insert" && op.body && !seen.has(op.taskId)) {
+      await insertEvent(writeCalId, op.body);
+    } else if (op.kind === "patch" && op.eventId && op.body) {
+      await patchEvent(writeCalId, op.eventId, op.body);
+    } else if (op.kind === "delete" && op.eventId) {
+      await deleteEvent(writeCalId, op.eventId);
+    }
+  }
+  if (nextSyncToken) setSyncToken(writeCalId, nextSyncToken);
+  return { pushed: ops.length, pulled: pull.length };
+}
+
 /**
- * One full sync cycle: pull Google's changes to our tagged events into VEGA,
- * then push VEGA's current schedule to Google. Pull-first then push converges;
- * last write per task wins. Client-side, on-demand (no webhooks).
+ * One full sync cycle across two lanes: the lived lane (external Google events ⇄
+ * VEGA mirrors) and the task lane (VEGA tasks ⇄ a dedicated VEGA write-calendar).
+ * Pull-then-push; idempotent and re-entrant via the in-flight guard.
  */
-export async function syncNow(interactive = false): Promise<{ pushed: number; pulled: number }> {
-  if (running) return { pushed: 0, pulled: 0 };
+export async function syncNow(
+  interactive = false,
+): Promise<{ pushed: number; pulled: number; lived: number }> {
+  if (running) return { pushed: 0, pulled: 0, lived: 0 };
   running = true;
   try {
-    const calId = getCalendarId();
-    const store = useStore.getState();
-
-    // 1. PULL — incremental when we have a syncToken; fall back to full on 410.
-    let { events, nextSyncToken, expired } = await listVegaEvents(
-      calId,
-      getSyncToken(),
-      interactive,
-    );
-    if (expired) {
-      setSyncToken(null);
-      ({ events, nextSyncToken } = await listVegaEvents(calId, null, interactive));
-    }
-    const pull = computePull(store.tasks, events);
-    for (const u of pull) {
-      store.updateTask(u.taskId, {
-        date: u.date,
-        time: u.time,
-        ...(u.unscheduled ? { status: "open" } : {}),
-      });
-    }
-
-    // 2. PUSH — re-read tasks after pull; bring Google in line.
-    const tasks = useStore.getState().tasks;
-    const liveEvents = events.filter((e) => e.status !== "cancelled");
-    const ops = computePush(tasks, liveEvents);
-    for (const op of ops) {
-      if (op.kind === "insert") {
-        if (op.body) await insertEvent(calId, op.body);
-      } else if (op.kind === "patch") {
-        if (op.eventId && op.body) await patchEvent(calId, op.eventId, op.body);
-      } else if (op.eventId) {
-        await deleteEvent(calId, op.eventId);
-      }
-    }
-
-    if (nextSyncToken) setSyncToken(nextSyncToken);
-    return { pushed: ops.length, pulled: pull.length };
+    const window = getWindow();
+    const todayIso = format(new Date(), "yyyy-MM-dd");
+    const writeCalId = await ensureVegaCalendar(interactive);
+    const lived = await pullLived(window, todayIso);
+    await pushLived();
+    const task = await runTaskLane(writeCalId, window);
+    return { pushed: task.pushed, pulled: task.pulled, lived };
   } finally {
     running = false;
   }

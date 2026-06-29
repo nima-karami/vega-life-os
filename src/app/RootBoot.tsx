@@ -5,7 +5,7 @@ import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { profileIncomplete } from "@/core/store/profile";
 import { ACCENT_VAR_KEYS, accentVars } from "@/core/theme/accent";
-import { isEnabled as gcalEnabled, syncNow } from "@/features/calendar-sync";
+import { isEnabled as gcalEnabled, startPolling, syncNow } from "@/features/calendar-sync";
 import { gratitudeRequired } from "@/features/journal";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
@@ -39,7 +39,7 @@ export function RootBoot() {
 
   useEffect(() => {
     if (!gcalEnabled()) return;
-    void syncNow(false).catch(() => {});
+    return startPolling(() => void syncNow(false).catch(() => {}));
   }, []);
 
   // Apply vapor theme on mount (single theme for this branch)
