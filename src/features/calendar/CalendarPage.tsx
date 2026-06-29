@@ -52,6 +52,7 @@ import {
   unscheduledTasks,
   untimedTasksForDay,
 } from "./grid-data";
+import { VegaCalendarMissingDialog } from "./VegaCalendarMissingDialog";
 
 interface DragState {
   id: string;
@@ -1270,6 +1271,8 @@ export function CalendarPage() {
         event={editingEvent ? (calendarEvents.find((e) => e.id === editingEvent.id) ?? null) : null}
         onClose={() => setEditingEvent(null)}
       />
+
+      <VegaCalendarMissingDialog />
 
       {selectedIds.size > 0 && (
         <BulkActionBar
