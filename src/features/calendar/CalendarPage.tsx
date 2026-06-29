@@ -105,7 +105,11 @@ export function CalendarPage() {
   const setFocusGoal = useStore((s) => s.setFocusGoal);
 
   const calendarEvents = useStore((s) => s.calendarEvents);
-  const livedEvents = useMemo(() => dedupeForDisplay(calendarEvents), [calendarEvents]);
+  const showGoogleEvents = useStore((s) => s.showGoogleEvents);
+  const livedEvents = useMemo(
+    () => (showGoogleEvents ? dedupeForDisplay(calendarEvents) : []),
+    [calendarEvents, showGoogleEvents],
+  );
 
   const [weekRef, setWeekRef] = useState(() => new Date());
   const [selected, setSelected] = useState<Task | null>(null);

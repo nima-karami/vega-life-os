@@ -41,6 +41,10 @@ export const setSyncToken = (cal: string, v: string | null) => write(TOKEN(cal),
 export const isEnabled = () => read(ON) === "1";
 export const setEnabled = (v: boolean) => write(ON, v ? "1" : "0");
 
+const SHOW = "vega.gcal.showEvents";
+export const getShowGoogleEvents = () => read(SHOW) !== "0"; // default on
+export const setShowGoogleEvents = (v: boolean) => write(SHOW, v ? "1" : "0");
+
 export const getScopeVersion = () => Number(read(SCOPE) ?? "0");
 export const setScopeVersion = (n: number) => write(SCOPE, String(n));
 

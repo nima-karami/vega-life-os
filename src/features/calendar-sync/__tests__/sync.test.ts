@@ -45,6 +45,8 @@ vi.mock("../state", () => ({
   getSyncToken: () => null,
   setSyncToken: vi.fn(),
   getWindow: () => ({ backDays: 28, fwdDays: 56 }),
+  getShowGoogleEvents: () => true,
+  setShowGoogleEvents: vi.fn(),
 }));
 
 import { useStore } from "@/core/store";

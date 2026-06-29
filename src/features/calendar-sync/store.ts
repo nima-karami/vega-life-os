@@ -2,6 +2,7 @@ import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { CalendarEvent } from "./events-model";
 import { dedupeForDisplay } from "./reconcile-lived";
+import { getShowGoogleEvents, setShowGoogleEvents } from "./state";
 
 const nowISO = () => new Date().toISOString();
 
@@ -25,6 +26,9 @@ export interface CalendarEventsSlice {
   applyLivedSync: (calendarId: string, upserts: CalendarEvent[], dropIds: string[]) => void;
   /** deduped, display-ready lived events */
   visibleEvents: () => CalendarEvent[];
+  /** show/hide Google events on the calendar (persisted; default on) */
+  showGoogleEvents: boolean;
+  setShowGoogleEvents: (v: boolean) => void;
 }
 
 export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) => ({
@@ -65,6 +69,12 @@ export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) 
   },
 
   visibleEvents: () => dedupeForDisplay(get().calendarEvents),
+
+  showGoogleEvents: getShowGoogleEvents(),
+  setShowGoogleEvents: (v) => {
+    setShowGoogleEvents(v);
+    set({ showGoogleEvents: v });
+  },
 });
 
 function updateOne(

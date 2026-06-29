@@ -211,6 +211,7 @@ export const PICKABLE_ICON_NAMES = [
   "sparkles",
   "shield",
   "eye",
+  "eye-off",
   "zap",
   "anchor-2",
   "infinity",
