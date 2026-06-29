@@ -87,6 +87,22 @@ describe("deriveSyncPhase", () => {
   });
 });
 
+describe("deriveSyncPhase — scope upgrade", () => {
+  const base = { configured: true, enabled: true, connected: true, busy: false, error: false };
+  it("demands upgraded consent when the stored scope is stale", () => {
+    expect(deriveSyncPhase({ ...base, scopeStale: true })).toBe("needs-upgraded-consent");
+  });
+  it("ignores scopeStale when not connected/enabled", () => {
+    expect(deriveSyncPhase({ ...base, enabled: false, connected: false, scopeStale: true })).toBe(
+      "disconnected",
+    );
+  });
+  it("busy/error still take precedence over a stale scope", () => {
+    expect(deriveSyncPhase({ ...base, busy: true, scopeStale: true })).toBe("syncing");
+    expect(deriveSyncPhase({ ...base, error: true, scopeStale: true })).toBe("error");
+  });
+});
+
 describe("formatLastSynced", () => {
   const now = 1_700_000_000_000;
   it("returns null when never synced", () => {

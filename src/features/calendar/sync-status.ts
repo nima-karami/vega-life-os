@@ -12,6 +12,7 @@ export type SyncPhase =
   | "syncing"
   | "error"
   | "needs-reconnect"
+  | "needs-upgraded-consent"
   | "connected";
 
 export interface SyncFlags {
@@ -25,6 +26,8 @@ export interface SyncFlags {
   busy: boolean;
   /** The last run failed (view-local). */
   error: boolean;
+  /** Connected on an out-of-date OAuth scope — needs an interactive re-consent. */
+  scopeStale?: boolean;
 }
 
 /**
@@ -37,6 +40,7 @@ export function deriveSyncPhase(flags: SyncFlags): SyncPhase {
   if (!configured) return "not-configured";
   if (busy) return "syncing";
   if (error) return "error";
+  if (enabled && connected && flags.scopeStale) return "needs-upgraded-consent";
   if (enabled && !connected) return "needs-reconnect";
   if (enabled && connected) return "connected";
   return "disconnected";
@@ -68,6 +72,8 @@ export function syncStatusText(phase: SyncPhase): string {
       return "Sync failed";
     case "needs-reconnect":
       return "Session expired — reconnect";
+    case "needs-upgraded-consent":
+      return "Reconnect to grant calendar access";
     case "connected":
       return "Connected";
   }

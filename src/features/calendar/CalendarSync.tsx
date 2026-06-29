@@ -26,6 +26,7 @@ const DOT: Record<SyncPhase, string> = {
   syncing: "bg-accent animate-pulse",
   error: "bg-danger",
   "needs-reconnect": "bg-danger",
+  "needs-upgraded-consent": "bg-danger",
   connected: "bg-success",
 };
 

@@ -4,7 +4,14 @@
  * Needs a Google OAuth Web client ID in VITE_GOOGLE_CLIENT_ID.
  */
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-const SCOPE = "https://www.googleapis.com/auth/calendar.events";
+// Read/write events, list the user's calendars, and create a VEGA-owned calendar.
+const SCOPE = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+  "https://www.googleapis.com/auth/calendar.app.created",
+].join(" ");
+/** Bump when SCOPE changes so already-connected users are re-prompted for consent. */
+export const SCOPE_VERSION = 1;
 
 export const gcalConfigured = Boolean(CLIENT_ID);
 
