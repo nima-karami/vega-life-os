@@ -116,9 +116,14 @@ export async function syncNow(
     const window = getWindow();
     const todayIso = format(new Date(), "yyyy-MM-dd");
     const writeCalId = await ensureVegaCalendar(interactive);
-    const lived = await pullLived(writeCalId, window, todayIso);
+    const lived = await pullLived(writeCalId ?? "", window, todayIso);
     await pushLived();
+    if (writeCalId === null) {
+      useStore.getState().setGcalMissing(true);
+      return { pushed: 0, pulled: 0, lived };
+    }
     const task = await runTaskLane(writeCalId);
+    useStore.getState().setGcalMissing(false);
     return { pushed: task.pushed, pulled: task.pulled, lived };
   } finally {
     running = false;

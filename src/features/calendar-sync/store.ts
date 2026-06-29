@@ -35,6 +35,9 @@ export interface CalendarEventsSlice {
   setGcalReadCalendarIds: (ids: string[]) => void;
   /** show/hide Google events on the calendar */
   setShowGoogleEvents: (v: boolean) => void;
+  /** transient: a background sync found the VEGA write-calendar gone (not persisted) */
+  gcalMissing: boolean;
+  setGcalMissing: (v: boolean) => void;
 }
 
 export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) => {
@@ -91,6 +94,9 @@ export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) 
     setGcalWriteCalendarId: (id) => patchGcal({ writeCalendarId: id }),
     setGcalReadCalendarIds: (ids) => patchGcal({ readCalendarIds: ids }),
     setShowGoogleEvents: (v) => patchGcal({ showGoogleEvents: v }),
+
+    gcalMissing: false,
+    setGcalMissing: (v) => set({ gcalMissing: v }),
   };
 };
 

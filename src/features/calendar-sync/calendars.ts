@@ -47,11 +47,11 @@ export const isVegaCalendar = (c: GCalendar): boolean =>
  * Return the VEGA write-calendar id. Resolution order:
  *   1. a verified stored id (this origin),
  *   2. an existing owned calendar named "VEGA" (created from another origin/device),
- *   3. otherwise create one.
+ *   3. otherwise create one — interactive flows only.
  * Finding by name first prevents duplicate "VEGA" calendars when connecting from a
  * new origin (the stored id lives in per-origin localStorage).
  */
-export async function ensureVegaCalendar(interactive = false): Promise<string> {
+export async function ensureVegaCalendar(interactive = false): Promise<string | null> {
   const setWriteCalendarId = (id: string) => useStore.getState().setGcalWriteCalendarId(id);
   const stored = useStore.getState().gcal.writeCalendarId;
   if (stored) {
@@ -65,6 +65,8 @@ export async function ensureVegaCalendar(interactive = false): Promise<string> {
     setWriteCalendarId(existing.id);
     return existing.id;
   }
+  // Background must not silently recreate the VEGA calendar — pause & ask instead (Q3).
+  if (!interactive) return null;
   const created = await api(
     "calendars",
     { method: "POST", body: JSON.stringify({ summary: VEGA_SUMMARY }) },

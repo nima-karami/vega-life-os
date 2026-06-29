@@ -52,6 +52,7 @@ vi.mock("../state", () => ({
 }));
 
 import { useStore } from "@/core/store";
+import { ensureVegaCalendar } from "../calendars";
 import { defaultGcalConfig } from "../config";
 import type { CalendarEvent } from "../events-model";
 import { GcalHttpError, listEvents } from "../gcal";
@@ -135,6 +136,27 @@ describe("syncNow — lived lane", () => {
     const r = await syncNow(false);
     expect(r).toEqual({ pushed: 0, pulled: 0, lived: 0 });
     expect(listEvents).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncNow — VEGA write-calendar missing (Q3)", () => {
+  it("background null write-cal pauses the task lane and flags gcalMissing", async () => {
+    vi.mocked(ensureVegaCalendar).mockResolvedValueOnce(null);
+    vi.mocked(listEvents).mockClear();
+    const r = await syncNow(false);
+    const ranTaskLane = vi.mocked(listEvents).mock.calls.some(([, o]) => o.filtered === true);
+    expect(ranTaskLane).toBe(false);
+    expect(calls.inserted).toHaveLength(0);
+    expect(calls.patched).toHaveLength(0);
+    expect(calls.deleted).toHaveLength(0);
+    expect(useStore.getState().gcalMissing).toBe(true);
+    expect(r).toMatchObject({ pushed: 0, pulled: 0 });
+  });
+
+  it("clears gcalMissing once the write-calendar resolves again", async () => {
+    useStore.setState({ gcalMissing: true });
+    await syncNow(false);
+    expect(useStore.getState().gcalMissing).toBe(false);
   });
 });
 
