@@ -10,7 +10,9 @@ import { cx, Icon } from "@/core/ui";
 import {
   gcalConfigured,
   getCalendarToken,
+  getScopeVersion,
   isCalendarConnected,
+  SCOPE_VERSION,
   syncNow,
 } from "@/features/calendar-sync";
 import { deriveSyncPhase, formatLastSynced, type SyncPhase } from "./sync-status";
@@ -47,12 +49,15 @@ export function CalendarSync() {
   // Only surface on /calendar once connected; connect/disconnect live in Settings.
   if (!gcalConfigured || !enabled) return null;
 
+  // recorded 0 = never tracked (legacy connect) → treat as current, don't nag.
+  const scopeStale = getScopeVersion() !== 0 && getScopeVersion() < SCOPE_VERSION;
   const phase = deriveSyncPhase({
     configured: gcalConfigured,
     enabled,
     connected: isCalendarConnected(),
     busy,
     error,
+    scopeStale,
   });
   const needsReconnect = phase === "needs-reconnect" || phase === "needs-upgraded-consent";
   const lastLabel = formatLastSynced(lastSynced);

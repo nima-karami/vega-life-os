@@ -3,6 +3,8 @@
  * not refresh Google API access tokens, so we mint calendar tokens with GIS.
  * Needs a Google OAuth Web client ID in VITE_GOOGLE_CLIENT_ID.
  */
+import { setScopeVersion } from "./state";
+
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 // Read/write events, list the user's calendars, and create a VEGA-owned calendar.
 const SCOPE = [
@@ -93,6 +95,7 @@ export function getCalendarToken(interactive: boolean): Promise<string> {
         token = r.access_token;
         expiresAt = Date.now() + 55 * 60_000; // GIS tokens ~1h
         persist();
+        setScopeVersion(SCOPE_VERSION); // record which scope set the user just consented to
         resolve(token);
       } else {
         reject(new Error(r.error ?? "no token"));
