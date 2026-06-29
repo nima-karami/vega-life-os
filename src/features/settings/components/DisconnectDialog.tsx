@@ -1,7 +1,7 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useState } from "react";
 import { useStore } from "@/core/store";
-import { useCompactModal } from "@/core/ui";
+import { cx, useCompactModal } from "@/core/ui";
 import {
   clearAllSyncTokens,
   clearCalendarToken,
@@ -77,22 +77,28 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
                     Disconnect Google Calendar?
                   </Modal.Heading>
                 </Modal.Header>
-                <Modal.Body>
-                  <div className="text-sm leading-relaxed text-muted">
-                    Your Google events already in VEGA will stay as a snapshot. Choose what happens
-                    to the <strong className="text-foreground">VEGA</strong> calendar in Google:
-                    keep it (and the time-blocks VEGA pushed there), or remove it entirely.
+                <Modal.Body className="space-y-4">
+                  <p className="text-sm leading-relaxed text-muted">
+                    Google events already in VEGA stay as a snapshot. Choose what happens to the{" "}
+                    <strong className="text-foreground">VEGA</strong> calendar in Google.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <ChoiceButton
+                      title="Keep it in Google"
+                      detail="Leave the VEGA calendar and its time-blocks in place."
+                      onPress={keep}
+                    />
+                    <ChoiceButton
+                      title="Remove it from Google"
+                      detail="Delete the VEGA calendar and its events. Can’t be undone."
+                      danger
+                      onPress={() => setPhase("confirm-remove")}
+                    />
                   </div>
                 </Modal.Body>
                 <Modal.Footer>
                   <Button variant="ghost" onPress={close}>
                     Cancel
-                  </Button>
-                  <Button variant="danger-soft" onPress={() => setPhase("confirm-remove")}>
-                    Remove the VEGA calendar
-                  </Button>
-                  <Button autoFocus variant="primary" onPress={keep}>
-                    Keep events in Google
                   </Button>
                 </Modal.Footer>
               </>
@@ -104,11 +110,11 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
                   </Modal.Heading>
                 </Modal.Header>
                 <Modal.Body className="space-y-4">
-                  <div className="text-sm leading-relaxed text-muted">
-                    This permanently deletes the VEGA calendar and all of its events from Google.
-                    This can’t be undone. Type <strong className="text-foreground">delete</strong>{" "}
-                    to confirm.
-                  </div>
+                  <p className="text-sm leading-relaxed text-muted">
+                    This permanently deletes the VEGA calendar and all of its events from Google. It
+                    can’t be undone. Type <strong className="text-foreground">delete</strong> to
+                    confirm.
+                  </p>
                   <input
                     type="text"
                     value={input}
@@ -119,7 +125,7 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
                     className="h-11 w-full rounded-[12px] border border-border bg-surface px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
                   />
                 </Modal.Body>
-                <Modal.Footer>
+                <Modal.Footer className="justify-between" render={(props) => <footer {...props} />}>
                   <Button variant="ghost" isDisabled={busy} onPress={() => setPhase("choose")}>
                     Back
                   </Button>
@@ -137,5 +143,35 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
         </Modal.Container>
       </Modal.Backdrop>
     </Modal>
+  );
+}
+
+/** Full-width stacked choice in the disconnect picker — a title + one-line consequence. */
+function ChoiceButton({
+  title,
+  detail,
+  danger,
+  onPress,
+}: {
+  title: string;
+  detail: string;
+  danger?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPress}
+      className={cx(
+        "w-full rounded-[12px] border border-border bg-surface px-4 py-3 text-left transition-colors",
+        "hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+        danger && "hover:border-danger/40",
+      )}
+    >
+      <div className={cx("text-sm font-medium", danger ? "text-danger" : "text-foreground")}>
+        {title}
+      </div>
+      <div className="mt-0.5 text-xs leading-relaxed text-muted">{detail}</div>
+    </button>
   );
 }
