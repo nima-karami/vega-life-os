@@ -24,6 +24,20 @@ const write = (k: string, v: string | null) => {
 export const getSyncToken = (cal: string): string | null => read(TOKEN(cal));
 export const setSyncToken = (cal: string, v: string | null) => write(TOKEN(cal), v);
 
+export const clearAllSyncTokens = () => {
+  try {
+    const prefix = TOKEN("");
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(prefix)) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
+};
+
 export const getScopeVersion = () => Number(read(SCOPE) ?? "0");
 export const setScopeVersion = (n: number) => write(SCOPE, String(n));
 

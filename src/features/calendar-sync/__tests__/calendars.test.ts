@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../google-auth", () => ({ getCalendarToken: vi.fn(async () => "tok") }));
 
 import { useStore } from "@/core/store";
-import { ensureVegaCalendar } from "../calendars";
+import { deleteVegaCalendar, ensureVegaCalendar } from "../calendars";
 import { defaultGcalConfig } from "../config";
 
 type FetchResult = { ok: boolean; status: number; json?: () => Promise<unknown> };
@@ -58,5 +58,36 @@ describe("ensureVegaCalendar", () => {
     await expect(ensureVegaCalendar(false)).resolves.toBe("cal_stored");
     const posted = fetchMock.mock.calls.some(([url, init]) => isCreate(url, init));
     expect(posted).toBe(false);
+  });
+});
+
+const isDelete = (url: string, init?: RequestInit) =>
+  url.includes("/calendars/") && init?.method === "DELETE";
+
+describe("deleteVegaCalendar", () => {
+  it("issues a DELETE for the stored id and clears it", async () => {
+    seedStored("cal_vega");
+    fetchMock.mockImplementation(async () => res({ ok: true, status: 204 }));
+
+    await deleteVegaCalendar(true);
+
+    const deleted = fetchMock.mock.calls.some(([url, init]) => isDelete(url, init));
+    expect(deleted).toBe(true);
+    expect(useStore.getState().gcal.writeCalendarId).toBeNull();
+  });
+
+  it("treats a 404 as success and clears the id", async () => {
+    seedStored("cal_vega");
+    fetchMock.mockImplementation(async () => res({ ok: false, status: 404 }));
+
+    await expect(deleteVegaCalendar(true)).resolves.toBeUndefined();
+    expect(useStore.getState().gcal.writeCalendarId).toBeNull();
+  });
+
+  it("does nothing when no id is stored", async () => {
+    seedStored(null);
+
+    await deleteVegaCalendar(true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

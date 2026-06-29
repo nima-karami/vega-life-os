@@ -77,3 +77,13 @@ export async function ensureVegaCalendar(interactive = false): Promise<string | 
   setWriteCalendarId(id);
   return id;
 }
+
+/** Delete the VEGA write-calendar from Google. Treats already-gone (404/410) as success. */
+export async function deleteVegaCalendar(interactive = true): Promise<void> {
+  const id = useStore.getState().gcal.writeCalendarId;
+  if (!id) return;
+  const res = await api(`calendars/${encodeURIComponent(id)}`, { method: "DELETE" }, interactive);
+  if (!res.ok && res.status !== 404 && res.status !== 410)
+    throw new Error(`gcal delete calendar ${res.status}`);
+  useStore.getState().setGcalWriteCalendarId(null);
+}

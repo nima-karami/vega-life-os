@@ -1,4 +1,10 @@
-export { ensureVegaCalendar, type GCalendar, isVegaCalendar, listCalendars } from "./calendars";
+export {
+  deleteVegaCalendar,
+  ensureVegaCalendar,
+  type GCalendar,
+  isVegaCalendar,
+  listCalendars,
+} from "./calendars";
 export type { CalendarEvent } from "./events-model";
 export {
   clearCalendarToken,

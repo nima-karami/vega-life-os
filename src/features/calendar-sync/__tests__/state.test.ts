@@ -7,9 +7,19 @@ vi.stubGlobal("localStorage", {
   setItem: (k: string, v: string) => void mem.set(k, String(v)),
   removeItem: (k: string) => void mem.delete(k),
   clear: () => mem.clear(),
+  get length() {
+    return mem.size;
+  },
+  key: (i: number) => [...mem.keys()][i] ?? null,
 });
 
-import { getScopeVersion, getSyncToken, setScopeVersion, setSyncToken } from "../state";
+import {
+  clearAllSyncTokens,
+  getScopeVersion,
+  getSyncToken,
+  setScopeVersion,
+  setSyncToken,
+} from "../state";
 
 beforeEach(() => mem.clear());
 
@@ -26,5 +36,14 @@ describe("calendar-sync device-local state", () => {
     expect(getScopeVersion()).toBe(0);
     setScopeVersion(2);
     expect(getScopeVersion()).toBe(2);
+  });
+  it("clearAllSyncTokens removes only sync-token keys", () => {
+    setSyncToken("cal_a", "tok_a");
+    setSyncToken("cal_b", "tok_b");
+    localStorage.setItem("vega.foo", "keep");
+    clearAllSyncTokens();
+    expect(getSyncToken("cal_a")).toBeNull();
+    expect(getSyncToken("cal_b")).toBeNull();
+    expect(localStorage.getItem("vega.foo")).toBe("keep");
   });
 });

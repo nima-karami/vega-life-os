@@ -3,19 +3,16 @@ import { useState } from "react";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { CalendarPicker } from "@/features/calendar/CalendarPicker";
-import {
-  clearCalendarToken,
-  gcalConfigured,
-  getCalendarToken,
-  syncNow,
-} from "@/features/calendar-sync";
+import { gcalConfigured, getCalendarToken, syncNow } from "@/features/calendar-sync";
 import { SettingsCard } from "../SettingsCard";
+import { DisconnectDialog } from "./DisconnectDialog";
 
 export function CalendarSettings() {
   const pushToast = useStore((s) => s.pushToast);
   const on = useStore((s) => s.gcal.enabled);
   const setEnabled = useStore((s) => s.setGcalEnabled);
   const [busy, setBusy] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   if (!gcalConfigured) {
     return (
@@ -41,11 +38,6 @@ export function CalendarSettings() {
     } finally {
       setBusy(false);
     }
-  };
-  const disconnect = () => {
-    clearCalendarToken();
-    setEnabled(false);
-    pushToast("Calendar disconnected");
   };
   const sync = async () => {
     setBusy(true);
@@ -73,7 +65,7 @@ export function CalendarSettings() {
                 <Icon name="refresh-cw" size={15} />
                 Sync now
               </Button>
-              <Button variant="danger-soft" onPress={disconnect}>
+              <Button variant="danger-soft" onPress={() => setDisconnecting(true)}>
                 <Icon name="close" size={15} />
                 Disconnect
               </Button>
@@ -86,6 +78,7 @@ export function CalendarSettings() {
           )}
         </div>
       </div>
+      <DisconnectDialog open={disconnecting} onClose={() => setDisconnecting(false)} />
     </SettingsCard>
   );
 }
