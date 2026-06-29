@@ -13,7 +13,12 @@ import {
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
-import { loadGcalConfig, readLocalGcalConfig } from "@/features/calendar-sync/config";
+import {
+  defaultGcalConfig,
+  loadGcalConfig,
+  readLocalGcalConfig,
+} from "@/features/calendar-sync/config";
+import { clearCalendarToken } from "@/features/calendar-sync/google-auth";
 import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
@@ -263,6 +268,8 @@ export const useStore = create<RootState>((set, get, api) => ({
       routing.setDelegate(new DexieAdapter());
       await get().clearLocal();
       void setSandboxDirty(false);
+      clearCalendarToken(); // drop the device Google token
+      get().hydrateGcalConfig(defaultGcalConfig()); // don't leak the account's GCal config into the sandbox
       get().setOnboarded(false);
       get().hydrateProfile({
         name: "Operator",
