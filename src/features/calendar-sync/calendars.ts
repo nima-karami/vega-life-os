@@ -21,6 +21,8 @@ export interface GCalendar {
   summary: string;
   backgroundColor?: string;
   primary?: boolean;
+  /** "owner" | "writer" | "reader" | "freeBusyReader" */
+  accessRole?: string;
 }
 
 /** The user's calendars (reader access or better). */
@@ -33,10 +35,22 @@ export async function listCalendars(interactive = false): Promise<GCalendar[]> {
     summary: (c.summaryOverride as string) ?? (c.summary as string),
     backgroundColor: c.backgroundColor as string | undefined,
     primary: c.primary as boolean | undefined,
+    accessRole: c.accessRole as string | undefined,
   }));
 }
 
-/** Return the VEGA write-calendar id, creating it if the stored id is missing or gone. */
+/** True when this calendar is the VEGA write-calendar (the one VEGA pushes tasks to). */
+export const isVegaCalendar = (c: GCalendar): boolean =>
+  c.summary === VEGA_SUMMARY && c.accessRole === "owner";
+
+/**
+ * Return the VEGA write-calendar id. Resolution order:
+ *   1. a verified stored id (this origin),
+ *   2. an existing owned calendar named "VEGA" (created from another origin/device),
+ *   3. otherwise create one.
+ * Finding by name first prevents duplicate "VEGA" calendars when connecting from a
+ * new origin (the stored id lives in per-origin localStorage).
+ */
 export async function ensureVegaCalendar(interactive = false): Promise<string> {
   const stored = getWriteCalendarId();
   if (stored) {
@@ -44,6 +58,11 @@ export async function ensureVegaCalendar(interactive = false): Promise<string> {
     if (check.ok) return stored;
     if (check.status !== 404 && check.status !== 410)
       throw new Error(`gcal calendars ${check.status}`);
+  }
+  const existing = (await listCalendars(interactive)).find(isVegaCalendar);
+  if (existing) {
+    setWriteCalendarId(existing.id);
+    return existing.id;
   }
   const created = await api(
     "calendars",

@@ -23,9 +23,12 @@ async function listWithFallback(calId: string, filtered: boolean, window: Window
 }
 
 /** Pull external events from every read calendar into the mirror set. Returns rows touched. */
-async function pullLived(window: Window, todayIso: string): Promise<number> {
+async function pullLived(writeCalId: string, window: Window, todayIso: string): Promise<number> {
   let lived = 0;
+  // Never read the VEGA write-calendar as a source — its events are VEGA's own tasks
+  // (skipped by reconcile anyway, but excluding it keeps the lanes cleanly separate).
   for (const calId of getReadCalendarIds()) {
+    if (calId === writeCalId) continue;
     const { events, nextSyncToken } = await listWithFallback(calId, false, window);
     const existing = useStore.getState().calendarEvents.filter((e) => e.calendarId === calId);
     const { upserts, dropIds } = reconcileLived(existing, events, calId, todayIso);
@@ -97,7 +100,7 @@ export async function syncNow(
     const window = getWindow();
     const todayIso = format(new Date(), "yyyy-MM-dd");
     const writeCalId = await ensureVegaCalendar(interactive);
-    const lived = await pullLived(window, todayIso);
+    const lived = await pullLived(writeCalId, window, todayIso);
     await pushLived();
     const task = await runTaskLane(writeCalId, window);
     return { pushed: task.pushed, pulled: task.pulled, lived };

@@ -40,7 +40,7 @@ vi.mock("../gcal", () => ({
 }));
 vi.mock("../calendars", () => ({ ensureVegaCalendar: vi.fn(async () => "cal_vega") }));
 vi.mock("../state", () => ({
-  getReadCalendarIds: () => ["cal_personal"],
+  getReadCalendarIds: vi.fn(() => ["cal_personal"]),
   getWriteCalendarId: () => "cal_vega",
   getSyncToken: () => null,
   setSyncToken: vi.fn(),
@@ -51,6 +51,8 @@ vi.mock("../state", () => ({
 
 import { useStore } from "@/core/store";
 import type { CalendarEvent } from "../events-model";
+import { listEvents } from "../gcal";
+import { getReadCalendarIds } from "../state";
 import { syncNow } from "../sync";
 
 const ce = (over: Partial<CalendarEvent>): CalendarEvent => ({
@@ -105,5 +107,15 @@ describe("syncNow — lived lane", () => {
     expect(calls.patched).toContain("ge");
     expect(calls.deleted).toContain("gd");
     expect(useStore.getState().calendarEvents.find((e) => e.id === "ce_d")).toBeUndefined();
+  });
+
+  it("never reads the VEGA write-calendar as a source (no loop)", async () => {
+    vi.mocked(getReadCalendarIds).mockReturnValueOnce(["cal_personal", "cal_vega"]);
+    vi.mocked(listEvents).mockClear();
+    await syncNow(false);
+    const readVegaUnfiltered = vi
+      .mocked(listEvents)
+      .mock.calls.some(([cal, opts]) => cal === "cal_vega" && opts.filtered === false);
+    expect(readVegaUnfiltered).toBe(false);
   });
 });

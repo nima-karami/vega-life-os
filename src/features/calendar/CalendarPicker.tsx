@@ -5,6 +5,8 @@ import { Icon } from "@/core/ui";
 import {
   type GCalendar,
   getReadCalendarIds,
+  getWriteCalendarId,
+  isVegaCalendar,
   listCalendars,
   setReadCalendarIds,
 } from "@/features/calendar-sync";
@@ -22,7 +24,12 @@ export function CalendarPicker() {
 
   useEffect(() => {
     listCalendars(false)
-      .then(setCals)
+      // Never offer VEGA's own write-calendar as a read source (would be confusing
+      // and circular — VEGA writes its tasks there).
+      .then((list) => {
+        const writeId = getWriteCalendarId();
+        setCals(list.filter((c) => c.id !== writeId && !isVegaCalendar(c)));
+      })
       .catch(() => setFailed(true));
   }, []);
 
