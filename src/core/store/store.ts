@@ -45,13 +45,17 @@ async function loadAccount(
   const routing = persistence as RoutingAdapter;
   const cloud = new FirestoreAdapter(db, uid);
   routing.setDelegate(cloud);
+  // Hold the boot spinner until the profile is hydrated, so the onboarding
+  // "what should we call you?" step doesn't flash before the name arrives.
+  set({ ready: false });
   await get().clearLocal(); // abandon the local sandbox — never uploaded
   try {
     const data = await cloud.loadAll();
-    set({ ...(sorted(data) as Partial<RootState>), loadFailed: false, ready: true });
+    set({ ...(sorted(data) as Partial<RootState>), loadFailed: false });
     runDataMigrations(get, set);
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
+    set({ ready: true }); // name known — safe to render the app / ProfileStep
     get().hydrateGcalConfig(await loadGcalConfig(uid)); // user-level GCal config (cloud)
     get().ensureUpcoming(14);
     unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
