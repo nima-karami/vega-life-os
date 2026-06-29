@@ -13,6 +13,7 @@ import {
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
+import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
 import { createHabitsSlice } from "@/features/habits/store";
@@ -88,6 +89,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createLibrarySlice(set, get, api),
   ...createReviewSlice(set, get, api),
   ...createJournalSlice(set, get, api),
+  ...createCalendarEventsSlice(set, get, api),
   ...createUiSlice(set, get, api),
 
   ready: false,
@@ -113,6 +115,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       vocab: data.vocab,
       reviews: data.reviews.sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1)),
       journal: data.journal.sort((a, b) => (a.date < b.date ? 1 : -1)),
+      calendarEvents: data.calendarEvents,
       ready: true,
     });
     runDataMigrations(get, set);
