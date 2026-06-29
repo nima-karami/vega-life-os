@@ -8,6 +8,12 @@ vi.mock("@/core/store/persist", () => ({
 
 const calls = { patched: [] as string[], deleted: [] as string[], inserted: [] as unknown[] };
 vi.mock("../gcal", () => ({
+  GcalHttpError: class extends Error {
+    constructor(public status: number) {
+      super(`gcal ${status}`);
+      this.name = "GcalHttpError";
+    }
+  },
   listEvents: vi.fn(async (_cal: string, o: { filtered: boolean }) =>
     o.filtered
       ? { events: [], nextSyncToken: "tok", expired: false }
@@ -48,7 +54,7 @@ vi.mock("../state", () => ({
 import { useStore } from "@/core/store";
 import { defaultGcalConfig } from "../config";
 import type { CalendarEvent } from "../events-model";
-import { listEvents } from "../gcal";
+import { GcalHttpError, listEvents } from "../gcal";
 import { syncNow } from "../sync";
 
 const gcal = (over: Partial<ReturnType<typeof defaultGcalConfig>> = {}) => ({
@@ -129,5 +135,38 @@ describe("syncNow — lived lane", () => {
     const r = await syncNow(false);
     expect(r).toEqual({ pushed: 0, pulled: 0, lived: 0 });
     expect(listEvents).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncNow — read-calendar fault isolation", () => {
+  const okEvent = {
+    id: "g1",
+    iCalUID: "u1",
+    summary: "Show",
+    status: "confirmed",
+    start: { dateTime: "2026-07-11T17:00:00Z" },
+    end: { dateTime: "2026-07-11T20:00:00Z" },
+    updated: "2026-06-20T10:00:00Z",
+  };
+
+  it("skips one dead read calendar but still syncs the healthy one", async () => {
+    useStore.setState({ gcal: gcal({ readCalendarIds: ["cal_dead", "cal_ok"] }) });
+    vi.mocked(listEvents).mockImplementation(async (cal: string, o: { filtered: boolean }) => {
+      if (o.filtered) return { events: [], nextSyncToken: "tok", expired: false };
+      if (cal === "cal_dead") throw new GcalHttpError(404);
+      return { events: [okEvent], nextSyncToken: "tok", expired: false };
+    });
+    await expect(syncNow(false)).resolves.toBeDefined();
+    const events = useStore.getState().calendarEvents;
+    expect(events.some((e) => e.googleId === "g1" && e.calendarId === "cal_ok")).toBe(true);
+  });
+
+  it("propagates a non-404/410 read error so the UI can surface needs-reconnect", async () => {
+    useStore.setState({ gcal: gcal({ readCalendarIds: ["cal_personal"] }) });
+    vi.mocked(listEvents).mockImplementation(async (_cal: string, o: { filtered: boolean }) => {
+      if (o.filtered) return { events: [], nextSyncToken: "tok", expired: false };
+      throw new GcalHttpError(401);
+    });
+    await expect(syncNow(false)).rejects.toThrow();
   });
 });

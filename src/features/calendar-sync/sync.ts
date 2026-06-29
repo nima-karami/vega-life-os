@@ -3,7 +3,7 @@ import { useStore } from "@/core/store";
 import { savePut, saveRemove } from "@/core/store/persist";
 import { ensureVegaCalendar } from "./calendars";
 import { calendarEventToGPatch } from "./events-map";
-import { deleteEvent, insertEvent, listEvents, patchEvent } from "./gcal";
+import { deleteEvent, GcalHttpError, insertEvent, listEvents, patchEvent } from "./gcal";
 import { computePull, computePush } from "./reconcile";
 import { reconcileLived } from "./reconcile-lived";
 import { getSyncToken, getWindow, setSyncToken } from "./state";
@@ -35,12 +35,18 @@ async function pullLived(writeCalId: string, window: Window, todayIso: string): 
   // (skipped by reconcile anyway, but excluding it keeps the lanes cleanly separate).
   for (const calId of readCalendarIds()) {
     if (calId === writeCalId) continue;
-    const { events, nextSyncToken } = await listWithFallback(calId, false, window);
-    const existing = useStore.getState().calendarEvents.filter((e) => e.calendarId === calId);
-    const { upserts, dropIds } = reconcileLived(existing, events, calId, todayIso);
-    useStore.getState().applyLivedSync(calId, upserts, dropIds);
-    lived += upserts.length + dropIds.length;
-    if (nextSyncToken) setSyncToken(calId, nextSyncToken);
+    try {
+      const { events, nextSyncToken } = await listWithFallback(calId, false, window);
+      const existing = useStore.getState().calendarEvents.filter((e) => e.calendarId === calId);
+      const { upserts, dropIds } = reconcileLived(existing, events, calId, todayIso);
+      useStore.getState().applyLivedSync(calId, upserts, dropIds);
+      lived += upserts.length + dropIds.length;
+      if (nextSyncToken) setSyncToken(calId, nextSyncToken);
+    } catch (err) {
+      // A dead/unsubscribed read-calendar shouldn't abort the rest of the cycle.
+      if (err instanceof GcalHttpError && (err.status === 404 || err.status === 410)) continue;
+      throw err;
+    }
   }
   return lived;
 }

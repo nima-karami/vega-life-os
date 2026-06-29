@@ -3,6 +3,13 @@ import type { GEvent } from "./map";
 
 const BASE = "https://www.googleapis.com/calendar/v3/calendars";
 
+export class GcalHttpError extends Error {
+  constructor(public status: number) {
+    super(`gcal ${status}`);
+    this.name = "GcalHttpError";
+  }
+}
+
 async function call(path: string, init: RequestInit = {}, interactive = false): Promise<Response> {
   const token = await getCalendarToken(interactive);
   return fetch(`${BASE}/${path}`, {
@@ -49,7 +56,7 @@ export async function listEvents(
     if (pageToken) params.set("pageToken", pageToken);
     const res = await call(`${cal}/events?${params}`, {}, false);
     if (res.status === 410) return { events: [], nextSyncToken: null, expired: true };
-    if (!res.ok) throw new Error(`gcal list ${res.status}`);
+    if (!res.ok) throw new GcalHttpError(res.status);
     const data = await res.json();
     events.push(...(data.items ?? []));
     pageToken = data.nextPageToken ?? null;
