@@ -10,6 +10,7 @@ import { cx, Icon } from "@/core/ui";
 import {
   gcalConfigured,
   getCalendarToken,
+  getLastSyncedAt,
   getScopeVersion,
   isCalendarConnected,
   SCOPE_VERSION,
@@ -43,7 +44,7 @@ export function CalendarSync() {
   const refresh = () => force((n) => n + 1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [lastSynced, setLastSynced] = useState<number | null>(null);
+  const [lastSynced, setLastSynced] = useState<number | null>(() => getLastSyncedAt());
   const [announce, setAnnounce] = useState("");
 
   // Only surface on /calendar once connected; connect/disconnect live in Settings.

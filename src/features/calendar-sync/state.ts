@@ -5,6 +5,7 @@
 
 const TOKEN = (cal: string) => `vega.gcal.syncToken.${cal}`;
 const SCOPE = "vega.gcal.scopeVersion";
+const LAST_SYNCED = "vega.gcal.lastSyncedAt";
 
 const read = (k: string): string | null => {
   try {
@@ -40,6 +41,13 @@ export const clearAllSyncTokens = () => {
 
 export const getScopeVersion = () => Number(read(SCOPE) ?? "0");
 export const setScopeVersion = (n: number) => write(SCOPE, String(n));
+
+/** Last successful sync time (ms epoch), persisted so the hint survives a reload. */
+export const getLastSyncedAt = (): number | null => {
+  const v = read(LAST_SYNCED);
+  return v == null ? null : Number(v);
+};
+export const setLastSyncedAt = (ts: number) => write(LAST_SYNCED, String(ts));
 
 /** Rolling sync horizon (days back / forward) bounding each tokenless full list. */
 export const getWindow = () => ({ backDays: 28, fwdDays: 56 });

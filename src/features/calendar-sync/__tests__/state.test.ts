@@ -15,8 +15,10 @@ vi.stubGlobal("localStorage", {
 
 import {
   clearAllSyncTokens,
+  getLastSyncedAt,
   getScopeVersion,
   getSyncToken,
+  setLastSyncedAt,
   setScopeVersion,
   setSyncToken,
 } from "../state";
@@ -36,6 +38,11 @@ describe("calendar-sync device-local state", () => {
     expect(getScopeVersion()).toBe(0);
     setScopeVersion(2);
     expect(getScopeVersion()).toBe(2);
+  });
+  it("persists the last-synced timestamp", () => {
+    expect(getLastSyncedAt()).toBeNull();
+    setLastSyncedAt(1_700_000_000_000);
+    expect(getLastSyncedAt()).toBe(1_700_000_000_000);
   });
   it("clearAllSyncTokens removes only sync-token keys", () => {
     setSyncToken("cal_a", "tok_a");
