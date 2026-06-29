@@ -63,6 +63,10 @@ export async function insertEvent(calendarId: string, body: GEvent): Promise<GEv
     method: "POST",
     body: JSON.stringify(body),
   });
+  if (res.status === 409 && body.id) {
+    await patchEvent(calendarId, body.id, body);
+    return body;
+  }
   if (!res.ok) throw new Error(`gcal insert ${res.status}`);
   return res.json();
 }

@@ -14,6 +14,10 @@ let running = false;
 
 type Window = { backDays: number; fwdDays: number };
 
+// The VEGA write-calendar holds only VEGA's own events, so a wide bounded list is cheap
+// and returns essentially all of them — preventing re-inserts from a too-narrow window.
+const TASK_WINDOW = { backDays: 366, fwdDays: 732 };
+
 /** Incremental list with a one-shot full-list fallback when the token has expired (410). */
 async function listWithFallback(calId: string, filtered: boolean, window: Window) {
   let res = await listEvents(calId, { syncToken: getSyncToken(calId), filtered, window });
@@ -59,15 +63,16 @@ async function pushLived(): Promise<void> {
 }
 
 /** Reconcile VEGA tasks ⇄ the dedicated VEGA write-calendar. */
-async function runTaskLane(
-  writeCalId: string,
-  window: Window,
-): Promise<{ pushed: number; pulled: number }> {
+async function runTaskLane(writeCalId: string): Promise<{ pushed: number; pulled: number }> {
   // Always a FULL filtered list — never incremental. The task lane keeps no mirror;
   // it recomputes inserts from tasks vs. the events seen this cycle, so it must see
   // the complete current set. An incremental token returns only changes, so a quiet
   // cycle would look empty and re-insert duplicates.
-  const { events } = await listEvents(writeCalId, { syncToken: null, filtered: true, window });
+  const { events } = await listEvents(writeCalId, {
+    syncToken: null,
+    filtered: true,
+    window: TASK_WINDOW,
+  });
   const pull = computePull(useStore.getState().tasks, events);
   for (const u of pull) {
     useStore.getState().updateTask(u.taskId, {
@@ -107,7 +112,7 @@ export async function syncNow(
     const writeCalId = await ensureVegaCalendar(interactive);
     const lived = await pullLived(writeCalId, window, todayIso);
     await pushLived();
-    const task = await runTaskLane(writeCalId, window);
+    const task = await runTaskLane(writeCalId);
     return { pushed: task.pushed, pulled: task.pulled, lived };
   } finally {
     running = false;

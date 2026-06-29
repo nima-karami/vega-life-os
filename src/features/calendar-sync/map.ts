@@ -22,9 +22,20 @@ export interface GEvent {
 export const isSchedulable = (t: Task): boolean =>
   t.date !== null && t.status !== "skip" && !(t.kind === "habit" && t.time === null);
 
+/** Deterministic Google event id for a task's VEGA-calendar event. Encodes each
+ *  task-id byte as two lowercase hex digits behind a "vega" prefix — valid base32hex
+ *  (chars 0-9a-v), injective, length within Google's 5–1024 bound — so re-inserting is
+ *  idempotent (a second insert collides on this id instead of creating a duplicate). */
+export function gEventIdForTask(taskId: string): string {
+  let hex = "";
+  for (let i = 0; i < taskId.length; i++) hex += taskId.charCodeAt(i).toString(16).padStart(2, "0");
+  return `vega${hex}`;
+}
+
 /** Build the Google event body for a VEGA task. Timed if it has a time, else all-day. */
 export function toGEvent(t: Task): GEvent {
   const base: GEvent = {
+    id: gEventIdForTask(t.id),
     summary: t.title,
     extendedProperties: { private: { vegaTaskId: t.id } },
   };
