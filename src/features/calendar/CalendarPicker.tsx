@@ -2,14 +2,7 @@ import { Button } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import {
-  type GCalendar,
-  getReadCalendarIds,
-  getWriteCalendarId,
-  isVegaCalendar,
-  listCalendars,
-  setReadCalendarIds,
-} from "@/features/calendar-sync";
+import { type GCalendar, isVegaCalendar, listCalendars } from "@/features/calendar-sync";
 
 /**
  * Pick which Google calendars feed VEGA (multi-select, persisted on toggle).
@@ -18,24 +11,22 @@ import {
  */
 export function CalendarPicker() {
   const pushToast = useStore((s) => s.pushToast);
+  const selected = useStore((s) => s.gcal.readCalendarIds);
+  const setReadCalendarIds = useStore((s) => s.setGcalReadCalendarIds);
+  const writeId = useStore((s) => s.gcal.writeCalendarId);
   const [cals, setCals] = useState<GCalendar[] | null>(null);
-  const [selected, setSelected] = useState<string[]>(() => getReadCalendarIds());
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     listCalendars(false)
       // Never offer VEGA's own write-calendar as a read source (would be confusing
       // and circular — VEGA writes its tasks there).
-      .then((list) => {
-        const writeId = getWriteCalendarId();
-        setCals(list.filter((c) => c.id !== writeId && !isVegaCalendar(c)));
-      })
+      .then((list) => setCals(list.filter((c) => c.id !== writeId && !isVegaCalendar(c))))
       .catch(() => setFailed(true));
-  }, []);
+  }, [writeId]);
 
   const toggle = (id: string) => {
     const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
-    setSelected(next);
     setReadCalendarIds(next);
     pushToast("Calendar selection saved");
   };

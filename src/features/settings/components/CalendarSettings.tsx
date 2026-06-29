@@ -7,15 +7,14 @@ import {
   clearCalendarToken,
   gcalConfigured,
   getCalendarToken,
-  isEnabled,
-  setEnabled,
   syncNow,
 } from "@/features/calendar-sync";
 import { SettingsCard } from "../SettingsCard";
 
 export function CalendarSettings() {
   const pushToast = useStore((s) => s.pushToast);
-  const [on, setOn] = useState(isEnabled());
+  const on = useStore((s) => s.gcal.enabled);
+  const setEnabled = useStore((s) => s.setGcalEnabled);
   const [busy, setBusy] = useState(false);
 
   if (!gcalConfigured) {
@@ -35,7 +34,6 @@ export function CalendarSettings() {
     try {
       await getCalendarToken(true); // consent prompt
       setEnabled(true);
-      setOn(true);
       const r = await syncNow(true);
       pushToast(`Calendar connected — ${r.pushed} blocks synced`);
     } catch {
@@ -47,7 +45,6 @@ export function CalendarSettings() {
   const disconnect = () => {
     clearCalendarToken();
     setEnabled(false);
-    setOn(false);
     pushToast("Calendar disconnected");
   };
   const sync = async () => {

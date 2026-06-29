@@ -9,24 +9,12 @@ vi.stubGlobal("localStorage", {
   clear: () => mem.clear(),
 });
 
-import {
-  getReadCalendarIds,
-  getScopeVersion,
-  getSyncToken,
-  getWriteCalendarId,
-  migrateLegacyCalendarId,
-  setReadCalendarIds,
-  setScopeVersion,
-  setSyncToken,
-  setWriteCalendarId,
-} from "../state";
+import { getScopeVersion, getSyncToken, setScopeVersion, setSyncToken } from "../state";
 
 beforeEach(() => mem.clear());
 
-describe("calendar-sync state", () => {
-  it("round-trips read calendars and per-calendar tokens", () => {
-    setReadCalendarIds(["cal_a", "cal_b"]);
-    expect(getReadCalendarIds()).toEqual(["cal_a", "cal_b"]);
+describe("calendar-sync device-local state", () => {
+  it("round-trips per-calendar sync tokens", () => {
     setSyncToken("cal_a", "tok_a");
     setSyncToken("cal_b", "tok_b");
     expect(getSyncToken("cal_a")).toBe("tok_a");
@@ -34,21 +22,9 @@ describe("calendar-sync state", () => {
     setSyncToken("cal_a", null);
     expect(getSyncToken("cal_a")).toBeNull();
   });
-  it("defaults read calendars to [primary] and write calendar to null", () => {
-    expect(getReadCalendarIds()).toEqual(["primary"]);
-    expect(getWriteCalendarId()).toBeNull();
-  });
   it("tracks scope version", () => {
     expect(getScopeVersion()).toBe(0);
     setScopeVersion(2);
     expect(getScopeVersion()).toBe(2);
-  });
-  it("migrates a legacy single calendarId into readCalendarIds but NOT writeCalendarId", () => {
-    localStorage.setItem("vega.gcal.calendarId", "primary");
-    migrateLegacyCalendarId();
-    expect(getReadCalendarIds()).toEqual(["primary"]);
-    expect(getWriteCalendarId()).toBeNull(); // engine auto-creates the VEGA calendar instead
-    setWriteCalendarId("cal_vega");
-    expect(getWriteCalendarId()).toBe("cal_vega");
   });
 });

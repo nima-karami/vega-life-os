@@ -13,6 +13,7 @@ import {
 import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
+import { loadGcalConfig, readLocalGcalConfig } from "@/features/calendar-sync/config";
 import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
@@ -51,6 +52,7 @@ async function loadAccount(
     runDataMigrations(get, set);
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
+    get().hydrateGcalConfig(await loadGcalConfig(uid)); // user-level GCal config (cloud)
     get().ensureUpcoming(14);
     unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
   } catch {
@@ -118,6 +120,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       calendarEvents: data.calendarEvents,
       ready: true,
     });
+    get().hydrateGcalConfig(readLocalGcalConfig()); // signed-out sandbox: device-local config
     runDataMigrations(get, set);
     get().ensureUpcoming(14);
   },

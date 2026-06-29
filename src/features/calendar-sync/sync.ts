@@ -6,7 +6,9 @@ import { calendarEventToGPatch } from "./events-map";
 import { deleteEvent, insertEvent, listEvents, patchEvent } from "./gcal";
 import { computePull, computePush } from "./reconcile";
 import { reconcileLived } from "./reconcile-lived";
-import { getReadCalendarIds, getSyncToken, getWindow, setSyncToken } from "./state";
+import { getSyncToken, getWindow, setSyncToken } from "./state";
+
+const readCalendarIds = () => useStore.getState().gcal.readCalendarIds;
 
 let running = false;
 
@@ -27,7 +29,7 @@ async function pullLived(writeCalId: string, window: Window, todayIso: string): 
   let lived = 0;
   // Never read the VEGA write-calendar as a source — its events are VEGA's own tasks
   // (skipped by reconcile anyway, but excluding it keeps the lanes cleanly separate).
-  for (const calId of getReadCalendarIds()) {
+  for (const calId of readCalendarIds()) {
     if (calId === writeCalId) continue;
     const { events, nextSyncToken } = await listWithFallback(calId, false, window);
     const existing = useStore.getState().calendarEvents.filter((e) => e.calendarId === calId);
@@ -94,7 +96,7 @@ async function runTaskLane(
 export async function syncNow(
   interactive = false,
 ): Promise<{ pushed: number; pulled: number; lived: number }> {
-  if (running) return { pushed: 0, pulled: 0, lived: 0 };
+  if (running || !useStore.getState().gcal.enabled) return { pushed: 0, pulled: 0, lived: 0 };
   running = true;
   try {
     const window = getWindow();

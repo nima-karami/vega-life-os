@@ -40,20 +40,24 @@ vi.mock("../gcal", () => ({
 }));
 vi.mock("../calendars", () => ({ ensureVegaCalendar: vi.fn(async () => "cal_vega") }));
 vi.mock("../state", () => ({
-  getReadCalendarIds: vi.fn(() => ["cal_personal"]),
-  getWriteCalendarId: () => "cal_vega",
   getSyncToken: () => null,
   setSyncToken: vi.fn(),
   getWindow: () => ({ backDays: 28, fwdDays: 56 }),
-  getShowGoogleEvents: () => true,
-  setShowGoogleEvents: vi.fn(),
 }));
 
 import { useStore } from "@/core/store";
+import { defaultGcalConfig } from "../config";
 import type { CalendarEvent } from "../events-model";
 import { listEvents } from "../gcal";
-import { getReadCalendarIds } from "../state";
 import { syncNow } from "../sync";
+
+const gcal = (over: Partial<ReturnType<typeof defaultGcalConfig>> = {}) => ({
+  ...defaultGcalConfig(),
+  enabled: true,
+  writeCalendarId: "cal_vega",
+  readCalendarIds: ["cal_personal"],
+  ...over,
+});
 
 const ce = (over: Partial<CalendarEvent>): CalendarEvent => ({
   id: "ce",
@@ -82,7 +86,7 @@ beforeEach(() => {
   calls.patched = [];
   calls.deleted = [];
   calls.inserted = [];
-  useStore.setState({ tasks: [], calendarEvents: [] });
+  useStore.setState({ tasks: [], calendarEvents: [], gcal: gcal() });
 });
 
 describe("syncNow — lived lane", () => {
@@ -110,12 +114,20 @@ describe("syncNow — lived lane", () => {
   });
 
   it("never reads the VEGA write-calendar as a source (no loop)", async () => {
-    vi.mocked(getReadCalendarIds).mockReturnValueOnce(["cal_personal", "cal_vega"]);
+    useStore.setState({ gcal: gcal({ readCalendarIds: ["cal_personal", "cal_vega"] }) });
     vi.mocked(listEvents).mockClear();
     await syncNow(false);
     const readVegaUnfiltered = vi
       .mocked(listEvents)
       .mock.calls.some(([cal, opts]) => cal === "cal_vega" && opts.filtered === false);
     expect(readVegaUnfiltered).toBe(false);
+  });
+
+  it("no-ops when sync is disabled", async () => {
+    useStore.setState({ gcal: gcal({ enabled: false }) });
+    vi.mocked(listEvents).mockClear();
+    const r = await syncNow(false);
+    expect(r).toEqual({ pushed: 0, pulled: 0, lived: 0 });
+    expect(listEvents).not.toHaveBeenCalled();
   });
 });

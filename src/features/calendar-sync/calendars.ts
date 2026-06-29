@@ -1,5 +1,5 @@
+import { useStore } from "@/core/store";
 import { getCalendarToken } from "./google-auth";
-import { getWriteCalendarId, setWriteCalendarId } from "./state";
 
 const BASE = "https://www.googleapis.com/calendar/v3";
 const VEGA_SUMMARY = "VEGA";
@@ -52,7 +52,8 @@ export const isVegaCalendar = (c: GCalendar): boolean =>
  * new origin (the stored id lives in per-origin localStorage).
  */
 export async function ensureVegaCalendar(interactive = false): Promise<string> {
-  const stored = getWriteCalendarId();
+  const setWriteCalendarId = (id: string) => useStore.getState().setGcalWriteCalendarId(id);
+  const stored = useStore.getState().gcal.writeCalendarId;
   if (stored) {
     const check = await api(`calendars/${encodeURIComponent(stored)}`, {}, interactive);
     if (check.ok) return stored;

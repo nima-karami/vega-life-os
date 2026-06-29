@@ -5,7 +5,7 @@ import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { profileIncomplete } from "@/core/store/profile";
 import { ACCENT_VAR_KEYS, accentVars } from "@/core/theme/accent";
-import { isEnabled as gcalEnabled, startPolling, syncNow } from "@/features/calendar-sync";
+import { startPolling, syncNow } from "@/features/calendar-sync";
 import { gratitudeRequired } from "@/features/journal";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
@@ -25,6 +25,7 @@ export function RootBoot() {
   const authUid = useStore((s) => s.authUid);
   const operatorName = useStore((s) => s.operatorName);
   const toggleCommand = useStore((s) => s.toggleCommand);
+  const gcalEnabled = useStore((s) => s.gcal.enabled);
   const navigate = useNavigate();
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -38,9 +39,9 @@ export function RootBoot() {
   }, []);
 
   useEffect(() => {
-    if (!gcalEnabled()) return;
+    if (!gcalEnabled) return;
     return startPolling(() => void syncNow(false).catch(() => {}));
-  }, []);
+  }, [gcalEnabled]);
 
   // Apply vapor theme on mount (single theme for this branch)
   useEffect(() => {

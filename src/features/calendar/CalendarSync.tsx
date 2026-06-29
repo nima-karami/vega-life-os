@@ -11,7 +11,6 @@ import {
   gcalConfigured,
   getCalendarToken,
   isCalendarConnected,
-  isEnabled,
   syncNow,
 } from "@/features/calendar-sync";
 import { deriveSyncPhase, formatLastSynced, type SyncPhase } from "./sync-status";
@@ -35,7 +34,8 @@ const ATTENTION: Partial<Record<SyncPhase, string>> = {
 
 export function CalendarSync() {
   const pushToast = useStore((s) => s.pushToast);
-  const showGoogle = useStore((s) => s.showGoogleEvents);
+  const enabled = useStore((s) => s.gcal.enabled);
+  const showGoogle = useStore((s) => s.gcal.showGoogleEvents);
   const setShowGoogle = useStore((s) => s.setShowGoogleEvents);
   const [, force] = useState(0);
   const refresh = () => force((n) => n + 1);
@@ -44,7 +44,6 @@ export function CalendarSync() {
   const [lastSynced, setLastSynced] = useState<number | null>(null);
   const [announce, setAnnounce] = useState("");
 
-  const enabled = isEnabled();
   // Only surface on /calendar once connected; connect/disconnect live in Settings.
   if (!gcalConfigured || !enabled) return null;
 
