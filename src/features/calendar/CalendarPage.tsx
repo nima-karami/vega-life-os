@@ -15,11 +15,14 @@ import {
   UndoBar,
   useCompactModal,
 } from "@/core/ui";
+import type { CalendarEvent } from "@/features/calendar-sync";
+import { dedupeForDisplay } from "@/features/calendar-sync";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
 import { BulkActionBar } from "./BulkActionBar";
 import { CalendarSync } from "./CalendarSync";
+import { CalendarEventChip, EventEditor } from "./EventEditor";
 import {
   type Box,
   type ChipBox,
@@ -42,7 +45,13 @@ import {
   resolveDrag,
   shiftSelection,
 } from "./geometry";
-import { timedTasksForDay, unscheduledTasks, untimedTasksForDay } from "./grid-data";
+import {
+  allDayLivedForDay,
+  timedLivedForDay,
+  timedTasksForDay,
+  unscheduledTasks,
+  untimedTasksForDay,
+} from "./grid-data";
 
 interface DragState {
   id: string;
@@ -95,8 +104,12 @@ export function CalendarPage() {
   const focusGoalId = useStore((s) => s.focusGoalId);
   const setFocusGoal = useStore((s) => s.setFocusGoal);
 
+  const calendarEvents = useStore((s) => s.calendarEvents);
+  const livedEvents = useMemo(() => dedupeForDisplay(calendarEvents), [calendarEvents]);
+
   const [weekRef, setWeekRef] = useState(() => new Date());
   const [selected, setSelected] = useState<Task | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   // Right-click menu for an empty slot, and the "schedule existing task" picker.
   const [slotMenu, setSlotMenu] = useState<{
     x: number;
@@ -1037,6 +1050,14 @@ export function CalendarPage() {
               </div>
               {visibleDays.map((d) => (
                 <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-border p-1">
+                  {allDayLivedForDay(livedEvents, d.iso).map((ev) => (
+                    <CalendarEventChip
+                      key={ev.id}
+                      event={ev}
+                      variant="allday"
+                      onOpen={() => setEditingEvent(ev)}
+                    />
+                  ))}
                   {untimedTasksForDay(tasks, d.iso).map((t) => (
                     <AllDayChip
                       key={t.id}
@@ -1089,12 +1110,18 @@ export function CalendarPage() {
                 {/* day columns */}
                 {visibleDays.map((d) => {
                   const dayTasks = tasks.filter((t) => t.time && effective(t).date === d.iso);
-                  const layout = layoutColumns(
-                    dayTasks.map((t) => {
+                  const dayLived = timedLivedForDay(livedEvents, d.iso);
+                  const layout = layoutColumns([
+                    ...dayTasks.map((t) => {
                       const e = effective(t);
                       return { id: t.id, start: e.start, durationMin: e.durationMin };
                     }),
-                  );
+                    ...dayLived.map((ev) => ({
+                      id: ev.id,
+                      start: minutesOf(ev.time ?? "00:00"),
+                      durationMin: ev.durationMin,
+                    })),
+                  ]);
                   const isTarget = dragId != null && preview?.date === d.iso;
                   return (
                     <div
@@ -1167,6 +1194,15 @@ export function CalendarPage() {
                           menuItems={timedMenuItems(t)}
                         />
                       ))}
+                      {dayLived.map((ev) => (
+                        <CalendarEventChip
+                          key={ev.id}
+                          event={ev}
+                          variant="timed"
+                          slot={layout[ev.id] ?? { col: 0, cols: 1 }}
+                          onOpen={() => setEditingEvent(ev)}
+                        />
+                      ))}
                     </div>
                   );
                 })}
@@ -1224,6 +1260,11 @@ export function CalendarPage() {
       <TaskDrawer
         task={selected ? (tasks.find((t) => t.id === selected.id) ?? null) : null}
         onClose={closeEditor}
+      />
+
+      <EventEditor
+        event={editingEvent ? (calendarEvents.find((e) => e.id === editingEvent.id) ?? null) : null}
+        onClose={() => setEditingEvent(null)}
       />
 
       {selectedIds.size > 0 && (

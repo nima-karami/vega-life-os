@@ -1,5 +1,6 @@
 import { addDays, format, startOfWeek, subDays } from "date-fns";
 import { dowIndex } from "@/core/lib/date";
+import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import { habitStreak } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
 import { type DayEntry, hasGratitude } from "@/features/journal/model";
@@ -63,6 +64,28 @@ export function completedByValue(tasks: Task[], n = 28): Record<string, number> 
   for (const t of tasks) {
     if (t.status !== "done" || !t.date || t.date < lo || !t.valueId) continue;
     out[t.valueId] = (out[t.valueId] ?? 0) + 1;
+  }
+  return out;
+}
+
+/**
+ * Per-value lived-event time over the last n days: a value-tagged timed event adds
+ * its duration; an all-day tagged event adds one occurrence (no clock-hours). Tagged
+ * history (removed in Google) still counts. Additive to the values picture — habit
+ * streaks are untouched.
+ */
+export function valueTime(
+  events: CalendarEvent[],
+  n = 28,
+): Record<string, { minutes: number; occurrences: number }> {
+  const lo = format(subDays(new Date(), n), "yyyy-MM-dd");
+  const out: Record<string, { minutes: number; occurrences: number }> = {};
+  for (const e of events) {
+    if (!e.valueId || !e.date || e.date < lo) continue;
+    const bucket = out[e.valueId] ?? { minutes: 0, occurrences: 0 };
+    bucket.occurrences += 1;
+    if (!e.allDay) bucket.minutes += e.durationMin;
+    out[e.valueId] = bucket;
   }
   return out;
 }

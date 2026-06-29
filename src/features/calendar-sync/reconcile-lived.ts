@@ -72,7 +72,7 @@ export function dedupeForDisplay(events: CalendarEvent[]): CalendarEvent[] {
   const seen = new Set<string>();
   const out: CalendarEvent[] = [];
   for (const e of events) {
-    if (e.removedAt) continue;
+    if (e.removedAt || e.pendingDelete) continue;
     if (e.responseStatus === "declined" && !hasMeaning(e)) continue;
     if (seen.has(e.iCalUID)) continue;
     seen.add(e.iCalUID);

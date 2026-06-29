@@ -8,6 +8,7 @@
  * These mirror the spec's "placed on grid iff time != null && date == visibleDay"
  * rule and keep the view free of filtering logic.
  */
+import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import type { Task } from "@/features/tasks";
 
 /** Timed tasks for a given ISO day (rendered as positioned chips). */
@@ -27,4 +28,14 @@ export function untimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
 /** Backlog tasks with no date, ordered by their `order` field. */
 export function unscheduledTasks(tasks: Task[]): Task[] {
   return tasks.filter((t) => t.date === null).sort((a, b) => a.order - b.order);
+}
+
+/** Timed lived (Google) events for a given ISO day — placed on the timed grid. */
+export function timedLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
+  return events.filter((e) => e.date === dayIso && e.time != null);
+}
+
+/** All-day lived (Google) events for a given ISO day — the all-day row. */
+export function allDayLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
+  return events.filter((e) => e.date === dayIso && e.time == null);
 }

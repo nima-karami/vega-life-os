@@ -130,4 +130,7 @@ describe("dedupeForDisplay", () => {
     const removed = base({ removedAt: "2026-07-10T00:00:00Z", valueId: "v_x" });
     expect(dedupeForDisplay([removed])).toHaveLength(0);
   });
+  it("hides an event queued for deletion (optimistic removal)", () => {
+    expect(dedupeForDisplay([base({ pendingDelete: true })])).toHaveLength(0);
+  });
 });
