@@ -17,6 +17,7 @@ import {
   overallRate,
   type ReflectionStat,
   reflectionStats,
+  valueTime,
   weeklyRate,
 } from "./selectors";
 
@@ -90,6 +91,9 @@ function AnalyticsSection() {
   const weekly = useMemo(() => weeklyRate(tasks, weeks), [tasks, weeks]);
   const overall = useMemo(() => overallRate(tasks, days), [tasks, days]);
   const byValue = useMemo(() => completedByValue(tasks, days), [tasks, days]);
+  const calendarEvents = useStore((s) => s.calendarEvents);
+  const livedByValue = useMemo(() => valueTime(calendarEvents, days), [calendarEvents, days]);
+  const hasLived = Object.keys(livedByValue).length > 0;
   // consistency grid is the long view — fixed window regardless of range
   const grid = useMemo(() => consistencyGrid(tasks, 22), [tasks]);
   const reflection = useMemo(() => reflectionStats(journal, days), [journal, days]);
@@ -333,6 +337,36 @@ function AnalyticsSection() {
             ))}
           </div>
         </Panel>
+
+        {hasLived && (
+          <Panel className="p-6">
+            <SectionHead title="Time in service of values" meta={`${days}d`} />
+            <p className="mt-1 text-xs text-muted">
+              Real-life events you tagged from your calendar.
+            </p>
+            <div className="mt-4 space-y-2.5">
+              {values
+                .filter((v) => livedByValue[v.id])
+                .map((v) => {
+                  const t = livedByValue[v.id];
+                  const hours = Math.round((t.minutes / 60) * 10) / 10;
+                  return (
+                    <div
+                      key={v.id}
+                      data-value-total={v.id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="truncate text-foreground">{v.name}</span>
+                      <span className="text-xs text-muted">
+                        {hours > 0 ? `${hours}h · ` : ""}
+                        {t.occurrences} {t.occurrences === 1 ? "event" : "events"}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+          </Panel>
+        )}
 
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Goal trajectory" meta="pace" />
