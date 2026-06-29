@@ -49,12 +49,16 @@ export function computePull(tasks: Task[], events: GEvent[]): PullUpdate[] {
  */
 export function computePush(tasks: Task[], events: GEvent[]): PushOp[] {
   const live = events.filter((e) => e.status !== "cancelled");
+  const ops: PushOp[] = [];
+  // One event per task wins; any further events sharing the tag are duplicates from a
+  // prior insert-without-readback — delete the extras so each task maps to one event.
   const eventByTask = new Map<string, GEvent>();
   for (const e of live) {
     const id = e.extendedProperties?.private?.vegaTaskId;
-    if (id) eventByTask.set(id, e);
+    if (!id) continue;
+    if (eventByTask.has(id)) ops.push({ kind: "delete", taskId: id, eventId: e.id });
+    else eventByTask.set(id, e);
   }
-  const ops: PushOp[] = [];
   const scheduled = tasks.filter(isSchedulable);
   const scheduledIds = new Set(scheduled.map((t) => t.id));
 
@@ -69,10 +73,9 @@ export function computePush(tasks: Task[], events: GEvent[]): PushOp[] {
     const renamed = ev.summary !== body.summary;
     if (moved || renamed) ops.push({ kind: "patch", taskId: t.id, eventId: ev.id, body });
   }
-  // events whose task is no longer schedulable → delete
-  for (const e of live) {
-    const id = e.extendedProperties?.private?.vegaTaskId;
-    if (id && !scheduledIds.has(id)) ops.push({ kind: "delete", taskId: id, eventId: e.id });
+  // the kept event for a task that's no longer schedulable → delete
+  for (const [id, ev] of eventByTask) {
+    if (!scheduledIds.has(id)) ops.push({ kind: "delete", taskId: id, eventId: ev.id });
   }
   return ops;
 }

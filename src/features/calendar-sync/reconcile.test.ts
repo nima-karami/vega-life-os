@@ -59,6 +59,18 @@ describe("computePush", () => {
       { kind: "delete", taskId: unscheduled.id, eventId: "ev-x" },
     ]);
   });
+
+  it("collapses duplicate events for one task — keeps the first, deletes the rest", () => {
+    const t = task();
+    const keep = eventFor(t, { id: "ev-keep" });
+    const dup1 = eventFor(t, { id: "ev-dup1" });
+    const dup2 = eventFor(t, { id: "ev-dup2" });
+    const ops = computePush([t], [keep, dup1, dup2]);
+    expect(ops).toEqual([
+      { kind: "delete", taskId: t.id, eventId: "ev-dup1" },
+      { kind: "delete", taskId: t.id, eventId: "ev-dup2" },
+    ]);
+  });
 });
 
 describe("computePull", () => {

@@ -63,7 +63,11 @@ async function runTaskLane(
   writeCalId: string,
   window: Window,
 ): Promise<{ pushed: number; pulled: number }> {
-  const { events, nextSyncToken } = await listWithFallback(writeCalId, true, window);
+  // Always a FULL filtered list — never incremental. The task lane keeps no mirror;
+  // it recomputes inserts from tasks vs. the events seen this cycle, so it must see
+  // the complete current set. An incremental token returns only changes, so a quiet
+  // cycle would look empty and re-insert duplicates.
+  const { events } = await listEvents(writeCalId, { syncToken: null, filtered: true, window });
   const pull = computePull(useStore.getState().tasks, events);
   for (const u of pull) {
     useStore.getState().updateTask(u.taskId, {
@@ -84,7 +88,6 @@ async function runTaskLane(
       await deleteEvent(writeCalId, op.eventId);
     }
   }
-  if (nextSyncToken) setSyncToken(writeCalId, nextSyncToken);
   return { pushed: ops.length, pulled: pull.length };
 }
 
