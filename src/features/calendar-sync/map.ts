@@ -3,11 +3,15 @@ import type { Task } from "@/features/tasks";
 
 export interface GEvent {
   id?: string;
+  iCalUID?: string;
   summary?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
+  updated?: string;
+  recurringEventId?: string;
   extendedProperties?: { private?: { vegaTaskId?: string } };
   status?: string; // "cancelled" for deletions in incremental sync
+  attendees?: { self?: boolean; responseStatus?: string }[];
 }
 
 /**

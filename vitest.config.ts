@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Pin the timezone so date/time math is deterministic across machines/CI.
+    env: { TZ: "UTC" },
   },
 });
