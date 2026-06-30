@@ -6,6 +6,7 @@
 const TOKEN = (cal: string) => `vega.gcal.syncToken.${cal}`;
 const SCOPE = "vega.gcal.scopeVersion";
 const LAST_SYNCED = "vega.gcal.lastSyncedAt";
+const SPAN_BACKFILL = "vega.gcal.spanBackfill.v1";
 
 const read = (k: string): string | null => {
   try {
@@ -41,6 +42,18 @@ export const clearAllSyncTokens = () => {
 
 export const getScopeVersion = () => Number(read(SCOPE) ?? "0");
 export const setScopeVersion = (n: number) => write(SCOPE, String(n));
+
+/**
+ * One-time on this device: drop the per-calendar sync cursors so the next pull is a
+ * FULL re-list, which re-maps every event through gEventToCalendarEvent and backfills
+ * `endDate` onto events imported before multi-day support existed (the original end
+ * was discarded, so it can only come from a fresh fetch). Idempotent after the first run.
+ */
+export function ensureSpanBackfill(): void {
+  if (read(SPAN_BACKFILL) === "1") return;
+  clearAllSyncTokens();
+  write(SPAN_BACKFILL, "1");
+}
 
 /** Last successful sync time (ms epoch), persisted so the hint survives a reload. */
 export const getLastSyncedAt = (): number | null => {

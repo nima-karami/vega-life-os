@@ -50,6 +50,7 @@ vi.mock("../state", () => ({
   setSyncToken: vi.fn(),
   getWindow: () => ({ backDays: 28, fwdDays: 56 }),
   setLastSyncedAt: vi.fn(),
+  ensureSpanBackfill: vi.fn(),
 }));
 
 import { useStore } from "@/core/store";

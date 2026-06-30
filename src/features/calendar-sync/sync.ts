@@ -6,7 +6,13 @@ import { calendarEventToGPatch } from "./events-map";
 import { deleteEvent, GcalHttpError, insertEvent, listEvents, patchEvent } from "./gcal";
 import { computePull, computePush } from "./reconcile";
 import { reconcileLived } from "./reconcile-lived";
-import { getSyncToken, getWindow, setLastSyncedAt, setSyncToken } from "./state";
+import {
+  ensureSpanBackfill,
+  getSyncToken,
+  getWindow,
+  setLastSyncedAt,
+  setSyncToken,
+} from "./state";
 
 const readCalendarIds = () => useStore.getState().gcal.readCalendarIds;
 
@@ -113,6 +119,7 @@ export async function syncNow(
   if (running || !useStore.getState().gcal.enabled) return { pushed: 0, pulled: 0, lived: 0 };
   running = true;
   try {
+    ensureSpanBackfill(); // one-time full re-list to backfill endDate on pre-existing events
     const window = getWindow();
     const todayIso = format(new Date(), "yyyy-MM-dd");
     const writeCalId = await ensureVegaCalendar(interactive);

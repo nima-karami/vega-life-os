@@ -15,6 +15,7 @@ vi.stubGlobal("localStorage", {
 
 import {
   clearAllSyncTokens,
+  ensureSpanBackfill,
   getLastSyncedAt,
   getScopeVersion,
   getSyncToken,
@@ -43,6 +44,15 @@ describe("calendar-sync device-local state", () => {
     expect(getLastSyncedAt()).toBeNull();
     setLastSyncedAt(1_700_000_000_000);
     expect(getLastSyncedAt()).toBe(1_700_000_000_000);
+  });
+  it("ensureSpanBackfill clears sync cursors once, then no-ops", () => {
+    setSyncToken("cal_a", "tok_a");
+    ensureSpanBackfill();
+    expect(getSyncToken("cal_a")).toBeNull(); // forced a full re-list
+    // a fresh cursor written by that re-list must survive the second call
+    setSyncToken("cal_a", "tok_a2");
+    ensureSpanBackfill();
+    expect(getSyncToken("cal_a")).toBe("tok_a2");
   });
   it("clearAllSyncTokens removes only sync-token keys", () => {
     setSyncToken("cal_a", "tok_a");
