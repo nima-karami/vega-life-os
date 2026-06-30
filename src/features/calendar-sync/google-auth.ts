@@ -77,16 +77,34 @@ function ensureClient(): TokenClient {
   return client;
 }
 
+/** Thrown when no token can be obtained without user action — the caller surfaces
+ *  "needs reconnect" and (for background syncs) keeps retrying silently so it self-heals. */
+export class ReconnectRequiredError extends Error {
+  constructor() {
+    super("calendar reconnect required");
+    this.name = "ReconnectRequiredError";
+  }
+}
+
+const SILENT_TIMEOUT_MS = 8_000;
+
 /**
  * Resolve a valid access token. A cached, unexpired token returns immediately. A
- * **non-interactive** call (boot/poll sync) NEVER opens a popup — it rejects so the
- * caller stays silent; the user re-grants by clicking sync. Interactive calls open
- * the GIS popup (consent shown only when the scopes aren't already granted).
+ * **non-interactive** call (boot/poll sync) attempts a *silent* token mint — with no user
+ * gesture the browser can't open a popup, so it either returns a token quietly or fails,
+ * never surprising the user; on failure it rejects with `ReconnectRequiredError`. Interactive
+ * calls (the user clicked Reconnect) may show consent/account-chooser.
  */
 export function getCalendarToken(interactive: boolean): Promise<string> {
   if (token && Date.now() < expiresAt - 60_000) return Promise.resolve(token);
-  if (!interactive) return Promise.reject(new Error("calendar token requires reconnect"));
+  if (!window.google || !CLIENT_ID) return Promise.reject(new ReconnectRequiredError());
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
     const c = ensureClient();
     (
       c as unknown as { callback: (r: { access_token?: string; error?: string }) => void }
@@ -96,11 +114,16 @@ export function getCalendarToken(interactive: boolean): Promise<string> {
         expiresAt = Date.now() + 55 * 60_000; // GIS tokens ~1h
         persist();
         setScopeVersion(SCOPE_VERSION); // record which scope set the user just consented to
-        resolve(token);
+        finish(() => resolve(token));
       } else {
-        reject(new Error(r.error ?? "no token"));
+        finish(() => reject(new ReconnectRequiredError()));
       }
     };
+    // A silent attempt that can't complete (no Google session / blocked iframe) may never fire
+    // the callback — cap the wait so the sync cycle isn't left hanging.
+    if (!interactive) {
+      setTimeout(() => finish(() => reject(new ReconnectRequiredError())), SILENT_TIMEOUT_MS);
+    }
     c.requestAccessToken({ prompt: "" }); // GIS shows consent only if not yet granted
   });
 }

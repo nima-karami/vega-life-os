@@ -62,6 +62,33 @@ describe("deriveSyncPhase", () => {
     ).toBe("needs-reconnect");
   });
 
+  it("is 'needs-reconnect' (danger) when the engine flags it, over backing-off", () => {
+    expect(
+      deriveSyncPhase({
+        configured: true,
+        enabled: true,
+        connected: true,
+        busy: false,
+        error: false,
+        needsReconnect: true,
+        backingOff: true,
+      }),
+    ).toBe("needs-reconnect");
+  });
+
+  it("is 'backing-off' (calm) on a transient retry, not 'error'", () => {
+    expect(
+      deriveSyncPhase({
+        configured: true,
+        enabled: true,
+        connected: true,
+        busy: false,
+        error: false,
+        backingOff: true,
+      }),
+    ).toBe("backing-off");
+  });
+
   it("is 'connected' when enabled, connected, idle and healthy", () => {
     expect(
       deriveSyncPhase({
@@ -128,6 +155,7 @@ describe("syncStatusText", () => {
     expect(syncStatusText("not-configured")).toMatch(/set up/i);
     expect(syncStatusText("disconnected")).toMatch(/not connected|disconnected/i);
     expect(syncStatusText("syncing")).toMatch(/syncing/i);
+    expect(syncStatusText("backing-off")).toMatch(/retry|paused/i);
     expect(syncStatusText("error")).toMatch(/failed|error/i);
     expect(syncStatusText("needs-reconnect")).toMatch(/expired|reconnect/i);
     expect(syncStatusText("connected")).toMatch(/connected|synced/i);

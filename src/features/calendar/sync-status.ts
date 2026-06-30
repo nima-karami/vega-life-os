@@ -10,6 +10,7 @@ export type SyncPhase =
   | "not-configured"
   | "disconnected"
   | "syncing"
+  | "backing-off"
   | "error"
   | "needs-reconnect"
   | "needs-upgraded-consent"
@@ -26,19 +27,25 @@ export interface SyncFlags {
   busy: boolean;
   /** The last run failed (view-local). */
   error: boolean;
+  /** The engine couldn't get a token without user action — actionable, danger tone. */
+  needsReconnect?: boolean;
+  /** The engine hit a transient fault and scheduled a retry — calm, "will retry" tone. */
+  backingOff?: boolean;
   /** Connected on an out-of-date OAuth scope — needs an interactive re-consent. */
   scopeStale?: boolean;
 }
 
 /**
  * Resolve the single phase the sync control should show.
- * Precedence: not-configured → busy → error → (enabled && !connected ⇒ reconnect)
- *           → enabled+connected ⇒ connected → otherwise disconnected.
+ * Precedence: not-configured → busy → needs-reconnect (auth, actionable) → backing-off
+ *           (transient, calm) → error → stale-scope → connected → disconnected.
  */
 export function deriveSyncPhase(flags: SyncFlags): SyncPhase {
-  const { configured, enabled, connected, busy, error } = flags;
+  const { configured, enabled, connected, busy, error, needsReconnect, backingOff } = flags;
   if (!configured) return "not-configured";
   if (busy) return "syncing";
+  if (enabled && needsReconnect) return "needs-reconnect";
+  if (enabled && backingOff) return "backing-off";
   if (error) return "error";
   if (enabled && connected && flags.scopeStale) return "needs-upgraded-consent";
   if (enabled && !connected) return "needs-reconnect";
@@ -68,6 +75,8 @@ export function syncStatusText(phase: SyncPhase): string {
       return "Not connected";
     case "syncing":
       return "Syncing…";
+    case "backing-off":
+      return "Sync paused — will retry";
     case "error":
       return "Sync failed";
     case "needs-reconnect":

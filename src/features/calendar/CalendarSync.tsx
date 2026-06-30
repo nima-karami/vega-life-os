@@ -23,6 +23,7 @@ const TONE: Record<SyncPhase, string> = {
   "not-configured": "text-muted",
   disconnected: "text-muted",
   syncing: "text-accent",
+  "backing-off": "text-muted",
   error: "text-danger",
   "needs-reconnect": "text-danger",
   "needs-upgraded-consent": "text-danger",
@@ -30,6 +31,7 @@ const TONE: Record<SyncPhase, string> = {
 };
 
 const ATTENTION: Partial<Record<SyncPhase, string>> = {
+  "backing-off": "Will retry",
   error: "Sync failed",
   "needs-reconnect": "Reconnect",
   "needs-upgraded-consent": "Reconnect",
@@ -40,6 +42,8 @@ export function CalendarSync() {
   const enabled = useStore((s) => s.gcal.enabled);
   const showGoogle = useStore((s) => s.gcal.showGoogleEvents);
   const setShowGoogle = useStore((s) => s.setShowGoogleEvents);
+  const needsReconnectFlag = useStore((s) => s.gcalNeedsReconnect);
+  const backingOff = useStore((s) => s.gcalBackingOff);
   const [, force] = useState(0);
   const refresh = () => force((n) => n + 1);
   const [busy, setBusy] = useState(false);
@@ -58,6 +62,8 @@ export function CalendarSync() {
     connected: isCalendarConnected(),
     busy,
     error,
+    needsReconnect: needsReconnectFlag,
+    backingOff,
     scopeStale,
   });
   const needsReconnect = phase === "needs-reconnect" || phase === "needs-upgraded-consent";
@@ -122,7 +128,11 @@ export function CalendarSync() {
         <Icon name="refresh-cw" size={15} className={cx(busy && "animate-spin")} />
       </button>
 
-      <span className="sr-only" role="status" aria-live="polite">
+      <span
+        className="sr-only"
+        role={needsReconnect ? "alert" : "status"}
+        aria-live={needsReconnect ? "assertive" : "polite"}
+      >
         {announce}
       </span>
     </div>

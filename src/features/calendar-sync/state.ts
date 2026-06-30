@@ -7,6 +7,8 @@ const TOKEN = (cal: string) => `vega.gcal.syncToken.${cal}`;
 const SCOPE = "vega.gcal.scopeVersion";
 const LAST_SYNCED = "vega.gcal.lastSyncedAt";
 const SPAN_BACKFILL = "vega.gcal.spanBackfill.v1";
+const NEXT_ALLOWED = "vega.gcal.nextAllowedSyncAt";
+const FAIL_COUNT = "vega.gcal.transientFailCount";
 
 const read = (k: string): string | null => {
   try {
@@ -64,3 +66,27 @@ export const setLastSyncedAt = (ts: number) => write(LAST_SYNCED, String(ts));
 
 /** Rolling sync horizon (days back / forward) bounding each tokenless full list. */
 export const getWindow = () => ({ backDays: 28, fwdDays: 56 });
+
+// Failure backoff: the poller fires `run()` immediately on mount/visibility, so the gate is
+// enforced inside syncNow against this persisted timestamp (an in-memory timer would be bypassed
+// on reload/tab-focus). Exponential 5→60 min with jitter; reset on the next success.
+const BACKOFF_BASE_MIN = 5;
+const BACKOFF_CAP_MIN = 60;
+
+/** Earliest epoch-ms a background sync may run again (0 = no active backoff). */
+export const getNextAllowedSyncAt = (): number => Number(read(NEXT_ALLOWED) ?? "0");
+
+/** Escalate the retry interval after a failed cycle. */
+export function recordSyncFailure(): void {
+  const n = Number(read(FAIL_COUNT) ?? "0");
+  const minutes = Math.min(BACKOFF_BASE_MIN * 2 ** n, BACKOFF_CAP_MIN);
+  const jitter = Math.floor(Math.random() * 30_000);
+  write(FAIL_COUNT, String(n + 1));
+  write(NEXT_ALLOWED, String(Date.now() + minutes * 60_000 + jitter));
+}
+
+/** Clear the backoff after a successful cycle. */
+export function clearSyncBackoff(): void {
+  write(FAIL_COUNT, null);
+  write(NEXT_ALLOWED, null);
+}

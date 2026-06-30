@@ -38,6 +38,12 @@ export interface CalendarEventsSlice {
   /** transient: a background sync found the VEGA write-calendar gone (not persisted) */
   gcalMissing: boolean;
   setGcalMissing: (v: boolean) => void;
+  /** transient: the engine can't get a token without user action (actionable reconnect) */
+  gcalNeedsReconnect: boolean;
+  setGcalNeedsReconnect: (v: boolean) => void;
+  /** transient: a transient fault is being retried with backoff (calm "will retry") */
+  gcalBackingOff: boolean;
+  setGcalBackingOff: (v: boolean) => void;
 }
 
 export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) => {
@@ -97,6 +103,10 @@ export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) 
 
     gcalMissing: false,
     setGcalMissing: (v) => set({ gcalMissing: v }),
+    gcalNeedsReconnect: false,
+    setGcalNeedsReconnect: (v) => set({ gcalNeedsReconnect: v }),
+    gcalBackingOff: false,
+    setGcalBackingOff: (v) => set({ gcalBackingOff: v }),
   };
 };
 

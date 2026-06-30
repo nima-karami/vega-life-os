@@ -9,7 +9,7 @@ export interface GEvent {
   end?: { dateTime?: string; date?: string };
   updated?: string;
   recurringEventId?: string;
-  extendedProperties?: { private?: { vegaTaskId?: string } };
+  extendedProperties?: { private?: { vegaTaskId?: string; vegaKey?: string } };
   status?: string; // "cancelled" for deletions in incremental sync
   attendees?: { self?: boolean; responseStatus?: string }[];
 }
@@ -22,22 +22,45 @@ export interface GEvent {
 export const isSchedulable = (t: Task): boolean =>
   t.date !== null && t.status !== "skip" && !(t.kind === "habit" && t.time === null);
 
-/** Deterministic Google event id for a task's VEGA-calendar event. Encodes each
- *  task-id byte as two lowercase hex digits behind a "vega" prefix — valid base32hex
- *  (chars 0-9a-v), injective, length within Google's 5–1024 bound — so re-inserting is
- *  idempotent (a second insert collides on this id instead of creating a duplicate). */
-export function gEventIdForTask(taskId: string): string {
+/** Hex-encode an arbitrary key behind a "vega" prefix → valid base32hex (chars 0-9a-v),
+ *  injective, within Google's 5–1024 id bound — so re-inserting under it is idempotent
+ *  (a second insert collides on the id instead of creating a duplicate). */
+function encodeId(raw: string): string {
   let hex = "";
-  for (let i = 0; i < taskId.length; i++) hex += taskId.charCodeAt(i).toString(16).padStart(2, "0");
+  for (let i = 0; i < raw.length; i++) hex += raw.charCodeAt(i).toString(16).padStart(2, "0");
   return `vega${hex}`;
+}
+
+/** Deterministic Google event id for a task by its (stable) task id — the one-off path. */
+export function gEventIdForTask(taskId: string): string {
+  return encodeId(taskId);
+}
+
+/** Stable identity for matching a task to its pushed event. Habit instances had volatile
+ *  task ids, so they key on the immutable (habitId, slot) — a regenerated or moved instance
+ *  maps to the same event instead of churning. One-offs and detached instances key on their
+ *  own stable id. Stored on the event as `vegaKey`; reconcile matches on it. */
+export function stablePushKey(t: Task): string {
+  return t.kind === "habit" && t.habitId && !t.detached
+    ? `habit:${t.habitId}:${t.slotDate ?? t.date}`
+    : `task:${t.id}`;
+}
+
+/** The Google event resource id. Habit instances derive it from the stable slot key so the
+ *  id itself stops churning; one-offs keep their historical id (their task id is already
+ *  stable) to avoid a needless one-time re-key of every existing event. */
+export function gEventId(t: Task): string {
+  return t.kind === "habit" && t.habitId && !t.detached
+    ? encodeId(stablePushKey(t))
+    : encodeId(t.id);
 }
 
 /** Build the Google event body for a VEGA task. Timed if it has a time, else all-day. */
 export function toGEvent(t: Task): GEvent {
   const base: GEvent = {
-    id: gEventIdForTask(t.id),
+    id: gEventId(t),
     summary: t.title,
-    extendedProperties: { private: { vegaTaskId: t.id } },
+    extendedProperties: { private: { vegaTaskId: t.id, vegaKey: stablePushKey(t) } },
   };
   if (t.time) {
     const start = parseISO(`${t.date}T${t.time}:00`);

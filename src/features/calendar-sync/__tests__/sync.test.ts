@@ -51,6 +51,10 @@ vi.mock("../state", () => ({
   getWindow: () => ({ backDays: 28, fwdDays: 56 }),
   setLastSyncedAt: vi.fn(),
   ensureSpanBackfill: vi.fn(),
+  getNextAllowedSyncAt: () => 0,
+  recordSyncFailure: vi.fn(),
+  clearSyncBackoff: vi.fn(),
+  setScopeVersion: vi.fn(),
 }));
 
 import { useStore } from "@/core/store";
@@ -96,7 +100,14 @@ beforeEach(() => {
   calls.patched = [];
   calls.deleted = [];
   calls.inserted = [];
-  useStore.setState({ tasks: [], calendarEvents: [], gcal: gcal() });
+  useStore.setState({
+    tasks: [],
+    calendarEvents: [],
+    gcal: gcal(),
+    gcalMissing: false,
+    gcalNeedsReconnect: false,
+    gcalBackingOff: false,
+  });
 });
 
 describe("syncNow — lived lane", () => {
@@ -186,12 +197,23 @@ describe("syncNow — read-calendar fault isolation", () => {
     expect(events.some((e) => e.googleId === "g1" && e.calendarId === "cal_ok")).toBe(true);
   });
 
-  it("propagates a non-404/410 read error so the UI can surface needs-reconnect", async () => {
+  it("flags needs-reconnect on a 401 background read without throwing", async () => {
     useStore.setState({ gcal: gcal({ readCalendarIds: ["cal_personal"] }) });
     vi.mocked(listEvents).mockImplementation(async (_cal: string, o: { filtered: boolean }) => {
       if (o.filtered) return { events: [], nextSyncToken: "tok", expired: false };
       throw new GcalHttpError(401);
     });
-    await expect(syncNow(false)).rejects.toThrow();
+    await expect(syncNow(false)).resolves.toEqual({ pushed: 0, pulled: 0, lived: 0 });
+    expect(useStore.getState().gcalNeedsReconnect).toBe(true);
+  });
+
+  it("rethrows for an interactive run so the control can toast", async () => {
+    useStore.setState({ gcal: gcal({ readCalendarIds: ["cal_personal"] }) });
+    vi.mocked(listEvents).mockImplementation(async (_cal: string, o: { filtered: boolean }) => {
+      if (o.filtered) return { events: [], nextSyncToken: "tok", expired: false };
+      throw new GcalHttpError(500);
+    });
+    await expect(syncNow(true)).rejects.toThrow();
+    expect(useStore.getState().gcalBackingOff).toBe(true);
   });
 });

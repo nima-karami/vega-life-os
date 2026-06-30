@@ -15,10 +15,13 @@ vi.stubGlobal("localStorage", {
 
 import {
   clearAllSyncTokens,
+  clearSyncBackoff,
   ensureSpanBackfill,
   getLastSyncedAt,
+  getNextAllowedSyncAt,
   getScopeVersion,
   getSyncToken,
+  recordSyncFailure,
   setLastSyncedAt,
   setScopeVersion,
   setSyncToken,
@@ -54,6 +57,17 @@ describe("calendar-sync device-local state", () => {
     ensureSpanBackfill();
     expect(getSyncToken("cal_a")).toBe("tok_a2");
   });
+  it("escalates the sync backoff and clears it on success", () => {
+    expect(getNextAllowedSyncAt()).toBe(0);
+    recordSyncFailure();
+    const first = getNextAllowedSyncAt();
+    expect(first).toBeGreaterThan(Date.now());
+    recordSyncFailure();
+    expect(getNextAllowedSyncAt()).toBeGreaterThan(first); // each failure waits longer
+    clearSyncBackoff();
+    expect(getNextAllowedSyncAt()).toBe(0);
+  });
+
   it("clearAllSyncTokens removes only sync-token keys", () => {
     setSyncToken("cal_a", "tok_a");
     setSyncToken("cal_b", "tok_b");
