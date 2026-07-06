@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/features/tasks";
-import { gEventId, gEventIdForTask, stablePushKey, toGEvent } from "../map";
+import { gEventId, stablePushKey, toGEvent } from "../map";
 
 const task = (over: Partial<Task> = {}): Task => ({
   id: "t1",
@@ -17,24 +17,6 @@ const task = (over: Partial<Task> = {}): Task => ({
   note: "",
   order: 0,
   ...over,
-});
-
-describe("gEventIdForTask", () => {
-  it("is deterministic for the same task id", () => {
-    expect(gEventIdForTask("abc")).toBe(gEventIdForTask("abc"));
-  });
-
-  it("uses only base32hex-safe chars (vega prefix + lowercase hex)", () => {
-    expect(gEventIdForTask("a-Z9_x")).toMatch(/^vega[0-9a-f]*$/);
-  });
-
-  it("is injective for two different ids", () => {
-    expect(gEventIdForTask("alpha")).not.toBe(gEventIdForTask("beta"));
-  });
-
-  it("stays within Google's lower length bound (>= 5)", () => {
-    expect(gEventIdForTask("x").length).toBeGreaterThanOrEqual(5);
-  });
 });
 
 describe("stablePushKey", () => {
@@ -67,14 +49,14 @@ describe("gEventId", () => {
     expect(gEventId(a)).toBe(gEventId(b));
   });
 
-  it("keeps the historical id for a one-off (no needless re-key)", () => {
-    const t = task({ id: "t_x" });
-    expect(gEventId(t)).toBe(gEventIdForTask("t_x"));
+  it("differs for two distinct one-offs", () => {
+    expect(gEventId(task({ id: "t_x" }))).not.toBe(gEventId(task({ id: "t_y" })));
   });
 
-  it("stays base32hex-safe for the slot key", () => {
+  it("stays base32hex-safe (vega prefix + lowercase hex)", () => {
     const t = task({ kind: "habit", habitId: "h1", slotDate: "2026-06-20" });
     expect(gEventId(t)).toMatch(/^vega[0-9a-f]*$/);
+    expect(gEventId(t).length).toBeGreaterThanOrEqual(5);
   });
 });
 

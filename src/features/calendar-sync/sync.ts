@@ -3,9 +3,10 @@ import { useStore } from "@/core/store";
 import { savePut, saveRemove } from "@/core/store/persist";
 import { ensureVegaCalendar } from "./calendars";
 import { calendarEventToGPatch } from "./events-map";
-import { deleteEvent, GcalHttpError, insertEvent, listEvents, patchEvent } from "./gcal";
+import type { CalendarEvent } from "./events-model";
+import { type BatchOp, batchWrite, GcalHttpError, listEvents } from "./gcal";
 import { ReconnectRequiredError } from "./google-auth";
-import { computePull, computePush } from "./reconcile";
+import { computePull, computeTaskBatch } from "./reconcile";
 import { reconcileLived } from "./reconcile-lived";
 import {
   clearSyncBackoff,
@@ -66,21 +67,70 @@ async function pullLived(writeCalId: string, window: Window, todayIso: string): 
   return lived;
 }
 
-/** Push pending lived-event deletes then edits back to Google; failures retry next cycle. */
+type LivedWrite = { op: BatchOp; row: CalendarEvent; kind: "del" | "edit" };
+
+/** Push pending lived-event deletes + edits back to Google, batched per source calendar. The
+ *  store row is mutated only for ops that actually succeeded; auth/transient faults surface so
+ *  syncNow sets the right flag and the rest retries next cycle. */
 async function pushLived(): Promise<void> {
-  for (const e of useStore.getState().calendarEvents.filter((x) => x.pendingDelete)) {
-    await deleteEvent(e.calendarId, e.googleId);
-    useStore.setState((s) => ({ calendarEvents: s.calendarEvents.filter((x) => x.id !== e.id) }));
-    saveRemove("calendarEvents", e.id);
+  const rows = useStore.getState().calendarEvents;
+  const byCal = new Map<string, LivedWrite[]>();
+  const add = (cal: string, w: LivedWrite) => byCal.set(cal, [...(byCal.get(cal) ?? []), w]);
+  for (const e of rows.filter((x) => x.pendingDelete))
+    add(e.calendarId, { op: { kind: "delete", id: e.googleId }, row: e, kind: "del" });
+  for (const e of rows.filter((x) => x.vegaEditedAt))
+    add(e.calendarId, {
+      op: { kind: "patch", id: e.googleId, body: calendarEventToGPatch(e) },
+      row: e,
+      kind: "edit",
+    });
+
+  let auth = false;
+  let transient = false;
+  for (const [cal, items] of byCal) {
+    const results = await batchWrite(
+      cal,
+      items.map((i) => i.op),
+    );
+    const ok = new Set(results.filter((r) => r.class === "ok").map((r) => r.id));
+    for (const it of items) {
+      if (!ok.has(it.op.id)) continue;
+      if (it.kind === "del") {
+        useStore.setState((s) => ({
+          calendarEvents: s.calendarEvents.filter((x) => x.id !== it.row.id),
+        }));
+        saveRemove("calendarEvents", it.row.id);
+      } else {
+        const cleared = { ...it.row, vegaEditedAt: null };
+        useStore.setState((s) => ({
+          calendarEvents: s.calendarEvents.map((x) => (x.id === it.row.id ? cleared : x)),
+        }));
+        savePut("calendarEvents", cleared);
+      }
+    }
+    if (results.some((r) => r.class === "auth")) auth = true;
+    if (results.some((r) => r.class === "transient")) transient = true;
   }
-  for (const e of useStore.getState().calendarEvents.filter((x) => x.vegaEditedAt)) {
-    await patchEvent(e.calendarId, e.googleId, calendarEventToGPatch(e));
-    const cleared = { ...e, vegaEditedAt: null };
-    useStore.setState((s) => ({
-      calendarEvents: s.calendarEvents.map((x) => (x.id === e.id ? cleared : x)),
-    }));
-    savePut("calendarEvents", cleared);
+  if (auth) throw new GcalHttpError(401);
+  if (transient) throw new GcalHttpError(429);
+}
+
+/** Run a batch, converging 409s (existing/tombstoned id) via a follow-up patch that resurrects
+ *  the event, then surface auth/transient faults so syncNow's catch sets the right flag. */
+async function runBatch(calId: string, ops: BatchOp[]): Promise<void> {
+  if (ops.length === 0) return;
+  const first = await batchWrite(calId, ops);
+  const byId = new Map(ops.map((o) => [o.id, o]));
+  const repatch: BatchOp[] = [];
+  for (const r of first) {
+    if (r.class !== "needs-patch") continue;
+    const body = byId.get(r.id)?.body;
+    if (body) repatch.push({ kind: "patch", id: r.id, body: { ...body, status: "confirmed" } });
   }
+  const second = repatch.length ? await batchWrite(calId, repatch) : [];
+  const all = [...first.filter((r) => r.class !== "needs-patch"), ...second];
+  if (all.some((r) => r.class === "auth")) throw new GcalHttpError(401);
+  if (all.some((r) => r.class === "transient")) throw new GcalHttpError(429);
 }
 
 /** Reconcile VEGA tasks ⇄ the dedicated VEGA write-calendar. */
@@ -105,22 +155,13 @@ async function runTaskLane(
       ...(u.unscheduled ? { status: "open" } : {}),
     });
   }
-  const live = events.filter((e) => e.status !== "cancelled");
   const lo = format(addDays(parseISO(todayIso), -PUSH_WINDOW.backDays), "yyyy-MM-dd");
   const hi = format(addDays(parseISO(todayIso), PUSH_WINDOW.fwdDays), "yyyy-MM-dd");
   const pushable = useStore
     .getState()
     .tasks.filter((t) => t.date != null && t.date >= lo && t.date <= hi);
-  const ops = computePush(pushable, live);
-  for (const op of ops) {
-    if (op.kind === "insert" && op.body) {
-      await insertEvent(writeCalId, op.body);
-    } else if (op.kind === "patch" && op.eventId && op.body) {
-      await patchEvent(writeCalId, op.eventId, op.body);
-    } else if (op.kind === "delete" && op.eventId) {
-      await deleteEvent(writeCalId, op.eventId);
-    }
-  }
+  const ops = computeTaskBatch(pushable, events);
+  await runBatch(writeCalId, ops);
   return { pushed: ops.length, pulled: pull.length };
 }
 

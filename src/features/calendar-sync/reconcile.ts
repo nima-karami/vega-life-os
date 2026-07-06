@@ -1,15 +1,15 @@
 import type { Task } from "@/features/tasks";
+import type { BatchOp } from "./gcal";
 import { fromGEvent, type GEvent, isSchedulable, stablePushKey, toGEvent } from "./map";
 
 const keyOf = (e: GEvent) => e.extendedProperties?.private?.vegaKey;
 const legacyIdOf = (e: GEvent) => e.extendedProperties?.private?.vegaTaskId;
 
-export interface PushOp {
-  kind: "insert" | "patch" | "delete";
-  taskId: string;
-  eventId?: string; // for patch/delete
-  body?: GEvent; // for insert/patch
-}
+/** An event VEGA owns (so it's safe to delete) — never touch foreign events on the calendar. */
+const isVegaEvent = (e: GEvent) => Boolean(e.id?.startsWith("vega") || keyOf(e) || legacyIdOf(e));
+
+/** Fields that, when changed, require a patch. */
+const signature = (e: GEvent) => `${e.start?.dateTime ?? e.start?.date ?? ""}|${e.summary ?? ""}`;
 
 export interface PullUpdate {
   taskId: string;
@@ -18,8 +18,6 @@ export interface PullUpdate {
   /** the user deleted the event in Google → VEGA should unschedule (date=null). */
   unscheduled?: boolean;
 }
-
-const startKey = (ev: GEvent) => ev.start?.dateTime ?? ev.start?.date ?? "";
 
 /**
  * Pull: changes the user made to VEGA-originated events in Google Calendar,
@@ -49,52 +47,31 @@ export function computePull(tasks: Task[], events: GEvent[]): PullUpdate[] {
 }
 
 /**
- * Push: bring Google in line with VEGA. Insert events for newly-scheduled tasks,
- * patch events whose task moved/renamed, delete events whose task is gone or
- * unscheduled. `events` is the set of live (non-cancelled) VEGA-tagged events.
+ * Push: bring Google in line with VEGA as a stateless set-difference keyed on the deterministic
+ * event id. `existing` is the FULL list of the VEGA calendar. Desired = one event per in-window
+ * schedulable task. Insert the missing, patch the changed, delete our stale/duplicate events —
+ * never foreign (unmarked) events. Since the id is a pure function of the stable key, multiple
+ * stale events for one slot all fall in have−desired and collapse to the single canonical event.
  */
-export function computePush(tasks: Task[], events: GEvent[]): PushOp[] {
-  const live = events.filter((e) => e.status !== "cancelled");
-  const ops: PushOp[] = [];
-  // Index live events by stable key; legacy events (no vegaKey) are matched by task id so
-  // they re-key via patch rather than churn. A second event on the same key is a duplicate
-  // from a prior insert-without-readback → delete the extra.
-  const byKey = new Map<string, GEvent>();
-  const byLegacyId = new Map<string, GEvent>();
-  for (const e of live) {
-    const key = keyOf(e);
-    if (key) {
-      if (byKey.has(key)) ops.push({ kind: "delete", taskId: legacyIdOf(e) ?? "", eventId: e.id });
-      else byKey.set(key, e);
-    } else {
-      const id = legacyIdOf(e);
-      if (id) byLegacyId.set(id, e);
-    }
+export function computeTaskBatch(tasks: Task[], existing: GEvent[]): BatchOp[] {
+  const desired = new Map<string, GEvent>();
+  for (const t of tasks.filter(isSchedulable)) {
+    const body = toGEvent(t);
+    if (body.id) desired.set(body.id, body);
+  }
+  const have = new Map<string, GEvent>();
+  for (const e of existing) {
+    if (e.id && e.status !== "cancelled" && isVegaEvent(e)) have.set(e.id, e);
   }
 
-  const claimedKeys = new Set<string>();
-  const claimedLegacy = new Set<string>();
-  for (const t of tasks.filter(isSchedulable)) {
-    const key = stablePushKey(t);
-    claimedKeys.add(key);
-    const body = toGEvent(t);
-    const ev = byKey.get(key) ?? byLegacyId.get(t.id);
-    if (!ev) {
-      ops.push({ kind: "insert", taskId: t.id, body });
-      continue;
-    }
-    if (!keyOf(ev)) claimedLegacy.add(t.id);
-    const moved = startKey(ev) !== startKey(body);
-    const renamed = ev.summary !== body.summary;
-    const needsKey = !keyOf(ev); // legacy event → patch to stamp vegaKey
-    if (moved || renamed || needsKey)
-      ops.push({ kind: "patch", taskId: t.id, eventId: ev.id, body });
+  const ops: BatchOp[] = [];
+  for (const [id, body] of desired) {
+    const cur = have.get(id);
+    if (!cur) ops.push({ kind: "insert", id, body });
+    else if (signature(cur) !== signature(body)) ops.push({ kind: "patch", id, body });
   }
-  // events whose owner is gone or no longer schedulable/in-window → delete
-  for (const [key, ev] of byKey)
-    if (!claimedKeys.has(key))
-      ops.push({ kind: "delete", taskId: legacyIdOf(ev) ?? "", eventId: ev.id });
-  for (const [id, ev] of byLegacyId)
-    if (!claimedLegacy.has(id)) ops.push({ kind: "delete", taskId: id, eventId: ev.id });
+  for (const id of have.keys()) {
+    if (!desired.has(id)) ops.push({ kind: "delete", id });
+  }
   return ops;
 }

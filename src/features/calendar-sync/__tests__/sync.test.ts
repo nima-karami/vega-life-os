@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Task } from "@/features/tasks";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
@@ -6,7 +7,17 @@ vi.mock("@/core/store/persist", () => ({
   saveBulk: vi.fn(),
 }));
 
-const calls = { patched: [] as string[], deleted: [] as string[], inserted: [] as unknown[] };
+type RecordedBatch = { cal: string; ops: { kind: string; id: string; body?: unknown }[] };
+const calls = { batches: [] as RecordedBatch[] };
+const okEvent = {
+  id: "g1",
+  iCalUID: "u1",
+  summary: "Show",
+  status: "confirmed",
+  start: { dateTime: "2026-07-11T17:00:00Z" },
+  end: { dateTime: "2026-07-11T20:00:00Z" },
+  updated: "2026-06-20T10:00:00Z",
+};
 vi.mock("../gcal", () => ({
   GcalHttpError: class extends Error {
     constructor(public status: number) {
@@ -17,31 +28,11 @@ vi.mock("../gcal", () => ({
   listEvents: vi.fn(async (_cal: string, o: { filtered: boolean }) =>
     o.filtered
       ? { events: [], nextSyncToken: "tok", expired: false }
-      : {
-          events: [
-            {
-              id: "g1",
-              iCalUID: "u1",
-              summary: "Show",
-              status: "confirmed",
-              start: { dateTime: "2026-07-11T17:00:00Z" },
-              end: { dateTime: "2026-07-11T20:00:00Z" },
-              updated: "2026-06-20T10:00:00Z",
-            },
-          ],
-          nextSyncToken: "tok",
-          expired: false,
-        },
+      : { events: [okEvent], nextSyncToken: "tok", expired: false },
   ),
-  insertEvent: vi.fn(async (_c: string, b: unknown) => {
-    calls.inserted.push(b);
-    return b;
-  }),
-  patchEvent: vi.fn(async (_c: string, id: string) => {
-    calls.patched.push(id);
-  }),
-  deleteEvent: vi.fn(async (_c: string, id: string) => {
-    calls.deleted.push(id);
+  batchWrite: vi.fn(async (cal: string, ops: { kind: string; id: string }[]) => {
+    calls.batches.push({ cal, ops });
+    return ops.map((o) => ({ id: o.id, status: 200, class: "ok" as const }));
   }),
 }));
 vi.mock("../calendars", () => ({ ensureVegaCalendar: vi.fn(async () => "cal_vega") }));
@@ -61,7 +52,7 @@ import { useStore } from "@/core/store";
 import { ensureVegaCalendar } from "../calendars";
 import { defaultGcalConfig } from "../config";
 import type { CalendarEvent } from "../events-model";
-import { GcalHttpError, listEvents } from "../gcal";
+import { batchWrite, GcalHttpError, listEvents } from "../gcal";
 import { syncNow } from "../sync";
 
 const gcal = (over: Partial<ReturnType<typeof defaultGcalConfig>> = {}) => ({
@@ -96,10 +87,27 @@ const ce = (over: Partial<CalendarEvent>): CalendarEvent => ({
   ...over,
 });
 
+const today = new Date().toISOString().slice(0, 10);
+const task = (over: Partial<Task> = {}): Task => ({
+  id: "t1",
+  title: "Task",
+  kind: "oneoff",
+  habitId: null,
+  goalId: null,
+  valueId: null,
+  date: today,
+  slotDate: null,
+  time: "09:00",
+  durationMin: 30,
+  status: "todo",
+  detached: false,
+  note: "",
+  order: 0,
+  ...over,
+});
+
 beforeEach(() => {
-  calls.patched = [];
-  calls.deleted = [];
-  calls.inserted = [];
+  calls.batches = [];
   useStore.setState({
     tasks: [],
     calendarEvents: [],
@@ -121,7 +129,7 @@ describe("syncNow — lived lane", () => {
     });
   });
 
-  it("pushes a pending edit and a pending delete back to Google", async () => {
+  it("batches a pending edit + delete back to Google and prunes the deleted row", async () => {
     useStore.setState({
       calendarEvents: [
         ce({ id: "ce_e", googleId: "ge", iCalUID: "ue", vegaEditedAt: "2026-06-27T00:00:00Z" }),
@@ -129,8 +137,13 @@ describe("syncNow — lived lane", () => {
       ],
     });
     await syncNow(false);
-    expect(calls.patched).toContain("ge");
-    expect(calls.deleted).toContain("gd");
+    const lived = calls.batches.find((b) => b.cal === "cal_personal");
+    expect(lived?.ops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "delete", id: "gd" }),
+        expect.objectContaining({ kind: "patch", id: "ge" }),
+      ]),
+    );
     expect(useStore.getState().calendarEvents.find((e) => e.id === "ce_d")).toBeUndefined();
   });
 
@@ -153,6 +166,51 @@ describe("syncNow — lived lane", () => {
   });
 });
 
+describe("syncNow — task lane batching", () => {
+  it("pushes a scheduled task as a single batch insert", async () => {
+    useStore.setState({ tasks: [task()] });
+    await syncNow(false);
+    const taskBatch = calls.batches.find((b) => b.cal === "cal_vega");
+    expect(taskBatch?.ops).toHaveLength(1);
+    expect(taskBatch?.ops[0]).toMatchObject({ kind: "insert" });
+  });
+
+  it("converges a 409 insert into a status:confirmed patch (tombstone)", async () => {
+    useStore.setState({ tasks: [task()] });
+    vi.mocked(batchWrite).mockImplementationOnce(async (cal, ops) => {
+      calls.batches.push({ cal, ops });
+      return ops.map((o) => ({ id: o.id, status: 409, class: "needs-patch" as const }));
+    });
+    await syncNow(false);
+    const taskBatches = calls.batches.filter((b) => b.cal === "cal_vega");
+    expect(taskBatches).toHaveLength(2); // initial insert, then the resurrect patch
+    expect(taskBatches[1].ops[0]).toMatchObject({
+      kind: "patch",
+      body: expect.objectContaining({ status: "confirmed" }),
+    });
+  });
+
+  it("flags needs-reconnect when a batch sub-op returns auth", async () => {
+    useStore.setState({ tasks: [task()] });
+    vi.mocked(batchWrite).mockImplementationOnce(async (cal, ops) => {
+      calls.batches.push({ cal, ops });
+      return ops.map((o) => ({ id: o.id, status: 401, class: "auth" as const }));
+    });
+    await expect(syncNow(false)).resolves.toEqual({ pushed: 0, pulled: 0, lived: 0 });
+    expect(useStore.getState().gcalNeedsReconnect).toBe(true);
+  });
+
+  it("flags backing-off when a batch sub-op returns transient", async () => {
+    useStore.setState({ tasks: [task()] });
+    vi.mocked(batchWrite).mockImplementationOnce(async (cal, ops) => {
+      calls.batches.push({ cal, ops });
+      return ops.map((o) => ({ id: o.id, status: 500, class: "transient" as const }));
+    });
+    await syncNow(false);
+    expect(useStore.getState().gcalBackingOff).toBe(true);
+  });
+});
+
 describe("syncNow — VEGA write-calendar missing (Q3)", () => {
   it("background null write-cal pauses the task lane and flags gcalMissing", async () => {
     vi.mocked(ensureVegaCalendar).mockResolvedValueOnce(null);
@@ -160,9 +218,7 @@ describe("syncNow — VEGA write-calendar missing (Q3)", () => {
     const r = await syncNow(false);
     const ranTaskLane = vi.mocked(listEvents).mock.calls.some(([, o]) => o.filtered === true);
     expect(ranTaskLane).toBe(false);
-    expect(calls.inserted).toHaveLength(0);
-    expect(calls.patched).toHaveLength(0);
-    expect(calls.deleted).toHaveLength(0);
+    expect(calls.batches.some((b) => b.cal === "cal_vega")).toBe(false);
     expect(useStore.getState().gcalMissing).toBe(true);
     expect(r).toMatchObject({ pushed: 0, pulled: 0 });
   });
@@ -175,16 +231,6 @@ describe("syncNow — VEGA write-calendar missing (Q3)", () => {
 });
 
 describe("syncNow — read-calendar fault isolation", () => {
-  const okEvent = {
-    id: "g1",
-    iCalUID: "u1",
-    summary: "Show",
-    status: "confirmed",
-    start: { dateTime: "2026-07-11T17:00:00Z" },
-    end: { dateTime: "2026-07-11T20:00:00Z" },
-    updated: "2026-06-20T10:00:00Z",
-  };
-
   it("skips one dead read calendar but still syncs the healthy one", async () => {
     useStore.setState({ gcal: gcal({ readCalendarIds: ["cal_dead", "cal_ok"] }) });
     vi.mocked(listEvents).mockImplementation(async (cal: string, o: { filtered: boolean }) => {

@@ -31,28 +31,19 @@ function encodeId(raw: string): string {
   return `vega${hex}`;
 }
 
-/** Deterministic Google event id for a task by its (stable) task id — the one-off path. */
-export function gEventIdForTask(taskId: string): string {
-  return encodeId(taskId);
-}
-
-/** Stable identity for matching a task to its pushed event. Habit instances had volatile
- *  task ids, so they key on the immutable (habitId, slot) — a regenerated or moved instance
- *  maps to the same event instead of churning. One-offs and detached instances key on their
- *  own stable id. Stored on the event as `vegaKey`; reconcile matches on it. */
+/** Stable identity for a task's calendar event. Habit instances key on the immutable
+ *  (habitId, slot) so a regenerated or moved instance maps to the same event instead of
+ *  churning; one-offs and detached instances key on their own stable id. */
 export function stablePushKey(t: Task): string {
   return t.kind === "habit" && t.habitId && !t.detached
     ? `habit:${t.habitId}:${t.slotDate ?? t.date}`
     : `task:${t.id}`;
 }
 
-/** The Google event resource id. Habit instances derive it from the stable slot key so the
- *  id itself stops churning; one-offs keep their historical id (their task id is already
- *  stable) to avoid a needless one-time re-key of every existing event. */
+/** The Google event resource id — a pure function of the stable key, so re-inserting is
+ *  idempotent (409→patch) and the id == the match key (no separate lookup). */
 export function gEventId(t: Task): string {
-  return t.kind === "habit" && t.habitId && !t.detached
-    ? encodeId(stablePushKey(t))
-    : encodeId(t.id);
+  return encodeId(stablePushKey(t));
 }
 
 /** Build the Google event body for a VEGA task. Timed if it has a time, else all-day. */
