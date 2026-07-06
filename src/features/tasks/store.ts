@@ -96,7 +96,12 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== id) return t;
-        next = normalizeSchedule({ ...t, ...patch, id });
+        // Slot-integrity invariant: lock a habit instance to the slot it currently fills
+        // BEFORE any edit can move its date — otherwise a move frees the origin slot and
+        // the generator makes a phantom duplicate (the phantom-duplicate bug). Only
+        // stamps when missing; an explicit slotDate in the patch still wins.
+        const slotDate = t.habitId != null ? (t.slotDate ?? t.date) : t.slotDate;
+        next = normalizeSchedule({ ...t, slotDate, ...patch, id });
         return next;
       }),
     }));

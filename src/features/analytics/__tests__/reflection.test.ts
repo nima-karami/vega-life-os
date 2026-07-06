@@ -1,6 +1,7 @@
 import { format, subDays } from "date-fns";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DayEntry } from "@/features/journal/model";
+import { DEFAULT_RULES, PRESETS } from "@/features/streaks";
 import { reflectionStats } from "../selectors";
 
 const NOW = new Date("2026-06-25T12:00:00");
@@ -54,5 +55,26 @@ describe("reflectionStats", () => {
     expect(journaled.streak).toBe(0);
     expect(gratitude.count).toBe(0);
     expect(gratitude.rate).toBe(0);
+  });
+});
+
+describe("reflectionStats — healing via the shared streak engine", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const j = (back: number) => entry(back, { journal: "wrote" });
+  // 9-day run (14..6), a single miss at day 5, then 3 comebacks (4,3,2)
+  const oneSlipOnLongRun = [14, 13, 12, 11, 10, 9, 8, 7, 6, 4, 3, 2].map(j);
+
+  it("bridges a single slip on a long journaling run (Balanced)", () => {
+    expect(reflectionStats(oneSlipOnLongRun, 28, DEFAULT_RULES).journaled.streak).toBe(12);
+  });
+
+  it("does not heal that gap under Strict rules", () => {
+    // grace 0 → an unlogged yesterday is a hard miss; no bridging → chain broken
+    expect(reflectionStats(oneSlipOnLongRun, 28, PRESETS.strict).journaled.streak).toBe(0);
   });
 });

@@ -1,13 +1,5 @@
 import { cx } from "@/core/ui";
-import { MOOD_SCALE } from "../model";
-
-const MOOD_LABEL: Record<number, string> = {
-  1: "Rough",
-  2: "Low",
-  3: "Okay",
-  4: "Good",
-  5: "Great",
-};
+import { MOOD_LABEL, MOOD_SCALE } from "../model";
 
 /** 1–5 mood selector as an accessible radiogroup of pips (not color-only). */
 export function MoodPicker({

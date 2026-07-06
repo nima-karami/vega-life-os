@@ -13,6 +13,14 @@ export interface CloudProfile {
   gcalWriteCalendarId?: string | null;
   gcalReadCalendarIds?: string[];
   gcalShowEvents?: boolean;
+  // Streak-healing rules — user-level (follows the account). `streakRulesConfigured`
+  // marks that the cloud holds rules, so first sign-in migrates any device-local set once.
+  streakRulesConfigured?: boolean;
+  streakGraceDays?: number;
+  streakBridgeEnabled?: boolean;
+  streakLongMin?: number;
+  streakRecoveryLen?: number;
+  streakMendCooldownDays?: number;
 }
 
 export async function getCloudProfile(uid: string): Promise<CloudProfile | null> {
@@ -32,6 +40,15 @@ export async function getCloudProfile(uid: string): Promise<CloudProfile | null>
       ? (d.gcalReadCalendarIds as string[])
       : undefined,
     gcalShowEvents: typeof d.gcalShowEvents === "boolean" ? d.gcalShowEvents : undefined,
+    streakRulesConfigured:
+      typeof d.streakRulesConfigured === "boolean" ? d.streakRulesConfigured : undefined,
+    streakGraceDays: typeof d.streakGraceDays === "number" ? d.streakGraceDays : undefined,
+    streakBridgeEnabled:
+      typeof d.streakBridgeEnabled === "boolean" ? d.streakBridgeEnabled : undefined,
+    streakLongMin: typeof d.streakLongMin === "number" ? d.streakLongMin : undefined,
+    streakRecoveryLen: typeof d.streakRecoveryLen === "number" ? d.streakRecoveryLen : undefined,
+    streakMendCooldownDays:
+      typeof d.streakMendCooldownDays === "number" ? d.streakMendCooldownDays : undefined,
   };
 }
 

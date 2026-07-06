@@ -33,15 +33,16 @@ export function TaskCard({
   const lineage = useTaskLineage(task.id);
   const tasks = useStore((s) => s.tasks);
   const habits = useStore((s) => s.habits);
+  const rules = useStore((s) => s.streakRules);
   const habit = task.habitId != null ? habits.find((h) => h.id === task.habitId) : undefined;
-  const streak = habit ? streakState(tasks, habit) : null;
+  const streak = habit ? streakState(tasks, habit, undefined, rules) : null;
   const done = task.status === "done";
   const skipped = task.status === "skip";
   const resolved = done || skipped;
   // a completion logged after the slot's grace window counts for the rate, not the streak
   const loggedLate =
     done && task.completedAt != null && task.slotDate != null
-      ? task.completedAt.slice(0, 10) > shiftISO(task.slotDate, 1)
+      ? task.completedAt.slice(0, 10) > shiftISO(task.slotDate, rules.graceDays)
       : false;
 
   const checkLabel = done ? `Mark ${task.title} not done` : `Mark ${task.title} done`;

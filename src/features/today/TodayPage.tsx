@@ -14,11 +14,13 @@ import {
 } from "@/core/ui";
 import { streakState } from "@/features/habits";
 import {
+  BackfillNudge,
   dayReflectable,
   entryStatus,
   GratitudeStep,
   hasGratitude,
   isReflected,
+  missedGratitudeDays,
   ReflectionStep,
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
@@ -67,6 +69,12 @@ export function TodayPage() {
   const [announce, setAnnounce] = useState("");
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
   const [reflectSkipped, setReflectSkipped] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+
+  const missedDays = useMemo(
+    () => (nudgeDismissed ? [] : missedGratitudeDays(journal, today)),
+    [journal, today, nudgeDismissed],
+  );
 
   const showGratitudeGate = isToday && !hasGratitude(todayEntry);
   const showReflection =
@@ -170,6 +178,14 @@ export function TodayPage() {
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
+      {isToday && (
+        <BackfillNudge
+          missedDays={missedDays}
+          onAdd={(d) => navigate(`/journal/${d}`)}
+          onReviewAll={() => navigate("/entries")}
+          onDismiss={() => setNudgeDismissed(true)}
+        />
+      )}
       {/* Header — date + day navigation + progress */}
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-3">
@@ -372,10 +388,11 @@ function DailyHabits({ items, onToggle }: { items: Task[]; onToggle: (t: Task) =
 function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => void }) {
   const habitDefs = useStore((s) => s.habits);
   const tasks = useStore((s) => s.tasks);
+  const rules = useStore((s) => s.streakRules);
   const lineage = useTaskLineage(task.id);
   const done = task.status === "done";
   const habit = habitDefs.find((h) => h.id === task.habitId);
-  const streak = habit ? streakState(tasks, habit) : null;
+  const streak = habit ? streakState(tasks, habit, undefined, rules) : null;
   const icon = habit?.icon ?? "repeat";
 
   return (

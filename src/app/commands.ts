@@ -82,6 +82,14 @@ export const NAV_COMMANDS: NavCommand[] = [
     to: "/analytics",
     keywords: "analytics review follow-through insights",
   },
+  {
+    id: "nav-entries",
+    label: "Entries",
+    sublabel: "Journal · gratitude log",
+    icon: "notebook-pen",
+    to: "/entries",
+    keywords: "entries journal gratitude mood log history past",
+  },
 ];
 
 // ─── Core Action Commands ────────────────────────────────────────────────────

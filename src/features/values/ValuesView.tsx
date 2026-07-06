@@ -304,6 +304,7 @@ function ValueCard({
 }) {
   const habits = useStore((s) => s.habits);
   const tasks = useStore((s) => s.tasks);
+  const rules = useStore((s) => s.streakRules);
 
   const valueHabits = habits.filter((h) => h.valueId === value.id && !h.goalId);
   const color = valueColor(value);
@@ -389,7 +390,7 @@ function ValueCard({
                 <Chip key={h.id} size="sm" variant="soft" className="gap-1">
                   <Icon name={h.icon} size={13} className="text-muted" />
                   <span className="text-foreground">{h.name}</span>
-                  <span className="text-muted">· {habitStreak(tasks, h)}d</span>
+                  <span className="text-muted">· {habitStreak(tasks, h, undefined, rules)}d</span>
                 </Chip>
               ))}
             </div>

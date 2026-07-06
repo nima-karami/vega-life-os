@@ -481,6 +481,64 @@ describe("ensureUpcoming — self-heals instances that no longer match the sched
   });
 });
 
+describe("ensureUpcoming — slot-integrity self-heal (phantom regeneration guard)", () => {
+  const everyDay = [1, 1, 1, 1, 1, 1, 1];
+  const today = todayISO();
+  const tomorrow = shiftISO(today, 1);
+  const h1: Habit = {
+    id: "h1",
+    name: "Workout",
+    goalId: null,
+    valueId: "v1",
+    time: null,
+    durationMin: 30,
+    archivedAt: null,
+    schedule: { type: "weekly", days: everyDay, interval: 1, anchor: "2026-01-01" },
+  };
+  const legacy = (over: Partial<Task> = {}): Task => ({
+    id: "legacy",
+    title: "Workout",
+    kind: "habit",
+    habitId: "h1",
+    goalId: null,
+    valueId: "v1",
+    date: today,
+    slotDate: null,
+    time: null,
+    durationMin: 30,
+    status: "todo",
+    detached: false,
+    note: "",
+    order: 0,
+    ...over,
+  });
+
+  it("locks slotDate to the vacated slot when a slot-less habit instance is moved", () => {
+    const { get } = makeSlice({
+      habits: [h1],
+      values: [{ id: "v1", archivedAt: null }],
+      tasks: [legacy()], // slotDate: null, date: today
+    });
+    get().updateTask("legacy", { date: tomorrow, detached: true }); // calendar-style move
+    expect(get().tasks.find((t) => t.id === "legacy")?.slotDate).toBe(today);
+  });
+
+  it("does not regenerate the origin slot after a slot-less instance is moved", () => {
+    const { get } = makeSlice({
+      habits: [h1],
+      values: [{ id: "v1", archivedAt: null }],
+      tasks: [legacy()],
+    });
+    get().updateTask("legacy", { date: tomorrow, detached: true }); // move stamps slotDate → today
+    get().ensureUpcoming(1); // covers today + tomorrow
+    const origin = get().tasks.filter(
+      (t) => t.habitId === "h1" && (t.slotDate ?? t.date) === today,
+    );
+    expect(origin).toHaveLength(1); // the moved instance still owns today — no phantom 5th
+    expect(origin[0].id).toBe("legacy");
+  });
+});
+
 describe("bulkUpdateTasks / bulkRemoveTasks", () => {
   const oneoff = (id: string, over: Partial<Task> = {}): Task => ({
     id,

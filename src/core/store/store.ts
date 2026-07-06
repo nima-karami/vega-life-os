@@ -26,6 +26,8 @@ import { createHabitsSlice } from "@/features/habits/store";
 import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
 import { createReviewSlice } from "@/features/review/store";
+import { loadStreakRules, readLocalStreakRules } from "@/features/streaks/config";
+import { createStreaksSlice } from "@/features/streaks/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
 import { authTransition } from "./auth-transition";
@@ -62,6 +64,7 @@ async function loadAccount(
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
     set({ ready: true }); // name known — safe to render the app / ProfileStep
     get().hydrateGcalConfig(await loadGcalConfig(uid)); // user-level GCal config (cloud)
+    get().hydrateStreakRules(await loadStreakRules(uid)); // user-level streak rules (cloud)
     get().ensureUpcoming(14);
     unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
   } catch {
@@ -101,6 +104,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createReviewSlice(set, get, api),
   ...createJournalSlice(set, get, api),
   ...createCalendarEventsSlice(set, get, api),
+  ...createStreaksSlice(set, get, api),
   ...createUiSlice(set, get, api),
 
   ready: false,
@@ -130,6 +134,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       ready: true,
     });
     get().hydrateGcalConfig(readLocalGcalConfig()); // signed-out sandbox: device-local config
+    get().hydrateStreakRules(readLocalStreakRules());
     runDataMigrations(get, set);
     get().ensureUpcoming(14);
   },
@@ -270,6 +275,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       void setSandboxDirty(false);
       clearCalendarToken(); // drop the device Google token
       get().hydrateGcalConfig(defaultGcalConfig()); // don't leak the account's GCal config into the sandbox
+      get().hydrateStreakRules(readLocalStreakRules()); // back to the device-local sandbox rules
       get().setOnboarded(false);
       get().hydrateProfile({
         name: "Operator",

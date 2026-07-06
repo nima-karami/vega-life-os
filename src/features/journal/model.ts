@@ -15,6 +15,13 @@ export interface DayEntry {
 }
 
 export const MOOD_SCALE = [1, 2, 3, 4, 5] as const;
+export const MOOD_LABEL: Record<number, string> = {
+  1: "Rough",
+  2: "Low",
+  3: "Okay",
+  4: "Good",
+  5: "Great",
+};
 export const GRATITUDE_SLOTS = 3;
 export const JOURNAL_MAX = 50_000;
 export const GRATITUDE_ITEM_MAX = 280;

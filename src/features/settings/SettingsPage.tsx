@@ -5,6 +5,7 @@ import { ConfirmDialog, cx, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
 import { AgentSettings } from "./components/AgentSettings";
 import { CalendarSettings } from "./components/CalendarSettings";
+import { StreakSettings } from "./components/StreakSettings";
 import { SettingsCard } from "./SettingsCard";
 
 const FIELD =
@@ -194,6 +195,8 @@ export function SettingsPage() {
             </div>
           </div>
         </SettingsCard>
+
+        <StreakSettings />
 
         <AgentSettings />
 

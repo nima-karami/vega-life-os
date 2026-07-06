@@ -82,6 +82,7 @@ function AnalyticsSection() {
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
   const journal = useStore((s) => s.journal);
+  const rules = useStore((s) => s.streakRules);
 
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
   const days = rangeToDays(range);
@@ -96,8 +97,8 @@ function AnalyticsSection() {
   const hasLived = Object.keys(livedByValue).length > 0;
   // consistency grid is the long view — fixed window regardless of range
   const grid = useMemo(() => consistencyGrid(tasks, 22), [tasks]);
-  const reflection = useMemo(() => reflectionStats(journal, days), [journal, days]);
-  const insightList = useMemo(() => insights(tasks, habits), [tasks, habits]);
+  const reflection = useMemo(() => reflectionStats(journal, days, rules), [journal, days, rules]);
+  const insightList = useMemo(() => insights(tasks, habits, rules), [tasks, habits, rules]);
   const maxValueCount = Math.max(1, ...Object.values(byValue));
   const maxDaily = Math.max(1, ...daily.map((d) => d.total));
 

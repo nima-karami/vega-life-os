@@ -1,9 +1,10 @@
 import { addDays, format, startOfWeek, subDays } from "date-fns";
-import { dowIndex } from "@/core/lib/date";
+import { dowIndex, shiftISO } from "@/core/lib/date";
 import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import { habitStreak } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
 import { type DayEntry, hasGratitude } from "@/features/journal/model";
+import { DEFAULT_RULES, resolveStreak, type SeqItem, type StreakRules } from "@/features/streaks";
 import type { Task } from "@/features/tasks/model";
 
 export interface DayStat {
@@ -102,7 +103,11 @@ const doneRate = (list: Task[]) =>
  * Deterministic, non-obvious observations from the data — proactive intelligence,
  * no LLM required. Returns up to 4 insight strings (only when there's enough signal).
  */
-export function insights(tasks: Task[], habits: Habit[]): string[] {
+export function insights(
+  tasks: Task[],
+  habits: Habit[],
+  rules: StreakRules = DEFAULT_RULES,
+): string[] {
   const out: string[] = [];
   const lo = format(subDays(new Date(), 60), "yyyy-MM-dd");
   const today = format(new Date(), "yyyy-MM-dd");
@@ -158,7 +163,7 @@ export function insights(tasks: Task[], habits: Habit[]): string[] {
 
   // strongest chain
   const topChain = habits
-    .map((h) => ({ h, s: habitStreak(tasks, h) }))
+    .map((h) => ({ h, s: habitStreak(tasks, h, undefined, rules) }))
     .sort((a, b) => b.s - a.s)[0];
   if (topChain && topChain.s >= 4) {
     out.push(
@@ -188,33 +193,61 @@ export interface ReflectionStats {
 
 const journaledDay = (e?: DayEntry): boolean => !!e && e.journal.trim() !== "";
 
+/**
+ * Streak over FULL history (floored at the first-ever entry, like a habit's createdAt),
+ * healed through the shared engine and the active rules. A day within the grace window
+ * that isn't logged yet is pending (not a miss); older empty days are misses.
+ */
+function reflectionStreak(
+  byDate: Map<string, DayEntry>,
+  pred: (e?: DayEntry) => boolean,
+  rules: StreakRules,
+  today: string,
+): number {
+  let earliest: string | null = null;
+  for (const d of byDate.keys()) if (earliest === null || d < earliest) earliest = d;
+  if (earliest === null) return 0;
+  const graceFloor = shiftISO(today, -rules.graceDays);
+  const seq: SeqItem[] = [];
+  for (let d = earliest; d <= today; d = shiftISO(d, 1)) {
+    if (pred(byDate.get(d))) seq.push({ kind: "D", date: d });
+    else if (d < graceFloor) seq.push({ kind: "M", date: d });
+    // within grace and not yet logged → pending, neither counts nor breaks
+  }
+  return resolveStreak(seq, rules).count;
+}
+
 function reflectionStat(
   byDate: Map<string, DayEntry>,
   n: number,
   pred: (e?: DayEntry) => boolean,
+  rules: StreakRules,
+  today: string,
 ): ReflectionStat {
   const series = Array.from({ length: n }, (_, i) => {
     const iso = format(subDays(new Date(), n - 1 - i), "yyyy-MM-dd");
     return { iso, on: pred(byDate.get(iso)) };
   });
   const count = series.filter((d) => d.on).length;
-  let i = series.length - 1;
-  // Today not logged yet shouldn't read as a broken streak — start from yesterday.
-  if (i >= 0 && !series[i].on) i--;
-  let streak = 0;
-  for (; i >= 0; i--) {
-    if (series[i].on) streak++;
-    else break;
-  }
-  return { series, count, streak, rate: n ? count / n : 0 };
+  return {
+    series,
+    count,
+    streak: reflectionStreak(byDate, pred, rules, today),
+    rate: n ? count / n : 0,
+  };
 }
 
-/** Journaling + gratitude logged per day over the last n days — habit-style tracking. */
-export function reflectionStats(journal: DayEntry[], n = 28): ReflectionStats {
+/** Journaling + gratitude tracking: an n-day display window, but streaks over full history. */
+export function reflectionStats(
+  journal: DayEntry[],
+  n = 28,
+  rules: StreakRules = DEFAULT_RULES,
+): ReflectionStats {
   const byDate = new Map(journal.map((e) => [e.date, e]));
+  const today = format(new Date(), "yyyy-MM-dd");
   return {
-    journaled: reflectionStat(byDate, n, journaledDay),
-    gratitude: reflectionStat(byDate, n, hasGratitude),
+    journaled: reflectionStat(byDate, n, journaledDay, rules, today),
+    gratitude: reflectionStat(byDate, n, hasGratitude, rules, today),
   };
 }
 
