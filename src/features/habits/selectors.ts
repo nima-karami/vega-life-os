@@ -43,7 +43,9 @@ function classifySlot(
   today: string,
   grace: number,
 ): SlotKind {
-  if (inst?.status === "skip") return "skip";
+  // "skip" (explicit) and "open" (unscheduled — the occurrence was pulled off its day)
+  // are both neutral: the user removed it from that day, so it's never a miss.
+  if (inst?.status === "skip" || inst?.status === "open") return "skip";
   if (inst?.status === "done") {
     const completedOn = inst.completedAt?.slice(0, 10) ?? date;
     // a deliberately rescheduled occurrence (moved to a later day) is on-time if done by
@@ -52,7 +54,7 @@ function classifySlot(
     const deadline = shiftISO(landing > date ? landing : date, grace);
     return completedOn <= deadline ? "done" : "late";
   }
-  // unresolved (todo/open/none): pending until grace elapses, then a miss
+  // unresolved (todo/none): pending until grace elapses, then a miss
   return date >= shiftISO(today, -grace) ? "pending" : "miss";
 }
 

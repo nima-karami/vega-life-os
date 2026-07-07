@@ -249,3 +249,26 @@ describe("streakState — cooldown", () => {
     expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
   });
 });
+
+describe("habitRate / streakState — unscheduled (open) occurrences are neutral", () => {
+  // A habit set up early with its first days pulled off the calendar (unscheduleTask →
+  // status "open", date=null, slotDate preserved), then done every day after. The setup
+  // gap must NOT read as misses — mirrors a partial-should-be-100% bug.
+  const openDay = (i: number) => inst(shiftISO(BASE, i), "open", { date: null });
+  const doneDay = (i: number) => inst(shiftISO(BASE, i), "done");
+
+  it("does not count unscheduled days as misses in the rate (6 open + 9 done = 100%)", () => {
+    const tasks = [
+      ...Array.from({ length: 6 }, (_, i) => openDay(i)),
+      ...Array.from({ length: 9 }, (_, i) => doneDay(6 + i)),
+    ];
+    const today = shiftISO(BASE, 14); // the last done day
+    expect(habitRate(tasks, dailyHabit(), today)).toBe(1);
+  });
+
+  it("an unscheduled day is neutral and does not break a streak", () => {
+    const tasks = [doneDay(0), doneDay(1), openDay(2), doneDay(3), doneDay(4)];
+    const today = shiftISO(BASE, 6);
+    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 4, state: "solid" });
+  });
+});
