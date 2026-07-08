@@ -36,7 +36,11 @@ export function computePull(tasks: Task[], events: GEvent[]): PullUpdate[] {
     const t = (key ? byKey.get(key) : undefined) ?? (legacyId ? byId.get(legacyId) : undefined);
     if (!t) continue;
     if (ev.status === "cancelled") {
-      out.push({ taskId: t.id, date: null, time: null, unscheduled: true });
+      // Never unschedule a RESOLVED occurrence: a done/skip is history, and deleting its
+      // Google event must not wipe the completion (that was the data-loss bug). Only a
+      // still-unresolved occurrence unschedules when its event disappears.
+      if (t.status !== "done" && t.status !== "skip")
+        out.push({ taskId: t.id, date: null, time: null, unscheduled: true });
       continue;
     }
     const want = fromGEvent(ev);

@@ -136,7 +136,7 @@ describe("computePull", () => {
     expect(computePull([t], [moved])).toEqual([{ taskId: t.id, date: "2026-06-22", time: null }]);
   });
 
-  it("unschedules the task when its event was cancelled in Google", () => {
+  it("unschedules an UNRESOLVED task when its event was cancelled in Google", () => {
     const t = task();
     const cancelled: GEvent = {
       id: "ev1",
@@ -146,6 +146,16 @@ describe("computePull", () => {
     expect(computePull([t], [cancelled])).toEqual([
       { taskId: t.id, date: null, time: null, unscheduled: true },
     ]);
+  });
+
+  it("does NOT unschedule a resolved (done/skip) task whose event was cancelled — history is kept", () => {
+    const done = task({ status: "done" });
+    const cancelled: GEvent = {
+      id: "ev1",
+      status: "cancelled",
+      extendedProperties: { private: { vegaTaskId: done.id } },
+    };
+    expect(computePull([done], [cancelled])).toEqual([]);
   });
 
   it("ignores untagged events and events for unknown tasks", () => {
