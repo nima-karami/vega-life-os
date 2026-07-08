@@ -25,13 +25,15 @@ let running = false;
 
 type Window = { backDays: number; fwdDays: number };
 
-// The VEGA write-calendar holds only VEGA's own events, so a wide bounded list is cheap
-// and returns essentially all of them — so a task moved out of the push horizon still shows
-// up here and gets its event evicted rather than orphaned.
+// The VEGA write-calendar holds only VEGA's own events, so a wide bounded list is cheap and
+// returns essentially all of them — the full set the reconcile needs to spot genuinely
+// orphaned events (whose task was deleted or unscheduled) without touching the rest.
 const TASK_WINDOW = { backDays: 366, fwdDays: 732 };
 
-// Tasks are mirrored to Google only within this rolling horizon; one moved beyond it has its
-// event deleted (eviction) and re-inserted under the same stable id if it re-enters.
+// New events are only *created* within this rolling horizon (so we don't backfill the whole
+// history/future into Google). It does NOT gate deletion: an existing event for a still-
+// scheduled task is kept even after it ages past the window — never evicted — so the pull
+// can't misread a self-inflicted deletion as the user unscheduling the task.
 const PUSH_WINDOW = { backDays: 7, fwdDays: 90 };
 
 /** Incremental list with a one-shot full-list fallback when the token has expired (410). */
@@ -157,10 +159,11 @@ async function runTaskLane(
   }
   const lo = format(addDays(parseISO(todayIso), -PUSH_WINDOW.backDays), "yyyy-MM-dd");
   const hi = format(addDays(parseISO(todayIso), PUSH_WINDOW.fwdDays), "yyyy-MM-dd");
-  const pushable = useStore
-    .getState()
-    .tasks.filter((t) => t.date != null && t.date >= lo && t.date <= hi);
-  const ops = computeTaskBatch(pushable, events);
+  // Pass ALL tasks: every scheduled task's event is protected from deletion; the window only
+  // gates *new* event creation. A task aging past the horizon keeps its event (no eviction),
+  // so the pull never sees a self-inflicted cancellation and never unschedules a live task.
+  const inWindow = (t: { date: string | null }) => t.date != null && t.date >= lo && t.date <= hi;
+  const ops = computeTaskBatch(useStore.getState().tasks, events, inWindow);
   await runBatch(writeCalId, ops);
   return { pushed: ops.length, pulled: pull.length };
 }

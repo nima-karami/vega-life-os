@@ -97,6 +97,34 @@ describe("computeTaskBatch — set difference", () => {
   });
 });
 
+describe("computeTaskBatch — window gates inserts, never evicts a live task", () => {
+  it("PROTECTS an existing event for a scheduled task that has aged out of the push window", () => {
+    // The evict→pull-unschedule bug: an out-of-window scheduled task must keep its event.
+    const t = task({ date: "2020-01-01" });
+    const ev = marked(t);
+    expect(computeTaskBatch([t], [ev], () => false)).toEqual([]); // no delete, no churn
+  });
+
+  it("does not create a new event for an out-of-window task (and leaves it untouched)", () => {
+    const t = task({ date: "2020-01-01" });
+    expect(computeTaskBatch([t], [], () => false)).toEqual([]); // no insert, no delete
+  });
+
+  it("still deletes an event whose task is truly gone/unscheduled, regardless of window", () => {
+    const orphan = marked(task(), { id: "vegagone" });
+    expect(computeTaskBatch([], [orphan], () => false)).toEqual([
+      { kind: "delete", id: "vegagone" },
+    ]);
+  });
+
+  it("inserts an in-window task's missing event", () => {
+    const t = task();
+    expect(computeTaskBatch([t], [], () => true)).toEqual([
+      { kind: "insert", id: gEventId(t), body: toGEvent(t) },
+    ]);
+  });
+});
+
 describe("computePull", () => {
   it("adopts a moved event's date/time back into the task", () => {
     const t = task({ date: "2026-06-20", time: null });

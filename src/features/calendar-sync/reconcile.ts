@@ -48,16 +48,23 @@ export function computePull(tasks: Task[], events: GEvent[]): PullUpdate[] {
 
 /**
  * Push: bring Google in line with VEGA as a stateless set-difference keyed on the deterministic
- * event id. `existing` is the FULL list of the VEGA calendar. Desired = one event per in-window
- * schedulable task. Insert the missing, patch the changed, delete our stale/duplicate events —
- * never foreign (unmarked) events. Since the id is a pure function of the stable key, multiple
- * stale events for one slot all fall in have−desired and collapse to the single canonical event.
+ * event id. `existing` is the FULL list of the VEGA calendar. `desired` = one event per
+ * schedulable task (ANY date), so a scheduled task's event is protected from deletion. Deletes
+ * therefore only hit events with NO live schedulable task — i.e. the task was deleted or
+ * unscheduled — never an event that merely aged out of the push horizon. (Evicting an
+ * aged-out event is exactly what the pull then misread as a user deletion, unscheduling real
+ * tasks — see computePull.) `isInsertable` limits *creation* to the push window so we don't
+ * backfill the whole history/future; patches and delete-protection are unbounded.
  */
-export function computeTaskBatch(tasks: Task[], existing: GEvent[]): BatchOp[] {
-  const desired = new Map<string, GEvent>();
+export function computeTaskBatch(
+  tasks: Task[],
+  existing: GEvent[],
+  isInsertable: (t: Task) => boolean = () => true,
+): BatchOp[] {
+  const desired = new Map<string, { body: GEvent; task: Task }>();
   for (const t of tasks.filter(isSchedulable)) {
     const body = toGEvent(t);
-    if (body.id) desired.set(body.id, body);
+    if (body.id) desired.set(body.id, { body, task: t });
   }
   const have = new Map<string, GEvent>();
   for (const e of existing) {
@@ -65,10 +72,13 @@ export function computeTaskBatch(tasks: Task[], existing: GEvent[]): BatchOp[] {
   }
 
   const ops: BatchOp[] = [];
-  for (const [id, body] of desired) {
+  for (const [id, { body, task }] of desired) {
     const cur = have.get(id);
-    if (!cur) ops.push({ kind: "insert", id, body });
-    else if (signature(cur) !== signature(body)) ops.push({ kind: "patch", id, body });
+    if (!cur) {
+      if (isInsertable(task)) ops.push({ kind: "insert", id, body });
+    } else if (signature(cur) !== signature(body)) {
+      ops.push({ kind: "patch", id, body });
+    }
   }
   for (const id of have.keys()) {
     if (!desired.has(id)) ops.push({ kind: "delete", id });

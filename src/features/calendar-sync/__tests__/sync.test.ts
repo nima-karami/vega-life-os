@@ -53,7 +53,13 @@ import { ensureVegaCalendar } from "../calendars";
 import { defaultGcalConfig } from "../config";
 import type { CalendarEvent } from "../events-model";
 import { batchWrite, GcalHttpError, listEvents } from "../gcal";
+import { toGEvent } from "../map";
 import { syncNow } from "../sync";
+
+const defaultListImpl = async (_cal: string, o: { filtered: boolean }) =>
+  o.filtered
+    ? { events: [], nextSyncToken: "tok", expired: false }
+    : { events: [okEvent], nextSyncToken: "tok", expired: false };
 
 const gcal = (over: Partial<ReturnType<typeof defaultGcalConfig>> = {}) => ({
   ...defaultGcalConfig(),
@@ -173,6 +179,24 @@ describe("syncNow — task lane batching", () => {
     const taskBatch = calls.batches.find((b) => b.cal === "cal_vega");
     expect(taskBatch?.ops).toHaveLength(1);
     expect(taskBatch?.ops[0]).toMatchObject({ kind: "insert" });
+  });
+
+  it("does NOT evict the event of a scheduled task that has aged out of the push window", async () => {
+    // Regression for the evict→pull-unschedule loop: an old-but-scheduled task keeps its event.
+    const old = task({ id: "t_old", date: "2020-01-01" });
+    useStore.setState({ tasks: [old] });
+    const ev = { ...toGEvent(old), status: "confirmed" };
+    vi.mocked(listEvents).mockImplementation(async (_cal, o) =>
+      o.filtered
+        ? { events: [ev], nextSyncToken: "tok", expired: false }
+        : { events: [okEvent], nextSyncToken: "tok", expired: false },
+    );
+    await syncNow(false);
+    const vegaBatch = calls.batches.find((b) => b.cal === "cal_vega");
+    const deletes = (vegaBatch?.ops ?? []).filter((o) => o.kind === "delete");
+    expect(deletes).toHaveLength(0);
+    expect(useStore.getState().tasks[0].date).toBe("2020-01-01"); // still scheduled, not unscheduled
+    vi.mocked(listEvents).mockImplementation(defaultListImpl);
   });
 
   it("converges a 409 insert into a status:confirmed patch (tombstone)", async () => {
