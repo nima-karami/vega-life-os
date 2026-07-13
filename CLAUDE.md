@@ -8,6 +8,21 @@ can't learn by reading the tree, or must never get wrong, is written here.
 
 ---
 
+## 0. Read these first — non-negotiable
+
+Before you write, rename, or commit **any** code, actually **open and read in full**:
+
+1. **[`docs/style-guide.md`](docs/style-guide.md)** — naming, comments, structure.
+2. **[`docs/release-process.md`](docs/release-process.md)** — commits, the gate, deploy.
+
+Use the Read tool on both files. **Seeing the link is not reading the file.** Skimming
+the filename, quoting these rules from memory, or assuming "I already know the
+conventions" does not count and will produce non-conforming code. If you have not read
+both this session, stop and read them now — this is the first step of every code task
+here, not optional context.
+
+---
+
 ## 1. The gate — never weaken it
 
 `npm run verify` is the single gate. It runs, in order:
@@ -64,6 +79,10 @@ It runs on every commit (pre-commit hook via husky/lint-staged) and in CI.
   "tidy away" the dormant fields.
 
 ## 5. Code style
+
+**Read [`docs/style-guide.md`](docs/style-guide.md) and
+[`docs/release-process.md`](docs/release-process.md) in full before writing code** (see §0).
+The lines below are a reminder, not a substitute for reading them:
 
 - **Minimal comments.** No verbose or narrating comments. Add at most one terse line,
   and only when the *why* is non-obvious. Let names carry meaning.

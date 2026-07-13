@@ -18,6 +18,10 @@ npm run dev      # http://localhost:5180
 `npm run build` for a production bundle, `npm run preview` to serve it,
 `npm run typecheck` (or `tsc -b`) to type-check.
 
+Contributing? Read the [style guide](docs/style-guide.md) — naming, comments, structure —
+and the [release process](docs/release-process.md): commits, the `npm run verify` gate, and
+how to ship.
+
 ## The core idea
 
 Everything ladders up to a **value**. Alignment is *derived*, not assigned:
