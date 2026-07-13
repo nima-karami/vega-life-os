@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { bookSchema } from "./entities/book";
-import { calendarEventSchema } from "./entities/calendar-event";
-import { goalSchema } from "./entities/goal";
-import { habitSchema } from "./entities/habit";
-import { dayEntrySchema } from "./entities/journal";
-import { movieSchema } from "./entities/movie";
-import { reviewSchema } from "./entities/review";
-import { taskSchema } from "./entities/task";
-import { valueSchema } from "./entities/value";
-import { vocabEntrySchema } from "./entities/vocab";
+import { bookCreateSchema, bookSchema } from "./entities/book";
+import { calendarEventCreateSchema, calendarEventSchema } from "./entities/calendar-event";
+import { goalCreateSchema, goalSchema } from "./entities/goal";
+import { habitCreateSchema, habitSchema } from "./entities/habit";
+import { dayEntryCreateSchema, dayEntrySchema } from "./entities/journal";
+import { movieCreateSchema, movieSchema } from "./entities/movie";
+import { reviewCreateSchema, reviewSchema } from "./entities/review";
+import { taskCreateSchema, taskSchema } from "./entities/task";
+import { valueCreateSchema, valueSchema } from "./entities/value";
+import { vocabEntryCreateSchema, vocabEntrySchema } from "./entities/vocab";
 
 /** Stored schema per collection — the registry the repository layer keys on. */
 export const schemasByCollection = {
@@ -22,6 +22,20 @@ export const schemasByCollection = {
   reviews: reviewSchema,
   journal: dayEntrySchema,
   calendarEvents: calendarEventSchema,
+} as const;
+
+/** Client-settable input schema per collection — server-owned meta omitted, unknown keys rejected. */
+export const createSchemasByCollection = {
+  values: valueCreateSchema,
+  goals: goalCreateSchema,
+  habits: habitCreateSchema,
+  tasks: taskCreateSchema,
+  books: bookCreateSchema,
+  movies: movieCreateSchema,
+  vocab: vocabEntryCreateSchema,
+  reviews: reviewCreateSchema,
+  journal: dayEntryCreateSchema,
+  calendarEvents: calendarEventCreateSchema,
 } as const;
 
 export const COLLECTIONS = [

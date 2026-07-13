@@ -1,5 +1,6 @@
 import type { CollectionName, Dataset } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
+import { mergeWithFieldLww, type StoredRecord } from "./field-lww";
 
 export type StoredEntity<C extends CollectionName> = Dataset[C][number];
 export type WritableEntity<C extends CollectionName> = Omit<
@@ -17,13 +18,6 @@ export type Repository<C extends CollectionName> = {
 export type Clock = () => string;
 
 const systemClock: Clock = () => new Date().toISOString();
-
-const META_KEYS = new Set(["updatedAt", "fieldUpdatedAt"]);
-
-type StoredDocument = Record<string, unknown> & {
-  updatedAt: string;
-  fieldUpdatedAt: Record<string, string>;
-};
 
 export function createRepository<C extends CollectionName>(
   firestore: Firestore,
@@ -46,8 +40,13 @@ export function createRepository<C extends CollectionName>(
       const id = (record as { id: string }).id;
       const ref = col.doc(id);
       const priorSnap = await ref.get();
-      const prior = priorSnap.exists ? (priorSnap.data() as StoredDocument) : null;
-      const stamped = stampChangedFields(prior, record as Record<string, unknown>, now());
+      const prior = priorSnap.exists ? (priorSnap.data() as StoredRecord) : null;
+      const { merged, fieldUpdatedAt } = mergeWithFieldLww(
+        prior,
+        record as Record<string, unknown>,
+        now(),
+      );
+      const stamped = { ...merged, fieldUpdatedAt };
       await ref.set(stamped);
       return stamped as StoredEntity<C>;
     },
@@ -55,34 +54,4 @@ export function createRepository<C extends CollectionName>(
       await col.doc(id).delete();
     },
   };
-}
-
-/** Re-stamp `fieldUpdatedAt` only for fields whose value changed; bump `updatedAt` only on a real change. */
-function stampChangedFields(
-  prior: StoredDocument | null,
-  incoming: Record<string, unknown>,
-  now: string,
-): StoredDocument {
-  const data = stripMeta(incoming);
-  const priorData = prior ? stripMeta(prior) : {};
-  const fieldUpdatedAt: Record<string, string> = { ...(prior?.fieldUpdatedAt ?? {}) };
-
-  let hasChange = prior === null;
-  for (const key of Object.keys(data)) {
-    if (!isSameValue(data[key], priorData[key])) {
-      fieldUpdatedAt[key] = now;
-      hasChange = true;
-    }
-  }
-
-  const updatedAt = hasChange ? now : (prior?.updatedAt ?? now);
-  return { ...data, updatedAt, fieldUpdatedAt };
-}
-
-function stripMeta(record: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(record).filter(([key]) => !META_KEYS.has(key)));
-}
-
-function isSameValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }
