@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Operating manual for agents working in **VEGA Life OS** — a local-first personal
-life command center (Values → Goals → Habits → Tasks, a B&W HUD + ⌘K agent).
+Operating manual for agents working in **VEGA Life OS** — a personal life command
+center (Values → Goals → Habits → Tasks, a B&W HUD + ⌘K agent).
 This file is authoritative. Where it conflicts with habit or default behavior,
 **this file wins.** Folder structure and stack are discoverable; only what you
 can't learn by reading the tree, or must never get wrong, is written here.
@@ -120,6 +120,16 @@ secrets. Roadmap + plans live in `.claude/docs/` (git-ignored on purpose).
 **Data lifecycle (2026-06-22):** signed-out = local demo sandbox; signed-in = strictly
 cloud-only (no app data persisted to disk); no upload-on-sign-in. The signed-in paths
 are PENDING manual smoke — treat them as unverified.
+
+**Architecture pivot — DECIDED, NOT YET BUILT (2026-07-13):** the signed-in app moves
+to **online-first through a backend** — local-first is retired as a promise for
+signed-in users (the signed-out demo stays local Dexie). A separate `apps/server`
+(Node 24 · Hono · tRPC · Firebase Admin, on Cloud Run) becomes the sole write path and
+holds the Google refresh token + sync engine; the client's direct-Firestore writes go
+away. **Until that server ships, the running code is still the local/Firestore-direct
+app described above — don't assume the backend exists.** Full design:
+[`docs/specs/2026-07-13-backend-platform.md`](docs/specs/2026-07-13-backend-platform.md)
++ [`docs/adr/2026-07-13-0003-backend-architecture.md`](docs/adr/2026-07-13-0003-backend-architecture.md).
 
 ## 8. Anthropic client-side call contract
 
