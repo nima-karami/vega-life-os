@@ -30,10 +30,10 @@ dist-ssr
 .claude/scheduled_tasks.lock
 
 # Playwright runtime-QA artifacts
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # playwright-cli scratch (snapshots/console logs)
 .playwright-cli/
