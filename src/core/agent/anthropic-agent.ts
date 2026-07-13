@@ -196,7 +196,7 @@ export class AnthropicAgent implements Agent {
     // `thinking: {type:"adaptive"}` + `output_config: {effort}` are valid on
     // claude-opus-4-8 / claude-haiku-4-5 but not yet in this SDK version's
     // types — cast the params so the runtime payload stays correct.
-    const res = await client.messages.create({
+    const response = await client.messages.create({
       model: getAgentModel(),
       max_tokens: 2048,
       thinking: { type: "adaptive" },
@@ -208,10 +208,10 @@ export class AnthropicAgent implements Agent {
 
     const actions: AgentAction[] = [];
     let message = "";
-    res.content.forEach((block, i) => {
+    response.content.forEach((block, i) => {
       if (block.type === "tool_use") {
-        const a = toAction(block.name, block.input as Record<string, unknown>, i);
-        if (a) actions.push(a);
+        const action = toAction(block.name, block.input as Record<string, unknown>, i);
+        if (action) actions.push(action);
       } else if (block.type === "text") {
         message += block.text;
       }

@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { ALIGN_LABEL, alignOf } from "./align";
+import { ALIGN_LABEL, getAlignment } from "./align";
 
-describe("alignOf", () => {
+describe("getAlignment", () => {
   it("treats a goal as aspirational (goal wins over value)", () => {
-    expect(alignOf({ goalId: "g1", valueId: "v1" })).toBe("aspirational");
-    expect(alignOf({ goalId: "g1" })).toBe("aspirational");
+    expect(getAlignment({ goalId: "g1", valueId: "v1" })).toBe("aspirational");
+    expect(getAlignment({ goalId: "g1" })).toBe("aspirational");
   });
 
   it("treats a value-only item as maintenance", () => {
-    expect(alignOf({ valueId: "v1" })).toBe("maintenance");
-    expect(alignOf({ goalId: null, valueId: "v1" })).toBe("maintenance");
+    expect(getAlignment({ valueId: "v1" })).toBe("maintenance");
+    expect(getAlignment({ goalId: null, valueId: "v1" })).toBe("maintenance");
   });
 
   it("treats an unattached item as logistical", () => {
-    expect(alignOf({})).toBe("logistical");
-    expect(alignOf({ goalId: null, valueId: null })).toBe("logistical");
+    expect(getAlignment({})).toBe("logistical");
+    expect(getAlignment({ goalId: null, valueId: null })).toBe("logistical");
   });
 
   it("maps each alignment to its human label", () => {

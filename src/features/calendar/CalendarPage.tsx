@@ -3,7 +3,7 @@ import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useNowMs, useTodayISO } from "@/core/lib/clock";
-import { addMinutes, fmtShort, minutesOf, weekDays, weekStartOf } from "@/core/lib/date";
+import { addMinutes, formatShortDate, getWeekDays, minutesOf, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   ContextMenu,
@@ -27,31 +27,31 @@ import {
   type Box,
   type ChipBox,
   type ColumnSlot,
-  chipHeight,
-  chipTop,
   DAY_END,
   DAY_START,
   DROP_DURATION,
   type DragMode,
   dropToSchedule,
-  fmtMin,
+  formatMinutes,
   GUTTER,
+  getChipHeight,
+  getChipTop,
+  getMarqueeHits,
+  getMinuteAtOffset,
   HOUR_PX,
   HOURS,
   isOffWindow,
   layoutColumns,
-  marqueeHits,
-  minuteAtOffset,
   resolveDrag,
   shiftSelection,
 } from "./geometry";
 import {
+  getSingleDayAllDayLived,
+  getTimedLivedForDay,
+  getTimedTasksForDay,
+  getUnscheduledTasks,
+  getUntimedTasksForDay,
   layoutSpanBars,
-  singleDayAllDayLived,
-  timedLivedForDay,
-  timedTasksForDay,
-  unscheduledTasks,
-  untimedTasksForDay,
 } from "./grid-data";
 import { VegaCalendarMissingDialog } from "./VegaCalendarMissingDialog";
 
@@ -168,7 +168,7 @@ export function CalendarPage() {
   clipRef.current = clipboardTask;
 
   const todayIso = useTodayISO();
-  const days = useMemo(() => weekDays(weekRef, todayIso), [weekRef, todayIso]);
+  const days = useMemo(() => getWeekDays(weekRef, todayIso), [weekRef, todayIso]);
 
   // Per-view commands (calendar is reachable via the command bar; these add actions).
   useRegisterCommands([
@@ -212,7 +212,7 @@ export function CalendarPage() {
   const minuteAt = (clientY: number) => {
     const rect = gridRef.current?.getBoundingClientRect();
     if (!rect) return DAY_START;
-    return minuteAtOffset(clientY - rect.top);
+    return getMinuteAtOffset(clientY - rect.top);
   };
 
   const replaceWith = (id: string, c: NonNullable<typeof clipboardTask>) => {
@@ -272,7 +272,7 @@ export function CalendarPage() {
     if (justDragged.current) return;
     if (Date.now() < pasteSuppressUntil.current) return;
     if ((e.target as HTMLElement).closest("[data-block]")) return;
-    const time = fmtMin(minuteAt(e.clientY));
+    const time = formatMinutes(minuteAt(e.clientY));
     if (clipRef.current) pasteAt(dayIso, time);
     else createDraftAt(dayIso, time);
   };
@@ -281,7 +281,12 @@ export function CalendarPage() {
   const onColumnContextMenu = (e: React.MouseEvent, dayIso: string) => {
     if ((e.target as HTMLElement).closest("[data-block]")) return;
     e.preventDefault();
-    setSlotMenu({ x: e.clientX, y: e.clientY, date: dayIso, time: fmtMin(minuteAt(e.clientY)) });
+    setSlotMenu({
+      x: e.clientX,
+      y: e.clientY,
+      date: dayIso,
+      time: formatMinutes(minuteAt(e.clientY)),
+    });
   };
 
   // commit a schedule change; a moved/resized habit instance detaches.
@@ -304,11 +309,11 @@ export function CalendarPage() {
   // visual order of the chips in a zone+day (timed by start, all-day by row order)
   const orderedIdsFor = (zone: "timed" | "allday", day: string) =>
     zone === "timed"
-      ? timedTasksForDay(tasksRef.current, day)
+      ? getTimedTasksForDay(tasksRef.current, day)
           .slice()
           .sort((a, b) => minutesOf(a.time ?? "00:00") - minutesOf(b.time ?? "00:00"))
           .map((t) => t.id)
-      : untimedTasksForDay(tasksRef.current, day).map((t) => t.id);
+      : getUntimedTasksForDay(tasksRef.current, day).map((t) => t.id);
 
   const toggleSelect = (t: Task, zone: "timed" | "allday") => {
     setSelectedIds((prev) => {
@@ -353,7 +358,7 @@ export function CalendarPage() {
       dayDelta,
       minDelta,
     );
-    for (const s of shifts) commit(s.id, { date: s.date, time: fmtMin(s.start) });
+    for (const s of shifts) commit(s.id, { date: s.date, time: formatMinutes(s.start) });
     for (const m of members) {
       if (m.time == null && m.date != null) {
         commit(m.id, { date: format(addDays(parseISO(m.date), dayDelta), "yyyy-MM-dd") });
@@ -372,7 +377,10 @@ export function CalendarPage() {
       const da = a.date ?? "";
       const db = b.date ?? "";
       if (da !== db) return da < db ? -1 : 1;
-      return minutesOf(a.time ?? fmtMin(DAY_START)) - minutesOf(b.time ?? fmtMin(DAY_START));
+      return (
+        minutesOf(a.time ?? formatMinutes(DAY_START)) -
+        minutesOf(b.time ?? formatMinutes(DAY_START))
+      );
     })[0];
   };
 
@@ -558,7 +566,7 @@ export function CalendarPage() {
         right: Math.max(m.startX, ev.clientX) - r.left,
         bottom: Math.max(m.startY, ev.clientY) - r.top,
       };
-      lastHits = marqueeHits(box, chipBoxes());
+      lastHits = getMarqueeHits(box, chipBoxes());
       setMarquee(box);
       setProvisional(new Set(lastHits));
     };
@@ -628,12 +636,12 @@ export function CalendarPage() {
       }
       commitRef.current(d.id, {
         date: p.date,
-        time: fmtMin(p.start),
+        time: formatMinutes(p.start),
         durationMin: DROP_DURATION,
         ...(t?.status === "open" ? { status: "todo" } : {}),
       });
       setAnnounce(
-        `Scheduled ${t?.title ?? "task"} on ${p.date}, ${fmtMin(p.start)}–${addMinutes(fmtMin(p.start), DROP_DURATION)}`,
+        `Scheduled ${t?.title ?? "task"} on ${p.date}, ${formatMinutes(p.start)}–${addMinutes(formatMinutes(p.start), DROP_DURATION)}`,
       );
       justDragged.current = true;
       setTimeout(() => {
@@ -655,9 +663,13 @@ export function CalendarPage() {
     }
     const changed = p.date !== d.origDate || p.start !== d.origStart || p.durationMin !== d.origDur;
     if (changed) {
-      commitRef.current(d.id, { date: p.date, time: fmtMin(p.start), durationMin: p.durationMin });
+      commitRef.current(d.id, {
+        date: p.date,
+        time: formatMinutes(p.start),
+        durationMin: p.durationMin,
+      });
       setAnnounce(
-        `Moved to ${p.date}, ${fmtMin(p.start)}–${addMinutes(fmtMin(p.start), p.durationMin)}`,
+        `Moved to ${p.date}, ${formatMinutes(p.start)}–${addMinutes(formatMinutes(p.start), p.durationMin)}`,
       );
       justDragged.current = true;
       setTimeout(() => {
@@ -755,8 +767,8 @@ export function CalendarPage() {
         e.preventDefault();
         const ids = dragDaysRef.current
           .flatMap((d) => [
-            ...timedTasksForDay(tasksRef.current, d.iso),
-            ...untimedTasksForDay(tasksRef.current, d.iso),
+            ...getTimedTasksForDay(tasksRef.current, d.iso),
+            ...getUntimedTasksForDay(tasksRef.current, d.iso),
           ])
           .map((t) => t.id);
         setSelectedIds(new Set(ids));
@@ -877,7 +889,7 @@ export function CalendarPage() {
       ),
     [livedEvents, visibleDays],
   );
-  const backlog = useMemo(() => unscheduledTasks(tasks), [tasks]);
+  const backlog = useMemo(() => getUnscheduledTasks(tasks), [tasks]);
   const modalResponsive = useCompactModal();
   const scheduleSlotState = useOverlayState({
     isOpen: !!scheduleSlot,
@@ -909,8 +921,8 @@ export function CalendarPage() {
       <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-lg font-semibold tracking-tight text-foreground">
           {mobile
-            ? `${visibleDays[0].dow} · ${fmtShort(visibleDays[0].iso)}`
-            : `${fmtShort(days[0].iso)} – ${fmtShort(days[6].iso)}`}
+            ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
+            : `${formatShortDate(days[0].iso)} – ${formatShortDate(days[6].iso)}`}
         </h1>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
@@ -1091,7 +1103,7 @@ export function CalendarPage() {
                 </div>
                 {visibleDays.map((d) => (
                   <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-border p-1">
-                    {singleDayAllDayLived(livedEvents, d.iso).map((ev) => (
+                    {getSingleDayAllDayLived(livedEvents, d.iso).map((ev) => (
                       <CalendarEventChip
                         key={ev.id}
                         event={ev}
@@ -1099,7 +1111,7 @@ export function CalendarPage() {
                         onOpen={() => setEditingEvent(ev)}
                       />
                     ))}
-                    {untimedTasksForDay(tasks, d.iso).map((t) => (
+                    {getUntimedTasksForDay(tasks, d.iso).map((t) => (
                       <AllDayChip
                         key={t.id}
                         task={t}
@@ -1152,7 +1164,7 @@ export function CalendarPage() {
                 {/* day columns */}
                 {visibleDays.map((d) => {
                   const dayTasks = tasks.filter((t) => t.time && effective(t).date === d.iso);
-                  const dayLived = timedLivedForDay(livedEvents, d.iso);
+                  const dayLived = getTimedLivedForDay(livedEvents, d.iso);
                   const layout = layoutColumns([
                     ...dayTasks.map((t) => {
                       const e = effective(t);
@@ -1176,7 +1188,7 @@ export function CalendarPage() {
                     >
                       <button
                         type="button"
-                        aria-label={`Add task on ${d.dow}, ${fmtShort(d.iso)}${d.today ? ", today" : ""}`}
+                        aria-label={`Add task on ${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
                         onPointerDown={beginMarquee}
                         onClick={(e) => onColumnClick(e, d.iso)}
                         onContextMenu={(e) => onColumnContextMenu(e, d.iso)}
@@ -1197,8 +1209,8 @@ export function CalendarPage() {
                         <div
                           className="pointer-events-none absolute inset-x-0.5 z-30 overflow-hidden rounded-[2px] border-l-[3px] border-accent bg-surface/80 px-1.5 py-1 shadow-md ring-1 ring-accent"
                           style={{
-                            top: chipTop(preview.start),
-                            height: chipHeight(preview.durationMin),
+                            top: getChipTop(preview.start),
+                            height: getChipHeight(preview.durationMin),
                           }}
                         >
                           <span className="block truncate text-[11px] leading-tight text-foreground">
@@ -1209,11 +1221,11 @@ export function CalendarPage() {
                       {isTarget && preview && (
                         <div
                           className="pointer-events-none absolute inset-x-0 z-40 flex items-center gap-1"
-                          style={{ top: chipTop(preview.start) }}
+                          style={{ top: getChipTop(preview.start) }}
                         >
                           <span className="-translate-y-1/2 rounded-[12px] bg-foreground px-1.5 py-0.5 text-[9px] tabular-nums leading-none text-background shadow-sm">
-                            {fmtMin(preview.start)}–
-                            {addMinutes(fmtMin(preview.start), preview.durationMin)}
+                            {formatMinutes(preview.start)}–
+                            {addMinutes(formatMinutes(preview.start), preview.durationMin)}
                           </span>
                           <span className="h-px flex-1 bg-foreground/60" />
                         </div>
@@ -1251,7 +1263,7 @@ export function CalendarPage() {
               </div>
 
               {/* empty-week hint */}
-              {visibleDays.every((d) => timedTasksForDay(tasks, d.iso).length === 0) && (
+              {visibleDays.every((d) => getTimedTasksForDay(tasks, d.iso).length === 0) && (
                 <div className="pointer-events-none absolute inset-x-0 top-1/3 text-center">
                   <p className="text-sm text-muted">
                     Nothing scheduled {mobile ? "this day" : "this week"} — click a slot to add
@@ -1374,7 +1386,7 @@ export function CalendarPage() {
                 </Modal.Heading>
                 {scheduleSlot && (
                   <span className="text-sm font-normal text-muted">
-                    {fmtShort(scheduleSlot.date)} · {scheduleSlot.time}
+                    {formatShortDate(scheduleSlot.date)} · {scheduleSlot.time}
                   </span>
                 )}
               </Modal.Header>
@@ -1413,7 +1425,7 @@ export function CalendarPage() {
                 </Modal.Heading>
                 {scheduleTask?.date && (
                   <span className="text-sm font-normal text-muted">
-                    {scheduleTask.title} · {fmtShort(scheduleTask.date)}
+                    {scheduleTask.title} · {formatShortDate(scheduleTask.date)}
                   </span>
                 )}
               </Modal.Header>
@@ -1515,15 +1527,15 @@ function TimedChip({
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
-  const top = chipTop(eff.start);
-  const height = chipHeight(eff.durationMin);
+  const top = getChipTop(eff.start);
+  const height = getChipHeight(eff.durationMin);
   // side-by-side columns for overlapping chips; 2px gutters keep them distinct
   const left = `calc(${(slot.col / slot.cols) * 100}% + 2px)`;
   const width = `calc(${100 / slot.cols}% - 4px)`;
   const resolved = task.status === "done" || task.status === "skip";
   const off = isOffWindow(eff.start);
   const timeLabel = dragging
-    ? `${fmtMin(eff.start)}–${addMinutes(fmtMin(eff.start), eff.durationMin)}`
+    ? `${formatMinutes(eff.start)}–${addMinutes(formatMinutes(eff.start), eff.durationMin)}`
     : task.time;
 
   return (
@@ -1691,7 +1703,7 @@ function NowLine() {
   return (
     <div
       className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
-      style={{ top: chipTop(cur) }}
+      style={{ top: getChipTop(cur) }}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-accent" />
       <span className="h-px flex-1 bg-accent/50" />

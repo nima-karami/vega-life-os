@@ -131,11 +131,11 @@ export const createLibrarySlice: Slice<LibrarySlice> = (set, get) => ({
     saveRemove("vocab", id);
   },
   reviewVocab: (id, correct) => {
-    const w = get().vocab.find((x) => x.id === id);
-    if (!w) return;
-    const box = correct ? Math.min(5, w.box + 1) : 1;
+    const entry = get().vocab.find((x) => x.id === id);
+    if (!entry) return;
+    const box = correct ? Math.min(5, entry.box + 1) : 1;
     const next: VocabEntry = {
-      ...w,
+      ...entry,
       box,
       lastReviewed: todayISO(),
       nextDue: format(addDays(new Date(), LEITNER_DAYS[box]), "yyyy-MM-dd"),

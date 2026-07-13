@@ -13,19 +13,19 @@ import {
   TimePicker,
   useCompactModal,
 } from "@/core/ui";
-import { goalsForValue } from "@/features/goals/selectors";
-import { valueColor } from "@/features/values/color";
+import { getGoalsForValue } from "@/features/goals/selectors";
+import { getValueColor } from "@/features/values/color";
 import {
   ANYTIME_LABEL,
-  conflictNote,
-  detachedCount,
+  countDetached,
+  formatConflictNote,
   resetGoalForValue,
   validateDraft,
 } from "./editor";
 import type { Habit, HabitSchedule } from "./model";
 import { type RepeatMode, RepeatPicker } from "./RepeatPicker";
-import { habitSchedule, nextOccurrence, recurrenceText } from "./recurrence";
-import { conflictingHabits } from "./selectors";
+import { describeRecurrence, getHabitSchedule, getNextOccurrence } from "./recurrence";
+import { findConflictingHabits } from "./selectors";
 
 interface Draft {
   name: string;
@@ -44,21 +44,21 @@ interface Draft {
 }
 
 function draftFrom(habit: Habit): Draft {
-  const s = habitSchedule(habit);
-  const monthly = s.type === "monthly";
+  const schedule = getHabitSchedule(habit);
+  const isMonthly = schedule.type === "monthly";
   return {
     name: habit.name,
     valueId: habit.valueId,
     goalId: habit.goalId,
     icon: habit.icon,
     time: habit.time,
-    days: s.type === "weekly" ? [...s.days] : [1, 1, 1, 1, 1, 1, 1],
+    days: schedule.type === "weekly" ? [...schedule.days] : [1, 1, 1, 1, 1, 1, 1],
     durationMin: habit.durationMin,
-    repeat: monthly ? "monthly" : s.interval > 1 ? "nweekly" : "weekly",
-    interval: s.type === "weekly" && s.interval > 1 ? s.interval : 2,
-    anchor: s.type === "weekly" ? s.anchor : todayISO(),
-    daysOfMonth: monthly ? [...s.daysOfMonth] : [new Date().getDate()],
-    lastDay: monthly ? s.lastDay : false,
+    repeat: isMonthly ? "monthly" : schedule.interval > 1 ? "nweekly" : "weekly",
+    interval: schedule.type === "weekly" && schedule.interval > 1 ? schedule.interval : 2,
+    anchor: schedule.type === "weekly" ? schedule.anchor : todayISO(),
+    daysOfMonth: isMonthly ? [...schedule.daysOfMonth] : [new Date().getDate()],
+    lastDay: isMonthly ? schedule.lastDay : false,
   };
 }
 
@@ -127,26 +127,26 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
     }
   }, [isOpen, habit?.id]);
 
-  const goalOptions = useMemo(() => goalsForValue(goals, draft.valueId), [goals, draft.valueId]);
+  const goalOptions = useMemo(() => getGoalsForValue(goals, draft.valueId), [goals, draft.valueId]);
   const errors = validateDraft(draft);
   const hasErrors = Object.keys(errors).length > 0;
-  const detached = habit ? detachedCount(tasks, habit.id) : 0;
+  const detached = habit ? countDetached(tasks, habit.id) : 0;
   const isArchived = habit?.archivedAt != null;
 
   const conflicts = useMemo(
     () =>
       draft.repeat === "weekly"
-        ? conflictingHabits(habits, { days: draft.days, time: draft.time }, habit?.id ?? null)
+        ? findConflictingHabits(habits, { days: draft.days, time: draft.time }, habit?.id ?? null)
         : [],
     [habits, draft.repeat, draft.days, draft.time, habit?.id],
   );
-  const conflictText = conflictNote(conflicts, draft.days);
+  const conflictText = formatConflictNote(conflicts, draft.days);
 
   const schedule = buildSchedule(draft);
-  const nextDate = nextOccurrence(schedule);
+  const nextDate = getNextOccurrence(schedule);
 
-  const set = <K extends keyof Draft>(key: K, val: Draft[K]) =>
-    setDraft((d) => ({ ...d, [key]: val }));
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
 
   const setMode = (m: RepeatMode) =>
     setDraft((d) => ({
@@ -233,7 +233,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                       {draft.name.trim() || "New habit"}
                     </Modal.Heading>
                     <span className="text-xs font-normal text-muted">
-                      {recurrenceText(schedule)} · {draft.time ?? ANYTIME_LABEL}
+                      {describeRecurrence(schedule)} · {draft.time ?? ANYTIME_LABEL}
                     </span>
                   </div>
                 </Modal.Header>
@@ -250,7 +250,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                     />
                   )}
 
-                  {/* Name */}
                   <label className="block space-y-2.5">
                     <span className="text-xs text-muted">Name</span>
                     <input
@@ -272,7 +271,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                     {touched && errors.name && <p className="text-xs text-danger">{errors.name}</p>}
                   </label>
 
-                  {/* Value + Goal */}
                   <div className="flex flex-wrap gap-3">
                     <div
                       className={cx(
@@ -290,7 +288,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                           ...values.map((v) => ({
                             value: v.id,
                             label: v.name,
-                            hue: valueColor(v),
+                            hue: getValueColor(v),
                           })),
                         ]}
                       />
@@ -315,7 +313,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                     </div>
                   </div>
 
-                  {/* Schedule: repeat mode + contextual sub-controls */}
                   <RepeatPicker
                     mode={draft.repeat}
                     days={draft.days}
@@ -362,7 +359,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                     )}
                   </div>
 
-                  {/* Time + duration only apply to a scheduled (timed) habit. */}
                   {draft.time != null && (
                     <div
                       className={`flex flex-col gap-1.5 ${
@@ -399,7 +395,6 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                   region so SR users hear it update as days/time change. */}
                   <ConflictNote text={conflictText} />
 
-                  {/* Detached advisory */}
                   {detached > 0 && (
                     <p className="text-xs text-muted">
                       {detached} instance{detached === 1 ? " was" : "s were"} customized and

@@ -1,6 +1,6 @@
 import { Button } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
-import { authErrorMessage, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/core/auth";
+import { formatAuthError, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 
@@ -45,7 +45,7 @@ export function AuthForm({ autoFocus = false }: { autoFocus?: boolean }) {
       }
       setForm({ email: "", password: "" });
     } catch (err) {
-      pushToast(authErrorMessage(err));
+      pushToast(formatAuthError(err));
     } finally {
       setBusy(false);
     }

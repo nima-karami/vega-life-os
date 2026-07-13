@@ -1,5 +1,5 @@
 import { Button, Card } from "@heroui/react";
-import { fmtLong } from "@/core/lib/date";
+import { formatLongDate } from "@/core/lib/date";
 import { Icon, IconButton } from "@/core/ui";
 
 /**
@@ -20,7 +20,7 @@ export function BackfillNudge({
 }) {
   if (missedDays.length === 0) return null;
   const recent = missedDays[0];
-  const many = missedDays.length > 1;
+  const hasMultiple = missedDays.length > 1;
 
   return (
     <Card
@@ -31,20 +31,20 @@ export function BackfillNudge({
       <div className="flex items-center gap-3 px-4 py-3">
         <Icon name="notebook-pen" size={18} className="shrink-0 text-muted" />
         <p className="min-w-0 flex-1 text-sm text-foreground">
-          {many
+          {hasMultiple
             ? `You missed gratitude on ${missedDays.length} recent days.`
-            : `You missed gratitude on ${fmtLong(recent)} — add it?`}
+            : `You missed gratitude on ${formatLongDate(recent)} — add it?`}
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button
             size="sm"
             variant="secondary"
             onPress={() => onAdd(recent)}
-            aria-label={`Add gratitude for ${fmtLong(recent)}`}
+            aria-label={`Add gratitude for ${formatLongDate(recent)}`}
           >
             Add entry
           </Button>
-          {many && (
+          {hasMultiple && (
             <Button size="sm" variant="ghost" onPress={onReviewAll}>
               Review all
             </Button>

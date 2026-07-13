@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   type DayEntry,
-  entryStatus,
   GRATITUDE_ITEM_MAX,
+  getEntryStatus,
   hasContent,
   hasGratitude,
   isReflected,
@@ -35,11 +35,11 @@ describe("predicates", () => {
     expect(isReflected(base({ journal: "ok" }))).toBe(true);
   });
 
-  it("entryStatus maps content to none/started/reflected", () => {
-    expect(entryStatus(undefined)).toBe("none");
-    expect(entryStatus(base())).toBe("none");
-    expect(entryStatus(base({ gratitude: ["sun"] }))).toBe("started");
-    expect(entryStatus(base({ mood: 4 }))).toBe("reflected");
+  it("getEntryStatus maps content to none/started/reflected", () => {
+    expect(getEntryStatus(undefined)).toBe("none");
+    expect(getEntryStatus(base())).toBe("none");
+    expect(getEntryStatus(base({ gratitude: ["sun"] }))).toBe("started");
+    expect(getEntryStatus(base({ mood: 4 }))).toBe("reflected");
   });
 
   it("hasContent is true for any of gratitude/mood/journal", () => {

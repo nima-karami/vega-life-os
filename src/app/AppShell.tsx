@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
-import { gratitudeRequired } from "@/features/journal";
+import { isGratitudeRequired } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
 import { BottomNav } from "./BottomNav";
 import { OmniTrigger } from "./OmniTrigger";
@@ -12,7 +12,7 @@ export function AppShell() {
   // day rollover, so every todayISO()-derived surface (goal phase, today labels,
   // habit/streak "today", the gratitude gate) refreshes without per-page wiring.
   const today = useTodayISO();
-  const gated = useStore((s) => gratitudeRequired(s.journal, today));
+  const gated = useStore((s) => isGratitudeRequired(s.journal, today));
   const { pathname } = useLocation();
   const onToday = pathname === "/" || pathname === "/today";
   // The journal page is allowlisted: gratitude written there satisfies the gate

@@ -33,16 +33,16 @@ const CAP = 6;
  * and unchanged. `weekIsos` is the 7 ISO day-strings of the week; `today` is the
  * current ISO date (injected for determinism/testability).
  */
-export function weekRollup(
+export function computeWeekRollup(
   tasks: Task[],
   values: Value[],
   habits: Habit[],
   weekIsos: string[],
   today: string,
 ): WeekRollup {
-  const wk = tasks.filter((t) => t.date && weekIsos.includes(t.date));
-  const counted = wk.filter((t) => t.status !== "skip");
-  const done = wk.filter((t) => t.status === "done");
+  const weekTasks = tasks.filter((t) => t.date && weekIsos.includes(t.date));
+  const counted = weekTasks.filter((t) => t.status !== "skip");
+  const done = weekTasks.filter((t) => t.status === "done");
   const completion = counted.length ? done.length / counted.length : 0;
 
   const byValue = values.map((v) => ({
@@ -52,14 +52,19 @@ export function weekRollup(
   const maxV = Math.max(1, ...byValue.map((x) => x.n));
 
   const wins = done.filter((t) => t.goalId).slice(0, CAP);
-  const slipped = wk
+  const slipped = weekTasks
     .filter((t) => (t.date ?? "") < today && t.status !== "done" && t.status !== "skip")
     .slice(0, CAP);
 
   const habitRows = habits.map((h) => {
-    const sched = wk.filter((t) => t.habitId === h.id && t.status !== "skip");
-    const hd = sched.filter((t) => t.status === "done").length;
-    return { h, rate: sched.length ? hd / sched.length : 0, done: hd, total: sched.length };
+    const scheduled = weekTasks.filter((t) => t.habitId === h.id && t.status !== "skip");
+    const doneCount = scheduled.filter((t) => t.status === "done").length;
+    return {
+      h,
+      rate: scheduled.length ? doneCount / scheduled.length : 0,
+      done: doneCount,
+      total: scheduled.length,
+    };
   });
 
   return { completion, byValue, maxV, wins, slipped, habitRows };

@@ -47,7 +47,7 @@ export function CalendarSync() {
   const [, force] = useState(0);
   const refresh = () => force((n) => n + 1);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const [lastSynced, setLastSynced] = useState<number | null>(() => getLastSyncedAt());
   const [announce, setAnnounce] = useState("");
 
@@ -61,7 +61,7 @@ export function CalendarSync() {
     enabled,
     connected: isCalendarConnected(),
     busy,
-    error,
+    error: hasError,
     needsReconnect: needsReconnectFlag,
     backingOff,
     scopeStale,
@@ -73,22 +73,22 @@ export function CalendarSync() {
 
   const sync = async () => {
     setBusy(true);
-    setError(false);
+    setHasError(false);
     setAnnounce("Syncing…");
     try {
       if (needsReconnect) await getCalendarToken(true); // re-consent first
-      const r = await syncNow(true);
+      const syncResult = await syncNow(true);
       setLastSynced(Date.now());
-      const msg = `Synced · ${r.pushed} up, ${r.pulled} down`;
-      pushToast(msg);
-      setAnnounce(msg);
+      const message = `Synced · ${syncResult.pushed} up, ${syncResult.pulled} down`;
+      pushToast(message);
+      setAnnounce(message);
     } catch {
-      setError(true);
-      const msg = needsReconnect
+      setHasError(true);
+      const message = needsReconnect
         ? "Couldn’t reconnect Google Calendar"
         : "Sync failed — check your connection";
-      pushToast(msg);
-      setAnnounce(msg);
+      pushToast(message);
+      setAnnounce(message);
     } finally {
       setBusy(false);
       refresh();

@@ -41,16 +41,16 @@ export function RichJournalEditor({
     idleTimer.current = null;
     capTimer.current = null;
     if (pendingRef.current !== null) {
-      const md = pendingRef.current;
+      const markdown = pendingRef.current;
       pendingRef.current = null;
-      onChangeRef.current(md);
+      onChangeRef.current(markdown);
     }
     onSavingRef.current?.(false);
   }, []);
 
   const queueSave = useCallback(
-    (md: string) => {
-      pendingRef.current = md.slice(0, JOURNAL_MAX);
+    (markdown: string) => {
+      pendingRef.current = markdown.slice(0, JOURNAL_MAX);
       onSavingRef.current?.(true);
       if (idleTimer.current) clearTimeout(idleTimer.current);
       idleTimer.current = setTimeout(flush, DEBOUNCE_MS);

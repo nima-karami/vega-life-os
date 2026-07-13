@@ -4,7 +4,7 @@ vi.mock("../google-auth", () => ({ getCalendarToken: vi.fn(async () => "tok") })
 
 import { useStore } from "@/core/store";
 import { deleteVegaCalendar, ensureVegaCalendar } from "../calendars";
-import { defaultGcalConfig } from "../config";
+import { createDefaultGcalConfig } from "../config";
 
 type FetchResult = { ok: boolean; status: number; json?: () => Promise<unknown> };
 const res = (r: FetchResult) => ({ json: async () => ({}), ...r });
@@ -17,7 +17,7 @@ const isCreate = (url: string, init?: RequestInit) =>
   url.endsWith("/calendars") && init?.method === "POST";
 
 const seedStored = (writeCalendarId: string | null) =>
-  useStore.setState({ gcal: { ...defaultGcalConfig(), writeCalendarId } });
+  useStore.setState({ gcal: { ...createDefaultGcalConfig(), writeCalendarId } });
 
 beforeEach(() => {
   fetchMock.mockReset();

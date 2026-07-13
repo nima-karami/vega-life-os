@@ -1,4 +1,4 @@
-import { streakLabel } from "@/features/today/today-logic";
+import { formatStreakLabel } from "@/features/today/today-logic";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 
@@ -23,8 +23,8 @@ export function StreakBadge({
   const healing = state === "healing";
   const label =
     healing && recovery
-      ? `${streakLabel(streak)}, healing — ${recovery.done} of ${recovery.needed}`
-      : streakLabel(streak);
+      ? `${formatStreakLabel(streak)}, healing — ${recovery.done} of ${recovery.needed}`
+      : formatStreakLabel(streak);
   return (
     <span
       role="img"

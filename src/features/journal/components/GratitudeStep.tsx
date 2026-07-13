@@ -1,7 +1,6 @@
-// src/features/journal/components/GratitudeStep.tsx
 import { Button } from "@heroui/react";
 import { useState } from "react";
-import { relativeDay, todayISO } from "@/core/lib/date";
+import { formatRelativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
 import { GratitudeFields } from "./GratitudeFields";
@@ -34,7 +33,7 @@ export function GratitudeStep({ date, onContinue }: { date: string; onContinue: 
           <Icon name="heart" size={22} />
         </div>
         <div>
-          <p className="text-sm text-muted">{relativeDay(date, todayISO())}</p>
+          <p className="text-sm text-muted">{formatRelativeDay(date, todayISO())}</p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             What are you grateful for today?
           </h1>

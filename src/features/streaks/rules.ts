@@ -71,12 +71,12 @@ export interface RuleError {
   message: string;
 }
 
-const clampInt = (v: number, { min, max }: Range): number =>
-  Math.max(min, Math.min(max, Math.round(Number.isFinite(v) ? v : min)));
+const clampInt = (value: number, { min, max }: Range): number =>
+  Math.max(min, Math.min(max, Math.round(Number.isFinite(value) ? value : min)));
 
 /** Fill missing fields from the default and clamp numerics into range (persistence-safe). */
-export function coerceRules(p: Partial<StreakRules> | null | undefined): StreakRules {
-  const base = { ...DEFAULT_RULES, ...(p ?? {}) };
+export function coerceRules(partial: Partial<StreakRules> | null | undefined): StreakRules {
+  const base = { ...DEFAULT_RULES, ...(partial ?? {}) };
   return {
     graceDays: clampInt(base.graceDays, RULE_RANGE.graceDays),
     bridgeEnabled: !!base.bridgeEnabled,
@@ -115,7 +115,7 @@ const sameRules = (a: StreakRules, b: StreakRules): boolean =>
   a.mendCooldownDays === b.mendCooldownDays;
 
 /** The preset a config equals, or "custom" when it matches none. */
-export function presetOf(r: StreakRules): PresetName | "custom" {
+export function getPreset(r: StreakRules): PresetName | "custom" {
   for (const name of PRESET_ORDER) if (sameRules(r, PRESETS[name])) return name;
   return "custom";
 }

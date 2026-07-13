@@ -107,7 +107,6 @@ export function BulkActionBar({
         </div>
       </div>
 
-      {/* Reschedule — shift the whole selection by the delta to a new anchor start */}
       <Modal state={rescheduleState}>
         <Modal.Backdrop variant="blur">
           <Modal.Container {...responsive}>
@@ -152,7 +151,6 @@ export function BulkActionBar({
         </Modal.Backdrop>
       </Modal>
 
-      {/* Change value / goal for the whole selection */}
       <Modal state={lineageState}>
         <Modal.Backdrop variant="blur">
           <Modal.Container {...responsive}>

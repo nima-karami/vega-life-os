@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  chipHeight,
-  chipTop,
   clampStart,
   DAY_END,
   DAY_START,
   DROP_DURATION,
   dropToSchedule,
-  fmtMin,
+  formatMinutes,
+  getChipHeight,
+  getChipTop,
+  getMarqueeHits,
+  getMinuteAtOffset,
   HOUR_PX,
   isOffWindow,
   layoutColumns,
   MIN_CHIP_PX,
-  marqueeHits,
-  minuteAtOffset,
   resolveDrag,
   SNAP,
   shiftSelection,
@@ -38,25 +38,25 @@ describe("clampStart", () => {
   });
 });
 
-describe("chipTop", () => {
+describe("getChipTop", () => {
   it("maps a start minute to a pixel offset from the window top", () => {
-    expect(chipTop(DAY_START)).toBe(0);
-    expect(chipTop(DAY_START + 60)).toBe(HOUR_PX);
-    expect(chipTop(DAY_START + 30)).toBe(HOUR_PX / 2);
+    expect(getChipTop(DAY_START)).toBe(0);
+    expect(getChipTop(DAY_START + 60)).toBe(HOUR_PX);
+    expect(getChipTop(DAY_START + 30)).toBe(HOUR_PX / 2);
   });
   it("clamps an off-window (early) start to the top edge", () => {
-    expect(chipTop(DAY_START - 120)).toBe(0);
+    expect(getChipTop(DAY_START - 120)).toBe(0);
   });
 });
 
-describe("chipHeight", () => {
+describe("getChipHeight", () => {
   it("scales duration to pixels and reserves a 2px gap", () => {
-    expect(chipHeight(60)).toBe(HOUR_PX - 2);
-    expect(chipHeight(120)).toBe(HOUR_PX * 2 - 2);
+    expect(getChipHeight(60)).toBe(HOUR_PX - 2);
+    expect(getChipHeight(120)).toBe(HOUR_PX * 2 - 2);
   });
   it("never shrinks below the minimum tappable height", () => {
-    expect(chipHeight(1)).toBe(MIN_CHIP_PX);
-    expect(chipHeight(5)).toBe(MIN_CHIP_PX);
+    expect(getChipHeight(1)).toBe(MIN_CHIP_PX);
+    expect(getChipHeight(5)).toBe(MIN_CHIP_PX);
   });
 });
 
@@ -69,22 +69,22 @@ describe("isOffWindow", () => {
   });
 });
 
-describe("fmtMin", () => {
+describe("formatMinutes", () => {
   it("formats minutes-since-midnight as HH:mm", () => {
-    expect(fmtMin(0)).toBe("00:00");
-    expect(fmtMin(9 * 60 + 5)).toBe("09:05");
-    expect(fmtMin(23 * 60 + 59)).toBe("23:59");
+    expect(formatMinutes(0)).toBe("00:00");
+    expect(formatMinutes(9 * 60 + 5)).toBe("09:05");
+    expect(formatMinutes(23 * 60 + 59)).toBe("23:59");
   });
 });
 
-describe("minuteAtOffset", () => {
+describe("getMinuteAtOffset", () => {
   it("converts a pixel offset into a snapped, clamped start minute", () => {
-    expect(minuteAtOffset(0)).toBe(DAY_START);
-    expect(minuteAtOffset(HOUR_PX)).toBe(DAY_START + 60);
+    expect(getMinuteAtOffset(0)).toBe(DAY_START);
+    expect(getMinuteAtOffset(HOUR_PX)).toBe(DAY_START + 60);
     // negative offset clamps to window start
-    expect(minuteAtOffset(-100)).toBe(DAY_START);
+    expect(getMinuteAtOffset(-100)).toBe(DAY_START);
     // far below clamps to last slot
-    expect(minuteAtOffset(HOUR_PX * 100)).toBe(DAY_END - SNAP);
+    expect(getMinuteAtOffset(HOUR_PX * 100)).toBe(DAY_END - SNAP);
   });
 });
 
@@ -103,21 +103,21 @@ describe("dropToSchedule", () => {
   });
 });
 
-describe("marqueeHits", () => {
+describe("getMarqueeHits", () => {
   const boxes = [
     { id: "a", left: 0, top: 0, right: 10, bottom: 10 },
     { id: "b", left: 50, top: 50, right: 60, bottom: 60 },
     { id: "c", left: 100, top: 100, right: 110, bottom: 110 },
   ];
   it("returns ids of chips intersecting the rect", () => {
-    expect(marqueeHits({ left: 5, top: 5, right: 55, bottom: 55 }, boxes)).toEqual(["a", "b"]);
+    expect(getMarqueeHits({ left: 5, top: 5, right: 55, bottom: 55 }, boxes)).toEqual(["a", "b"]);
   });
   it("returns nothing when the rect hits no chip", () => {
-    expect(marqueeHits({ left: 200, top: 200, right: 300, bottom: 300 }, boxes)).toEqual([]);
+    expect(getMarqueeHits({ left: 200, top: 200, right: 300, bottom: 300 }, boxes)).toEqual([]);
   });
   it("counts edge-touching as a miss (strict overlap)", () => {
     // rect right edge at x=0 exactly touches box a's left edge → no overlap
-    expect(marqueeHits({ left: -10, top: -10, right: 0, bottom: 0 }, boxes)).toEqual([]);
+    expect(getMarqueeHits({ left: -10, top: -10, right: 0, bottom: 0 }, boxes)).toEqual([]);
   });
 });
 

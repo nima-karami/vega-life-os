@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   coerceRules,
   DEFAULT_RULES,
+  getPreset,
   PRESETS,
-  presetOf,
   type StreakRules,
   validateRules,
 } from "../rules";
@@ -11,16 +11,16 @@ import {
 describe("presets", () => {
   it("the default equals the Balanced preset (preserves today's habit numbers)", () => {
     expect(DEFAULT_RULES).toEqual(PRESETS.balanced);
-    expect(presetOf(DEFAULT_RULES)).toBe("balanced");
+    expect(getPreset(DEFAULT_RULES)).toBe("balanced");
   });
 
   it("recognises each preset", () => {
-    expect(presetOf(PRESETS.strict)).toBe("strict");
-    expect(presetOf(PRESETS.forgiving)).toBe("forgiving");
+    expect(getPreset(PRESETS.strict)).toBe("strict");
+    expect(getPreset(PRESETS.forgiving)).toBe("forgiving");
   });
 
   it("reports a tuned config as custom", () => {
-    expect(presetOf({ ...DEFAULT_RULES, graceDays: 3 })).toBe("custom");
+    expect(getPreset({ ...DEFAULT_RULES, graceDays: 3 })).toBe("custom");
   });
 });
 

@@ -5,7 +5,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { useCompact } from "@/core/ui";
 import { isSafeHref } from "./extensions";
 
-interface MarkBtn {
+interface MarkButton {
   name: string;
   label: string;
   icon: typeof Bold;
@@ -13,7 +13,7 @@ interface MarkBtn {
   toggle: (e: Editor) => void;
 }
 
-const MARKS: MarkBtn[] = [
+const MARKS: MarkButton[] = [
   {
     name: "bold",
     label: "Bold",
@@ -61,9 +61,9 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
     const update = () => {
       const { state, view } = editor;
       const { from, to, empty } = state.selection;
-      const focused = view.hasFocus();
+      const isFocused = view.hasFocus();
       setVersion((v) => v + 1);
-      if (empty || (!focused && !linkOpen)) {
+      if (empty || (!isFocused && !linkOpen)) {
         if (!linkOpen) setPos(null);
         return;
       }
@@ -114,7 +114,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
 
   if (!pos) return null;
 
-  const linkActive = editor.isActive("link");
+  const isLinkActive = editor.isActive("link");
 
   // Compact: dock the toolbar to the bottom (above the keyboard) instead of
   // floating over the selection, where it's hidden by the caret/handles.
@@ -146,7 +146,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
           >
             <Link2 size={15} />
           </button>
-          {linkActive && (
+          {isLinkActive && (
             <button
               type="button"
               onClick={() => {
@@ -168,19 +168,19 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
         >
           {MARKS.map((m) => {
             const MarkIcon = m.icon;
-            const active = m.isActive(editor);
+            const isActive = m.isActive(editor);
             return (
               <button
                 key={m.name}
                 type="button"
                 aria-label={m.label}
-                aria-pressed={active}
+                aria-pressed={isActive}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   m.toggle(editor);
                 }}
                 className={`grid h-8 w-8 place-items-center rounded-[8px] ${
-                  active
+                  isActive
                     ? "bg-accent text-accent-foreground"
                     : "text-muted hover:bg-surface-secondary"
                 }`}
@@ -193,13 +193,13 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
           <button
             type="button"
             aria-label="Link"
-            aria-pressed={linkActive}
+            aria-pressed={isLinkActive}
             onMouseDown={(e) => {
               e.preventDefault();
               openLink();
             }}
             className={`grid h-8 w-8 place-items-center rounded-[8px] ${
-              linkActive
+              isLinkActive
                 ? "bg-accent text-accent-foreground"
                 : "text-muted hover:bg-surface-secondary"
             }`}

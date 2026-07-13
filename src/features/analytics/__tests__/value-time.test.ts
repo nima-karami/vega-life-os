@@ -1,7 +1,7 @@
 import { format, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "@/features/calendar-sync/events-model";
-import { valueTime } from "../selectors";
+import { computeValueTime } from "../selectors";
 
 const recent = format(subDays(new Date(), 2), "yyyy-MM-dd");
 
@@ -29,23 +29,29 @@ const ce = (over: Partial<CalendarEvent>): CalendarEvent => ({
   ...over,
 });
 
-describe("valueTime", () => {
+describe("computeValueTime", () => {
   it("credits a timed tagged event's duration to its value", () => {
-    expect(valueTime([ce({})]).v_connection).toEqual({ minutes: 180, occurrences: 1 });
+    expect(computeValueTime([ce({})]).v_connection).toEqual({ minutes: 180, occurrences: 1 });
   });
   it("credits an all-day tagged event as one occurrence, zero minutes", () => {
-    expect(valueTime([ce({ allDay: true, time: null, durationMin: 0 })]).v_connection).toEqual({
+    expect(
+      computeValueTime([ce({ allDay: true, time: null, durationMin: 0 })]).v_connection,
+    ).toEqual({
       minutes: 0,
       occurrences: 1,
     });
   });
   it("ignores untagged events", () => {
-    expect(valueTime([ce({ valueId: null })])).toEqual({});
+    expect(computeValueTime([ce({ valueId: null })])).toEqual({});
   });
   it("ignores events older than the window", () => {
-    expect(valueTime([ce({ date: format(subDays(new Date(), 90), "yyyy-MM-dd") })])).toEqual({});
+    expect(computeValueTime([ce({ date: format(subDays(new Date(), 90), "yyyy-MM-dd") })])).toEqual(
+      {},
+    );
   });
   it("still counts tagged-past events removed in Google (history preserved)", () => {
-    expect(valueTime([ce({ removedAt: "2026-07-10T00:00:00Z" })]).v_connection.occurrences).toBe(1);
+    expect(
+      computeValueTime([ce({ removedAt: "2026-07-10T00:00:00Z" })]).v_connection.occurrences,
+    ).toBe(1);
   });
 });

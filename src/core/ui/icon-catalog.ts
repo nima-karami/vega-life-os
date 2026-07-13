@@ -231,7 +231,7 @@ export const ICON_CATALOG: readonly CatalogEntry[] = [
 ];
 
 /** Catalog entries grouped in fixed category order (only non-empty categories). */
-export function groupedCatalog(): { category: IconCategory; entries: CatalogEntry[] }[] {
+export function getGroupedCatalog(): { category: IconCategory; entries: CatalogEntry[] }[] {
   return ICON_CATEGORIES.map((category) => ({
     category,
     entries: ICON_CATALOG.filter((e) => e.category === category),

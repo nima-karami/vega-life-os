@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/features/tasks";
-import { gEventId, stablePushKey, toGEvent } from "../map";
+import { gEventId, getStablePushKey, toGEvent } from "../map";
 
 const task = (over: Partial<Task> = {}): Task => ({
   id: "t1",
@@ -19,26 +19,26 @@ const task = (over: Partial<Task> = {}): Task => ({
   ...over,
 });
 
-describe("stablePushKey", () => {
+describe("getStablePushKey", () => {
   it("keys a non-detached habit instance on (habitId, slot), not its volatile id", () => {
     const a = task({ id: "t_aaa", kind: "habit", habitId: "h1", slotDate: "2026-06-20" });
     const b = task({ id: "t_bbb", kind: "habit", habitId: "h1", slotDate: "2026-06-20" });
-    expect(stablePushKey(a)).toBe("habit:h1:2026-06-20");
-    expect(stablePushKey(a)).toBe(stablePushKey(b)); // regenerated instance → same key
+    expect(getStablePushKey(a)).toBe("habit:h1:2026-06-20");
+    expect(getStablePushKey(a)).toBe(getStablePushKey(b)); // regenerated instance → same key
   });
 
   it("falls back to slot=date when slotDate is absent", () => {
     const t = task({ kind: "habit", habitId: "h1", slotDate: null, date: "2026-06-21" });
-    expect(stablePushKey(t)).toBe("habit:h1:2026-06-21");
+    expect(getStablePushKey(t)).toBe("habit:h1:2026-06-21");
   });
 
   it("keys a detached habit instance on its own id (it has left the slot)", () => {
     const t = task({ id: "t_x", kind: "habit", habitId: "h1", detached: true });
-    expect(stablePushKey(t)).toBe("task:t_x");
+    expect(getStablePushKey(t)).toBe("task:t_x");
   });
 
   it("keys a one-off on its own id", () => {
-    expect(stablePushKey(task({ id: "t_x" }))).toBe("task:t_x");
+    expect(getStablePushKey(task({ id: "t_x" }))).toBe("task:t_x");
   });
 });
 

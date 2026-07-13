@@ -8,7 +8,7 @@ vi.stubGlobal("localStorage", {
   clear: () => mem.clear(),
 });
 
-import { defaultGcalConfig, readLocalGcalConfig } from "../config";
+import { createDefaultGcalConfig, readLocalGcalConfig } from "../config";
 
 beforeEach(() => mem.clear());
 
@@ -20,7 +20,7 @@ describe("gcal config (device-local read)", () => {
       readCalendarIds: ["primary"],
       showGoogleEvents: true,
     });
-    expect(defaultGcalConfig()).toEqual(readLocalGcalConfig());
+    expect(createDefaultGcalConfig()).toEqual(readLocalGcalConfig());
   });
 
   it("reads persisted values", () => {

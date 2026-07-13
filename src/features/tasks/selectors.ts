@@ -8,16 +8,16 @@ export const isAnytimeHabit = (t: Task) => t.kind === "habit" && t.time === null
 export const byTime = (a: Task, b: Task) =>
   (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.order - b.order;
 
-export const tasksOn = (tasks: Task[], date: string) => tasks.filter((t) => t.date === date);
+export const getTasksOn = (tasks: Task[], date: string) => tasks.filter((t) => t.date === date);
 
-export const dayQueue = (tasks: Task[], date: string) => tasksOn(tasks, date).sort(byTime);
+export const getDayQueue = (tasks: Task[], date: string) => getTasksOn(tasks, date).sort(byTime);
 
-export const backlogTasks = (tasks: Task[]) =>
+export const getBacklogTasks = (tasks: Task[]) =>
   tasks.filter((t) => t.date === null).sort((a, b) => a.order - b.order);
 
-export const datedTasks = (tasks: Task[]) => tasks.filter((t) => t.date !== null);
+export const getDatedTasks = (tasks: Task[]) => tasks.filter((t) => t.date !== null);
 
-export const tasksByStatus = (tasks: Task[], status: TaskStatus) =>
+export const getTasksByStatus = (tasks: Task[], status: TaskStatus) =>
   tasks.filter((t) => t.status === status);
 
 export interface DayCounts {
@@ -27,8 +27,8 @@ export interface DayCounts {
   todo: number;
 }
 
-export function dayCounts(tasks: Task[], date: string): DayCounts {
-  const list = tasksOn(tasks, date);
+export function computeDayCounts(tasks: Task[], date: string): DayCounts {
+  const list = getTasksOn(tasks, date);
   return {
     total: list.length,
     done: list.filter((t) => t.status === "done").length,

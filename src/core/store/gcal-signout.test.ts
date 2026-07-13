@@ -30,7 +30,7 @@ vi.mock("@/core/persistence/sandbox-meta", () => ({
 vi.mock("./persist", () => ({ setPersistAuth: vi.fn(), setPersist: vi.fn() }));
 vi.mock("@/features/calendar-sync/google-auth", () => ({ clearCalendarToken }));
 
-import { defaultGcalConfig } from "@/features/calendar-sync/config";
+import { createDefaultGcalConfig } from "@/features/calendar-sync/config";
 import { useStore } from "./store";
 
 describe("sign-out tears down the Google Calendar connection", () => {
@@ -50,7 +50,7 @@ describe("sign-out tears down the Google Calendar connection", () => {
 
   it("resets the gcal slice to defaults and clears the device token", async () => {
     await useStore.getState().onAuthChange(null);
-    expect(useStore.getState().gcal).toEqual(defaultGcalConfig());
+    expect(useStore.getState().gcal).toEqual(createDefaultGcalConfig());
     expect(clearCalendarToken).toHaveBeenCalledOnce();
   });
 });

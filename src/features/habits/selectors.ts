@@ -9,11 +9,11 @@ import {
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
 import type { Habit } from "./model";
-import { isActiveOnSchedule, weeklyMask } from "./recurrence";
+import { getWeeklyMask, isActiveOnSchedule } from "./recurrence";
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
 
-export const habitInstances = (tasks: Task[], habitId: string) =>
+export const getHabitInstances = (tasks: Task[], habitId: string) =>
   tasks
     .filter((t) => t.habitId === habitId && t.date)
     .sort((a, b) => ((a.date ?? "") < (b.date ?? "") ? -1 : 1));
@@ -26,15 +26,15 @@ const statusRank = (s: TaskStatus) => (s === "done" ? 3 : s === "skip" ? 2 : 1);
 
 /** Newest-by-status instance claiming each slotDate (a moved instance keeps its slot). */
 function instanceBySlot(tasks: Task[], habitId: string): Map<string, Task> {
-  const m = new Map<string, Task>();
+  const bySlot = new Map<string, Task>();
   for (const t of tasks) {
     if (t.habitId !== habitId) continue;
     const slot = t.slotDate ?? t.date;
     if (slot == null) continue;
-    const prev = m.get(slot);
-    if (!prev || statusRank(t.status) > statusRank(prev.status)) m.set(slot, t);
+    const prev = bySlot.get(slot);
+    if (!prev || statusRank(t.status) > statusRank(prev.status)) bySlot.set(slot, t);
   }
-  return m;
+  return bySlot;
 }
 
 function classifySlot(
@@ -95,7 +95,7 @@ function streakSeq(
  * Streak with mending, driven by the shared streak engine and the active rules
  * (default = the original habit constants, so existing numbers are unchanged).
  */
-export function streakState(
+export function getStreakState(
   tasks: Task[],
   habit: Habit,
   today: string = todayISO(),
@@ -105,18 +105,18 @@ export function streakState(
 }
 
 // Consecutive completed slots, mending applied. Thin wrapper for existing call sites.
-export function habitStreak(
+export function computeHabitStreak(
   tasks: Task[],
   habit: Habit,
   today: string = todayISO(),
   rules: StreakRules = DEFAULT_RULES,
 ): number {
-  return streakState(tasks, habit, today, rules).count;
+  return getStreakState(tasks, habit, today, rules).count;
 }
 
 /** done / (done + missed) over scheduled slots; a late backfill still counts as done
  *  for the rate (only the streak penalizes lateness). Skips and pending slots excluded. */
-export function habitRate(
+export function computeHabitRate(
   tasks: Task[],
   habit: Habit,
   today: string = todayISO(),
@@ -136,7 +136,7 @@ export function habitRate(
  * Streak "on the line" today: today's scheduled slot is unresolved and a streak
  * worth protecting (>= threshold) is at stake. Returns the streak length, else 0.
  */
-export function streakAtRisk(
+export function isStreakAtRisk(
   tasks: Task[],
   habit: Habit,
   threshold = 3,
@@ -146,12 +146,12 @@ export function streakAtRisk(
   if (!isActiveOnSchedule(habit.schedule, today)) return 0;
   const todaySlot = instanceBySlot(tasks, habit.id).get(today);
   if (todaySlot && (todaySlot.status === "done" || todaySlot.status === "skip")) return 0;
-  const streak = streakState(tasks, habit, today, rules).count;
+  const streak = getStreakState(tasks, habit, today, rules).count;
   return streak >= threshold ? streak : 0;
 }
 
 /** A small completion history (most recent N scheduled slots), 1=done 0=miss -1=skip. */
-export function habitHistory(
+export function getHabitHistory(
   tasks: Task[],
   habit: Habit,
   n = 14,
@@ -169,7 +169,7 @@ export function habitHistory(
  * "HH:mm"; ≥1 shared active weekday; the candidate is neither the edited habit
  * (excludeId) nor archived. Untimed drafts never conflict. Advisory only.
  */
-export function conflictingHabits(
+export function findConflictingHabits(
   habits: Habit[],
   draft: { days: number[]; time: string | null },
   excludeId: string | null,
@@ -181,7 +181,7 @@ export function conflictingHabits(
       (h.archivedAt ?? null) === null &&
       h.time != null &&
       h.time === draft.time &&
-      weeklyMask(h).some((on, i) => on === 1 && draft.days[i] === 1),
+      getWeeklyMask(h).some((on, i) => on === 1 && draft.days[i] === 1),
   );
 }
 

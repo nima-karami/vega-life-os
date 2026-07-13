@@ -39,7 +39,7 @@ export async function signUpWithEmail(email: string, password: string): Promise<
 }
 
 /** Map a Firebase auth error to a short, human message for a toast. */
-export function authErrorMessage(err: unknown): string {
+export function formatAuthError(err: unknown): string {
   const code = (err as { code?: string })?.code ?? "";
   switch (code) {
     case "auth/invalid-email":

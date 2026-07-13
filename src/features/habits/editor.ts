@@ -9,7 +9,7 @@
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
 import type { Habit } from "./model";
-import { weeklyMask } from "./recurrence";
+import { getWeeklyMask } from "./recurrence";
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -52,21 +52,20 @@ export function validateDraft(draft: { name: string; durationMin: number }): Dra
  * Count of this habit's customized (detached) instances — surfaced as an
  * editor advisory because they are immutable to a template edit.
  */
-export function detachedCount(tasks: Task[], habitId: string): number {
+export function countDetached(tasks: Task[], habitId: string): number {
   return tasks.filter((t) => t.habitId === habitId && t.detached).length;
 }
 
 /**
  * Advisory conflict text for the editor. Given the habits that already occupy
- * the draft's slot (from `conflictingHabits`) and the draft's selected days,
+ * the draft's slot (from `findConflictingHabits`) and the draft's selected days,
  * returns the line to show, or null when there's nothing to warn about.
  * Locale-aware names + day list; never blocks Save.
  */
-export function conflictNote(conflicts: Habit[], draftDays: number[]): string | null {
+export function formatConflictNote(conflicts: Habit[], draftDays: number[]): string | null {
   if (!conflicts.length) return null;
-  // shared days = draft days that any conflicting habit also runs on
   const sharedIdx = draftDays
-    .map((on, i) => (on === 1 && conflicts.some((c) => weeklyMask(c)[i] === 1) ? i : -1))
+    .map((on, i) => (on === 1 && conflicts.some((c) => getWeeklyMask(c)[i] === 1) ? i : -1))
     .filter((i) => i >= 0);
   const dayLabel = listFmt.format(sharedIdx.map((i) => DAY_SHORT[i]));
   if (conflicts.length === 1) {

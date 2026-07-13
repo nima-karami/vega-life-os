@@ -14,7 +14,7 @@ export interface Habit {
   /** "HH:mm" preferred time-of-day, or null for an "anytime" (untimed) habit */
   time: string | null;
   /** Cadence — the single source of truth. The display label is derived via
-   *  `recurrenceText(schedule)`; there is no stored label. */
+   *  `describeRecurrence(schedule)`; there is no stored label. */
   schedule: HabitSchedule;
   durationMin: number;
   /** ISO date the habit was created (for rate windows) */

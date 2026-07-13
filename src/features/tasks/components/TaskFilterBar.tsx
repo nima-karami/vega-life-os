@@ -8,7 +8,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { useMemo, useState } from "react";
-import { alignOf } from "@/core/lib/align";
+import { getAlignment } from "@/core/lib/align";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, Icon, Label, NONE, Select } from "@/core/ui";
@@ -40,25 +40,25 @@ const TYPES: { id: TypeFilter; label: string }[] = [
   { id: "errand", label: "Errand" },
 ];
 
-function inRange(date: string | null, range: DateRange): boolean {
+function isInRange(date: string | null, range: DateRange): boolean {
   if (range === "all") return true;
   if (!date) return false; // backlog / undated only show under "All"
   if (range === "today") return date === todayISO();
-  const d = parseISO(date);
+  const parsedDate = parseISO(date);
   const now = new Date();
   const interval =
     range === "week"
       ? { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) }
       : { start: startOfMonth(now), end: endOfMonth(now) };
-  return isWithinInterval(d, interval);
+  return isWithinInterval(parsedDate, interval);
 }
 
-function matchType(t: Task, type: TypeFilter): boolean {
+function matchesType(task: Task, type: TypeFilter): boolean {
   if (type === "all") return true;
-  if (type === "habit") return t.kind === "habit";
-  const a = alignOf(t);
-  if (type === "goal") return a === "aspirational";
-  return a === "logistical"; // errand
+  if (type === "habit") return task.kind === "habit";
+  const alignment = getAlignment(task);
+  if (type === "goal") return alignment === "aspirational";
+  return alignment === "logistical"; // errand
 }
 
 /** Holds filter state and derives a task predicate. */
@@ -67,11 +67,11 @@ export function useTaskFilter() {
   const match = useMemo(() => {
     const q = filters.query.trim().toLowerCase();
     return (t: Task) =>
-      inRange(t.date, filters.range) &&
+      isInRange(t.date, filters.range) &&
       (!filters.valueId || t.valueId === filters.valueId) &&
       (!filters.goalId || t.goalId === filters.goalId) &&
       (!q || t.title.toLowerCase().includes(q)) &&
-      matchType(t, filters.type);
+      matchesType(t, filters.type);
   }, [filters]);
   const active =
     filters.range !== "all" ||
@@ -101,7 +101,6 @@ export function TaskFilterBar({
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-      {/* search */}
       <div className="relative w-full sm:w-52">
         <Icon
           name="search"
@@ -118,7 +117,6 @@ export function TaskFilterBar({
         />
       </div>
 
-      {/* date range */}
       <div className="flex items-center gap-1.5">
         <Label>When</Label>
         {RANGES.map((r) => (
@@ -132,7 +130,6 @@ export function TaskFilterBar({
         ))}
       </div>
 
-      {/* value + goal */}
       <div className="flex items-center gap-2">
         <div className="min-w-[140px]">
           <Select
@@ -158,7 +155,6 @@ export function TaskFilterBar({
         </div>
       </div>
 
-      {/* type */}
       <div className="flex items-center gap-1.5">
         <Label>Type</Label>
         {TYPES.map((t) => (

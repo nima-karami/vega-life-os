@@ -1,6 +1,6 @@
 import type { Task } from "@/features/tasks";
 import type { BatchOp } from "./gcal";
-import { fromGEvent, type GEvent, isSchedulable, stablePushKey, toGEvent } from "./map";
+import { fromGEvent, type GEvent, getStablePushKey, isSchedulable, toGEvent } from "./map";
 
 const keyOf = (e: GEvent) => e.extendedProperties?.private?.vegaKey;
 const legacyIdOf = (e: GEvent) => e.extendedProperties?.private?.vegaTaskId;
@@ -27,7 +27,7 @@ export interface PullUpdate {
 export function computePull(tasks: Task[], events: GEvent[]): PullUpdate[] {
   // Match by stable key (the current occupant of a habit slot), falling back to the task id
   // for legacy events written before vegaKey existed.
-  const byKey = new Map(tasks.map((t) => [stablePushKey(t), t]));
+  const byKey = new Map(tasks.map((t) => [getStablePushKey(t), t]));
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const out: PullUpdate[] = [];
   for (const ev of events) {

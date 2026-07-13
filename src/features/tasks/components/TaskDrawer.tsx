@@ -1,5 +1,5 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { fmtLong } from "@/core/lib/date";
+import { formatLongDate } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { DatePicker, Icon, Label, NONE, Select, TimeRange, useCompactModal } from "@/core/ui";
 import { STATUS_LABEL, type Task, type TaskStatus } from "../model";
@@ -139,7 +139,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
 
                   {task.date && (
                     <p className="text-xs text-muted">
-                      {fmtLong(task.date)}
+                      {formatLongDate(task.date)}
                       {task.time ? ` · ${task.time}` : ""}
                     </p>
                   )}

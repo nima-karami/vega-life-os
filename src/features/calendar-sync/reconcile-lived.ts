@@ -3,7 +3,7 @@ import { gEventToCalendarEvent } from "./events-map";
 import type { CalendarEvent } from "./events-model";
 import type { GEvent } from "./map";
 
-export const mkLocalId = () => uid("ce_");
+export const makeLocalId = () => uid("ce_");
 
 const MEANING_KEYS = ["valueId", "goalId", "note"] as const;
 const hasMeaning = (e: CalendarEvent) => !!e.valueId || !!e.goalId || e.note.trim() !== "";
@@ -11,7 +11,7 @@ const hasMeaning = (e: CalendarEvent) => !!e.valueId || !!e.goalId || e.note.tri
 type Synced = ReturnType<typeof gEventToCalendarEvent>;
 
 const insert = (synced: Synced): CalendarEvent => ({
-  id: mkLocalId(),
+  id: makeLocalId(),
   ...synced,
   valueId: null,
   goalId: null,

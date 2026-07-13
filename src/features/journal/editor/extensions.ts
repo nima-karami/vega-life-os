@@ -10,8 +10,8 @@ export function isSafeHref(url: string): boolean {
   const trimmed = url.trim();
   if (trimmed === "") return false;
   try {
-    const u = new URL(trimmed, "https://x.invalid");
-    return ["http:", "https:", "mailto:"].includes(u.protocol);
+    const parsedUrl = new URL(trimmed, "https://x.invalid");
+    return ["http:", "https:", "mailto:"].includes(parsedUrl.protocol);
   } catch {
     return false;
   }

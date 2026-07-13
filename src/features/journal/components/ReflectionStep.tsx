@@ -1,7 +1,6 @@
-// src/features/journal/components/ReflectionStep.tsx
 import { Button } from "@heroui/react";
 import { useState } from "react";
-import { relativeDay, todayISO } from "@/core/lib/date";
+import { formatRelativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Icon, Label } from "@/core/ui";
 import { RichJournalEditor } from "../editor";
@@ -40,7 +39,7 @@ export function ReflectionStep({
           <Icon name="spark" size={22} />
         </div>
         <div>
-          <p className="text-sm text-muted">{relativeDay(date, todayISO())}</p>
+          <p className="text-sm text-muted">{formatRelativeDay(date, todayISO())}</p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Reflect on today
           </h1>

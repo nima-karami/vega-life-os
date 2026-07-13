@@ -1,6 +1,6 @@
 import { addDays, format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
-import { fmtShort, todayISO, weekDays, weekStartOf } from "@/core/lib/date";
+import { formatShortDate, getWeekDays, todayISO, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   Button,
@@ -15,7 +15,7 @@ import {
 } from "@/core/ui";
 import { useValueColor } from "@/features/values/useValueColor";
 import { REVIEW_PROMPTS } from "./model";
-import { weekRollup } from "./rollup";
+import { computeWeekRollup } from "./rollup";
 
 /** Advisory cap for the past-reviews list (D5) — "show more" reveals the rest. */
 const PAST_PAGE = 50;
@@ -36,12 +36,12 @@ export function ReviewSection() {
 
   const [weekRef, setWeekRef] = useState(() => new Date());
   const periodKey = format(weekStartOf(weekRef), "yyyy-MM-dd");
-  const days = useMemo(() => weekDays(weekRef), [weekRef]);
+  const days = useMemo(() => getWeekDays(weekRef), [weekRef]);
   const weekIsos = useMemo(() => days.map((d) => d.iso), [days]);
   const existing = reviews.find((r) => r.periodKey === periodKey);
 
-  const roll = useMemo(
-    () => weekRollup(tasks, values, habits, weekIsos, todayISO()),
+  const rollup = useMemo(
+    () => computeWeekRollup(tasks, values, habits, weekIsos, todayISO()),
     [tasks, values, habits, weekIsos],
   );
 
@@ -70,7 +70,7 @@ export function ReviewSection() {
     try {
       saveReview({
         periodKey,
-        completion: roll.completion,
+        completion: rollup.completion,
         prompts: REVIEW_PROMPTS.map((q, i) => ({ q, a: answers[i] })),
       });
       setBaseline(answers);
@@ -84,7 +84,7 @@ export function ReviewSection() {
 
   const isThisWeek = periodKey === format(weekStartOf(new Date()), "yyyy-MM-dd");
   const isFuture = periodKey > format(weekStartOf(new Date()), "yyyy-MM-dd");
-  const noActivity = roll.byValue.every((x) => x.n === 0) && roll.completion === 0;
+  const noActivity = rollup.byValue.every((x) => x.n === 0) && rollup.completion === 0;
 
   const [shown, setShown] = useState(PAST_PAGE);
   const visibleReviews = reviews.slice(0, shown);
@@ -95,7 +95,7 @@ export function ReviewSection() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">Weekly review</h2>
           <p className="mt-1 text-sm text-muted">
-            {fmtShort(days[0].iso)} – {fmtShort(days[6].iso)}
+            {formatShortDate(days[0].iso)} – {formatShortDate(days[6].iso)}
             {isThisWeek && " · in progress"}
             {isFuture && " · upcoming"}
           </p>
@@ -116,13 +116,12 @@ export function ReviewSection() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-        {/* rollup */}
         <div className="space-y-5">
           <Panel className="flex items-center gap-4 p-6">
-            <Gauge value={roll.completion} size={76} stroke={7} hue={CHART_PRIMARY} sub="done" />
+            <Gauge value={rollup.completion} size={76} stroke={7} hue={CHART_PRIMARY} sub="done" />
             <div>
               <p className="text-3xl font-semibold leading-none tracking-tight text-foreground">
-                {Math.round(roll.completion * 100)}%
+                {Math.round(rollup.completion * 100)}%
               </p>
               <Label className="mt-1">completion</Label>
             </div>
@@ -140,8 +139,8 @@ export function ReviewSection() {
               <Panel className="p-5">
                 <SectionHead title="balance" meta="by value" />
                 <div className="mt-3 space-y-2">
-                  {roll.byValue.map(({ v, n }) => (
-                    <ValueBar key={v.id} valueId={v.id} name={v.name} n={n} max={roll.maxV} />
+                  {rollup.byValue.map(({ v, n }) => (
+                    <ValueBar key={v.id} valueId={v.id} name={v.name} n={n} max={rollup.maxV} />
                   ))}
                 </div>
               </Panel>
@@ -149,7 +148,7 @@ export function ReviewSection() {
               <Panel className="p-5">
                 <SectionHead title="habits" meta="this week" />
                 <div className="mt-3 space-y-1.5">
-                  {roll.habitRows.map(({ h, rate, done, total }) => (
+                  {rollup.habitRows.map(({ h, rate, done, total }) => (
                     <div key={h.id} className="flex items-center justify-between">
                       <span className="truncate text-xs text-muted">{h.name}</span>
                       <span className="text-xs tabular-nums text-muted">
@@ -157,7 +156,7 @@ export function ReviewSection() {
                       </span>
                     </div>
                   ))}
-                  {!roll.habitRows.length && (
+                  {!rollup.habitRows.length && (
                     <p className="text-sm text-muted">No habits scheduled this week.</p>
                   )}
                 </div>
@@ -166,27 +165,26 @@ export function ReviewSection() {
           )}
         </div>
 
-        {/* wins/slipped + reflection */}
         <div className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <Panel className="p-5">
-              <SectionHead title="wins" meta={String(roll.wins.length)} />
+              <SectionHead title="wins" meta={String(rollup.wins.length)} />
               <ul className="mt-3 space-y-1.5">
-                {roll.wins.map((t) => (
+                {rollup.wins.map((t) => (
                   <li key={t.id} className="flex items-start gap-2">
                     <Icon name="check" size={12} className="mt-0.5 shrink-0 text-success" />
                     <span className="text-sm text-foreground">{t.title}</span>
                   </li>
                 ))}
-                {!roll.wins.length && (
+                {!rollup.wins.length && (
                   <li className="text-sm text-muted">No goal-work completed yet.</li>
                 )}
               </ul>
             </Panel>
             <Panel className="p-5">
-              <SectionHead title="slipped" meta={String(roll.slipped.length)} />
+              <SectionHead title="slipped" meta={String(rollup.slipped.length)} />
               <ul className="mt-3 space-y-1.5">
-                {roll.slipped.map((t) => (
+                {rollup.slipped.map((t) => (
                   <li key={t.id} className="flex items-start gap-2">
                     <Icon name="alert" size={12} className="mt-0.5 shrink-0 text-danger" />
                     <span className="text-sm text-muted">
@@ -194,7 +192,7 @@ export function ReviewSection() {
                     </span>
                   </li>
                 ))}
-                {!roll.slipped.length && (
+                {!rollup.slipped.length && (
                   <li className="text-sm text-muted">Nothing left behind. Clean week.</li>
                 )}
               </ul>
@@ -234,7 +232,6 @@ export function ReviewSection() {
             </div>
           </Panel>
 
-          {/* history */}
           {reviews.length > 0 && (
             <Panel className="p-5">
               <SectionHead title="past reviews" meta={String(reviews.length)} />
@@ -250,7 +247,9 @@ export function ReviewSection() {
                       r.periodKey === periodKey ? "border-accent" : "border-border",
                     )}
                   >
-                    <span className="text-sm text-foreground">week of {fmtShort(r.periodKey)}</span>
+                    <span className="text-sm text-foreground">
+                      week of {formatShortDate(r.periodKey)}
+                    </span>
                     <span className="text-xs text-muted">{Math.round(r.completion * 100)}%</span>
                     <span className="ml-auto truncate text-xs text-muted">
                       {r.prompts.find((p) => p.a)?.a ?? "—"}

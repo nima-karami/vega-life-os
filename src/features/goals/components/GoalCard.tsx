@@ -5,9 +5,13 @@ import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import { cx, Icon, Menu } from "@/core/ui";
 import { GOAL_STATUS_LABEL, type GoalStatus, isGoalClosed } from "../model";
-import { goalPaceBadge, goalProgressPercent, goalScheduleBadge } from "../presentation";
-import { habitsForGoal } from "../selectors";
-import { periodLabel } from "../timeframe";
+import {
+  computeGoalProgressPercent,
+  getGoalPaceBadge,
+  getGoalScheduleBadge,
+} from "../presentation";
+import { getHabitsForGoal } from "../selectors";
+import { formatPeriodLabel } from "../timeframe";
 
 const STATUS_ICON: Record<GoalStatus, IconName> = {
   backlog: "clock",
@@ -54,21 +58,20 @@ export function GoalCard({
 
   if (!goal) return null;
 
-  const closed = isGoalClosed(goal.status);
-  const pace = goalPaceBadge(goal);
-  const schedule = goalScheduleBadge(goal);
-  const pct = goalProgressPercent(goal);
-  const linked = habitsForGoal(habits, goal.id);
+  const isClosed = isGoalClosed(goal.status);
+  const pace = getGoalPaceBadge(goal);
+  const schedule = getGoalScheduleBadge(goal);
+  const pct = computeGoalProgressPercent(goal);
+  const linked = getHabitsForGoal(habits, goal.id);
 
-  const onToggleSub = (subId: string) => {
+  const handleToggleSub = (subId: string) => {
     toggleSubgoal(goal.id, subId);
-    // recompute after the toggle and announce the new derived percent
     const next = useStore.getState().goals.find((g) => g.id === goal.id);
     if (next) {
-      const p = goalProgressPercent(next);
-      if (p !== announcedPct) {
-        setAnnouncedPct(p);
-        onStatusAnnounce(`Progress ${p}%`);
+      const nextPct = computeGoalProgressPercent(next);
+      if (nextPct !== announcedPct) {
+        setAnnouncedPct(nextPct);
+        onStatusAnnounce(`Progress ${nextPct}%`);
       }
     }
   };
@@ -77,7 +80,7 @@ export function GoalCard({
     <div
       className={cx(
         "rounded-[12px] border border-border bg-surface-secondary/40 p-3.5",
-        closed && "opacity-60",
+        isClosed && "opacity-60",
       )}
     >
       <div className="flex items-center gap-2">
@@ -131,7 +134,7 @@ export function GoalCard({
           onClick={onEdit}
           className="flex items-center gap-1 text-xs text-muted hover:text-foreground"
         >
-          <Icon name="calendar" size={11} /> {periodLabel(goal.start, goal.end)}
+          <Icon name="calendar" size={11} /> {formatPeriodLabel(goal.start, goal.end)}
         </button>
         <span className="text-xs tabular-nums text-muted">{pct}%</span>
         {schedule && (
@@ -146,7 +149,7 @@ export function GoalCard({
           </span>
         )}
         {pace && !schedule && (
-          <span className={cx("ml-auto text-xs", pace.behind ? "text-warning" : "text-success")}>
+          <span className={cx("ml-auto text-xs", pace.isBehind ? "text-warning" : "text-success")}>
             {pace.text}
           </span>
         )}
@@ -156,7 +159,11 @@ export function GoalCard({
         <ul className="mt-3 space-y-1">
           {goal.subgoals.map((s) => (
             <li key={s.id} className="flex items-center gap-2">
-              <Checkbox isSelected={s.done} onChange={() => onToggleSub(s.id)} aria-label={s.name}>
+              <Checkbox
+                isSelected={s.done}
+                onChange={() => handleToggleSub(s.id)}
+                aria-label={s.name}
+              >
                 <Checkbox.Content className="flex items-center gap-2">
                   <Checkbox.Control>
                     <Checkbox.Indicator>

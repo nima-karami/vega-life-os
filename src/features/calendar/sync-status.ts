@@ -67,7 +67,7 @@ export function formatLastSynced(at: number | null, now: number = Date.now()): s
 }
 
 /** Human-readable status copy for a phase (also used for the aria-live region). */
-export function syncStatusText(phase: SyncPhase): string {
+export function formatSyncStatus(phase: SyncPhase): string {
   switch (phase) {
     case "not-configured":
       return "Google Calendar isn’t set up";

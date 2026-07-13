@@ -3,10 +3,10 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { onAuth } from "@/core/auth";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { profileIncomplete } from "@/core/store/profile";
-import { ACCENT_VAR_KEYS, accentVars } from "@/core/theme/accent";
+import { isProfileIncomplete } from "@/core/store/profile";
+import { ACCENT_VAR_KEYS, getAccentVars } from "@/core/theme/accent";
 import { startPolling, syncNow } from "@/features/calendar-sync";
-import { gratitudeRequired } from "@/features/journal";
+import { isGratitudeRequired } from "@/features/journal";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { GO_SHORTCUTS } from "./keymap";
@@ -54,7 +54,7 @@ export function RootBoot() {
   // configured slate theme shows through.
   useEffect(() => {
     const root = document.documentElement;
-    const vars = accentVars(accent);
+    const vars = getAccentVars(accent);
     for (const key of ACCENT_VAR_KEYS) {
       const value = vars[key];
       if (value) root.style.setProperty(key, value);
@@ -77,7 +77,7 @@ export function RootBoot() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Morning gate up: swallow every shortcut so there's no keyboard way around it.
-      if (gratitudeRequired(useStore.getState().journal, todayISO())) {
+      if (isGratitudeRequired(useStore.getState().journal, todayISO())) {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
         return;
       }
@@ -149,7 +149,7 @@ export function RootBoot() {
     );
   } else if (!authUid && !onboarded) {
     content = <Onboarding />;
-  } else if (authUid && profileIncomplete(operatorName)) {
+  } else if (authUid && isProfileIncomplete(operatorName)) {
     content = <ProfileStep />;
   } else {
     content = (

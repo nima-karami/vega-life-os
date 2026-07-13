@@ -34,7 +34,7 @@ function encodeId(raw: string): string {
 /** Stable identity for a task's calendar event. Habit instances key on the immutable
  *  (habitId, slot) so a regenerated or moved instance maps to the same event instead of
  *  churning; one-offs and detached instances key on their own stable id. */
-export function stablePushKey(t: Task): string {
+export function getStablePushKey(t: Task): string {
   return t.kind === "habit" && t.habitId && !t.detached
     ? `habit:${t.habitId}:${t.slotDate ?? t.date}`
     : `task:${t.id}`;
@@ -43,7 +43,7 @@ export function stablePushKey(t: Task): string {
 /** The Google event resource id — a pure function of the stable key, so re-inserting is
  *  idempotent (409→patch) and the id == the match key (no separate lookup). */
 export function gEventId(t: Task): string {
-  return encodeId(stablePushKey(t));
+  return encodeId(getStablePushKey(t));
 }
 
 /** Build the Google event body for a VEGA task. Timed if it has a time, else all-day. */
@@ -51,7 +51,7 @@ export function toGEvent(t: Task): GEvent {
   const base: GEvent = {
     id: gEventId(t),
     summary: t.title,
-    extendedProperties: { private: { vegaTaskId: t.id, vegaKey: stablePushKey(t) } },
+    extendedProperties: { private: { vegaTaskId: t.id, vegaKey: getStablePushKey(t) } },
   };
   if (t.time) {
     const start = parseISO(`${t.date}T${t.time}:00`);

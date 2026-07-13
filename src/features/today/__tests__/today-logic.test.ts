@@ -3,12 +3,12 @@ import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
 import {
   buildTaskPatch,
-  goalsForValue,
+  formatStreakLabel,
+  getGoalsForValue,
   partitionToday,
   reorderTasksInDay,
   sortDailyHabits,
   splitRemaining,
-  streakLabel,
   toggleDone,
 } from "../today-logic";
 
@@ -76,7 +76,7 @@ describe("partitionToday()", () => {
     expect(done).toHaveLength(0);
   });
 
-  it("sorts each group by time then order (dayQueue semantics)", () => {
+  it("sorts each group by time then order (getDayQueue semantics)", () => {
     const tasks = [
       task({ id: "late", time: "15:00", order: 0, status: "todo" }),
       task({ id: "early", time: "08:00", order: 1, status: "todo" }),
@@ -175,22 +175,22 @@ describe("buildTaskPatch()", () => {
   });
 });
 
-// ─── goalsForValue ───────────────────────────────────────────────────────────
+// ─── getGoalsForValue ───────────────────────────────────────────────────────────
 
-describe("goalsForValue()", () => {
+describe("getGoalsForValue()", () => {
   const goals = [goal("g1", "v1", 0), goal("g2", "v1", 1), goal("g3", "v2", 0)];
 
   it("returns only goals whose valueId matches", () => {
-    expect(goalsForValue(goals, "v1").map((g) => g.id)).toEqual(["g1", "g2"]);
-    expect(goalsForValue(goals, "v2").map((g) => g.id)).toEqual(["g3"]);
+    expect(getGoalsForValue(goals, "v1").map((g) => g.id)).toEqual(["g1", "g2"]);
+    expect(getGoalsForValue(goals, "v2").map((g) => g.id)).toEqual(["g3"]);
   });
 
   it("returns empty when value is null", () => {
-    expect(goalsForValue(goals, null)).toEqual([]);
+    expect(getGoalsForValue(goals, null)).toEqual([]);
   });
 
   it("returns empty when no goals match", () => {
-    expect(goalsForValue(goals, "vX")).toEqual([]);
+    expect(getGoalsForValue(goals, "vX")).toEqual([]);
   });
 });
 
@@ -288,7 +288,7 @@ describe("splitRemaining()", () => {
   });
 
   it("preserves the incoming order within each subgroup", () => {
-    // input already in dayQueue (time→order) sequence: timed prefix, untimed suffix
+    // input already in getDayQueue (time→order) sequence: timed prefix, untimed suffix
     const remaining = [
       task({ id: "t1", time: "08:00" }),
       task({ id: "t2", time: "12:00" }),
@@ -347,16 +347,16 @@ describe("sortDailyHabits()", () => {
   });
 });
 
-// ─── streakLabel ─────────────────────────────────────────────────────────────
+// ─── formatStreakLabel ─────────────────────────────────────────────────────────────
 
-describe("streakLabel()", () => {
+describe("formatStreakLabel()", () => {
   it("is singular at exactly 1", () => {
-    expect(streakLabel(1)).toBe("1-day streak");
+    expect(formatStreakLabel(1)).toBe("1-day streak");
   });
 
   it("is plural at every other value", () => {
-    expect(streakLabel(0)).toBe("0-day streak");
-    expect(streakLabel(2)).toBe("2-day streak");
-    expect(streakLabel(12)).toBe("12-day streak");
+    expect(formatStreakLabel(0)).toBe("0-day streak");
+    expect(formatStreakLabel(2)).toBe("2-day streak");
+    expect(formatStreakLabel(12)).toBe("12-day streak");
   });
 });

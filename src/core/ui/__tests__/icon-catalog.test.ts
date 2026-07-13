@@ -3,7 +3,7 @@ import { CHROME_ICON_NAMES } from "@/core/lib/icon-names";
 import {
   CHROME_ICONS,
   filterCatalog,
-  groupedCatalog,
+  getGroupedCatalog,
   ICON_CATALOG,
   ICON_CATEGORIES,
 } from "../icon-catalog";
@@ -51,7 +51,7 @@ describe("icon catalog drift guard", () => {
   });
 
   it("grouping preserves category order and covers the whole catalog", () => {
-    const grouped = groupedCatalog();
+    const grouped = getGroupedCatalog();
     const order = grouped.map((g) => g.category);
     expect(order).toEqual(ICON_CATEGORIES.filter((c) => order.includes(c)));
     const flatCount = grouped.reduce((n, g) => n + g.entries.length, 0);

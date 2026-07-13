@@ -1,7 +1,7 @@
 import { isValid, parseISO } from "date-fns";
 import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { fmtLong, relativeDay, todayISO } from "@/core/lib/date";
+import { formatLongDate, formatRelativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon, Label, UndoBar } from "@/core/ui";
 import { GratitudeFields } from "./components/GratitudeFields";
@@ -69,9 +69,9 @@ function JournalEditorView({ date }: { date: string }) {
           </button>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {relativeDay(date, todayISO())}
+              {formatRelativeDay(date, todayISO())}
             </h1>
-            <p className="text-sm text-muted">{fmtLong(date)}</p>
+            <p className="text-sm text-muted">{formatLongDate(date)}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

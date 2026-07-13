@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
-import { conflictNote, detachedCount, resetGoalForValue, validateDraft } from "../editor";
+import { countDetached, formatConflictNote, resetGoalForValue, validateDraft } from "../editor";
 import type { Habit } from "../model";
-import { recurrenceLabel } from "../recurrence";
+import { formatWeekdayLabel } from "../recurrence";
 
 const goal = (id: string, valueId: string): Goal => ({
   id,
@@ -18,25 +18,25 @@ const goal = (id: string, valueId: string): Goal => ({
   order: 0,
 });
 
-describe("recurrenceLabel", () => {
+describe("formatWeekdayLabel", () => {
   it("labels all seven days as Every day", () => {
-    expect(recurrenceLabel([1, 1, 1, 1, 1, 1, 1])).toBe("Every day");
+    expect(formatWeekdayLabel([1, 1, 1, 1, 1, 1, 1])).toBe("Every day");
   });
 
   it("labels no days as Never", () => {
-    expect(recurrenceLabel([0, 0, 0, 0, 0, 0, 0])).toBe("Never");
+    expect(formatWeekdayLabel([0, 0, 0, 0, 0, 0, 0])).toBe("Never");
   });
 
   it("labels Mon-Fri as Weekdays", () => {
-    expect(recurrenceLabel([1, 1, 1, 1, 1, 0, 0])).toBe("Weekdays");
+    expect(formatWeekdayLabel([1, 1, 1, 1, 1, 0, 0])).toBe("Weekdays");
   });
 
   it("labels Sat+Sun as Weekends", () => {
-    expect(recurrenceLabel([0, 0, 0, 0, 0, 1, 1])).toBe("Weekends");
+    expect(formatWeekdayLabel([0, 0, 0, 0, 0, 1, 1])).toBe("Weekends");
   });
 
   it("joins arbitrary days by short name in Mon..Sun order", () => {
-    expect(recurrenceLabel([1, 0, 1, 0, 1, 0, 0])).toBe("Mon / Wed / Fri");
+    expect(formatWeekdayLabel([1, 0, 1, 0, 1, 0, 0])).toBe("Mon / Wed / Fri");
   });
 });
 
@@ -82,21 +82,21 @@ describe("validateDraft", () => {
   });
 });
 
-describe("detachedCount", () => {
+describe("countDetached", () => {
   const task = (habitId: string, detached: boolean): Task =>
     ({ id: `${habitId}-${detached}`, habitId, detached }) as unknown as Task;
 
   it("counts only detached instances of the given habit", () => {
     const tasks = [task("h1", true), task("h1", false), task("h1", true), task("h2", true)];
-    expect(detachedCount(tasks, "h1")).toBe(2);
+    expect(countDetached(tasks, "h1")).toBe(2);
   });
 
   it("is zero when there are none", () => {
-    expect(detachedCount([], "h1")).toBe(0);
+    expect(countDetached([], "h1")).toBe(0);
   });
 });
 
-describe("conflictNote", () => {
+describe("formatConflictNote", () => {
   const h = (name: string, days: number[]): Habit =>
     ({
       id: name,
@@ -106,15 +106,15 @@ describe("conflictNote", () => {
   const sun = [0, 0, 0, 0, 0, 0, 1];
 
   it("returns null with no conflicts", () => {
-    expect(conflictNote([], sun)).toBeNull();
+    expect(formatConflictNote([], sun)).toBeNull();
   });
 
   it("names a single conflicting habit and the shared day", () => {
-    expect(conflictNote([h("Morning run", sun)], sun)).toBe("Overlaps Morning run on Sun.");
+    expect(formatConflictNote([h("Morning run", sun)], sun)).toBe("Overlaps Morning run on Sun.");
   });
 
   it("summarizes multiple conflicts with a count and names", () => {
-    const note = conflictNote([h("A", sun), h("B", sun)], sun);
+    const note = formatConflictNote([h("A", sun), h("B", sun)], sun);
     expect(note).toBe("Overlaps 2 habits on these days: A and B.");
   });
 });

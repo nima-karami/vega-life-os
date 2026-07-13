@@ -15,7 +15,7 @@ import {
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import { useValueColor } from "@/features/values";
-import { type ColumnSlot, chipHeight, chipTop, isOffWindow } from "./geometry";
+import { type ColumnSlot, getChipHeight, getChipTop, isOffWindow } from "./geometry";
 
 /**
  * A lived (external Google) event on the calendar grid. Visually distinct from a
@@ -34,16 +34,16 @@ export function CalendarEventChip({
   onOpen: () => void;
 }) {
   const accent = useValueColor(event.valueId);
-  const tagged = event.valueId != null;
+  const isTagged = event.valueId != null;
 
   if (variant === "allday") {
     return (
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`${event.title}, all day, ${tagged ? "tagged" : "untagged"} (from Google)`}
+        aria-label={`${event.title}, all day, ${isTagged ? "tagged" : "untagged"} (from Google)`}
         className="flex w-full items-center gap-1 truncate rounded-[2px] border-l-[3px] border-dashed bg-surface-secondary px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm"
-        style={{ borderColor: tagged ? accent : undefined }}
+        style={{ borderColor: isTagged ? accent : undefined }}
       >
         <Icon name="calendar" size={10} className="shrink-0 text-muted" />
         <span className="truncate">{event.title}</span>
@@ -52,31 +52,31 @@ export function CalendarEventChip({
   }
 
   const start = minutesOf(event.time ?? "00:00");
-  const s = slot ?? { col: 0, cols: 1 };
+  const columnSlot = slot ?? { col: 0, cols: 1 };
   return (
     <button
       type="button"
       data-block
       data-event-id={event.id}
       onClick={onOpen}
-      aria-label={`${event.title}, ${event.time}–${addMinutes(event.time ?? "00:00", event.durationMin)}, ${tagged ? "tagged" : "untagged"} (from Google)`}
+      aria-label={`${event.title}, ${event.time}–${addMinutes(event.time ?? "00:00", event.durationMin)}, ${isTagged ? "tagged" : "untagged"} (from Google)`}
       className={cx(
         "group absolute block cursor-pointer select-none overflow-hidden rounded-[2px] border-l-[3px] border-dashed bg-surface-secondary px-1.5 py-1 text-left shadow-sm",
-        !tagged && "opacity-90",
+        !isTagged && "opacity-90",
       )}
       style={{
-        top: chipTop(start),
-        height: chipHeight(event.durationMin),
-        left: `calc(${(s.col / s.cols) * 100}% + 2px)`,
-        width: `calc(${100 / s.cols}% - 4px)`,
-        borderColor: tagged ? accent : undefined,
+        top: getChipTop(start),
+        height: getChipHeight(event.durationMin),
+        left: `calc(${(columnSlot.col / columnSlot.cols) * 100}% + 2px)`,
+        width: `calc(${100 / columnSlot.cols}% - 4px)`,
+        borderColor: isTagged ? accent : undefined,
       }}
     >
       <span className="flex items-center gap-1">
         <Icon name="calendar" size={11} className="shrink-0 text-muted" />
         <span className="truncate text-[11px] leading-tight text-foreground">{event.title}</span>
       </span>
-      {!isOffWindow(start) && tagged && (
+      {!isOffWindow(start) && isTagged && (
         <span className="mt-0.5 block truncate text-[9px] text-muted">in service of a value</span>
       )}
     </button>
@@ -102,19 +102,19 @@ export function SpanBarChip({
   onOpen: () => void;
 }) {
   const accent = useValueColor(event.valueId);
-  const tagged = event.valueId != null;
+  const isTagged = event.valueId != null;
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${event.title}, multi-day, ${tagged ? "tagged" : "untagged"} (from Google)`}
+      aria-label={`${event.title}, multi-day, ${isTagged ? "tagged" : "untagged"} (from Google)`}
       className={cx(
         "mx-px my-px flex min-w-0 items-center gap-1 overflow-hidden border-dashed bg-surface-secondary px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm",
         !continuesLeft && "rounded-l-[3px] border-l-[3px]",
         !continuesRight && "rounded-r-[3px]",
-        !tagged && "opacity-90",
+        !isTagged && "opacity-90",
       )}
-      style={{ ...style, borderColor: tagged && !continuesLeft ? accent : undefined }}
+      style={{ ...style, borderColor: isTagged && !continuesLeft ? accent : undefined }}
     >
       {!continuesLeft && <Icon name="calendar" size={10} className="shrink-0 text-muted" />}
       <span className="truncate">{event.title}</span>
@@ -137,7 +137,7 @@ export function EventEditor({
   const renameEvent = useStore((s) => s.renameEvent);
   const markEventForDelete = useStore((s) => s.markEventForDelete);
   const pushToast = useStore((s) => s.pushToast);
-  const [confirming, setConfirming] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const responsive = useCompactModal();
   const state = useOverlayState({
     isOpen: !!event,
@@ -233,7 +233,7 @@ export function EventEditor({
                 </Modal.Body>
 
                 <Modal.Footer className="justify-between" render={(props) => <footer {...props} />}>
-                  <Button type="button" variant="danger-soft" onPress={() => setConfirming(true)}>
+                  <Button type="button" variant="danger-soft" onPress={() => setIsConfirming(true)}>
                     <Icon name="trash" size={15} />
                     Delete
                   </Button>
@@ -249,7 +249,7 @@ export function EventEditor({
 
       {event && (
         <ConfirmDialog
-          open={confirming}
+          open={isConfirming}
           danger
           title="Delete this event?"
           body={`“${event.title}” will be removed from Google Calendar too on the next sync.`}
@@ -257,10 +257,10 @@ export function EventEditor({
           onConfirm={() => {
             markEventForDelete(event.id);
             pushToast("Removing from Google…");
-            setConfirming(false);
+            setIsConfirming(false);
             onClose();
           }}
-          onClose={() => setConfirming(false)}
+          onClose={() => setIsConfirming(false)}
         />
       )}
     </Modal>

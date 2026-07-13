@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { Value } from "@/features/values/model";
-import { taskLineage } from "../lineage";
+import { getTaskLineage } from "../lineage";
 import type { Task } from "../model";
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
@@ -68,10 +68,10 @@ const ctx = { values: [value], goals: [goal], habits: [habit] };
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
-describe("taskLineage", () => {
+describe("getTaskLineage", () => {
   it("resolves direct value link", () => {
     const task = makeTask({ valueId: "v1" });
-    const result = taskLineage(task, ctx);
+    const result = getTaskLineage(task, ctx);
     expect(result.value?.id).toBe("v1");
     expect(result.goal).toBeUndefined();
     expect(result.habit).toBeUndefined();
@@ -80,7 +80,7 @@ describe("taskLineage", () => {
 
   it("resolves via goal — inherits value from goal.valueId", () => {
     const task = makeTask({ goalId: "g1" }); // no direct valueId
-    const result = taskLineage(task, ctx);
+    const result = getTaskLineage(task, ctx);
     expect(result.goal?.id).toBe("g1");
     expect(result.value?.id).toBe("v1"); // resolved via goal
     expect(result.fromHabit).toBe(false);
@@ -88,7 +88,7 @@ describe("taskLineage", () => {
 
   it("resolves via habit — inherits value and goal from habit", () => {
     const task = makeTask({ habitId: "h1", kind: "habit" });
-    const result = taskLineage(task, ctx);
+    const result = getTaskLineage(task, ctx);
     expect(result.habit?.id).toBe("h1");
     expect(result.goal?.id).toBe("g1"); // via habit.goalId
     expect(result.value?.id).toBe("v1"); // via goal.valueId
@@ -97,19 +97,19 @@ describe("taskLineage", () => {
 
   it("sets fromHabit when task.habitId is set (even if kind != 'habit')", () => {
     const task = makeTask({ habitId: "h1", kind: "oneoff" });
-    const result = taskLineage(task, ctx);
+    const result = getTaskLineage(task, ctx);
     expect(result.fromHabit).toBe(true);
   });
 
   it("sets fromHabit when task.kind === 'habit' (even without habitId)", () => {
     const task = makeTask({ kind: "habit", habitId: null });
-    const result = taskLineage(task, ctx);
+    const result = getTaskLineage(task, ctx);
     expect(result.fromHabit).toBe(true);
   });
 
   it("returns all undefined for a fully unlinked one-off task", () => {
     const task = makeTask(); // no links
-    const result = taskLineage(task, ctx);
+    const result = getTaskLineage(task, ctx);
     expect(result.value).toBeUndefined();
     expect(result.goal).toBeUndefined();
     expect(result.habit).toBeUndefined();
@@ -118,22 +118,22 @@ describe("taskLineage", () => {
 
   it("handles dangling valueId gracefully (does not throw)", () => {
     const task = makeTask({ valueId: "nonexistent" });
-    expect(() => taskLineage(task, ctx)).not.toThrow();
-    const result = taskLineage(task, ctx);
+    expect(() => getTaskLineage(task, ctx)).not.toThrow();
+    const result = getTaskLineage(task, ctx);
     expect(result.value).toBeUndefined();
   });
 
   it("handles dangling goalId gracefully (does not throw)", () => {
     const task = makeTask({ goalId: "nonexistent" });
-    expect(() => taskLineage(task, ctx)).not.toThrow();
-    const result = taskLineage(task, ctx);
+    expect(() => getTaskLineage(task, ctx)).not.toThrow();
+    const result = getTaskLineage(task, ctx);
     expect(result.goal).toBeUndefined();
   });
 
   it("handles dangling habitId gracefully (does not throw)", () => {
     const task = makeTask({ habitId: "nonexistent", kind: "habit" });
-    expect(() => taskLineage(task, ctx)).not.toThrow();
-    const result = taskLineage(task, ctx);
+    expect(() => getTaskLineage(task, ctx)).not.toThrow();
+    const result = getTaskLineage(task, ctx);
     expect(result.habit).toBeUndefined();
     expect(result.fromHabit).toBe(true); // kind=habit still sets it
   });
@@ -142,7 +142,7 @@ describe("taskLineage", () => {
     const value2: Value = { ...value, id: "v2", name: "Stability", order: 1 };
     const ctxWithV2 = { ...ctx, values: [value, value2] };
     const task = makeTask({ valueId: "v2", habitId: "h1", kind: "habit" });
-    const result = taskLineage(task, ctxWithV2);
+    const result = getTaskLineage(task, ctxWithV2);
     expect(result.value?.id).toBe("v2"); // direct wins
   });
 
@@ -150,7 +150,7 @@ describe("taskLineage", () => {
     const goal2: Goal = { ...goal, id: "g2", name: "Meditate", valueId: "v1" };
     const ctxWithG2 = { ...ctx, goals: [goal, goal2] };
     const task = makeTask({ goalId: "g2", habitId: "h1", kind: "habit" });
-    const result = taskLineage(task, ctxWithG2);
+    const result = getTaskLineage(task, ctxWithG2);
     expect(result.goal?.id).toBe("g2"); // task.goalId wins
   });
 });

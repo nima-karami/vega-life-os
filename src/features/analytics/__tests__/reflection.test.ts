@@ -2,7 +2,7 @@ import { format, subDays } from "date-fns";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DayEntry } from "@/features/journal/model";
 import { DEFAULT_RULES, PRESETS } from "@/features/streaks";
-import { reflectionStats } from "../selectors";
+import { computeReflectionStats } from "../selectors";
 
 const NOW = new Date("2026-06-25T12:00:00");
 const iso = (back: number) => format(subDays(NOW, back), "yyyy-MM-dd");
@@ -20,7 +20,7 @@ function entry(back: number, patch: Partial<DayEntry>): DayEntry {
   };
 }
 
-describe("reflectionStats", () => {
+describe("computeReflectionStats", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -33,7 +33,7 @@ describe("reflectionStats", () => {
       entry(1, { journal: "yesterday" }), // journaled only
       entry(3, { gratitude: ["earlier"] }), // gratitude only
     ];
-    const { journaled, gratitude } = reflectionStats(journal, 7);
+    const { journaled, gratitude } = computeReflectionStats(journal, 7);
 
     expect(journaled.series).toHaveLength(7);
     expect(journaled.count).toBe(2);
@@ -44,13 +44,13 @@ describe("reflectionStats", () => {
 
   it("today not logged yet does not break the streak", () => {
     const journal = [entry(1, { journal: "yesterday" }), entry(2, { journal: "before" })];
-    const { journaled } = reflectionStats(journal, 7);
+    const { journaled } = computeReflectionStats(journal, 7);
     expect(journaled.count).toBe(2);
     expect(journaled.streak).toBe(2); // counts back from yesterday
   });
 
   it("empty journal yields zero counts and streaks", () => {
-    const { journaled, gratitude } = reflectionStats([], 14);
+    const { journaled, gratitude } = computeReflectionStats([], 14);
     expect(journaled.count).toBe(0);
     expect(journaled.streak).toBe(0);
     expect(gratitude.count).toBe(0);
@@ -58,7 +58,7 @@ describe("reflectionStats", () => {
   });
 });
 
-describe("reflectionStats — healing via the shared streak engine", () => {
+describe("computeReflectionStats — healing via the shared streak engine", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -70,11 +70,11 @@ describe("reflectionStats — healing via the shared streak engine", () => {
   const oneSlipOnLongRun = [14, 13, 12, 11, 10, 9, 8, 7, 6, 4, 3, 2].map(j);
 
   it("bridges a single slip on a long journaling run (Balanced)", () => {
-    expect(reflectionStats(oneSlipOnLongRun, 28, DEFAULT_RULES).journaled.streak).toBe(12);
+    expect(computeReflectionStats(oneSlipOnLongRun, 28, DEFAULT_RULES).journaled.streak).toBe(12);
   });
 
   it("does not heal that gap under Strict rules", () => {
     // grace 0 → an unlogged yesterday is a hard miss; no bridging → chain broken
-    expect(reflectionStats(oneSlipOnLongRun, 28, PRESETS.strict).journaled.streak).toBe(0);
+    expect(computeReflectionStats(oneSlipOnLongRun, 28, PRESETS.strict).journaled.streak).toBe(0);
   });
 });

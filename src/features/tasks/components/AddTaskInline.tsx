@@ -2,7 +2,7 @@ import { Button } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { AddButton, Label, NONE, Select } from "@/core/ui";
-import { buildTaskPatch, type CaptureDraft, goalsForValue } from "@/features/today/today-logic";
+import { buildTaskPatch, type CaptureDraft, getGoalsForValue } from "@/features/today/today-logic";
 
 const EMPTY: CaptureDraft = { title: "", valueId: null, goalId: null, habitId: null };
 
@@ -35,7 +35,7 @@ export function AddTaskInline({
     if (open) titleRef.current?.focus();
   }, [open]);
 
-  const valueGoals = goalsForValue(goals, draft.valueId);
+  const valueGoals = getGoalsForValue(goals, draft.valueId);
   const canCommit = draft.title.trim().length > 0 && !busy;
 
   function reset() {
@@ -77,7 +77,7 @@ export function AddTaskInline({
   function chooseValue(valueId: string | null) {
     setDraft((d) => {
       const goalStillValid =
-        d.goalId != null && goalsForValue(goals, valueId).some((g) => g.id === d.goalId);
+        d.goalId != null && getGoalsForValue(goals, valueId).some((g) => g.id === d.goalId);
       return { ...d, valueId, goalId: goalStillValid ? d.goalId : null };
     });
   }

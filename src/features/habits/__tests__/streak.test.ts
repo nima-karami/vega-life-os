@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { shiftISO } from "@/core/lib/date";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Habit } from "../model";
-import { habitRate, habitStreak, streakState } from "../selectors";
+import { computeHabitRate, computeHabitStreak, getStreakState } from "../selectors";
 
 const BASE = "2026-01-01";
 const HABIT = "h";
@@ -55,29 +55,29 @@ function build(statuses: TaskStatus[]): { tasks: Task[]; today: string } {
   return { tasks, today: shiftISO(BASE, statuses.length + 1) };
 }
 
-describe("streakState — basics", () => {
+describe("getStreakState — basics", () => {
   it("counts a clean run with no miss", () => {
     const { tasks, today } = build(rep(D, 5));
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 5, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 5, state: "solid" });
   });
 
   it("a miss on a short run breaks; only the run after counts", () => {
     const { tasks, today } = build([...rep(D, 3), M, ...rep(D, 2)]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 2, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 2, state: "solid" });
   });
 
   it("an empty history is broken at 0", () => {
-    expect(streakState([], dailyHabit(), "2026-01-10")).toEqual({ count: 0, state: "broken" });
+    expect(getStreakState([], dailyHabit(), "2026-01-10")).toEqual({ count: 0, state: "broken" });
   });
 });
 
-describe("streakState — grace window", () => {
+describe("getStreakState — grace window", () => {
   it("does not break for a still-pending instance dated today", () => {
     const tasks = [
       ...rep(D, 20).map((s, i) => inst(shiftISO(BASE, i), s)),
       inst(shiftISO(BASE, 20), M),
     ];
-    expect(streakState(tasks, dailyHabit(), shiftISO(BASE, 20))).toEqual({
+    expect(getStreakState(tasks, dailyHabit(), shiftISO(BASE, 20))).toEqual({
       count: 20,
       state: "solid",
     });
@@ -89,7 +89,7 @@ describe("streakState — grace window", () => {
       ...rep(D, 20).map((s, i) => inst(shiftISO(BASE, i), s)),
       inst(shiftISO(BASE, 20), M),
     ];
-    expect(streakState(tasks, dailyHabit(), shiftISO(BASE, 21))).toEqual({
+    expect(getStreakState(tasks, dailyHabit(), shiftISO(BASE, 21))).toEqual({
       count: 20,
       state: "solid",
     });
@@ -101,7 +101,7 @@ describe("streakState — grace window", () => {
       ...rep(D, 20).map((s, i) => inst(shiftISO(BASE, i), s)),
       inst(shiftISO(BASE, 20), M),
     ];
-    expect(streakState(tasks, dailyHabit(), shiftISO(BASE, 22))).toEqual({
+    expect(getStreakState(tasks, dailyHabit(), shiftISO(BASE, 22))).toEqual({
       count: 20,
       state: "healing",
       recovery: { done: 0, needed: 3 },
@@ -114,14 +114,14 @@ describe("streakState — grace window", () => {
       ...rep(D, 5).map((s, i) => inst(shiftISO(BASE, i), s)),
       inst(shiftISO(BASE, 5), D, { completedAt: `${shiftISO(BASE, 6)}T08:00:00` }),
     ];
-    expect(streakState(tasks, dailyHabit(), shiftISO(BASE, 6))).toEqual({
+    expect(getStreakState(tasks, dailyHabit(), shiftISO(BASE, 6))).toEqual({
       count: 6,
       state: "solid",
     });
   });
 });
 
-describe("streakState — late completion", () => {
+describe("getStreakState — late completion", () => {
   it("a backfill past grace does not heal the streak but still counts toward rate", () => {
     // day 3 completed 4 days late; today day 7. Short run, no mending → streak breaks at 3.
     const habit = dailyHabit();
@@ -132,13 +132,13 @@ describe("streakState — late completion", () => {
     ];
     const today = shiftISO(BASE, 8);
     // late slot reads as a miss for the streak: only the 3 after it count
-    expect(streakState(tasks, habit, today)).toEqual({ count: 3, state: "solid" });
+    expect(getStreakState(tasks, habit, today)).toEqual({ count: 3, state: "solid" });
     // but the rate still credits it as done (7 of 7 scheduled slots completed)
-    expect(habitRate(tasks, habit, today)).toBe(1);
+    expect(computeHabitRate(tasks, habit, today)).toBe(1);
   });
 });
 
-describe("streakState — rescheduled occurrence is on-time by its landing date", () => {
+describe("getStreakState — rescheduled occurrence is on-time by its landing date", () => {
   const fridayHabit = (): Habit => ({
     id: HABIT,
     name: "Workout",
@@ -160,11 +160,14 @@ describe("streakState — rescheduled occurrence is on-time by its landing date"
       // Friday 06-26 moved to Sunday 06-28 and completed that day → on-time for the slot
       inst("2026-06-26", D, { date: "2026-06-28", completedAt: "2026-06-28T17:00:00" }),
     ];
-    expect(streakState(tasks, fridayHabit(), "2026-06-30")).toEqual({ count: 4, state: "solid" });
+    expect(getStreakState(tasks, fridayHabit(), "2026-06-30")).toEqual({
+      count: 4,
+      state: "solid",
+    });
   });
 });
 
-describe("streakState — moved occurrence (slotDate)", () => {
+describe("getStreakState — moved occurrence (slotDate)", () => {
   it("credits the slot regardless of the instance's landing date", () => {
     // 5 daily slots; the day-4 occurrence was moved to a later date but keeps slotDate.
     const habit = dailyHabit();
@@ -175,50 +178,50 @@ describe("streakState — moved occurrence (slotDate)", () => {
         completedAt: `${shiftISO(BASE, 4)}T09:00:00`,
       }),
     ];
-    expect(streakState(tasks, habit, shiftISO(BASE, 6))).toEqual({ count: 5, state: "solid" });
+    expect(getStreakState(tasks, habit, shiftISO(BASE, 6))).toEqual({ count: 5, state: "solid" });
   });
 });
 
-describe("streakState — schedule-driven gaps", () => {
+describe("getStreakState — schedule-driven gaps", () => {
   it("counts a never-materialized scheduled day as a miss past grace", () => {
     // instances exist only for days 0..2; days 3.. were never generated (app closed).
     const habit = dailyHabit();
     const tasks = rep(D, 3).map((s, i) => inst(shiftISO(BASE, i), s));
     // today is day 8 → days 3..6 are misses with no task rows → streak is broken.
-    expect(streakState(tasks, habit, shiftISO(BASE, 8))).toEqual({ count: 0, state: "broken" });
+    expect(getStreakState(tasks, habit, shiftISO(BASE, 8))).toEqual({ count: 0, state: "broken" });
   });
 });
 
-describe("streakState — mending", () => {
+describe("getStreakState — mending", () => {
   it("mends a single slip on a long run after 3 recoveries (20→23)", () => {
     const { tasks, today } = build([...rep(D, 20), M, ...rep(D, 3)]);
     const habit = dailyHabit();
-    expect(streakState(tasks, habit, today)).toEqual({ count: 23, state: "solid" });
-    expect(habitStreak(tasks, habit, today)).toBe(23);
+    expect(getStreakState(tasks, habit, today)).toEqual({ count: 23, state: "solid" });
+    expect(computeHabitStreak(tasks, habit, today)).toBe(23);
   });
 
   it("does not mend when the pre-run is shorter than 7", () => {
     const { tasks, today } = build([...rep(D, 4), M, ...rep(D, 3)]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 3, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 3, state: "solid" });
   });
 
   it("two misses in a row is a hard break (run after counts)", () => {
     const a = build([...rep(D, 20), M, M, ...rep(D, 5)]);
-    expect(streakState(a.tasks, dailyHabit(), a.today)).toEqual({ count: 5, state: "solid" });
+    expect(getStreakState(a.tasks, dailyHabit(), a.today)).toEqual({ count: 5, state: "solid" });
     const b = build([...rep(D, 20), M, M]);
-    expect(streakState(b.tasks, dailyHabit(), b.today)).toEqual({ count: 0, state: "broken" });
+    expect(getStreakState(b.tasks, dailyHabit(), b.today)).toEqual({ count: 0, state: "broken" });
   });
 
   it("a second miss during recovery breaks the mend", () => {
     const { tasks, today } = build([...rep(D, 20), M, D, M]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 0, state: "broken" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 0, state: "broken" });
   });
 });
 
-describe("streakState — healing hold", () => {
+describe("getStreakState — healing hold", () => {
   it("holds at the pre-miss value mid-recovery", () => {
     const { tasks, today } = build([...rep(D, 20), M, ...rep(D, 2)]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({
       count: 20,
       state: "healing",
       recovery: { done: 2, needed: 3 },
@@ -226,31 +229,31 @@ describe("streakState — healing hold", () => {
   });
 });
 
-describe("streakState — skip neutrality", () => {
+describe("getStreakState — skip neutrality", () => {
   it("treats a skip as neutral (not a miss, no mend consumed)", () => {
     const { tasks, today } = build([...rep(D, 20), S, ...rep(D, 3)]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
   });
 
   it("recovery continues across a skip", () => {
     const { tasks, today } = build([...rep(D, 20), M, D, S, D, D]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
   });
 });
 
-describe("streakState — cooldown", () => {
+describe("getStreakState — cooldown", () => {
   it("blocks a second mend inside the 14-day window", () => {
     const { tasks, today } = build([...rep(D, 7), M, ...rep(D, 3), ...rep(D, 2), M, ...rep(D, 3)]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 3, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 3, state: "solid" });
   });
 
   it("allows a second mend at >=14 days", () => {
     const { tasks, today } = build([...rep(D, 7), M, ...rep(D, 13), M, ...rep(D, 3)]);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
   });
 });
 
-describe("habitRate / streakState — unscheduled (open) occurrences are neutral", () => {
+describe("computeHabitRate / getStreakState — unscheduled (open) occurrences are neutral", () => {
   // A habit set up early with its first days pulled off the calendar (unscheduleTask →
   // status "open", date=null, slotDate preserved), then done every day after. The setup
   // gap must NOT read as misses — mirrors a partial-should-be-100% bug.
@@ -263,12 +266,12 @@ describe("habitRate / streakState — unscheduled (open) occurrences are neutral
       ...Array.from({ length: 9 }, (_, i) => doneDay(6 + i)),
     ];
     const today = shiftISO(BASE, 14); // the last done day
-    expect(habitRate(tasks, dailyHabit(), today)).toBe(1);
+    expect(computeHabitRate(tasks, dailyHabit(), today)).toBe(1);
   });
 
   it("an unscheduled day is neutral and does not break a streak", () => {
     const tasks = [doneDay(0), doneDay(1), openDay(2), doneDay(3), doneDay(4)];
     const today = shiftISO(BASE, 6);
-    expect(streakState(tasks, dailyHabit(), today)).toEqual({ count: 4, state: "solid" });
+    expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 4, state: "solid" });
   });
 });

@@ -42,7 +42,7 @@ export const COLLECTIONS: CollectionName[] = [
   "calendarEvents",
 ];
 
-export function emptyDataset(): Dataset {
+export function createEmptyDataset(): Dataset {
   return {
     values: [],
     goals: [],

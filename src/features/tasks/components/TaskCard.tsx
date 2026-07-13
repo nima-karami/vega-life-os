@@ -1,8 +1,16 @@
 import { Card } from "@heroui/react";
 import { shiftISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { cx, Icon, Lineage, Menu, type MenuItem, StreakBadge, valueStripeStyle } from "@/core/ui";
-import { streakState } from "@/features/habits";
+import {
+  cx,
+  getValueStripeStyle,
+  Icon,
+  Lineage,
+  Menu,
+  type MenuItem,
+  StreakBadge,
+} from "@/core/ui";
+import { getStreakState } from "@/features/habits";
 import { useTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "../model";
 
@@ -35,12 +43,12 @@ export function TaskCard({
   const habits = useStore((s) => s.habits);
   const rules = useStore((s) => s.streakRules);
   const habit = task.habitId != null ? habits.find((h) => h.id === task.habitId) : undefined;
-  const streak = habit ? streakState(tasks, habit, undefined, rules) : null;
+  const streak = habit ? getStreakState(tasks, habit, undefined, rules) : null;
   const done = task.status === "done";
   const skipped = task.status === "skip";
-  const resolved = done || skipped;
+  const isResolved = done || skipped;
   // a completion logged after the slot's grace window counts for the rate, not the streak
-  const loggedLate =
+  const isLoggedLate =
     done && task.completedAt != null && task.slotDate != null
       ? task.completedAt.slice(0, 10) > shiftISO(task.slotDate, rules.graceDays)
       : false;
@@ -59,11 +67,11 @@ export function TaskCard({
     <Card
       className={cx(
         "group relative flex flex-row items-start gap-3 rounded-[16px] border border-border bg-surface py-3 pe-3 ps-4",
-        resolved && "opacity-60",
+        isResolved && "opacity-60",
       )}
-      style={valueStripeStyle(lineage ?? { fromHabit: false })}
+      style={getValueStripeStyle(lineage ?? { fromHabit: false })}
     >
-      {/* Done toggle — aria-pressed toggle button so SR exposes the on/off state */}
+      {/* aria-pressed toggle so SR exposes the on/off state */}
       <button
         type="button"
         aria-pressed={done}
@@ -82,7 +90,6 @@ export function TaskCard({
         {skipped && <Icon name="skip" size={12} />}
       </button>
 
-      {/* Body — clicking opens the editor */}
       <button
         type="button"
         onClick={() => onOpen(task)}
@@ -117,7 +124,7 @@ export function TaskCard({
             state={streak?.state === "healing" ? "healing" : "solid"}
             recovery={streak?.recovery}
           />
-          {loggedLate && (
+          {isLoggedLate && (
             <span
               className="inline-flex items-center gap-1 text-xs text-muted"
               title="Logged after its day — counts toward your rate, not the streak"
@@ -132,7 +139,6 @@ export function TaskCard({
         </span>
       </button>
 
-      {/* Overflow menu — keyboard path for skip / reorder / delete */}
       <Menu
         isIconOnly
         triggerLabel={`Actions for ${task.title}`}

@@ -3,11 +3,11 @@ import {
   addMinutes,
   daysBetween,
   dowIndex,
+  formatRelativeDay,
+  getWeekDays,
   minutesOf,
-  relativeDay,
   shiftISO,
   todayISO,
-  weekDays,
 } from "./date";
 
 describe("minutesOf", () => {
@@ -53,30 +53,30 @@ describe("shiftISO", () => {
   });
 });
 
-describe("relativeDay", () => {
+describe("formatRelativeDay", () => {
   const ref = "2026-06-22"; // a Monday
   it("labels adjacent days", () => {
-    expect(relativeDay("2026-06-22", ref)).toBe("Today");
-    expect(relativeDay("2026-06-23", ref)).toBe("Tomorrow");
-    expect(relativeDay("2026-06-21", ref)).toBe("Yesterday");
+    expect(formatRelativeDay("2026-06-22", ref)).toBe("Today");
+    expect(formatRelativeDay("2026-06-23", ref)).toBe("Tomorrow");
+    expect(formatRelativeDay("2026-06-21", ref)).toBe("Yesterday");
   });
   it("falls back to the weekday name for further dates", () => {
-    expect(relativeDay("2026-06-27", ref)).toBe("Saturday");
-    expect(relativeDay("2026-06-18", ref)).toBe("Thursday");
+    expect(formatRelativeDay("2026-06-27", ref)).toBe("Saturday");
+    expect(formatRelativeDay("2026-06-18", ref)).toBe("Thursday");
   });
   it("defaults the reference to today", () => {
     vi.setSystemTime(new Date("2026-06-22T08:00:00"));
-    expect(relativeDay("2026-06-22")).toBe("Today");
+    expect(formatRelativeDay("2026-06-22")).toBe("Today");
     vi.useRealTimers();
   });
 });
 
-describe("weekDays / todayISO", () => {
+describe("getWeekDays / todayISO", () => {
   beforeEach(() => vi.setSystemTime(new Date("2026-06-15T08:00:00"))); // a Monday
   afterEach(() => vi.useRealTimers());
 
   it("builds a Monday-anchored week with today flagged", () => {
-    const days = weekDays();
+    const days = getWeekDays();
     expect(days).toHaveLength(7);
     expect(days[0].iso).toBe("2026-06-15");
     expect(days[0].dow).toBe("Mon");

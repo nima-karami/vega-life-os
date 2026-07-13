@@ -3,7 +3,7 @@ import { arrayMove } from "@/core/lib/reorder";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Goal, Subgoal } from "./model";
-import { presetRange } from "./timeframe";
+import { getPresetRange } from "./timeframe";
 
 export interface GoalsSlice {
   goals: Goal[];
@@ -27,7 +27,7 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
 
   addGoal: (patch = {}) => {
     const order = get().goals.length;
-    const quarter = presetRange("quarter");
+    const quarter = getPresetRange("quarter");
     const goal: Goal = {
       id: patch.id ?? uid("g_"),
       valueId: patch.valueId ?? get().values[0]?.id ?? "",

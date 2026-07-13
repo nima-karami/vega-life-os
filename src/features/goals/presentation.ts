@@ -5,22 +5,22 @@
  */
 import { todayISO } from "@/core/lib/date";
 import { type Goal, type GoalStatus, isGoalClosed } from "./model";
-import { type GoalPhase, goalPace, goalPhase } from "./selectors";
-import { periodLabel } from "./timeframe";
+import { computeGoalPace, type GoalPhase, getGoalPhase } from "./selectors";
+import { formatPeriodLabel } from "./timeframe";
 
 /** Headline progress as a whole-number percent (0..100). */
-export function goalProgressPercent(goal: Goal): number {
+export function computeGoalProgressPercent(goal: Goal): number {
   return Math.round(goal.progress * 100);
 }
 
 /** When subgoals exist, progress is derived and the manual control is read-only. */
-export function goalProgressIsDerived(goal: Goal): boolean {
+export function isGoalProgressDerived(goal: Goal): boolean {
   return goal.subgoals.length > 0;
 }
 
 export interface PaceBadge {
   /** true → behind schedule (danger), false → on/ahead of pace (success). */
-  behind: boolean;
+  isBehind: boolean;
   text: string;
 }
 
@@ -29,17 +29,17 @@ export interface PaceBadge {
  * goal is open — an upcoming goal is never "on pace" and an ended one is never
  * usefully "% behind"; the schedule badge carries the meaning instead.
  */
-export function goalPaceBadge(goal: Goal, today: string = todayISO()): PaceBadge | null {
+export function getGoalPaceBadge(goal: Goal, today: string = todayISO()): PaceBadge | null {
   if (isGoalClosed(goal.status)) return null;
-  if (goalPhase(goal, today) !== "current") return null;
-  const pace = goalPace(goal, today);
-  if (pace >= 0) return { behind: false, text: "on pace" };
-  return { behind: true, text: `${Math.round(-pace * 100)}% behind` };
+  if (getGoalPhase(goal, today) !== "current") return null;
+  const pace = computeGoalPace(goal, today);
+  if (pace >= 0) return { isBehind: false, text: "on pace" };
+  return { isBehind: true, text: `${Math.round(-pace * 100)}% behind` };
 }
 
 /** A future-scheduled goal cannot be activated until its period begins. */
 export function canActivate(goal: Goal, today: string = todayISO()): boolean {
-  return goalPhase(goal, today) !== "upcoming";
+  return getGoalPhase(goal, today) !== "upcoming";
 }
 
 /** Active/paused are impossible while a goal's period is upcoming → fall back to backlog. */
@@ -54,10 +54,10 @@ export interface ScheduleBadge {
 }
 
 /** Schedule cue for the goal card: queued, ready to start, or overdue (else none). */
-export function goalScheduleBadge(goal: Goal, today: string = todayISO()): ScheduleBadge | null {
-  const phase = goalPhase(goal, today);
+export function getGoalScheduleBadge(goal: Goal, today: string = todayISO()): ScheduleBadge | null {
+  const phase = getGoalPhase(goal, today);
   if (phase === "upcoming") {
-    return { kind: "scheduled", text: `Scheduled · ${periodLabel(goal.start, goal.end)}` };
+    return { kind: "scheduled", text: `Scheduled · ${formatPeriodLabel(goal.start, goal.end)}` };
   }
   if (phase === "current" && goal.status === "backlog")
     return { kind: "ready", text: "Ready to start" };
@@ -70,6 +70,6 @@ export function goalScheduleBadge(goal: Goal, today: string = todayISO()): Sched
  * Moving to `done` also pins progress to 100% (preserves legacy GoalDrawer rule);
  * every other status leaves progress as-is.
  */
-export function statusChangePatch(status: GoalStatus): Partial<Goal> {
+export function buildStatusChangePatch(status: GoalStatus): Partial<Goal> {
   return status === "done" ? { status, progress: 1 } : { status };
 }

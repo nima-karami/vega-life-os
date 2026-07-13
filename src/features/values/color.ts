@@ -33,7 +33,7 @@ export const VALUE_COLOR_FALLBACK = "var(--color-muted)";
  *   nothing regresses to the old monochrome grays).
  * - Unknown / null value → neutral fallback, never throws.
  */
-export function valueColor(value: { hue?: string; order?: number } | undefined | null): string {
+export function getValueColor(value: { hue?: string; order?: number } | undefined | null): string {
   if (value == null) return VALUE_COLOR_FALLBACK;
   if (value.hue && PICKABLE.has(value.hue)) return value.hue;
   if (typeof value.order === "number") return VALUE_PALETTE[value.order % VALUE_PALETTE.length];

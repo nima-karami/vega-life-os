@@ -10,8 +10,6 @@ import { useEffect } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import type { useStore } from "@/core/store";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
-
 /** What a command's run() callback receives. */
 export interface CommandApi {
   navigate: (to: string) => void;
@@ -38,8 +36,6 @@ export interface ActionCommand {
   keywords?: string;
   run: (api: CommandApi) => void;
 }
-
-// ─── Nav Commands (5 v1 routes) ────────────────────────────────────────────
 
 export const NAV_COMMANDS: NavCommand[] = [
   {
@@ -92,8 +88,6 @@ export const NAV_COMMANDS: NavCommand[] = [
   },
 ];
 
-// ─── Core Action Commands ────────────────────────────────────────────────────
-
 export const ACTION_COMMANDS: ActionCommand[] = [
   {
     id: "action-add-task",
@@ -140,8 +134,6 @@ export const ACTION_COMMANDS: ActionCommand[] = [
     },
   },
 ];
-
-// ─── View-command Registry ────────────────────────────────────────────────────
 
 type RegistryListener = () => void;
 

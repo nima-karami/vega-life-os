@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { profileIncomplete, resolveProfile } from "./profile";
+import { isProfileIncomplete, resolveProfile } from "./profile";
 
 describe("resolveProfile", () => {
   it("prefers a non-empty cloud value over the auth account", () => {
@@ -64,15 +64,15 @@ describe("resolveProfile", () => {
   });
 });
 
-describe("profileIncomplete", () => {
+describe("isProfileIncomplete", () => {
   it("is true for empty, whitespace, or the default 'Operator'", () => {
-    expect(profileIncomplete("")).toBe(true);
-    expect(profileIncomplete("   ")).toBe(true);
-    expect(profileIncomplete("Operator")).toBe(true);
+    expect(isProfileIncomplete("")).toBe(true);
+    expect(isProfileIncomplete("   ")).toBe(true);
+    expect(isProfileIncomplete("Operator")).toBe(true);
   });
 
   it("is false once a real name is set", () => {
-    expect(profileIncomplete("Nima")).toBe(false);
-    expect(profileIncomplete("  Nima  ")).toBe(false);
+    expect(isProfileIncomplete("Nima")).toBe(false);
+    expect(isProfileIncomplete("  Nima  ")).toBe(false);
   });
 });

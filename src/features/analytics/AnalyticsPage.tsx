@@ -3,22 +3,22 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
 import { cx, Gauge, Icon, Label, Panel, SectionHead, Sparkline } from "@/core/ui";
-import { goalTimeElapsed } from "@/features/goals";
-import { habitRate } from "@/features/habits";
+import { computeGoalTimeElapsed } from "@/features/goals";
+import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { useValueColor } from "@/features/values/useValueColor";
 import { DEFAULT_RANGE, RANGE_OPTIONS, rangeToDays, rangeToWeeks, type TimeRange } from "./range";
 import {
-  completedByValue,
-  consistencyGrid,
-  dailyStats,
+  buildConsistencyGrid,
+  computeDailyStats,
+  computeInsights,
+  computeOverallRate,
+  computeReflectionStats,
+  computeValueTime,
+  computeWeeklyRate,
+  countCompletedByValue,
   type GridCell,
-  insights,
-  overallRate,
   type ReflectionStat,
-  reflectionStats,
-  valueTime,
-  weeklyRate,
 } from "./selectors";
 
 type Section = "analytics" | "review";
@@ -74,8 +74,6 @@ export function AnalyticsPage() {
   );
 }
 
-// ─── Analytics section ───────────────────────────────────────────────────────
-
 function AnalyticsSection() {
   const tasks = useStore((s) => s.tasks);
   const values = useStore((s) => s.values);
@@ -88,22 +86,29 @@ function AnalyticsSection() {
   const days = rangeToDays(range);
   const weeks = rangeToWeeks(range);
 
-  const daily = useMemo(() => dailyStats(tasks, days), [tasks, days]);
-  const weekly = useMemo(() => weeklyRate(tasks, weeks), [tasks, weeks]);
-  const overall = useMemo(() => overallRate(tasks, days), [tasks, days]);
-  const byValue = useMemo(() => completedByValue(tasks, days), [tasks, days]);
+  const daily = useMemo(() => computeDailyStats(tasks, days), [tasks, days]);
+  const weekly = useMemo(() => computeWeeklyRate(tasks, weeks), [tasks, weeks]);
+  const overall = useMemo(() => computeOverallRate(tasks, days), [tasks, days]);
+  const byValue = useMemo(() => countCompletedByValue(tasks, days), [tasks, days]);
   const calendarEvents = useStore((s) => s.calendarEvents);
-  const livedByValue = useMemo(() => valueTime(calendarEvents, days), [calendarEvents, days]);
+  const livedByValue = useMemo(
+    () => computeValueTime(calendarEvents, days),
+    [calendarEvents, days],
+  );
   const hasLived = Object.keys(livedByValue).length > 0;
   // consistency grid is the long view — fixed window regardless of range
-  const grid = useMemo(() => consistencyGrid(tasks, 22), [tasks]);
-  const reflection = useMemo(() => reflectionStats(journal, days, rules), [journal, days, rules]);
-  const insightList = useMemo(() => insights(tasks, habits, rules), [tasks, habits, rules]);
+  const grid = useMemo(() => buildConsistencyGrid(tasks, 22), [tasks]);
+  const reflection = useMemo(
+    () => computeReflectionStats(journal, days, rules),
+    [journal, days, rules],
+  );
+  const insightList = useMemo(() => computeInsights(tasks, habits, rules), [tasks, habits, rules]);
   const maxValueCount = Math.max(1, ...Object.values(byValue));
   const maxDaily = Math.max(1, ...daily.map((d) => d.total));
 
   const habitRanked = useMemo(
-    () => habits.map((h) => ({ h, rate: habitRate(tasks, h) })).sort((a, b) => b.rate - a.rate),
+    () =>
+      habits.map((h) => ({ h, rate: computeHabitRate(tasks, h) })).sort((a, b) => b.rate - a.rate),
     [habits, tasks],
   );
 
@@ -373,7 +378,7 @@ function AnalyticsSection() {
           <SectionHead title="Goal trajectory" meta="pace" />
           <div className="mt-4 space-y-4">
             {goals.map((g) => {
-              const elapsed = goalTimeElapsed(g);
+              const elapsed = computeGoalTimeElapsed(g);
               const pace = g.progress - elapsed;
               return (
                 <div key={g.id}>

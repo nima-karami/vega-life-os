@@ -14,40 +14,39 @@ export function CalendarPicker() {
   const selected = useStore((s) => s.gcal.readCalendarIds);
   const setReadCalendarIds = useStore((s) => s.setGcalReadCalendarIds);
   const writeId = useStore((s) => s.gcal.writeCalendarId);
-  const [cals, setCals] = useState<GCalendar[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [calendars, setCalendars] = useState<GCalendar[] | null>(null);
+  const [hasFailed, setHasFailed] = useState(false);
 
   useEffect(() => {
     listCalendars(false)
-      // Never offer VEGA's own write-calendar as a read source (would be confusing
-      // and circular — VEGA writes its tasks there).
-      .then((list) => setCals(list.filter((c) => c.id !== writeId && !isVegaCalendar(c))))
-      .catch(() => setFailed(true));
+      // VEGA's own write-calendar as a read source would be circular
+      .then((list) => setCalendars(list.filter((c) => c.id !== writeId && !isVegaCalendar(c))))
+      .catch(() => setHasFailed(true));
   }, [writeId]);
 
-  const toggle = (id: string) => {
+  const toggleCalendar = (id: string) => {
     const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
     setReadCalendarIds(next);
     pushToast("Calendar selection saved");
   };
 
-  if (failed)
+  if (hasFailed)
     return <p className="text-sm text-muted">Couldn’t load your calendars — try Sync now.</p>;
-  if (!cals) return <p className="text-sm text-muted">Loading your calendars…</p>;
+  if (!calendars) return <p className="text-sm text-muted">Loading your calendars…</p>;
 
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-muted">Choose which calendars appear in VEGA.</p>
       <div className="flex flex-col gap-1.5">
-        {cals.map((c) => {
-          const on = selected.includes(c.id);
+        {calendars.map((c) => {
+          const isSelected = selected.includes(c.id);
           return (
             <Button
               key={c.id}
               type="button"
-              variant={on ? "primary" : "secondary"}
-              aria-pressed={on}
-              onPress={() => toggle(c.id)}
+              variant={isSelected ? "primary" : "secondary"}
+              aria-pressed={isSelected}
+              onPress={() => toggleCalendar(c.id)}
               className="justify-start"
             >
               <span
@@ -57,7 +56,7 @@ export function CalendarPicker() {
               />
               <span className="truncate">{c.summary}</span>
               {c.primary && <span className="ml-1 text-xs text-muted">· primary</span>}
-              {on && <Icon name="check" size={14} className="ml-auto" />}
+              {isSelected && <Icon name="check" size={14} className="ml-auto" />}
             </Button>
           );
         })}

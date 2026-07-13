@@ -4,7 +4,11 @@ import { getCalendarToken } from "./google-auth";
 const BASE = "https://www.googleapis.com/calendar/v3";
 const VEGA_SUMMARY = "VEGA";
 
-async function api(path: string, init: RequestInit = {}, interactive = false): Promise<Response> {
+async function callApi(
+  path: string,
+  init: RequestInit = {},
+  interactive = false,
+): Promise<Response> {
   const token = await getCalendarToken(interactive);
   return fetch(`${BASE}/${path}`, {
     ...init,
@@ -27,10 +31,10 @@ export interface GCalendar {
 
 /** The user's calendars (reader access or better). */
 export async function listCalendars(interactive = false): Promise<GCalendar[]> {
-  const res = await api("users/me/calendarList?minAccessRole=reader", {}, interactive);
-  if (!res.ok) throw new Error(`gcal calendarList ${res.status}`);
-  const data = await res.json();
-  return (data.items ?? []).map((c: Record<string, unknown>) => ({
+  const response = await callApi("users/me/calendarList?minAccessRole=reader", {}, interactive);
+  if (!response.ok) throw new Error(`gcal calendarList ${response.status}`);
+  const payload = await response.json();
+  return (payload.items ?? []).map((c: Record<string, unknown>) => ({
     id: c.id as string,
     summary: (c.summaryOverride as string) ?? (c.summary as string),
     backgroundColor: c.backgroundColor as string | undefined,
@@ -55,7 +59,7 @@ export async function ensureVegaCalendar(interactive = false): Promise<string | 
   const setWriteCalendarId = (id: string) => useStore.getState().setGcalWriteCalendarId(id);
   const stored = useStore.getState().gcal.writeCalendarId;
   if (stored) {
-    const check = await api(`calendars/${encodeURIComponent(stored)}`, {}, interactive);
+    const check = await callApi(`calendars/${encodeURIComponent(stored)}`, {}, interactive);
     if (check.ok) return stored;
     if (check.status !== 404 && check.status !== 410)
       throw new Error(`gcal calendars ${check.status}`);
@@ -67,7 +71,7 @@ export async function ensureVegaCalendar(interactive = false): Promise<string | 
   }
   // Background must not silently recreate the VEGA calendar — pause & ask instead (Q3).
   if (!interactive) return null;
-  const created = await api(
+  const created = await callApi(
     "calendars",
     { method: "POST", body: JSON.stringify({ summary: VEGA_SUMMARY }) },
     interactive,
@@ -82,8 +86,12 @@ export async function ensureVegaCalendar(interactive = false): Promise<string | 
 export async function deleteVegaCalendar(interactive = true): Promise<void> {
   const id = useStore.getState().gcal.writeCalendarId;
   if (!id) return;
-  const res = await api(`calendars/${encodeURIComponent(id)}`, { method: "DELETE" }, interactive);
-  if (!res.ok && res.status !== 404 && res.status !== 410)
-    throw new Error(`gcal delete calendar ${res.status}`);
+  const response = await callApi(
+    `calendars/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    interactive,
+  );
+  if (!response.ok && response.status !== 404 && response.status !== 410)
+    throw new Error(`gcal delete calendar ${response.status}`);
   useStore.getState().setGcalWriteCalendarId(null);
 }

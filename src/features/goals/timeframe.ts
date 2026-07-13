@@ -19,7 +19,7 @@ export type Timeframe = "quarter" | "month" | "year" | "custom";
 const fmt = (d: Date) => format(d, "yyyy-MM-dd");
 
 /** start/end ISO dates for a preset timeframe around a reference date. */
-export function presetRange(
+export function getPresetRange(
   tf: Exclude<Timeframe, "custom">,
   ref: Date = new Date(),
 ): { start: string; end: string } {
@@ -32,22 +32,22 @@ export function presetRange(
 export function detectTimeframe(start: string, end: string): Timeframe {
   const s = parseISO(start);
   for (const tf of ["quarter", "month", "year"] as const) {
-    const r = presetRange(tf, s);
+    const r = getPresetRange(tf, s);
     if (r.start === start && r.end === end) return tf;
   }
   return "custom";
 }
 
 /** start/end of the preset `grain` containing `isoDate` (used to snap on grain switch). */
-export function presetRangeOn(
+export function getPresetRangeOn(
   grain: Exclude<Timeframe, "custom">,
   isoDate: string,
 ): { start: string; end: string } {
-  return presetRange(grain, parseISO(isoDate));
+  return getPresetRange(grain, parseISO(isoDate));
 }
 
 /** One preset unit forward (dir=1) or back (dir=-1) from the goal's current start. */
-export function periodStep(
+export function getPeriodStep(
   start: string,
   grain: Exclude<Timeframe, "custom">,
   dir: 1 | -1,
@@ -59,11 +59,11 @@ export function periodStep(
       : grain === "month"
         ? addMonths(ref, dir)
         : addYears(ref, dir);
-  return presetRange(grain, moved);
+  return getPresetRange(grain, moved);
 }
 
 /** Friendly period label: "Q2 2026" · "Jun 2026" · "2026" · "Jun 3 – Jul 13". */
-export function periodLabel(start: string, end: string): string {
+export function formatPeriodLabel(start: string, end: string): string {
   const s = parseISO(start);
   const tf = detectTimeframe(start, end);
   if (tf === "quarter") return `Q${getQuarter(s)} ${getYear(s)}`;

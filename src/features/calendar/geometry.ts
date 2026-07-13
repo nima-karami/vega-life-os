@@ -1,13 +1,9 @@
 import { addDays, format, parseISO } from "date-fns";
 
 /**
- * Pure grid geometry for the week calendar.
- *
- * All time math lives here so it can be unit-tested without a DOM. The React
- * view consumes these helpers; it owns no scheduling arithmetic of its own.
- *
- * Window, snap granularity, hour height and the minimum chip height are ports
- * of the legacy CalendarPage so the re-skin preserves the original behavior.
+ * Pure grid geometry for the week calendar — all time math lives here so it can
+ * be unit-tested without a DOM. Window/snap/hour constants are ports of the
+ * legacy CalendarPage, kept identical to preserve the original behavior.
  */
 
 /** Visible window: 05:00–23:00 (minutes since midnight). */
@@ -29,25 +25,25 @@ export const HOURS = Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, 
 export const snap = (m: number) => Math.round(m / SNAP) * SNAP;
 
 /** Format minutes-since-midnight as "HH:mm". */
-export const fmtMin = (m: number) =>
+export const formatMinutes = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 /** Clamp a start minute so a chip stays inside the window with room for a slot. */
 export const clampStart = (m: number) => Math.max(DAY_START, Math.min(DAY_END - SNAP, m));
 
 /** Pixel offset from the window top for a start minute (clamped to the top edge). */
-export const chipTop = (startMin: number) =>
+export const getChipTop = (startMin: number) =>
   ((Math.max(DAY_START, startMin) - DAY_START) / 60) * HOUR_PX;
 
 /** Pixel height for a duration, reserving a 2px gap and a minimum tappable size. */
-export const chipHeight = (durationMin: number) =>
+export const getChipHeight = (durationMin: number) =>
   Math.max((durationMin / 60) * HOUR_PX - 2, MIN_CHIP_PX);
 
 /** True when a start minute falls outside the visible 05:00–23:00 window. */
 export const isOffWindow = (startMin: number) => startMin < DAY_START || startMin > DAY_END;
 
 /** Convert a pixel offset within the grid body into a snapped, clamped start minute. */
-export const minuteAtOffset = (offsetPx: number) =>
+export const getMinuteAtOffset = (offsetPx: number) =>
   clampStart(snap(DAY_START + (offsetPx / HOUR_PX) * 60));
 
 /** Fixed duration (minutes) given to an all-day task dropped onto the grid. */
@@ -56,10 +52,10 @@ export const DROP_DURATION = 60;
 /**
  * Resolve an all-day → grid drop at a pixel offset into a scheduled block: the
  * snapped start clamped so a {@link DROP_DURATION} block ends by {@link DAY_END}.
- * The caller converts `startMin` to "HH:mm" via {@link fmtMin} and supplies the day.
+ * The caller converts `startMin` to "HH:mm" via {@link formatMinutes} and supplies the day.
  */
 export const dropToSchedule = (offsetPx: number): { startMin: number; durationMin: number } => ({
-  startMin: Math.max(DAY_START, Math.min(minuteAtOffset(offsetPx), DAY_END - DROP_DURATION)),
+  startMin: Math.max(DAY_START, Math.min(getMinuteAtOffset(offsetPx), DAY_END - DROP_DURATION)),
   durationMin: DROP_DURATION,
 });
 
@@ -77,7 +73,7 @@ export interface ChipBox extends Box {
 }
 
 /** Ids of chips whose pixel boxes intersect the marquee rect (all grid-content-relative). */
-export function marqueeHits(rect: Box, boxes: ChipBox[]): string[] {
+export function getMarqueeHits(rect: Box, boxes: ChipBox[]): string[] {
   return boxes
     .filter(
       (b) =>

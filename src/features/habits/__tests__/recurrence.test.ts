@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { dowIndex } from "@/core/lib/date";
 import type { Habit, HabitSchedule } from "../model";
 import {
+  describeRecurrence,
+  findSlotOnOrBefore,
+  getNextOccurrence,
+  getWeeklyMask,
   isActiveOn,
   isActiveOnSchedule,
-  nextOccurrence,
   normalizeHabit,
-  recurrenceText,
-  slotOnOrBefore,
-  weeklyMask,
 } from "../recurrence";
 
 const weekly = (over: Partial<Extract<HabitSchedule, { type: "weekly" }>> = {}): HabitSchedule => ({
@@ -49,18 +49,18 @@ describe("isActiveOnSchedule — weekly interval", () => {
   });
 });
 
-describe("slotOnOrBefore — anchor a task to the slot it fulfils", () => {
+describe("findSlotOnOrBefore — anchor a task to the slot it fulfils", () => {
   // Mon/Tue/Thu/Fri (Mon..Sun mask)
   const workout = weekly({ days: [1, 1, 0, 1, 1, 0, 0] });
   it("returns the day itself when it is scheduled", () => {
-    expect(slotOnOrBefore(workout, "2026-06-26")).toBe("2026-06-26"); // Fri
+    expect(findSlotOnOrBefore(workout, "2026-06-26")).toBe("2026-06-26"); // Fri
   });
   it("walks back to the latest scheduled day for an unscheduled day", () => {
-    expect(slotOnOrBefore(workout, "2026-06-27")).toBe("2026-06-26"); // Sat → Fri
-    expect(slotOnOrBefore(workout, "2026-06-28")).toBe("2026-06-26"); // Sun → Fri
+    expect(findSlotOnOrBefore(workout, "2026-06-27")).toBe("2026-06-26"); // Sat → Fri
+    expect(findSlotOnOrBefore(workout, "2026-06-28")).toBe("2026-06-26"); // Sun → Fri
   });
   it("returns null for a Never schedule", () => {
-    expect(slotOnOrBefore(weekly({ days: [0, 0, 0, 0, 0, 0, 0] }), "2026-06-27")).toBeNull();
+    expect(findSlotOnOrBefore(weekly({ days: [0, 0, 0, 0, 0, 0, 0] }), "2026-06-27")).toBeNull();
   });
 });
 
@@ -90,38 +90,42 @@ describe("isActiveOnSchedule — monthly clamp + last day", () => {
   });
 });
 
-describe("nextOccurrence", () => {
+describe("getNextOccurrence", () => {
   it("finds the next monthly date across the boundary", () => {
-    expect(nextOccurrence(monthly({ daysOfMonth: [1] }), "2026-06-15")).toBe("2026-07-01");
+    expect(getNextOccurrence(monthly({ daysOfMonth: [1] }), "2026-06-15")).toBe("2026-07-01");
   });
   it("returns null for a Never schedule", () => {
-    expect(nextOccurrence(monthly(), "2026-06-15")).toBeNull();
+    expect(getNextOccurrence(monthly(), "2026-06-15")).toBeNull();
   });
 });
 
-describe("recurrenceText", () => {
+describe("describeRecurrence", () => {
   it("labels weekly and N-weekly", () => {
-    expect(recurrenceText(weekly({ days: [1, 1, 1, 1, 1, 1, 1], interval: 1 }))).toBe("Every day");
-    expect(recurrenceText(weekly({ days: [1, 0, 0, 0, 0, 0, 0], interval: 2 }))).toBe(
+    expect(describeRecurrence(weekly({ days: [1, 1, 1, 1, 1, 1, 1], interval: 1 }))).toBe(
+      "Every day",
+    );
+    expect(describeRecurrence(weekly({ days: [1, 0, 0, 0, 0, 0, 0], interval: 2 }))).toBe(
       "Every 2 weeks on Mon",
     );
   });
   it("labels monthly", () => {
-    expect(recurrenceText(monthly({ daysOfMonth: [1] }))).toBe("Monthly on the 1st");
-    expect(recurrenceText(monthly({ daysOfMonth: [1, 15] }))).toBe("Monthly on the 1st and 15th");
-    expect(recurrenceText(monthly({ lastDay: true }))).toBe("Monthly on the last day");
-    expect(recurrenceText(monthly({ daysOfMonth: [1], lastDay: true }))).toBe(
+    expect(describeRecurrence(monthly({ daysOfMonth: [1] }))).toBe("Monthly on the 1st");
+    expect(describeRecurrence(monthly({ daysOfMonth: [1, 15] }))).toBe(
+      "Monthly on the 1st and 15th",
+    );
+    expect(describeRecurrence(monthly({ lastDay: true }))).toBe("Monthly on the last day");
+    expect(describeRecurrence(monthly({ daysOfMonth: [1], lastDay: true }))).toBe(
       "Monthly on the 1st and last day",
     );
   });
 });
 
-describe("weeklyMask", () => {
+describe("getWeeklyMask", () => {
   it("returns the weekly schedule days; all-zero for a monthly habit", () => {
-    expect(weeklyMask({ schedule: weekly({ days: [1, 0, 1, 0, 0, 0, 0] }) } as Habit)).toEqual([
+    expect(getWeeklyMask({ schedule: weekly({ days: [1, 0, 1, 0, 0, 0, 0] }) } as Habit)).toEqual([
       1, 0, 1, 0, 0, 0, 0,
     ]);
-    expect(weeklyMask({ schedule: monthly({ daysOfMonth: [15] }) } as Habit)).toEqual([
+    expect(getWeeklyMask({ schedule: monthly({ daysOfMonth: [15] }) } as Habit)).toEqual([
       0, 0, 0, 0, 0, 0, 0,
     ]);
   });

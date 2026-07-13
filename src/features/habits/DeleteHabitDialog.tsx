@@ -1,7 +1,7 @@
 import { useStore } from "@/core/store";
 import { ConfirmDialog } from "@/core/ui";
 import type { Habit } from "./model";
-import { habitInstances } from "./selectors";
+import { getHabitInstances } from "./selectors";
 
 export interface DeleteHabitDialogProps {
   habit: Habit;
@@ -20,7 +20,7 @@ export function DeleteHabitDialog({ habit, isOpen, onClose, onDeleted }: DeleteH
   const removeHabit = useStore((s) => s.removeHabit);
   const pushToast = useStore((s) => s.pushToast);
 
-  const instanceCount = habitInstances(tasks, habit.id).length;
+  const instanceCount = getHabitInstances(tasks, habit.id).length;
 
   const onConfirm = () => {
     removeHabit(habit.id);

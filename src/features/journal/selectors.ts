@@ -1,6 +1,6 @@
 import { shiftISO } from "@/core/lib/date";
 import type { Task } from "@/features/tasks/model";
-import { dayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
+import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
 import { type DayEntry, hasGratitude } from "./model";
 
 /**
@@ -9,16 +9,16 @@ import { type DayEntry, hasGratitude } from "./model";
  * not to-dos, so an unticked habit never blocks the end-of-day reflection (same
  * rule as the Today "X of Y" count). Zero-task days are never reflectable.
  */
-export function dayReflectable(tasks: Task[], date: string): boolean {
-  const c = dayCounts(
+export function isDayReflectable(tasks: Task[], date: string): boolean {
+  const counts = computeDayCounts(
     tasks.filter((t) => !isAnytimeHabit(t)),
     date,
   );
-  return c.total > 0 && c.todo === 0;
+  return counts.total > 0 && counts.todo === 0;
 }
 
 /** True while today's entry has no gratitude — the hard morning gate is up. */
-export function gratitudeRequired(journal: DayEntry[], today: string): boolean {
+export function isGratitudeRequired(journal: DayEntry[], today: string): boolean {
   return !hasGratitude(journal.find((e) => e.date === today));
 }
 
@@ -28,7 +28,7 @@ export function gratitudeRequired(journal: DayEntry[], today: string): boolean {
  * gratitude. Most-recent first. Anchored on gratitude — the enforced daily ritual — so
  * the nudge and the gratitude streak use the same predicate and never disagree.
  */
-export function missedGratitudeDays(
+export function getMissedGratitudeDays(
   journal: DayEntry[],
   today: string,
   lookbackDays = 7,
@@ -41,9 +41,9 @@ export function missedGratitudeDays(
   if (earliest == null) return []; // no entries ever → nothing to backfill
   const start = shiftISO(today, -lookbackDays);
   const floor = start > earliest ? start : earliest;
-  const out: string[] = [];
+  const missed: string[] = [];
   for (let d = shiftISO(today, -1); d >= floor; d = shiftISO(d, -1)) {
-    if (!hasGratitude(byDate.get(d))) out.push(d);
+    if (!hasGratitude(byDate.get(d))) missed.push(d);
   }
-  return out;
+  return missed;
 }

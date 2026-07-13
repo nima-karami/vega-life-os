@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveSyncPhase, formatLastSynced, syncStatusText } from "../sync-status";
+import { deriveSyncPhase, formatLastSynced, formatSyncStatus } from "../sync-status";
 
 describe("deriveSyncPhase", () => {
   it("is 'not-configured' when GCal has no client id, regardless of other flags", () => {
@@ -150,14 +150,14 @@ describe("formatLastSynced", () => {
   });
 });
 
-describe("syncStatusText", () => {
+describe("formatSyncStatus", () => {
   it("maps each phase to human-readable status copy", () => {
-    expect(syncStatusText("not-configured")).toMatch(/set up/i);
-    expect(syncStatusText("disconnected")).toMatch(/not connected|disconnected/i);
-    expect(syncStatusText("syncing")).toMatch(/syncing/i);
-    expect(syncStatusText("backing-off")).toMatch(/retry|paused/i);
-    expect(syncStatusText("error")).toMatch(/failed|error/i);
-    expect(syncStatusText("needs-reconnect")).toMatch(/expired|reconnect/i);
-    expect(syncStatusText("connected")).toMatch(/connected|synced/i);
+    expect(formatSyncStatus("not-configured")).toMatch(/set up/i);
+    expect(formatSyncStatus("disconnected")).toMatch(/not connected|disconnected/i);
+    expect(formatSyncStatus("syncing")).toMatch(/syncing/i);
+    expect(formatSyncStatus("backing-off")).toMatch(/retry|paused/i);
+    expect(formatSyncStatus("error")).toMatch(/failed|error/i);
+    expect(formatSyncStatus("needs-reconnect")).toMatch(/expired|reconnect/i);
+    expect(formatSyncStatus("connected")).toMatch(/connected|synced/i);
   });
 });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@/core/ui";
-import { onlyDay, rangeDays, toggleDay } from "./day-select";
+import { getOnlyDay, getRangeDays, toggleDay } from "./day-select";
 
 /** Day picker order is fixed Mon..Sun to match the model's days[7] mask. */
 const WEEKDAYS = [
@@ -26,10 +26,10 @@ export function DayPicker({
 }) {
   const [anchor, setAnchor] = useState(0);
   const [solo, setSolo] = useState<{ index: number; prev: number[] } | null>(null);
-  const anyActive = value.some((d) => d === 1);
+  const hasActiveDays = value.some((d) => d === 1);
 
   const onClick = (e: React.MouseEvent, i: number) => {
-    onChange(e.shiftKey ? rangeDays(value, anchor, i) : toggleDay(value, i));
+    onChange(e.shiftKey ? getRangeDays(value, anchor, i) : toggleDay(value, i));
     setSolo(null);
     setAnchor(i);
   };
@@ -41,7 +41,7 @@ export function DayPicker({
       setSolo(null);
     } else {
       setSolo({ index: i, prev: solo ? solo.prev : [...value] });
-      onChange(onlyDay(i));
+      onChange(getOnlyDay(i));
     }
     setAnchor(i);
   };
@@ -77,7 +77,7 @@ export function DayPicker({
           Shift-click for a range · right-click to isolate a day
         </p>
       )}
-      {!anyActive && (
+      {!hasActiveDays && (
         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
           <Icon name="alert" size={13} />
           No active days — this won&apos;t create any tasks.

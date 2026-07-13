@@ -1,6 +1,6 @@
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import { defaultGcalConfig, type GcalConfig, saveGcalConfig } from "./config";
+import { createDefaultGcalConfig, type GcalConfig, saveGcalConfig } from "./config";
 import type { CalendarEvent } from "./events-model";
 import { dedupeForDisplay } from "./reconcile-lived";
 
@@ -94,7 +94,7 @@ export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) 
 
     visibleEvents: () => dedupeForDisplay(get().calendarEvents),
 
-    gcal: defaultGcalConfig(),
+    gcal: createDefaultGcalConfig(),
     hydrateGcalConfig: (c) => set({ gcal: c }),
     setGcalEnabled: (v) => patchGcal({ enabled: v }),
     setGcalWriteCalendarId: (id) => patchGcal({ writeCalendarId: id }),

@@ -55,18 +55,17 @@ export async function listEvents(
       // listing it unfiltered surfaces every event we wrote (incl. legacy/stale ids) for eviction.
     }
     if (pageToken) params.set("pageToken", pageToken);
-    const res = await call(`${cal}/events?${params}`, {}, false);
-    if (res.status === 410) return { events: [], nextSyncToken: null, expired: true };
-    if (!res.ok) throw new GcalHttpError(res.status);
-    const data = await res.json();
-    events.push(...(data.items ?? []));
-    pageToken = data.nextPageToken ?? null;
-    nextSyncToken = data.nextSyncToken ?? nextSyncToken;
+    const response = await call(`${cal}/events?${params}`, {}, false);
+    if (response.status === 410) return { events: [], nextSyncToken: null, expired: true };
+    if (!response.ok) throw new GcalHttpError(response.status);
+    const payload = await response.json();
+    events.push(...(payload.items ?? []));
+    pageToken = payload.nextPageToken ?? null;
+    nextSyncToken = payload.nextSyncToken ?? nextSyncToken;
   } while (pageToken);
   return { events, nextSyncToken, expired: false };
 }
 
-// ─── Batched writes ──────────────────────────────────────────────────────────
 // Google's per-API batch endpoint (the global /batch was discontinued; this one is supported).
 // One multipart/mixed round-trip carries many ops, so a delete+insert pair is atomic per request
 // (closing the partial-failure duplicate window) and N writes cost one HTTP round-trip.
@@ -140,7 +139,7 @@ function parseMultipart(text: string, ops: BatchOp[]): BatchResult[] {
 async function batchChunk(calendarId: string, ops: BatchOp[]): Promise<BatchResult[]> {
   const token = await getCalendarToken(false);
   const boundary = `vega_batch_${crypto.randomUUID()}`;
-  const res = await fetch(BATCH_URL, {
+  const response = await fetch(BATCH_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -148,8 +147,8 @@ async function batchChunk(calendarId: string, ops: BatchOp[]): Promise<BatchResu
     },
     body: buildMultipart(calendarId, ops, boundary),
   });
-  if (!res.ok) throw new GcalHttpError(res.status); // envelope fault (401 → reconnect, 403/429 → backoff)
-  return parseMultipart(await res.text(), ops);
+  if (!response.ok) throw new GcalHttpError(response.status); // envelope fault (401 → reconnect, 403/429 → backoff)
+  return parseMultipart(await response.text(), ops);
 }
 
 /** Run insert/patch/delete ops against one calendar in batched multipart round-trips. */

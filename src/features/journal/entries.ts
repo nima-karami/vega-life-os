@@ -12,7 +12,7 @@ export function queryEntries(
   journal: DayEntry[],
   opts: { query?: string; filter?: EntryFilter; sort?: EntrySort } = {},
 ): DayEntry[] {
-  const q = (opts.query ?? "").trim().toLowerCase();
+  const normalizedQuery = (opts.query ?? "").trim().toLowerCase();
   const filter = opts.filter ?? "all";
   const sort = opts.sort ?? "newest";
 
@@ -20,9 +20,9 @@ export function queryEntries(
     if (filter === "journaled" && e.journal.trim() === "") return false;
     if (filter === "gratitude" && !hasGratitude(e)) return false;
     if (filter === "mood" && e.mood == null) return false;
-    if (q) {
-      const hay = `${e.journal} ${e.gratitude.join(" ")}`.toLowerCase();
-      if (!hay.includes(q)) return false;
+    if (normalizedQuery) {
+      const haystack = `${e.journal} ${e.gratitude.join(" ")}`.toLowerCase();
+      if (!haystack.includes(normalizedQuery)) return false;
     }
     return true;
   });

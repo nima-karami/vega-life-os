@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
-import { type CatalogEntry, filterCatalog, groupedCatalog } from "./icon-catalog";
+import { type CatalogEntry, filterCatalog, getGroupedCatalog } from "./icon-catalog";
 import { Icon } from "./icons";
 import { Popover } from "./popover";
 
@@ -54,7 +54,7 @@ export function IconField({
 
   const searching = query.trim().length > 0;
 
-  const groups = useMemo(() => groupedCatalog(), []);
+  const groups = useMemo(() => getGroupedCatalog(), []);
   const results = useMemo(() => filterCatalog(query), [query]);
   const pinned: CatalogEntry | null = useMemo(
     () => (searching ? null : { name: value, category: "Focus & goals", keywords: "" }),
@@ -263,7 +263,7 @@ export function IconField({
   );
 }
 
-function offsetBefore(groups: ReturnType<typeof groupedCatalog>, index: number): number {
+function offsetBefore(groups: ReturnType<typeof getGroupedCatalog>, index: number): number {
   let n = 0;
   for (let i = 0; i < index; i++) n += groups[i].entries.length;
   return n;

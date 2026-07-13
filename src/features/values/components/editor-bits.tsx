@@ -1,12 +1,7 @@
-/**
- * Shared, accessible building blocks for the value & goal editors.
- * Kept here (a value-feature module) and reused by the goal editor so the two
- * editors don't copy-paste picker markup (keeps jscpd duplication low).
- */
+// Shared editor building blocks, reused by the goal editor to avoid duplicated picker markup.
 import { Slider } from "@heroui/react";
 import { cx, Icon } from "@/core/ui";
 
-/** Section wrapper with a small, quiet label above its control (sentence case). */
 export function EditorField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2.5">
@@ -16,10 +11,7 @@ export function EditorField({ label, children }: { label: string; children: Reac
   );
 }
 
-/**
- * Accessible hue picker over the value palette. Selected swatch carries a
- * ring + the hex as its accessible name (colour is never the sole signal).
- */
+// Selected swatch is named by its hex, so colour is never the only signal.
 export function HuePicker({
   value,
   options,
@@ -32,23 +24,23 @@ export function HuePicker({
   return (
     <div role="radiogroup" aria-label="Marker hue" className="flex flex-wrap gap-2">
       {options.map((h) => {
-        const selected = value.toLowerCase() === h.toLowerCase();
+        const isSelected = value.toLowerCase() === h.toLowerCase();
         return (
           // biome-ignore lint/a11y/useSemanticElements: a colour-swatch grid; a native radio input can't render the swatch, so the ARIA radio pattern is intentional
           <button
             type="button"
             key={h}
             role="radio"
-            aria-checked={selected}
+            aria-checked={isSelected}
             aria-label={`Hue ${h}`}
             onClick={() => onSelect(h)}
             className={cx(
               "grid h-8 w-8 place-items-center rounded-full border-2 transition-transform hover:scale-110",
-              selected ? "border-foreground" : "border-border",
+              isSelected ? "border-foreground" : "border-border",
             )}
             style={{ background: h }}
           >
-            {selected && <Icon name="check" size={14} className="text-white drop-shadow" />}
+            {isSelected && <Icon name="check" size={14} className="text-white drop-shadow" />}
           </button>
         );
       })}
@@ -56,11 +48,6 @@ export function HuePicker({
   );
 }
 
-/**
- * A 0..1 slider rendered with a trailing percent readout. Wraps HeroUI's
- * accessible Slider (slider role, arrow keys, Home/End) so callers get keyboard
- * operability for free; `isDisabled` expresses the derived/read-only state.
- */
 export function FractionSlider({
   label,
   value,

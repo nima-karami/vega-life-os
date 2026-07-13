@@ -33,7 +33,7 @@ export const isReflected = (e?: DayEntry): boolean =>
 export const hasContent = (e?: DayEntry): boolean => hasGratitude(e) || isReflected(e);
 
 export type EntryStatus = "none" | "started" | "reflected";
-export const entryStatus = (e?: DayEntry): EntryStatus =>
+export const getEntryStatus = (e?: DayEntry): EntryStatus =>
   !hasContent(e) ? "none" : isReflected(e) ? "reflected" : "started";
 
 /**

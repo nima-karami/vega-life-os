@@ -6,7 +6,7 @@
 import { reorderByIds } from "@/core/lib/reorder";
 import type { Goal } from "@/features/goals/model";
 import type { Task, TaskStatus } from "@/features/tasks/model";
-import { dayQueue, isAnytimeHabit, isResolved } from "@/features/tasks/selectors";
+import { getDayQueue, isAnytimeHabit, isResolved } from "@/features/tasks/selectors";
 
 export interface TodayGroups {
   /** open | todo — still to do today, sorted by time then order */
@@ -20,11 +20,11 @@ export interface TodayGroups {
 /**
  * Partition today's queue into Remaining (open|todo), Done (done|skip), and the
  * anytime-habit strip. Anytime habits are pulled out first so they never appear
- * in the task lists or the day's "X of Y" count. Reuses `dayQueue` for the
+ * in the task lists or the day's "X of Y" count. Reuses `getDayQueue` for the
  * canonical time→order sort and `isResolved` for the Remaining/Done boundary.
  */
 export function partitionToday(tasks: Task[], date: string): TodayGroups {
-  const queue = dayQueue(tasks, date);
+  const queue = getDayQueue(tasks, date);
   const remaining: Task[] = [];
   const done: Task[] = [];
   const habits: Task[] = [];
@@ -64,7 +64,7 @@ export function buildTaskPatch(draft: CaptureDraft, date: string): Partial<Task>
 }
 
 /** Goals selectable for a chosen value — only goals that serve that value. */
-export function goalsForValue(goals: Goal[], valueId: string | null): Goal[] {
+export function getGoalsForValue(goals: Goal[], valueId: string | null): Goal[] {
   if (valueId == null) return [];
   return goals.filter((g) => g.valueId === valueId);
 }
@@ -132,6 +132,6 @@ export function sortDailyHabits(items: Task[]): Task[] {
 }
 
 /** Canonical accessible name for a streak; singular only at exactly 1. */
-export function streakLabel(n: number): string {
+export function formatStreakLabel(n: number): string {
   return `${n}-day streak`;
 }

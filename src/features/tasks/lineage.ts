@@ -1,5 +1,5 @@
 /**
- * taskLineage — resolves the Value → Goal → Habit → Task chain.
+ * getTaskLineage — resolves the Value → Goal → Habit → Task chain.
  *
  * Pure function (no store access) so it is deterministic in unit tests.
  * The store-bound hook `useTaskLineage` wraps it for component use.
@@ -28,7 +28,7 @@ interface LineageCtx {
  * Pure, testable implementation.
  * Never throws on dangling ids — missing fields resolve to `undefined`.
  */
-export function taskLineage(task: Task, ctx: LineageCtx): TaskLineage {
+export function getTaskLineage(task: Task, ctx: LineageCtx): TaskLineage {
   const habit = task.habitId != null ? ctx.habits.find((h) => h.id === task.habitId) : undefined;
 
   const goal =
@@ -46,7 +46,7 @@ export function taskLineage(task: Task, ctx: LineageCtx): TaskLineage {
 }
 
 /**
- * Store-bound hook — looks up the task by id then calls the pure `taskLineage`.
+ * Store-bound hook — looks up the task by id then calls the pure `getTaskLineage`.
  * Returns null when the task is not found.
  */
 export function useTaskLineage(taskId: string): TaskLineage | null {
@@ -56,5 +56,5 @@ export function useTaskLineage(taskId: string): TaskLineage | null {
   const habits = useStore((s) => s.habits);
 
   if (!task) return null;
-  return taskLineage(task, { values, goals, habits });
+  return getTaskLineage(task, { values, goals, habits });
 }

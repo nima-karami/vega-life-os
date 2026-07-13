@@ -13,8 +13,8 @@ import {
   COLLECTIONS,
   type CollectionName,
   type CollectionSnapshot,
+  createEmptyDataset,
   type Dataset,
-  emptyDataset,
   type PersistenceAdapter,
 } from "./adapter";
 
@@ -45,7 +45,7 @@ export class FirestoreAdapter implements PersistenceAdapter {
   }
 
   async loadAll(): Promise<Dataset> {
-    const out = emptyDataset();
+    const out = createEmptyDataset();
     await Promise.all(
       COLLECTIONS.map(async (col) => {
         const snap = await getDocs(this.colRef(col));

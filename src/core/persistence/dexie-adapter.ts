@@ -1,7 +1,7 @@
 import {
   type CollectionName,
+  createEmptyDataset,
   type Dataset,
-  emptyDataset,
   type PersistenceAdapter,
 } from "./adapter";
 import { db } from "./db";
@@ -32,7 +32,7 @@ export class DexieAdapter implements PersistenceAdapter {
         db.calendarEvents.toArray(),
       ]);
     return {
-      ...emptyDataset(),
+      ...createEmptyDataset(),
       values,
       goals,
       habits,

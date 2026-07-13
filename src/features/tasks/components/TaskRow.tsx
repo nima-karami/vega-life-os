@@ -1,4 +1,4 @@
-import { ALIGN_LABEL, alignOf } from "@/core/lib/align";
+import { ALIGN_LABEL, getAlignment } from "@/core/lib/align";
 import { useStore } from "@/core/store";
 import { cx, Icon, Tag } from "@/core/ui";
 import type { Task } from "../model";
@@ -21,11 +21,11 @@ export function TaskRow({
 }) {
   const cycleStatus = useStore((s) => s.cycleStatus);
   const value = useStore((s) => s.values.find((v) => v.id === task.valueId));
-  const resolved = task.status === "done" || task.status === "skip";
+  const isResolved = task.status === "done" || task.status === "skip";
   const box = STATUS_BOX[task.status];
 
   return (
-    <div className={cx("group flex items-center gap-3 py-2.5", resolved && "opacity-55")}>
+    <div className={cx("group flex items-center gap-3 py-2.5", isResolved && "opacity-55")}>
       <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{task.time ?? "—"}</span>
 
       <button
@@ -40,7 +40,7 @@ export function TaskRow({
         <span
           className={cx(
             "truncate text-sm text-foreground",
-            resolved && "line-through decoration-1",
+            isResolved && "line-through decoration-1",
           )}
         >
           {task.title}
@@ -52,7 +52,7 @@ export function TaskRow({
       <div className="hidden items-center gap-1.5 sm:flex">
         {showDate && task.date && <span className="text-xs text-muted">{task.date.slice(5)}</span>}
         {task.kind === "habit" && <Tag>Habit</Tag>}
-        <Tag>{value ? value.name : ALIGN_LABEL[alignOf(task)]}</Tag>
+        <Tag>{value ? value.name : ALIGN_LABEL[getAlignment(task)]}</Tag>
       </div>
 
       <button

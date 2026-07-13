@@ -7,7 +7,7 @@
  * custom accent overrides those v3 tokens, plus the legacy `--color-accent` var a
  * few older surfaces (date picker, charts) still read.
  *
- * `accentVars(hex)` returns the exact CSS custom properties to set on the root.
+ * `getAccentVars(hex)` returns the exact CSS custom properties to set on the root.
  * An empty/invalid hex returns `{}` — the caller clears any overrides so the
  * configured theme default (slate) shows through.
  *
@@ -51,7 +51,7 @@ function luminance({ r, g, b }: Rgb): number {
 }
 
 /**
- * Every CSS custom property `accentVars` may set, as a stable list. The applier
+ * Every CSS custom property `getAccentVars` may set, as a stable list. The applier
  * iterates this (not just the current map's keys) so switching to "Default"
  * clears every previously-set var.
  *
@@ -69,7 +69,7 @@ export const ACCENT_VAR_KEYS: readonly string[] = [
   "--color-accent-foreground",
 ];
 
-export function accentVars(hex: string): Record<string, string> {
+export function getAccentVars(hex: string): Record<string, string> {
   const rgb = parseHex(hex);
   if (!rgb) return {};
 

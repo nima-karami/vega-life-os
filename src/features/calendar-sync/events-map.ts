@@ -2,14 +2,14 @@ import { addDays, addMinutes, differenceInMinutes, format, parseISO } from "date
 import type { CalendarEvent } from "./events-model";
 import { type GEvent, toLocalRFC3339 } from "./map";
 
-const isoDay = (d: Date) => format(d, "yyyy-MM-dd");
+const toIsoDay = (d: Date) => format(d, "yyyy-MM-dd");
 
 type SyncedFields = Omit<
   CalendarEvent,
   "id" | "valueId" | "goalId" | "note" | "vegaEditedAt" | "pendingDelete" | "removedAt"
 >;
 
-function selfResponse(ev: GEvent): CalendarEvent["responseStatus"] {
+function readSelfResponse(ev: GEvent): CalendarEvent["responseStatus"] {
   const r = ev.attendees?.find((a) => a.self)?.responseStatus;
   return r === "accepted" || r === "declined" || r === "tentative" || r === "needsAction"
     ? r
@@ -25,16 +25,16 @@ export function gEventToCalendarEvent(ev: GEvent, calendarId: string): SyncedFie
   let durationMin = 0;
   if (ev.start?.dateTime) {
     const start = parseISO(ev.start.dateTime);
-    date = isoDay(start);
+    date = toIsoDay(start);
     time = format(start, "HH:mm");
     const end = ev.end?.dateTime ? parseISO(ev.end.dateTime) : addMinutes(start, 30);
     durationMin = Math.max(0, differenceInMinutes(end, start));
     // last day the block actually touches (a block ending at midnight stays on its start day)
-    endDate = isoDay(addMinutes(end, -1) < start ? start : addMinutes(end, -1));
+    endDate = toIsoDay(addMinutes(end, -1) < start ? start : addMinutes(end, -1));
   } else if (ev.start?.date) {
     date = ev.start.date;
     // Google all-day end.date is exclusive → the inclusive last day is one day back.
-    endDate = ev.end?.date ? isoDay(addDays(parseISO(ev.end.date), -1)) : date;
+    endDate = ev.end?.date ? toIsoDay(addDays(parseISO(ev.end.date), -1)) : date;
     if (endDate < date) endDate = date;
   }
   return {
@@ -50,7 +50,7 @@ export function gEventToCalendarEvent(ev: GEvent, calendarId: string): SyncedFie
     recurringEventId: ev.recurringEventId ?? null,
     googleUpdated: ev.updated ?? null,
     status: ev.status === "cancelled" ? "cancelled" : "confirmed",
-    responseStatus: selfResponse(ev),
+    responseStatus: readSelfResponse(ev),
   };
 }
 
@@ -66,7 +66,7 @@ export function calendarEventToGPatch(
   } else if (e.date) {
     // Preserve a multi-day span: Google all-day end.date is exclusive (last day + 1).
     body.start = { date: e.date };
-    body.end = { date: isoDay(addDays(parseISO(e.endDate ?? e.date), 1)) };
+    body.end = { date: toIsoDay(addDays(parseISO(e.endDate ?? e.date), 1)) };
   }
   return body;
 }

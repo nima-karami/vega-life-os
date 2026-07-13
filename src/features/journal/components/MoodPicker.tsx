@@ -12,20 +12,20 @@ export function MoodPicker({
   return (
     <div role="radiogroup" aria-label="Mood" className="flex items-center gap-2">
       {MOOD_SCALE.map((m) => {
-        const selected = value === m;
+        const isSelected = value === m;
         return (
           // biome-ignore lint/a11y/useSemanticElements: styled radio button pips use button for custom styling
           <button
             type="button"
             key={m}
             role="radio"
-            aria-checked={selected}
+            aria-checked={isSelected}
             aria-label={`Mood ${m} of 5 — ${MOOD_LABEL[m]}`}
             title={MOOD_LABEL[m]}
             onClick={() => onChange(m)}
             className={cx(
               "grid h-9 w-9 place-items-center rounded-full border text-sm font-medium tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus",
-              selected
+              isSelected
                 ? "border-accent bg-accent text-accent-foreground"
                 : "border-border text-muted hover:border-border hover:text-foreground",
             )}

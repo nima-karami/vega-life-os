@@ -101,10 +101,12 @@ const COMMANDS: SlashCommand[] = [
 ];
 
 function filterCommands(query: string): SlashCommand[] {
-  const q = query.trim().toLowerCase();
-  if (q === "") return COMMANDS;
+  const normalizedQuery = query.trim().toLowerCase();
+  if (normalizedQuery === "") return COMMANDS;
   return COMMANDS.filter(
-    (c) => c.title.toLowerCase().includes(q) || c.keywords.some((k) => k.includes(q)),
+    (c) =>
+      c.title.toLowerCase().includes(normalizedQuery) ||
+      c.keywords.some((k) => k.includes(normalizedQuery)),
   );
 }
 
@@ -165,21 +167,21 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
     >
       {props.items.map((item, i) => {
         const ItemIcon = item.icon;
-        const selected = i === active;
+        const isSelected = i === active;
         return (
           <button
             key={item.title}
             type="button"
             id={`slash-opt-${i}`}
             role="option"
-            aria-selected={selected}
+            aria-selected={isSelected}
             onMouseEnter={() => setActive(i)}
             onMouseDown={(e) => {
               e.preventDefault();
               select(i);
             }}
             className={`flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none ${
-              selected ? "bg-accent/10 text-foreground" : "text-muted"
+              isSelected ? "bg-accent/10 text-foreground" : "text-muted"
             }`}
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[8px] border border-border bg-surface-secondary text-muted">
@@ -191,7 +193,7 @@ const SlashList = forwardRef<SlashListHandle, SlashListProps>((props, ref) => {
               </span>
               <span className="block truncate text-xs text-muted">{item.hint}</span>
             </span>
-            {selected && <ChevronRight size={13} className="shrink-0 text-muted" />}
+            {isSelected && <ChevronRight size={13} className="shrink-0 text-muted" />}
           </button>
         );
       })}
@@ -240,10 +242,10 @@ export const SlashMenu = Extension.create({
             popup.style.inset = "";
             popup.style.paddingBottom = "";
             popup.classList.remove("bg-surface", "border-t", "border-border");
-            const r = rect?.();
-            if (!r) return;
-            popup.style.top = `${r.bottom + 6 + window.scrollY}px`;
-            popup.style.left = `${r.left + window.scrollX}px`;
+            const caretRect = rect?.();
+            if (!caretRect) return;
+            popup.style.top = `${caretRect.bottom + 6 + window.scrollY}px`;
+            popup.style.left = `${caretRect.left + window.scrollX}px`;
           };
 
           return {

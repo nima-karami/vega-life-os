@@ -7,17 +7,17 @@ import { EditorField, FractionSlider } from "@/features/values/components/editor
 import type { Subgoal } from "../model";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
 import {
+  buildStatusChangePatch,
   coerceStatus,
-  goalProgressIsDerived,
-  goalProgressPercent,
-  statusChangePatch,
+  computeGoalProgressPercent,
+  isGoalProgressDerived,
 } from "../presentation";
-import { goalPhase } from "../selectors";
+import { getGoalPhase } from "../selectors";
 import {
   detectTimeframe,
-  periodLabel,
-  periodStep,
-  presetRangeOn,
+  formatPeriodLabel,
+  getPeriodStep,
+  getPresetRangeOn,
   type Timeframe,
 } from "../timeframe";
 
@@ -66,14 +66,14 @@ export function GoalEditor({
   const detected = goal ? detectTimeframe(goal.start, goal.end) : "custom";
   const activeTf: Timeframe = forceCustom ? "custom" : detected;
   const presetGrain = activeTf === "custom" ? "quarter" : activeTf;
-  const derived = goal ? goalProgressIsDerived(goal) : false;
-  const upcoming = goal ? goalPhase(goal) === "upcoming" : false;
+  const isProgressDerived = goal ? isGoalProgressDerived(goal) : false;
+  const isUpcoming = goal ? getGoalPhase(goal) === "upcoming" : false;
 
   const reschedule = (range: { start: string; end: string }) => {
     if (!goal) return;
-    const status = coerceStatus(goal.status, goalPhase({ ...goal, ...range }));
+    const status = coerceStatus(goal.status, getGoalPhase({ ...goal, ...range }));
     update(goal.id, status !== goal.status ? { ...range, status } : range);
-    setCoercedTo(status !== goal.status ? periodLabel(range.start, range.end) : null);
+    setCoercedTo(status !== goal.status ? formatPeriodLabel(range.start, range.end) : null);
   };
 
   const pickTf = (tf: Timeframe) => {
@@ -83,7 +83,7 @@ export function GoalEditor({
       return;
     }
     setForceCustom(false);
-    reschedule(presetRangeOn(tf, goal.start));
+    reschedule(getPresetRangeOn(tf, goal.start));
   };
 
   const commitSub = () => {
@@ -127,29 +127,27 @@ export function GoalEditor({
                     />
                   </label>
 
-                  {/* status — segmented toggle buttons; active/paused gated while upcoming */}
                   <EditorField label="Status">
                     <div className="flex flex-wrap gap-1.5">
                       {GOAL_STATUSES.map((st) => (
                         <SegmentButton
                           key={st}
-                          selected={goal.status === st}
-                          isDisabled={upcoming && (st === "active" || st === "paused")}
-                          onClick={() => update(goal.id, statusChangePatch(st))}
+                          isSelected={goal.status === st}
+                          isDisabled={isUpcoming && (st === "active" || st === "paused")}
+                          onClick={() => update(goal.id, buildStatusChangePatch(st))}
                         >
                           {GOAL_STATUS_LABEL[st]}
                         </SegmentButton>
                       ))}
                     </div>
-                    {upcoming && (
+                    {isUpcoming && (
                       <p className="text-xs text-muted">
-                        Starts {periodLabel(goal.start, goal.end)} — activate when its period
+                        Starts {formatPeriodLabel(goal.start, goal.end)} — activate when its period
                         begins.
                       </p>
                     )}
                   </EditorField>
 
-                  {/* serves value */}
                   <EditorField label="In service of">
                     <Select
                       ariaLabel="Value"
@@ -159,13 +157,12 @@ export function GoalEditor({
                     />
                   </EditorField>
 
-                  {/* timeframe — grain chips + period navigator (or custom date pickers) */}
-                  <EditorField label={`Timeframe · ${periodLabel(goal.start, goal.end)}`}>
+                  <EditorField label={`Timeframe · ${formatPeriodLabel(goal.start, goal.end)}`}>
                     <div className="flex gap-1.5">
                       {TF_CHIPS.map((c) => (
                         <SegmentButton
                           key={c.id}
-                          selected={activeTf === c.id}
+                          isSelected={activeTf === c.id}
                           onClick={() => pickTf(c.id)}
                         >
                           {c.label}
@@ -179,19 +176,19 @@ export function GoalEditor({
                           size="sm"
                           variant="outline"
                           aria-label={`Previous ${presetGrain}`}
-                          onPress={() => reschedule(periodStep(goal.start, presetGrain, -1))}
+                          onPress={() => reschedule(getPeriodStep(goal.start, presetGrain, -1))}
                         >
                           <Icon name="chevL" size={15} />
                         </Button>
                         <span className="min-w-[7rem] text-center text-sm font-medium tabular-nums text-foreground">
-                          {periodLabel(goal.start, goal.end)}
+                          {formatPeriodLabel(goal.start, goal.end)}
                         </span>
                         <Button
                           isIconOnly
                           size="sm"
                           variant="outline"
                           aria-label={`Next ${presetGrain}`}
-                          onPress={() => reschedule(periodStep(goal.start, presetGrain, 1))}
+                          onPress={() => reschedule(getPeriodStep(goal.start, presetGrain, 1))}
                         >
                           <Icon name="chevR" size={15} />
                         </Button>
@@ -218,9 +215,8 @@ export function GoalEditor({
                     )}
                   </EditorField>
 
-                  {/* progress */}
-                  {derived ? (
-                    <EditorField label={`Progress · ${goalProgressPercent(goal)}%`}>
+                  {isProgressDerived ? (
+                    <EditorField label={`Progress · ${computeGoalProgressPercent(goal)}%`}>
                       <p className="text-xs text-muted">
                         Tracked from {goal.subgoals.filter((s) => s.done).length}/
                         {goal.subgoals.length} steps below.
@@ -234,7 +230,6 @@ export function GoalEditor({
                     />
                   )}
 
-                  {/* subgoals — drag to reorder, click a name to rename */}
                   <EditorField label="Steps">
                     <div className="space-y-1.5">
                       <SortableList
@@ -315,8 +310,8 @@ function StepRow({
 
   const commit = () => {
     setEditing(false);
-    const t = text.trim();
-    if (t && t !== sub.name) onRename(t);
+    const trimmed = text.trim();
+    if (trimmed && trimmed !== sub.name) onRename(trimmed);
     else setText(sub.name);
   };
 
@@ -383,12 +378,12 @@ function StepRow({
 
 /** A segmented-control cell: a HeroUI toggle Button (aria-pressed); selected = primary fill. */
 function SegmentButton({
-  selected,
+  isSelected,
   onClick,
   isDisabled,
   children,
 }: {
-  selected: boolean;
+  isSelected: boolean;
   onClick: () => void;
   isDisabled?: boolean;
   children: React.ReactNode;
@@ -396,9 +391,9 @@ function SegmentButton({
   return (
     <Button
       size="sm"
-      aria-pressed={selected}
+      aria-pressed={isSelected}
       isDisabled={isDisabled}
-      variant={selected ? "primary" : "outline"}
+      variant={isSelected ? "primary" : "outline"}
       onPress={onClick}
       className="flex-1"
     >

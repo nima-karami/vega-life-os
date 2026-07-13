@@ -1,4 +1,4 @@
-import { weekDays } from "@/core/lib/date";
+import { getWeekDays } from "@/core/lib/date";
 import type { Goal } from "@/features/goals/model";
 import { isGoalClosed } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
@@ -14,35 +14,33 @@ export interface ValueRollup {
   needsYou: boolean;
 }
 
-export function valueRollup(
+export function computeValueRollup(
   valueId: string,
-  data: { goals: Goal[]; habits: Habit[]; tasks: Task[]; energy?: number },
+  sources: { goals: Goal[]; habits: Habit[]; tasks: Task[]; energy?: number },
 ): ValueRollup {
-  const goals = data.goals.filter((g) => g.valueId === valueId).length;
-  const habits = data.habits.filter((h) => h.valueId === valueId).length;
+  const goals = sources.goals.filter((g) => g.valueId === valueId).length;
+  const habits = sources.habits.filter((h) => h.valueId === valueId).length;
 
-  // attention = resolved share of this value's *elapsed* week (past + today),
-  // so it reads meaningfully regardless of which weekday it is.
-  const today = weekDays().find((d) => d.today)?.iso ?? "";
-  const elapsed = data.tasks.filter((t) => t.valueId === valueId && t.date && t.date <= today);
+  // attention reads over the *elapsed* week (past + today) so it's meaningful on any weekday.
+  const today = getWeekDays().find((d) => d.today)?.iso ?? "";
+  const elapsed = sources.tasks.filter((t) => t.valueId === valueId && t.date && t.date <= today);
   const resolved = elapsed.filter((t) => t.status === "done" || t.status === "skip").length;
   const attention = elapsed.length ? resolved / elapsed.length : 0;
 
-  // a value "needs you" when its standing energy is low and it has commitments.
-  const energy = data.energy ?? 1;
+  const energy = sources.energy ?? 1;
   const needsYou = (goals > 0 || habits > 0) && energy < 0.4;
 
   return { goals, habits, attention, needsYou };
 }
 
-export const sortedValues = (values: Value[]) => [...values].sort((a, b) => a.order - b.order);
+export const getSortedValues = (values: Value[]) => [...values].sort((a, b) => a.order - b.order);
 
 /** Active values (no archivedAt), by display order. Absent field = active. */
-export const activeValues = (values: Value[]): Value[] =>
+export const getActiveValues = (values: Value[]): Value[] =>
   values.filter((v) => (v.archivedAt ?? null) === null).sort((a, b) => a.order - b.order);
 
 /** Archived values (archivedAt set), most recently archived first. */
-export const archivedValues = (values: Value[]): Value[] =>
+export const getArchivedValues = (values: Value[]): Value[] =>
   values
     .filter((v) => (v.archivedAt ?? null) !== null)
     .sort((a, b) => ((a.archivedAt ?? "") < (b.archivedAt ?? "") ? 1 : -1));
@@ -56,7 +54,7 @@ export function splitGoals(goals: Goal[]): { open: Goal[]; closed: Goal[] } {
 }
 
 /** Counts where "active" means open/working (active + backlog + paused). */
-export function goalCounts(goals: Goal[]): { active: number; closed: number } {
+export function computeGoalCounts(goals: Goal[]): { active: number; closed: number } {
   const { open, closed } = splitGoals(goals);
   return { active: open.length, closed: closed.length };
 }

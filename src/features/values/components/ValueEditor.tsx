@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import { cx, Icon, IconField, useCompactModal } from "@/core/ui";
-import { VALUE_HUES, VALUE_PALETTE, valueColor } from "../color";
+import { getValueColor, VALUE_HUES, VALUE_PALETTE } from "../color";
 import type { Value } from "../model";
 import { EditorField, HuePicker } from "./editor-bits";
 
@@ -50,9 +50,8 @@ export function ValueEditor({
   useEffect(() => {
     if (isOpen && creating) nameRef.current?.focus();
   }, [isOpen, creating]);
-  // Fields read from the live record when editing, or the local draft when creating.
   const view = value ?? draft;
-  const color = value ? valueColor(value) : draft.hue || VALUE_PALETTE[0];
+  const color = value ? getValueColor(value) : draft.hue || VALUE_PALETTE[0];
 
   const setField = (patch: Partial<ValueDraft>) => {
     if (value) update(value.id, patch);

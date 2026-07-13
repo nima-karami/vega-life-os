@@ -24,7 +24,7 @@ export interface WeekDay {
   index: number; // 0..6, Mon..Sun
 }
 
-export function weekDays(ref: Date = new Date(), today: string = todayISO(ref)): WeekDay[] {
+export function getWeekDays(ref: Date = new Date(), today: string = todayISO(ref)): WeekDay[] {
   const ws = weekStartOf(ref);
   return Array.from({ length: 7 }, (_, i) => {
     const d = addDays(ws, i);
@@ -45,9 +45,9 @@ export function dowIndex(isoDate: string): number {
   return (d.getDay() + 6) % 7;
 }
 
-export const fmtShort = (isoDate: string) => format(parseISO(isoDate), "MMM d");
+export const formatShortDate = (isoDate: string) => format(parseISO(isoDate), "MMM d");
 
-export const fmtLong = (isoDate: string) => format(parseISO(isoDate), "EEE · MMM d · yyyy");
+export const formatLongDate = (isoDate: string) => format(parseISO(isoDate), "EEE · MMM d · yyyy");
 
 export const isToday = (isoDate: string) => dfnsIsToday(parseISO(isoDate));
 
@@ -62,7 +62,7 @@ export const shiftISO = (isoDate: string, days: number) =>
  * Human label for a date relative to a reference (default today):
  * "Today" / "Tomorrow" / "Yesterday", else the weekday name ("Saturday").
  */
-export function relativeDay(isoDate: string, ref: string = todayISO()): string {
+export function formatRelativeDay(isoDate: string, ref: string = todayISO()): string {
   const diff = daysBetween(isoDate, ref);
   if (diff === 0) return "Today";
   if (diff === 1) return "Tomorrow";

@@ -12,7 +12,7 @@ import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import type { Task } from "@/features/tasks";
 
 /** Timed tasks for a given ISO day (rendered as positioned chips). */
-export function timedTasksForDay(tasks: Task[], dayIso: string): Task[] {
+export function getTimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
   return tasks.filter((t) => t.time != null && t.date === dayIso);
 }
 
@@ -21,12 +21,12 @@ export function timedTasksForDay(tasks: Task[], dayIso: string): Task[] {
  * Anytime-habit instances (kind "habit", time null) are excluded — they live in
  * Today's Daily-habits strip, not the calendar.
  */
-export function untimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
+export function getUntimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
   return tasks.filter((t) => t.date === dayIso && t.time == null && t.kind !== "habit");
 }
 
 /** Backlog tasks with no date, ordered by their `order` field. */
-export function unscheduledTasks(tasks: Task[]): Task[] {
+export function getUnscheduledTasks(tasks: Task[]): Task[] {
   return tasks.filter((t) => t.date === null).sort((a, b) => a.order - b.order);
 }
 
@@ -48,17 +48,17 @@ function coversDay(e: CalendarEvent, dayIso: string): boolean {
 }
 
 /** Timed lived (Google) events for a given ISO day — placed on the timed grid. */
-export function timedLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
+export function getTimedLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
   return events.filter((e) => e.time != null && !isMultiDay(e) && e.date === dayIso);
 }
 
 /** All-day + multi-day lived (Google) events covering a given ISO day — the all-day row. */
-export function allDayLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
+export function getAllDayLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
   return events.filter((e) => (e.time == null || isMultiDay(e)) && coversDay(e, dayIso));
 }
 
 /** Single-day all-day lived events for a day — the per-day cells (multi-day go in bars). */
-export function singleDayAllDayLived(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
+export function getSingleDayAllDayLived(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
   return events.filter((e) => e.time == null && !isMultiDay(e) && e.date === dayIso);
 }
 

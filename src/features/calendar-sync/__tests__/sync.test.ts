@@ -50,7 +50,7 @@ vi.mock("../state", () => ({
 
 import { useStore } from "@/core/store";
 import { ensureVegaCalendar } from "../calendars";
-import { defaultGcalConfig } from "../config";
+import { createDefaultGcalConfig } from "../config";
 import type { CalendarEvent } from "../events-model";
 import { batchWrite, GcalHttpError, listEvents } from "../gcal";
 import { toGEvent } from "../map";
@@ -61,8 +61,8 @@ const defaultListImpl = async (_cal: string, o: { filtered: boolean }) =>
     ? { events: [], nextSyncToken: "tok", expired: false }
     : { events: [okEvent], nextSyncToken: "tok", expired: false };
 
-const gcal = (over: Partial<ReturnType<typeof defaultGcalConfig>> = {}) => ({
-  ...defaultGcalConfig(),
+const gcal = (over: Partial<ReturnType<typeof createDefaultGcalConfig>> = {}) => ({
+  ...createDefaultGcalConfig(),
   enabled: true,
   writeCalendarId: "cal_vega",
   readCalendarIds: ["cal_personal"],

@@ -24,7 +24,7 @@ export function resolveProfile(cloud: CloudProfile | null, user: AuthLike | null
 }
 
 /** Signed-in user has no real display name yet ("Operator" is the unset default). */
-export function profileIncomplete(name: string): boolean {
+export function isProfileIncomplete(name: string): boolean {
   const n = name.trim();
   return n === "" || n === "Operator";
 }

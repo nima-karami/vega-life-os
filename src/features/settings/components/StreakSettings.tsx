@@ -2,11 +2,11 @@ import { useEffect, useId, useState } from "react";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
 import {
+  getPreset,
   PRESET_LABEL,
   PRESET_ORDER,
   PRESETS,
   type PresetName,
-  presetOf,
   RULE_RANGE,
   type StreakRules,
   validateRules,
@@ -39,7 +39,7 @@ export function StreakSettings() {
 
   const errors = validateRules(draft);
   const errorFor = (f: keyof StreakRules) => errors.find((e) => e.field === f)?.message;
-  const active = presetOf(draft);
+  const active = getPreset(draft);
 
   const applyPreset = (name: PresetName) => {
     setDraft(PRESETS[name]);

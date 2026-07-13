@@ -1,11 +1,11 @@
 import { Button } from "@heroui/react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fmtLong, todayISO } from "@/core/lib/date";
+import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
 import { type EntryFilter, type EntrySort, queryEntries } from "./entries";
-import { type DayEntry, entryStatus, hasGratitude, MOOD_LABEL } from "./model";
+import { type DayEntry, getEntryStatus, hasGratitude, MOOD_LABEL } from "./model";
 
 const FIELD =
   "w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
@@ -36,7 +36,7 @@ export function EntriesPage() {
     [journal, query, filter, sort],
   );
 
-  const empty = journal.length === 0;
+  const isEmpty = journal.length === 0;
   const clearFilters = () => {
     setQuery("");
     setFilter("all");
@@ -57,7 +57,7 @@ export function EntriesPage() {
         </Button>
       </header>
 
-      {!empty && (
+      {!isEmpty && (
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Icon
@@ -104,7 +104,7 @@ export function EntriesPage() {
         </div>
       )}
 
-      {empty ? (
+      {isEmpty ? (
         <EmptyState
           title="No entries yet"
           body="Your journal, gratitude, and mood entries will collect here."
@@ -140,16 +140,16 @@ export function EntriesPage() {
 }
 
 function EntryRow({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
-  const status = entryStatus(entry);
+  const status = getEntryStatus(entry);
   const gratCount = entry.gratitude.filter((g) => g.trim() !== "").length;
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Open entry for ${fmtLong(entry.date)}`}
+      aria-label={`Open entry for ${formatLongDate(entry.date)}`}
       className="grid w-full grid-cols-[9rem_4rem_1fr_1fr_6rem] items-center gap-3 px-4 py-3 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
     >
-      <span className="text-sm font-medium text-foreground">{fmtLong(entry.date)}</span>
+      <span className="text-sm font-medium text-foreground">{formatLongDate(entry.date)}</span>
       <span className="text-sm text-muted">
         {entry.mood != null ? (
           <span title={MOOD_LABEL[entry.mood]} className="tabular-nums">

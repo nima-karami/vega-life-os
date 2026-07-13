@@ -1,7 +1,7 @@
 import { Button, Card } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fmtLong, relativeDay, shiftISO, todayISO } from "@/core/lib/date";
+import { formatLongDate, formatRelativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   CalendarPopover,
@@ -12,15 +12,15 @@ import {
   StreakBadge,
   UndoBar,
 } from "@/core/ui";
-import { streakState } from "@/features/habits";
+import { getStreakState } from "@/features/habits";
 import {
   BackfillNudge,
-  dayReflectable,
-  entryStatus,
   GratitudeStep,
+  getEntryStatus,
+  getMissedGratitudeDays,
   hasGratitude,
+  isDayReflectable,
   isReflected,
-  missedGratitudeDays,
   ReflectionStep,
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
@@ -28,8 +28,8 @@ import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
 import { useTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "@/features/tasks/model";
-import { dayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
-import { valueColor } from "@/features/values/color";
+import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
+import { getValueColor } from "@/features/values/color";
 import {
   partitionToday,
   reorderTasksInDay,
@@ -72,13 +72,13 @@ export function TodayPage() {
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
 
   const missedDays = useMemo(
-    () => (nudgeDismissed ? [] : missedGratitudeDays(journal, today)),
+    () => (nudgeDismissed ? [] : getMissedGratitudeDays(journal, today)),
     [journal, today, nudgeDismissed],
   );
 
   const showGratitudeGate = isToday && !hasGratitude(todayEntry);
   const showReflection =
-    isToday && !reflectSkipped && !isReflected(todayEntry) && dayReflectable(tasks, today);
+    isToday && !reflectSkipped && !isReflected(todayEntry) && isDayReflectable(tasks, today);
 
   const { remaining, done, habits } = useMemo(
     () => partitionToday(tasks, viewDate),
@@ -87,7 +87,7 @@ export function TodayPage() {
   // Anytime habits live in their own strip and don't count toward the day's task progress.
   const counts = useMemo(
     () =>
-      dayCounts(
+      computeDayCounts(
         tasks.filter((t) => !isAnytimeHabit(t)),
         viewDate,
       ),
@@ -103,8 +103,8 @@ export function TodayPage() {
   // Auto-dismiss the undo bar after a few seconds.
   useEffect(() => {
     if (!pendingUndo) return;
-    const id = setTimeout(() => setPendingUndo(null), 6000);
-    return () => clearTimeout(id);
+    const timerId = setTimeout(() => setPendingUndo(null), 6000);
+    return () => clearTimeout(timerId);
   }, [pendingUndo]);
 
   function handleToggleDone(task: Task) {
@@ -186,10 +186,9 @@ export function TodayPage() {
           onDismiss={() => setNudgeDismissed(true)}
         />
       )}
-      {/* Header — date + day navigation + progress */}
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted">{fmtLong(viewDate)}</p>
+          <p className="text-sm text-muted">{formatLongDate(viewDate)}</p>
           <div className="flex items-center gap-0.5">
             <IconButton
               name="chevL"
@@ -215,7 +214,7 @@ export function TodayPage() {
           </div>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {relativeDay(viewDate, today)}
+          {formatRelativeDay(viewDate, today)}
         </h1>
         <div className="flex items-center gap-2">
           <p className="text-sm text-muted">
@@ -233,12 +232,10 @@ export function TodayPage() {
         </div>
       </header>
 
-      {/* Polite live region for outcome announcements */}
       <div aria-live="polite" className="sr-only">
         {announce}
       </div>
 
-      {/* Body */}
       <div className="mt-8 flex flex-col gap-8">
         <section aria-label="Remaining" className="flex flex-col gap-3">
           {allDone ? (
@@ -289,8 +286,8 @@ export function TodayPage() {
       <div className="mt-8 flex justify-center">
         <Button variant="secondary" onPress={() => navigate(`/journal/${viewDate}`)}>
           <Icon name="note" size={15} />
-          {entryStatus(viewEntry) === "none" ? "Journal" : "Edit entry"}
-          {entryStatus(viewEntry) !== "none" && (
+          {getEntryStatus(viewEntry) === "none" ? "Journal" : "Edit entry"}
+          {getEntryStatus(viewEntry) !== "none" && (
             <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
           )}
         </Button>
@@ -390,9 +387,9 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
   const tasks = useStore((s) => s.tasks);
   const rules = useStore((s) => s.streakRules);
   const lineage = useTaskLineage(task.id);
-  const done = task.status === "done";
+  const isDone = task.status === "done";
   const habit = habitDefs.find((h) => h.id === task.habitId);
-  const streak = habit ? streakState(tasks, habit, undefined, rules) : null;
+  const streak = habit ? getStreakState(tasks, habit, undefined, rules) : null;
   const icon = habit?.icon ?? "repeat";
 
   return (
@@ -400,25 +397,25 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
       <button
         type="button"
         onClick={() => onToggle(task)}
-        aria-pressed={done}
-        aria-label={done ? `Mark ${task.title} not done` : `Mark ${task.title} done`}
+        aria-pressed={isDone}
+        aria-label={isDone ? `Mark ${task.title} not done` : `Mark ${task.title} done`}
         className="flex w-full items-center gap-3 rounded-[12px] px-2 py-2 text-left transition-colors hover:bg-surface-secondary"
       >
         <span
           className={cx(
             "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
-            done
+            isDone
               ? "border-accent bg-accent text-accent-foreground"
               : "border-border text-transparent",
           )}
         >
-          {done && <Icon name="check" size={12} />}
+          {isDone && <Icon name="check" size={12} />}
         </span>
         <Icon name={icon} size={15} className="shrink-0 text-muted" />
         <span
           className={cx(
             "min-w-0 flex-1 truncate text-sm",
-            done ? "text-muted line-through" : "text-foreground",
+            isDone ? "text-muted line-through" : "text-foreground",
           )}
         >
           {task.title}
@@ -426,7 +423,7 @@ function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => 
         {lineage?.value && (
           <span
             className="shrink-0 truncate text-xs font-medium"
-            style={{ color: valueColor(lineage.value) }}
+            style={{ color: getValueColor(lineage.value) }}
           >
             {lineage.value.name}
           </span>

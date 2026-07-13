@@ -4,20 +4,20 @@ import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
 import { AddButton, Disclosure, Icon, Menu, type MenuItem } from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
-import { valueColor } from "@/features/values/color";
+import { getValueColor } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
 import { DeleteHabitDialog } from "./DeleteHabitDialog";
 import { ANYTIME_LABEL } from "./editor";
 import { HabitEditor } from "./HabitEditor";
 import type { Habit } from "./model";
-import { habitSchedule, recurrenceText } from "./recurrence";
+import { describeRecurrence, getHabitSchedule } from "./recurrence";
 import { groupHabitsByValue, sortArchived } from "./selectors";
 
-function fmtDuration(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (!h) return `${m} min`;
-  return m ? `${h}h ${m}m` : `${h}h`;
+function formatDuration(min: number): string {
+  const hours = Math.floor(min / 60);
+  const minutes = min % 60;
+  if (!hours) return `${minutes} min`;
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 }
 
 export function HabitsPage() {
@@ -127,7 +127,7 @@ export function HabitsPage() {
                     className={`inline-block h-2.5 w-2.5 rounded-full ${
                       group.value ? "" : "bg-surface-secondary"
                     }`}
-                    style={group.value ? { background: valueColor(group.value) } : undefined}
+                    style={group.value ? { background: getValueColor(group.value) } : undefined}
                     aria-hidden="true"
                   />
                   {group.value ? group.value.name : "No value"}
@@ -178,7 +178,7 @@ function HabitCard({
   onUnarchive: () => void;
   onDelete: () => void;
 }) {
-  const color = valueColor(value);
+  const color = getValueColor(value);
   const isArchived = (habit.archivedAt ?? null) !== null;
 
   const menuItems: MenuItem[] = [
@@ -227,13 +227,13 @@ function HabitCard({
                 {goal ? ` → ${goal.name}` : ""}
               </span>
               <span aria-hidden="true">·</span>
-              <span>{recurrenceText(habitSchedule(habit))}</span>
+              <span>{describeRecurrence(getHabitSchedule(habit))}</span>
               <span aria-hidden="true">·</span>
               {habit.time ? (
                 <>
                   <span className="tabular-nums">{habit.time}</span>
                   <span aria-hidden="true">·</span>
-                  <span>{fmtDuration(habit.durationMin)}</span>
+                  <span>{formatDuration(habit.durationMin)}</span>
                 </>
               ) : (
                 <span>{ANYTIME_LABEL}</span>

@@ -5,8 +5,8 @@ import type { CollectionName, CollectionSnapshot, Dataset } from "@/core/persist
 import {
   buildSeed,
   COLLECTIONS,
+  createEmptyDataset,
   DexieAdapter,
-  emptyDataset,
   persistence,
   type RoutingAdapter,
 } from "@/core/persistence";
@@ -14,7 +14,7 @@ import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import {
-  defaultGcalConfig,
+  createDefaultGcalConfig,
   loadGcalConfig,
   readLocalGcalConfig,
 } from "@/features/calendar-sync/config";
@@ -57,8 +57,8 @@ async function loadAccount(
   set({ ready: false });
   await get().clearLocal(); // abandon the local sandbox — never uploaded
   try {
-    const data = await cloud.loadAll();
-    set({ ...(sorted(data) as Partial<RootState>), loadFailed: false });
+    const loaded = await cloud.loadAll();
+    set({ ...(sorted(loaded) as Partial<RootState>), loadFailed: false });
     runDataMigrations(get, set);
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
@@ -115,22 +115,22 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   bootstrap: async () => {
     await persistence.init();
-    const data = await persistence.loadAll();
+    const loaded = await persistence.loadAll();
     set({
-      values: data.values
+      values: loaded.values
         .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null }))
         .sort((a, b) => a.order - b.order),
-      goals: data.goals
+      goals: loaded.goals
         .map((g) => ({ ...g, status: g.status ?? "active" }))
         .sort((a, b) => a.order - b.order),
-      habits: data.habits.map((h) => ({ ...h, archivedAt: h.archivedAt ?? null })),
-      tasks: data.tasks,
-      books: data.books.sort((a, b) => a.order - b.order),
-      movies: data.movies.sort((a, b) => a.order - b.order),
-      vocab: data.vocab,
-      reviews: data.reviews.sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1)),
-      journal: data.journal.sort((a, b) => (a.date < b.date ? 1 : -1)),
-      calendarEvents: data.calendarEvents,
+      habits: loaded.habits.map((h) => ({ ...h, archivedAt: h.archivedAt ?? null })),
+      tasks: loaded.tasks,
+      books: loaded.books.sort((a, b) => a.order - b.order),
+      movies: loaded.movies.sort((a, b) => a.order - b.order),
+      vocab: loaded.vocab,
+      reviews: loaded.reviews.sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1)),
+      journal: loaded.journal.sort((a, b) => (a.date < b.date ? 1 : -1)),
+      calendarEvents: loaded.calendarEvents,
       ready: true,
     });
     get().hydrateGcalConfig(readLocalGcalConfig()); // signed-out sandbox: device-local config
@@ -174,7 +174,7 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   deleteAllData: async () => {
     await persistence.clearAll();
-    set({ ...emptyDataset() });
+    set({ ...createEmptyDataset() });
   },
 
   confirmPendingSignIn: async () => {
@@ -187,8 +187,8 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   exportJSON: () => {
     const s = get();
-    const data: Dataset = {
-      ...emptyDataset(),
+    const dataset: Dataset = {
+      ...createEmptyDataset(),
       values: s.values,
       goals: s.goals,
       habits: s.habits,
@@ -200,7 +200,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       journal: s.journal,
     };
     return JSON.stringify(
-      { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data },
+      { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data: dataset },
       null,
       2,
     );
@@ -213,15 +213,15 @@ export const useStore = create<RootState>((set, get, api) => ({
     } catch {
       return false;
     }
-    const data = parsed?.data;
-    if (!data || typeof data !== "object") return false;
+    const payload = parsed?.data;
+    if (!payload || typeof payload !== "object") return false;
     await persistence.clearAll();
     const next: Partial<Dataset> = {};
     for (const col of COLLECTIONS) {
-      const arr = (data as Record<CollectionName, unknown>)[col];
-      if (Array.isArray(arr)) {
-        await persistence.bulkPut(col, arr as never);
-        (next as Record<string, unknown>)[col] = arr;
+      const rows = (payload as Record<CollectionName, unknown>)[col];
+      if (Array.isArray(rows)) {
+        await persistence.bulkPut(col, rows as never);
+        (next as Record<string, unknown>)[col] = rows;
       }
     }
     set(next as Partial<RootState>);
@@ -274,7 +274,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       await get().clearLocal();
       void setSandboxDirty(false);
       clearCalendarToken(); // drop the device Google token
-      get().hydrateGcalConfig(defaultGcalConfig()); // don't leak the account's GCal config into the sandbox
+      get().hydrateGcalConfig(createDefaultGcalConfig()); // don't leak the account's GCal config into the sandbox
       get().hydrateStreakRules(readLocalStreakRules()); // back to the device-local sandbox rules
       get().setOnboarded(false);
       get().hydrateProfile({
@@ -283,7 +283,7 @@ export const useStore = create<RootState>((set, get, api) => ({
         avatar: "",
         workspace: "Personal workspace",
       });
-      set({ ...emptyDataset(), pendingSignIn: null, loadFailed: false, ready: true });
+      set({ ...createEmptyDataset(), pendingSignIn: null, loadFailed: false, ready: true });
     }
   },
 }));

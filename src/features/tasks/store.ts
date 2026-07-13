@@ -1,22 +1,22 @@
 import { addDays, format } from "date-fns";
-import { weekDays } from "@/core/lib/date";
+import { getWeekDays } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Habit } from "@/features/habits/model";
-import { isActiveOn, slotOnOrBefore } from "@/features/habits/recurrence";
+import { findSlotOnOrBefore, isActiveOn } from "@/features/habits/recurrence";
 import type { Task, TaskStatus } from "./model";
 
 /** Enforce the invariant: a task with no date can't carry a time. */
-function normalizeSchedule(t: Task): Task {
-  return t.date === null && t.time !== null ? { ...t, time: null } : t;
+function normalizeSchedule(task: Task): Task {
+  return task.date === null && task.time !== null ? { ...task, time: null } : task;
 }
 
 /** Local-time stamp for a completion (the app reasons about dates in local time). */
 const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
 
 /** Values carry `archivedAt`; an archived or missing parent value never generates. */
-type SchedValue = { id: string; archivedAt?: string | null };
+type SchedulableValue = { id: string; archivedAt?: string | null };
 
 /**
  * Habits that may generate future instances: the habit itself is active AND its
@@ -24,7 +24,7 @@ type SchedValue = { id: string; archivedAt?: string | null };
  * folds together the habit-archive and value-archive rules so the engine can't
  * miss either.
  */
-function generatingHabits(habits: Habit[], values: SchedValue[]): Habit[] {
+function getGeneratingHabits(habits: Habit[], values: SchedulableValue[]): Habit[] {
   const valueById = new Map(values.map((v) => [v.id, v]));
   return habits.filter((h) => {
     if ((h.archivedAt ?? null) !== null) return false;
@@ -146,10 +146,10 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   cycleStatus: (id) => {
     // quick toggle on a row: active → done → skipped → back to active
     const order: TaskStatus[] = ["todo", "done", "skip"];
-    const t = get().tasks.find((x) => x.id === id);
-    if (!t) return;
-    const cur = t.status === "open" ? "todo" : t.status; // treat open like todo for cycling
-    const idx = order.indexOf(cur);
+    const task = get().tasks.find((x) => x.id === id);
+    if (!task) return;
+    const currentStatus = task.status === "open" ? "todo" : task.status; // treat open like todo for cycling
+    const idx = order.indexOf(currentStatus);
     get().setStatus(id, order[(idx + 1) % order.length]);
   },
 
@@ -166,48 +166,48 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   },
 
   unscheduleTask: (id) => {
-    const t = get().tasks.find((x) => x.id === id);
-    if (!t) return;
+    const task = get().tasks.find((x) => x.id === id);
+    if (!task) return;
     // slotDate is preserved (the slot is still owed); a habit instance is not detached
     const patch: Partial<Task> = { date: null, time: null };
-    if (t.status === "todo") patch.status = "open"; // done/skip preserved
+    if (task.status === "todo") patch.status = "open"; // done/skip preserved
     get().updateTask(id, patch);
   },
 
   relinkTaskToHabit: (id) => {
-    const t = get().tasks.find((x) => x.id === id);
-    if (t?.kind !== "habit" || !t.detached || !t.habitId) return;
-    const h = get().habits.find((x) => x.id === t.habitId);
-    if (!h) return;
+    const task = get().tasks.find((x) => x.id === id);
+    if (task?.kind !== "habit" || !task.detached || !task.habitId) return;
+    const habit = get().habits.find((x) => x.id === task.habitId);
+    if (!habit) return;
     // Snap back schedule + lineage + title; keep the instance's date/status/note/order.
     get().updateTask(id, {
-      title: h.name,
-      time: h.time,
-      durationMin: h.durationMin,
-      goalId: h.goalId,
-      valueId: h.valueId,
+      title: habit.name,
+      time: habit.time,
+      durationMin: habit.durationMin,
+      goalId: habit.goalId,
+      valueId: habit.valueId,
       detached: false,
     });
   },
 
   linkTaskToHabit: (id, habitId) => {
-    const t = get().tasks.find((x) => x.id === id);
-    if (!t) return;
+    const task = get().tasks.find((x) => x.id === id);
+    if (!task) return;
     if (habitId == null) {
       get().updateTask(id, { habitId: null, kind: "oneoff", slotDate: null, detached: false });
       return;
     }
-    const h = get().habits.find((x) => x.id === habitId);
-    if (!h) return;
+    const habit = get().habits.find((x) => x.id === habitId);
+    if (!habit) return;
     // anchor to the scheduled occurrence this task fulfils: its own day if scheduled,
     // else the latest scheduled day on-or-before it (a moved/late occurrence)
-    const slot = t.date ? (slotOnOrBefore(h.schedule, t.date) ?? t.date) : null;
+    const slot = task.date ? (findSlotOnOrBefore(habit.schedule, task.date) ?? task.date) : null;
     get().updateTask(id, {
       habitId,
       kind: "habit",
       slotDate: slot,
-      valueId: h.valueId,
-      goalId: h.goalId,
+      valueId: habit.valueId,
+      goalId: habit.goalId,
       detached: false,
     });
   },
@@ -236,12 +236,12 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   planWeek: (ref = new Date()) => {
     const { tasks, habits, addTask } = get();
-    const generating = generatingHabits(habits, get().values);
+    const generating = getGeneratingHabits(habits, get().values);
     const existing = new Set(
       tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.slotDate ?? t.date}`),
     );
     let made = 0;
-    for (const d of weekDays(ref)) {
+    for (const d of getWeekDays(ref)) {
       for (const h of generating) {
         if (!isActiveOn(h, d.iso)) continue;
         if (existing.has(`${h.id}@${d.iso}`)) continue;
@@ -264,7 +264,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   ensureUpcoming: (daysAhead = 14) => {
     const { tasks, habits, addTask } = get();
-    const generating = generatingHabits(habits, get().values);
+    const generating = getGeneratingHabits(habits, get().values);
     const start = new Date();
     const today = format(start, "yyyy-MM-dd");
     const end = format(addDays(start, daysAhead), "yyyy-MM-dd");

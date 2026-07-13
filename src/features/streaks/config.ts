@@ -40,14 +40,14 @@ async function writeCloudStreakRules(uid: string, r: StreakRules) {
 /** Load from the right home; on first sign-in, migrate any local config to cloud once. */
 export async function loadStreakRules(uid: string | null): Promise<StreakRules> {
   if (!uid) return readLocalStreakRules();
-  const p = await getCloudProfile(uid).catch(() => null);
-  if (p?.streakRulesConfigured) {
+  const profile = await getCloudProfile(uid).catch(() => null);
+  if (profile?.streakRulesConfigured) {
     return coerceRules({
-      graceDays: p.streakGraceDays,
-      bridgeEnabled: p.streakBridgeEnabled,
-      longStreakMin: p.streakLongMin,
-      recoveryLen: p.streakRecoveryLen,
-      mendCooldownDays: p.streakMendCooldownDays,
+      graceDays: profile.streakGraceDays,
+      bridgeEnabled: profile.streakBridgeEnabled,
+      longStreakMin: profile.streakLongMin,
+      recoveryLen: profile.streakRecoveryLen,
+      mendCooldownDays: profile.streakMendCooldownDays,
     });
   }
   const local = readLocalStreakRules();

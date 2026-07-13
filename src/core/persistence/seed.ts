@@ -5,7 +5,7 @@ import { isActiveOn } from "@/features/habits/recurrence";
 import type { Book, Movie, VocabEntry } from "@/features/library/model";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
-import { type Dataset, emptyDataset } from "./adapter";
+import { createEmptyDataset, type Dataset } from "./adapter";
 
 /** tiny deterministic RNG so a re-seed during dev produces stable data */
 function mulberry32(seed: number) {
@@ -26,7 +26,7 @@ const iso = (d: Date) => format(d, "yyyy-MM-dd");
  * so whenever the user opens VEGA, "today" has a believable, partly-done queue.
  */
 export function buildSeed(ref: Date = new Date()): Dataset {
-  const ds = emptyDataset();
+  const ds = createEmptyDataset();
   const rng = mulberry32(0x7e6a17);
 
   const weekStart = startOfWeek(ref, { weekStartsOn: 1 }); // Monday

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { goalPhase } from "../selectors";
+import { getGoalPhase } from "../selectors";
 import { createGoalsSlice, type GoalsSlice } from "../store";
 import { detectTimeframe } from "../timeframe";
 
@@ -32,7 +32,7 @@ describe("goals slice — addGoal defaults", () => {
     const { get } = makeSlice();
     const g = get().addGoal({ valueId: "v1", name: "Goal" });
     expect(detectTimeframe(g.start, g.end)).toBe("quarter");
-    expect(goalPhase(g)).toBe("current");
+    expect(getGoalPhase(g)).toBe("current");
   });
 });
 

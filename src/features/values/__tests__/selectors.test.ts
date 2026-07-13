@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Goal, GoalStatus } from "@/features/goals/model";
 import type { Value } from "../model";
-import { activeValues, archivedValues, goalCounts, splitGoals } from "../selectors";
+import { computeGoalCounts, getActiveValues, getArchivedValues, splitGoals } from "../selectors";
 
 const value = (id: string, order: number, archivedAt: string | null): Value => ({
   id,
@@ -28,7 +28,7 @@ const goal = (id: string, status: GoalStatus): Goal => ({
   order: 0,
 });
 
-describe("activeValues / archivedValues", () => {
+describe("getActiveValues / getArchivedValues", () => {
   const values = [
     value("a", 1, null),
     value("b", 0, "2026-06-01T10:00:00.000Z"),
@@ -37,28 +37,28 @@ describe("activeValues / archivedValues", () => {
   ];
 
   it("active = archivedAt null, sorted by order", () => {
-    expect(activeValues(values).map((v) => v.id)).toEqual(["a", "c"]);
+    expect(getActiveValues(values).map((v) => v.id)).toEqual(["a", "c"]);
   });
 
   it("archived = archivedAt non-null, sorted by archivedAt descending", () => {
-    expect(archivedValues(values).map((v) => v.id)).toEqual(["d", "b"]);
+    expect(getArchivedValues(values).map((v) => v.id)).toEqual(["d", "b"]);
   });
 
   it("filters are disjoint and total", () => {
-    const active = activeValues(values).length;
-    const archived = archivedValues(values).length;
+    const active = getActiveValues(values).length;
+    const archived = getArchivedValues(values).length;
     expect(active + archived).toBe(values.length);
   });
 
   it("treats a legacy value with no archivedAt field as active (not archived)", () => {
     // Records created before archiving have archivedAt absent (undefined).
     const legacy = { ...value("legacy", 5, null), archivedAt: undefined } as unknown as Value;
-    expect(activeValues([legacy]).map((v) => v.id)).toEqual(["legacy"]);
-    expect(archivedValues([legacy])).toEqual([]);
+    expect(getActiveValues([legacy]).map((v) => v.id)).toEqual(["legacy"]);
+    expect(getArchivedValues([legacy])).toEqual([]);
   });
 });
 
-describe("splitGoals / goalCounts", () => {
+describe("splitGoals / computeGoalCounts", () => {
   const goals = [
     goal("g1", "active"),
     goal("g2", "backlog"),
@@ -74,10 +74,10 @@ describe("splitGoals / goalCounts", () => {
   });
 
   it("paused counts as active/open", () => {
-    expect(goalCounts(goals)).toEqual({ active: 3, closed: 2 });
+    expect(computeGoalCounts(goals)).toEqual({ active: 3, closed: 2 });
   });
 
   it("handles an empty list", () => {
-    expect(goalCounts([])).toEqual({ active: 0, closed: 0 });
+    expect(computeGoalCounts([])).toEqual({ active: 0, closed: 0 });
   });
 });

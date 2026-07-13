@@ -13,7 +13,7 @@ export interface GcalConfig {
   showGoogleEvents: boolean;
 }
 
-export const defaultGcalConfig = (): GcalConfig => ({
+export const createDefaultGcalConfig = (): GcalConfig => ({
   enabled: false,
   writeCalendarId: null,
   readCalendarIds: ["primary"],
@@ -26,16 +26,16 @@ const READ = "vega.gcal.readCalendarIds";
 const SHOW = "vega.gcal.showEvents";
 const LEGACY = "vega.gcal.calendarId";
 
-const ls = (k: string): string | null => {
+const readLocal = (key: string): string | null => {
   try {
-    return localStorage.getItem(k);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 };
-const lsSet = (k: string, v: string | null) => {
+const writeLocal = (key: string, value: string | null) => {
   try {
-    v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v);
+    value == null ? localStorage.removeItem(key) : localStorage.setItem(key, value);
   } catch {
     /* ignore */
   }
@@ -44,40 +44,40 @@ const lsSet = (k: string, v: string | null) => {
 /** Device-local config (signed-out fallback, and the migration source on first sign-in). */
 export function readLocalGcalConfig(): GcalConfig {
   let readIds = ["primary"];
-  const rawRead = ls(READ);
+  const rawRead = readLocal(READ);
   if (rawRead) {
     try {
-      const a = JSON.parse(rawRead);
-      if (Array.isArray(a) && a.length) readIds = a;
+      const parsed = JSON.parse(rawRead);
+      if (Array.isArray(parsed) && parsed.length) readIds = parsed;
     } catch {
       /* ignore */
     }
   } else {
-    const legacy = ls(LEGACY);
+    const legacy = readLocal(LEGACY);
     if (legacy) readIds = [legacy];
   }
   return {
-    enabled: ls(ON) === "1",
-    writeCalendarId: ls(WRITE),
+    enabled: readLocal(ON) === "1",
+    writeCalendarId: readLocal(WRITE),
     readCalendarIds: readIds,
-    showGoogleEvents: ls(SHOW) !== "0",
+    showGoogleEvents: readLocal(SHOW) !== "0",
   };
 }
 
-function writeLocalGcalConfig(c: GcalConfig) {
-  lsSet(ON, c.enabled ? "1" : "0");
-  lsSet(WRITE, c.writeCalendarId);
-  lsSet(READ, JSON.stringify(c.readCalendarIds));
-  lsSet(SHOW, c.showGoogleEvents ? "1" : "0");
+function writeLocalGcalConfig(config: GcalConfig) {
+  writeLocal(ON, config.enabled ? "1" : "0");
+  writeLocal(WRITE, config.writeCalendarId);
+  writeLocal(READ, JSON.stringify(config.readCalendarIds));
+  writeLocal(SHOW, config.showGoogleEvents ? "1" : "0");
 }
 
-async function writeCloudGcalConfig(uid: string, c: GcalConfig) {
+async function writeCloudGcalConfig(uid: string, config: GcalConfig) {
   await setCloudProfile(uid, {
     gcalConfigured: true,
-    gcalEnabled: c.enabled,
-    gcalWriteCalendarId: c.writeCalendarId,
-    gcalReadCalendarIds: c.readCalendarIds,
-    gcalShowEvents: c.showGoogleEvents,
+    gcalEnabled: config.enabled,
+    gcalWriteCalendarId: config.writeCalendarId,
+    gcalReadCalendarIds: config.readCalendarIds,
+    gcalShowEvents: config.showGoogleEvents,
   });
 }
 

@@ -1,7 +1,7 @@
 /** Value → Goal → Habit chain as inline text. The value-colored left stripe is the
- * owning card's concern — use `valueStripeStyle()` for it. */
+ * owning card's concern — use `getValueStripeStyle()` for it. */
 import type { TaskLineage } from "@/features/tasks/lineage";
-import { valueColor } from "@/features/values/color";
+import { getValueColor } from "@/features/values/color";
 import { cx } from "./cx";
 
 export interface LineageProps {
@@ -28,7 +28,9 @@ export function Lineage({ lineage, variant = "inline", className }: LineageProps
         <span style={{ color: "var(--color-muted)" }}>Unlinked</span>
       ) : (
         <>
-          {value && <span style={{ color: valueColor(value), fontWeight: 500 }}>{value.name}</span>}
+          {value && (
+            <span style={{ color: getValueColor(value), fontWeight: 500 }}>{value.name}</span>
+          )}
           {goal && (
             <>
               {/* shrink-0, and NOT class "separator" — that HeroUI global is a full-width rule */}
@@ -52,8 +54,8 @@ export function Lineage({ lineage, variant = "inline", className }: LineageProps
 }
 
 /** Returns an inline style object for the value-colored left stripe (card owners apply this). */
-export function valueStripeStyle(lineage: TaskLineage): React.CSSProperties {
-  const color = lineage.value ? valueColor(lineage.value) : "var(--color-line)";
+export function getValueStripeStyle(lineage: TaskLineage): React.CSSProperties {
+  const color = lineage.value ? getValueColor(lineage.value) : "var(--color-line)";
   return {
     borderInlineStart: `3px solid ${color}`,
   };

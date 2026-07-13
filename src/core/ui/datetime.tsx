@@ -29,7 +29,7 @@ const DOW = [
   { key: "sun", label: "S" },
 ];
 
-const fmtMin = (m: number) =>
+const formatMinutes = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const fmtLen = (mins: number) => {
   const h = Math.floor(mins / 60);
@@ -394,11 +394,11 @@ export function TimeRange({
   const pickStart = (s: number) => {
     // keep the block's length, but don't let the end run past the day's end
     const dur = Math.min(value.durationMin, MAX - s);
-    onChange({ time: fmtMin(s), durationMin: Math.max(15, dur) });
+    onChange({ time: formatMinutes(s), durationMin: Math.max(15, dur) });
   };
   const pickEnd = (e: number) => {
     if (start == null) return;
-    onChange({ time: fmtMin(start), durationMin: Math.max(15, e - start) });
+    onChange({ time: formatMinutes(start), durationMin: Math.max(15, e - start) });
   };
 
   return (
@@ -411,7 +411,7 @@ export function TimeRange({
         triggerContent={
           <>
             <span className={value.time ? "" : "text-[var(--color-muted)]"}>
-              {value.time && end != null ? `${value.time} – ${fmtMin(end)}` : "No time"}
+              {value.time && end != null ? `${value.time} – ${formatMinutes(end)}` : "No time"}
             </span>
             <span className="flex items-center gap-1.5 shrink-0">
               {value.time && (
@@ -460,7 +460,7 @@ export function TimeRange({
                       : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)]",
                   )}
                 >
-                  {fmtMin(m)}
+                  {formatMinutes(m)}
                 </button>
               ))}
             </div>
@@ -486,7 +486,7 @@ export function TimeRange({
                         : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)]",
                     )}
                   >
-                    {fmtMin(m)}
+                    {formatMinutes(m)}
                   </button>
                 ))
               )}

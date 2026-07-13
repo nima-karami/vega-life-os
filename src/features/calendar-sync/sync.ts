@@ -21,7 +21,7 @@ import {
 
 const readCalendarIds = () => useStore.getState().gcal.readCalendarIds;
 
-let running = false;
+let isSyncing = false;
 
 type Window = { backDays: number; fwdDays: number };
 
@@ -38,12 +38,12 @@ const PUSH_WINDOW = { backDays: 7, fwdDays: 90 };
 
 /** Incremental list with a one-shot full-list fallback when the token has expired (410). */
 async function listWithFallback(calId: string, filtered: boolean, window: Window) {
-  let res = await listEvents(calId, { syncToken: getSyncToken(calId), filtered, window });
-  if (res.expired) {
+  let listing = await listEvents(calId, { syncToken: getSyncToken(calId), filtered, window });
+  if (listing.expired) {
     setSyncToken(calId, null);
-    res = await listEvents(calId, { syncToken: null, filtered, window });
+    listing = await listEvents(calId, { syncToken: null, filtered, window });
   }
-  return res;
+  return listing;
 }
 
 /** Pull external events from every read calendar into the mirror set. Returns rows touched. */
@@ -177,11 +177,11 @@ export async function syncNow(
   interactive = false,
 ): Promise<{ pushed: number; pulled: number; lived: number }> {
   const idle = { pushed: 0, pulled: 0, lived: 0 };
-  if (running || !useStore.getState().gcal.enabled) return idle;
+  if (isSyncing || !useStore.getState().gcal.enabled) return idle;
   // Honour the failure backoff for background runs (an explicit user sync bypasses it). The
   // gate lives here, not in the interval, because the poller fires run() on every mount/focus.
   if (!interactive && Date.now() < getNextAllowedSyncAt()) return idle;
-  running = true;
+  isSyncing = true;
   try {
     ensureSpanBackfill(); // one-time full re-list to backfill endDate on pre-existing events
     const window = getWindow();
@@ -211,6 +211,6 @@ export async function syncNow(
     if (interactive) throw err; // let the sync control surface a toast
     return idle;
   } finally {
-    running = false;
+    isSyncing = false;
   }
 }

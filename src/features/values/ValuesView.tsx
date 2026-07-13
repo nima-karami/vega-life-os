@@ -24,12 +24,12 @@ import { useStore } from "@/core/store";
 import { AddButton, ConfirmDialog, cx, Disclosure, Icon, Menu, SortableList } from "@/core/ui";
 import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalEditor } from "@/features/goals/components/GoalEditor";
-import { habitStreak } from "@/features/habits";
-import { cascadeCounts, cascadeMessage } from "./cascade";
-import { valueColor } from "./color";
+import { computeHabitStreak } from "@/features/habits";
+import { countCascade, formatCascadeMessage } from "./cascade";
+import { getValueColor } from "./color";
 import { ValueEditor } from "./components/ValueEditor";
 import type { Value } from "./model";
-import { activeValues, archivedValues, splitGoals } from "./selectors";
+import { getActiveValues, getArchivedValues, splitGoals } from "./selectors";
 
 /** Small polite live-region announcer (sighted users see these changes; SR users wouldn't). */
 function useAnnouncer() {
@@ -64,8 +64,8 @@ export function ValuesView() {
   const { announce, region } = useAnnouncer();
   const addBtnRef = useRef<HTMLButtonElement>(null);
 
-  const active = useMemo(() => activeValues(values), [values]);
-  const archived = useMemo(() => archivedValues(values), [values]);
+  const active = useMemo(() => getActiveValues(values), [values]);
+  const archived = useMemo(() => getArchivedValues(values), [values]);
 
   const createValue = useCallback(() => setCreatingValue(true), []);
 
@@ -78,7 +78,6 @@ export function ValuesView() {
     [addGoal, announce],
   );
 
-  // Command-bar entries: "New value" / "New goal" → create then open editor.
   useRegisterCommands([
     {
       id: "values-new-value",
@@ -141,9 +140,9 @@ export function ValuesView() {
   );
 
   const confirmCounts = confirmValue
-    ? cascadeCounts(confirmValue.id, { goals, habits })
+    ? countCascade(confirmValue.id, { goals, habits })
     : { goals: 0, habits: 0 };
-  const cascadeBody = cascadeMessage(confirmCounts);
+  const cascadeBody = formatCascadeMessage(confirmCounts);
   const confirmGoal = goals.find((g) => g.id === confirmGoalId) ?? null;
 
   const emptyMessage =
@@ -307,7 +306,7 @@ function ValueCard({
   const rules = useStore((s) => s.streakRules);
 
   const valueHabits = habits.filter((h) => h.valueId === value.id && !h.goalId);
-  const color = valueColor(value);
+  const color = getValueColor(value);
 
   return (
     <Card
@@ -390,7 +389,9 @@ function ValueCard({
                 <Chip key={h.id} size="sm" variant="soft" className="gap-1">
                   <Icon name={h.icon} size={13} className="text-muted" />
                   <span className="text-foreground">{h.name}</span>
-                  <span className="text-muted">· {habitStreak(tasks, h, undefined, rules)}d</span>
+                  <span className="text-muted">
+                    · {computeHabitStreak(tasks, h, undefined, rules)}d
+                  </span>
                 </Chip>
               ))}
             </div>

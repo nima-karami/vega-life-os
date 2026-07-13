@@ -1,6 +1,9 @@
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+import type { Goal } from "@/features/goals/model";
+import type { Habit } from "@/features/habits/model";
+import type { Task } from "@/features/tasks/model";
 import type { Value } from "./model";
 
 export interface ValuesSlice {
@@ -15,6 +18,25 @@ export interface ValuesSlice {
 }
 
 const SPECTRA = ["courage", "presence", "selfcare", "stability", "vitality"];
+
+function collectCascadeIds(
+  valueId: string,
+  state: { goals: Goal[]; habits: Habit[]; tasks: Task[] },
+): { goalIds: Set<string>; habitIds: Set<string>; taskIds: Set<string> } {
+  const goalIds = new Set(state.goals.filter((g) => g.valueId === valueId).map((g) => g.id));
+  const habitIds = new Set(state.habits.filter((h) => h.valueId === valueId).map((h) => h.id));
+  const taskIds = new Set(
+    state.tasks
+      .filter(
+        (t) =>
+          t.valueId === valueId ||
+          (t.goalId && goalIds.has(t.goalId)) ||
+          (t.habitId && habitIds.has(t.habitId)),
+      )
+      .map((t) => t.id),
+  );
+  return { goalIds, habitIds, taskIds };
+}
 
 export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
   values: [],
@@ -60,28 +82,7 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
   },
 
   removeValue: (id) => {
-    // cascade: a value's goals, its upkeep habits, and every task instance tied
-    // to them go with it — nothing is left pointing at a value that no longer exists.
-    const goalIds = new Set(
-      get()
-        .goals.filter((g) => g.valueId === id)
-        .map((g) => g.id),
-    );
-    const habitIds = new Set(
-      get()
-        .habits.filter((h) => h.valueId === id)
-        .map((h) => h.id),
-    );
-    const taskIds = new Set(
-      get()
-        .tasks.filter(
-          (t) =>
-            t.valueId === id ||
-            (t.goalId && goalIds.has(t.goalId)) ||
-            (t.habitId && habitIds.has(t.habitId)),
-        )
-        .map((t) => t.id),
-    );
+    const { goalIds, habitIds, taskIds } = collectCascadeIds(id, get());
 
     set((s) => ({
       values: s.values.filter((v) => v.id !== id),
