@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { loadServerConfig } from "../../core/config";
 import { initAdmin } from "../../core/firebase-admin";
 import { createAdminVerifier, makeCreateContext } from "../../trpc/context";
+import { stubCalendar } from "../calendar-stub";
 
 const PROJECT_ID = "vega-life-os";
 const FOREIGN_PROJECT_ID = "some-other-project";
@@ -31,6 +32,7 @@ describe("real verifyIdToken against the Auth emulator", () => {
       firestore,
       config,
       verifyIdToken: createAdminVerifier(auth),
+      calendar: stubCalendar,
     });
     const idToken = await mintIdToken("real-user-1");
 

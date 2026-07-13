@@ -1,6 +1,7 @@
 import type { CollectionName, Dataset } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 import { mergeWithFieldLww, type StoredRecord } from "./field-lww";
+import { writeTombstone } from "./tombstone";
 
 export type StoredEntity<C extends CollectionName> = Dataset[C][number];
 export type WritableEntity<C extends CollectionName> = Omit<
@@ -52,6 +53,7 @@ export function createRepository<C extends CollectionName>(
     },
     async remove(id) {
       await col.doc(id).delete();
+      await writeTombstone(firestore, uid, collection, id, now());
     },
   };
 }

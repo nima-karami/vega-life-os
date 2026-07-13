@@ -3,13 +3,20 @@ import { type ServerType, serve } from "@hono/node-server";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import type { Auth } from "firebase-admin/auth";
 import type { Firestore } from "firebase-admin/firestore";
-import { buildApp } from "../app";
+import { type AppDeps, buildApp, type OidcVerifier } from "../app";
+import type { ServerConfig } from "../core/config";
 import { initAdmin } from "../core/firebase-admin";
-import { makeCreateContext, type TokenVerifier } from "../trpc/context";
+import type { ReconcileDeps } from "../features/calendar/reconcile";
+import { refreshAccessToken } from "../features/calendar/token-store";
+import { type CalendarContext, makeCreateContext, type TokenVerifier } from "../trpc/context";
 import type { AppRouter } from "../trpc/router";
 import { resolveEmulatorConfig } from "./emulator";
+import { GoogleMock } from "./google-mock";
 
 export type AppClient = ReturnType<typeof createTRPCClient<AppRouter>>;
+
+const TEST_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+const OIDC_TOKEN = "scheduler-oidc";
 
 export type TestServer = {
   url: string;
@@ -17,26 +24,58 @@ export type TestServer = {
   asUid(uid: string): AppClient;
   firestore: Firestore;
   auth: Auth;
+  config: ServerConfig;
+  google: GoogleMock;
+  reconcileDeps: ReconcileDeps;
+  now: () => string;
   close(): Promise<void>;
 };
 
 export type BootOptions = {
   verifyIdToken?: TokenVerifier;
+  google?: GoogleMock;
+  verifyOidc?: OidcVerifier;
+  webhookUrl?: string;
+  now?: () => string;
 };
 
 /** The test stub trusts the bearer string as the uid, so `asUid("u1")` resolves to uid "u1". */
 const stubVerifier: TokenVerifier = async (token) => token || null;
 
 export async function bootTestServer(options: BootOptions = {}): Promise<TestServer> {
-  const config = resolveEmulatorConfig();
+  const base = resolveEmulatorConfig();
+  const config: ServerConfig = {
+    ...base,
+    oauth: {
+      ...base.oauth,
+      tokenEncryptionKey: base.oauth.tokenEncryptionKey || TEST_ENCRYPTION_KEY,
+    },
+  };
   const { firestore, auth } = initAdmin(config);
-  const app = buildApp({
+  const google = options.google ?? new GoogleMock();
+  const now = options.now ?? (() => new Date().toISOString());
+  const webhookUrl = options.webhookUrl ?? "https://vega.example/webhooks/gcal";
+
+  const tokenDeps = { firestore, gateway: google.gateway, config };
+  const getClient = async (uid: string) => {
+    await refreshAccessToken(tokenDeps, uid);
+    return google.client;
+  };
+  const calendar: CalendarContext = { gateway: google.gateway, getClient, now, webhookUrl };
+  const verifyOidc: OidcVerifier = options.verifyOidc ?? (async (token) => token === OIDC_TOKEN);
+
+  const deps: AppDeps = {
     createContext: makeCreateContext({
       firestore,
       config,
       verifyIdToken: options.verifyIdToken ?? stubVerifier,
+      calendar,
     }),
-  });
+    firestore,
+    calendar,
+    verifyOidc,
+  };
+  const app = buildApp(deps);
 
   const server = serve({ fetch: app.fetch, port: 0 });
   const port = await resolveListeningPort(server);
@@ -53,6 +92,10 @@ export async function bootTestServer(options: BootOptions = {}): Promise<TestSer
     asUid: (uid) => createClient({ Authorization: `Bearer ${uid}` }),
     firestore,
     auth,
+    config,
+    google,
+    reconcileDeps: { firestore, getClient, now, webhookUrl },
+    now,
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
@@ -67,3 +110,5 @@ function resolveListeningPort(server: ServerType): Promise<number> {
     server.once("listening", () => resolve((server.address() as AddressInfo).port));
   });
 }
+
+export const testHelpers = { OIDC_TOKEN, TEST_ENCRYPTION_KEY };

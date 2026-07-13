@@ -14,7 +14,9 @@
     "@hono/node-server": "^1.14.1",
     "@trpc/server": "^11.0.0",
     "@vega/shared": "*",
+    "date-fns": "^4.1.0",
     "firebase-admin": "^13.2.0",
+    "googleapis": "^144.0.0",
     "hono": "^4.7.7",
     "tsx": "^4.19.3",
     "zod": "^4.4.3"

@@ -1,5 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { describe, expect, it } from "vitest";
+import { stubCalendar } from "../../test/calendar-stub";
 import { makeCreateContext, type TokenVerifier } from "../../trpc/context";
 import { appRouter } from "../../trpc/router";
 import { createCallerFactory } from "../../trpc/trpc";
@@ -8,7 +9,12 @@ import { loadServerConfig } from "../config";
 const config = loadServerConfig({ NODE_ENV: "test", FIRESTORE_DB: "test" } as NodeJS.ProcessEnv);
 const firestore = {} as unknown as Firestore;
 const verifyIdToken: TokenVerifier = async (token) => (token === "good" ? "user-1" : null);
-const createContext = makeCreateContext({ firestore, config, verifyIdToken });
+const createContext = makeCreateContext({
+  firestore,
+  config,
+  verifyIdToken,
+  calendar: stubCalendar,
+});
 const createCaller = createCallerFactory(appRouter);
 
 function requestWith(headers?: Record<string, string>): Request {

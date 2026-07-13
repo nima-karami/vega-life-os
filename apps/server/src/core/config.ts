@@ -6,6 +6,7 @@ export type OauthConfig = {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
+  tokenEncryptionKey: string;
 };
 
 export type ServerConfig = {
@@ -35,6 +36,7 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
       clientId: env.GOOGLE_OAUTH_CLIENT_ID ?? "",
       clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
       redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI ?? "",
+      tokenEncryptionKey: env.GCAL_TOKEN_ENC_KEY ?? "",
     },
   };
 }
