@@ -4,7 +4,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import type { Auth } from "firebase-admin/auth";
 import type { Firestore } from "firebase-admin/firestore";
 import { type AppDeps, buildApp, type OidcVerifier } from "../app";
-import type { ServerConfig } from "../core/config";
+import { assertDbMatchesEnv, type ServerConfig } from "../core/config";
 import { initAdmin } from "../core/firebase-admin";
 import type { ReconcileDeps } from "../features/calendar/reconcile";
 import { refreshAccessToken } from "../features/calendar/token-store";
@@ -37,6 +37,7 @@ export type BootOptions = {
   verifyOidc?: OidcVerifier;
   webhookUrl?: string;
   now?: () => string;
+  configOverride?: Partial<Pick<ServerConfig, "nodeEnv" | "dbName">>;
 };
 
 /** The test stub trusts the bearer string as the uid, so `asUid("u1")` resolves to uid "u1". */
@@ -46,11 +47,13 @@ export async function bootTestServer(options: BootOptions = {}): Promise<TestSer
   const base = resolveEmulatorConfig();
   const config: ServerConfig = {
     ...base,
+    ...options.configOverride,
     oauth: {
       ...base.oauth,
       tokenEncryptionKey: base.oauth.tokenEncryptionKey || TEST_ENCRYPTION_KEY,
     },
   };
+  assertDbMatchesEnv(config);
   const { firestore, auth } = initAdmin(config);
   const google = options.google ?? new GoogleMock();
   const now = options.now ?? (() => new Date().toISOString());
