@@ -14,7 +14,6 @@ import {
   getScopeVersion,
   isCalendarConnected,
   SCOPE_VERSION,
-  syncNow,
 } from "@/features/calendar-sync";
 import { deriveSyncPhase, formatLastSynced, type SyncPhase } from "./sync-status";
 
@@ -71,22 +70,24 @@ export function CalendarSync() {
   const hint =
     ATTENTION[phase] ?? (phase === "connected" && lastLabel ? `Synced ${lastLabel}` : "");
 
+  // Sync itself runs server-side now; this pulls the latest server truth into the
+  // store (re-consenting first if the token expired) — the client never writes Google.
   const sync = async () => {
     setBusy(true);
     setHasError(false);
-    setAnnounce("Syncing…");
+    setAnnounce("Refreshing…");
     try {
       if (needsReconnect) await getCalendarToken(true); // re-consent first
-      const syncResult = await syncNow(true);
+      await useStore.getState().refetchAll();
       setLastSynced(Date.now());
-      const message = `Synced · ${syncResult.pushed} up, ${syncResult.pulled} down`;
+      const message = "Calendar refreshed";
       pushToast(message);
       setAnnounce(message);
     } catch {
       setHasError(true);
       const message = needsReconnect
         ? "Couldn’t reconnect Google Calendar"
-        : "Sync failed — check your connection";
+        : "Refresh failed — check your connection";
       pushToast(message);
       setAnnounce(message);
     } finally {

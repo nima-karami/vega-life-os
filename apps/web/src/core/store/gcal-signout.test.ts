@@ -27,7 +27,7 @@ vi.mock("@/core/persistence/sandbox-meta", () => ({
   getSandboxDirty: vi.fn(async () => false),
   isSandboxDirty: () => false,
 }));
-vi.mock("./persist", () => ({ setPersistAuth: vi.fn(), setPersist: vi.fn() }));
+vi.mock("./persist", () => ({ setPersistAuth: vi.fn(), bindPersistStore: vi.fn() }));
 vi.mock("@/features/calendar-sync/google-auth", () => ({ clearCalendarToken }));
 
 import { createDefaultGcalConfig } from "@/features/calendar-sync/config";

@@ -33,6 +33,7 @@ export function Toast() {
             aria-live="polite"
             className="flex items-center gap-3 rounded-[12px] border border-border bg-surface px-4 py-2.5 text-sm text-foreground shadow-md"
           >
+            {toast.icon && <toast.icon className="size-4 shrink-0 text-muted" />}
             <span>{toast.message}</span>
             {toast.action && (
               <button

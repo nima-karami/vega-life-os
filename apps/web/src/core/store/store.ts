@@ -10,9 +10,9 @@ import {
   persistence,
   type RoutingAdapter,
 } from "@/core/persistence";
-import { FirestoreAdapter } from "@/core/persistence/firestore-adapter";
 import { runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
+import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
 import {
   createDefaultGcalConfig,
   loadGcalConfig,
@@ -31,7 +31,7 @@ import { createStreaksSlice } from "@/features/streaks/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
 import { authTransition } from "./auth-transition";
-import { setPersistAuth } from "./persist";
+import { bindPersistStore, setPersistAuth } from "./persist";
 import { resolveProfile } from "./profile";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
@@ -50,14 +50,16 @@ async function loadAccount(
     return;
   }
   const routing = persistence as RoutingAdapter;
-  const cloud = new FirestoreAdapter(db, uid);
+  // Online-first: the signed-in write path is the backend (apps/server), never
+  // client-direct Firestore. Realtime is off — the store refetches on focus/interval.
+  const cloud = new TrpcAdapter();
   routing.setDelegate(cloud);
   // Hold the boot spinner until the profile is hydrated, so the onboarding
   // "what should we call you?" step doesn't flash before the name arrives.
   set({ ready: false });
   await get().clearLocal(); // abandon the local sandbox — never uploaded
   try {
-    const loaded = await cloud.loadAll();
+    const loaded = await cloud.loadAll(); // hydrating → hydrated
     set({ ...(sorted(loaded) as Partial<RootState>), loadFailed: false });
     runDataMigrations(get, set);
     const profile = await getCloudProfile(uid).catch(() => null);
@@ -66,9 +68,8 @@ async function loadAccount(
     get().hydrateGcalConfig(await loadGcalConfig(uid)); // user-level GCal config (cloud)
     get().hydrateStreakRules(await loadStreakRules(uid)); // user-level streak rules (cloud)
     get().ensureUpcoming(14);
-    unsubscribeRemote = cloud.subscribe((snap) => get().applyRemote(snap));
   } catch {
-    set({ loadFailed: true, ready: true });
+    set({ loadFailed: true, ready: true }); // hydrate-failed → full-screen retry
   }
 }
 
@@ -232,6 +233,29 @@ export const useStore = create<RootState>((set, get, api) => ({
     set(sorted({ [snap.col]: snap.items }) as Partial<RootState>);
   },
 
+  // Realtime is off — signed-in clients pull server truth on focus + interval, and
+  // after a rejected write to reconcile the reverted collection. Best-effort; a
+  // failed refetch leaves the current store untouched.
+  refetchAll: async () => {
+    if (!get().authUid) return;
+    try {
+      const loaded = await persistence.loadAll();
+      set(sorted(loaded) as Partial<RootState>);
+    } catch {
+      /* keep current state; next focus/interval retries */
+    }
+  },
+
+  refetchCollection: async (col) => {
+    if (!get().authUid) return;
+    try {
+      const loaded = await persistence.loadAll();
+      set(sorted({ [col]: loaded[col] }) as Partial<RootState>);
+    } catch {
+      /* best-effort reconcile */
+    }
+  },
+
   onAuthChange: async (uid: string | null) => {
     const routing = persistence as RoutingAdapter;
     const t = authTransition(get().authUid, uid, get().authResolved);
@@ -287,3 +311,5 @@ export const useStore = create<RootState>((set, get, api) => ({
     }
   },
 }));
+
+bindPersistStore(useStore);

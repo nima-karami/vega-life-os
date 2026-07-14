@@ -1,3 +1,5 @@
+import { RefreshCw } from "lucide-react";
+import type { ComponentType } from "react";
 import { setCloudProfile } from "@/core/firebase/profile";
 import type { Task } from "@/features/tasks";
 import type { Slice } from "./slice";
@@ -71,6 +73,8 @@ export interface UiSlice {
   pushToast: (msg: string) => void;
   /** A sticky toast with a single action (e.g. the PWA "Reload" prompt). Stays until dismissed or acted on. */
   pushActionToast: (msg: string, action: ToastAction) => void;
+  /** A sticky write-failure toast with a Retry action (online-first revert path). */
+  pushRetryToast: (msg: string, onRetry: () => void) => void;
   dismissToast: () => void;
 }
 
@@ -83,6 +87,8 @@ export interface ToastState {
   message: string;
   action?: ToastAction;
   sticky?: boolean;
+  /** Lucide glyph shown before the message (e.g. the retry toast). */
+  icon?: ComponentType<{ className?: string }>;
 }
 
 const THEME_KEY = "vega.theme";
@@ -223,5 +229,20 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
     }, 2600);
   },
   pushActionToast: (message, action) => set({ toast: { message, action, sticky: true } }),
+  pushRetryToast: (message, onRetry) =>
+    set({
+      toast: {
+        message,
+        sticky: true,
+        icon: RefreshCw,
+        action: {
+          label: "Retry",
+          onClick: () => {
+            get().dismissToast();
+            onRetry();
+          },
+        },
+      },
+    }),
   dismissToast: () => set({ toast: null }),
 });

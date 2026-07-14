@@ -5,7 +5,6 @@ import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { isProfileIncomplete } from "@/core/store/profile";
 import { ACCENT_VAR_KEYS, getAccentVars } from "@/core/theme/accent";
-import { startPolling, syncNow } from "@/features/calendar-sync";
 import { isGratitudeRequired } from "@/features/journal";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
@@ -25,7 +24,6 @@ export function RootBoot() {
   const authUid = useStore((s) => s.authUid);
   const operatorName = useStore((s) => s.operatorName);
   const toggleCommand = useStore((s) => s.toggleCommand);
-  const gcalEnabled = useStore((s) => s.gcal.enabled);
   const navigate = useNavigate();
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -38,10 +36,23 @@ export function RootBoot() {
     return unsub;
   }, []);
 
+  // Realtime is off: signed-in clients pull server truth on window focus + a low-
+  // frequency interval, so out-of-band server changes (e.g. calendar reconcile) land.
   useEffect(() => {
-    if (!gcalEnabled) return;
-    return startPolling(() => void syncNow(false).catch(() => {}));
-  }, [gcalEnabled]);
+    if (!authUid) return;
+    const refetch = () => void useStore.getState().refetchAll();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", refetch);
+    document.addEventListener("visibilitychange", onVisible);
+    const interval = setInterval(refetch, 5 * 60_000);
+    return () => {
+      window.removeEventListener("focus", refetch);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
+  }, [authUid]);
 
   // Apply vapor theme on mount (single theme for this branch)
   useEffect(() => {

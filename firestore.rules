@@ -1,12 +1,14 @@
 rules_version = '2';
 
 // VEGA Life OS — every document lives under users/{uid}/... .
-// A signed-in user may read and write ONLY their own subtree. Nothing else is
-// reachable. Without these rules your data is either locked out or world-open.
+// A signed-in user may READ only their own subtree. All writes go through the
+// backend (apps/server, Firebase Admin) — clients never write Firestore directly,
+// so the sole write path is validated and uid-scoped server-side.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
     }
   }
 }

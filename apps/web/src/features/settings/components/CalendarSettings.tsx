@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { CalendarPicker } from "@/features/calendar/CalendarPicker";
-import { gcalConfigured, getCalendarToken, syncNow } from "@/features/calendar-sync";
+import { gcalConfigured, getCalendarToken } from "@/features/calendar-sync";
 import { SettingsCard } from "../SettingsCard";
 import { DisconnectDialog } from "./DisconnectDialog";
 
@@ -31,21 +31,21 @@ export function CalendarSettings() {
     try {
       await getCalendarToken(true); // consent prompt
       setEnabled(true);
-      const r = await syncNow(true);
-      pushToast(`Calendar connected — ${r.pushed} blocks synced`);
+      pushToast("Calendar connected");
     } catch {
       pushToast("Calendar connection failed");
     } finally {
       setBusy(false);
     }
   };
+  // Sync runs server-side; this pulls the latest server truth into the store.
   const sync = async () => {
     setBusy(true);
     try {
-      const r = await syncNow(true);
-      pushToast(`Synced · ${r.pushed} up, ${r.pulled} down`);
+      await useStore.getState().refetchAll();
+      pushToast("Calendar refreshed");
     } catch {
-      pushToast("Sync failed — reconnect?");
+      pushToast("Refresh failed — reconnect?");
     } finally {
       setBusy(false);
     }

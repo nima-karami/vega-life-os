@@ -87,15 +87,17 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       order: patch.order ?? order,
     });
     set((s) => ({ tasks: [...s.tasks, task] }));
-    savePut("tasks", task);
+    savePut("tasks", task, { kind: "insert" });
     return task;
   },
 
   updateTask: (id, patch) => {
     let next: Task | undefined;
+    let prior: Task | undefined;
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== id) return t;
+        prior = t;
         // Slot-integrity invariant: lock a habit instance to the slot it currently fills
         // BEFORE any edit can move its date — otherwise a move frees the origin slot and
         // the generator makes a phantom duplicate (the phantom-duplicate bug). Only
@@ -105,12 +107,13 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
         return next;
       }),
     }));
-    if (next) savePut("tasks", next);
+    if (next && prior) savePut("tasks", next, { kind: "update", prior });
   },
 
   removeTask: (id) => {
+    const prior = get().tasks.find((t) => t.id === id);
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
-    saveRemove("tasks", id);
+    saveRemove("tasks", id, prior);
   },
 
   duplicateTask: (content, at) =>
@@ -128,9 +131,11 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   setStatus: (id, status) => {
     let next: Task | undefined;
+    let prior: Task | undefined;
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== id) return t;
+        prior = t;
         // stamp the completion time on done (keep an existing stamp), clear it otherwise
         next = {
           ...t,
@@ -140,7 +145,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
         return next;
       }),
     }));
-    if (next) savePut("tasks", next);
+    if (next && prior) savePut("tasks", next, { kind: "update", prior });
   },
 
   cycleStatus: (id) => {
@@ -215,22 +220,27 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   bulkUpdateTasks: (ids, patch) => {
     const idset = new Set(ids);
     const updated: Task[] = [];
+    const priors = new Map<string, Task>();
     set((s) => ({
       tasks: s.tasks.map((t) => {
         if (!idset.has(t.id)) return t;
+        priors.set(t.id, t);
         const next = normalizeSchedule({ ...t, ...patch, id: t.id });
         updated.push(next);
         return next;
       }),
     }));
-    for (const t of updated) savePut("tasks", t);
+    for (const t of updated) {
+      const prior = priors.get(t.id);
+      if (prior) savePut("tasks", t, { kind: "update", prior });
+    }
   },
 
   bulkRemoveTasks: (ids) => {
     const idset = new Set(ids);
     const removed = get().tasks.filter((t) => idset.has(t.id));
     set((s) => ({ tasks: s.tasks.filter((t) => !idset.has(t.id)) }));
-    for (const t of removed) saveRemove("tasks", t.id);
+    for (const t of removed) saveRemove("tasks", t.id, t);
     return removed;
   },
 
@@ -290,7 +300,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     if (stale.length) {
       const drop = new Set(stale.map((t) => t.id));
       set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
-      for (const t of stale) saveRemove("tasks", t.id);
+      for (const t of stale) saveRemove("tasks", t.id, t);
     }
 
     const existing = new Set(
