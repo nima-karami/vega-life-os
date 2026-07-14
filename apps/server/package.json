@@ -22,8 +22,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@trpc/client": "^11.0.0",
     "@types/node": "^22.19.20",
+    "firebase": "^12.15.0",
     "vitest": "^4.1.9"
   }
 }

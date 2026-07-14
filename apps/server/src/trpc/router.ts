@@ -1,5 +1,6 @@
 import { booksRouter } from "../features/books/router";
 import { calendarRouter } from "../features/calendar/router";
+import { dataRouter } from "../features/data/router";
 import { goalsRouter } from "../features/goals/router";
 import { habitsRouter } from "../features/habits/router";
 import { healthRouter } from "../features/health/router";
@@ -23,6 +24,7 @@ export const appRouter = router({
   vocab: vocabRouter,
   reviews: reviewsRouter,
   calendar: calendarRouter,
+  data: dataRouter,
 });
 
 export type AppRouter = typeof appRouter;

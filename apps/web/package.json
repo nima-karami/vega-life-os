@@ -26,6 +26,7 @@
     "@tiptap/react": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
     "@tiptap/suggestion": "^3.27.1",
+    "@trpc/client": "^11.0.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",
     "date-fns": "^4.1.0",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
+    "@vega/server": "*",
     "@tailwindcss/vite": "^4.3.1",
     "@types/node": "^22.19.20",
     "@types/react": "^19.2.17",

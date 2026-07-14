@@ -34,5 +34,7 @@ export interface RootState
   exportJSON: () => string;
   importJSON: (text: string) => Promise<boolean>;
   applyRemote: (snap: import("@/core/persistence").CollectionSnapshot) => void;
+  refetchAll: () => Promise<void>;
+  refetchCollection: (col: import("@/core/persistence").CollectionName) => Promise<void>;
   onAuthChange: (uid: string | null) => Promise<void>;
 }
