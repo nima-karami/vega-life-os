@@ -121,15 +121,21 @@ secrets. Roadmap + plans live in `.claude/docs/` (git-ignored on purpose).
 cloud-only (no app data persisted to disk); no upload-on-sign-in. The signed-in paths
 are PENDING manual smoke — treat them as unverified.
 
-**Architecture pivot — DECIDED, NOT YET BUILT (2026-07-13):** the signed-in app moves
-to **online-first through a backend** — local-first is retired as a promise for
-signed-in users (the signed-out demo stays local Dexie). A separate `apps/server`
-(Node 24 · Hono · tRPC · Firebase Admin, on Cloud Run) becomes the sole write path and
-holds the Google refresh token + sync engine; the client's direct-Firestore writes go
-away. **Until that server ships, the running code is still the local/Firestore-direct
-app described above — don't assume the backend exists.** Full design:
-[`docs/specs/2026-07-13-backend-platform.md`](docs/specs/2026-07-13-backend-platform.md)
-+ [`docs/adr/2026-07-13-0003-backend-architecture.md`](docs/adr/2026-07-13-0003-backend-architecture.md).
+**Architecture pivot — BUILT on `main`, NOT deployed (2026-07-13):** the repo is now an
+**npm-workspaces monorepo** — `apps/web` (the SPA, moved from `src/`), `apps/server`
+(Node 24 · Hono · tRPC · Firebase Admin), `packages/shared` (Zod schemas). The signed-in
+app is **online-first through `apps/server`**: the client writes via `TrpcAdapter` (behind
+the existing `RoutingAdapter` seam), direct client→Firestore writes are gone, and
+`firestore.rules` is locked to `write: if false`. Google Calendar sync is server-side
+(OAuth + encrypted refresh token + reconcile). All 8 build slices are on `main` and green
+(server 130 / web 547 / shared 36 / e2e 89, tested vs the Firestore emulator). **The
+signed-out demo still runs standalone on local Dexie.** NOT yet done (needs the user):
+the server is **not deployed** (Cloud Run / Secret Manager / Scheduler / WIF need their GCP
+project) and **live Google OAuth** needs their client id+secret — so a signed-in session
+needs the server running + configured. **Running server tests needs Java 11+** (JDK 21 at
+`C:\Users\karam\tools\jdk-21.0.11+10`, `JAVA_HOME` set). See the run report
+[`docs/runs/2026-07-13-backend-build/report.md`](docs/runs/2026-07-13-backend-build/report.md),
+the spec, and [`docs/adr/2026-07-13-0003-backend-architecture.md`](docs/adr/2026-07-13-0003-backend-architecture.md).
 
 ## 8. Anthropic client-side call contract
 
