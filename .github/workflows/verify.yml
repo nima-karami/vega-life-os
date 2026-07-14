@@ -20,11 +20,18 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # The Firestore/Auth emulator that apps/server integration tests boot needs a JRE 11+.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run deadcode
+      # apps/server's own test script wraps vitest in `firebase emulators:exec`,
+      # so this step spins the Firestore + Auth emulator up and down in CI.
       - run: npm run test
       - run: npm run dupes
       - run: npx playwright install --with-deps chromium

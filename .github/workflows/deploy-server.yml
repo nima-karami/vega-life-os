@@ -1,0 +1,87 @@
+name: deploy-server
+
+# Manual-only backend deploy to Cloud Run via Workload Identity Federation (keyless —
+# no long-lived service-account JSON). The live apply needs the user's GCP project and
+# the one-time infra in infra/gcp-setup.md; until those secrets exist this is a no-op
+# you can dispatch but not run. Requires repo secrets GCP_PROJECT / WIF_PROVIDER /
+# WIF_SERVICE_ACCOUNT and per-environment vars PUBLIC_BASE_URL / GOOGLE_OAUTH_REDIRECT_URI.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation
+
+concurrency:
+  group: deploy-server-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  REGION: us-central1
+  REPOSITORY: vega
+  IMAGE_NAME: server
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve environment config
+        id: cfg
+        run: |
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            echo "node_env=production" >> "$GITHUB_OUTPUT"
+            echo "firestore_db=(default)" >> "$GITHUB_OUTPUT"
+            echo "service=vega-server" >> "$GITHUB_OUTPUT"
+          else
+            echo "node_env=staging" >> "$GITHUB_OUTPUT"
+            echo "firestore_db=staging" >> "$GITHUB_OUTPUT"
+            echo "service=vega-server-staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: auth
+        name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        run: |
+          docker build -f apps/server/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        run: |
+          gcloud run deploy "${{ steps.cfg.outputs.service }}" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars "NODE_ENV=${{ steps.cfg.outputs.node_env }},FIRESTORE_DB=${{ steps.cfg.outputs.firestore_db }},PROJECT_ID=${{ secrets.GCP_PROJECT }},PUBLIC_BASE_URL=${{ vars.PUBLIC_BASE_URL }},GOOGLE_OAUTH_REDIRECT_URI=${{ vars.GOOGLE_OAUTH_REDIRECT_URI }}" \
+            --set-secrets "GOOGLE_OAUTH_CLIENT_ID=gcal-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=gcal-oauth-client-secret:latest,GCAL_TOKEN_ENC_KEY=gcal-token-enc-key:latest"
+
+      - name: Report deployed revision
+        run: |
+          gcloud run services describe "${{ steps.cfg.outputs.service }}" \
+            --region "$REGION" --format 'value(status.url)'
