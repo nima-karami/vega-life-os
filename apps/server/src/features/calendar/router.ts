@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AppError, toTrpcError } from "../../core/errors";
 import { protectedProcedure, router } from "../../trpc/trpc";
+import { ensureWriteCalendar } from "./calendar-setup";
 import { listChannelsForUid, removeChannel } from "./channel-registry";
 import { SCOPE_VERSION } from "./oauth";
 import { clearGcalAccount, readGcalAccount, storeConnection } from "./token-store";
@@ -33,7 +34,9 @@ export const calendarRouter = router({
         ctx.config.oauth.tokenEncryptionKey,
         { connectedAt: ctx.calendar.now(), scopeVersion: SCOPE_VERSION },
       );
-      return { connected: true };
+      const client = await ctx.calendar.getClient(ctx.uid);
+      const writeCalendarId = await ensureWriteCalendar(ctx.firestore, ctx.uid, client);
+      return { connected: true, writeCalendarId };
     }),
 
   disconnect: protectedProcedure.mutation(async ({ ctx }) => {

@@ -88,6 +88,11 @@ export class GoogleMock {
         const prior = this.calendarOf(calendarId).get(eventId);
         if (prior) this.calendarOf(calendarId).set(eventId, { ...prior, status: "cancelled" });
       },
+      insertCalendar: async (summary) => {
+        const id = `mock-cal-${summary.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`;
+        this.calendarOf(id);
+        return { id };
+      },
       watch: async (calendarId, request: WatchRequest) => {
         const resourceId = `resource-${request.channelId}`;
         const expiration = new Date(Date.now() + 7 * 864e5).toISOString();

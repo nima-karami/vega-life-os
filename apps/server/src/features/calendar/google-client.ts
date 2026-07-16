@@ -37,6 +37,7 @@ export type GoogleCalendarClient = {
   insertEvent(calendarId: string, body: GEvent): Promise<void>;
   patchEvent(calendarId: string, eventId: string, body: GEvent): Promise<void>;
   deleteEvent(calendarId: string, eventId: string): Promise<void>;
+  insertCalendar(summary: string): Promise<{ id: string }>;
   watch(calendarId: string, request: WatchRequest): Promise<WatchResult>;
   stopChannel(channelId: string, resourceId: string): Promise<void>;
 };
@@ -94,6 +95,10 @@ export function createGoogleClient(accessToken: string): GoogleCalendarClient {
         if (isHttpStatus(error, 404) || isHttpStatus(error, 410)) return;
         throw error;
       }
+    },
+    async insertCalendar(summary) {
+      const response = await calendar.calendars.insert({ requestBody: { summary } });
+      return { id: response.data.id ?? "" };
     },
     async watch(calendarId, request) {
       const response = await calendar.events.watch({
