@@ -1,3 +1,4 @@
+export { CalendarCallbackPage } from "./CalendarCallbackPage";
 export { type GCalendar, isVegaCalendar, listCalendars } from "./calendars";
 export type { CalendarEvent } from "./events-model";
 export {

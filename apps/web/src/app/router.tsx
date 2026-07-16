@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
+import { CalendarCallbackPage } from "@/features/calendar-sync";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { EntriesPage, JournalPage } from "@/features/journal";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
           { path: "values", element: <ValuesView /> },
           { path: "habits", element: <HabitsPage /> },
           { path: "calendar", element: <CalendarPage /> },
+          { path: "calendar/callback", element: <CalendarCallbackPage /> },
           { path: "journal/:date", element: <JournalPage /> },
           { path: "entries", element: <EntriesPage /> },
           { path: "analytics", element: <AnalyticsPage /> },

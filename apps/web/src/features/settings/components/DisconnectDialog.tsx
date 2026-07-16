@@ -1,18 +1,20 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
+import { useState } from "react";
+import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { useCompactModal } from "@/core/ui";
 import { clearAllSyncTokens, clearCalendarToken } from "@/features/calendar-sync";
 
 /**
- * Disconnect flow: stop syncing on this device. Sync and the VEGA write-calendar
- * are server-owned now, so the client only drops its local Google token — the
- * calendar and its events stay in Google, and lived events stay in VEGA as a
- * frozen snapshot.
+ * Disconnect flow: revoke the server-side connection (the VEGA write-calendar and
+ * refresh token) and drop this device's local sync cursors. The calendar and its
+ * events stay in Google, and lived events stay in VEGA as a frozen snapshot.
  */
 export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const responsive = useCompactModal("sm");
   const setGcalEnabled = useStore((s) => s.setGcalEnabled);
   const pushToast = useStore((s) => s.pushToast);
+  const [busy, setBusy] = useState(false);
 
   const state = useOverlayState({
     isOpen: open,
@@ -21,12 +23,20 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
     },
   });
 
-  const disconnect = () => {
-    clearCalendarToken();
-    clearAllSyncTokens();
-    setGcalEnabled(false);
-    pushToast("Disconnected — your VEGA calendar stays in Google");
-    onClose();
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await getTrpcClient().calendar.disconnect.mutate();
+      clearCalendarToken();
+      clearAllSyncTokens();
+      setGcalEnabled(false);
+      pushToast("Disconnected — your VEGA calendar stays in Google");
+      onClose();
+    } catch {
+      pushToast("Couldn’t disconnect — try again");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -48,10 +58,10 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
               </p>
             </Modal.Body>
             <Modal.Footer className="justify-between" render={(props) => <footer {...props} />}>
-              <Button variant="ghost" onPress={onClose}>
+              <Button variant="ghost" isDisabled={busy} onPress={onClose}>
                 Cancel
               </Button>
-              <Button variant="danger" onPress={disconnect}>
+              <Button variant="danger" isDisabled={busy} onPress={() => void disconnect()}>
                 Disconnect
               </Button>
             </Modal.Footer>

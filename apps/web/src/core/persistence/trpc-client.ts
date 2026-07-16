@@ -17,3 +17,11 @@ export function createTrpcClient(): TrpcClient {
     links: [httpBatchLink({ url: `${apiUrl}/trpc`, headers: authHeaders })],
   });
 }
+
+let sharedClient: TrpcClient | null = null;
+
+/** The process-wide tRPC client for direct procedure calls from UI (e.g. calendar connect). */
+export function getTrpcClient(): TrpcClient {
+  sharedClient ??= createTrpcClient();
+  return sharedClient;
+}
