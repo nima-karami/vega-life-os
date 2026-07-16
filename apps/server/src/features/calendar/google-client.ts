@@ -70,7 +70,6 @@ export function createGoogleClient(accessToken: string): GoogleCalendarClient {
             maxResults: 250,
             pageToken,
             ...windowedParams(options),
-            ...(options.filtered ? { privateExtendedProperty: ["vegaKey"] } : {}),
           });
           events.push(...((response.data.items ?? []) as GEvent[]));
           pageToken = response.data.nextPageToken ?? undefined;
