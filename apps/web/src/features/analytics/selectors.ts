@@ -33,20 +33,6 @@ export function computeDailyStats(tasks: Task[], n = 28): DayStat[] {
   });
 }
 
-/** Weekly follow-through rate for the last n weeks (oldest first). */
-export function computeWeeklyRate(tasks: Task[], n = 12): number[] {
-  const thisWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
-  return Array.from({ length: n }, (_, i) => {
-    const wkStart = subDays(thisWeek, (n - 1 - i) * 7);
-    const wkEnd = subDays(thisWeek, (n - 2 - i) * 7);
-    const lo = format(wkStart, "yyyy-MM-dd");
-    const hi = format(wkEnd, "yyyy-MM-dd");
-    const wk = tasks.filter((t) => t.date && t.date >= lo && t.date < hi && t.status !== "skip");
-    if (!wk.length) return 0;
-    return wk.filter((t) => t.status === "done").length / wk.length;
-  });
-}
-
 /** Overall resolved rate over the last n days (skips excluded). */
 export function computeOverallRate(tasks: Task[], n = 30): number {
   const lo = format(subDays(new Date(), n), "yyyy-MM-dd");
@@ -303,4 +289,36 @@ export function buildConsistencyGrid(
     cols.push(col);
   }
   return { cols, months };
+}
+
+export interface WeekPoint {
+  /** ISO date of the week's Monday. */
+  weekStartISO: string;
+  /** Short label, e.g. "Jul 6". */
+  label: string;
+  done: number;
+  /** Scheduled (skips excluded) tasks that week. */
+  total: number;
+  /** done / total, 0 when the week had nothing scheduled. */
+  rate: number;
+}
+
+/** Weekly follow-through for the last n weeks (oldest first), carrying the raw counts
+ *  so the trend chart can label each bar — not just the bare rate. */
+export function computeWeeklyTrend(tasks: Task[], n = 12): WeekPoint[] {
+  const thisWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
+  return Array.from({ length: n }, (_, i) => {
+    const wkStart = subDays(thisWeek, (n - 1 - i) * 7);
+    const lo = format(wkStart, "yyyy-MM-dd");
+    const hi = format(subDays(thisWeek, (n - 2 - i) * 7), "yyyy-MM-dd");
+    const wk = tasks.filter((t) => t.date && t.date >= lo && t.date < hi && t.status !== "skip");
+    const done = wk.filter((t) => t.status === "done").length;
+    return {
+      weekStartISO: lo,
+      label: format(wkStart, "MMM d"),
+      done,
+      total: wk.length,
+      rate: wk.length ? done / wk.length : 0,
+    };
+  });
 }

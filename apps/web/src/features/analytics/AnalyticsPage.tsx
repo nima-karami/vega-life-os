@@ -2,7 +2,7 @@ import { Button, ButtonGroup, ScrollShadow } from "@heroui/react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
-import { cx, Gauge, Icon, Label, Panel, SectionHead, Sparkline } from "@/core/ui";
+import { cx, Gauge, Icon, Label, Panel, SectionHead } from "@/core/ui";
 import { computeGoalTimeElapsed } from "@/features/goals";
 import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
@@ -10,6 +10,7 @@ import { CHART_PRIMARY } from "./chart-constants";
 import { HeatCell } from "./components/HeatCell";
 import { ReflectionRow } from "./components/ReflectionRow";
 import { ValueBalanceBar } from "./components/ValueBalanceBar";
+import { WeeklyTrendChart } from "./components/WeeklyTrendChart";
 import { DEFAULT_RANGE, RANGE_OPTIONS, rangeToDays, rangeToWeeks, type TimeRange } from "./range";
 import {
   buildConsistencyGrid,
@@ -18,7 +19,7 @@ import {
   computeOverallRate,
   computeReflectionStats,
   computeValueTime,
-  computeWeeklyRate,
+  computeWeeklyTrend,
   countCompletedByValue,
 } from "./selectors";
 
@@ -85,7 +86,7 @@ function AnalyticsSection() {
   const weeks = rangeToWeeks(range);
 
   const daily = useMemo(() => computeDailyStats(tasks, days), [tasks, days]);
-  const weekly = useMemo(() => computeWeeklyRate(tasks, weeks), [tasks, weeks]);
+  const weekly = useMemo(() => computeWeeklyTrend(tasks, weeks), [tasks, weeks]);
   const overall = useMemo(() => computeOverallRate(tasks, days), [tasks, days]);
   const byValue = useMemo(() => countCompletedByValue(tasks, days), [tasks, days]);
   const calendarEvents = useStore((s) => s.calendarEvents);
@@ -112,7 +113,7 @@ function AnalyticsSection() {
 
   const hasTasks = tasks.some((t) => t.date);
   const tasksInRange = daily.some((d) => d.total > 0);
-  const enoughWeekly = weekly.filter((w) => w > 0).length >= 2;
+  const enoughWeekly = weekly.filter((w) => w.total > 0).length >= 2;
 
   // First-run: no tasks ever logged → one explanatory panel, not a wall of charts.
   if (!hasTasks) {
@@ -189,26 +190,14 @@ function AnalyticsSection() {
         </Panel>
 
         <Panel className="p-6 lg:col-span-2">
-          <SectionHead title="Weekly trend" meta={`${weeks} wk`} />
-          <ScrollShadow orientation="horizontal" className="mt-4">
-            {enoughWeekly ? (
-              <Sparkline
-                points={weekly}
-                width={760}
-                height={70}
-                className="w-full"
-                color="var(--color-accent)"
-              />
-            ) : (
-              <p className="py-6 text-xs text-muted">
-                Not enough weekly data yet — keep logging to see the trend.
-              </p>
-            )}
-          </ScrollShadow>
-          <div className="mt-1 flex justify-between">
-            <Label>{weeks} weeks ago</Label>
-            <Label>this week</Label>
-          </div>
+          <SectionHead title="Weekly follow-through" meta={`${weeks} wk`} />
+          {enoughWeekly ? (
+            <WeeklyTrendChart weeks={weekly} />
+          ) : (
+            <p className="py-6 text-xs text-muted">
+              Not enough weekly data yet — keep logging to see the trend.
+            </p>
+          )}
         </Panel>
 
         {/* reflection trackers — same "consistency" category, paired with the heatmap */}
