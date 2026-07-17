@@ -11,30 +11,31 @@ export type FieldLwwResult = {
 const META_KEYS = new Set(["updatedAt", "fieldUpdatedAt"]);
 
 /**
- * Server-computed field LWW: diff the incoming WHOLE record against the stored one,
- * re-stamping `fieldUpdatedAt[field] = now` only where a value actually changed and
- * bumping `updatedAt` only on a real change. An identical whole-record write is a no-op,
- * which is what makes a replayed set-by-id upsert idempotent.
+ * Whole-record write with per-field change stamps — NOT a server-side per-field merge. `merged`
+ * is the incoming record verbatim; the server never cherry-picks stored fields. `fieldUpdatedAt`
+ * and `updatedAt` are re-stamped only on a real value change, as bookkeeping the client consumes
+ * for its own field-level LWW. An identical whole-record write is a no-op, which keeps a replayed
+ * set-by-id upsert idempotent.
  */
 export function mergeWithFieldLww(
   stored: StoredRecord | null,
   incoming: Record<string, unknown>,
   now: string,
 ): FieldLwwResult {
-  const data = stripMeta(incoming);
-  const priorData = stored ? stripMeta(stored) : {};
+  const incomingFields = stripMeta(incoming);
+  const priorFields = stored ? stripMeta(stored) : {};
   const fieldUpdatedAt: Record<string, string> = { ...(stored?.fieldUpdatedAt ?? {}) };
 
   let hasChange = stored === null;
-  for (const key of Object.keys(data)) {
-    if (!isSameValue(data[key], priorData[key])) {
+  for (const key of Object.keys(incomingFields)) {
+    if (!isSameValue(incomingFields[key], priorFields[key])) {
       fieldUpdatedAt[key] = now;
       hasChange = true;
     }
   }
 
   const updatedAt = hasChange ? now : (stored?.updatedAt ?? now);
-  return { merged: { ...data, updatedAt }, fieldUpdatedAt };
+  return { merged: { ...incomingFields, updatedAt }, fieldUpdatedAt };
 }
 
 function stripMeta(record: Record<string, unknown>): Record<string, unknown> {
