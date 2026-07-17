@@ -107,7 +107,7 @@ export function validateRules(r: StreakRules): RuleError[] {
   return errors;
 }
 
-const sameRules = (a: StreakRules, b: StreakRules): boolean =>
+const areRulesEqual = (a: StreakRules, b: StreakRules): boolean =>
   a.graceDays === b.graceDays &&
   a.bridgeEnabled === b.bridgeEnabled &&
   a.longStreakMin === b.longStreakMin &&
@@ -116,6 +116,6 @@ const sameRules = (a: StreakRules, b: StreakRules): boolean =>
 
 /** The preset a config equals, or "custom" when it matches none. */
 export function getPreset(r: StreakRules): PresetName | "custom" {
-  for (const name of PRESET_ORDER) if (sameRules(r, PRESETS[name])) return name;
+  for (const name of PRESET_ORDER) if (areRulesEqual(r, PRESETS[name])) return name;
   return "custom";
 }

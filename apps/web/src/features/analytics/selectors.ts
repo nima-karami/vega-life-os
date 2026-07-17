@@ -194,7 +194,7 @@ export interface ReflectionStats {
   gratitude: ReflectionStat;
 }
 
-const journaledDay = (e?: DayEntry): boolean => !!e && e.journal.trim() !== "";
+const hasJournalEntry = (entry?: DayEntry): boolean => !!entry && entry.journal.trim() !== "";
 
 /**
  * Streak over FULL history (floored at the first-ever entry, like a habit's createdAt),
@@ -249,7 +249,7 @@ export function computeReflectionStats(
   const byDate = new Map(journal.map((e) => [e.date, e]));
   const today = format(new Date(), "yyyy-MM-dd");
   return {
-    journaled: reflectionStat(byDate, n, journaledDay, rules, today),
+    journaled: reflectionStat(byDate, n, hasJournalEntry, rules, today),
     gratitude: reflectionStat(byDate, n, hasGratitude, rules, today),
   };
 }
