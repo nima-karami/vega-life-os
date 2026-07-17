@@ -7,6 +7,8 @@ import { VitePWA } from "vite-plugin-pwa";
 const BACKGROUND = "#f7f7f6"; // --color-canvas: matches the app surface, no white flash
 
 export default defineConfig({
+  // .env.local lives at the repo root (not the app dir), so read env from there.
+  envDir: path.resolve(__dirname, "..", ".."),
   plugins: [
     react(),
     tailwindcss(),
