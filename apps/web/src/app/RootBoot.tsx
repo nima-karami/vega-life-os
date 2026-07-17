@@ -16,6 +16,20 @@ import { Shortcuts } from "./Shortcuts";
 import { SignInGate } from "./SignInGate";
 import { Toast } from "./Toast";
 
+const isCommandKey = (e: KeyboardEvent): boolean =>
+  (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
+
+const isTypingTarget = (target: EventTarget | null): boolean => {
+  const el = target as HTMLElement | null;
+  return (
+    !!el &&
+    (el.tagName === "INPUT" ||
+      el.tagName === "TEXTAREA" ||
+      el.tagName === "SELECT" ||
+      el.isContentEditable)
+  );
+};
+
 /** Top-level provider: boots data, applies vapor theme, owns the global ⌘K layer. */
 export function RootBoot() {
   const ready = useStore((s) => s.ready);
@@ -84,66 +98,65 @@ export function RootBoot() {
 
   // Global keyboard shortcuts
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Morning gate up: swallow every shortcut so there's no keyboard way around it.
-      if (isGratitudeRequired(useStore.getState().journal, todayISO())) {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") e.preventDefault();
+    // While the morning gratitude gate is up, swallow every shortcut (incl. ⌘K)
+    // so there's no keyboard way around it.
+    const gateBlocksKey = (e: KeyboardEvent): boolean => {
+      if (!isGratitudeRequired(useStore.getState().journal, todayISO())) return false;
+      if (isCommandKey(e)) e.preventDefault();
+      return true;
+    };
+
+    // "g" then a route key navigates; a lone "g" arms the chord for 1.5s.
+    const tryGoChord = (e: KeyboardEvent, key: string): boolean => {
+      if (gPending.current) {
+        gPending.current = false;
+        const target = GO_SHORTCUTS.find((entry) => entry.key === key.toLowerCase());
+        if (target) {
+          e.preventDefault();
+          navigate(target.to);
+        }
+        return true;
+      }
+      if (key.toLowerCase() !== "g") return false;
+      gPending.current = true;
+      clearTimeout(gTimer.current);
+      gTimer.current = setTimeout(() => {
+        gPending.current = false;
+      }, 1500);
+      return true;
+    };
+
+    const runShortcut = (e: KeyboardEvent) => {
+      const state = useStore.getState();
+      const key = e.key;
+      if (key === "?") {
+        e.preventDefault();
+        state.setShortcutsOpen(!state.shortcutsOpen);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if (key === "Escape") {
+        state.setShortcutsOpen(false);
+        state.closeCommand();
+        state.setEphemeral(null);
+        return;
+      }
+      if (tryGoChord(e, key)) return;
+      if (key.toLowerCase() === "n") {
+        e.preventDefault();
+        state.openCommand();
+      }
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (gateBlocksKey(e)) return;
+      if (isCommandKey(e)) {
         e.preventDefault();
         toggleCommand();
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-      const t = e.target as HTMLElement | null;
-      const typing =
-        !!t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable);
-      if (typing) return;
-
-      const k = e.key;
-      const s = useStore.getState();
-
-      if (k === "?") {
-        e.preventDefault();
-        s.setShortcutsOpen(!s.shortcutsOpen);
-        return;
-      }
-      if (k === "Escape") {
-        s.setShortcutsOpen(false);
-        s.closeCommand();
-        s.setEphemeral(null);
-        return;
-      }
-
-      if (gPending.current) {
-        gPending.current = false;
-        const m = GO_SHORTCUTS.find((g) => g.key === k.toLowerCase());
-        if (m) {
-          e.preventDefault();
-          navigate(m.to);
-        }
-        return;
-      }
-      const low = k.toLowerCase();
-      if (low === "g") {
-        gPending.current = true;
-        clearTimeout(gTimer.current);
-        gTimer.current = setTimeout(() => {
-          gPending.current = false;
-        }, 1500);
-        return;
-      }
-      if (low === "n") {
-        e.preventDefault();
-        s.openCommand();
-        return;
-      }
+      if (isTypingTarget(e.target)) return;
+      runShortcut(e);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
