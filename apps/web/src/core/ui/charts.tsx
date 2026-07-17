@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { cx } from "./cx";
 
-/** Tracks the user's reduced-motion preference (SSR-safe, live-updating). */
+// Tracks the user's reduced-motion preference (SSR-safe, live-updating).
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {

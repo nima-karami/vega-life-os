@@ -20,7 +20,6 @@ interface Rgb {
   b: number;
 }
 
-/** Parse `#rgb` / `#rrggbb` (any case) → 0–255 channels, or null if malformed. */
 function parseHex(hex: string): Rgb | null {
   const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
   if (!m) return null;
@@ -41,7 +40,7 @@ function toHex({ r, g, b }: Rgb): string {
   return `#${c(r)}${c(g)}${c(b)}`;
 }
 
-/** WCAG relative luminance (0 black → 1 white). */
+// WCAG relative luminance (0 black → 1 white).
 function computeLuminance({ r, g, b }: Rgb): number {
   const lin = (c: number) => {
     const v = c / 255;

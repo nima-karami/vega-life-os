@@ -31,7 +31,7 @@ export function getStablePushKey(task: Task): string {
     : `task:${task.id}`;
 }
 
-/** Hex-encode behind a "vega" prefix → base32hex-safe, injective, within Google's id bounds. */
+// Hex-encode behind a "vega" prefix → base32hex-safe, injective, within Google's id bounds.
 function encodeEventId(raw: string): string {
   let hex = "";
   for (const char of raw) hex += char.charCodeAt(0).toString(16).padStart(2, "0");

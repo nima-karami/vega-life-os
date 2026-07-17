@@ -40,7 +40,6 @@ export function isMultiDay(e: CalendarEvent): boolean {
   return e.time == null || e.durationMin >= 1440;
 }
 
-/** True when `dayIso` falls within the event's inclusive [date, endDate] span. */
 function coversDay(e: CalendarEvent, dayIso: string): boolean {
   if (e.date == null) return false;
   const end = e.endDate ?? e.date;

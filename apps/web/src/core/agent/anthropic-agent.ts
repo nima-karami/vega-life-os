@@ -92,7 +92,6 @@ function buildAgentContext(): string {
   });
 }
 
-/** Build a clickable action from a Claude tool_use block. */
 function toAction(name: string, input: Record<string, unknown>, idx: number): AgentAction | null {
   const state = useStore.getState();
   const id = `ai-${idx}`;
