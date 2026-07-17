@@ -26,8 +26,8 @@ function writeLocalStreakRules(r: StreakRules) {
   }
 }
 
-async function writeCloudStreakRules(uid: string, r: StreakRules) {
-  await setCloudProfile(uid, {
+async function writeCloudStreakRules(r: StreakRules) {
+  await setCloudProfile({
     streakRulesConfigured: true,
     streakGraceDays: r.graceDays,
     streakBridgeEnabled: r.bridgeEnabled,
@@ -51,12 +51,12 @@ export async function loadStreakRules(uid: string | null): Promise<StreakRules> 
     });
   }
   const local = readLocalStreakRules();
-  await writeCloudStreakRules(uid, local).catch(() => {});
+  await writeCloudStreakRules(local).catch(() => {});
   return local;
 }
 
 /** Persist to the right home. Local write is synchronous; cloud is best-effort (offline-tolerant). */
 export function saveStreakRules(uid: string | null, r: StreakRules) {
-  if (uid) void writeCloudStreakRules(uid, r).catch(() => {});
+  if (uid) void writeCloudStreakRules(r).catch(() => {});
   else writeLocalStreakRules(r);
 }

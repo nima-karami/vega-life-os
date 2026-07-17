@@ -152,14 +152,12 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   setOperatorName: (operatorName) => {
     writeSettings({ operatorName });
     set({ operatorName });
-    const uid = get().authUid;
-    if (uid) void setCloudProfile(uid, { name: operatorName });
+    if (get().authUid) void setCloudProfile({ name: operatorName });
   },
   setOperatorWorkspace: (operatorWorkspace) => {
     writeSettings({ operatorWorkspace });
     set({ operatorWorkspace });
-    const uid = get().authUid;
-    if (uid) void setCloudProfile(uid, { workspace: operatorWorkspace });
+    if (get().authUid) void setCloudProfile({ workspace: operatorWorkspace });
   },
   setOperatorEmail: (operatorEmail) => {
     writeSettings({ operatorEmail });
@@ -168,8 +166,7 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   setOperatorAvatar: (operatorAvatar) => {
     writeSettings({ operatorAvatar });
     set({ operatorAvatar });
-    const uid = get().authUid;
-    if (uid) void setCloudProfile(uid, { avatar: operatorAvatar });
+    if (get().authUid) void setCloudProfile({ avatar: operatorAvatar });
   },
   hydrateProfile: (p) => {
     writeSettings({

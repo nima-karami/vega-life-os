@@ -9,4 +9,5 @@ export * from "./entities/review";
 export * from "./entities/task";
 export * from "./entities/value";
 export * from "./entities/vocab";
+export * from "./profile";
 export * from "./sync";

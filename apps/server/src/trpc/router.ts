@@ -6,6 +6,7 @@ import { habitsRouter } from "../features/habits/router";
 import { healthRouter } from "../features/health/router";
 import { journalRouter } from "../features/journal/router";
 import { moviesRouter } from "../features/movies/router";
+import { profileRouter } from "../features/profile/router";
 import { reviewsRouter } from "../features/reviews/router";
 import { tasksRouter } from "../features/tasks/router";
 import { valuesRouter } from "../features/values/router";
@@ -25,6 +26,7 @@ export const appRouter = router({
   reviews: reviewsRouter,
   calendar: calendarRouter,
   data: dataRouter,
+  profile: profileRouter,
 });
 
 export type AppRouter = typeof appRouter;

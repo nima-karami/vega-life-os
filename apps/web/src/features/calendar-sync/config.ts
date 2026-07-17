@@ -71,8 +71,8 @@ function writeLocalGcalConfig(config: GcalConfig) {
   writeLocal(SHOW, config.showGoogleEvents ? "1" : "0");
 }
 
-async function writeCloudGcalConfig(uid: string, config: GcalConfig) {
-  await setCloudProfile(uid, {
+async function writeCloudGcalConfig(config: GcalConfig) {
+  await setCloudProfile({
     gcalConfigured: true,
     gcalEnabled: config.enabled,
     gcalWriteCalendarId: config.writeCalendarId,
@@ -94,12 +94,12 @@ export async function loadGcalConfig(uid: string | null): Promise<GcalConfig> {
     };
   }
   const local = readLocalGcalConfig();
-  await writeCloudGcalConfig(uid, local).catch(() => {});
+  await writeCloudGcalConfig(local).catch(() => {});
   return local;
 }
 
 /** Persist config to the right home (fire-and-forget for the cloud path). */
 export function saveGcalConfig(uid: string | null, c: GcalConfig) {
-  if (uid) void writeCloudGcalConfig(uid, c).catch(() => {});
+  if (uid) void writeCloudGcalConfig(c).catch(() => {});
   else writeLocalGcalConfig(c);
 }

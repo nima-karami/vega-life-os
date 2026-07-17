@@ -1,5 +1,6 @@
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "./app";
+import { doc, getDoc } from "firebase/firestore";
+import { getTrpcClient } from "@/core/persistence/trpc-client";
+import { auth, db } from "./app";
 
 export interface CloudProfile {
   name?: string;
@@ -52,7 +53,13 @@ export async function getCloudProfile(uid: string): Promise<CloudProfile | null>
   };
 }
 
-export async function setCloudProfile(uid: string, patch: CloudProfile): Promise<void> {
-  if (!db) return;
-  await setDoc(doc(db, "users", uid), { ...patch, updatedAt: serverTimestamp() }, { merge: true });
+/** Persist a profile patch via the backend — clients can't write the users/{uid} doc
+ *  directly. Best-effort: settings are saved locally first, so a failed sync is swallowed. */
+export async function setCloudProfile(patch: CloudProfile): Promise<void> {
+  if (!auth?.currentUser) return;
+  try {
+    await getTrpcClient().profile.upsert.mutate(patch);
+  } catch {
+    /* cloud mirror is best-effort */
+  }
 }
