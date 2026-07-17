@@ -2,10 +2,11 @@ import { Button, Card, Modal, ScrollShadow, useOverlayState } from "@heroui/reac
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
-import { useTodayISO } from "@/core/lib/clock";
+import { useNowMs, useTodayISO } from "@/core/lib/clock";
 import { addMinutes, formatShortDate, getWeekDays, minutesOf, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
+  ContextMenu,
   cx,
   FloatingMenu,
   Icon,
@@ -18,18 +19,15 @@ import type { CalendarEvent } from "@/features/calendar-sync";
 import { dedupeForDisplay } from "@/features/calendar-sync";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
+import { useValueColor } from "@/features/values";
 import { BulkActionBar } from "./BulkActionBar";
 import { CalendarSync } from "./CalendarSync";
-import { AllDayChip } from "./components/AllDayChip";
-import { BacklogItem } from "./components/BacklogItem";
-import { FilterChip } from "./components/FilterChip";
-import { NowLine } from "./components/NowLine";
-import { ScheduleRow } from "./components/ScheduleRow";
-import { TimedChip } from "./components/TimedChip";
 import { CalendarEventChip, EventEditor, SpanBarChip } from "./EventEditor";
 import {
   type Box,
   type ChipBox,
+  type ColumnSlot,
+  DAY_END,
   DAY_START,
   DROP_DURATION,
   type DragMode,
@@ -42,6 +40,7 @@ import {
   getMinuteAtOffset,
   HOUR_PX,
   HOURS,
+  isOffWindow,
   layoutColumns,
   resolveDrag,
   shiftSelection,
@@ -1445,6 +1444,266 @@ export function CalendarPage() {
           </Modal.Container>
         </Modal.Backdrop>
       </Modal>
+    </div>
+  );
+}
+
+function ScheduleRow({ task, onPick }: { task: Task; onPick: () => void }) {
+  const accent = useValueColor(task.valueId);
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className="flex w-full items-center gap-2.5 rounded-[12px] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-accent"
+    >
+      <span
+        className="h-2 w-2 shrink-0 rounded-full"
+        style={{ background: accent }}
+        aria-hidden="true"
+      />
+      <span className="truncate text-sm text-foreground">{task.title}</span>
+    </button>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "bg-accent text-accent-foreground"
+          : "bg-surface-secondary text-muted hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TimedChip({
+  task,
+  eff,
+  slot,
+  dragging,
+  dim,
+  detached,
+  selected,
+  provisional,
+  onPointerDownBody,
+  onPointerDownTop,
+  onPointerDownBottom,
+  onOpen,
+  menuItems,
+}: {
+  task: Task;
+  eff: { start: number; durationMin: number };
+  slot: ColumnSlot;
+  dragging: boolean;
+  dim: boolean;
+  detached: boolean;
+  selected: boolean;
+  provisional: boolean;
+  onPointerDownBody: (e: React.PointerEvent) => void;
+  onPointerDownTop: (e: React.PointerEvent) => void;
+  onPointerDownBottom: (e: React.PointerEvent) => void;
+  onOpen: () => void;
+  menuItems: MenuItem[];
+}) {
+  const accent = useValueColor(task.valueId);
+  const top = getChipTop(eff.start);
+  const height = getChipHeight(eff.durationMin);
+  // side-by-side columns for overlapping chips; 2px gutters keep them distinct
+  const left = `calc(${(slot.col / slot.cols) * 100}% + 2px)`;
+  const width = `calc(${100 / slot.cols}% - 4px)`;
+  const resolved = task.status === "done" || task.status === "skip";
+  const off = isOffWindow(eff.start);
+  const timeLabel = dragging
+    ? `${formatMinutes(eff.start)}–${addMinutes(formatMinutes(eff.start), eff.durationMin)}`
+    : task.time;
+
+  return (
+    <ContextMenu items={menuItems}>
+      <button
+        type="button"
+        data-block
+        data-chip-id={task.id}
+        aria-pressed={selected}
+        onPointerDown={onPointerDownBody}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
+        className={cx(
+          "group absolute block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-surface px-1.5 py-1 text-left shadow-sm",
+          resolved && "bg-surface-secondary",
+          dim ? "opacity-30" : "opacity-100",
+          selected && "z-20 ring-2 ring-accent",
+          provisional && !selected && "z-20 ring-2 ring-accent/40",
+          dragging
+            ? "z-30 cursor-grabbing shadow-md ring-1 ring-accent"
+            : "transition-[top,height] duration-75",
+        )}
+        style={{
+          top,
+          height,
+          left,
+          width,
+          borderColor: accent,
+        }}
+      >
+        {(off || detached) && (
+          <span className="absolute right-1 top-1 flex items-center gap-0.5 text-muted">
+            {detached && (
+              <span title="Edited away from its habit" aria-hidden="true">
+                <Icon name="unlink" size={10} />
+              </span>
+            )}
+            {off && (
+              <span title="Outside the visible hours" aria-hidden="true">
+                <Icon name="alert" size={10} />
+              </span>
+            )}
+          </span>
+        )}
+        <span
+          onPointerDown={onPointerDownTop}
+          className="absolute inset-x-0 top-0 z-10 flex h-1.5 cursor-ns-resize items-start justify-center opacity-0 group-hover:opacity-100"
+        >
+          <span className="mt-px h-0.5 w-5 rounded-full bg-border" />
+        </span>
+        <span
+          className={cx(
+            "block truncate text-[11px] leading-tight text-foreground",
+            resolved && "text-muted line-through",
+          )}
+        >
+          {task.title}
+        </span>
+        {height > 34 && (
+          <span className="mt-0.5 block text-[9px] tabular-nums text-muted">{timeLabel}</span>
+        )}
+        <span
+          onPointerDown={onPointerDownBottom}
+          className="absolute inset-x-0 bottom-0 z-10 flex h-1.5 cursor-ns-resize items-end justify-center opacity-0 group-hover:opacity-100"
+        >
+          <span className="mb-px h-0.5 w-5 rounded-full bg-border" />
+        </span>
+      </button>
+    </ContextMenu>
+  );
+}
+
+function AllDayChip({
+  task,
+  dragging,
+  selected,
+  onPointerDownBody,
+  onOpen,
+  menuItems,
+}: {
+  task: Task;
+  dragging: boolean;
+  selected: boolean;
+  onPointerDownBody: (e: React.PointerEvent) => void;
+  onOpen: () => void;
+  menuItems: MenuItem[];
+}) {
+  const accent = useValueColor(task.valueId);
+  const resolved = task.status === "done" || task.status === "skip";
+  return (
+    <ContextMenu items={menuItems}>
+      <button
+        type="button"
+        data-block
+        aria-pressed={selected}
+        onPointerDown={onPointerDownBody}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        aria-label={`${task.title}, all day${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
+        className={cx(
+          "block w-full cursor-grab touch-none select-none truncate rounded-[2px] border-l-[3px] bg-surface px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm",
+          dragging && "opacity-40",
+          selected && "ring-2 ring-accent",
+        )}
+        style={{ borderColor: accent }}
+      >
+        <span className={cx("truncate", resolved && "text-muted line-through")}>{task.title}</span>
+      </button>
+    </ContextMenu>
+  );
+}
+
+function BacklogItem({
+  task,
+  onOpen,
+  onSchedule,
+}: {
+  task: Task;
+  onOpen: () => void;
+  onSchedule: () => void;
+}) {
+  const accent = useValueColor(task.valueId);
+  return (
+    <li className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`${task.title}, unscheduled`}
+        className="flex flex-1 items-center gap-2 truncate rounded-[12px] border border-border bg-surface px-2.5 py-1.5 text-left transition-colors hover:border-accent"
+      >
+        <span
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: accent }}
+          aria-hidden="true"
+        />
+        <span className="truncate text-sm text-foreground">{task.title}</span>
+      </button>
+      <Button
+        isIconOnly
+        size="sm"
+        variant="ghost"
+        onPress={onSchedule}
+        aria-label={`Schedule ${task.title} for today`}
+        className="shrink-0 text-muted"
+      >
+        <Icon name="calendar" size={14} />
+      </Button>
+    </li>
+  );
+}
+
+function NowLine() {
+  const now = new Date(useNowMs());
+  const cur = now.getHours() * 60 + now.getMinutes();
+  if (cur < DAY_START || cur > DAY_END) return null;
+  return (
+    <div
+      className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
+      style={{ top: getChipTop(cur) }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+      <span className="h-px flex-1 bg-accent/50" />
     </div>
   );
 }

@@ -15,18 +15,32 @@
  * The data layer is reused unchanged — every mutation goes through existing store
  * actions; logic-bearing display rules live in pure, unit-tested helpers.
  */
+import { Button, Card, Chip } from "@heroui/react";
+import { format } from "date-fns";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
-import { AddButton, ConfirmDialog, Disclosure, SortableList } from "@/core/ui";
+import { AddButton, ConfirmDialog, cx, Disclosure, Icon, Menu, SortableList } from "@/core/ui";
+import { GoalCard } from "@/features/goals/components/GoalCard";
 import { GoalEditor } from "@/features/goals/components/GoalEditor";
+import { computeHabitStreak } from "@/features/habits";
 import { countCascade, formatCascadeMessage } from "./cascade";
-import { ValueCard } from "./components/ValueCard";
+import { getValueColor } from "./color";
 import { ValueEditor } from "./components/ValueEditor";
 import type { Value } from "./model";
-import { getActiveValues, getArchivedValues } from "./selectors";
-import { useAnnouncer } from "./useAnnouncer";
+import { getActiveValues, getArchivedValues, splitGoals } from "./selectors";
+
+/** Small polite live-region announcer (sighted users see these changes; SR users wouldn't). */
+function useAnnouncer() {
+  const [message, setMessage] = useState("");
+  const region = (
+    <div aria-live="polite" aria-atomic="true" className="sr-only">
+      {message}
+    </div>
+  );
+  return { announce: setMessage, region };
+}
 
 export function ValuesView() {
   const values = useStore((s) => s.values);
@@ -260,6 +274,231 @@ export function ValuesView() {
         }}
         onClose={() => setConfirmGoalId(null)}
       />
+    </div>
+  );
+}
+
+function ValueCard({
+  value,
+  archived,
+  onEdit,
+  onAddGoal,
+  onArchiveToggle,
+  onDelete,
+  onEditGoal,
+  onReorderGoals,
+  onDeleteGoal,
+  onStatusAnnounce,
+}: {
+  value: Value;
+  archived: boolean;
+  onEdit: () => void;
+  onAddGoal: () => void;
+  onArchiveToggle: () => void;
+  onDelete: () => void;
+  onEditGoal: (id: string) => void;
+  onReorderGoals: (activeId: string, overId: string) => void;
+  onDeleteGoal: (id: string) => void;
+  onStatusAnnounce: (msg: string) => void;
+}) {
+  const habits = useStore((s) => s.habits);
+  const tasks = useStore((s) => s.tasks);
+  const rules = useStore((s) => s.streakRules);
+
+  const valueHabits = habits.filter((h) => h.valueId === value.id && !h.goalId);
+  const color = getValueColor(value);
+
+  return (
+    <Card
+      className={cx("rounded-[16px] border border-border bg-surface", archived && "opacity-90")}
+    >
+      <Card.Content className="p-5">
+        <div className="flex items-start gap-4">
+          <button
+            type="button"
+            onClick={archived ? undefined : onEdit}
+            disabled={archived}
+            aria-label={archived ? value.name : `Edit ${value.name}`}
+            className={cx(
+              "grid h-10 w-10 shrink-0 place-items-center rounded-full transition-transform",
+              !archived && "hover:scale-105",
+            )}
+            style={{ background: color }}
+          >
+            <Icon name={value.icon} size={18} className="text-white" />
+          </button>
+          {archived ? (
+            <div className="min-w-0 flex-1 text-left">
+              <h2 className="text-lg font-semibold leading-tight text-foreground">{value.name}</h2>
+              <p className="mt-1 break-words text-sm leading-relaxed text-muted">
+                {value.desc || "No description."}
+              </p>
+              {value.archivedAt && (
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-surface-secondary px-2 py-0.5 text-xs text-muted">
+                  <Icon name="archive" size={11} />
+                  Archived {format(new Date(value.archivedAt), "d MMM yyyy")}
+                </span>
+              )}
+            </div>
+          ) : (
+            <button type="button" onClick={onEdit} className="group min-w-0 flex-1 text-left">
+              <h2 className="text-lg font-semibold leading-tight text-foreground group-hover:underline">
+                {value.name}
+              </h2>
+              <p className="mt-1 break-words text-sm leading-relaxed text-muted">
+                {value.desc || "No description yet — click to add one."}
+              </p>
+            </button>
+          )}
+          <Menu
+            align="end"
+            isIconOnly
+            triggerLabel={`${value.name} actions`}
+            triggerContent={<Icon name="dots" size={16} />}
+            items={
+              archived
+                ? [
+                    { label: "Unarchive", icon: "archive", onSelect: onArchiveToggle },
+                    { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
+                  ]
+                : [
+                    { label: "Edit details", icon: "edit", onSelect: onEdit },
+                    { label: "Add goal", icon: "plus", onSelect: onAddGoal },
+                    { label: "Archive", icon: "archive", onSelect: onArchiveToggle },
+                    { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
+                  ]
+            }
+          />
+        </div>
+
+        <ValueGoals
+          valueId={value.id}
+          archived={archived}
+          onAddGoal={onAddGoal}
+          onEditGoal={onEditGoal}
+          onReorderGoals={onReorderGoals}
+          onDeleteGoal={onDeleteGoal}
+          onStatusAnnounce={onStatusAnnounce}
+        />
+
+        {valueHabits.length > 0 && (
+          <div className="mt-5">
+            <span className="text-xs text-muted">Habits</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {valueHabits.map((h) => (
+                <Chip key={h.id} size="sm" variant="soft" className="gap-1">
+                  <Icon name={h.icon} size={13} className="text-muted" />
+                  <span className="text-foreground">{h.name}</span>
+                  <span className="text-muted">
+                    · {computeHabitStreak(tasks, h, undefined, rules)}d
+                  </span>
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card.Content>
+    </Card>
+  );
+}
+
+/** A value's goals: header with open/closed counts, open goals (drag-reorderable
+ *  when active), and closed goals tucked behind a per-card toggle. */
+function ValueGoals({
+  valueId,
+  archived,
+  onAddGoal,
+  onEditGoal,
+  onReorderGoals,
+  onDeleteGoal,
+  onStatusAnnounce,
+}: {
+  valueId: string;
+  archived: boolean;
+  onAddGoal: () => void;
+  onEditGoal: (id: string) => void;
+  onReorderGoals: (activeId: string, overId: string) => void;
+  onDeleteGoal: (id: string) => void;
+  onStatusAnnounce: (msg: string) => void;
+}) {
+  const goals = useStore((s) => s.goals);
+  const vGoals = goals.filter((g) => g.valueId === valueId).sort((a, b) => a.order - b.order);
+  const { open, closed } = splitGoals(vGoals);
+
+  const renderGoal = (id: string) => (
+    <GoalCard
+      goalId={id}
+      onEdit={() => onEditGoal(id)}
+      onDelete={() => onDeleteGoal(id)}
+      onStatusAnnounce={onStatusAnnounce}
+    />
+  );
+
+  return (
+    <div className="mt-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted">Goals</span>
+        {!archived && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 min-w-0 px-2 text-xs text-muted data-[hovered=true]:text-foreground"
+            onPress={onAddGoal}
+          >
+            <Icon name="plus" size={13} />
+            Add goal
+          </Button>
+        )}
+      </div>
+
+      {vGoals.length === 0 ? (
+        <div className="flex items-center justify-between rounded-[12px] border border-dashed border-border px-3 py-3">
+          <span className="text-sm text-muted">No goals yet.</span>
+          {!archived && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 min-w-0 px-2 text-accent"
+              onPress={onAddGoal}
+            >
+              <Icon name="plus" size={14} />
+              Add goal
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          {open.length === 0 ? (
+            <p className="px-1 text-sm text-muted">No open goals.</p>
+          ) : archived ? (
+            <div className="space-y-2.5">{open.map((g) => renderGoal(g.id))}</div>
+          ) : (
+            <SortableList
+              items={open}
+              getId={(g) => g.id}
+              getLabel={(g) => g.name}
+              onReorder={onReorderGoals}
+              className="space-y-2.5"
+              nested
+              renderItem={(g) => renderGoal(g.id)}
+            />
+          )}
+
+          <Disclosure
+            label="closed"
+            count={closed.length}
+            onToggle={(o) =>
+              onStatusAnnounce(
+                o
+                  ? `${closed.length} closed ${closed.length === 1 ? "goal" : "goals"} shown`
+                  : "closed goals hidden",
+              )
+            }
+          >
+            <div className="space-y-2.5">{closed.map((g) => renderGoal(g.id))}</div>
+          </Disclosure>
+        </>
+      )}
     </div>
   );
 }
