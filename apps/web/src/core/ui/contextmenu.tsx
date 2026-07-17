@@ -79,7 +79,6 @@ export function FloatingMenu({
   }, []);
 
   return createPortal(
-    // biome-ignore lint/a11y/useSemanticElements: positioned right-click menu; items are buttons with menuitem semantics
     <div
       ref={menuRef}
       role="menu"
