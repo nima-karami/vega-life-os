@@ -20,6 +20,20 @@ function makeClient() {
     journal: { list: emptyList },
     data: {
       list: { query: vi.fn(async () => [{ id: "ce1" }]) },
+      loadAll: {
+        query: vi.fn(async () => ({
+          values: [{ id: "v1" }],
+          goals: [],
+          habits: [],
+          tasks: [{ id: "t1" }],
+          books: [],
+          movies: [],
+          vocab: [],
+          reviews: [],
+          journal: [],
+          calendarEvents: [{ id: "ce1" }],
+        })),
+      },
       upsert: { mutate: vi.fn(async (i: { record: unknown }) => i.record) },
       remove: { mutate: vi.fn(async (i: { id: string }) => i) },
       importCollection: { mutate: vi.fn(async () => ({ count: 2 })) },
@@ -72,13 +86,15 @@ describe("TrpcAdapter", () => {
     });
   });
 
-  it("loadAll aggregates every collection, calendarEvents via the data router", async () => {
+  it("loadAll fetches the whole dataset in one data.loadAll request", async () => {
     const client = makeClient();
     const adapter = new TrpcAdapter(client as unknown as TrpcClient);
     const data = await adapter.loadAll();
+    expect(data.values).toEqual([{ id: "v1" }]);
     expect(data.tasks).toEqual([{ id: "t1" }]);
     expect(data.calendarEvents).toEqual([{ id: "ce1" }]);
-    expect(client.data.list.query).toHaveBeenCalledWith({ collection: "calendarEvents" });
+    expect(client.data.loadAll.query).toHaveBeenCalledTimes(1);
+    expect(client.tasks.list.query).not.toHaveBeenCalled();
   });
 
   it("propagates a rejected write so the caller can revert", async () => {

@@ -1,3 +1,4 @@
+import { collectionNameSchema } from "@vega/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
 import { bootTestServer, type TestServer } from "../../../test/harness";
@@ -108,6 +109,38 @@ describe("data router (real server vs emulator)", () => {
 
     expect(await server.asUid(owner).data.list.query({ collection: "calendarEvents" })).toEqual([]);
     expect(await createRepository(server.firestore, owner, "tasks").get("t_wipe")).toBeNull();
+  });
+
+  it("loadAll returns every collection uid-scoped in one response", async () => {
+    const loader = "data-loadall";
+    await server.asUid(loader).data.upsert.mutate({
+      collection: "calendarEvents",
+      record: livedEvent("ce_all"),
+    });
+    await server.asUid(loader).tasks.upsert.mutate({
+      id: "t_all",
+      title: "keep",
+      kind: "oneoff",
+      habitId: null,
+      goalId: null,
+      valueId: null,
+      date: null,
+      time: null,
+      durationMin: 30,
+      status: "open",
+      detached: false,
+      note: "",
+      order: 0,
+    });
+
+    const dataset = await server.asUid(loader).data.loadAll.query();
+    expect(Object.keys(dataset).sort()).toEqual([...collectionNameSchema.options].sort());
+    expect(dataset.calendarEvents.map((r) => r.id)).toContain("ce_all");
+    expect(dataset.tasks.map((r) => r.id)).toContain("t_all");
+
+    const strangerDataset = await server.asUid(stranger).data.loadAll.query();
+    expect(strangerDataset.calendarEvents.map((r) => r.id)).not.toContain("ce_all");
+    expect(strangerDataset.tasks.map((r) => r.id)).not.toContain("t_all");
   });
 
   it("removes a record by id", async () => {

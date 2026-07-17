@@ -14,9 +14,7 @@ export type TrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 /** A typed tRPC client for the signed-in backend. Every request carries the current Firebase ID token. */
 export function createTrpcClient(): TrpcClient {
   return createTRPCClient<AppRouter>({
-    // Cap the batched GET URL so a burst of list calls splits across requests
-    // instead of overflowing into one 400-length URL.
-    links: [httpBatchLink({ url: `${apiUrl}/trpc`, headers: authHeaders, maxURLLength: 8000 })],
+    links: [httpBatchLink({ url: `${apiUrl}/trpc`, headers: authHeaders })],
   });
 }
 

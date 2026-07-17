@@ -1,4 +1,9 @@
-import { type CollectionName, collectionNameSchema, createSchemasByCollection } from "@vega/shared";
+import {
+  type CollectionName,
+  collectionNameSchema,
+  createSchemasByCollection,
+  type Dataset,
+} from "@vega/shared";
 import { z } from "zod";
 import { AppError, toTrpcError } from "../../core/errors";
 import { createRepository, type WritableEntity } from "../../core/repository";
@@ -25,6 +30,16 @@ export const dataRouter = router({
   list: protectedProcedure
     .input(z.object({ collection: collectionNameSchema }))
     .query(({ ctx, input }) => createRepository(ctx.firestore, ctx.uid, input.collection).list()),
+
+  loadAll: protectedProcedure.query(async ({ ctx }): Promise<Dataset> => {
+    const collections = collectionNameSchema.options;
+    const lists = await Promise.all(
+      collections.map((collection) => createRepository(ctx.firestore, ctx.uid, collection).list()),
+    );
+    return Object.fromEntries(
+      collections.map((collection, index) => [collection, lists[index]]),
+    ) as Dataset;
+  }),
 
   upsert: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, record: unknownRecord }))

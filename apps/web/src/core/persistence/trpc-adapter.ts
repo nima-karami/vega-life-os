@@ -1,10 +1,4 @@
-import {
-  COLLECTIONS,
-  type CollectionName,
-  createEmptyDataset,
-  type Dataset,
-  type PersistenceAdapter,
-} from "./adapter";
+import type { CollectionName, Dataset, PersistenceAdapter } from "./adapter";
 import { createTrpcClient, type TrpcClient } from "./trpc-client";
 
 /** The `calendarEvents` mirror has no domain router — it goes through the generic `data` router. */
@@ -50,13 +44,7 @@ export class TrpcAdapter implements PersistenceAdapter {
   }
 
   async loadAll(): Promise<Dataset> {
-    const out = createEmptyDataset();
-    await Promise.all(
-      COLLECTIONS.map(async (col) => {
-        (out[col] as unknown[]) = await this.load(col);
-      }),
-    );
-    return out;
+    return (await this.client.data.loadAll.query()) as Dataset;
   }
 
   async put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void> {
