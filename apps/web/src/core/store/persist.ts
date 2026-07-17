@@ -29,6 +29,26 @@ function markDirtyIfSandbox() {
 type Row = { id: string };
 
 /**
+ * Per-collection count of writes that have been applied optimistically but not yet
+ * settled server-side. A focus/interval refetch consults this so it never overwrites
+ * a collection whose in-flight write it can't yet see (the change would vanish).
+ */
+const inFlightWrites = new Map<CollectionName, number>();
+
+export function pendingWriteCollections(): Set<CollectionName> {
+  return new Set(inFlightWrites.keys());
+}
+
+function trackWrite<C extends CollectionName>(col: C, op: Promise<unknown>): Promise<unknown> {
+  inFlightWrites.set(col, (inFlightWrites.get(col) ?? 0) + 1);
+  return op.finally(() => {
+    const remaining = (inFlightWrites.get(col) ?? 1) - 1;
+    if (remaining <= 0) inFlightWrites.delete(col);
+    else inFlightWrites.set(col, remaining);
+  });
+}
+
+/**
  * How to undo a rejected optimistic write: `insert` drops the row it added,
  * `update` restores the prior row it replaced. Call sites that don't opt in
  * (pass nothing) keep their optimistic value and reconcile on the background
@@ -74,7 +94,7 @@ export function savePut<C extends CollectionName>(
 ) {
   markDirtyIfSandbox();
   const id = (item as Row).id;
-  void persistence.put(col, item).catch(() => {
+  void trackWrite(col, persistence.put(col, item)).catch(() => {
     applyRollback(col, id, rollback);
     void store?.getState().refetchCollection(col);
     raiseRetry(() => savePut(col, item, rollback));
@@ -88,7 +108,7 @@ export function saveRemove<C extends CollectionName>(
   prior?: Dataset[C][number],
 ) {
   markDirtyIfSandbox();
-  void persistence.remove(col, id).catch(() => {
+  void trackWrite(col, persistence.remove(col, id)).catch(() => {
     undoRemove(col, prior);
     void store?.getState().refetchCollection(col);
     raiseRetry(() => saveRemove(col, id, prior));

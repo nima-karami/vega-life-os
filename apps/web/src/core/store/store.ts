@@ -31,7 +31,7 @@ import { createStreaksSlice } from "@/features/streaks/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
 import { authTransition } from "./auth-transition";
-import { bindPersistStore, setPersistAuth } from "./persist";
+import { bindPersistStore, pendingWriteCollections, setPersistAuth } from "./persist";
 import { resolveProfile } from "./profile";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
@@ -238,16 +238,20 @@ export const useStore = create<RootState>((set, get, api) => ({
   // failed refetch leaves the current store untouched.
   refetchAll: async () => {
     if (!get().authUid) return;
+    const guarded = pendingWriteCollections();
     try {
       const loaded = await persistence.loadAll();
-      set(sorted(loaded) as Partial<RootState>);
+      for (const col of pendingWriteCollections()) guarded.add(col);
+      const next = sorted(loaded);
+      for (const col of guarded) delete next[col];
+      set(next as Partial<RootState>);
     } catch {
       /* keep current state; next focus/interval retries */
     }
   },
 
   refetchCollection: async (col) => {
-    if (!get().authUid) return;
+    if (!get().authUid || pendingWriteCollections().has(col)) return;
     try {
       const loaded = await persistence.loadAll();
       set(sorted({ [col]: loaded[col] }) as Partial<RootState>);
