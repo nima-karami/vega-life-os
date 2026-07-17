@@ -65,12 +65,12 @@ function matchesType(task: Task, type: TypeFilter): boolean {
 export function useTaskFilter() {
   const [filters, setFilters] = useState<TaskFilters>(DEFAULTS);
   const match = useMemo(() => {
-    const q = filters.query.trim().toLowerCase();
+    const trimmedQuery = filters.query.trim().toLowerCase();
     return (t: Task) =>
       isInRange(t.date, filters.range) &&
       (!filters.valueId || t.valueId === filters.valueId) &&
       (!filters.goalId || t.goalId === filters.goalId) &&
-      (!q || t.title.toLowerCase().includes(q)) &&
+      (!trimmedQuery || t.title.toLowerCase().includes(trimmedQuery)) &&
       matchesType(t, filters.type);
   }, [filters]);
   const active =

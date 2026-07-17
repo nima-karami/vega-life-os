@@ -23,10 +23,10 @@ const ACCENTS = [
 ];
 
 export function SettingsPage() {
-  const s = useStore();
+  const state = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
-  const signedIn = s.authUid != null;
+  const signedIn = state.authUid != null;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // downscale to a 256px square data-URL so the avatar stays tiny in localStorage
@@ -43,28 +43,28 @@ export function SettingsPage() {
       const w = bitmap.width * scale;
       const h = bitmap.height * scale;
       ctx.drawImage(bitmap, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
-      s.setOperatorAvatar(canvas.toDataURL("image/jpeg", 0.85));
-      s.pushToast("Photo updated");
+      state.setOperatorAvatar(canvas.toDataURL("image/jpeg", 0.85));
+      state.pushToast("Photo updated");
     } catch {
-      s.pushToast("Couldn't read that image");
+      state.pushToast("Couldn't read that image");
     }
   };
 
   const doExport = () => {
-    const blob = new Blob([s.exportJSON()], { type: "application/json" });
+    const blob = new Blob([state.exportJSON()], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `vega-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    s.pushToast("Backup downloaded");
+    state.pushToast("Backup downloaded");
   };
 
   const doImport = async (file: File) => {
     const text = await file.text();
-    const ok = await s.importJSON(text);
-    s.pushToast(ok ? "Data restored from backup" : "Import failed — bad file");
+    const ok = await state.importJSON(text);
+    state.pushToast(ok ? "Data restored from backup" : "Import failed — bad file");
   };
 
   return (
@@ -88,11 +88,11 @@ export function SettingsPage() {
                 aria-label="Upload photo"
                 className="group relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border border-border bg-surface-secondary outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                {s.operatorAvatar ? (
-                  <img src={s.operatorAvatar} alt="" className="h-full w-full object-cover" />
+                {state.operatorAvatar ? (
+                  <img src={state.operatorAvatar} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-3xl font-semibold text-muted">
-                    {initials(s.operatorName)}
+                    {initials(state.operatorName)}
                   </span>
                 )}
                 <span className="absolute inset-0 grid place-items-center bg-foreground/50 opacity-0 transition-opacity group-hover:opacity-100">
@@ -110,12 +110,12 @@ export function SettingsPage() {
                   e.target.value = "";
                 }}
               />
-              {s.operatorAvatar ? (
+              {state.operatorAvatar ? (
                 <Button
                   size="sm"
                   variant="ghost"
                   className="text-xs text-muted"
-                  onPress={() => s.setOperatorAvatar("")}
+                  onPress={() => state.setOperatorAvatar("")}
                 >
                   Remove
                 </Button>
@@ -128,8 +128,8 @@ export function SettingsPage() {
               <label className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-foreground">Name</span>
                 <input
-                  value={s.operatorName}
-                  onChange={(e) => s.setOperatorName(e.target.value)}
+                  value={state.operatorName}
+                  onChange={(e) => state.setOperatorName(e.target.value)}
                   placeholder="Your name"
                   className={FIELD}
                 />
@@ -138,8 +138,8 @@ export function SettingsPage() {
                 <span className="text-sm font-medium text-foreground">Email</span>
                 <input
                   type="email"
-                  value={s.operatorEmail}
-                  onChange={(e) => s.setOperatorEmail(e.target.value)}
+                  value={state.operatorEmail}
+                  onChange={(e) => state.setOperatorEmail(e.target.value)}
                   placeholder="you@example.com"
                   readOnly={signedIn}
                   className={cx(FIELD, signedIn && "opacity-70")}
@@ -149,8 +149,8 @@ export function SettingsPage() {
               <label className="flex flex-col gap-1.5 sm:col-span-2">
                 <span className="text-sm font-medium text-foreground">Workspace</span>
                 <input
-                  value={s.operatorWorkspace}
-                  onChange={(e) => s.setOperatorWorkspace(e.target.value)}
+                  value={state.operatorWorkspace}
+                  onChange={(e) => state.setOperatorWorkspace(e.target.value)}
                   placeholder="Workspace label"
                   className={FIELD}
                 />
@@ -170,12 +170,12 @@ export function SettingsPage() {
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {ACCENTS.map((a) => {
-                  const active = s.accent === a.hex;
+                  const active = state.accent === a.hex;
                   return (
                     <button
                       type="button"
                       key={a.name}
-                      onClick={() => s.setAccent(a.hex)}
+                      onClick={() => state.setAccent(a.hex)}
                       title={a.name}
                       aria-pressed={active}
                       className={cx(
@@ -233,8 +233,8 @@ export function SettingsPage() {
               <Button
                 variant="secondary"
                 onPress={() => {
-                  void s.resetDemo();
-                  s.pushToast("Demo data reset");
+                  void state.resetDemo();
+                  state.pushToast("Demo data reset");
                 }}
               >
                 <Icon name="repeat" size={15} />
@@ -242,7 +242,7 @@ export function SettingsPage() {
               </Button>
             )}
             {!signedIn && (
-              <Button variant="ghost" onPress={() => s.setOnboarded(false)}>
+              <Button variant="ghost" onPress={() => state.setOnboarded(false)}>
                 <Icon name="spark" size={15} />
                 Replay welcome
               </Button>
@@ -271,10 +271,12 @@ export function SettingsPage() {
         </SettingsCard>
         <ConfirmDialog
           open={confirmDelete}
-          title={s.authUid ? "Delete all your account data?" : "Delete all data on this device?"}
+          title={
+            state.authUid ? "Delete all your account data?" : "Delete all data on this device?"
+          }
           body={
             <span>
-              This permanently removes {s.authUid ? "your account's" : "this device's"} values,
+              This permanently removes {state.authUid ? "your account's" : "this device's"} values,
               goals, habits, tasks, and journal. This can't be undone.{" "}
               <button type="button" className="text-accent underline" onClick={doExport}>
                 Export a backup first
@@ -285,9 +287,9 @@ export function SettingsPage() {
           confirmLabel="Delete everything"
           danger
           onConfirm={() => {
-            void s.deleteAllData();
+            void state.deleteAllData();
             setConfirmDelete(false);
-            s.pushToast("All data deleted");
+            state.pushToast("All data deleted");
           }}
           onClose={() => setConfirmDelete(false)}
         />

@@ -25,14 +25,14 @@ export class LocalIntentAgent implements Agent {
   id = "local";
 
   async suggest(query: string): Promise<AgentResult> {
-    const q = query.trim();
-    if (!q) return { actions: [] };
-    const s = useStore.getState();
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return { actions: [] };
+    const state = useStore.getState();
     const out: AgentAction[] = [];
-    const lower = q.toLowerCase();
+    const lower = trimmedQuery.toLowerCase();
 
     // ---- mutations with explicit verbs ----
-    const add = q.match(/^(?:add|new|todo|task)\s+(.+)/i);
+    const add = trimmedQuery.match(/^(?:add|new|todo|task)\s+(.+)/i);
     if (add) {
       const { date, time, rest } = parseWhen(add[1]);
       out.push({
@@ -40,15 +40,15 @@ export class LocalIntentAgent implements Agent {
         icon: "plus",
         label: `Add task: "${rest}"${date ? ` · ${date === todayISO() ? "today" : date.slice(5)}` : " · backlog"}${time ? ` ${time}` : ""}`,
         run: () => {
-          s.addTask({ title: rest, date: date ?? null, time: time ?? null });
-          s.pushToast(`Added "${rest}"`);
+          state.addTask({ title: rest, date: date ?? null, time: time ?? null });
+          state.pushToast(`Added "${rest}"`);
         },
       });
     }
 
-    const done = q.match(/^(?:done|complete|finish|did|check)\s+(.+)/i);
+    const done = trimmedQuery.match(/^(?:done|complete|finish|did|check)\s+(.+)/i);
     if (done) {
-      const matches = openTasks(s.tasks)
+      const matches = openTasks(state.tasks)
         .map((t) => ({ t, sc: score(done[1], t.title) }))
         .filter((x) => x.sc > 0.4)
         .sort((a, b) => b.sc - a.sc)
@@ -59,16 +59,16 @@ export class LocalIntentAgent implements Agent {
           icon: "check",
           label: `Complete: ${t.title}`,
           run: () => {
-            s.setStatus(t.id, "done");
-            s.pushToast(`Completed "${t.title}"`);
+            state.setStatus(t.id, "done");
+            state.pushToast(`Completed "${t.title}"`);
           },
         });
       }
     }
 
-    const skip = q.match(/^skip\s+(.+)/i);
+    const skip = trimmedQuery.match(/^skip\s+(.+)/i);
     if (skip) {
-      const matches = openTasks(s.tasks)
+      const matches = openTasks(state.tasks)
         .map((t) => ({ t, sc: score(skip[1], t.title) }))
         .filter((x) => x.sc > 0.4)
         .sort((a, b) => b.sc - a.sc)
@@ -79,45 +79,45 @@ export class LocalIntentAgent implements Agent {
           icon: "skip",
           label: `Skip: ${t.title}`,
           run: () => {
-            s.setStatus(t.id, "skip");
-            s.pushToast(`Skipped "${t.title}"`);
+            state.setStatus(t.id, "skip");
+            state.pushToast(`Skipped "${t.title}"`);
           },
         });
       }
     }
 
     // ---- library shortcuts ----
-    const read = q.match(/^(?:read|reading|book)\s+(.+)/i);
+    const read = trimmedQuery.match(/^(?:read|reading|book)\s+(.+)/i);
     if (read)
       out.push({
         id: "read",
         icon: "book",
         label: `Add book: "${read[1]}"`,
         run: () => {
-          s.addBook({ title: read[1], status: "reading", startedAt: todayISO() });
-          s.pushToast(`Reading "${read[1]}"`);
+          state.addBook({ title: read[1], status: "reading", startedAt: todayISO() });
+          state.pushToast(`Reading "${read[1]}"`);
         },
       });
-    const watch = q.match(/^(?:watch|watched|film|movie)\s+(.+)/i);
+    const watch = trimmedQuery.match(/^(?:watch|watched|film|movie)\s+(.+)/i);
     if (watch)
       out.push({
         id: "watch",
         icon: "film",
         label: `Add film: "${watch[1]}"`,
         run: () => {
-          s.addMovie({ title: watch[1], status: "queued" });
-          s.pushToast(`Added "${watch[1]}" to watchlist`);
+          state.addMovie({ title: watch[1], status: "queued" });
+          state.pushToast(`Added "${watch[1]}" to watchlist`);
         },
       });
-    const learn = q.match(/^(?:learn|word|vocab)\s+(.+)/i);
+    const learn = trimmedQuery.match(/^(?:learn|word|vocab)\s+(.+)/i);
     if (learn)
       out.push({
         id: "learn",
         icon: "languages",
         label: `Add word: "${learn[1]}"`,
         run: () => {
-          s.addVocab({ term: learn[1] });
-          s.pushToast(`Added "${learn[1]}"`);
+          state.addVocab({ term: learn[1] });
+          state.pushToast(`Added "${learn[1]}"`);
         },
       });
 
@@ -128,16 +128,16 @@ export class LocalIntentAgent implements Agent {
         icon: "flash",
         label: "Plan this week (fill habit blocks)",
         run: () => {
-          const n = s.planWeek();
-          s.pushToast(n ? `Planned ${n} blocks` : "Week already full");
+          const n = state.planWeek();
+          state.pushToast(n ? `Planned ${n} blocks` : "Week already full");
         },
       });
     }
 
     // ---- focus a goal ----
-    const focus = q.match(/^focus\s+(.+)/i);
+    const focus = trimmedQuery.match(/^focus\s+(.+)/i);
     if (focus) {
-      const matches = s.goals
+      const matches = state.goals
         .map((g) => ({ g, sc: score(focus[1], g.name) }))
         .filter((x) => x.sc > 0.3)
         .sort((a, b) => b.sc - a.sc)
@@ -148,8 +148,8 @@ export class LocalIntentAgent implements Agent {
           icon: "target",
           label: `Focus: ${g.name}`,
           run: () => {
-            s.setFocusGoal(g.id);
-            s.pushToast(`Focused on ${g.name}`);
+            state.setFocusGoal(g.id);
+            state.pushToast(`Focused on ${g.name}`);
           },
         });
       }
@@ -162,11 +162,11 @@ export class LocalIntentAgent implements Agent {
         icon: "calendar",
         label: "Show: today's queue",
         run: () => {
-          const ids = s.tasks
+          const ids = state.tasks
             .filter((t) => t.date === todayISO())
             .sort((a, b) => (a.time ?? "99").localeCompare(b.time ?? "99"))
             .map((t) => t.id);
-          s.setEphemeral({
+          state.setEphemeral({
             title: "Today",
             subtitle: `${ids.length} scheduled`,
             taskIds: ids,
@@ -182,7 +182,7 @@ export class LocalIntentAgent implements Agent {
         label: "Show: overdue tasks",
         run: () => {
           const recent = format(subDays(new Date(), 14), "yyyy-MM-dd");
-          const overdue = s.tasks
+          const overdue = state.tasks
             .filter(
               (t) =>
                 t.date &&
@@ -192,7 +192,7 @@ export class LocalIntentAgent implements Agent {
                 t.status !== "skip",
             )
             .sort((a, b) => ((a.date ?? "") < (b.date ?? "") ? 1 : -1));
-          s.setEphemeral({
+          state.setEphemeral({
             title: "Overdue",
             subtitle: `${overdue.length} unresolved · last 14 days`,
             taskIds: overdue.map((t) => t.id),
@@ -207,10 +207,10 @@ export class LocalIntentAgent implements Agent {
         icon: "board",
         label: "Show: backlog",
         run: () => {
-          const ids = s.tasks
+          const ids = state.tasks
             .filter((t) => t.date === null && t.status !== "done")
             .map((t) => t.id);
-          s.setEphemeral({
+          state.setEphemeral({
             title: "Backlog",
             subtitle: `${ids.length} undated`,
             taskIds: ids,
@@ -220,16 +220,16 @@ export class LocalIntentAgent implements Agent {
       });
     }
     // a value name -> that value's open work this week
-    for (const v of s.values.filter((vv) => score(q, vv.name) >= 1)) {
+    for (const v of state.values.filter((vv) => score(trimmedQuery, vv.name) >= 1)) {
       out.push({
         id: `q-val-${v.id}`,
         icon: v.icon,
         label: `Show: ${v.name} work`,
         run: () => {
-          const ids = s.tasks
+          const ids = state.tasks
             .filter((t) => t.valueId === v.id && t.status !== "done" && t.status !== "skip")
             .map((t) => t.id);
-          s.setEphemeral({
+          state.setEphemeral({
             title: v.name,
             subtitle: v.desc,
             taskIds: ids.slice(0, 30),
@@ -239,14 +239,14 @@ export class LocalIntentAgent implements Agent {
       });
     }
     // a goal name -> goal summary
-    for (const g of s.goals.filter((gg) => score(q, gg.name) >= 1)) {
+    for (const g of state.goals.filter((gg) => score(trimmedQuery, gg.name) >= 1)) {
       out.push({
         id: `q-goal-${g.id}`,
         icon: g.icon,
         label: `Show: ${g.name} status`,
         run: () => {
           const done = g.subgoals.filter((x) => x.done).length;
-          s.setEphemeral({
+          state.setEphemeral({
             title: g.name,
             subtitle: `${Math.round(g.progress * 100)}% · ${done}/${g.subgoals.length} steps`,
             lines: g.subgoals.map((x) => `${x.done ? "■" : "□"}  ${x.name}`),

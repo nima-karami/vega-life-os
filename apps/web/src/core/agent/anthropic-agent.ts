@@ -78,19 +78,23 @@ the "show" tool. Prefer a tool call over prose. If you also explain, keep it to 
 Today is ${"{TODAY}"}.`;
 
 function buildAgentContext(): string {
-  const s = useStore.getState();
-  const open = s.tasks.filter((t) => t.status !== "done" && t.status !== "skip");
+  const state = useStore.getState();
+  const open = state.tasks.filter((t) => t.status !== "done" && t.status !== "skip");
   return JSON.stringify({
     today: todayISO(),
-    values: s.values.map((v) => ({ id: v.id, name: v.name })),
-    goals: s.goals.map((g) => ({ id: g.id, name: g.name, progress: Math.round(g.progress * 100) })),
+    values: state.values.map((v) => ({ id: v.id, name: v.name })),
+    goals: state.goals.map((g) => ({
+      id: g.id,
+      name: g.name,
+      progress: Math.round(g.progress * 100),
+    })),
     openTasks: open.slice(0, 60).map((t) => ({ id: t.id, title: t.title, date: t.date })),
   });
 }
 
 /** Build a clickable action from a Claude tool_use block. */
 function toAction(name: string, input: Record<string, unknown>, idx: number): AgentAction | null {
-  const s = useStore.getState();
+  const state = useStore.getState();
   const id = `ai-${idx}`;
   switch (name) {
     case "add_task": {
@@ -104,40 +108,40 @@ function toAction(name: string, input: Record<string, unknown>, idx: number): Ag
         icon: "plus",
         label: `Add task: "${title}"${date ? ` · ${date === todayISO() ? "today" : date.slice(5)}` : " · backlog"}${time ? ` ${time}` : ""}`,
         run: () => {
-          s.addTask({
+          state.addTask({
             title,
             date,
             time,
             valueId: (input.valueId as string) ?? null,
             goalId: (input.goalId as string) ?? null,
           });
-          s.pushToast(`Added "${title}"`);
+          state.pushToast(`Added "${title}"`);
         },
       };
     }
     case "complete_task": {
-      const t = s.tasks.find((x) => x.id === input.taskId);
-      if (!t) return null;
+      const task = state.tasks.find((x) => x.id === input.taskId);
+      if (!task) return null;
       return {
         id,
         icon: "check",
-        label: `Complete: ${t.title}`,
+        label: `Complete: ${task.title}`,
         run: () => {
-          s.setStatus(t.id, "done");
-          s.pushToast(`Completed "${t.title}"`);
+          state.setStatus(task.id, "done");
+          state.pushToast(`Completed "${task.title}"`);
         },
       };
     }
     case "skip_task": {
-      const t = s.tasks.find((x) => x.id === input.taskId);
-      if (!t) return null;
+      const task = state.tasks.find((x) => x.id === input.taskId);
+      if (!task) return null;
       return {
         id,
         icon: "skip",
-        label: `Skip: ${t.title}`,
+        label: `Skip: ${task.title}`,
         run: () => {
-          s.setStatus(t.id, "skip");
-          s.pushToast(`Skipped "${t.title}"`);
+          state.setStatus(task.id, "skip");
+          state.pushToast(`Skipped "${task.title}"`);
         },
       };
     }
@@ -147,20 +151,20 @@ function toAction(name: string, input: Record<string, unknown>, idx: number): Ag
         icon: "flash",
         label: "Plan this week (fill habit blocks)",
         run: () => {
-          const n = s.planWeek();
-          s.pushToast(n ? `Planned ${n} blocks` : "Week already full");
+          const n = state.planWeek();
+          state.pushToast(n ? `Planned ${n} blocks` : "Week already full");
         },
       };
     case "focus_goal": {
-      const g = s.goals.find((x) => x.id === input.goalId);
-      if (!g) return null;
+      const goal = state.goals.find((x) => x.id === input.goalId);
+      if (!goal) return null;
       return {
         id,
-        icon: g.icon,
-        label: `Focus: ${g.name}`,
+        icon: goal.icon,
+        label: `Focus: ${goal.name}`,
         run: () => {
-          s.setFocusGoal(g.id);
-          s.pushToast(`Focused on ${g.name}`);
+          state.setFocusGoal(goal.id);
+          state.pushToast(`Focused on ${goal.name}`);
         },
       };
     }
@@ -170,7 +174,7 @@ function toAction(name: string, input: Record<string, unknown>, idx: number): Ag
         icon: "calendar",
         label: `Show: ${String(input.title ?? "view")}`,
         run: () =>
-          s.setEphemeral({
+          state.setEphemeral({
             title: String(input.title ?? "View"),
             subtitle: input.subtitle as string | undefined,
             taskIds: (input.taskIds as string[]) ?? undefined,
@@ -187,8 +191,8 @@ export class AnthropicAgent implements Agent {
   id = "anthropic";
 
   async suggest(query: string): Promise<AgentResult> {
-    const q = query.trim();
-    if (!q) return { actions: [] };
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return { actions: [] };
     const apiKey = getAnthropicKey();
     if (!apiKey) return { actions: [] };
 
@@ -203,7 +207,7 @@ export class AnthropicAgent implements Agent {
       output_config: { effort: "low" },
       system: `${SYSTEM.replace("{TODAY}", todayISO())}\n\nCONTEXT:\n${buildAgentContext()}`,
       tools: TOOLS,
-      messages: [{ role: "user", content: q }],
+      messages: [{ role: "user", content: trimmedQuery }],
     } as unknown as Anthropic.MessageCreateParamsNonStreaming);
 
     const actions: AgentAction[] = [];

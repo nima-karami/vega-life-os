@@ -41,8 +41,8 @@ export function CommandBar() {
 
   // Agent debounce
   useEffect(() => {
-    const q = query.trim();
-    if (!q) {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
       setSmart([]);
       setReply("");
       setThinking(false);
@@ -51,7 +51,7 @@ export function CommandBar() {
     setThinking(true);
     let cancelled = false;
     const t = setTimeout(async () => {
-      const r = await runAgent(q);
+      const r = await runAgent(trimmedQuery);
       if (cancelled) return;
       setSmart(r.actions);
       setReply(r.message ?? "");

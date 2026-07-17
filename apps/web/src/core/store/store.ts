@@ -170,18 +170,18 @@ export const useStore = create<RootState>((set, get, api) => ({
   },
 
   exportJSON: () => {
-    const s = get();
+    const state = get();
     const dataset: Dataset = {
       ...createEmptyDataset(),
-      values: s.values,
-      goals: s.goals,
-      habits: s.habits,
-      tasks: s.tasks,
-      books: s.books,
-      movies: s.movies,
-      vocab: s.vocab,
-      reviews: s.reviews,
-      journal: s.journal,
+      values: state.values,
+      goals: state.goals,
+      habits: state.habits,
+      tasks: state.tasks,
+      books: state.books,
+      movies: state.movies,
+      vocab: state.vocab,
+      reviews: state.reviews,
+      journal: state.journal,
     };
     return JSON.stringify(
       { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data: dataset },
