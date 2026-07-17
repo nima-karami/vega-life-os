@@ -6,6 +6,9 @@ import type { Goal } from "./model";
 export const getGoalsForValue = (goals: Goal[], valueId: string) =>
   goals.filter((g) => g.valueId === valueId).sort((a, b) => a.order - b.order);
 
+/** Goals worth focusing the calendar on: only those actively in progress. */
+export const getFocusableGoals = (goals: Goal[]) => goals.filter((g) => g.status === "active");
+
 export const getHabitsForGoal = (habits: Habit[], goalId: string) =>
   habits.filter((h) => h.goalId === goalId);
 

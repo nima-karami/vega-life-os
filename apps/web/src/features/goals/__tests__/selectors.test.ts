@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Goal } from "../model";
-import { getGoalPhase } from "../selectors";
+import { getFocusableGoals, getGoalPhase } from "../selectors";
 
 const g = (over: Partial<Goal> = {}): Goal => ({
   id: "g1",
@@ -14,6 +14,23 @@ const g = (over: Partial<Goal> = {}): Goal => ({
   subgoals: [],
   order: 0,
   ...over,
+});
+
+describe("getFocusableGoals", () => {
+  it("keeps only active goals, dropping backlog, paused, done, and abandoned", () => {
+    const goals = [
+      g({ id: "a", status: "active" }),
+      g({ id: "b", status: "backlog" }),
+      g({ id: "c", status: "paused" }),
+      g({ id: "d", status: "done" }),
+      g({ id: "e", status: "abandoned" }),
+      g({ id: "f", status: "active" }),
+    ];
+    expect(getFocusableGoals(goals).map((goal) => goal.id)).toEqual(["a", "f"]);
+  });
+  it("returns an empty list when no goal is active", () => {
+    expect(getFocusableGoals([g({ status: "done" }), g({ status: "backlog" })])).toEqual([]);
+  });
 });
 
 describe("getGoalPhase", () => {

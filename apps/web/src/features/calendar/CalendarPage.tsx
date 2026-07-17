@@ -16,6 +16,7 @@ import {
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import { dedupeForDisplay } from "@/features/calendar-sync";
+import { getFocusableGoals } from "@/features/goals";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { BulkActionBar } from "./BulkActionBar";
@@ -105,6 +106,12 @@ export function CalendarPage() {
   const pushToast = useStore((s) => s.pushToast);
   const focusGoalId = useStore((s) => s.focusGoalId);
   const setFocusGoal = useStore((s) => s.setFocusGoal);
+  const focusableGoals = useMemo(() => getFocusableGoals(goals), [goals]);
+
+  // Reset to "All" if the focused goal is no longer active (closed, paused, or removed).
+  useEffect(() => {
+    if (focusGoalId && !focusableGoals.some((g) => g.id === focusGoalId)) setFocusGoal(null);
+  }, [focusGoalId, focusableGoals, setFocusGoal]);
 
   const calendarEvents = useStore((s) => s.calendarEvents);
   const showGoogleEvents = useStore((s) => s.gcal.showGoogleEvents);
@@ -959,13 +966,13 @@ export function CalendarPage() {
       </header>
 
       {/* ── Focus filter ─────────────────────────────────────────── */}
-      {goals.length > 0 && (
+      {focusableGoals.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted">Focus</span>
           <FilterChip active={!focusGoalId} onClick={() => setFocusGoal(null)}>
             All
           </FilterChip>
-          {goals.map((g) => (
+          {focusableGoals.map((g) => (
             <FilterChip
               key={g.id}
               active={focusGoalId === g.id}
