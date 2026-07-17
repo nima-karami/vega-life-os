@@ -1,6 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { Firestore } from "firebase-admin/firestore";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { type ReconcileDeps, runReconcileAll } from "./features/calendar/reconcile";
 import { handleWebhook, readWebhookHeaders } from "./features/calendar/webhook";
 import type { CalendarContext, ContextFactory } from "./trpc/context";
@@ -32,6 +33,24 @@ export function buildApp(deps: AppDeps): Hono {
   };
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  // The web client is a different origin (Firebase Hosting) than this API (Cloud Run),
+  // so the browser needs CORS. Origins are configurable; default to prod + local dev.
+  const corsOrigins = (
+    process.env.CORS_ORIGINS ??
+    "https://vega-life-os.web.app,https://vega-life-os.firebaseapp.com,http://localhost:5180"
+  )
+    .split(",")
+    .map((origin) => origin.trim());
+  app.use(
+    "/trpc/*",
+    cors({
+      origin: corsOrigins,
+      allowHeaders: ["Authorization", "Content-Type"],
+      allowMethods: ["GET", "POST", "OPTIONS"],
+      maxAge: 86400,
+    }),
+  );
 
   app.all("/trpc/*", (c) =>
     fetchRequestHandler({
