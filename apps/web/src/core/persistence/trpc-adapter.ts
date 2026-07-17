@@ -34,11 +34,6 @@ export class TrpcAdapter implements PersistenceAdapter {
     return (this.client as unknown as Record<string, DomainProcedures>)[col];
   }
 
-  private listCollection(col: CollectionName): Promise<unknown[]> {
-    if (isDataCollection(col)) return this.client.data.list.query({ collection: col });
-    return this.domain(col).list.query();
-  }
-
   async init(): Promise<void> {
     /* No local database to open; the client warms on first request. */
   }
@@ -47,11 +42,18 @@ export class TrpcAdapter implements PersistenceAdapter {
     return (await this.client.values.list.query()).length === 0;
   }
 
+  async load<C extends CollectionName>(col: C): Promise<Dataset[C]> {
+    const rows = isDataCollection(col)
+      ? await this.client.data.list.query({ collection: col })
+      : await this.domain(col).list.query();
+    return rows as Dataset[C];
+  }
+
   async loadAll(): Promise<Dataset> {
     const out = createEmptyDataset();
     await Promise.all(
       COLLECTIONS.map(async (col) => {
-        (out[col] as unknown[]) = await this.listCollection(col);
+        (out[col] as unknown[]) = await this.load(col);
       }),
     );
     return out;

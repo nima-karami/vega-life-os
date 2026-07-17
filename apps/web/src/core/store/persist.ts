@@ -114,7 +114,3 @@ export function saveRemove<C extends CollectionName>(
     raiseRetry(() => saveRemove(col, id, prior));
   });
 }
-
-export function saveBulk<C extends CollectionName>(col: C, items: Dataset[C]) {
-  void persistence.bulkPut(col, items).catch((e) => console.error("bulk", col, e));
-}

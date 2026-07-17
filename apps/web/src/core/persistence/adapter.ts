@@ -24,11 +24,6 @@ export interface Dataset {
 export type CollectionName = keyof Dataset;
 export type Entity = Dataset[CollectionName][number];
 
-/** A realtime push from the backend: the full current contents of one collection. */
-export type CollectionSnapshot = {
-  [C in CollectionName]: { col: C; items: Dataset[C] };
-}[CollectionName];
-
 export const COLLECTIONS: CollectionName[] = [
   "values",
   "goals",
@@ -58,22 +53,17 @@ export function createEmptyDataset(): Dataset {
 }
 
 /**
- * The persistence seam. DexieAdapter (IndexedDB) implements this today; a
- * Firebase/Supabase adapter can drop in later with the same surface, enabling
- * cross-device sync without touching feature code.
+ * The persistence seam. `DexieAdapter` (IndexedDB) backs the signed-out sandbox;
+ * `TrpcAdapter` (the backend) backs signed-in users. The `RoutingAdapter` swaps
+ * between them on auth change without feature code noticing.
  */
 export interface PersistenceAdapter {
   init(): Promise<void>;
   isEmpty(): Promise<boolean>;
   loadAll(): Promise<Dataset>;
+  load<C extends CollectionName>(col: C): Promise<Dataset[C]>;
   put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void>;
   bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void>;
   remove(col: CollectionName, id: string): Promise<void>;
   clearAll(): Promise<void>;
-  /**
-   * Optional realtime subscription. Backends that support live sync (Firestore)
-   * call `onChange` with a collection's full contents whenever it changes
-   * remotely. Returns an unsubscribe function. Local-only adapters omit this.
-   */
-  subscribe?(onChange: (snap: CollectionSnapshot) => void): () => void;
 }

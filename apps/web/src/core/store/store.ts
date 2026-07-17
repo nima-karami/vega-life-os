@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { auth, db } from "@/core/firebase/app";
 import { getCloudProfile } from "@/core/firebase/profile";
-import type { CollectionName, CollectionSnapshot, Dataset } from "@/core/persistence";
+import type { CollectionName, Dataset } from "@/core/persistence";
 import {
   buildSeed,
   COLLECTIONS,
@@ -36,15 +36,11 @@ import { resolveProfile } from "./profile";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
 
-let unsubscribeRemote: (() => void) | null = null;
-
 async function loadAccount(
   uid: string,
   set: (p: Partial<RootState>) => void,
   get: () => RootState,
 ) {
-  unsubscribeRemote?.();
-  unsubscribeRemote = null;
   if (!db) {
     set({ loadFailed: true, ready: true });
     return;
@@ -73,7 +69,7 @@ async function loadAccount(
   }
 }
 
-/** Apply the same per-collection ordering bootstrap() uses. */
+/** Per-collection ordering + read-normalization applied on every load (boot, account hydrate, refetch). */
 function sorted(data: Partial<Dataset>): Partial<Dataset> {
   const out: Partial<Dataset> = { ...data };
   // Normalize archivedAt on read: records created before archiving lack the field
@@ -117,23 +113,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   bootstrap: async () => {
     await persistence.init();
     const loaded = await persistence.loadAll();
-    set({
-      values: loaded.values
-        .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null }))
-        .sort((a, b) => a.order - b.order),
-      goals: loaded.goals
-        .map((g) => ({ ...g, status: g.status ?? "active" }))
-        .sort((a, b) => a.order - b.order),
-      habits: loaded.habits.map((h) => ({ ...h, archivedAt: h.archivedAt ?? null })),
-      tasks: loaded.tasks,
-      books: loaded.books.sort((a, b) => a.order - b.order),
-      movies: loaded.movies.sort((a, b) => a.order - b.order),
-      vocab: loaded.vocab,
-      reviews: loaded.reviews.sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1)),
-      journal: loaded.journal.sort((a, b) => (a.date < b.date ? 1 : -1)),
-      calendarEvents: loaded.calendarEvents,
-      ready: true,
-    });
+    set({ ...(sorted(loaded) as Partial<RootState>), ready: true });
     get().hydrateGcalConfig(readLocalGcalConfig()); // signed-out sandbox: device-local config
     get().hydrateStreakRules(readLocalStreakRules());
     runDataMigrations(get, set);
@@ -229,10 +209,6 @@ export const useStore = create<RootState>((set, get, api) => ({
     return true;
   },
 
-  applyRemote: (snap: CollectionSnapshot) => {
-    set(sorted({ [snap.col]: snap.items }) as Partial<RootState>);
-  },
-
   // Realtime is off — signed-in clients pull server truth on focus + interval, and
   // after a rejected write to reconcile the reverted collection. Best-effort; a
   // failed refetch leaves the current store untouched.
@@ -253,8 +229,8 @@ export const useStore = create<RootState>((set, get, api) => ({
   refetchCollection: async (col) => {
     if (!get().authUid || pendingWriteCollections().has(col)) return;
     try {
-      const loaded = await persistence.loadAll();
-      set(sorted({ [col]: loaded[col] }) as Partial<RootState>);
+      const rows = await persistence.load(col);
+      set(sorted({ [col]: rows }) as Partial<RootState>);
     } catch {
       /* best-effort reconcile */
     }
@@ -296,8 +272,6 @@ export const useStore = create<RootState>((set, get, api) => ({
       return;
     }
     if (t === "sign-out") {
-      unsubscribeRemote?.();
-      unsubscribeRemote = null;
       routing.setDelegate(new DexieAdapter());
       await get().clearLocal();
       void setSandboxDirty(false);

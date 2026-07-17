@@ -36,19 +36,17 @@ export function RootBoot() {
     return unsub;
   }, []);
 
-  // Realtime is off: signed-in clients pull server truth on window focus + a low-
-  // frequency interval, so out-of-band server changes (e.g. calendar reconcile) land.
+  // Realtime is off: signed-in clients pull server truth when the tab becomes visible
+  // + a low-frequency interval, so out-of-band server changes (e.g. calendar reconcile) land.
   useEffect(() => {
     if (!authUid) return;
     const refetch = () => void useStore.getState().refetchAll();
     const onVisible = () => {
       if (document.visibilityState === "visible") refetch();
     };
-    window.addEventListener("focus", refetch);
     document.addEventListener("visibilitychange", onVisible);
     const interval = setInterval(refetch, 5 * 60_000);
     return () => {
-      window.removeEventListener("focus", refetch);
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(interval);
     };

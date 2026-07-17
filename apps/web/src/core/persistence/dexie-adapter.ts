@@ -51,6 +51,10 @@ export class DexieAdapter implements PersistenceAdapter {
     };
   }
 
+  async load<C extends CollectionName>(col: C): Promise<Dataset[C]> {
+    return (await tableFor(col).toArray()) as Dataset[C];
+  }
+
   async put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void> {
     await tableFor(col).put(item);
   }
