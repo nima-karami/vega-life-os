@@ -71,8 +71,15 @@ export function runCrudContract(collection: RoutedCollection): void {
       ).toBeNull();
     });
 
-    it("rejects a malformed payload with BAD_REQUEST", async () => {
-      const malformed = { ...sample(`${collection}-bad`), unexpectedField: "x" };
+    it("strips an unknown field rather than rejecting (clients round-trip stored records)", async () => {
+      const withExtra = { ...sample(`${collection}-extra`), unexpectedField: "x" };
+      const persisted = await domainOf(server.asUid(owner), collection).upsert.mutate(withExtra);
+      expect(persisted.id).toBe(`${collection}-extra`);
+      expect(persisted).not.toHaveProperty("unexpectedField");
+    });
+
+    it("rejects a type-malformed payload with BAD_REQUEST", async () => {
+      const malformed = { ...sample(`${collection}-bad`), id: 123 };
       await expect(
         domainOf(server.asUid(owner), collection).upsert.mutate(malformed),
       ).rejects.toMatchObject({ data: { code: "BAD_REQUEST" } });

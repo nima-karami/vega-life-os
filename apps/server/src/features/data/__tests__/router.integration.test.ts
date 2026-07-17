@@ -63,11 +63,20 @@ describe("data router (real server vs emulator)", () => {
     expect(strangerIds).not.toContain("ce_scoped");
   });
 
-  it("rejects a malformed record with BAD_REQUEST", async () => {
+  it("strips an unknown field rather than rejecting", async () => {
+    const persisted = await server.asUid(owner).data.upsert.mutate({
+      collection: "calendarEvents",
+      record: { ...livedEvent("ce_extra"), bogus: 1 },
+    });
+    expect(persisted.id).toBe("ce_extra");
+    expect(persisted).not.toHaveProperty("bogus");
+  });
+
+  it("rejects a type-malformed record with BAD_REQUEST", async () => {
     await expect(
       server.asUid(owner).data.upsert.mutate({
         collection: "calendarEvents",
-        record: { ...livedEvent("ce_bad"), bogus: 1 },
+        record: { ...livedEvent("ce_bad"), id: 123 },
       }),
     ).rejects.toMatchObject({ data: { code: "BAD_REQUEST" } });
   });
