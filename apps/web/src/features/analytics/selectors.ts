@@ -1,6 +1,8 @@
 import { addDays, format, startOfWeek, subDays } from "date-fns";
 import { dowIndex, shiftISO, todayISO } from "@/core/lib/date";
 import type { CalendarEvent } from "@/features/calendar-sync/events-model";
+import { type Goal, isGoalClosed } from "@/features/goals/model";
+import { getGoalPaceBadge } from "@/features/goals/presentation";
 import { computeHabitRate, computeHabitStreak } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
 import { isActiveOnSchedule } from "@/features/habits/recurrence";
@@ -446,4 +448,21 @@ export function computeHabitTimeline(
     missed,
     days,
   };
+}
+
+/** A closed goal is terminal (done → Completed, else Closed) and never gets a pace
+ *  verdict; an open, in-progress goal carries the shared pace badge so Analytics and
+ *  the goal card agree. Reuses `getGoalPaceBadge` / `isGoalClosed`. */
+export type GoalVerdict =
+  | { kind: "completed" }
+  | { kind: "closed" }
+  | { kind: "pace"; text: string; isBehind: boolean }
+  | { kind: "none" };
+
+export function computeGoalVerdict(goal: Goal, today: string = todayISO()): GoalVerdict {
+  if (isGoalClosed(goal.status)) {
+    return goal.status === "done" ? { kind: "completed" } : { kind: "closed" };
+  }
+  const badge = getGoalPaceBadge(goal, today);
+  return badge ? { kind: "pace", text: badge.text, isBehind: badge.isBehind } : { kind: "none" };
 }

@@ -2,8 +2,9 @@ import { Button, ButtonGroup, ScrollShadow } from "@heroui/react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
-import { cx, Gauge, Icon, Label, Panel, SectionHead } from "@/core/ui";
+import { Gauge, Icon, Label, Panel, SectionHead } from "@/core/ui";
 import { computeGoalTimeElapsed } from "@/features/goals";
+import type { Goal } from "@/features/goals/model";
 import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
@@ -17,6 +18,7 @@ import { DEFAULT_RANGE, RANGE_OPTIONS, rangeToDays, rangeToWeeks, type TimeRange
 import {
   buildConsistencyGrid,
   computeDailyStats,
+  computeGoalVerdict,
   computeInsights,
   computeMoodByWeekday,
   computeMoodSeries,
@@ -25,6 +27,7 @@ import {
   computeValueTime,
   computeWeeklyTrend,
   countCompletedByValue,
+  type GoalVerdict,
 } from "./selectors";
 
 type Section = "analytics" | "review";
@@ -380,31 +383,9 @@ function AnalyticsSection() {
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Goal trajectory" meta="pace" />
           <div className="mt-4 space-y-4">
-            {goals.map((g) => {
-              const elapsed = computeGoalTimeElapsed(g);
-              const pace = g.progress - elapsed;
-              return (
-                <div key={g.id}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-foreground">{g.name}</span>
-                    <span className={cx("text-xs", pace >= 0 ? "text-success" : "text-danger")}>
-                      {pace >= 0 ? "on pace" : `${Math.round(-pace * 100)}% behind`}
-                    </span>
-                  </div>
-                  <div className="relative mt-2 h-2 rounded-full bg-surface-secondary">
-                    <div
-                      className="absolute left-0 top-0 h-2 rounded-full"
-                      style={{ width: `${g.progress * 100}%`, background: CHART_PRIMARY }}
-                    />
-                    <div
-                      className="absolute top-[-2px] h-3 border-l border-dashed border-danger"
-                      style={{ left: `${elapsed * 100}%` }}
-                      title="expected pace"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            {goals.map((g) => (
+              <GoalTrajectoryRow key={g.id} goal={g} />
+            ))}
             {!goals.length && (
               <p className="text-sm text-muted">No goals yet to track against pace.</p>
             )}
@@ -449,4 +430,53 @@ function AnalyticsSection() {
       )}
     </div>
   );
+}
+
+function GoalTrajectoryRow({ goal }: { goal: Goal }) {
+  const verdict = computeGoalVerdict(goal);
+  const elapsed = computeGoalTimeElapsed(goal);
+  const isDone = verdict.kind === "completed";
+  const fill = isDone ? "var(--color-good)" : CHART_PRIMARY;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-foreground">{goal.name}</span>
+        <GoalVerdictBadge verdict={verdict} />
+      </div>
+      <div className="relative mt-2 h-2 rounded-full bg-surface-secondary">
+        <div
+          className="absolute left-0 top-0 h-2 rounded-full"
+          style={{ width: `${goal.progress * 100}%`, background: fill }}
+        />
+        {verdict.kind === "pace" && (
+          <div
+            className="absolute top-[-2px] h-3 border-l border-dashed border-danger"
+            style={{ left: `${elapsed * 100}%` }}
+            title="expected pace"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GoalVerdictBadge({ verdict }: { verdict: GoalVerdict }) {
+  if (verdict.kind === "completed") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-success">
+        <Icon name="check" size={13} />
+        Completed
+      </span>
+    );
+  }
+  if (verdict.kind === "closed") return <span className="text-xs text-muted">Closed</span>;
+  if (verdict.kind === "pace") {
+    return (
+      <span className={`text-xs ${verdict.isBehind ? "text-danger" : "text-success"}`}>
+        {verdict.text}
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted">—</span>;
 }
