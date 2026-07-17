@@ -2,6 +2,8 @@ import {
   closestCenter,
   DndContext,
   type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -15,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 
@@ -69,7 +71,7 @@ function SortableRow({
         style={style}
         className={cx(
           "relative cursor-grab touch-none active:cursor-grabbing",
-          isDragging && "opacity-80",
+          isDragging && "opacity-40",
         )}
       >
         {children}
@@ -81,7 +83,7 @@ function SortableRow({
     <li
       ref={setNodeRef}
       style={style}
-      className={cx(group.li, "relative", isDragging && "opacity-80")}
+      className={cx(group.li, "relative", isDragging && "opacity-40")}
     >
       {/* Notion-style handle: just outside the row's left edge, revealed on hover/focus. */}
       <button
@@ -109,6 +111,11 @@ function SortableRow({
  * focused — so reordering never clutters the resting UI and other controls in a
  * row stay clickable. `onReorder` receives the dragged id and the id it was
  * dropped on.
+ *
+ * The picked-up item renders in a portalled `DragOverlay` at its natural size,
+ * so a tall variable-height row keeps its real height as a stable preview
+ * instead of being squished toward the drop target; its in-place row dims to a
+ * placeholder and siblings reflow to open the gap.
  */
 export function SortableList<T>({
   items,
@@ -138,13 +145,25 @@ export function SortableList<T>({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const ids = items.map(getId);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeItem =
+    activeId === null ? null : (items.find((item) => getId(item) === activeId) ?? null);
 
+  const handleStart = ({ active }: DragStartEvent) => setActiveId(String(active.id));
+  const handleCancel = () => setActiveId(null);
   const handleEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
     if (over && active.id !== over.id) onReorder(String(active.id), String(over.id));
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleStart}
+      onDragEnd={handleEnd}
+      onDragCancel={handleCancel}
+    >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <ul className={className}>
           {items.map((item) => (
@@ -160,6 +179,11 @@ export function SortableList<T>({
           ))}
         </ul>
       </SortableContext>
+      <DragOverlay>
+        {activeItem === null ? null : (
+          <div className="cursor-grabbing">{renderItem(activeItem)}</div>
+        )}
+      </DragOverlay>
     </DndContext>
   );
 }
