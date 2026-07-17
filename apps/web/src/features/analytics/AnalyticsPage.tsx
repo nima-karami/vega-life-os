@@ -8,6 +8,7 @@ import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
 import { HeatCell } from "./components/HeatCell";
+import { MoodChart } from "./components/MoodChart";
 import { ReflectionRow } from "./components/ReflectionRow";
 import { ValueBalanceBar } from "./components/ValueBalanceBar";
 import { WeeklyTrendChart } from "./components/WeeklyTrendChart";
@@ -16,6 +17,8 @@ import {
   buildConsistencyGrid,
   computeDailyStats,
   computeInsights,
+  computeMoodByWeekday,
+  computeMoodSeries,
   computeOverallRate,
   computeReflectionStats,
   computeValueTime,
@@ -87,6 +90,9 @@ function AnalyticsSection() {
 
   const daily = useMemo(() => computeDailyStats(tasks, days), [tasks, days]);
   const weekly = useMemo(() => computeWeeklyTrend(tasks, weeks), [tasks, weeks]);
+  const moodSeries = useMemo(() => computeMoodSeries(journal, days), [journal, days]);
+  const moodByWeekday = useMemo(() => computeMoodByWeekday(journal, days), [journal, days]);
+  const hasMood = moodSeries.some((d) => d.mood != null);
   const overall = useMemo(() => computeOverallRate(tasks, days), [tasks, days]);
   const byValue = useMemo(() => countCompletedByValue(tasks, days), [tasks, days]);
   const calendarEvents = useStore((s) => s.calendarEvents);
@@ -208,6 +214,13 @@ function AnalyticsSection() {
             <ReflectionRow label="Gratitude" icon="heart" stat={reflection.gratitude} />
           </div>
         </Panel>
+
+        {hasMood && (
+          <Panel className="p-6 lg:col-span-3">
+            <SectionHead title="Mood" meta={`${days}d`} />
+            <MoodChart series={moodSeries} byWeekday={moodByWeekday} />
+          </Panel>
+        )}
 
         <Panel className="p-6 lg:col-span-2">
           <SectionHead title="Consistency" meta="22 wk" />

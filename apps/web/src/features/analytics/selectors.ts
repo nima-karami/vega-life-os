@@ -1,5 +1,5 @@
 import { addDays, format, startOfWeek, subDays } from "date-fns";
-import { dowIndex, shiftISO } from "@/core/lib/date";
+import { dowIndex, shiftISO, todayISO } from "@/core/lib/date";
 import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import { computeHabitStreak } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
@@ -321,4 +321,52 @@ export function computeWeeklyTrend(tasks: Task[], n = 12): WeekPoint[] {
       rate: wk.length ? done / wk.length : 0,
     };
   });
+}
+
+export interface MoodPoint {
+  iso: string;
+  label: string;
+  /** 1..5, or null when that day has no logged mood (a gap, never charted as 0). */
+  mood: number | null;
+}
+
+/** Per-day mood over the last n days (oldest first); unlogged days stay null. */
+export function computeMoodSeries(journal: DayEntry[], n = 30): MoodPoint[] {
+  const byDate = new Map(journal.map((e) => [e.date, e]));
+  return Array.from({ length: n }, (_, i) => {
+    const d = subDays(new Date(), n - 1 - i);
+    const iso = format(d, "yyyy-MM-dd");
+    const entry = byDate.get(iso);
+    return { iso, label: format(d, "MMM d"), mood: entry?.mood ?? null };
+  });
+}
+
+export interface WeekdayMood {
+  /** 0..6, Mon..Sun. */
+  index: number;
+  label: string;
+  /** Mean mood on this weekday over the window, or null when it had no logged mood. */
+  avg: number | null;
+  count: number;
+}
+
+const WEEKDAY_LABEL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** Average mood per weekday over the last n days — surfaces "Mondays dip" patterns. */
+export function computeMoodByWeekday(journal: DayEntry[], n = 90): WeekdayMood[] {
+  const lo = format(subDays(new Date(), n - 1), "yyyy-MM-dd");
+  const today = todayISO();
+  const buckets = Array.from({ length: 7 }, () => ({ sum: 0, count: 0 }));
+  for (const entry of journal) {
+    if (entry.mood == null || entry.date < lo || entry.date > today) continue;
+    const bucket = buckets[dowIndex(entry.date)];
+    bucket.sum += entry.mood;
+    bucket.count += 1;
+  }
+  return buckets.map((b, index) => ({
+    index,
+    label: WEEKDAY_LABEL[index],
+    avg: b.count ? b.sum / b.count : null,
+    count: b.count,
+  }));
 }
