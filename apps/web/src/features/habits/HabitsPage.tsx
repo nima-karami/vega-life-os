@@ -1,5 +1,6 @@
 import { Card } from "@heroui/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
 import { AddButton, Disclosure, Icon, Menu, type MenuItem } from "@/core/ui";
@@ -31,6 +32,17 @@ export function HabitsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+
+  // Deep-link: /habits?habit=<id> opens that habit's editor, then clears the param.
+  useEffect(() => {
+    const target = params.get("habit");
+    if (!target) return;
+    if (habits.some((h) => h.id === target)) setEditingId(target);
+    const next = new URLSearchParams(params);
+    next.delete("habit");
+    setParams(next, { replace: true });
+  }, [params, habits, setParams]);
 
   // Memoized lookup maps so per-card lineage is O(1), not O(N) .find per card.
   const valueById = useMemo(() => new Map(values.map((v) => [v.id, v])), [values]);

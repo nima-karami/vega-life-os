@@ -7,6 +7,7 @@ import { computeGoalTimeElapsed } from "@/features/goals";
 import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
+import { HabitReportModal } from "./components/HabitReportModal";
 import { HeatCell } from "./components/HeatCell";
 import { MoodChart } from "./components/MoodChart";
 import { ReflectionRow } from "./components/ReflectionRow";
@@ -85,6 +86,7 @@ function AnalyticsSection() {
   const rules = useStore((s) => s.streakRules);
 
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
+  const [reportHabitId, setReportHabitId] = useState<string | null>(null);
   const days = rangeToDays(range);
   const weeks = rangeToWeeks(range);
 
@@ -120,6 +122,7 @@ function AnalyticsSection() {
   const hasTasks = tasks.some((t) => t.date);
   const tasksInRange = daily.some((d) => d.total > 0);
   const enoughWeekly = weekly.filter((w) => w.total > 0).length >= 2;
+  const reportHabit = reportHabitId ? habits.find((h) => h.id === reportHabitId) : undefined;
 
   // First-run: no tasks ever logged → one explanatory panel, not a wall of charts.
   if (!hasTasks) {
@@ -410,9 +413,15 @@ function AnalyticsSection() {
 
         <Panel className="p-6">
           <SectionHead title="Habit consistency" meta="rate" />
-          <div className="mt-4 space-y-2.5">
+          <div className="mt-4 space-y-1">
             {habitRanked.map(({ h, rate }) => (
-              <div key={h.id} className="flex items-center gap-2">
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => setReportHabitId(h.id)}
+                className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label={`${h.name} report — ${Math.round(rate * 100)}% follow-through`}
+              >
                 <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
                 <div className="h-3 flex-1 rounded-full bg-surface-secondary">
                   <div
@@ -423,12 +432,21 @@ function AnalyticsSection() {
                 <span className="w-8 text-right text-xs tabular-nums text-muted">
                   {Math.round(rate * 100)}%
                 </span>
-              </div>
+                <Icon name="eye" size={14} className="shrink-0 text-muted" />
+              </button>
             ))}
             {!habitRanked.length && <p className="text-sm text-muted">No habits to measure yet.</p>}
           </div>
         </Panel>
       </div>
+
+      {reportHabit && (
+        <HabitReportModal
+          habit={reportHabit}
+          isOpen={reportHabitId !== null}
+          onClose={() => setReportHabitId(null)}
+        />
+      )}
     </div>
   );
 }

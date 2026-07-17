@@ -1,8 +1,9 @@
 import { addDays, format, startOfWeek, subDays } from "date-fns";
 import { dowIndex, shiftISO, todayISO } from "@/core/lib/date";
 import type { CalendarEvent } from "@/features/calendar-sync/events-model";
-import { computeHabitStreak } from "@/features/habits";
+import { computeHabitRate, computeHabitStreak } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
+import { isActiveOnSchedule } from "@/features/habits/recurrence";
 import { type DayEntry, hasGratitude } from "@/features/journal/model";
 import { DEFAULT_RULES, resolveStreak, type SeqItem, type StreakRules } from "@/features/streaks";
 import type { Task } from "@/features/tasks/model";
@@ -369,4 +370,80 @@ export function computeMoodByWeekday(journal: DayEntry[], n = 90): WeekdayMood[]
     avg: b.count ? b.sum / b.count : null,
     count: b.count,
   }));
+}
+
+/** Per scheduled day: done, done-elsewhere (moved), neutral skip, a real miss, still-pending,
+ *  or a non-scheduled off-day (shown faint for rhythm). */
+export type TimelineKind = "done" | "moved" | "skip" | "miss" | "pending" | "off";
+
+export interface TimelineDay {
+  iso: string;
+  label: string;
+  kind: TimelineKind;
+}
+
+export interface HabitTimeline {
+  streak: number;
+  rate: number;
+  done: number;
+  missed: number;
+  days: TimelineDay[];
+}
+
+const habitStatusRank = (status: Task["status"]) =>
+  status === "done" ? 3 : status === "skip" ? 2 : 1;
+
+function mapHabitInstancesBySlot(tasks: Task[], habitId: string): Map<string, Task> {
+  const bySlot = new Map<string, Task>();
+  for (const t of tasks) {
+    if (t.habitId !== habitId) continue;
+    const slot = t.slotDate ?? t.date;
+    if (slot == null) continue;
+    const prev = bySlot.get(slot);
+    if (!prev || habitStatusRank(t.status) > habitStatusRank(prev.status)) bySlot.set(slot, t);
+  }
+  return bySlot;
+}
+
+function classifyTimelineDay(inst: Task | undefined, iso: string, floor: string): TimelineKind {
+  if (inst?.status === "done") return (inst.date ?? iso) !== iso ? "moved" : "done";
+  if (inst?.status === "skip" || inst?.status === "open") return "skip";
+  return iso >= floor ? "pending" : "miss";
+}
+
+/** A habit's per-day report over the last windowDays: each scheduled day classified from
+ *  its task instances, plus the headline streak/rate (shared with the rest of the app). */
+export function computeHabitTimeline(
+  tasks: Task[],
+  habit: Habit,
+  windowDays = 35,
+  today: string = todayISO(),
+  rules: StreakRules = DEFAULT_RULES,
+): HabitTimeline {
+  const bySlot = mapHabitInstancesBySlot(tasks, habit.id);
+  const graceFloor = shiftISO(today, -rules.graceDays);
+  const windowStart = shiftISO(today, -(windowDays - 1));
+  const createdOn = habit.createdAt.slice(0, 10);
+  const start = windowStart > createdOn ? windowStart : createdOn;
+  const days: TimelineDay[] = [];
+  let done = 0;
+  let missed = 0;
+  for (let iso = start; iso <= today; iso = shiftISO(iso, 1)) {
+    const label = format(new Date(`${iso}T00:00:00`), "MMM d");
+    if (!isActiveOnSchedule(habit.schedule, iso)) {
+      days.push({ iso, label, kind: "off" });
+      continue;
+    }
+    const kind = classifyTimelineDay(bySlot.get(iso), iso, graceFloor);
+    if (kind === "done" || kind === "moved") done++;
+    else if (kind === "miss") missed++;
+    days.push({ iso, label, kind });
+  }
+  return {
+    streak: computeHabitStreak(tasks, habit, today, rules),
+    rate: computeHabitRate(tasks, habit, today, rules),
+    done,
+    missed,
+    days,
+  };
 }
