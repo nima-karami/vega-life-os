@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CalendarEvent } from "@vega/shared";
-import { createRepository, type WritableEntity } from "../../core/repository";
+import { createRepository, toWritable, type WritableEntity } from "../../core/repository";
 import { listTombstones, writeTombstone } from "../../core/tombstone";
 import {
   calendarEventToGPatch,
@@ -18,11 +18,6 @@ type LivedRow = WritableEntity<"calendarEvents">;
 const hasMeaning = (event: Pick<CalendarEvent, "valueId" | "goalId" | "note">) =>
   Boolean(event.valueId) || Boolean(event.goalId) || event.note.trim() !== "";
 
-function stripMeta(event: CalendarEvent): LivedRow {
-  const { updatedAt: _updatedAt, fieldUpdatedAt: _fieldUpdatedAt, ...writable } = event;
-  return writable;
-}
-
 function insertRow(synced: SyncedFields): LivedRow {
   return {
     id: `ce_${randomUUID()}`,
@@ -38,7 +33,7 @@ function insertRow(synced: SyncedFields): LivedRow {
 
 /** Merge a changed Google event onto its prior mirror; a pending local edit newer than Google's wins. */
 function mergeRow(prior: CalendarEvent, synced: SyncedFields): LivedRow {
-  const base = stripMeta(prior);
+  const base = toWritable<"calendarEvents">(prior);
   const localWins =
     prior.vegaEditedAt != null &&
     (synced.googleUpdated == null || prior.vegaEditedAt > synced.googleUpdated);
@@ -68,7 +63,7 @@ function reconcileLivedEvent(
   if (synced.status === "cancelled") {
     if (!prior) return {};
     return hasMeaning(prior)
-      ? { upsert: { ...stripMeta(prior), removedAt: now } }
+      ? { upsert: { ...toWritable<"calendarEvents">(prior), removedAt: now } }
       : { dropId: prior.id };
   }
   if (!prior) {
@@ -121,7 +116,7 @@ async function pushLived(deps: SyncDeps, uid: string, client: GoogleCalendarClie
   for (const row of rows.filter((event) => event.vegaEditedAt)) {
     try {
       await client.patchEvent(row.calendarId, row.googleId, calendarEventToGPatch(row));
-      await repo.upsert({ ...stripMeta(row), vegaEditedAt: null });
+      await repo.upsert({ ...toWritable<"calendarEvents">(row), vegaEditedAt: null });
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
     }
@@ -147,11 +142,7 @@ export async function runLivedLane(
   let lived = 0;
   for (const calendarId of readCalendarIds) {
     if (calendarId === writeCalendarId) continue;
-    const { events } = await client.listEvents(calendarId, {
-      syncToken: null,
-      filtered: false,
-      window: LIVED_WINDOW,
-    });
+    const { events } = await client.listEvents(calendarId, { window: LIVED_WINDOW });
     const existing = (await repo.list()).filter((event) => event.calendarId === calendarId);
     const { upserts, dropIds } = reconcileLived(existing, events, calendarId, now, tombstoned);
     for (const row of upserts) await repo.upsert(row);

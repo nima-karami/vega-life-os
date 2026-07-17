@@ -1,7 +1,7 @@
 import type { Task } from "@vega/shared";
 import { addDays, format, parseISO } from "date-fns";
 import type { Firestore } from "firebase-admin/firestore";
-import { createRepository } from "../../core/repository";
+import { createRepository, toWritable } from "../../core/repository";
 import { fromGEvent, type GEvent, getStablePushKey, isSchedulable, toGEvent } from "./event-map";
 import { type GoogleCalendarClient, GoogleHttpError } from "./google-client";
 
@@ -175,19 +175,14 @@ export async function runTaskLane(
   const client = await deps.getClient(uid);
   const repo = createRepository(deps.firestore, uid, "tasks", deps.now);
   const tasks = await repo.list();
-  const { events } = await client.listEvents(writeCalendarId, {
-    syncToken: null,
-    filtered: true,
-    window: TASK_WINDOW,
-  });
+  const { events } = await client.listEvents(writeCalendarId, { window: TASK_WINDOW });
 
   const pull = computeTaskPull(tasks, events);
   for (const update of pull) {
     const task = tasks.find((candidate) => candidate.id === update.taskId);
     if (!task) continue;
-    const { updatedAt: _updatedAt, fieldUpdatedAt: _fieldUpdatedAt, ...writable } = task;
     await repo.upsert({
-      ...writable,
+      ...toWritable<"tasks">(task),
       date: update.date,
       time: update.time,
       ...(update.unscheduled ? { status: "open" as const } : {}),

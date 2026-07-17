@@ -59,12 +59,8 @@ export class GoogleMock {
 
   get client(): GoogleCalendarClient {
     return {
-      listEvents: async (calendarId, options) => {
-        const all = this.rawEvents(calendarId);
-        const events = options.filtered
-          ? all.filter((event) => event.extendedProperties?.private?.vegaKey)
-          : all;
-        return { events, nextSyncToken: `token-${this.clock()}`, expired: false };
+      listEvents: async (calendarId) => {
+        return { events: this.rawEvents(calendarId) };
       },
       insertEvent: async (calendarId, body) => {
         this.consumePushBudget();

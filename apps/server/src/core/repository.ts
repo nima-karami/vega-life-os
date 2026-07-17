@@ -9,6 +9,12 @@ export type WritableEntity<C extends CollectionName> = Omit<
   "updatedAt" | "fieldUpdatedAt"
 >;
 
+/** Drop the server-owned meta so a stored record can be re-upserted through the field-LWW seam. */
+export function toWritable<C extends CollectionName>(record: StoredEntity<C>): WritableEntity<C> {
+  const { updatedAt: _updatedAt, fieldUpdatedAt: _fieldUpdatedAt, ...writable } = record;
+  return writable as WritableEntity<C>;
+}
+
 export type Repository<C extends CollectionName> = {
   list(): Promise<StoredEntity<C>[]>;
   get(id: string): Promise<StoredEntity<C> | null>;

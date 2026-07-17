@@ -4,15 +4,11 @@ import type { GEvent } from "./event-map";
 export type ListWindow = { backDays: number; fwdDays: number };
 
 export type ListEventsOptions = {
-  syncToken: string | null;
-  filtered: boolean;
   window: ListWindow;
 };
 
 export type ListEventsResult = {
   events: GEvent[];
-  nextSyncToken: string | null;
-  expired: boolean;
 };
 
 export type WatchRequest = {
@@ -42,11 +38,10 @@ export type GoogleCalendarClient = {
   stopChannel(channelId: string, resourceId: string): Promise<void>;
 };
 
-function windowedParams(options: ListEventsOptions): Record<string, unknown> {
-  if (options.syncToken) return { syncToken: options.syncToken };
+function windowedParams(window: ListWindow): Record<string, unknown> {
   return {
-    timeMin: new Date(Date.now() - options.window.backDays * 864e5).toISOString(),
-    timeMax: new Date(Date.now() + options.window.fwdDays * 864e5).toISOString(),
+    timeMin: new Date(Date.now() - window.backDays * 864e5).toISOString(),
+    timeMax: new Date(Date.now() + window.fwdDays * 864e5).toISOString(),
   };
 }
 
@@ -60,26 +55,19 @@ export function createGoogleClient(accessToken: string): GoogleCalendarClient {
     async listEvents(calendarId, options) {
       const events: GEvent[] = [];
       let pageToken: string | undefined;
-      let nextSyncToken: string | null = null;
-      try {
-        do {
-          const response = await calendar.events.list({
-            calendarId,
-            showDeleted: true,
-            singleEvents: true,
-            maxResults: 250,
-            pageToken,
-            ...windowedParams(options),
-          });
-          events.push(...((response.data.items ?? []) as GEvent[]));
-          pageToken = response.data.nextPageToken ?? undefined;
-          nextSyncToken = response.data.nextSyncToken ?? nextSyncToken;
-        } while (pageToken);
-      } catch (error) {
-        if (isHttpStatus(error, 410)) return { events: [], nextSyncToken: null, expired: true };
-        throw error;
-      }
-      return { events, nextSyncToken, expired: false };
+      do {
+        const response = await calendar.events.list({
+          calendarId,
+          showDeleted: true,
+          singleEvents: true,
+          maxResults: 250,
+          pageToken,
+          ...windowedParams(options.window),
+        });
+        events.push(...((response.data.items ?? []) as GEvent[]));
+        pageToken = response.data.nextPageToken ?? undefined;
+      } while (pageToken);
+      return { events };
     },
     async insertEvent(calendarId, body) {
       await calendar.events.insert({ calendarId, requestBody: body });
