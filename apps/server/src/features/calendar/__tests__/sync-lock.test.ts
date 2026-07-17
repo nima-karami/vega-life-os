@@ -37,4 +37,37 @@ describe("per-uid sync lock (Firestore lease)", () => {
     release();
     expect(await held).toBe("first");
   });
+
+  it("renews the lease so a run outlasting the lease term is never stolen", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held = withSyncLock(
+      server.firestore,
+      "u-heartbeat",
+      async () => {
+        await gate;
+        return "long";
+      },
+      100,
+    );
+    // Wait well past the 100ms lease term; the heartbeat must keep it alive.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    await expect(
+      withSyncLock(server.firestore, "u-heartbeat", async () => "stealer", 100),
+    ).rejects.toBeInstanceOf(SyncLockBusyError);
+
+    release();
+    expect(await held).toBe("long");
+
+    const reacquired = await withSyncLock(
+      server.firestore,
+      "u-heartbeat",
+      async () => "after",
+      100,
+    );
+    expect(reacquired).toBe("after");
+  });
 });

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Firestore } from "firebase-admin/firestore";
+import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 
 const LEASE_MS = 30_000;
 
@@ -13,10 +13,27 @@ export class SyncLockBusyError extends Error {
 
 type Lease = { holder: string; acquiredAt: string; expiresAt: number };
 
+/** Push `expiresAt` forward while we still hold the lease, so a long run is never seen as expired. */
+async function renewLease(
+  firestore: Firestore,
+  ref: DocumentReference,
+  holder: string,
+  leaseMs: number,
+): Promise<void> {
+  await firestore.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists && (snap.data() as Lease).holder === holder) {
+      tx.update(ref, { expiresAt: Date.now() + leaseMs });
+    }
+  });
+}
+
 /**
  * Serialize a uid's read-modify-write across stateless instances with a Firestore lease doc
  * (`users/{uid}/private/syncLock`), stolen once expired and released in `finally`. An in-memory
- * flag can't hold across Cloud Run, so the durability lives in the doc.
+ * flag can't hold across Cloud Run, so the durability lives in the doc. A heartbeat renews the
+ * lease while the run is in flight, so a reconcile slower than one lease term is never mistaken
+ * for expired and stolen mid-write.
  */
 export async function withSyncLock<T>(
   firestore: Firestore,
@@ -40,9 +57,18 @@ export async function withSyncLock<T>(
   });
   if (!acquired) throw new SyncLockBusyError(uid);
 
+  const heartbeat = setInterval(
+    () => {
+      void renewLease(firestore, ref, holder, leaseMs).catch(() => undefined);
+    },
+    Math.max(1, Math.floor(leaseMs / 3)),
+  );
+  heartbeat.unref?.();
+
   try {
     return await run();
   } finally {
+    clearInterval(heartbeat);
     await firestore.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (snap.exists && (snap.data() as Lease).holder === holder) tx.delete(ref);
