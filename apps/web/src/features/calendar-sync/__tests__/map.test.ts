@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/features/tasks";
-import { gEventId, getStablePushKey, toGEvent } from "../map";
+import { getGoogleEventId, getStablePushKey, toGEvent } from "../map";
 
 const task = (over: Partial<Task> = {}): Task => ({
   id: "t1",
@@ -42,28 +42,28 @@ describe("getStablePushKey", () => {
   });
 });
 
-describe("gEventId", () => {
+describe("getGoogleEventId", () => {
   it("is identical for two habit instances of the same slot (no churn)", () => {
     const a = task({ id: "t_aaa", kind: "habit", habitId: "h1", slotDate: "2026-06-20" });
     const b = task({ id: "t_bbb", kind: "habit", habitId: "h1", slotDate: "2026-06-20" });
-    expect(gEventId(a)).toBe(gEventId(b));
+    expect(getGoogleEventId(a)).toBe(getGoogleEventId(b));
   });
 
   it("differs for two distinct one-offs", () => {
-    expect(gEventId(task({ id: "t_x" }))).not.toBe(gEventId(task({ id: "t_y" })));
+    expect(getGoogleEventId(task({ id: "t_x" }))).not.toBe(getGoogleEventId(task({ id: "t_y" })));
   });
 
   it("stays base32hex-safe (vega prefix + lowercase hex)", () => {
     const t = task({ kind: "habit", habitId: "h1", slotDate: "2026-06-20" });
-    expect(gEventId(t)).toMatch(/^vega[0-9a-f]*$/);
-    expect(gEventId(t).length).toBeGreaterThanOrEqual(5);
+    expect(getGoogleEventId(t)).toMatch(/^vega[0-9a-f]*$/);
+    expect(getGoogleEventId(t).length).toBeGreaterThanOrEqual(5);
   });
 });
 
 describe("toGEvent", () => {
   it("stamps the deterministic event id on the body", () => {
     const t = task();
-    expect(toGEvent(t).id).toBe(gEventId(t));
+    expect(toGEvent(t).id).toBe(getGoogleEventId(t));
   });
 
   it("carries both vegaTaskId and the stable vegaKey", () => {

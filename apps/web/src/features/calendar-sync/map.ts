@@ -42,14 +42,14 @@ export function getStablePushKey(t: Task): string {
 
 /** The Google event resource id — a pure function of the stable key, so re-inserting is
  *  idempotent (409→patch) and the id == the match key (no separate lookup). */
-export function gEventId(t: Task): string {
+export function getGoogleEventId(t: Task): string {
   return encodeId(getStablePushKey(t));
 }
 
 /** Build the Google event body for a VEGA task. Timed if it has a time, else all-day. */
 export function toGEvent(t: Task): GEvent {
   const base: GEvent = {
-    id: gEventId(t),
+    id: getGoogleEventId(t),
     summary: t.title,
     extendedProperties: { private: { vegaTaskId: t.id, vegaKey: getStablePushKey(t) } },
   };

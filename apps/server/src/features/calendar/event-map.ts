@@ -38,7 +38,7 @@ function encodeEventId(raw: string): string {
   return `vega${hex}`;
 }
 
-export function gEventId(task: Task): string {
+export function getGoogleEventId(task: Task): string {
   return encodeEventId(getStablePushKey(task));
 }
 
@@ -49,7 +49,7 @@ export function toLocalRfc3339(date: Date): string {
 /** The Google event body VEGA writes for a task — timed if it has a time, else all-day. */
 export function toGEvent(task: Task): GEvent {
   const body: GEvent = {
-    id: gEventId(task),
+    id: getGoogleEventId(task),
     summary: task.title,
     extendedProperties: { private: { vegaTaskId: task.id, vegaKey: getStablePushKey(task) } },
   };

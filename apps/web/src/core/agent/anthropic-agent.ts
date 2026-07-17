@@ -77,7 +77,7 @@ names to the ids given in CONTEXT. For "what / show / which / how am I doing" qu
 the "show" tool. Prefer a tool call over prose. If you also explain, keep it to one short sentence.
 Today is ${"{TODAY}"}.`;
 
-function context(): string {
+function buildAgentContext(): string {
   const s = useStore.getState();
   const open = s.tasks.filter((t) => t.status !== "done" && t.status !== "skip");
   return JSON.stringify({
@@ -201,7 +201,7 @@ export class AnthropicAgent implements Agent {
       max_tokens: 2048,
       thinking: { type: "adaptive" },
       output_config: { effort: "low" },
-      system: `${SYSTEM.replace("{TODAY}", todayISO())}\n\nCONTEXT:\n${context()}`,
+      system: `${SYSTEM.replace("{TODAY}", todayISO())}\n\nCONTEXT:\n${buildAgentContext()}`,
       tools: TOOLS,
       messages: [{ role: "user", content: q }],
     } as unknown as Anthropic.MessageCreateParamsNonStreaming);

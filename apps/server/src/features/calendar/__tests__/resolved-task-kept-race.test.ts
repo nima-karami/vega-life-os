@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
 import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
-import { gEventId } from "../event-map";
+import { getGoogleEventId } from "../event-map";
 import { runReconcile } from "../reconcile";
 
 const WRITE_CAL = "cal-write-resolved-race";
@@ -33,7 +33,7 @@ describe("resolved task is not unscheduled on a cancelled event under a reconcil
     await runReconcile(server.reconcileDeps, uid);
 
     // Google cancels the event out from under the resolved task.
-    const eventId = gEventId(stored);
+    const eventId = getGoogleEventId(stored);
     await (await server.reconcileDeps.getClient(uid)).deleteEvent(WRITE_CAL, eventId);
     expect(server.google.eventById(WRITE_CAL, eventId)?.status).toBe("cancelled");
 

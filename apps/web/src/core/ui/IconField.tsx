@@ -237,7 +237,7 @@ export function IconField({
                   </Section>
                 )}
                 {groups.map((g, gi) => {
-                  const start = (pinned ? 1 : 0) + offsetBefore(groups, gi);
+                  const start = (pinned ? 1 : 0) + computeOffsetBefore(groups, gi);
                   return (
                     <Section key={g.category} label={g.category}>
                       <IconGrid
@@ -263,7 +263,7 @@ export function IconField({
   );
 }
 
-function offsetBefore(groups: ReturnType<typeof getGroupedCatalog>, index: number): number {
+function computeOffsetBefore(groups: ReturnType<typeof getGroupedCatalog>, index: number): number {
   let n = 0;
   for (let i = 0; i < index; i++) n += groups[i].entries.length;
   return n;

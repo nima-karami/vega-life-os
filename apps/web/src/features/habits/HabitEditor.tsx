@@ -43,7 +43,7 @@ interface Draft {
   lastDay: boolean;
 }
 
-function draftFrom(habit: Habit): Draft {
+function buildDraftFromHabit(habit: Habit): Draft {
   const schedule = getHabitSchedule(habit);
   const isMonthly = schedule.type === "monthly";
   return {
@@ -62,7 +62,7 @@ function draftFrom(habit: Habit): Draft {
   };
 }
 
-function blankDraft(valueId: string): Draft {
+function createBlankDraft(valueId: string): Draft {
   return {
     name: "",
     valueId,
@@ -114,7 +114,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
 
   const isCreate = habit === null;
   const [draft, setDraft] = useState<Draft>(() =>
-    habit ? draftFrom(habit) : blankDraft(values[0]?.id ?? ""),
+    habit ? buildDraftFromHabit(habit) : createBlankDraft(values[0]?.id ?? ""),
   );
   const [touched, setTouched] = useState(false);
 
@@ -122,7 +122,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   // biome-ignore lint/correctness/useExhaustiveDependencies: reseed only when the editor opens
   useEffect(() => {
     if (isOpen) {
-      setDraft(habit ? draftFrom(habit) : blankDraft(values[0]?.id ?? ""));
+      setDraft(habit ? buildDraftFromHabit(habit) : createBlankDraft(values[0]?.id ?? ""));
       setTouched(false);
     }
   }, [isOpen, habit?.id]);

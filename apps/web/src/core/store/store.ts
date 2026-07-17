@@ -56,7 +56,7 @@ async function loadAccount(
   await get().clearLocal(); // abandon the local sandbox — never uploaded
   try {
     const loaded = await cloud.loadAll(); // hydrating → hydrated
-    set({ ...(sorted(loaded) as Partial<RootState>), loadFailed: false });
+    set({ ...(sortDataset(loaded) as Partial<RootState>), loadFailed: false });
     runDataMigrations(get, set);
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
@@ -70,25 +70,28 @@ async function loadAccount(
 }
 
 /** Per-collection ordering + read-normalization applied on every load (boot, account hydrate, refetch). */
-function sorted(data: Partial<Dataset>): Partial<Dataset> {
-  const out: Partial<Dataset> = { ...data };
+function sortDataset(dataset: Partial<Dataset>): Partial<Dataset> {
+  const out: Partial<Dataset> = { ...dataset };
   // Normalize archivedAt on read: records created before archiving lack the field
   // (undefined); coerce to null so they classify as active, not archived.
-  if (data.values)
-    out.values = data.values
+  if (dataset.values)
+    out.values = dataset.values
       .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null }))
       .sort((a, b) => a.order - b.order);
-  if (data.habits)
-    out.habits = data.habits.map((h) => normalizeHabit({ ...h, archivedAt: h.archivedAt ?? null }));
-  if (data.goals)
-    out.goals = data.goals
+  if (dataset.habits)
+    out.habits = dataset.habits.map((h) =>
+      normalizeHabit({ ...h, archivedAt: h.archivedAt ?? null }),
+    );
+  if (dataset.goals)
+    out.goals = dataset.goals
       .map((g) => ({ ...g, status: g.status ?? "active" }))
       .sort((a, b) => a.order - b.order);
-  if (data.books) out.books = [...data.books].sort((a, b) => a.order - b.order);
-  if (data.movies) out.movies = [...data.movies].sort((a, b) => a.order - b.order);
-  if (data.reviews)
-    out.reviews = [...data.reviews].sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1));
-  if (data.journal) out.journal = [...data.journal].sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (dataset.books) out.books = [...dataset.books].sort((a, b) => a.order - b.order);
+  if (dataset.movies) out.movies = [...dataset.movies].sort((a, b) => a.order - b.order);
+  if (dataset.reviews)
+    out.reviews = [...dataset.reviews].sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1));
+  if (dataset.journal)
+    out.journal = [...dataset.journal].sort((a, b) => (a.date < b.date ? 1 : -1));
   return out;
 }
 
@@ -113,7 +116,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   bootstrap: async () => {
     await persistence.init();
     const loaded = await persistence.loadAll();
-    set({ ...(sorted(loaded) as Partial<RootState>), ready: true });
+    set({ ...(sortDataset(loaded) as Partial<RootState>), ready: true });
     get().hydrateGcalConfig(readLocalGcalConfig()); // signed-out sandbox: device-local config
     get().hydrateStreakRules(readLocalStreakRules());
     runDataMigrations(get, set);
@@ -218,7 +221,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     try {
       const loaded = await persistence.loadAll();
       for (const col of pendingWriteCollections()) guarded.add(col);
-      const next = sorted(loaded);
+      const next = sortDataset(loaded);
       for (const col of guarded) delete next[col];
       set(next as Partial<RootState>);
     } catch {
@@ -230,7 +233,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     if (!get().authUid || pendingWriteCollections().has(col)) return;
     try {
       const rows = await persistence.load(col);
-      set(sorted({ [col]: rows }) as Partial<RootState>);
+      set(sortDataset({ [col]: rows }) as Partial<RootState>);
     } catch {
       /* best-effort reconcile */
     }

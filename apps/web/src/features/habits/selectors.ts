@@ -25,7 +25,7 @@ type SlotKind = "done" | "late" | "miss" | "skip" | "pending";
 const statusRank = (s: TaskStatus) => (s === "done" ? 3 : s === "skip" ? 2 : 1);
 
 /** Newest-by-status instance claiming each slotDate (a moved instance keeps its slot). */
-function instanceBySlot(tasks: Task[], habitId: string): Map<string, Task> {
+function mapInstancesBySlot(tasks: Task[], habitId: string): Map<string, Task> {
   const bySlot = new Map<string, Task>();
   for (const t of tasks) {
     if (t.habitId !== habitId) continue;
@@ -60,13 +60,13 @@ function classifySlot(
 
 /** Schedule-driven: every active slot date from the habit's creation to today,
  *  joined to instances by slotDate — so a never-materialized day still counts. */
-function slotKinds(
+function deriveSlotKinds(
   tasks: Task[],
   habit: Habit,
   today: string,
   grace = DEFAULT_RULES.graceDays,
 ): { date: string; kind: SlotKind }[] {
-  const bySlot = instanceBySlot(tasks, habit.id);
+  const bySlot = mapInstancesBySlot(tasks, habit.id);
   const out: { date: string; kind: SlotKind }[] = [];
   let d = habit.createdAt.slice(0, 10);
   while (d <= today) {
@@ -80,13 +80,13 @@ function slotKinds(
 
 // Resolved history oldest→newest for the streak walk: "D" on-time done, "M" miss
 // (incl. a late backfill). Skips and still-pending slots are neutral / not over.
-function streakSeq(
+function computeStreakSequence(
   tasks: Task[],
   habit: Habit,
   today: string,
   grace = DEFAULT_RULES.graceDays,
 ): SeqItem[] {
-  return slotKinds(tasks, habit, today, grace)
+  return deriveSlotKinds(tasks, habit, today, grace)
     .filter((k) => k.kind !== "skip" && k.kind !== "pending")
     .map((k) => ({ kind: k.kind === "done" ? "D" : "M", date: k.date }));
 }
@@ -101,7 +101,7 @@ export function getStreakState(
   today: string = todayISO(),
   rules: StreakRules = DEFAULT_RULES,
 ): StreakResult {
-  return resolveStreak(streakSeq(tasks, habit, today, rules.graceDays), rules);
+  return resolveStreak(computeStreakSequence(tasks, habit, today, rules.graceDays), rules);
 }
 
 // Consecutive completed slots, mending applied. Thin wrapper for existing call sites.
@@ -124,7 +124,7 @@ export function computeHabitRate(
 ): number {
   let done = 0;
   let missed = 0;
-  for (const k of slotKinds(tasks, habit, today, rules.graceDays)) {
+  for (const k of deriveSlotKinds(tasks, habit, today, rules.graceDays)) {
     if (k.kind === "done" || k.kind === "late") done++;
     else if (k.kind === "miss") missed++;
   }
@@ -144,7 +144,7 @@ export function isStreakAtRisk(
 ): number {
   const today = todayISO();
   if (!isActiveOnSchedule(habit.schedule, today)) return 0;
-  const todaySlot = instanceBySlot(tasks, habit.id).get(today);
+  const todaySlot = mapInstancesBySlot(tasks, habit.id).get(today);
   if (todaySlot && (todaySlot.status === "done" || todaySlot.status === "skip")) return 0;
   const streak = getStreakState(tasks, habit, today, rules).count;
   return streak >= threshold ? streak : 0;
@@ -158,7 +158,7 @@ export function getHabitHistory(
   today: string = todayISO(),
   rules: StreakRules = DEFAULT_RULES,
 ): number[] {
-  return slotKinds(tasks, habit, today, rules.graceDays)
+  return deriveSlotKinds(tasks, habit, today, rules.graceDays)
     .slice(-n)
     .map((k) => (k.kind === "done" || k.kind === "late" ? 1 : k.kind === "skip" ? -1 : 0));
 }

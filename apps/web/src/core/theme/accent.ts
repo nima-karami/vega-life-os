@@ -42,7 +42,7 @@ function toHex({ r, g, b }: Rgb): string {
 }
 
 /** WCAG relative luminance (0 black → 1 white). */
-function luminance({ r, g, b }: Rgb): number {
+function computeLuminance({ r, g, b }: Rgb): number {
   const lin = (c: number) => {
     const v = c / 255;
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
@@ -76,7 +76,7 @@ export function getAccentVars(hex: string): Record<string, string> {
   const normHex = toHex(rgb);
 
   // Foreground: whichever of white / near-black contrasts better with the base.
-  const lum = luminance(rgb);
+  const lum = computeLuminance(rgb);
   const onWhite = (1.0 + 0.05) / (lum + 0.05);
   const onBlack = (lum + 0.05) / (0.0 + 0.05);
   const darkFg = onBlack >= onWhite;

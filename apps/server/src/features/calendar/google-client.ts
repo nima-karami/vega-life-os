@@ -38,7 +38,7 @@ export type GoogleCalendarClient = {
   stopChannel(channelId: string, resourceId: string): Promise<void>;
 };
 
-function windowedParams(window: ListWindow): Record<string, unknown> {
+function buildWindowedParams(window: ListWindow): Record<string, unknown> {
   return {
     timeMin: new Date(Date.now() - window.backDays * 864e5).toISOString(),
     timeMax: new Date(Date.now() + window.fwdDays * 864e5).toISOString(),
@@ -62,7 +62,7 @@ export function createGoogleClient(accessToken: string): GoogleCalendarClient {
           singleEvents: true,
           maxResults: 250,
           pageToken,
-          ...windowedParams(options.window),
+          ...buildWindowedParams(options.window),
         });
         events.push(...((response.data.items ?? []) as GEvent[]));
         pageToken = response.data.nextPageToken ?? undefined;
