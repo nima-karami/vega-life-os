@@ -4,13 +4,8 @@ import { listNearExpiryChannels, registerChannel, removeChannel } from "./channe
 import type { GoogleCalendarClient } from "./google-client";
 import { runLivedLane } from "./lived-engine";
 import { runTaskLane, type SyncDeps } from "./sync-engine";
-import { SyncLockBusyError, withSyncLock } from "./sync-lock";
-import {
-  listConnectedUids,
-  readGcalAccount,
-  TokenRevokedError,
-  TransientTokenError,
-} from "./token-store";
+import { withSyncLock } from "./sync-lock";
+import { isBenignSyncFault, listConnectedUids, readGcalAccount } from "./token-store";
 
 const RENEW_THRESHOLD_MS = 2 * 864e5;
 
@@ -98,13 +93,7 @@ export async function runReconcileAll(deps: ReconcileDeps): Promise<{ users: num
     try {
       await runReconcile(deps, uid);
     } catch (error) {
-      if (
-        error instanceof SyncLockBusyError ||
-        error instanceof TokenRevokedError ||
-        error instanceof TransientTokenError
-      ) {
-        continue;
-      }
+      if (isBenignSyncFault(error)) continue;
       throw error;
     }
   }

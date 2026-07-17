@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { Firestore } from "firebase-admin/firestore";
 import type { ServerConfig } from "../../core/config";
 import { type OauthGateway, OauthHttpError } from "./oauth";
+import { SyncLockBusyError } from "./sync-lock";
 
 /** A token refresh that failed for a retryable reason — the caller backs off, never prompts. */
 export class TransientTokenError extends Error {
@@ -17,6 +18,15 @@ export class TokenRevokedError extends Error {
     super("GCAL_NEEDS_REAUTH");
     this.name = "TokenRevokedError";
   }
+}
+
+/** A per-uid reconcile fault the batch and webhook can safely swallow: lock contention or an already-surfaced token issue. */
+export function isBenignSyncFault(error: unknown): boolean {
+  return (
+    error instanceof SyncLockBusyError ||
+    error instanceof TokenRevokedError ||
+    error instanceof TransientTokenError
+  );
 }
 
 export type GcalAccount = {

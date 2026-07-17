@@ -1,8 +1,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { lookupChannel } from "./channel-registry";
 import { type ReconcileDeps, runReconcile } from "./reconcile";
-import { SyncLockBusyError } from "./sync-lock";
-import { TokenRevokedError, TransientTokenError } from "./token-store";
+import { isBenignSyncFault } from "./token-store";
 
 export type WebhookHeaders = {
   channelId: string | null;
@@ -42,15 +41,7 @@ export async function handleWebhook(
   try {
     await runReconcile(deps, verified.uid);
   } catch (error) {
-    if (
-      !(
-        error instanceof SyncLockBusyError ||
-        error instanceof TokenRevokedError ||
-        error instanceof TransientTokenError
-      )
-    ) {
-      throw error;
-    }
+    if (!isBenignSyncFault(error)) throw error;
   }
   return { outcome: "applied", uid: verified.uid };
 }
