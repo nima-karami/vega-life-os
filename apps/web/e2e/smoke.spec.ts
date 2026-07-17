@@ -459,9 +459,9 @@ test("settings: choosing an accent re-tints the HeroUI accent and persists; Defa
   // Baseline = no inline override (the configured slate default shows through).
   expect(await accentOverride(page)).toBe("");
 
-  // Pick Teal → the --accent token is overridden to the teal hex everywhere.
-  await page.getByRole("button", { name: "Teal", exact: true }).click();
-  await expect.poll(() => accentOverride(page)).toBe("#2bb6a8");
+  // Pick Blue → the --accent token is overridden to the blue hex everywhere.
+  await page.getByRole("button", { name: "Blue", exact: true }).click();
+  await expect.poll(() => accentOverride(page)).toBe("#2563eb");
 
   // A primary-colored control actually adopts it (not just the raw var).
   const exportBtn = page.getByRole("button", { name: /Export backup/ });
@@ -469,7 +469,7 @@ test("settings: choosing an accent re-tints the HeroUI accent and persists; Defa
 
   // Persists across reload.
   await page.reload({ waitUntil: "networkidle" });
-  await expect.poll(() => accentOverride(page)).toBe("#2bb6a8");
+  await expect.poll(() => accentOverride(page)).toBe("#2563eb");
 
   // Default clears the override → back to the slate default (no inline override).
   await page.getByRole("button", { name: "Default", exact: true }).click();
