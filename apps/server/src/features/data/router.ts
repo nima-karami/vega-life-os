@@ -1,24 +1,10 @@
-import {
-  type CollectionName,
-  collectionNameSchema,
-  createSchemasByCollection,
-  type Dataset,
-} from "@vega/shared";
+import { collectionNameSchema, type Dataset } from "@vega/shared";
 import { z } from "zod";
-import { AppError, toTrpcError } from "../../core/errors";
-import { createRepository, type WritableEntity } from "../../core/repository";
+import { parseRecord, writeRecord } from "../../core/collection-store";
+import { createRepository } from "../../core/repository";
 import { protectedProcedure, router } from "../../trpc/trpc";
 
 const unknownRecord = z.record(z.string(), z.unknown());
-
-function parseRecord(collection: CollectionName, record: unknown): WritableEntity<CollectionName> {
-  const schema = createSchemasByCollection[collection] as unknown as z.ZodType<
-    WritableEntity<CollectionName>
-  >;
-  const result = schema.safeParse(record);
-  if (!result.success) throw toTrpcError(new AppError("BAD_REQUEST", result.error.message));
-  return result.data;
-}
 
 /**
  * Collection-agnostic writes for paths the domain routers don't cover: the
@@ -43,10 +29,9 @@ export const dataRouter = router({
 
   upsert: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, record: unknownRecord }))
-    .mutation(({ ctx, input }) => {
-      const record = parseRecord(input.collection, input.record);
-      return createRepository(ctx.firestore, ctx.uid, input.collection).upsert(record);
-    }),
+    .mutation(({ ctx, input }) =>
+      writeRecord(ctx, input.collection, parseRecord(input.collection, input.record)),
+    ),
 
   remove: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, id: z.string() }))
