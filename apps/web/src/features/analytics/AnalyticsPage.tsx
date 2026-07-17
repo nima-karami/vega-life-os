@@ -6,7 +6,10 @@ import { cx, Gauge, Icon, Label, Panel, SectionHead, Sparkline } from "@/core/ui
 import { computeGoalTimeElapsed } from "@/features/goals";
 import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
-import { useValueColor } from "@/features/values/useValueColor";
+import { CHART_PRIMARY } from "./chart-constants";
+import { HeatCell } from "./components/HeatCell";
+import { ReflectionRow } from "./components/ReflectionRow";
+import { ValueBalanceBar } from "./components/ValueBalanceBar";
 import { DEFAULT_RANGE, RANGE_OPTIONS, rangeToDays, rangeToWeeks, type TimeRange } from "./range";
 import {
   buildConsistencyGrid,
@@ -17,14 +20,9 @@ import {
   computeValueTime,
   computeWeeklyRate,
   countCompletedByValue,
-  type GridCell,
-  type ReflectionStat,
 } from "./selectors";
 
 type Section = "analytics" | "review";
-
-/** Calm primary tone for chart strokes/fills (matches HeroUI primary). */
-const CHART_PRIMARY = "var(--color-accent)";
 
 function parseSection(raw: string | null): Section {
   return raw === "review" ? "review" : "analytics";
@@ -430,103 +428,5 @@ function AnalyticsSection() {
         </Panel>
       </div>
     </div>
-  );
-}
-
-function ReflectionRow({
-  label,
-  icon,
-  stat,
-}: {
-  label: string;
-  icon: "note" | "heart";
-  stat: ReflectionStat;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm text-foreground">
-          <Icon name={icon} size={14} className="text-muted" />
-          {label}
-        </span>
-        <span className="text-xs tabular-nums text-muted">
-          {stat.count} of {stat.series.length} days · {stat.streak}-day streak
-        </span>
-      </div>
-      <div className="mt-2.5 flex flex-wrap gap-[3px]">
-        {stat.series.map((d) => (
-          <span
-            key={d.iso}
-            title={`${d.iso}${d.on ? " · logged" : ""}`}
-            className={d.on ? "" : "border border-border"}
-            style={{
-              width: 11,
-              height: 11,
-              borderRadius: 2,
-              background: d.on ? CHART_PRIMARY : "transparent",
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ValueBalanceBar({
-  valueId,
-  name,
-  count,
-  max,
-}: {
-  valueId: string;
-  name: string;
-  count: number;
-  max: number;
-}) {
-  const color = useValueColor(valueId);
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-20 shrink-0 truncate text-xs text-muted">{name}</span>
-      <div className="h-3 flex-1 rounded-full bg-surface-secondary">
-        <div
-          className="h-3 rounded-full"
-          style={{ width: `${(count / max) * 100}%`, background: color }}
-        />
-      </div>
-      <span className="w-6 text-right text-xs tabular-nums text-muted">{count}</span>
-    </div>
-  );
-}
-
-function HeatCell({ cell }: { cell: GridCell }) {
-  if (cell.future) {
-    return (
-      <div
-        style={{ width: 13, height: 13, borderRadius: 2 }}
-        className="border border-dashed border-border"
-      />
-    );
-  }
-  if (cell.total === 0) {
-    return (
-      <div
-        title={cell.iso}
-        style={{ width: 13, height: 13, borderRadius: 2 }}
-        className="border border-border"
-      />
-    );
-  }
-  const op = cell.rate < 0.25 ? 0.25 : cell.rate < 0.5 ? 0.45 : cell.rate < 0.8 ? 0.7 : 1;
-  return (
-    <div
-      title={`${cell.iso} · ${Math.round(cell.rate * 100)}% (${cell.total} task${cell.total > 1 ? "s" : ""})`}
-      style={{
-        width: 13,
-        height: 13,
-        borderRadius: 2,
-        background: CHART_PRIMARY,
-        opacity: op,
-      }}
-    />
   );
 }
