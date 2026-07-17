@@ -1,3 +1,4 @@
+import type { Table } from "dexie";
 import {
   type CollectionName,
   createEmptyDataset,
@@ -5,6 +6,10 @@ import {
   type PersistenceAdapter,
 } from "./adapter";
 import { db } from "./db";
+
+/** Narrow the per-name table off Dexie's wider union to the collection's own row type. */
+const tableFor = <C extends CollectionName>(col: C) =>
+  db[col] as unknown as Table<Dataset[C][number], string>;
 
 /** IndexedDB-backed adapter (via Dexie). The default local-first persistence. */
 export class DexieAdapter implements PersistenceAdapter {
@@ -47,13 +52,11 @@ export class DexieAdapter implements PersistenceAdapter {
   }
 
   async put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void> {
-    // @ts-expect-error — Dexie table union is wider than the per-call type
-    await db[col].put(item);
+    await tableFor(col).put(item);
   }
 
   async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void> {
-    // @ts-expect-error — Dexie table union is wider than the per-call type
-    await db[col].bulkPut(items);
+    await tableFor(col).bulkPut(items);
   }
 
   async remove(col: CollectionName, id: string): Promise<void> {
