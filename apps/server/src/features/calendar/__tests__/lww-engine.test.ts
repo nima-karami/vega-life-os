@@ -41,6 +41,34 @@ describe("whole-event LWW pull", () => {
     });
   });
 
+  it("adopts a Google move even when an unrelated VEGA edit bumped updatedAt afterwards", () => {
+    const task = storedTask({
+      id: "t1",
+      date: "2026-07-20",
+      time: "09:00",
+      fieldUpdatedAt: { time: "2026-07-13T08:00:00.000Z" },
+      updatedAt: "2026-07-13T20:00:00.000Z",
+    });
+    const inbound = timedEvent({ updated: "2026-07-13T12:00:00.000Z" });
+    expect(computePullUpdate(task, inbound)).toEqual({
+      taskId: "t1",
+      date: "2026-07-20",
+      time: "14:00",
+    });
+  });
+
+  it("falls back to updatedAt as the baseline when a legacy task has no schedule-field stamps", () => {
+    const task = storedTask({
+      id: "t1",
+      date: "2026-07-20",
+      time: "09:00",
+      fieldUpdatedAt: {},
+      updatedAt: "2026-07-13T20:00:00.000Z",
+    });
+    const inbound = timedEvent({ updated: "2026-07-13T12:00:00.000Z" });
+    expect(computePullUpdate(task, inbound)).toBeNull();
+  });
+
   it("is a no-op when the event already matches the task's schedule", () => {
     const task = storedTask({ id: "t1", date: "2026-07-20", time: "14:00" });
     expect(computePullUpdate(task, timedEvent())).toBeNull();

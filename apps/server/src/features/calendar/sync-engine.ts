@@ -37,8 +37,12 @@ const signatureOf = (event: GEvent) =>
 
 function newestVegaScheduleTime(task: Task): string {
   const meta = task.fieldUpdatedAt ?? {};
-  const times = [meta.date, meta.time, task.updatedAt].filter(Boolean) as string[];
-  return times.sort().at(-1) ?? "";
+  const scheduleStamps = [meta.date, meta.time].filter(Boolean) as string[];
+  // Scope the LWW baseline to the schedule fields only. Folding in task.updatedAt
+  // let an unrelated edit (title/note/order) veto a real Google reschedule; fall
+  // back to it solely when a legacy task carries no per-field schedule stamps.
+  if (scheduleStamps.length > 0) return scheduleStamps.sort().at(-1) ?? "";
+  return task.updatedAt ?? "";
 }
 
 /** Whole-event LWW: an inbound Google edit only wins when its `updated` is newer than VEGA's newest schedule-field time. */
