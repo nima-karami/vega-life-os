@@ -49,6 +49,17 @@ function computeLuminance({ r, g, b }: Rgb): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
+// WCAG contrast ratio (1 → 21) between two RGB colors.
+function computeContrast(a: Rgb, b: Rgb): number {
+  const la = computeLuminance(a);
+  const lb = computeLuminance(b);
+  const [hi, lo] = la >= lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const NEAR_BLACK: Rgb = { r: 0x1f, g: 0x1f, b: 0x1f };
+const WHITE: Rgb = { r: 0xff, g: 0xff, b: 0xff };
+
 /**
  * Every CSS custom property `getAccentVars` may set, as a stable list. The applier
  * iterates this (not just the current map's keys) so switching to "Default"
@@ -74,12 +85,11 @@ export function getAccentVars(hex: string): Record<string, string> {
 
   const normHex = toHex(rgb);
 
-  // Foreground: whichever of white / near-black contrasts better with the base.
-  const lum = computeLuminance(rgb);
-  const onWhite = (1.0 + 0.05) / (lum + 0.05);
-  const onBlack = (lum + 0.05) / (0.0 + 0.05);
-  const darkFg = onBlack >= onWhite;
-  const fgHex = darkFg ? "#1f1f1f" : "#ffffff";
+  // Foreground: whichever of near-black / white measures higher contrast against
+  // the actual accent color (compared against the real candidates, not idealized
+  // pure black/white — near-black #1f1f1f is not luminance 0).
+  const preferNearBlack = computeContrast(rgb, NEAR_BLACK) >= computeContrast(rgb, WHITE);
+  const fgHex = preferNearBlack ? "#1f1f1f" : "#ffffff";
 
   return {
     "--accent": normHex,
