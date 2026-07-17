@@ -11,15 +11,18 @@ import { SettingsCard } from "./SettingsCard";
 const FIELD =
   "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
 
+// Curated accents, each ≥4.5:1 (WCAG AA) against its computed on-accent foreground.
+// Default's hex is "" — it clears overrides so the CSS slate default shows through;
+// its swatch is painted from the fixed slate below, never the live accent var.
+const DEFAULT_ACCENT_HEX = "#4e6e8e";
+
 const ACCENTS = [
   { name: "Default", hex: "" },
-  { name: "Rust", hex: "#c9501e" },
-  { name: "Ember", hex: "#d8744f" },
-  { name: "Gold", hex: "#c2a14e" },
-  { name: "Moss", hex: "#5f7d3a" },
-  { name: "Teal", hex: "#2bb6a8" },
-  { name: "Cobalt", hex: "#3f63d8" },
-  { name: "Violet", hex: "#7a5cd8" },
+  { name: "Blue", hex: "#2563eb" },
+  { name: "Emerald", hex: "#047857" },
+  { name: "Amber", hex: "#d97706" },
+  { name: "Rose", hex: "#e11d48" },
+  { name: "Violet", hex: "#7c3aed" },
 ];
 
 export function SettingsPage() {
@@ -185,7 +188,7 @@ export function SettingsPage() {
                     >
                       <span
                         className="h-4 w-4 rounded-full border border-border"
-                        style={{ background: a.hex || "var(--color-accent)" }}
+                        style={{ background: a.hex || DEFAULT_ACCENT_HEX }}
                       />
                       <span className="text-xs text-foreground">{a.name}</span>
                     </button>
