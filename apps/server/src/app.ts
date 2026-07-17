@@ -2,6 +2,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import type { Firestore } from "firebase-admin/firestore";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { readBearerToken } from "./core/http";
 import { type ReconcileDeps, runReconcileAll } from "./features/calendar/reconcile";
 import { handleWebhook, readWebhookHeaders } from "./features/calendar/webhook";
 import type { CalendarContext, ContextFactory } from "./trpc/context";
@@ -15,13 +16,6 @@ export type AppDeps = {
   calendar: CalendarContext;
   verifyOidc: OidcVerifier;
 };
-
-function readBearer(req: Request): string | null {
-  const header = req.headers.get("authorization");
-  if (!header) return null;
-  const [scheme, token] = header.split(" ");
-  return scheme?.toLowerCase() === "bearer" && token ? token : null;
-}
 
 export function buildApp(deps: AppDeps): Hono {
   const app = new Hono();
@@ -67,7 +61,7 @@ export function buildApp(deps: AppDeps): Hono {
   });
 
   app.post("/tasks/reconcile", async (c) => {
-    const authorized = await deps.verifyOidc(readBearer(c.req.raw));
+    const authorized = await deps.verifyOidc(readBearerToken(c.req.raw));
     if (!authorized) return c.json({ error: "unauthorized" }, 401);
     const result = await runReconcileAll(reconcileDeps);
     return c.json(result);

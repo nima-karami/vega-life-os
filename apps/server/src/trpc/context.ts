@@ -1,6 +1,7 @@
 import type { Auth } from "firebase-admin/auth";
 import type { Firestore } from "firebase-admin/firestore";
 import type { ServerConfig } from "../core/config";
+import { readBearerToken } from "../core/http";
 import type { GoogleCalendarClient } from "../features/calendar/google-client";
 import type { OauthGateway } from "../features/calendar/oauth";
 
@@ -38,14 +39,6 @@ export function createAdminVerifier(auth: Auth): TokenVerifier {
       return null;
     }
   };
-}
-
-function readBearerToken(req: Request): string | null {
-  const header = req.headers.get("authorization");
-  if (!header) return null;
-  const [scheme, token] = header.split(" ");
-  if (scheme?.toLowerCase() !== "bearer" || !token) return null;
-  return token;
 }
 
 export function makeCreateContext(deps: ContextDeps): ContextFactory {
