@@ -1,7 +1,6 @@
 import { Button, ButtonGroup, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { todayISO } from "@/core/lib/date";
-import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import {
   cx,
@@ -15,6 +14,8 @@ import {
 } from "@/core/ui";
 import { getGoalsForValue } from "@/features/goals/selectors";
 import { getValueColor } from "@/features/values/color";
+import { ArchivedBanner } from "./components/ArchivedBanner";
+import { ConflictNote } from "./components/ConflictNote";
 import {
   ANYTIME_LABEL,
   countDetached,
@@ -22,74 +23,11 @@ import {
   resetGoalForValue,
   validateDraft,
 } from "./editor";
-import type { Habit, HabitSchedule } from "./model";
+import { buildDraftFromHabit, buildSchedule, createBlankDraft, type Draft } from "./habit-draft";
+import type { Habit } from "./model";
 import { type RepeatMode, RepeatPicker } from "./RepeatPicker";
-import { describeRecurrence, getHabitSchedule, getNextOccurrence } from "./recurrence";
+import { describeRecurrence, getNextOccurrence } from "./recurrence";
 import { findConflictingHabits } from "./selectors";
-
-interface Draft {
-  name: string;
-  valueId: string;
-  goalId: string | null;
-  icon: IconName;
-  /** "HH:mm" or null for an anytime (untimed) habit */
-  time: string | null;
-  days: number[];
-  durationMin: number;
-  repeat: RepeatMode;
-  interval: number;
-  anchor: string;
-  daysOfMonth: number[];
-  lastDay: boolean;
-}
-
-function buildDraftFromHabit(habit: Habit): Draft {
-  const schedule = getHabitSchedule(habit);
-  const isMonthly = schedule.type === "monthly";
-  return {
-    name: habit.name,
-    valueId: habit.valueId,
-    goalId: habit.goalId,
-    icon: habit.icon,
-    time: habit.time,
-    days: schedule.type === "weekly" ? [...schedule.days] : [1, 1, 1, 1, 1, 1, 1],
-    durationMin: habit.durationMin,
-    repeat: isMonthly ? "monthly" : schedule.interval > 1 ? "nweekly" : "weekly",
-    interval: schedule.type === "weekly" && schedule.interval > 1 ? schedule.interval : 2,
-    anchor: schedule.type === "weekly" ? schedule.anchor : todayISO(),
-    daysOfMonth: isMonthly ? [...schedule.daysOfMonth] : [new Date().getDate()],
-    lastDay: isMonthly ? schedule.lastDay : false,
-  };
-}
-
-function createBlankDraft(valueId: string): Draft {
-  return {
-    name: "",
-    valueId,
-    goalId: null,
-    icon: "repeat",
-    time: "09:00",
-    days: [1, 1, 1, 1, 1, 1, 1],
-    durationMin: 30,
-    repeat: "weekly",
-    interval: 2,
-    anchor: todayISO(),
-    daysOfMonth: [new Date().getDate()],
-    lastDay: false,
-  };
-}
-
-function buildSchedule(d: Draft): HabitSchedule {
-  if (d.repeat === "monthly") {
-    return { type: "monthly", daysOfMonth: d.daysOfMonth, lastDay: d.lastDay };
-  }
-  return {
-    type: "weekly",
-    days: d.days,
-    interval: d.repeat === "nweekly" ? d.interval : 1,
-    anchor: d.anchor,
-  };
-}
 
 export interface HabitEditorProps {
   /** The habit being edited, or null to create a new one (nothing is persisted
@@ -432,30 +370,3 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
 
 const FIELD_CLASS =
   "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
-
-function ArchivedBanner({ onUnarchive }: { onUnarchive: () => void }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] bg-surface-secondary px-3 py-2">
-      <span className="flex items-center gap-1.5 text-xs text-muted">
-        <Icon name="clipboard" size={13} />
-        Archived — unarchive to edit and resume scheduling.
-      </span>
-      <Button size="sm" variant="secondary" onPress={onUnarchive}>
-        Unarchive to edit
-      </Button>
-    </div>
-  );
-}
-
-function ConflictNote({ text }: { text: string | null }) {
-  return (
-    <div aria-live="polite" className="min-h-0">
-      {text && (
-        <p className="flex items-start gap-1.5 text-xs text-warning">
-          <Icon name="alert" size={13} className="mt-0.5 shrink-0" />
-          <span>{text}</span>
-        </p>
-      )}
-    </div>
-  );
-}
