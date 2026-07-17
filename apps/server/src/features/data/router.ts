@@ -2,6 +2,7 @@ import { collectionNameSchema, type Dataset } from "@vega/shared";
 import { z } from "zod";
 import { parseRecord, writeRecord } from "../../core/collection-store";
 import { createRepository } from "../../core/repository";
+import { writeTombstone } from "../../core/tombstone";
 import { protectedProcedure, router } from "../../trpc/trpc";
 
 const unknownRecord = z.record(z.string(), z.unknown());
@@ -49,9 +50,19 @@ export const dataRouter = router({
     }),
 
   deleteAll: protectedProcedure.mutation(async ({ ctx }) => {
+    const now = ctx.calendar.now();
     for (const collection of collectionNameSchema.options) {
       const col = ctx.firestore.collection(`users/${ctx.uid}/${collection}`);
       const snap = await col.get();
+      // A wiped mirror event resurrects on the next gcal reconcile unless its googleId is
+      // tombstoned — the reconcile keys resurrection on googleId, not the record id.
+      if (collection === "calendarEvents") {
+        for (const doc of snap.docs) {
+          const googleId = (doc.data() as { googleId?: string }).googleId;
+          if (googleId)
+            await writeTombstone(ctx.firestore, ctx.uid, "calendarEvents", googleId, now);
+        }
+      }
       for (let i = 0; i < snap.docs.length; i += 450) {
         const batch = ctx.firestore.batch();
         for (const doc of snap.docs.slice(i, i + 450)) batch.delete(doc.ref);

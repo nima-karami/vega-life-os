@@ -1,7 +1,9 @@
 import { collectionNameSchema } from "@vega/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
+import { connectCalendar } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
+import { runReconcile } from "../../calendar/reconcile";
 
 function livedEvent(id: string) {
   return {
@@ -109,6 +111,34 @@ describe("data router (real server vs emulator)", () => {
 
     expect(await server.asUid(owner).data.list.query({ collection: "calendarEvents" })).toEqual([]);
     expect(await createRepository(server.firestore, owner, "tasks").get("t_wipe")).toBeNull();
+  });
+
+  it("deleteAll tombstones a mirror event so a later reconcile cannot resurrect it", async () => {
+    const uid = "data-wipe-reconcile";
+    const extCal = "cal-ext-wipe";
+    const mirror = () => createRepository(server.firestore, uid, "calendarEvents");
+    await connectCalendar(server, uid, {
+      writeCalendarId: "cal-write-wipe",
+      readCalendarIds: [extCal],
+    });
+    server.google.seedEvent(extCal, {
+      id: "g-wipe-1",
+      iCalUID: "ical-wipe-1",
+      summary: "External",
+      start: { dateTime: "2026-07-22T09:00:00+00:00" },
+      end: { dateTime: "2026-07-22T09:30:00+00:00" },
+      updated: "2026-07-13T08:00:00.000Z",
+      status: "confirmed",
+    });
+
+    await runReconcile(server.reconcileDeps, uid);
+    expect((await mirror().list()).some((event) => event.googleId === "g-wipe-1")).toBe(true);
+
+    await server.asUid(uid).data.deleteAll.mutate();
+    expect(await server.asUid(uid).data.list.query({ collection: "calendarEvents" })).toEqual([]);
+
+    await runReconcile(server.reconcileDeps, uid);
+    expect((await mirror().list()).some((event) => event.googleId === "g-wipe-1")).toBe(false);
   });
 
   it("loadAll returns every collection uid-scoped in one response", async () => {
