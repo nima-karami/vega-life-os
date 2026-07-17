@@ -7,8 +7,9 @@ type EntityContract = {
   valid: Record<string, unknown>;
 };
 
-/** The shared per-entity contract: valid round-trips, unknown keys rejected,
- *  create input forbids the server-set stamps. */
+/** The shared per-entity contract: valid round-trips, unknown keys stripped (not
+ *  rejected — the client upserts whole stored records), create input drops the
+ *  server-set stamps rather than 400ing on them. */
 export function describeEntityContract(
   name: string,
   { schema, createSchema, valid }: EntityContract,
@@ -18,15 +19,20 @@ export function describeEntityContract(
       expect(schema.parse(valid)).toMatchObject(valid);
     });
 
-    it("rejects an unknown field", () => {
-      expect(schema.safeParse({ ...valid, bogus: 1 }).success).toBe(false);
+    it("strips an unknown field instead of rejecting", () => {
+      const parsed = schema.safeParse({ ...valid, bogus: 1 });
+      expect(parsed.success).toBe(true);
+      expect(Object.keys((parsed.data ?? {}) as object)).not.toContain("bogus");
     });
 
-    it("create input forbids the server-set stamps", () => {
+    it("create input accepts a record carrying the server-set stamps, stripping them", () => {
       const { updatedAt, fieldUpdatedAt, ...validCreate } = valid;
       expect(createSchema.safeParse(validCreate).success).toBe(true);
-      expect(createSchema.safeParse({ ...validCreate, updatedAt }).success).toBe(false);
-      expect(createSchema.safeParse({ ...validCreate, fieldUpdatedAt }).success).toBe(false);
+      const parsed = createSchema.safeParse({ ...validCreate, updatedAt, fieldUpdatedAt });
+      expect(parsed.success).toBe(true);
+      const keys = Object.keys((parsed.data ?? {}) as object);
+      expect(keys).not.toContain("updatedAt");
+      expect(keys).not.toContain("fieldUpdatedAt");
     });
   });
 }

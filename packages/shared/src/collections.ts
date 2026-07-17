@@ -24,7 +24,7 @@ export const schemasByCollection = {
   calendarEvents: calendarEventSchema,
 } as const;
 
-/** Client-settable input schema per collection — server-owned meta omitted, unknown keys rejected. */
+/** Client-settable input schema per collection — server-owned meta + unknown keys stripped, not rejected. */
 export const createSchemasByCollection = {
   values: valueCreateSchema,
   goals: goalCreateSchema,
