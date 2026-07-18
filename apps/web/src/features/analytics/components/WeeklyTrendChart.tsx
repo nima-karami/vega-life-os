@@ -48,7 +48,7 @@ export function WeeklyTrendChart({ weeks }: { weeks: WeekPoint[] }) {
                   <Tooltip.Trigger className="flex h-full flex-1 cursor-default items-end rounded-t-[2px] outline-none focus-visible:ring-2 focus-visible:ring-accent">
                     <div className="flex w-full flex-col justify-end" style={{ height: BAR_AREA }}>
                       <div
-                        className="w-full rounded-t-[2px] transition-[height]"
+                        className="w-full rounded-t-[2px] transition-[height] motion-reduce:transition-none"
                         style={{
                           height: `${Math.max(week.rate * 100, week.total ? 3 : 0)}%`,
                           minHeight: week.total ? 3 : 0,
