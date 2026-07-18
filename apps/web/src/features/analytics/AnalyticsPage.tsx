@@ -1,24 +1,25 @@
-import { Button, ButtonGroup, ScrollShadow } from "@heroui/react";
-import { useMemo, useState } from "react";
+import { Button, ButtonGroup } from "@heroui/react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
-import { Gauge, Icon, Label, Panel, SectionHead } from "@/core/ui";
-import { computeGoalTimeElapsed } from "@/features/goals";
-import type { Goal } from "@/features/goals/model";
+import { cx, Gauge, Icon, Label, Panel, SectionHead } from "@/core/ui";
 import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
+import { ConsistencyHeatmap } from "./components/ConsistencyHeatmap";
+import { DailyCompletionChart } from "./components/DailyCompletionChart";
+import { GoalTrajectory } from "./components/GoalTrajectory";
 import { HabitReportModal } from "./components/HabitReportModal";
-import { HeatCell } from "./components/HeatCell";
 import { MoodChart } from "./components/MoodChart";
+import { MoodWeekdayChart } from "./components/MoodWeekdayChart";
 import { ReflectionRow } from "./components/ReflectionRow";
 import { ValueBalanceBar } from "./components/ValueBalanceBar";
 import { WeeklyTrendChart } from "./components/WeeklyTrendChart";
 import { DEFAULT_RANGE, RANGE_OPTIONS, rangeToDays, rangeToWeeks, type TimeRange } from "./range";
+import { packSections, type SectionId, sectionsForRange } from "./sections";
 import {
   buildConsistencyGrid,
   computeDailyStats,
-  computeGoalVerdict,
   computeInsights,
   computeMoodByWeekday,
   computeMoodSeries,
@@ -27,7 +28,8 @@ import {
   computeValueTime,
   computeWeeklyTrend,
   countCompletedByValue,
-  type GoalVerdict,
+  downsampleMoodWeekly,
+  getGoalsInWindow,
 } from "./selectors";
 
 type Section = "analytics" | "review";
@@ -87,6 +89,7 @@ function AnalyticsSection() {
   const habits = useStore((s) => s.habits);
   const journal = useStore((s) => s.journal);
   const rules = useStore((s) => s.streakRules);
+  const calendarEvents = useStore((s) => s.calendarEvents);
 
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
   const [reportHabitId, setReportHabitId] = useState<string | null>(null);
@@ -97,35 +100,52 @@ function AnalyticsSection() {
   const weekly = useMemo(() => computeWeeklyTrend(tasks, weeks), [tasks, weeks]);
   const moodSeries = useMemo(() => computeMoodSeries(journal, days), [journal, days]);
   const moodByWeekday = useMemo(() => computeMoodByWeekday(journal, days), [journal, days]);
-  const hasMood = moodSeries.some((d) => d.mood != null);
   const overall = useMemo(() => computeOverallRate(tasks, days), [tasks, days]);
   const byValue = useMemo(() => countCompletedByValue(tasks, days), [tasks, days]);
-  const calendarEvents = useStore((s) => s.calendarEvents);
   const livedByValue = useMemo(
     () => computeValueTime(calendarEvents, days),
     [calendarEvents, days],
   );
-  const hasLived = Object.keys(livedByValue).length > 0;
-  // consistency grid is the long view — fixed window regardless of range
   const grid = useMemo(() => buildConsistencyGrid(tasks, 22), [tasks]);
   const reflection = useMemo(
     () => computeReflectionStats(journal, days, rules),
     [journal, days, rules],
   );
-  const insightList = useMemo(() => computeInsights(tasks, habits, rules), [tasks, habits, rules]);
-  const maxValueCount = Math.max(1, ...Object.values(byValue));
-  const maxDaily = Math.max(1, ...daily.map((d) => d.total));
-
+  const insightList = useMemo(
+    () => computeInsights(tasks, habits, rules, days),
+    [tasks, habits, rules, days],
+  );
+  const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days), [goals, days]);
   const habitRanked = useMemo(
     () =>
       habits.map((h) => ({ h, rate: computeHabitRate(tasks, h) })).sort((a, b) => b.rate - a.rate),
     [habits, tasks],
   );
 
+  const hasMood = moodSeries.some((d) => d.mood != null);
+  const hasLived = Object.keys(livedByValue).length > 0;
+  const enoughWeekly = weekly.filter((w) => w.total > 0).length >= 2;
+  const maxValueCount = Math.max(1, ...Object.values(byValue));
+  const maxDaily = Math.max(1, ...daily.map((d) => d.total));
+
   const hasTasks = tasks.some((t) => t.date);
   const tasksInRange = daily.some((d) => d.total > 0);
-  const enoughWeekly = weekly.filter((w) => w.total > 0).length >= 2;
   const reportHabit = reportHabitId ? habits.find((h) => h.id === reportHabitId) : undefined;
+  const moodGranularity = range === "1y" ? "week" : "day";
+  const moodChartSeries = range === "1y" ? downsampleMoodWeekly(moodSeries) : moodSeries;
+
+  const packed = useMemo(
+    () =>
+      packSections(
+        sectionsForRange(range, {
+          hasMood,
+          hasWeekly: enoughWeekly,
+          hasLived,
+          hasInsights: insightList.length > 0,
+        }),
+      ),
+    [range, hasMood, enoughWeekly, hasLived, insightList.length],
+  );
 
   // First-run: no tasks ever logged → one explanatory panel, not a wall of charts.
   if (!hasTasks) {
@@ -143,215 +163,88 @@ function AnalyticsSection() {
     );
   }
 
-  return (
-    <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted" aria-live="polite">
-          Showing the last {days} day{days === 1 ? "" : "s"}
-        </p>
-        <ButtonGroup aria-label="Time range">
-          {RANGE_OPTIONS.map((o) => (
-            <Button
-              key={o.id}
-              size="sm"
-              variant={range === o.id ? "primary" : "secondary"}
-              aria-pressed={range === o.id}
-              aria-label={o.label}
-              onPress={() => setRange(o.id)}
-            >
-              {o.id}
-            </Button>
-          ))}
-        </ButtonGroup>
-      </div>
-
-      {insightList.length > 0 && (
-        <Panel className="mb-6 p-6">
-          <SectionHead title="Insights" meta="60d" />
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {insightList.map((text) => (
-              <div key={text} className="flex items-start gap-2.5">
-                <Icon name="spark" size={14} className="mt-0.5 shrink-0 text-accent" />
-                <p className="text-sm leading-relaxed text-foreground">{text}</p>
-              </div>
-            ))}
+  const sectionBody = (id: SectionId): ReactNode => {
+    switch (id) {
+      case "mood":
+        return (
+          <>
+            <SectionHead title="Mood" meta={moodGranularity === "week" ? "weekly" : `${days}d`} />
+            <MoodChart series={moodChartSeries} granularity={moodGranularity} />
+          </>
+        );
+      case "weekday":
+        return (
+          <>
+            <SectionHead title="Mood by weekday" meta={`${days}d`} />
+            <MoodWeekdayChart byWeekday={moodByWeekday} />
+          </>
+        );
+      case "reflection":
+        return (
+          <>
+            <SectionHead title="Reflection" meta={`${days}d`} />
+            <div className="mt-4 space-y-5">
+              <ReflectionRow label="Journaled" icon="note" stat={reflection.journaled} />
+              <ReflectionRow label="Gratitude" icon="heart" stat={reflection.gratitude} />
+            </div>
+          </>
+        );
+      case "heatmap":
+        return (
+          <>
+            <SectionHead title="Consistency" meta="22 wk" />
+            <ConsistencyHeatmap grid={grid} />
+          </>
+        );
+      case "gauge":
+        return (
+          <div className="flex h-full items-center gap-5">
+            <Gauge value={overall} size={92} stroke={8} hue={CHART_PRIMARY} sub={range} />
+            <div>
+              <p className="text-4xl font-semibold leading-none tracking-tight text-foreground">
+                {Math.round(overall * 100)}%
+              </p>
+              <Label className="mt-1">follow-through</Label>
+              <p className="mt-2 text-xs text-muted">
+                resolved vs. scheduled over the last {days} days
+              </p>
+            </div>
           </div>
-        </Panel>
-      )}
-
-      {!tasksInRange && (
-        <Panel className="mb-6 p-6 text-center">
-          <p className="text-sm text-muted">No activity in this range — try a wider one.</p>
-        </Panel>
-      )}
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* headline */}
-        <Panel
-          className="flex items-center gap-5 p-6"
-          aria-label={`Follow-through ${Math.round(overall * 100)} percent over the last ${days} days`}
-        >
-          <Gauge value={overall} size={92} stroke={8} hue={CHART_PRIMARY} sub={range} />
-          <div>
-            <p className="text-4xl font-semibold leading-none tracking-tight text-foreground">
-              {Math.round(overall * 100)}%
-            </p>
-            <Label className="mt-1">follow-through</Label>
-            <p className="mt-2 text-xs text-muted">resolved vs. scheduled</p>
-          </div>
-        </Panel>
-
-        <Panel className="p-6 lg:col-span-2">
-          <SectionHead title="Weekly follow-through" meta={`${weeks} wk`} />
-          {enoughWeekly ? (
+        );
+      case "trend":
+        return (
+          <>
+            <SectionHead title="Weekly follow-through" meta={`${weeks} wk`} />
             <WeeklyTrendChart weeks={weekly} />
-          ) : (
-            <p className="py-6 text-xs text-muted">
-              Not enough weekly data yet — keep logging to see the trend.
-            </p>
-          )}
-        </Panel>
-
-        {/* reflection trackers — same "consistency" category, paired with the heatmap */}
-        <Panel className="p-6 lg:col-span-1">
-          <SectionHead title="Reflection" meta={`${days}d`} />
-          <div className="mt-4 space-y-5">
-            <ReflectionRow label="Journaled" icon="note" stat={reflection.journaled} />
-            <ReflectionRow label="Gratitude" icon="heart" stat={reflection.gratitude} />
-          </div>
-        </Panel>
-
-        {hasMood && (
-          <Panel className="p-6 lg:col-span-3">
-            <SectionHead title="Mood" meta={`${days}d`} />
-            <MoodChart series={moodSeries} byWeekday={moodByWeekday} />
-          </Panel>
-        )}
-
-        <Panel className="p-6 lg:col-span-2">
-          <SectionHead title="Consistency" meta="22 wk" />
-          <ScrollShadow orientation="horizontal" className="mt-4">
-            <div className="mb-1 flex gap-[3px]">
-              <div className="w-4 shrink-0" />
-              {grid.cols.map((col, ci) => {
-                const mk = grid.months.find((m) => m.col === ci);
-                return (
-                  <div
-                    key={`mlabel-${col[0]?.iso ?? ci}`}
-                    style={{ width: 13 }}
-                    className="shrink-0 overflow-visible whitespace-nowrap text-[8px] text-muted"
-                  >
-                    {mk ? mk.label : ""}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex gap-[3px]">
-              <div className="mr-px flex w-4 shrink-0 flex-col gap-[3px]">
-                {[
-                  { key: "mon", label: "M" },
-                  { key: "tue", label: "" },
-                  { key: "wed", label: "W" },
-                  { key: "thu", label: "" },
-                  { key: "fri", label: "F" },
-                  { key: "sat", label: "" },
-                  { key: "sun", label: "S" },
-                ].map((d) => (
-                  <span
-                    key={d.key}
-                    style={{ height: 13 }}
-                    className="text-[8px] leading-[13px] text-muted"
-                  >
-                    {d.label}
-                  </span>
-                ))}
-              </div>
-              {grid.cols.map((col, ci) => (
-                <div key={`wcol-${col[0]?.iso ?? ci}`} className="flex shrink-0 flex-col gap-[3px]">
-                  {col.map((cell) => (
-                    <HeatCell key={cell.iso} cell={cell} />
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center gap-1.5">
-              <Label>less</Label>
-              {[0, 0.25, 0.45, 0.7, 1].map((o) => (
-                <span
-                  key={`legend-${o}`}
-                  className={o ? "" : "border border-border"}
-                  style={{
-                    width: 11,
-                    height: 11,
-                    borderRadius: 2,
-                    background: o ? CHART_PRIMARY : "transparent",
-                    opacity: o || 1,
-                  }}
+          </>
+        );
+      case "daily":
+        return (
+          <>
+            <SectionHead title="Daily completion" meta={`${days}d`} />
+            <DailyCompletionChart daily={daily} maxDaily={maxDaily} />
+          </>
+        );
+      case "balance":
+        return (
+          <>
+            <SectionHead title="Balance" meta={`${days}d`} />
+            <div className="mt-4 space-y-2.5">
+              {values.map((v) => (
+                <ValueBalanceBar
+                  key={v.id}
+                  valueId={v.id}
+                  name={v.name}
+                  count={byValue[v.id] ?? 0}
+                  max={maxValueCount}
                 />
               ))}
-              <Label>more</Label>
-              <span className="ml-3 text-xs text-muted">daily completion</span>
             </div>
-          </ScrollShadow>
-        </Panel>
-
-        <Panel className="p-6 lg:col-span-2">
-          <SectionHead title="Daily completion" meta={`${days}d`} />
-          <div className="mt-4 flex items-end gap-[3px]" style={{ height: 120 }}>
-            {daily.map((d) => (
-              <div
-                key={d.iso}
-                className="group relative flex flex-1 flex-col items-center justify-end"
-              >
-                <div className="flex w-full flex-col justify-end" style={{ height: 110 }}>
-                  <div
-                    className="w-full rounded-t-[2px] bg-surface-secondary"
-                    style={{ height: `${(d.total / maxDaily) * 100}%`, minHeight: d.total ? 2 : 0 }}
-                  >
-                    <div
-                      className="w-full rounded-t-[2px]"
-                      style={{
-                        height: `${d.total ? (d.done / d.total) * 100 : 0}%`,
-                        background: CHART_PRIMARY,
-                      }}
-                    />
-                  </div>
-                </div>
-                <span className="mt-1 text-[7px] text-muted">{d.label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 flex items-center gap-3">
-            <span className="flex items-center gap-1 text-xs text-muted">
-              <span
-                className="inline-block h-2 w-2 rounded-[2px]"
-                style={{ background: CHART_PRIMARY }}
-              />{" "}
-              done
-            </span>
-            <span className="flex items-center gap-1 text-xs text-muted">
-              <span className="inline-block h-2 w-2 rounded-[2px] bg-surface-secondary" /> scheduled
-            </span>
-          </div>
-        </Panel>
-
-        <Panel className="p-6">
-          <SectionHead title="Balance" meta={`${days}d`} />
-          <div className="mt-4 space-y-2.5">
-            {values.map((v) => (
-              <ValueBalanceBar
-                key={v.id}
-                valueId={v.id}
-                name={v.name}
-                count={byValue[v.id] ?? 0}
-                max={maxValueCount}
-              />
-            ))}
-          </div>
-        </Panel>
-
-        {hasLived && (
-          <Panel className="p-6">
+          </>
+        );
+      case "valueTime":
+        return (
+          <>
             <SectionHead title="Time in service of values" meta={`${days}d`} />
             <p className="mt-1 text-xs text-muted">
               Real-life events you tagged from your calendar.
@@ -377,48 +270,98 @@ function AnalyticsSection() {
                   );
                 })}
             </div>
-          </Panel>
-        )}
-
-        <Panel className="p-6 lg:col-span-2">
-          <SectionHead title="Goal trajectory" meta="pace" />
-          <div className="mt-4 space-y-4">
-            {goals.map((g) => (
-              <GoalTrajectoryRow key={g.id} goal={g} />
-            ))}
-            {!goals.length && (
-              <p className="text-sm text-muted">No goals yet to track against pace.</p>
-            )}
-          </div>
-        </Panel>
-
-        <Panel className="p-6">
-          <SectionHead title="Habit consistency" meta="rate" />
-          <div className="mt-4 space-y-1">
-            {habitRanked.map(({ h, rate }) => (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => setReportHabitId(h.id)}
-                className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
-                aria-label={`${h.name} report — ${Math.round(rate * 100)}% follow-through`}
-              >
-                <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
-                <div className="h-3 flex-1 rounded-full bg-surface-secondary">
-                  <div
-                    className="h-3 rounded-full"
-                    style={{ width: `${rate * 100}%`, background: CHART_PRIMARY }}
-                  />
+          </>
+        );
+      case "goals":
+        return (
+          <>
+            <SectionHead title="Goal trajectory" meta="pace" />
+            <GoalTrajectory goals={goalsInWindow} />
+          </>
+        );
+      case "habits":
+        return (
+          <>
+            <SectionHead title="Habit consistency" meta="rate" />
+            <div className="mt-4 space-y-1">
+              {habitRanked.map(({ h, rate }) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => setReportHabitId(h.id)}
+                  className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
+                  aria-label={`${h.name} report — ${Math.round(rate * 100)}% follow-through`}
+                >
+                  <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
+                  <div className="h-3 flex-1 rounded-full bg-surface-secondary">
+                    <div
+                      className="h-3 rounded-full"
+                      style={{ width: `${rate * 100}%`, background: CHART_PRIMARY }}
+                    />
+                  </div>
+                  <span className="w-8 text-right text-xs tabular-nums text-muted">
+                    {Math.round(rate * 100)}%
+                  </span>
+                  <Icon name="eye" size={14} className="shrink-0 text-muted" />
+                </button>
+              ))}
+              {!habitRanked.length && (
+                <p className="text-sm text-muted">No habits to measure yet.</p>
+              )}
+            </div>
+          </>
+        );
+      case "insights":
+        return (
+          <>
+            <SectionHead title="Insights" meta={`${days}d`} />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {insightList.map((text) => (
+                <div key={text} className="flex items-start gap-2.5">
+                  <Icon name="spark" size={14} className="mt-0.5 shrink-0 text-accent" />
+                  <p className="text-sm leading-relaxed text-foreground">{text}</p>
                 </div>
-                <span className="w-8 text-right text-xs tabular-nums text-muted">
-                  {Math.round(rate * 100)}%
-                </span>
-                <Icon name="eye" size={14} className="shrink-0 text-muted" />
-              </button>
-            ))}
-            {!habitRanked.length && <p className="text-sm text-muted">No habits to measure yet.</p>}
-          </div>
+              ))}
+            </div>
+          </>
+        );
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted" aria-live="polite">
+          Showing the last {days} day{days === 1 ? "" : "s"}
+        </p>
+        <ButtonGroup aria-label="Time range">
+          {RANGE_OPTIONS.map((o) => (
+            <Button
+              key={o.id}
+              size="sm"
+              variant={range === o.id ? "primary" : "secondary"}
+              aria-pressed={range === o.id}
+              aria-label={o.label}
+              onPress={() => setRange(o.id)}
+            >
+              {o.id}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </div>
+
+      {!tasksInRange && (
+        <Panel className="mb-6 p-6 text-center">
+          <p className="text-sm text-muted">No activity in this range — try a wider one.</p>
         </Panel>
+      )}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {packed.map((s) => (
+          <Panel key={s.id} className={cx("p-6", s.span === "full" && "lg:col-span-2")}>
+            {sectionBody(s.id)}
+          </Panel>
+        ))}
       </div>
 
       {reportHabit && (
@@ -430,53 +373,4 @@ function AnalyticsSection() {
       )}
     </div>
   );
-}
-
-function GoalTrajectoryRow({ goal }: { goal: Goal }) {
-  const verdict = computeGoalVerdict(goal);
-  const elapsed = computeGoalTimeElapsed(goal);
-  const isDone = verdict.kind === "completed";
-  const fill = isDone ? "var(--color-good)" : CHART_PRIMARY;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-foreground">{goal.name}</span>
-        <GoalVerdictBadge verdict={verdict} />
-      </div>
-      <div className="relative mt-2 h-2 rounded-full bg-surface-secondary">
-        <div
-          className="absolute left-0 top-0 h-2 rounded-full"
-          style={{ width: `${goal.progress * 100}%`, background: fill }}
-        />
-        {verdict.kind === "pace" && (
-          <div
-            className="absolute top-[-2px] h-3 border-l border-dashed border-danger"
-            style={{ left: `${elapsed * 100}%` }}
-            title="expected pace"
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function GoalVerdictBadge({ verdict }: { verdict: GoalVerdict }) {
-  if (verdict.kind === "completed") {
-    return (
-      <span className="flex items-center gap-1 text-xs text-success">
-        <Icon name="check" size={13} />
-        Completed
-      </span>
-    );
-  }
-  if (verdict.kind === "closed") return <span className="text-xs text-muted">Closed</span>;
-  if (verdict.kind === "pace") {
-    return (
-      <span className={`text-xs ${verdict.isBehind ? "text-danger" : "text-success"}`}>
-        {verdict.text}
-      </span>
-    );
-  }
-  return <span className="text-xs text-muted">—</span>;
 }

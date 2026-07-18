@@ -6,7 +6,7 @@
  * and reused everywhere so the restyle never drifts from the original math.
  */
 
-export type TimeRange = "7d" | "28d" | "90d" | "1y";
+export type TimeRange = "7d" | "30d" | "90d" | "1y";
 
 export interface RangeOption {
   id: TimeRange;
@@ -16,17 +16,17 @@ export interface RangeOption {
 /** Fixed, ordered set of ranges (not user-configurable). */
 export const RANGE_OPTIONS: RangeOption[] = [
   { id: "7d", label: "7 days" },
-  { id: "28d", label: "28 days" },
+  { id: "30d", label: "30 days" },
   { id: "90d", label: "90 days" },
   { id: "1y", label: "1 year" },
 ];
 
-/** 28d is the most common window in the existing selectors — a sensible "recent" default. */
-export const DEFAULT_RANGE: TimeRange = "28d";
+/** 30d is the standard "recent" window and the page's default. */
+export const DEFAULT_RANGE: TimeRange = "30d";
 
 const RANGE_DAYS: Record<TimeRange, number> = {
   "7d": 7,
-  "28d": 28,
+  "30d": 30,
   "90d": 90,
   "1y": 365,
 };

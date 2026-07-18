@@ -3,7 +3,7 @@ import { DEFAULT_RANGE, RANGE_OPTIONS, rangeToDays, rangeToWeeks, type TimeRange
 
 describe("analytics time-range mapping", () => {
   it("exposes the fixed set of range options in order", () => {
-    expect(RANGE_OPTIONS.map((o) => o.id)).toEqual(["7d", "28d", "90d", "1y"]);
+    expect(RANGE_OPTIONS.map((o) => o.id)).toEqual(["7d", "30d", "90d", "1y"]);
   });
 
   it("every option has a human label", () => {
@@ -12,20 +12,20 @@ describe("analytics time-range mapping", () => {
     }
   });
 
-  it("defaults to 28d (the most common selector window)", () => {
-    expect(DEFAULT_RANGE).toBe("28d");
+  it("defaults to 30d (the standard recent window)", () => {
+    expect(DEFAULT_RANGE).toBe("30d");
   });
 
   it("maps each range to the spec's day count", () => {
     expect(rangeToDays("7d")).toBe(7);
-    expect(rangeToDays("28d")).toBe(28);
+    expect(rangeToDays("30d")).toBe(30);
     expect(rangeToDays("90d")).toBe(90);
     expect(rangeToDays("1y")).toBe(365);
   });
 
   it("maps each range to ceil(days/7) weeks for the weekly trend", () => {
     expect(rangeToWeeks("7d")).toBe(1);
-    expect(rangeToWeeks("28d")).toBe(4);
+    expect(rangeToWeeks("30d")).toBe(5);
     expect(rangeToWeeks("90d")).toBe(13);
     expect(rangeToWeeks("1y")).toBe(53);
   });
