@@ -36,10 +36,10 @@ export function computeDailyStats(tasks: Task[], n = 28): DayStat[] {
   });
 }
 
-/** Overall resolved rate over the last n days (skips excluded). */
+/** Overall resolved rate over the last n days inclusive (skips excluded). */
 export function computeOverallRate(tasks: Task[], n = 30): number {
-  const lo = format(subDays(new Date(), n), "yyyy-MM-dd");
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = todayISO();
+  const lo = shiftISO(today, -(n - 1));
   const window = tasks.filter(
     (t) => t.date && t.date >= lo && t.date <= today && t.status !== "skip",
   );
@@ -47,12 +47,14 @@ export function computeOverallRate(tasks: Task[], n = 30): number {
   return window.filter((t) => t.status === "done").length / window.length;
 }
 
-/** Count of completed tasks per value over the last n days. */
-export function countCompletedByValue(tasks: Task[], n = 28): Record<string, number> {
-  const lo = format(subDays(new Date(), n), "yyyy-MM-dd");
+/** Count of completed tasks per value over the last n days inclusive. Future-dated
+ *  done tasks are excluded so they can't inflate the balance. */
+export function countCompletedByValue(tasks: Task[], n = 30): Record<string, number> {
+  const today = todayISO();
+  const lo = shiftISO(today, -(n - 1));
   const out: Record<string, number> = {};
   for (const t of tasks) {
-    if (t.status !== "done" || !t.date || t.date < lo || !t.valueId) continue;
+    if (t.status !== "done" || !t.date || t.date < lo || t.date > today || !t.valueId) continue;
     out[t.valueId] = (out[t.valueId] ?? 0) + 1;
   }
   return out;
@@ -66,12 +68,13 @@ export function countCompletedByValue(tasks: Task[], n = 28): Record<string, num
  */
 export function computeValueTime(
   events: CalendarEvent[],
-  n = 28,
+  n = 30,
 ): Record<string, { minutes: number; occurrences: number }> {
-  const lo = format(subDays(new Date(), n), "yyyy-MM-dd");
+  const today = todayISO();
+  const lo = shiftISO(today, -(n - 1));
   const out: Record<string, { minutes: number; occurrences: number }> = {};
   for (const e of events) {
-    if (!e.valueId || !e.date || e.date < lo) continue;
+    if (!e.valueId || !e.date || e.date < lo || e.date > today) continue;
     const bucket = out[e.valueId] ?? { minutes: 0, occurrences: 0 };
     bucket.occurrences += 1;
     if (!e.allDay) bucket.minutes += e.durationMin;
@@ -152,9 +155,10 @@ export function computeInsights(
   tasks: Task[],
   habits: Habit[],
   rules: StreakRules = DEFAULT_RULES,
+  days = 60,
 ): string[] {
-  const lo = format(subDays(new Date(), 60), "yyyy-MM-dd");
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = todayISO();
+  const lo = shiftISO(today, -(days - 1));
   const window = tasks.filter(
     (t) => t.date && t.date >= lo && t.date <= today && t.status !== "skip",
   );
@@ -344,6 +348,21 @@ export function computeMoodSeries(journal: DayEntry[], n = 30): MoodPoint[] {
   });
 }
 
+/** Collapse a daily mood series into 7-day buckets (used for the year window so the
+ *  chart stays readable); a bucket's mood is the mean of its logged days, else null. */
+export function downsampleMoodWeekly(series: MoodPoint[]): MoodPoint[] {
+  const buckets: MoodPoint[] = [];
+  for (let i = 0; i < series.length; i += 7) {
+    const chunk = series.slice(i, i + 7);
+    const logged = chunk.filter((d) => d.mood != null);
+    const mean = logged.length
+      ? logged.reduce((sum, d) => sum + (d.mood ?? 0), 0) / logged.length
+      : null;
+    buckets.push({ iso: chunk[0].iso, label: chunk[0].label, mood: mean });
+  }
+  return buckets;
+}
+
 export interface WeekdayMood {
   /** 0..6, Mon..Sun. */
   index: number;
@@ -465,4 +484,14 @@ export function computeGoalVerdict(goal: Goal, today: string = todayISO()): Goal
   }
   const badge = getGoalPaceBadge(goal, today);
   return badge ? { kind: "pace", text: badge.text, isBehind: badge.isBehind } : { kind: "none" };
+}
+
+/** Goals whose [start, end] overlaps the last `days` window ending today; a goal
+ *  with no timeframe is always shown. Keeps the trajectory card scoped to the window. */
+export function getGoalsInWindow(goals: Goal[], days: number, now: string = todayISO()): Goal[] {
+  const windowStart = shiftISO(now, -(days - 1));
+  return goals.filter((goal) => {
+    if (!goal.start || !goal.end) return true;
+    return goal.start <= now && goal.end >= windowStart;
+  });
 }

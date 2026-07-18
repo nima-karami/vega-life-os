@@ -1,7 +1,7 @@
 import { format, subDays } from "date-fns";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DayEntry } from "@/features/journal/model";
-import { computeMoodByWeekday, computeMoodSeries } from "../selectors";
+import { computeMoodByWeekday, computeMoodSeries, downsampleMoodWeekly } from "../selectors";
 
 // A Wednesday, so weekday math is unambiguous.
 const NOW = new Date("2026-07-15T12:00:00");
@@ -58,5 +58,33 @@ describe("computeMoodByWeekday", () => {
     expect(wed.avg).toBeCloseTo(4);
     expect(byWeekday[0].avg).toBeNull(); // Monday had no mood
     expect(byWeekday[0].count).toBe(0);
+  });
+});
+
+describe("downsampleMoodWeekly", () => {
+  const point = (iso: string, mood: number | null) => ({ iso, label: iso, mood });
+
+  it("averages logged moods within each 7-day bucket, oldest-first", () => {
+    const series = [
+      point("d0", 4),
+      point("d1", null),
+      point("d2", 2),
+      point("d3", null),
+      point("d4", null),
+      point("d5", null),
+      point("d6", null),
+      point("d7", 5),
+    ];
+    const weekly = downsampleMoodWeekly(series);
+    expect(weekly).toHaveLength(2);
+    expect(weekly[0]).toEqual({ iso: "d0", label: "d0", mood: 3 }); // (4+2)/2
+    expect(weekly[1]).toEqual({ iso: "d7", label: "d7", mood: 5 });
+  });
+
+  it("leaves a bucket with no logged mood as a null gap, never zero", () => {
+    const empty = Array.from({ length: 7 }, (_, i) => point(`e${i}`, null));
+    const weekly = downsampleMoodWeekly(empty);
+    expect(weekly).toHaveLength(1);
+    expect(weekly[0].mood).toBeNull();
   });
 });
