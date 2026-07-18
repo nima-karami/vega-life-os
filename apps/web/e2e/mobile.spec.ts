@@ -179,21 +179,26 @@ test("calendar shows a single-day view with day navigation and no page overflow 
   expect(overflow, `calendar page overflows by ${overflow}px`).toBeLessThanOrEqual(1);
 });
 
-test("analytics sparkline/charts are in a contained-scroll region (360px)", async ({ page }) => {
+test("analytics charts do not overflow horizontally on mobile (360px)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
   await page.goto("/analytics", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  // The page itself must not overflow horizontally.
-  const overflow = await horizontalOverflow(page);
-  expect(overflow, `analytics page overflows by ${overflow}px`).toBeLessThanOrEqual(1);
+  // Default window must not overflow horizontally.
+  const defaultOverflow = await horizontalOverflow(page);
+  expect(
+    defaultOverflow,
+    `analytics (default) overflows by ${defaultOverflow}px`,
+  ).toBeLessThanOrEqual(1);
 
-  // The sparkline wrapper is a horizontal ScrollShadow so the fixed-width SVG is scroll-contained.
-  const sparklineContainer = page.locator('[data-orientation="horizontal"]').first();
-  await expect(sparklineContainer).toBeAttached();
-  const containerBox = await sparklineContainer.boundingBox();
-  if (containerBox) {
-    expect(containerBox.width).toBeLessThanOrEqual(360 + 1);
-  }
+  // The 90-day window renders the wide consistency heatmap; it must stay scroll-contained
+  // so the page still never overflows.
+  await page.getByRole("button", { name: "90 days" }).click();
+  await expect(page.locator("main")).toBeVisible();
+  const wideOverflow = await horizontalOverflow(page);
+  expect(
+    wideOverflow,
+    `analytics (90d, heatmap) overflows by ${wideOverflow}px`,
+  ).toBeLessThanOrEqual(1);
 });
