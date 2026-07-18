@@ -1,6 +1,5 @@
 import { addDays, format, startOfWeek, subDays } from "date-fns";
-import { dowIndex, shiftISO, todayISO } from "@/core/lib/date";
-import type { CalendarEvent } from "@/features/calendar-sync/events-model";
+import { shiftISO, todayISO } from "@/core/lib/date";
 import { type Goal, isGoalClosed } from "@/features/goals/model";
 import { getGoalPaceBadge } from "@/features/goals/presentation";
 import { computeHabitRate, computeHabitStreak } from "@/features/habits";
@@ -10,41 +9,12 @@ import { type DayEntry, hasGratitude } from "@/features/journal/model";
 import { DEFAULT_RULES, resolveStreak, type SeqItem, type StreakRules } from "@/features/streaks";
 import type { Task } from "@/features/tasks/model";
 
-export interface DayStat {
-  iso: string;
-  label: string;
-  done: number;
-  total: number;
-  rate: number;
-}
-
-/** Per-day completion over the last n days (oldest first). */
-export function computeDailyStats(tasks: Task[], n = 28): DayStat[] {
-  return Array.from({ length: n }, (_, i) => {
-    const d = subDays(new Date(), n - 1 - i);
-    const iso = format(d, "yyyy-MM-dd");
-    const day = tasks.filter((t) => t.date === iso);
-    const counted = day.filter((t) => t.status !== "skip");
-    const done = day.filter((t) => t.status === "done").length;
-    return {
-      iso,
-      label: format(d, "EEEEE"),
-      done,
-      total: day.length,
-      rate: counted.length ? done / counted.length : 0,
-    };
-  });
-}
-
-/** Overall resolved rate over the last n days inclusive (skips excluded). */
-export function computeOverallRate(tasks: Task[], n = 30): number {
+/** Any scheduled task dated within the last n days (inclusive, no future) — gates the
+ *  "no activity in this range" hint. */
+export function hasTasksInWindow(tasks: Task[], n: number): boolean {
   const today = todayISO();
   const lo = shiftISO(today, -(n - 1));
-  const window = tasks.filter(
-    (t) => t.date && t.date >= lo && t.date <= today && t.status !== "skip",
-  );
-  if (!window.length) return 0;
-  return window.filter((t) => t.status === "done").length / window.length;
+  return tasks.some((t) => t.date != null && t.date >= lo && t.date <= today);
 }
 
 /** Count of completed tasks per value over the last n days inclusive. Future-dated
@@ -60,116 +30,8 @@ export function countCompletedByValue(tasks: Task[], n = 30): Record<string, num
   return out;
 }
 
-/**
- * Per-value lived-event time over the last n days: a value-tagged timed event adds
- * its duration; an all-day tagged event adds one occurrence (no clock-hours). Tagged
- * history (removed in Google) still counts. Additive to the values picture — habit
- * streaks are untouched.
- */
-export function computeValueTime(
-  events: CalendarEvent[],
-  n = 30,
-): Record<string, { minutes: number; occurrences: number }> {
-  const today = todayISO();
-  const lo = shiftISO(today, -(n - 1));
-  const out: Record<string, { minutes: number; occurrences: number }> = {};
-  for (const e of events) {
-    if (!e.valueId || !e.date || e.date < lo || e.date > today) continue;
-    const bucket = out[e.valueId] ?? { minutes: 0, occurrences: 0 };
-    bucket.occurrences += 1;
-    if (!e.allDay) bucket.minutes += e.durationMin;
-    out[e.valueId] = bucket;
-  }
-  return out;
-}
-
 export function getCurrentStreakTotal(tasks: Task[]): number {
   return tasks.filter((t) => t.status === "done").length;
-}
-
-const DOW_NAME = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const doneRate = (list: Task[]) =>
-  list.length ? list.filter((t) => t.status === "done").length / list.length : 0;
-
-function weekdayStrengthInsight(window: Task[]): string | null {
-  const byDow = Array.from({ length: 7 }, () => ({ done: 0, total: 0 }));
-  for (const t of window) {
-    if (!t.date) continue;
-    const di = dowIndex(t.date);
-    byDow[di].total++;
-    if (t.status === "done") byDow[di].done++;
-  }
-  const dowRanked = byDow
-    .map((x, i) => ({ i, rate: x.total ? x.done / x.total : 0, total: x.total }))
-    .filter((x) => x.total >= 3)
-    .sort((a, b) => b.rate - a.rate);
-  if (dowRanked.length >= 3 && dowRanked[0].rate - dowRanked[dowRanked.length - 1].rate >= 0.1) {
-    const hi = dowRanked[0];
-    const loDay = dowRanked[dowRanked.length - 1];
-    return `You follow through most on ${DOW_NAME[hi.i]}s (${Math.round(hi.rate * 100)}%) and least on ${DOW_NAME[loDay.i]}s (${Math.round(loDay.rate * 100)}%).`;
-  }
-  return null;
-}
-
-function timeOfDayInsight(window: Task[]): string | null {
-  const morning = window.filter((t) => t.time && parseInt(t.time, 10) < 12);
-  const evening = window.filter((t) => t.time && parseInt(t.time, 10) >= 18);
-  if (morning.length >= 5 && evening.length >= 5) {
-    const morningRate = doneRate(morning);
-    const eveningRate = doneRate(evening);
-    if (Math.abs(morningRate - eveningRate) >= 0.08) {
-      return `${morningRate > eveningRate ? "Mornings" : "Evenings"} stick better — ${Math.round(Math.max(morningRate, eveningRate) * 100)}% vs ${Math.round(Math.min(morningRate, eveningRate) * 100)}% the other way.`;
-    }
-  }
-  return null;
-}
-
-function goalLinkInsight(window: Task[]): string | null {
-  const goalTasks = window.filter((t) => t.goalId);
-  const looseTasks = window.filter((t) => !t.goalId && t.valueId);
-  if (goalTasks.length >= 5 && looseTasks.length >= 5) {
-    const goalRate = doneRate(goalTasks);
-    const looseRate = doneRate(looseTasks);
-    if (Math.abs(goalRate - looseRate) >= 0.08) {
-      return `${goalRate > looseRate ? "Goal-linked work" : "Goal-less habits"} land more reliably (${Math.round(Math.max(goalRate, looseRate) * 100)}%) than ${goalRate > looseRate ? "goal-less habits" : "goal-linked work"} (${Math.round(Math.min(goalRate, looseRate) * 100)}%).`;
-    }
-  }
-  return null;
-}
-
-function strongestChainInsight(tasks: Task[], habits: Habit[], rules: StreakRules): string | null {
-  const topChain = habits
-    .map((h) => ({ habit: h, streak: computeHabitStreak(tasks, h, undefined, rules) }))
-    .sort((a, b) => b.streak - a.streak)[0];
-  if (topChain && topChain.streak >= 4) {
-    return `Your strongest chain is "${topChain.habit.name}" at ${topChain.streak} days — worth protecting.`;
-  }
-  return null;
-}
-
-/**
- * Deterministic, non-obvious observations from the data — proactive intelligence,
- * no LLM required. Returns up to 4 insight strings (only when there's enough signal).
- */
-export function computeInsights(
-  tasks: Task[],
-  habits: Habit[],
-  rules: StreakRules = DEFAULT_RULES,
-  days = 60,
-): string[] {
-  const today = todayISO();
-  const lo = shiftISO(today, -(days - 1));
-  const window = tasks.filter(
-    (t) => t.date && t.date >= lo && t.date <= today && t.status !== "skip",
-  );
-  return [
-    weekdayStrengthInsight(window),
-    timeOfDayInsight(window),
-    goalLinkInsight(window),
-    strongestChainInsight(tasks, habits, rules),
-  ]
-    .filter((line): line is string => line !== null)
-    .slice(0, 4);
 }
 
 export interface ReflectionStat {
@@ -298,38 +160,6 @@ export function buildConsistencyGrid(
   return { cols, months };
 }
 
-export interface WeekPoint {
-  /** ISO date of the week's Monday. */
-  weekStartISO: string;
-  /** Short label, e.g. "Jul 6". */
-  label: string;
-  done: number;
-  /** Scheduled (skips excluded) tasks that week. */
-  total: number;
-  /** done / total, 0 when the week had nothing scheduled. */
-  rate: number;
-}
-
-/** Weekly follow-through for the last n weeks (oldest first), carrying the raw counts
- *  so the trend chart can label each bar — not just the bare rate. */
-export function computeWeeklyTrend(tasks: Task[], n = 12): WeekPoint[] {
-  const thisWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
-  return Array.from({ length: n }, (_, i) => {
-    const wkStart = subDays(thisWeek, (n - 1 - i) * 7);
-    const lo = format(wkStart, "yyyy-MM-dd");
-    const hi = format(subDays(thisWeek, (n - 2 - i) * 7), "yyyy-MM-dd");
-    const wk = tasks.filter((t) => t.date && t.date >= lo && t.date < hi && t.status !== "skip");
-    const done = wk.filter((t) => t.status === "done").length;
-    return {
-      weekStartISO: lo,
-      label: format(wkStart, "MMM d"),
-      done,
-      total: wk.length,
-      rate: wk.length ? done / wk.length : 0,
-    };
-  });
-}
-
 export interface MoodPoint {
   iso: string;
   label: string;
@@ -361,36 +191,6 @@ export function downsampleMoodWeekly(series: MoodPoint[]): MoodPoint[] {
     buckets.push({ iso: chunk[0].iso, label: chunk[0].label, mood: mean });
   }
   return buckets;
-}
-
-export interface WeekdayMood {
-  /** 0..6, Mon..Sun. */
-  index: number;
-  label: string;
-  /** Mean mood on this weekday over the window, or null when it had no logged mood. */
-  avg: number | null;
-  count: number;
-}
-
-const WEEKDAY_LABEL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-/** Average mood per weekday over the last n days — surfaces "Mondays dip" patterns. */
-export function computeMoodByWeekday(journal: DayEntry[], n = 90): WeekdayMood[] {
-  const lo = format(subDays(new Date(), n - 1), "yyyy-MM-dd");
-  const today = todayISO();
-  const buckets = Array.from({ length: 7 }, () => ({ sum: 0, count: 0 }));
-  for (const entry of journal) {
-    if (entry.mood == null || entry.date < lo || entry.date > today) continue;
-    const bucket = buckets[dowIndex(entry.date)];
-    bucket.sum += entry.mood;
-    bucket.count += 1;
-  }
-  return buckets.map((b, index) => ({
-    index,
-    label: WEEKDAY_LABEL[index],
-    avg: b.count ? b.sum / b.count : null,
-    count: b.count,
-  }));
 }
 
 /** Per scheduled day: done, done-elsewhere (moved), neutral skip, a real miss, still-pending,

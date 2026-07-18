@@ -2,34 +2,26 @@ import { Button, ButtonGroup } from "@heroui/react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
-import { cx, Gauge, Icon, Label, Panel, SectionHead } from "@/core/ui";
+import { cx, Icon, Panel, SectionHead } from "@/core/ui";
 import { computeHabitRate } from "@/features/habits";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
 import { ConsistencyHeatmap } from "./components/ConsistencyHeatmap";
-import { DailyCompletionChart } from "./components/DailyCompletionChart";
 import { GoalTrajectory } from "./components/GoalTrajectory";
 import { HabitReportModal } from "./components/HabitReportModal";
 import { MoodChart } from "./components/MoodChart";
-import { MoodWeekdayChart } from "./components/MoodWeekdayChart";
 import { ReflectionRow } from "./components/ReflectionRow";
 import { ValueBalanceBar } from "./components/ValueBalanceBar";
-import { WeeklyTrendChart } from "./components/WeeklyTrendChart";
 import { DEFAULT_RANGE, RANGE_OPTIONS, rangeToDays, rangeToWeeks, type TimeRange } from "./range";
-import { packSections, type SectionId, sectionsForRange } from "./sections";
+import { ANALYTICS_SECTIONS, type SectionId } from "./sections";
 import {
   buildConsistencyGrid,
-  computeDailyStats,
-  computeInsights,
-  computeMoodByWeekday,
   computeMoodSeries,
-  computeOverallRate,
   computeReflectionStats,
-  computeValueTime,
-  computeWeeklyTrend,
   countCompletedByValue,
   downsampleMoodWeekly,
   getGoalsInWindow,
+  hasTasksInWindow,
 } from "./selectors";
 
 type Section = "analytics" | "review";
@@ -89,31 +81,18 @@ function AnalyticsSection() {
   const habits = useStore((s) => s.habits);
   const journal = useStore((s) => s.journal);
   const rules = useStore((s) => s.streakRules);
-  const calendarEvents = useStore((s) => s.calendarEvents);
 
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
   const [reportHabitId, setReportHabitId] = useState<string | null>(null);
   const days = rangeToDays(range);
   const weeks = rangeToWeeks(range);
 
-  const daily = useMemo(() => computeDailyStats(tasks, days), [tasks, days]);
-  const weekly = useMemo(() => computeWeeklyTrend(tasks, weeks), [tasks, weeks]);
   const moodSeries = useMemo(() => computeMoodSeries(journal, days), [journal, days]);
-  const moodByWeekday = useMemo(() => computeMoodByWeekday(journal, days), [journal, days]);
-  const overall = useMemo(() => computeOverallRate(tasks, days), [tasks, days]);
   const byValue = useMemo(() => countCompletedByValue(tasks, days), [tasks, days]);
-  const livedByValue = useMemo(
-    () => computeValueTime(calendarEvents, days),
-    [calendarEvents, days],
-  );
-  const grid = useMemo(() => buildConsistencyGrid(tasks, 22), [tasks]);
+  const grid = useMemo(() => buildConsistencyGrid(tasks, weeks), [tasks, weeks]);
   const reflection = useMemo(
     () => computeReflectionStats(journal, days, rules),
     [journal, days, rules],
-  );
-  const insightList = useMemo(
-    () => computeInsights(tasks, habits, rules, days),
-    [tasks, habits, rules, days],
   );
   const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days), [goals, days]);
   const habitRanked = useMemo(
@@ -122,30 +101,13 @@ function AnalyticsSection() {
     [habits, tasks],
   );
 
-  const hasMood = moodSeries.some((d) => d.mood != null);
-  const hasLived = Object.keys(livedByValue).length > 0;
-  const enoughWeekly = weekly.filter((w) => w.total > 0).length >= 2;
   const maxValueCount = Math.max(1, ...Object.values(byValue));
-  const maxDaily = Math.max(1, ...daily.map((d) => d.total));
 
   const hasTasks = tasks.some((t) => t.date);
-  const tasksInRange = daily.some((d) => d.total > 0);
+  const tasksInRange = hasTasksInWindow(tasks, days);
   const reportHabit = reportHabitId ? habits.find((h) => h.id === reportHabitId) : undefined;
   const moodGranularity = range === "1y" ? "week" : "day";
   const moodChartSeries = range === "1y" ? downsampleMoodWeekly(moodSeries) : moodSeries;
-
-  const packed = useMemo(
-    () =>
-      packSections(
-        sectionsForRange(range, {
-          hasMood,
-          hasWeekly: enoughWeekly,
-          hasLived,
-          hasInsights: insightList.length > 0,
-        }),
-      ),
-    [range, hasMood, enoughWeekly, hasLived, insightList.length],
-  );
 
   // First-run: no tasks ever logged → one explanatory panel, not a wall of charts.
   if (!hasTasks) {
@@ -172,13 +134,6 @@ function AnalyticsSection() {
             <MoodChart series={moodChartSeries} granularity={moodGranularity} />
           </>
         );
-      case "weekday":
-        return (
-          <>
-            <SectionHead title="Mood by weekday" meta={`${days}d`} />
-            <MoodWeekdayChart byWeekday={moodByWeekday} />
-          </>
-        );
       case "reflection":
         return (
           <>
@@ -192,43 +147,14 @@ function AnalyticsSection() {
       case "heatmap":
         return (
           <>
-            <SectionHead title="Consistency" meta="22 wk" />
+            <SectionHead title="Consistency" meta={`${weeks} wk`} />
             <ConsistencyHeatmap grid={grid} />
-          </>
-        );
-      case "gauge":
-        return (
-          <div className="flex h-full items-center gap-5">
-            <Gauge value={overall} size={92} stroke={8} hue={CHART_PRIMARY} sub={range} />
-            <div>
-              <p className="text-4xl font-semibold leading-none tracking-tight text-foreground">
-                {Math.round(overall * 100)}%
-              </p>
-              <Label className="mt-1">follow-through</Label>
-              <p className="mt-2 text-xs text-muted">
-                resolved vs. scheduled over the last {days} days
-              </p>
-            </div>
-          </div>
-        );
-      case "trend":
-        return (
-          <>
-            <SectionHead title="Weekly follow-through" meta={`${weeks} wk`} />
-            <WeeklyTrendChart weeks={weekly} />
-          </>
-        );
-      case "daily":
-        return (
-          <>
-            <SectionHead title="Daily completion" meta={`${days}d`} />
-            <DailyCompletionChart daily={daily} maxDaily={maxDaily} />
           </>
         );
       case "balance":
         return (
           <>
-            <SectionHead title="Balance" meta={`${days}d`} />
+            <SectionHead title="Values" meta={`${days}d`} />
             <div className="mt-4 space-y-2.5">
               {values.map((v) => (
                 <ValueBalanceBar
@@ -242,36 +168,6 @@ function AnalyticsSection() {
             </div>
           </>
         );
-      case "valueTime":
-        return (
-          <>
-            <SectionHead title="Time in service of values" meta={`${days}d`} />
-            <p className="mt-1 text-xs text-muted">
-              Real-life events you tagged from your calendar.
-            </p>
-            <div className="mt-4 space-y-2.5">
-              {values
-                .filter((v) => livedByValue[v.id])
-                .map((v) => {
-                  const t = livedByValue[v.id];
-                  const hours = Math.round((t.minutes / 60) * 10) / 10;
-                  return (
-                    <div
-                      key={v.id}
-                      data-value-total={v.id}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="truncate text-foreground">{v.name}</span>
-                      <span className="text-xs text-muted">
-                        {hours > 0 ? `${hours}h · ` : ""}
-                        {t.occurrences} {t.occurrences === 1 ? "event" : "events"}
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
-          </>
-        );
       case "goals":
         return (
           <>
@@ -282,7 +178,7 @@ function AnalyticsSection() {
       case "habits":
         return (
           <>
-            <SectionHead title="Habit consistency" meta="rate" />
+            <SectionHead title="Habits" meta="rate" />
             <div className="mt-4 space-y-1">
               {habitRanked.map(({ h, rate }) => (
                 <button
@@ -308,20 +204,6 @@ function AnalyticsSection() {
               {!habitRanked.length && (
                 <p className="text-sm text-muted">No habits to measure yet.</p>
               )}
-            </div>
-          </>
-        );
-      case "insights":
-        return (
-          <>
-            <SectionHead title="Insights" meta={`${days}d`} />
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {insightList.map((text) => (
-                <div key={text} className="flex items-start gap-2.5">
-                  <Icon name="spark" size={14} className="mt-0.5 shrink-0 text-accent" />
-                  <p className="text-sm leading-relaxed text-foreground">{text}</p>
-                </div>
-              ))}
             </div>
           </>
         );
@@ -357,7 +239,7 @@ function AnalyticsSection() {
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {packed.map((s) => (
+        {ANALYTICS_SECTIONS.map((s) => (
           <Panel key={s.id} className={cx("p-6", s.span === "full" && "lg:col-span-2")}>
             {sectionBody(s.id)}
           </Panel>
