@@ -25,7 +25,13 @@ export function normalizeHabit(raw: LegacyHabit): Habit {
   const { days: _days, recurrence: _recurrence, ...rest } = raw;
   void _days;
   void _recurrence;
-  return { ...rest, schedule };
+  return {
+    ...rest,
+    schedule,
+    archivedAt: rest.archivedAt ?? null,
+    pausedAt: rest.pausedAt ?? null,
+    resumedAt: rest.resumedAt ?? null,
+  };
 }
 
 const weekStartISO = (iso: string) => format(weekStartOf(parseISO(iso)), "yyyy-MM-dd");

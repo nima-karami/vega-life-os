@@ -24,7 +24,7 @@ import {
   validateDraft,
 } from "./editor";
 import { buildDraftFromHabit, buildSchedule, createBlankDraft, type Draft } from "./habit-draft";
-import type { Habit } from "./model";
+import { HABIT_LIFECYCLE_LABEL, type Habit, type HabitLifecycle, habitLifecycle } from "./model";
 import { type RepeatMode, RepeatPicker } from "./RepeatPicker";
 import { describeRecurrence, getNextOccurrence } from "./recurrence";
 import { findConflictingHabits } from "./selectors";
@@ -47,7 +47,10 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const habitExists = useStore((s) => (habit ? s.habits.some((h) => h.id === habit.id) : true));
   const updateHabit = useStore((s) => s.updateHabit);
   const addHabit = useStore((s) => s.addHabit);
+  const archiveHabit = useStore((s) => s.archiveHabit);
   const unarchiveHabit = useStore((s) => s.unarchiveHabit);
+  const pauseHabit = useStore((s) => s.pauseHabit);
+  const resumeHabit = useStore((s) => s.resumeHabit);
   const pushToast = useStore((s) => s.pushToast);
 
   const isCreate = habit === null;
@@ -69,7 +72,29 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   const errors = validateDraft(draft);
   const hasErrors = Object.keys(errors).length > 0;
   const detached = habit ? countDetached(tasks, habit.id) : 0;
-  const isArchived = habit?.archivedAt != null;
+  const lifecycle: HabitLifecycle = habit ? habitLifecycle(habit) : "active";
+  const isArchived = lifecycle === "archived";
+  const isPaused = lifecycle === "paused";
+
+  // Move the habit to a target lifecycle via the matching store transitions. Applies
+  // immediately (like the goal status control), independent of the draft's Save.
+  const setLifecycle = (target: HabitLifecycle) => {
+    if (!habit || target === lifecycle) return;
+    // Unarchive first so paused/active transitions run from a live (active) habit.
+    if (lifecycle === "archived") unarchiveHabit(habit.id);
+    if (target === "paused") {
+      pauseHabit(habit.id);
+      pushToast("Habit paused");
+    } else if (target === "archived") {
+      archiveHabit(habit.id);
+      pushToast("Habit archived");
+    } else if (lifecycle === "paused") {
+      resumeHabit(habit.id);
+      pushToast("Habit resumed");
+    } else {
+      pushToast("Habit unarchived"); // archived → active
+    }
+  };
 
   const conflicts = useMemo(
     () =>
@@ -177,6 +202,32 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
                 </Modal.Header>
 
                 <Modal.Body className="gap-4 space-y-4">
+                  {/* Lifecycle — Pause/Archive live here (not just the card menu) so
+                  retiring a habit is discoverable without reaching for Delete. */}
+                  {!isCreate && habit && (
+                    <div className="space-y-2">
+                      <span className="text-xs text-muted">Status</span>
+                      <ButtonGroup fullWidth>
+                        {LIFECYCLES.map((st) => (
+                          <Button
+                            key={st}
+                            size="sm"
+                            aria-pressed={lifecycle === st}
+                            variant={lifecycle === st ? "primary" : "outline"}
+                            onPress={() => setLifecycle(st)}
+                          >
+                            {HABIT_LIFECYCLE_LABEL[st]}
+                          </Button>
+                        ))}
+                      </ButtonGroup>
+                      {isPaused && (
+                        <p className="text-xs text-muted">
+                          Paused — not generating new instances. Set Active to pick it back up.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Archived banner — editing a retired habit is gated behind unarchive,
                   because archived habits don't regenerate instances. */}
                   {isArchived && habit && (
@@ -367,6 +418,8 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
     </Modal>
   );
 }
+
+const LIFECYCLES: HabitLifecycle[] = ["active", "paused", "archived"];
 
 const FIELD_CLASS =
   "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";

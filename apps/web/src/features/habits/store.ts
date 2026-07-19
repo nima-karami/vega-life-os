@@ -3,7 +3,7 @@ import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Task } from "@/features/tasks/model";
-import type { Habit } from "./model";
+import { type Habit, habitLifecycle } from "./model";
 
 export interface HabitsSlice {
   habits: Habit[];
@@ -16,6 +16,12 @@ export interface HabitsSlice {
   /** bring a habit back: clear archivedAt and regenerate future instances from
    *  today forward (no back-fill of the archived gap). Idempotent. */
   unarchiveHabit: (id: string) => void;
+  /** pause a habit non-destructively: set pausedAt = now and strip its future undone,
+   *  non-detached instances (history preserved). No regenerate. Active habits only. */
+  pauseHabit: (id: string) => void;
+  /** resume a paused habit: clear pausedAt, anchor a fresh streak/rate stretch
+   *  (resumedAt = now), and regenerate upcoming instances. Paused habits only. */
+  resumeHabit: (id: string) => void;
 }
 
 /** future, undone, non-detached habit instances — the set a schedule change or
@@ -45,6 +51,8 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       durationMin: patch.durationMin ?? 30,
       createdAt: patch.createdAt ?? todayISO(),
       archivedAt: patch.archivedAt ?? null,
+      pausedAt: patch.pausedAt ?? null,
+      resumedAt: patch.resumedAt ?? null,
       schedule: patch.schedule ?? {
         type: "weekly",
         days: [1, 1, 1, 1, 1, 1, 1],
@@ -99,7 +107,8 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   archiveHabit: (id) => {
     const habit = get().habits.find((h) => h.id === id);
     if (!habit || (habit.archivedAt ?? null) !== null) return; // idempotent
-    const next: Habit = { ...habit, archivedAt: new Date().toISOString() };
+    // archived supersedes paused: clear pausedAt so unarchive returns to active
+    const next: Habit = { ...habit, archivedAt: new Date().toISOString(), pausedAt: null };
     // strip the same future-instance set a schedule change rebuilds — but DON'T
     // regenerate (archived habits have no future). Past/detached instances stay.
     const removeIds = futureUndoneInstanceIds(get, id);
@@ -119,6 +128,32 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
     savePut("habits", next);
     // resume from today forward (no back-fill of the archived gap)
+    get().ensureUpcoming();
+  },
+
+  pauseHabit: (id) => {
+    const habit = get().habits.find((h) => h.id === id);
+    if (!habit || habitLifecycle(habit) !== "active") return; // idempotent, active only
+    const next: Habit = { ...habit, pausedAt: new Date().toISOString() };
+    // strip future undone instances (like archive) — but keep it resumable. No regenerate.
+    const removeIds = futureUndoneInstanceIds(get, id);
+    const drop = new Set(removeIds);
+    set((s) => ({
+      habits: s.habits.map((h) => (h.id === id ? next : h)),
+      tasks: removeIds.length ? s.tasks.filter((t) => !drop.has(t.id)) : s.tasks,
+    }));
+    savePut("habits", next);
+    for (const tid of removeIds) saveRemove("tasks", tid);
+  },
+
+  resumeHabit: (id) => {
+    const habit = get().habits.find((h) => h.id === id);
+    if (!habit || habitLifecycle(habit) !== "paused") return; // idempotent, paused only
+    // fresh stretch: streak/rate anchor moves to now, so the paused gap is neither
+    // a run of misses nor a bridged streak.
+    const next: Habit = { ...habit, pausedAt: null, resumedAt: new Date().toISOString() };
+    set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
+    savePut("habits", next);
     get().ensureUpcoming();
   },
 });

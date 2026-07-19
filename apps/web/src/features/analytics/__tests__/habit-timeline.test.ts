@@ -18,6 +18,8 @@ const dailyHabit: Habit = {
   durationMin: 15,
   createdAt: iso(30),
   archivedAt: null,
+  pausedAt: null,
+  resumedAt: null,
 };
 
 function instance(back: number, patch: Partial<Task>): Task {

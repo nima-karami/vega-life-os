@@ -154,3 +154,79 @@ describe("archiveHabit / unarchiveHabit", () => {
     expect(get().ensureUpcoming).not.toHaveBeenCalled();
   });
 });
+
+describe("pauseHabit / resumeHabit", () => {
+  it("pauses: sets pausedAt and strips future undone non-detached instances (history kept)", () => {
+    const { get } = makeSlice({
+      tasks: [
+        inst({ id: "future", date: "2999-01-01" }),
+        inst({ id: "past", date: "2000-01-01" }),
+        inst({ id: "detached", date: "2999-02-01", detached: true }),
+        inst({ id: "done", date: "2999-03-01", status: "done" }),
+      ],
+    });
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().pauseHabit("h1");
+    expect(get().habits[0].pausedAt).toBeTruthy();
+    const ids = get()
+      .tasks.map((t) => t.id)
+      .sort();
+    expect(ids).toEqual(["detached", "done", "past"]); // "future" stripped
+  });
+
+  it("pauses without regenerating (ensureUpcoming not fired by pause)", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    get().pauseHabit("h1");
+    expect(get().ensureUpcoming).not.toHaveBeenCalled();
+  });
+
+  it("pause is idempotent (a no-op when already paused)", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().pauseHabit("h1");
+    const firstTs = get().habits[0].pausedAt;
+    get().pauseHabit("h1");
+    expect(get().habits[0].pausedAt).toBe(firstTs);
+  });
+
+  it("resumes: clears pausedAt, anchors a fresh stretch (resumedAt), and regenerates", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().pauseHabit("h1");
+    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    get().resumeHabit("h1");
+    expect(get().habits[0].pausedAt).toBeNull();
+    expect(get().habits[0].resumedAt).toBeTruthy();
+    expect(get().ensureUpcoming).toHaveBeenCalled();
+  });
+
+  it("resume is idempotent (a no-op on an active habit)", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    get().resumeHabit("h1");
+    expect(get().ensureUpcoming).not.toHaveBeenCalled();
+  });
+
+  it("archiving a paused habit clears pausedAt so unarchive returns it to active", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().pauseHabit("h1");
+    get().archiveHabit("h1");
+    expect(get().habits[0].archivedAt).toBeTruthy();
+    expect(get().habits[0].pausedAt).toBeNull();
+    get().unarchiveHabit("h1");
+    expect(get().habits[0].archivedAt).toBeNull();
+    expect(get().habits[0].pausedAt).toBeNull(); // active, not paused
+  });
+
+  it("cannot pause an archived habit (guarded — archive supersedes)", () => {
+    const { get } = makeSlice();
+    get().addHabit({ id: "h1", name: "Journal" });
+    get().archiveHabit("h1");
+    get().pauseHabit("h1");
+    expect(get().habits[0].pausedAt).toBeNull();
+  });
+});

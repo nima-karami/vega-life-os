@@ -43,6 +43,8 @@ const habit: Habit = {
   durationMin: 30,
   createdAt: "2026-01-01",
   archivedAt: null,
+  pausedAt: null,
+  resumedAt: null,
 };
 
 function makeTask(patch: Partial<Task> = {}): Task {

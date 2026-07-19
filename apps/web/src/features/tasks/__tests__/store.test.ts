@@ -17,6 +17,7 @@ interface Habit {
   durationMin: number;
   days?: number[];
   archivedAt?: string | null;
+  pausedAt?: string | null;
   createdAt?: string;
   schedule?:
     | { type: "weekly"; days: number[]; interval: number; anchor: string }
@@ -407,6 +408,14 @@ describe("ensureUpcoming — archived gating", () => {
   it("generates nothing for an archived habit", () => {
     const { get } = makeSlice({
       habits: [sched({ archivedAt: "2026-06-01T00:00:00Z" })],
+      values: [{ id: "v1", archivedAt: null }],
+    });
+    expect(get().ensureUpcoming(1)).toBe(0);
+  });
+
+  it("generates nothing for a paused habit", () => {
+    const { get } = makeSlice({
+      habits: [sched({ pausedAt: "2026-06-01T00:00:00Z" })],
       values: [{ id: "v1", archivedAt: null }],
     });
     expect(get().ensureUpcoming(1)).toBe(0);

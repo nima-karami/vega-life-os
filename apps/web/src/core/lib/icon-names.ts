@@ -30,6 +30,8 @@ export const CHROME_ICON_NAMES = [
   "flash",
   "terminal",
   "archive",
+  "pause",
+  "play",
 ] as const;
 
 /**

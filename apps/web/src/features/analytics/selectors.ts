@@ -3,7 +3,7 @@ import { shiftISO, todayISO } from "@/core/lib/date";
 import { type Goal, isGoalClosed } from "@/features/goals/model";
 import { getGoalPaceBadge } from "@/features/goals/presentation";
 import { computeHabitRate, computeHabitStreak } from "@/features/habits";
-import type { Habit } from "@/features/habits/model";
+import { type Habit, habitStretchStart } from "@/features/habits/model";
 import { isActiveOnSchedule } from "@/features/habits/recurrence";
 import { type DayEntry, hasGratitude } from "@/features/journal/model";
 import { DEFAULT_RULES, resolveStreak, type SeqItem, type StreakRules } from "@/features/streaks";
@@ -244,8 +244,10 @@ export function computeHabitTimeline(
   const bySlot = mapHabitInstancesBySlot(tasks, habit.id);
   const graceFloor = shiftISO(today, -rules.graceDays);
   const windowStart = shiftISO(today, -(windowDays - 1));
-  const createdOn = habit.createdAt.slice(0, 10);
-  const start = windowStart > createdOn ? windowStart : createdOn;
+  // Clamp to the current active stretch so a paused-then-resumed habit's report starts
+  // fresh at the resume (paused days aren't shown as misses).
+  const stretchStart = habitStretchStart(habit);
+  const start = windowStart > stretchStart ? windowStart : stretchStart;
   const days: TimelineDay[] = [];
   let done = 0;
   let missed = 0;

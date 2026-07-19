@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
 import { computeHabitRate } from "@/features/habits";
+import { isHabitActive } from "@/features/habits/model";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
 import { ConsistencyHeatmap } from "./components/ConsistencyHeatmap";
@@ -97,7 +98,10 @@ function AnalyticsSection() {
   const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days), [goals, days]);
   const habitRanked = useMemo(
     () =>
-      habits.map((h) => ({ h, rate: computeHabitRate(tasks, h) })).sort((a, b) => b.rate - a.rate),
+      habits
+        .filter(isHabitActive)
+        .map((h) => ({ h, rate: computeHabitRate(tasks, h) }))
+        .sort((a, b) => b.rate - a.rate),
     [habits, tasks],
   );
 

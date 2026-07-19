@@ -177,4 +177,21 @@ describe("normalizeHabit", () => {
     expect("days" in out).toBe(false);
     expect("recurrence" in out).toBe(false);
   });
+
+  it("defaults pausedAt and resumedAt to null on a legacy record that lacks them", () => {
+    const out = normalizeHabit({
+      id: "h3",
+      name: "z",
+      goalId: null,
+      valueId: "v",
+      icon: "repeat",
+      time: null,
+      durationMin: 30,
+      createdAt: "2026-01-05",
+      schedule: { type: "weekly", days: [1, 1, 1, 1, 1, 1, 1], interval: 1, anchor: "2026-01-05" },
+    } as never);
+    expect(out.pausedAt).toBeNull();
+    expect(out.resumedAt).toBeNull();
+    expect(out.archivedAt).toBeNull();
+  });
 });

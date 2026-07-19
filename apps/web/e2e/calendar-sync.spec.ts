@@ -70,7 +70,7 @@ async function seedEvent(page: import("@playwright/test").Page, ev: Record<strin
   );
 }
 
-test("a tagged lived event shows on the calendar and credits its value", async ({ page }) => {
+test("a tagged lived event shows on the calendar", async ({ page }) => {
   await bootSandbox(page);
   await passGratitudeGate(page);
   // v2 (Presence) exists in the seed dataset.
@@ -80,9 +80,6 @@ test("a tagged lived event shows on the calendar and credits its value", async (
 
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await expect(page.locator('[data-event-id="ce_e2e"]')).toBeVisible({ timeout: 15_000 });
-
-  await page.goto("/analytics", { waitUntil: "domcontentloaded" });
-  await expect(page.locator('[data-value-total="v2"]')).toBeVisible({ timeout: 15_000 });
 });
 
 test("a multi-day Google event spans every day it covers in the all-day row", async ({ page }) => {

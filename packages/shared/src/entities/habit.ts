@@ -30,6 +30,9 @@ const { schema, createSchema } = defineEntity({
   durationMin: z.number(),
   createdAt: z.string(),
   archivedAt: nullableString,
+  // legacy records predate these — tolerate absence, coercing to null (not paused)
+  pausedAt: nullableString.default(null),
+  resumedAt: nullableString.default(null),
 });
 
 export const habitSchema = schema;

@@ -3,7 +3,7 @@ import { getWeekDays } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import type { Habit } from "@/features/habits/model";
+import { type Habit, isHabitActive } from "@/features/habits/model";
 import { findSlotOnOrBefore, isActiveOn } from "@/features/habits/recurrence";
 import type { Task, TaskStatus } from "./model";
 
@@ -19,15 +19,15 @@ const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
 type SchedulableValue = { id: string; archivedAt?: string | null };
 
 /**
- * Habits that may generate future instances: the habit itself is active AND its
- * parent value is active. A missing/dangling parent value never generates. This
- * folds together the habit-archive and value-archive rules so the engine can't
- * miss either.
+ * Habits that may generate future instances: the habit itself is active (not paused
+ * or archived) AND its parent value is active. A missing/dangling parent value never
+ * generates. This folds together the habit-lifecycle and value-archive rules so the
+ * engine can't miss either.
  */
 function getGeneratingHabits(habits: Habit[], values: SchedulableValue[]): Habit[] {
   const valueById = new Map(values.map((v) => [v.id, v]));
   return habits.filter((h) => {
-    if ((h.archivedAt ?? null) !== null) return false;
+    if (!isHabitActive(h)) return false;
     const value = valueById.get(h.valueId);
     return value != null && (value.archivedAt ?? null) === null;
   });

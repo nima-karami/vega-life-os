@@ -19,6 +19,8 @@ const dailyHabit = (createdAt = BASE): Habit => ({
   durationMin: 30,
   createdAt,
   archivedAt: null,
+  pausedAt: null,
+  resumedAt: null,
 });
 
 const inst = (date: string, status: TaskStatus, over: Partial<Task> = {}): Task => ({
@@ -150,6 +152,8 @@ describe("getStreakState — rescheduled occurrence is on-time by its landing da
     durationMin: 60,
     createdAt: "2026-06-05",
     archivedAt: null,
+    pausedAt: null,
+    resumedAt: null,
   });
 
   it("counts a Friday slot done two days late on its moved (Sunday) date", () => {
@@ -226,6 +230,25 @@ describe("getStreakState — healing hold", () => {
       state: "healing",
       recovery: { done: 2, needed: 3 },
     });
+  });
+});
+
+describe("getStreakState — resume resets the stretch (paused gap is neutral)", () => {
+  it("counts only from resumedAt, so the pre-pause run and the gap don't count", () => {
+    const habit = dailyHabit(BASE);
+    habit.resumedAt = shiftISO(BASE, 8); // paused after day 4, resumed day 8
+    const tasks = [
+      ...rep(D, 5).map((s, i) => inst(shiftISO(BASE, i), s)), // days 0..4 done (pre-pause)
+      // days 5,6,7 — paused gap, no instances
+      inst(shiftISO(BASE, 8), D),
+      inst(shiftISO(BASE, 9), D),
+      inst(shiftISO(BASE, 10), D),
+    ];
+    const today = shiftISO(BASE, 11);
+    // fresh stretch: 3 dones since resume, not 8; the gap contributes no misses
+    expect(getStreakState(tasks, habit, today).count).toBe(3);
+    // and the paused gap never tanks the rate
+    expect(computeHabitRate(tasks, habit, today)).toBe(1);
   });
 });
 

@@ -8,7 +8,7 @@ import {
 } from "@/features/streaks";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
-import type { Habit } from "./model";
+import { type Habit, habitStretchStart, isHabitActive } from "./model";
 import { getWeeklyMask, isActiveOnSchedule } from "./recurrence";
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
@@ -68,7 +68,9 @@ function deriveSlotKinds(
 ): { date: string; kind: SlotKind }[] {
   const bySlot = mapInstancesBySlot(tasks, habit.id);
   const out: { date: string; kind: SlotKind }[] = [];
-  let d = habit.createdAt.slice(0, 10);
+  // Anchor at the current active stretch: a resume starts a fresh streak/rate window,
+  // so the paused gap contributes neither misses nor bridged continuity.
+  let d = habitStretchStart(habit);
   while (d <= today) {
     if (isActiveOnSchedule(habit.schedule, d)) {
       out.push({ date: d, kind: classifySlot(bySlot.get(d), d, today, grace) });
@@ -167,7 +169,7 @@ export function getHabitHistory(
  * Other habits that occupy the same weekday(s) AND the same time-of-day as the
  * draft being edited. A conflict requires: both habits TIMED with the SAME
  * "HH:mm"; ≥1 shared active weekday; the candidate is neither the edited habit
- * (excludeId) nor archived. Untimed drafts never conflict. Advisory only.
+ * (excludeId) nor paused/archived. Untimed drafts never conflict. Advisory only.
  */
 export function findConflictingHabits(
   habits: Habit[],
@@ -178,7 +180,7 @@ export function findConflictingHabits(
   return habits.filter(
     (h) =>
       h.id !== excludeId &&
-      (h.archivedAt ?? null) === null &&
+      isHabitActive(h) &&
       h.time != null &&
       h.time === draft.time &&
       getWeeklyMask(h).some((on, i) => on === 1 && draft.days[i] === 1),

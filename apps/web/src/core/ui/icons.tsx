@@ -128,6 +128,7 @@ import {
   Orbit,
   Palette,
   PartyPopper,
+  Pause,
   Pencil,
   PenTool,
   PersonStanding,
@@ -136,6 +137,7 @@ import {
   Pill,
   Pizza,
   Plane,
+  Play,
   Plug,
   Plus,
   Puzzle,
@@ -230,6 +232,8 @@ export const Ic: Record<IconName, LucideIcon> = {
   flash: Zap,
   terminal: Terminal,
   archive: Archive,
+  pause: Pause,
+  play: Play,
 
   // Focus & goals
   target: Target,

@@ -21,6 +21,8 @@ const habit = (over: Partial<Habit> = {}): Habit => ({
   durationMin: 30,
   createdAt: "2026-01-01",
   archivedAt: null,
+  pausedAt: null,
+  resumedAt: null,
   ...over,
 });
 

@@ -10,7 +10,7 @@ import type { Value } from "@/features/values/model";
 import { DeleteHabitDialog } from "./DeleteHabitDialog";
 import { ANYTIME_LABEL } from "./editor";
 import { HabitEditor } from "./HabitEditor";
-import type { Habit } from "./model";
+import { type Habit, habitLifecycle } from "./model";
 import { describeRecurrence, getHabitSchedule } from "./recurrence";
 import { groupHabitsByValue, sortArchived } from "./selectors";
 
@@ -27,6 +27,8 @@ export function HabitsPage() {
   const goals = useStore((s) => s.goals);
   const archiveHabit = useStore((s) => s.archiveHabit);
   const unarchiveHabit = useStore((s) => s.unarchiveHabit);
+  const pauseHabit = useStore((s) => s.pauseHabit);
+  const resumeHabit = useStore((s) => s.resumeHabit);
   const pushToast = useStore((s) => s.pushToast);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,9 +50,14 @@ export function HabitsPage() {
   const valueById = useMemo(() => new Map(values.map((v) => [v.id, v])), [values]);
   const goalById = useMemo(() => new Map(goals.map((g) => [g.id, g])), [goals]);
 
-  const active = useMemo(() => habits.filter((h) => (h.archivedAt ?? null) === null), [habits]);
-  const archived = useMemo(() => habits.filter((h) => (h.archivedAt ?? null) !== null), [habits]);
+  const active = useMemo(() => habits.filter((h) => habitLifecycle(h) === "active"), [habits]);
+  const paused = useMemo(() => habits.filter((h) => habitLifecycle(h) === "paused"), [habits]);
+  const archived = useMemo(() => habits.filter((h) => habitLifecycle(h) === "archived"), [habits]);
   const groups = useMemo(() => groupHabitsByValue(active, values), [active, values]);
+  const pausedList = useMemo(
+    () => groupHabitsByValue(paused, values).flatMap((g) => g.habits),
+    [paused, values],
+  );
   const archivedList = useMemo(() => sortArchived(archived), [archived]);
 
   const editing = editingId ? (habits.find((h) => h.id === editingId) ?? null) : null;
@@ -76,6 +83,20 @@ export function HabitsPage() {
     },
     [unarchiveHabit, pushToast],
   );
+  const onPause = useCallback(
+    (id: string) => {
+      pauseHabit(id);
+      pushToast("Habit paused");
+    },
+    [pauseHabit, pushToast],
+  );
+  const onResume = useCallback(
+    (id: string) => {
+      resumeHabit(id);
+      pushToast("Habit resumed");
+    },
+    [resumeHabit, pushToast],
+  );
 
   const renderItem = useCallback(
     (h: Habit) => (
@@ -87,11 +108,13 @@ export function HabitsPage() {
           onOpen={() => setEditingId(h.id)}
           onArchive={() => onArchive(h.id)}
           onUnarchive={() => onUnarchive(h.id)}
+          onPause={() => onPause(h.id)}
+          onResume={() => onResume(h.id)}
           onDelete={() => setDeletingId(h.id)}
         />
       </li>
     ),
-    [valueById, goalById, onArchive, onUnarchive],
+    [valueById, goalById, onArchive, onUnarchive, onPause, onResume],
   );
 
   // Register "new habit" with the command bar while this view is mounted.
@@ -150,6 +173,12 @@ export function HabitsPage() {
           </div>
         )}
 
+        {pausedList.length > 0 && (
+          <Disclosure label="paused" count={pausedList.length}>
+            <ul className="flex flex-col gap-3">{pausedList.map(renderItem)}</ul>
+          </Disclosure>
+        )}
+
         <Disclosure label="archived" count={archivedList.length}>
           <ul className="flex flex-col gap-3">{archivedList.map(renderItem)}</ul>
         </Disclosure>
@@ -180,6 +209,8 @@ function HabitCard({
   onOpen,
   onArchive,
   onUnarchive,
+  onPause,
+  onResume,
   onDelete,
 }: {
   habit: Habit;
@@ -188,12 +219,22 @@ function HabitCard({
   onOpen: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
+  onPause: () => void;
+  onResume: () => void;
   onDelete: () => void;
 }) {
   const color = getValueColor(value);
-  const isArchived = (habit.archivedAt ?? null) !== null;
+  const lifecycle = habitLifecycle(habit);
+  const isArchived = lifecycle === "archived";
+  const isPaused = lifecycle === "paused";
 
   const menuItems: MenuItem[] = [
+    ...(lifecycle === "active"
+      ? [{ label: "Pause", icon: "pause", onSelect: onPause } as const]
+      : []),
+    ...(lifecycle === "paused"
+      ? [{ label: "Resume", icon: "play", onSelect: onResume } as const]
+      : []),
     isArchived
       ? { label: "Unarchive", icon: "upload", onSelect: onUnarchive }
       : { label: "Archive", icon: "clipboard", onSelect: onArchive },
@@ -203,7 +244,7 @@ function HabitCard({
   return (
     <Card
       className={`group rounded-[16px] border border-border bg-surface ${
-        isArchived ? "opacity-60" : ""
+        isArchived ? "opacity-60" : isPaused ? "opacity-80" : ""
       }`}
     >
       <Card.Content className="flex flex-row items-center gap-3 p-4">
@@ -211,7 +252,9 @@ function HabitCard({
           type="button"
           onClick={onOpen}
           className="flex min-w-0 flex-1 items-center gap-3 rounded-[12px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          aria-label={isArchived ? `Edit ${habit.name}, archived` : `Edit ${habit.name}`}
+          aria-label={
+            lifecycle === "active" ? `Edit ${habit.name}` : `Edit ${habit.name}, ${lifecycle}`
+          }
         >
           <span
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white"
@@ -222,9 +265,9 @@ function HabitCard({
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 truncate text-base font-medium text-foreground">
               {habit.name}
-              {isArchived && (
-                <span className="rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted">
-                  Archived
+              {lifecycle !== "active" && (
+                <span className="rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-medium capitalize text-muted">
+                  {lifecycle}
                 </span>
               )}
             </p>
