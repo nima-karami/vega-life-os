@@ -19,6 +19,7 @@ export function CalendarPicker() {
   const selected = status?.readCalendarIds ?? [];
   const [calendars, setCalendars] = useState<GoogleCalendar[] | null>(null);
   const [hasFailed, setHasFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     getTrpcClient()
@@ -27,13 +28,24 @@ export function CalendarPicker() {
       .catch(() => setHasFailed(true));
   }, []);
 
-  const toggleCalendar = (id: string) => {
-    const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
-    void getTrpcClient()
-      .calendar.setReadCalendars.mutate({ ids: next })
-      .then(() => refreshGcalStatus())
-      .catch(() => pushToast("Couldn’t save calendar selection"));
-    pushToast("Calendar selection saved");
+  const toggleCalendar = async (id: string) => {
+    const next = selected.includes(id)
+      ? selected.filter((calendarId) => calendarId !== id)
+      : [...selected, id];
+    setSaving(true);
+    try {
+      await getTrpcClient().calendar.setReadCalendars.mutate({ ids: next });
+      await refreshGcalStatus();
+      pushToast("Calendar selection saved");
+    } catch (error) {
+      pushToast(
+        error instanceof Error && error.message.includes("10")
+          ? "At most 10 calendars can sync"
+          : "Couldn’t save calendar selection",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (hasFailed)
@@ -52,7 +64,8 @@ export function CalendarPicker() {
               type="button"
               variant={isSelected ? "primary" : "secondary"}
               aria-pressed={isSelected}
-              onPress={() => toggleCalendar(c.id)}
+              isDisabled={saving}
+              onPress={() => void toggleCalendar(c.id)}
               className="justify-start"
             >
               <span

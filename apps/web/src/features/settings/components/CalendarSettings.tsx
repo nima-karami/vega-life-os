@@ -4,14 +4,15 @@ import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { CalendarPicker } from "@/features/calendar/CalendarPicker";
+import { describeSyncFailure } from "@/features/calendar-sync/sync-feedback";
 import { SettingsCard } from "../SettingsCard";
 import { DisconnectDialog } from "./DisconnectDialog";
 
 export function CalendarSettings() {
+  const authUid = useStore((s) => s.authUid);
   const pushToast = useStore((s) => s.pushToast);
   const status = useStore((s) => s.gcalStatus);
   const refreshGcalStatus = useStore((s) => s.refreshGcalStatus);
-  const on = status?.connected ?? false;
   const [busy, setBusy] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
@@ -29,19 +30,26 @@ export function CalendarSettings() {
       setBusy(false);
     }
   };
-  // Sync runs server-side; this pulls the latest server truth into the store.
+
   const sync = async () => {
     setBusy(true);
     try {
+      const result = await getTrpcClient().calendar.syncNow.mutate();
       await useStore.getState().refetchAll();
       await refreshGcalStatus();
-      pushToast("Calendar refreshed");
+      pushToast(
+        result.synced
+          ? "Calendar synced"
+          : describeSyncFailure("reason" in result ? result.reason : undefined),
+      );
     } catch {
-      pushToast("Refresh failed — reconnect?");
+      pushToast("Sync failed — reconnect?");
     } finally {
       setBusy(false);
     }
   };
+
+  if (authUid == null) return null;
 
   return (
     <SettingsCard
@@ -49,10 +57,29 @@ export function CalendarSettings() {
       description="Two-way sync for scheduled tasks. Blocks you schedule in VEGA appear in Google Calendar (with reminders); moving or deleting a VEGA event in Google flows back here on the next sync."
     >
       <div className="flex flex-col gap-4">
-        {on && <CalendarPicker />}
-        <div className="flex flex-wrap gap-2">
-          {on ? (
-            <>
+        {status?.needsReauth ? (
+          <>
+            <p className="flex items-start gap-1.5 text-sm text-warning">
+              <Icon name="alert" size={15} className="mt-0.5 shrink-0" />
+              <span>Google access expired — reconnect to resume syncing.</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" isDisabled={busy} onPress={() => void connect()}>
+                <Icon name="refresh-cw" size={15} />
+                Reconnect
+              </Button>
+            </div>
+          </>
+        ) : status?.connected ? (
+          <>
+            <CalendarPicker />
+            {status.writeCalendarMissing && (
+              <p className="flex items-start gap-1.5 text-sm text-warning">
+                <Icon name="alert" size={15} className="mt-0.5 shrink-0" />
+                <span>Your VEGA calendar is missing in Google — reconnect to recreate it.</span>
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
               <Button variant="primary" isDisabled={busy} onPress={() => void sync()}>
                 <Icon name="refresh-cw" size={15} />
                 Sync now
@@ -61,14 +88,16 @@ export function CalendarSettings() {
                 <Icon name="close" size={15} />
                 Disconnect
               </Button>
-            </>
-          ) : (
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-wrap gap-2">
             <Button variant="primary" isDisabled={busy} onPress={() => void connect()}>
               <Icon name="calendar" size={15} />
               Connect Google Calendar
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <DisconnectDialog open={disconnecting} onClose={() => setDisconnecting(false)} />
     </SettingsCard>

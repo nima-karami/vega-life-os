@@ -73,11 +73,20 @@ export function CalendarCallbackPage() {
               Couldn’t connect your calendar
             </p>
             <p className="text-sm text-muted">
-              The Google handoff didn’t complete. Head back to Settings and try connecting again.
+              The Google handoff didn’t complete. Try again — you’ll be asked to grant access once
+              more.
             </p>
-            <Button variant="primary" onPress={() => navigate("/settings", { replace: true })}>
-              <Icon name="calendar" size={15} />
-              Back to Settings
+            <Button
+              variant="primary"
+              onPress={() =>
+                void getTrpcClient()
+                  .calendar.connect.query()
+                  .then(({ consentUrl }) => window.location.assign(consentUrl))
+                  .catch(() => navigate("/settings", { replace: true }))
+              }
+            >
+              <Icon name="refresh-cw" size={15} />
+              Try again
             </Button>
           </>
         )}
