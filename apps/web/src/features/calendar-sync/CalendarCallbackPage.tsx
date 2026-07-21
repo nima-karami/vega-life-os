@@ -31,7 +31,10 @@ export function CalendarCallbackPage() {
 
     void (async () => {
       try {
-        const result = await getTrpcClient().calendar.oauthCallback.mutate({ code });
+        const result = await getTrpcClient().calendar.oauthCallback.mutate({
+          code,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
         setEnabled(true);
         setWriteCalendarId(result.writeCalendarId);
         setPhase("connected");
