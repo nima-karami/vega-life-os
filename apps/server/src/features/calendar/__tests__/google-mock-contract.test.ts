@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { storedTask } from "../../../test/calendar-fixtures";
 import { GoogleMock } from "../../../test/google-mock";
+import { toGEvent } from "../event-map";
 import { SyncTokenExpiredError } from "../google-client";
 
 const WINDOW = { window: { backDays: 30, fwdDays: 120 } };
@@ -33,6 +35,22 @@ describe("GoogleMock sync-token contract", () => {
     ).rejects.toBeInstanceOf(SyncTokenExpiredError);
     const recovered = await google.client.listEvents("cal-a", WINDOW);
     expect(recovered.nextSyncToken).toBeTruthy();
+  });
+
+  it("echoes a pushed naive datetime wall-clock-preserving with the zone offset, not a UTC instant", async () => {
+    const google = new GoogleMock();
+    const body = toGEvent(
+      storedTask({ id: "t-tz", date: "2026-07-21", time: "14:00" }),
+      "America/Toronto",
+    );
+    const pushedNaive = body.start?.dateTime ?? "";
+    await google.client.insertEvent("cal-tz", body);
+
+    const { events } = await google.client.listEvents("cal-tz", WINDOW);
+    const stored = events[0]?.start?.dateTime ?? "";
+    expect(stored).toBe("2026-07-21T14:00:00-04:00");
+    // The signatureOf(...).slice(0, 19) prefixes must agree, or every reconcile re-patches.
+    expect(stored.slice(0, 19)).toBe(pushedNaive.slice(0, 19));
   });
 
   it("lists seeded calendar infos", async () => {

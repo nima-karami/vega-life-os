@@ -38,12 +38,21 @@ function zoneOffsetMs(timeZone: string, instant: Date): number {
   return asUtc - instant.getTime();
 }
 
-/** Google returns absolute (offset-bearing) datetimes; resolve a naive wall-clock + IANA zone to one. */
+function offsetSuffix(offsetMs: number): string {
+  if (offsetMs === 0) return "Z";
+  const sign = offsetMs > 0 ? "+" : "-";
+  const total = Math.abs(offsetMs) / 60000;
+  const pad = (value: number) => String(Math.floor(value)).padStart(2, "0");
+  return `${sign}${pad(total / 60)}:${pad(total % 60)}`;
+}
+
+/** Google echoes a pushed naive wall-clock verbatim with the zone's offset suffix, not a UTC instant. */
 function toAbsolute(time: GEventTime | undefined): GEventTime | undefined {
   if (!time?.dateTime || hasOffset(time.dateTime)) return time;
+  // Single-iteration offset guess; can be off exactly at a DST gap — acceptable for a mock.
   const guess = new Date(`${time.dateTime}Z`);
-  const instant = new Date(guess.getTime() - zoneOffsetMs(time.timeZone ?? "UTC", guess));
-  return { ...time, dateTime: instant.toISOString() };
+  const offsetMs = zoneOffsetMs(time.timeZone ?? "UTC", guess);
+  return { ...time, dateTime: `${time.dateTime}${offsetSuffix(offsetMs)}` };
 }
 
 function withAbsoluteTimes(event: GEvent): GEvent {
