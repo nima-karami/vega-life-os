@@ -3,19 +3,29 @@ import { z } from "zod";
 import { AppError, toTrpcError } from "../../core/errors";
 import type { CalendarContext } from "../../trpc/context";
 import { protectedProcedure, router } from "../../trpc/trpc";
+import { isBackingOff } from "./backoff";
 import { ensureWriteCalendar } from "./calendar-setup";
 import { listChannelsForUid } from "./channel-registry";
 import { registerCalendarChannels, stopCalendarChannels } from "./channel-setup";
 import { clearMirror } from "./gcal-mirror";
+import type { GCalendarInfo } from "./google-client";
+import { retireCalendarMirrors } from "./lived-engine";
 import { SCOPE_VERSION } from "./oauth";
 import { type ReconcileDeps, runReconcile } from "./reconcile";
+import { SyncLockBusyError } from "./sync-lock";
+import { isValidTimeZone } from "./time-zone";
 import {
+  type CalendarPref,
   clearGcalAccount,
+  type GcalAccount,
   isBenignSyncFault,
   readGcalAccount,
+  removeSyncTokens,
   storeConnection,
   writeGcalAccount,
 } from "./token-store";
+
+const MAX_READ_CALENDARS = 10;
 
 const reconcileDepsFrom = (ctx: {
   firestore: Firestore;
@@ -26,6 +36,26 @@ const reconcileDepsFrom = (ctx: {
   now: ctx.calendar.now,
   webhookUrl: ctx.calendar.webhookUrl,
 });
+
+function buildReadCalendarUpdate(
+  account: GcalAccount,
+  ids: string[],
+  infoById: Map<string, GCalendarInfo>,
+): { added: string[]; removed: string[]; calendarPrefs: Record<string, CalendarPref> } {
+  const prior = account.readCalendarIds ?? [];
+  const added = ids.filter((id) => !prior.includes(id));
+  const removed = prior.filter((id) => !ids.includes(id));
+  const calendarPrefs = { ...(account.calendarPrefs ?? {}) };
+  for (const id of added) {
+    const info = infoById.get(id);
+    calendarPrefs[id] = {
+      visible: true,
+      summary: info?.summary ?? id,
+      color: info?.backgroundColor ?? null,
+    };
+  }
+  return { added, removed, calendarPrefs };
+}
 
 export const calendarRouter = router({
   connect: protectedProcedure.query(({ ctx }) => ({
@@ -104,7 +134,7 @@ export const calendarRouter = router({
         }
       }
       await writeGcalAccount(ctx.firestore, ctx.uid, {
-        timeZone: input.timeZone,
+        timeZone: isValidTimeZone(input.timeZone) ? input.timeZone : "UTC",
         readCalendarIds,
         calendarPrefs,
         writeCalendarMissing: false,
@@ -118,6 +148,101 @@ export const calendarRouter = router({
       });
       return { connected: true, writeCalendarId };
     }),
+
+  listCalendars: protectedProcedure.query(async ({ ctx }) => {
+    const account = await readGcalAccount(ctx.firestore, ctx.uid);
+    const client = await ctx.calendar.getClient(ctx.uid);
+    const calendars = await client.listCalendars();
+    return calendars.filter(
+      (calendar) => calendar.id !== account?.writeCalendarId && calendar.summary !== "VEGA",
+    );
+  }),
+
+  setReadCalendars: protectedProcedure
+    .input(z.object({ ids: z.array(z.string()) }).strict())
+    .mutation(async ({ ctx, input }) => {
+      if (input.ids.length > MAX_READ_CALENDARS) {
+        throw toTrpcError(
+          new AppError("BAD_REQUEST", `at most ${MAX_READ_CALENDARS} calendars can sync`),
+        );
+      }
+      const account = await readGcalAccount(ctx.firestore, ctx.uid);
+      if (!account) throw toTrpcError(new AppError("BAD_REQUEST", "calendar not connected"));
+
+      const client = await ctx.calendar.getClient(ctx.uid);
+      const infoById = new Map((await client.listCalendars()).map((info) => [info.id, info]));
+      const { added, removed, calendarPrefs } = buildReadCalendarUpdate(
+        account,
+        input.ids,
+        infoById,
+      );
+      await writeGcalAccount(ctx.firestore, ctx.uid, {
+        readCalendarIds: input.ids,
+        calendarPrefs,
+      });
+      await removeSyncTokens(ctx.firestore, ctx.uid, removed);
+
+      const deps = reconcileDepsFrom(ctx);
+      await registerCalendarChannels(deps, ctx.uid, client, added);
+      await stopCalendarChannels(ctx.firestore, ctx.uid, client, removed);
+      const now = ctx.calendar.now();
+      const syncDeps = {
+        firestore: ctx.firestore,
+        getClient: ctx.calendar.getClient,
+        now: ctx.calendar.now,
+      };
+      for (const id of removed) {
+        await retireCalendarMirrors(syncDeps, ctx.uid, id, now);
+      }
+      await runReconcile(deps, ctx.uid).catch((error) => {
+        if (!isBenignSyncFault(error)) throw error;
+      });
+      return { readCalendarIds: input.ids };
+    }),
+
+  setCalendarVisibility: protectedProcedure
+    .input(z.object({ calendarId: z.string(), visible: z.boolean() }).strict())
+    .mutation(async ({ ctx, input }) => {
+      const account = await readGcalAccount(ctx.firestore, ctx.uid);
+      const prior = account?.calendarPrefs?.[input.calendarId];
+      await writeGcalAccount(ctx.firestore, ctx.uid, {
+        calendarPrefs: {
+          ...(account?.calendarPrefs ?? {}),
+          [input.calendarId]: {
+            visible: input.visible,
+            summary: prior?.summary ?? input.calendarId,
+            color: prior?.color ?? null,
+          },
+        },
+      });
+      return { ok: true as const };
+    }),
+
+  setTimeZone: protectedProcedure
+    .input(z.object({ timeZone: z.string() }).strict())
+    .mutation(async ({ ctx, input }) => {
+      if (!isValidTimeZone(input.timeZone))
+        throw toTrpcError(new AppError("BAD_REQUEST", "invalid timezone"));
+      await writeGcalAccount(ctx.firestore, ctx.uid, { timeZone: input.timeZone });
+      return { ok: true as const };
+    }),
+
+  syncNow: protectedProcedure.mutation(async ({ ctx }) => {
+    const account = await readGcalAccount(ctx.firestore, ctx.uid);
+    if (!account || account.needsReauth) return { synced: false, reason: "needs_reauth" as const };
+    if (account.writeCalendarMissing)
+      return { synced: false, reason: "write_calendar_missing" as const };
+    if (isBackingOff(account.backoff, ctx.calendar.now()))
+      return { synced: false, reason: "backing_off" as const };
+    try {
+      await runReconcile(reconcileDepsFrom(ctx), ctx.uid);
+      return { synced: true };
+    } catch (error) {
+      if (error instanceof SyncLockBusyError) return { synced: false, reason: "locked" as const };
+      if (isBenignSyncFault(error)) return { synced: false, reason: "backing_off" as const };
+      throw error;
+    }
+  }),
 
   disconnect: protectedProcedure.mutation(async ({ ctx }) => {
     const channels = await listChannelsForUid(ctx.firestore, ctx.uid);

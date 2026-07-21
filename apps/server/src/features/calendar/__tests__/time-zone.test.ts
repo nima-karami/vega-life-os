@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { storedTask } from "../../../test/calendar-fixtures";
 import { fromGEvent, toGEvent } from "../event-map";
-import { formatInstantInZone } from "../time-zone";
+import { formatInstantInZone, isValidTimeZone } from "../time-zone";
+
+describe("isValidTimeZone", () => {
+  it("accepts a real IANA zone and rejects a bogus one", () => {
+    expect(isValidTimeZone("America/Toronto")).toBe(true);
+    expect(isValidTimeZone("Not/AZone")).toBe(false);
+  });
+});
 
 describe("formatInstantInZone", () => {
   it("renders an instant as wall-clock date/time in the given zone", () => {
