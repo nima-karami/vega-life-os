@@ -3,7 +3,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
-import { computeHabitRate } from "@/features/habits";
+import { computeHabitWindowRate } from "@/features/habits";
 import { isHabitActive } from "@/features/habits/model";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
@@ -100,9 +100,10 @@ function AnalyticsSection() {
     () =>
       habits
         .filter(isHabitActive)
-        .map((h) => ({ h, rate: computeHabitRate(tasks, h) }))
+        .map((h) => ({ h, ...computeHabitWindowRate(tasks, h, days) }))
+        .filter((r) => r.due > 0)
         .sort((a, b) => b.rate - a.rate),
-    [habits, tasks],
+    [habits, tasks, days],
   );
 
   const maxValueCount = Math.max(1, ...Object.values(byValue));
@@ -182,7 +183,7 @@ function AnalyticsSection() {
       case "habits":
         return (
           <>
-            <SectionHead title="Habits" meta="rate" />
+            <SectionHead title="Habits" meta={`${days}d`} />
             <div className="mt-4 space-y-1">
               {habitRanked.map(({ h, rate }) => (
                 <button
@@ -190,7 +191,7 @@ function AnalyticsSection() {
                   type="button"
                   onClick={() => setReportHabitId(h.id)}
                   className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
-                  aria-label={`${h.name} report — ${Math.round(rate * 100)}% follow-through`}
+                  aria-label={`${h.name} report — ${Math.round(rate * 100)}% follow-through in the last ${days} days`}
                 >
                   <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
                   <div className="h-3 flex-1 rounded-full bg-surface-secondary">
@@ -253,6 +254,7 @@ function AnalyticsSection() {
       {reportHabit && (
         <HabitReportModal
           habit={reportHabit}
+          windowDays={days}
           isOpen={reportHabitId !== null}
           onClose={() => setReportHabitId(null)}
         />

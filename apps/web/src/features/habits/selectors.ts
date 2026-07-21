@@ -116,6 +116,22 @@ export function computeHabitStreak(
   return getStreakState(tasks, habit, today, rules).count;
 }
 
+/** Count done (incl. late backfills) vs genuine misses; optionally only slots on or
+ *  after `floor`. Skips and pending slots are neutral, excluded from both tallies. */
+function tallySlotKinds(
+  kinds: { date: string; kind: SlotKind }[],
+  floor?: string,
+): { done: number; missed: number } {
+  let done = 0;
+  let missed = 0;
+  for (const k of kinds) {
+    if (floor && k.date < floor) continue;
+    if (k.kind === "done" || k.kind === "late") done++;
+    else if (k.kind === "miss") missed++;
+  }
+  return { done, missed };
+}
+
 /** done / (done + missed) over scheduled slots; a late backfill still counts as done
  *  for the rate (only the streak penalizes lateness). Skips and pending slots excluded. */
 export function computeHabitRate(
@@ -124,14 +140,34 @@ export function computeHabitRate(
   today: string = todayISO(),
   rules: StreakRules = DEFAULT_RULES,
 ): number {
-  let done = 0;
-  let missed = 0;
-  for (const k of deriveSlotKinds(tasks, habit, today, rules.graceDays)) {
-    if (k.kind === "done" || k.kind === "late") done++;
-    else if (k.kind === "miss") missed++;
-  }
+  const { done, missed } = tallySlotKinds(deriveSlotKinds(tasks, habit, today, rules.graceDays));
   const denom = done + missed;
   return denom ? done / denom : 0;
+}
+
+export interface HabitWindowRate {
+  rate: number;
+  due: number;
+  done: number;
+  missed: number;
+}
+
+/** Windowed follow-through: done/(done+missed) over scheduled slots in the last
+ *  windowDays only. `due` lets callers hide habits with nothing due in the window. */
+export function computeHabitWindowRate(
+  tasks: Task[],
+  habit: Habit,
+  windowDays: number,
+  today: string = todayISO(),
+  rules: StreakRules = DEFAULT_RULES,
+): HabitWindowRate {
+  const floor = shiftISO(today, -(windowDays - 1));
+  const { done, missed } = tallySlotKinds(
+    deriveSlotKinds(tasks, habit, today, rules.graceDays),
+    floor,
+  );
+  const due = done + missed;
+  return { rate: due ? done / due : 0, due, done, missed };
 }
 
 /**

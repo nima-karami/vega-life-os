@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { shiftISO } from "@/core/lib/date";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Habit } from "../model";
-import { computeHabitRate, computeHabitStreak, getStreakState } from "../selectors";
+import {
+  computeHabitRate,
+  computeHabitStreak,
+  computeHabitWindowRate,
+  getStreakState,
+} from "../selectors";
 
 const BASE = "2026-01-01";
 const HABIT = "h";
@@ -273,6 +278,47 @@ describe("getStreakState — cooldown", () => {
   it("allows a second mend at >=14 days", () => {
     const { tasks, today } = build([...rep(D, 7), M, ...rep(D, 13), M, ...rep(D, 3)]);
     expect(getStreakState(tasks, dailyHabit(), today)).toEqual({ count: 23, state: "solid" });
+  });
+});
+
+describe("computeHabitWindowRate", () => {
+  it("counts only slots inside the window", () => {
+    const habit = dailyHabit();
+    // 40-day-old daily habit, done every day only in the last 7; earlier slots miss.
+    const tasks = Array.from({ length: 7 }, (_, i) => inst(shiftISO(BASE, 33 + i), D));
+    const today = shiftISO(BASE, 39);
+    expect(computeHabitWindowRate(tasks, habit, 7, today)).toEqual({
+      rate: 1,
+      due: 7,
+      done: 7,
+      missed: 0,
+    });
+    expect(computeHabitRate(tasks, habit, today)).toBeLessThan(1);
+  });
+
+  it("reports zero due slots for a schedule with nothing in the window", () => {
+    const habit: Habit = {
+      ...dailyHabit(),
+      schedule: { type: "monthly", daysOfMonth: [5], lastDay: false },
+    };
+    // only scheduled slot in the walk is the 5th (20 days before today) → outside a 7-day window
+    expect(computeHabitWindowRate([], habit, 7, "2026-01-25")).toEqual({
+      rate: 0,
+      due: 0,
+      done: 0,
+      missed: 0,
+    });
+  });
+
+  it("clamps to the active stretch (resume inside the window)", () => {
+    const habit = dailyHabit();
+    habit.resumedAt = shiftISO(BASE, 21);
+    const tasks = [21, 22, 23, 24].map((i) => inst(shiftISO(BASE, i), D));
+    const today = shiftISO(BASE, 24);
+    // windowDays 30 reaches before the resume, but only the 4 post-resume slots count
+    const windowRate = computeHabitWindowRate(tasks, habit, 30, today);
+    expect(windowRate.due).toBe(4);
+    expect(windowRate.done).toBe(4);
   });
 });
 

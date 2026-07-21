@@ -2,7 +2,7 @@ import { addDays, format, startOfWeek, subDays } from "date-fns";
 import { shiftISO, todayISO } from "@/core/lib/date";
 import { type Goal, isGoalClosed } from "@/features/goals/model";
 import { getGoalPaceBadge } from "@/features/goals/presentation";
-import { computeHabitRate, computeHabitStreak } from "@/features/habits";
+import { computeHabitStreak, computeHabitWindowRate } from "@/features/habits";
 import { type Habit, habitStretchStart } from "@/features/habits/model";
 import { isActiveOnSchedule } from "@/features/habits/recurrence";
 import { type DayEntry, hasGratitude } from "@/features/journal/model";
@@ -249,25 +249,21 @@ export function computeHabitTimeline(
   const stretchStart = habitStretchStart(habit);
   const start = windowStart > stretchStart ? windowStart : stretchStart;
   const days: TimelineDay[] = [];
-  let done = 0;
-  let missed = 0;
   for (let iso = start; iso <= today; iso = shiftISO(iso, 1)) {
     const label = format(new Date(`${iso}T00:00:00`), "MMM d");
     if (!isActiveOnSchedule(habit.schedule, iso)) {
       days.push({ iso, label, kind: "off" });
       continue;
     }
-    const kind = classifyTimelineDay(bySlot.get(iso), iso, graceFloor);
-    if (kind === "done" || kind === "moved") done++;
-    else if (kind === "miss") missed++;
-    days.push({ iso, label, kind });
+    days.push({ iso, label, kind: classifyTimelineDay(bySlot.get(iso), iso, graceFloor) });
   }
+  const window = computeHabitWindowRate(tasks, habit, windowDays, today, rules);
   return {
     streak: computeHabitStreak(tasks, habit, today, rules),
-    rate: computeHabitRate(tasks, habit, today, rules),
-    done,
-    missed,
-    days,
+    rate: window.rate,
+    done: window.done,
+    missed: window.missed,
+    days: days.slice(-35),
   };
 }
 

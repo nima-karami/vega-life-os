@@ -86,3 +86,33 @@ describe("computeHabitTimeline", () => {
     expect(timeline.days.every((d) => d.iso >= iso(3))).toBe(true);
   });
 });
+
+describe("computeHabitTimeline windowing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("computes stats over the requested window but caps the strip at 35 days", () => {
+    const habit: Habit = { ...dailyHabit, createdAt: iso(120) };
+    // done for the last 35 days; slots at days 35..119 never materialized → misses
+    const tasks = Array.from({ length: 35 }, (_, i) => instance(i, { status: "done" }));
+    const timeline = computeHabitTimeline(tasks, habit, 90);
+    expect(timeline.days.length).toBeLessThanOrEqual(35);
+    // rate reflects the misses inside the 90-day window (35 done / 90 due), not the
+    // full 120-day history and not the done-heavy 35-day strip
+    expect(timeline.rate).toBeCloseTo(35 / 90, 5);
+    expect(timeline.done).toBe(35);
+    expect(timeline.missed).toBe(55);
+  });
+
+  it("keeps the streak full-stretch regardless of window", () => {
+    const habit: Habit = { ...dailyHabit, createdAt: iso(45) };
+    const tasks = Array.from({ length: 45 }, (_, i) => instance(i, { status: "done" }));
+    const narrow = computeHabitTimeline(tasks, habit, 7);
+    const wide = computeHabitTimeline(tasks, habit, 40);
+    expect(narrow.streak).toBe(wide.streak);
+    expect(narrow.streak).toBeGreaterThan(7);
+  });
+});

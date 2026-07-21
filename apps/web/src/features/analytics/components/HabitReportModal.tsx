@@ -52,16 +52,18 @@ const KIND_WORD: Record<TimelineKind, string> = {
 
 export function HabitReportModal({
   habit,
+  windowDays,
   isOpen,
   onClose,
 }: {
   habit: Habit;
+  windowDays: number;
   isOpen: boolean;
   onClose: () => void;
 }) {
   const tasks = useStore((s) => s.tasks);
   const responsive = useCompactModal();
-  const timeline = computeHabitTimeline(tasks, habit);
+  const timeline = computeHabitTimeline(tasks, habit, windowDays);
   const state = useOverlayState({
     isOpen,
     onOpenChange: (next) => {
@@ -86,10 +88,13 @@ export function HabitReportModal({
             <Modal.Body className="gap-5">
               <div className="grid grid-cols-3 gap-3">
                 <Stat value={`${timeline.streak}`} label="day streak" />
-                <Stat value={`${Math.round(timeline.rate * 100)}%`} label="follow-through" />
+                <Stat
+                  value={`${Math.round(timeline.rate * 100)}%`}
+                  label={`follow-through · ${windowDays}d`}
+                />
                 <Stat
                   value={`${timeline.done}/${timeline.done + timeline.missed}`}
-                  label="done / due"
+                  label={`done / due · ${windowDays}d`}
                 />
               </div>
 
