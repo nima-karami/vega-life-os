@@ -55,6 +55,8 @@ import {
   getUntimedTasksForDay,
   layoutSpanBars,
 } from "./grid-data";
+import { useCalendarAutoRefresh } from "./useCalendarAutoRefresh";
+import { WriteCalendarMissingBanner } from "./WriteCalendarMissingBanner";
 
 interface DragState {
   id: string;
@@ -115,6 +117,8 @@ export function CalendarPage() {
 
   const calendarEvents = useStore((s) => s.calendarEvents);
   const showGoogleEvents = useStore((s) => s.showGoogleEvents);
+  const writeCalendarMissing = useStore((s) => Boolean(s.gcalStatus?.writeCalendarMissing));
+  useCalendarAutoRefresh();
   const livedEvents = useMemo(
     () => (showGoogleEvents ? dedupeForDisplay(calendarEvents) : []),
     [calendarEvents, showGoogleEvents],
@@ -923,6 +927,8 @@ export function CalendarPage() {
       <span className="sr-only" role="status" aria-live="polite">
         {announce}
       </span>
+
+      {writeCalendarMissing && <WriteCalendarMissingBanner />}
 
       {/* ── Nav header — quiet, like Today (keeps the grid in view) ── */}
       <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">

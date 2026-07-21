@@ -2,22 +2,24 @@
  * Minimal GCal control for /calendar: a single sync icon (its tone signals state),
  * a show/hide toggle for Google events, and a subtle "last synced" hint. Connecting
  * and disconnecting live in Settings — this surfaces only once connected. Sync runs
- * server-side; this pulls the latest server truth into the store.
+ * server-side; this triggers syncNow and pulls the latest server truth into the store.
  */
 import { useState } from "react";
+import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
+import { describeSyncFailure } from "@/features/calendar-sync/sync-feedback";
 import { deriveSyncPhase, formatLastSynced, type SyncPhase } from "./sync-status";
 
 /** Icon tone by phase — calm when healthy, danger when it needs attention. */
 const TONE: Record<SyncPhase, string> = {
-  "not-configured": "text-muted",
+  unknown: "text-muted",
   disconnected: "text-muted",
   syncing: "text-accent",
   "backing-off": "text-muted",
   error: "text-danger",
   "needs-reconnect": "text-danger",
-  "needs-upgraded-consent": "text-danger",
+  "write-calendar-missing": "text-warning",
   connected: "text-success",
 };
 
@@ -25,7 +27,7 @@ const ATTENTION: Partial<Record<SyncPhase, string>> = {
   "backing-off": "Will retry",
   error: "Sync failed",
   "needs-reconnect": "Reconnect",
-  "needs-upgraded-consent": "Reconnect",
+  "write-calendar-missing": "Calendar removed",
 };
 
 export function CalendarSync() {
@@ -37,18 +39,17 @@ export function CalendarSync() {
   const [hasError, setHasError] = useState(false);
   const [announce, setAnnounce] = useState("");
 
-  // Only surface on /calendar once connected; connect/disconnect live in Settings.
-  if (!gcalStatus?.connected) return null;
+  // Surface on /calendar whenever there's a connection to act on; connect lives in Settings.
+  if (!(gcalStatus?.connected || gcalStatus?.needsReauth || gcalStatus?.writeCalendarMissing)) {
+    return null;
+  }
 
   const lastSyncedMs = gcalStatus.lastSyncedAt ? Date.parse(gcalStatus.lastSyncedAt) : null;
   const phase = deriveSyncPhase({
-    configured: true,
-    enabled: true,
-    connected: true,
+    status: gcalStatus,
     busy,
     error: hasError,
-    needsReconnect: gcalStatus.needsReauth,
-    backingOff: gcalStatus.backoffUntil != null,
+    nowIso: new Date().toISOString(),
   });
   const lastLabel = formatLastSynced(lastSyncedMs);
   const hint =
@@ -57,16 +58,19 @@ export function CalendarSync() {
   const sync = async () => {
     setBusy(true);
     setHasError(false);
-    setAnnounce("Refreshing…");
+    setAnnounce("Syncing…");
     try {
+      const outcome = await getTrpcClient().calendar.syncNow.mutate();
       await useStore.getState().refetchAll();
       await useStore.getState().refreshGcalStatus();
-      const message = "Calendar refreshed";
+      const reason = "reason" in outcome ? outcome.reason : undefined;
+      const message = outcome.synced ? "Calendar synced" : describeSyncFailure(reason);
       pushToast(message);
       setAnnounce(message);
+      setHasError(!outcome.synced && reason === "needs_reauth");
     } catch {
       setHasError(true);
-      const message = "Refresh failed — check your connection";
+      const message = "Sync failed — check your connection";
       pushToast(message);
       setAnnounce(message);
     } finally {

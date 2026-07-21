@@ -4,6 +4,7 @@ import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { CalendarPicker } from "@/features/calendar/CalendarPicker";
+import { WriteCalendarMissingBanner } from "@/features/calendar/WriteCalendarMissingBanner";
 import { describeSyncFailure } from "@/features/calendar-sync/sync-feedback";
 import { SettingsCard } from "../SettingsCard";
 import { DisconnectDialog } from "./DisconnectDialog";
@@ -73,12 +74,7 @@ export function CalendarSettings() {
         ) : status?.connected ? (
           <>
             <CalendarPicker />
-            {status.writeCalendarMissing && (
-              <p className="flex items-start gap-1.5 text-sm text-warning">
-                <Icon name="alert" size={15} className="mt-0.5 shrink-0" />
-                <span>Your VEGA calendar is missing in Google — reconnect to recreate it.</span>
-              </p>
-            )}
+            {status.writeCalendarMissing && <WriteCalendarMissingBanner />}
             <div className="flex flex-wrap gap-2">
               <Button variant="primary" isDisabled={busy} onPress={() => void sync()}>
                 <Icon name="refresh-cw" size={15} />

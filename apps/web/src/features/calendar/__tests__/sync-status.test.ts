@@ -1,132 +1,92 @@
 import { describe, expect, it } from "vitest";
+import type { GcalStatus } from "@/features/calendar-sync";
 import { deriveSyncPhase, formatLastSynced, formatSyncStatus } from "../sync-status";
 
-describe("deriveSyncPhase", () => {
-  it("is 'not-configured' when GCal has no client id, regardless of other flags", () => {
-    expect(
-      deriveSyncPhase({
-        configured: false,
-        enabled: true,
-        connected: true,
-        busy: false,
-        error: false,
-      }),
-    ).toBe("not-configured");
-  });
+const NOW = "2026-07-20T12:00:00.000Z";
+const connected: GcalStatus = {
+  connected: true,
+  needsReauth: false,
+  writeCalendarMissing: false,
+  writeCalendarId: "w",
+  readCalendarIds: [],
+  calendarPrefs: {},
+  lastSyncedAt: null,
+  backoffUntil: null,
+  timeZone: null,
+};
 
-  it("is 'disconnected' when configured but sync is off", () => {
+describe("deriveSyncPhase", () => {
+  it("orders precedence: unknown → busy → missing-calendar → reauth → backoff → error → connected", () => {
+    expect(deriveSyncPhase({ status: null, busy: false, error: false, nowIso: NOW })).toBe(
+      "unknown",
+    );
+    expect(deriveSyncPhase({ status: connected, busy: true, error: false, nowIso: NOW })).toBe(
+      "syncing",
+    );
     expect(
       deriveSyncPhase({
-        configured: true,
-        enabled: false,
-        connected: false,
+        status: { ...connected, writeCalendarMissing: true },
         busy: false,
         error: false,
+        nowIso: NOW,
+      }),
+    ).toBe("write-calendar-missing");
+    expect(
+      deriveSyncPhase({
+        status: { ...connected, connected: false, needsReauth: true },
+        busy: false,
+        error: false,
+        nowIso: NOW,
+      }),
+    ).toBe("needs-reconnect");
+    expect(
+      deriveSyncPhase({
+        status: { ...connected, backoffUntil: "2999-01-01T00:00:00.000Z" },
+        busy: false,
+        error: false,
+        nowIso: NOW,
+      }),
+    ).toBe("backing-off");
+    expect(deriveSyncPhase({ status: connected, busy: false, error: true, nowIso: NOW })).toBe(
+      "error",
+    );
+    expect(deriveSyncPhase({ status: connected, busy: false, error: false, nowIso: NOW })).toBe(
+      "connected",
+    );
+    expect(
+      deriveSyncPhase({
+        status: { ...connected, connected: false },
+        busy: false,
+        error: false,
+        nowIso: NOW,
       }),
     ).toBe("disconnected");
   });
 
-  it("is 'syncing' while a run is in flight (takes precedence over connected)", () => {
+  it("ignores an expired backoff window (in the past)", () => {
     expect(
       deriveSyncPhase({
-        configured: true,
-        enabled: true,
-        connected: true,
-        busy: true,
-        error: false,
-      }),
-    ).toBe("syncing");
-  });
-
-  it("is 'error' when the last run failed and nothing is in flight", () => {
-    expect(
-      deriveSyncPhase({
-        configured: true,
-        enabled: true,
-        connected: true,
-        busy: false,
-        error: true,
-      }),
-    ).toBe("error");
-  });
-
-  it("is 'needs-reconnect' when enabled but the token is gone (auth expired)", () => {
-    expect(
-      deriveSyncPhase({
-        configured: true,
-        enabled: true,
-        connected: false,
+        status: { ...connected, backoffUntil: "2000-01-01T00:00:00.000Z" },
         busy: false,
         error: false,
-      }),
-    ).toBe("needs-reconnect");
-  });
-
-  it("is 'needs-reconnect' (danger) when the engine flags it, over backing-off", () => {
-    expect(
-      deriveSyncPhase({
-        configured: true,
-        enabled: true,
-        connected: true,
-        busy: false,
-        error: false,
-        needsReconnect: true,
-        backingOff: true,
-      }),
-    ).toBe("needs-reconnect");
-  });
-
-  it("is 'backing-off' (calm) on a transient retry, not 'error'", () => {
-    expect(
-      deriveSyncPhase({
-        configured: true,
-        enabled: true,
-        connected: true,
-        busy: false,
-        error: false,
-        backingOff: true,
-      }),
-    ).toBe("backing-off");
-  });
-
-  it("is 'connected' when enabled, connected, idle and healthy", () => {
-    expect(
-      deriveSyncPhase({
-        configured: true,
-        enabled: true,
-        connected: true,
-        busy: false,
-        error: false,
+        nowIso: NOW,
       }),
     ).toBe("connected");
   });
 
-  it("busy wins even when enabled but not yet connected (initial connect)", () => {
+  it("prefers the missing-calendar pause over a live backoff", () => {
     expect(
       deriveSyncPhase({
-        configured: true,
-        enabled: false,
-        connected: false,
-        busy: true,
+        status: {
+          ...connected,
+          writeCalendarMissing: true,
+          backoffUntil: "2999-01-01T00:00:00.000Z",
+        },
+        busy: false,
         error: false,
+        nowIso: NOW,
       }),
-    ).toBe("syncing");
-  });
-});
-
-describe("deriveSyncPhase — scope upgrade", () => {
-  const base = { configured: true, enabled: true, connected: true, busy: false, error: false };
-  it("demands upgraded consent when the stored scope is stale", () => {
-    expect(deriveSyncPhase({ ...base, scopeStale: true })).toBe("needs-upgraded-consent");
-  });
-  it("ignores scopeStale when not connected/enabled", () => {
-    expect(deriveSyncPhase({ ...base, enabled: false, connected: false, scopeStale: true })).toBe(
-      "disconnected",
-    );
-  });
-  it("busy/error still take precedence over a stale scope", () => {
-    expect(deriveSyncPhase({ ...base, busy: true, scopeStale: true })).toBe("syncing");
-    expect(deriveSyncPhase({ ...base, error: true, scopeStale: true })).toBe("error");
+    ).toBe("write-calendar-missing");
   });
 });
 
@@ -152,12 +112,13 @@ describe("formatLastSynced", () => {
 
 describe("formatSyncStatus", () => {
   it("maps each phase to human-readable status copy", () => {
-    expect(formatSyncStatus("not-configured")).toMatch(/set up/i);
+    expect(formatSyncStatus("unknown")).toMatch(/checking/i);
     expect(formatSyncStatus("disconnected")).toMatch(/not connected|disconnected/i);
     expect(formatSyncStatus("syncing")).toMatch(/syncing/i);
     expect(formatSyncStatus("backing-off")).toMatch(/retry|paused/i);
     expect(formatSyncStatus("error")).toMatch(/failed|error/i);
     expect(formatSyncStatus("needs-reconnect")).toMatch(/expired|reconnect/i);
+    expect(formatSyncStatus("write-calendar-missing")).toMatch(/removed/i);
     expect(formatSyncStatus("connected")).toMatch(/connected|synced/i);
   });
 });
