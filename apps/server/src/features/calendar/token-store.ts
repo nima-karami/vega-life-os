@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import type { Firestore } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, type Firestore } from "firebase-admin/firestore";
 import type { ServerConfig } from "../../core/config";
 import type { BackoffState } from "./backoff";
 import { SyncBackingOffError } from "./backoff";
@@ -95,6 +95,23 @@ export async function writeGcalAccount(
 
 export async function clearGcalAccount(firestore: Firestore, uid: string): Promise<void> {
   await accountRef(firestore, uid).delete();
+}
+
+/** Delete map keys from the stored `syncTokens` — a merge write can't remove a key, so an absent one would survive. */
+export async function removeSyncTokens(
+  firestore: Firestore,
+  uid: string,
+  calendarIds: string[],
+): Promise<void> {
+  if (calendarIds.length === 0) return;
+  // Calendar ids contain dots (`user@gmail.com`); a dotted string path would split, so key by FieldPath.
+  const [firstId, ...restIds] = calendarIds;
+  const rest = restIds.flatMap((id) => [new FieldPath("syncTokens", id), FieldValue.delete()]);
+  await accountRef(firestore, uid).update(
+    new FieldPath("syncTokens", firstId),
+    FieldValue.delete(),
+    ...rest,
+  );
 }
 
 /** Every uid holding a live (non-revoked) refresh token — the Scheduler reconcile iterates these. */

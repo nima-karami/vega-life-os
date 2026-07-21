@@ -171,6 +171,33 @@ export async function retireCalendarMirrors(
   }
 }
 
+/**
+ * Order-independent cleanup for a Google-side move (or a shared-invite deletion): when a `removedAt`
+ * mirror shares its iCalUID with a surviving confirmed twin, fold its meaning onto the twin and drop it.
+ */
+async function dropSupersededRemovedRows(repo: Repository<"calendarEvents">): Promise<void> {
+  const rows = await repo.list();
+  const survivorByICalUID = new Map<string, CalendarEvent>();
+  for (const row of rows) {
+    if (row.removedAt == null && row.status === "confirmed")
+      survivorByICalUID.set(row.iCalUID, row);
+  }
+  for (const removed of rows) {
+    if (removed.removedAt == null) continue;
+    const survivor = survivorByICalUID.get(removed.iCalUID);
+    if (!survivor) continue;
+    if (hasMeaning(removed) && !hasMeaning(survivor)) {
+      await repo.upsert({
+        ...toWritable<"calendarEvents">(survivor),
+        valueId: removed.valueId,
+        goalId: removed.goalId,
+        note: removed.note,
+      });
+    }
+    await repo.remove(removed.id);
+  }
+}
+
 async function pushLived(
   deps: SyncDeps,
   uid: string,
@@ -329,6 +356,7 @@ export async function runLivedLane(
     await retireCalendarMirrors(deps, uid, calendarId, now);
   }
 
+  await dropSupersededRemovedRows(repo);
   await pushLived(deps, uid, client, timeZone);
   return { lived, nextSyncTokens, vanishedCalendarIds, rateLimited };
 }

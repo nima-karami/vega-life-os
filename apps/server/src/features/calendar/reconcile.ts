@@ -15,6 +15,7 @@ import {
   isBenignSyncFault,
   listConnectedUids,
   readGcalAccount,
+  removeSyncTokens,
   writeGcalAccount,
 } from "./token-store";
 
@@ -113,6 +114,7 @@ export async function runReconcile(deps: ReconcileDeps, uid: string): Promise<Sy
         : {}),
     });
     if (lived.vanishedCalendarIds.length) {
+      await removeSyncTokens(deps.firestore, uid, lived.vanishedCalendarIds);
       await retireVanishedChannels(deps.firestore, uid, lived.vanishedCalendarIds);
     }
     const tombstonesSwept = await sweepTombstones(deps.firestore, uid, Date.parse(deps.now()));
