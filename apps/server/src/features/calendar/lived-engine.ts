@@ -94,7 +94,7 @@ function inheritMeaning(row: LivedRow, meaning: MeaningFields): LivedOutcome {
   row.valueId = meaning.valueId;
   row.goalId = meaning.goalId;
   row.note = meaning.note;
-  return meaning.sourceRemoved ? { upsert: row, dropId: meaning.sourceRowId } : { upsert: row };
+  return { upsert: row, dropId: meaning.sourceRowId };
 }
 
 function reconcileLivedEvent(
@@ -116,7 +116,9 @@ function reconcileLivedEvent(
     if (!isInsertableDate(synced.date)) return {};
     const meaning = meaningByICalUID.get(synced.iCalUID);
     const row = insertRow(synced);
-    return meaning ? inheritMeaning(row, meaning) : { upsert: row };
+    // Inherit only on a true calendar-move (the source instance is gone); a fresh recurring-series
+    // instance shares its iCalUID with tagged siblings but must stay untagged.
+    return meaning?.sourceRemoved ? inheritMeaning(row, meaning) : { upsert: row };
   }
   return { upsert: mergeRow(prior, synced) };
 }
@@ -175,16 +177,21 @@ export async function retireCalendarMirrors(
  * Order-independent cleanup for a Google-side move (or a shared-invite deletion): when a `removedAt`
  * mirror shares its iCalUID with a surviving confirmed twin, fold its meaning onto the twin and drop it.
  */
+const instanceKey = (event: Pick<CalendarEvent, "iCalUID" | "date">) =>
+  `${event.iCalUID}|${event.date ?? ""}`;
+
 async function dropSupersededRemovedRows(repo: Repository<"calendarEvents">): Promise<void> {
   const rows = await repo.list();
-  const survivorByICalUID = new Map<string, CalendarEvent>();
+  const survivorByInstance = new Map<string, CalendarEvent>();
   for (const row of rows) {
     if (row.removedAt == null && row.status === "confirmed")
-      survivorByICalUID.set(row.iCalUID, row);
+      survivorByInstance.set(instanceKey(row), row);
   }
   for (const removed of rows) {
     if (removed.removedAt == null) continue;
-    const survivor = survivorByICalUID.get(removed.iCalUID);
+    // Same iCalUID AND date = the one instance moved between calendars; a different-dated sibling
+    // of a recurring series must not absorb this instance's meaning.
+    const survivor = survivorByInstance.get(instanceKey(removed));
     if (!survivor) continue;
     if (hasMeaning(removed) && !hasMeaning(survivor)) {
       await repo.upsert({
