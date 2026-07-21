@@ -3,7 +3,16 @@ import { addDays, format, parseISO } from "date-fns";
 import type { Firestore } from "firebase-admin/firestore";
 import { createRepository, toWritable } from "../../core/repository";
 import { fromGEvent, type GEvent, getStablePushKey, isSchedulable, toGEvent } from "./event-map";
-import { type GoogleCalendarClient, GoogleHttpError } from "./google-client";
+import {
+  clearMirror,
+  readMirror,
+  removeMirrorRows,
+  toMirrorGEvent,
+  toMirrorRow,
+  writeMirrorRows,
+} from "./gcal-mirror";
+import { type GoogleCalendarClient, GoogleHttpError, SyncTokenExpiredError } from "./google-client";
+import type { GcalAccount } from "./token-store";
 
 export type SyncDeps = {
   firestore: Firestore;
@@ -11,7 +20,13 @@ export type SyncDeps = {
   now: () => string;
 };
 
-export type TaskLaneResult = { pushed: number; pulled: number; pushFailures: number };
+export type TaskLaneResult = {
+  pushed: number;
+  pulled: number;
+  pushFailures: number;
+  rateLimited: boolean;
+  nextSyncToken: string | null;
+};
 
 export type PullUpdate = {
   taskId: string;
@@ -147,41 +162,96 @@ function makeWindowGuard(todayIso: string): (task: { date: string | null }) => b
   return (task) => task.date != null && task.date >= lo && task.date <= hi;
 }
 
+/** Apply one op to Google and keep the mirror in step: a push writes the confirmed row, a delete removes it. */
+async function applyTaskOp(
+  firestore: Firestore,
+  uid: string,
+  client: GoogleCalendarClient,
+  calendarId: string,
+  op: BatchOp,
+): Promise<void> {
+  if (op.kind === "delete") {
+    await client.deleteEvent(calendarId, op.id);
+    await removeMirrorRows(firestore, uid, [op.id]);
+    return;
+  }
+  if (!op.body) return;
+  if (op.kind === "insert") await client.insertEvent(calendarId, op.body);
+  else await client.patchEvent(calendarId, op.id, op.body);
+  await writeMirrorRows(firestore, uid, [toMirrorRow({ ...op.body, status: "confirmed" })]);
+}
+
+const isRateLimit = (status: number) => status === 429 || status === 403 || status >= 500;
+
 async function applyTaskBatch(
+  firestore: Firestore,
+  uid: string,
   client: GoogleCalendarClient,
   calendarId: string,
   ops: BatchOp[],
-): Promise<number> {
+): Promise<{ pushFailures: number; rateLimited: boolean }> {
   let pushFailures = 0;
+  let rateLimited = false;
   for (const op of ops) {
     try {
-      if (op.kind === "insert" && op.body) await client.insertEvent(calendarId, op.body);
-      else if (op.kind === "patch" && op.body) await client.patchEvent(calendarId, op.id, op.body);
-      else if (op.kind === "delete") await client.deleteEvent(calendarId, op.id);
+      await applyTaskOp(firestore, uid, client, calendarId, op);
     } catch (error) {
-      if (error instanceof GoogleHttpError) {
-        pushFailures += 1;
-        continue;
-      }
-      throw error;
+      if (!(error instanceof GoogleHttpError)) throw error;
+      pushFailures += 1;
+      if (isRateLimit(error.status)) rateLimited = true;
     }
   }
-  return pushFailures;
+  return { pushFailures, rateLimited };
 }
 
-/** Reconcile VEGA tasks ⇄ the dedicated write-calendar: pull moved/cancelled events, then push the set-difference. */
+type WriteCalendarListing = {
+  events: GEvent[];
+  nextSyncToken: string | null;
+  mode: "full" | "delta";
+};
+
+/** Prefer the stored delta token; a 410 (or first run) falls back to one full windowed list. */
+async function listWriteCalendar(
+  client: GoogleCalendarClient,
+  calendarId: string,
+  syncTokens: Record<string, string>,
+): Promise<WriteCalendarListing> {
+  const token = syncTokens[calendarId];
+  if (token) {
+    try {
+      const delta = await client.listEvents(calendarId, { syncToken: token });
+      return { ...delta, mode: "delta" };
+    } catch (error) {
+      if (!(error instanceof SyncTokenExpiredError)) throw error;
+    }
+  }
+  const full = await client.listEvents(calendarId, { window: TASK_WINDOW });
+  return { ...full, mode: "full" };
+}
+
+/**
+ * Reconcile VEGA tasks ⇄ the dedicated write-calendar: pull moved/cancelled events, then push the
+ * set-difference. `have` comes from a persisted mirror, not the live listing, so a task unscheduled
+ * in VEGA (which never shows up in a Google delta) is still detected and its event evicted. A full
+ * windowed list replaces the mirror wholesale, repairing any drift — the periodic verify pass.
+ */
 export async function runTaskLane(
   deps: SyncDeps,
   uid: string,
-  writeCalendarId: string,
-  timeZone: string,
+  account: GcalAccount,
 ): Promise<TaskLaneResult> {
+  const writeCalendarId = account.writeCalendarId ?? "";
+  const timeZone = account.timeZone ?? "UTC";
   const client = await deps.getClient(uid);
   const repo = createRepository(deps.firestore, uid, "tasks", deps.now);
   const tasks = await repo.list();
-  const { events } = await client.listEvents(writeCalendarId, { window: TASK_WINDOW });
 
-  const pull = computeTaskPull(tasks, events, timeZone);
+  const listed = await listWriteCalendar(client, writeCalendarId, account.syncTokens ?? {});
+  const vegaDelta = listed.events.filter(isVegaEvent);
+  if (listed.mode === "full") await clearMirror(deps.firestore, uid);
+  await writeMirrorRows(deps.firestore, uid, vegaDelta.map(toMirrorRow));
+
+  const pull = computeTaskPull(tasks, vegaDelta, timeZone);
   for (const update of pull) {
     const task = tasks.find((candidate) => candidate.id === update.taskId);
     if (!task) continue;
@@ -194,8 +264,22 @@ export async function runTaskLane(
   }
 
   const current = pull.length ? await repo.list() : tasks;
+  const mirror = await readMirror(deps.firestore, uid);
+  const haveEvents = [...mirror.values()].map(toMirrorGEvent);
   const inWindow = makeWindowGuard(deps.now().slice(0, 10));
-  const ops = computeTaskBatch(current, events, inWindow, timeZone);
-  const pushFailures = await applyTaskBatch(client, writeCalendarId, ops);
-  return { pushed: ops.length, pulled: pull.length, pushFailures };
+  const ops = computeTaskBatch(current, haveEvents, inWindow, timeZone);
+  const { pushFailures, rateLimited } = await applyTaskBatch(
+    deps.firestore,
+    uid,
+    client,
+    writeCalendarId,
+    ops,
+  );
+  return {
+    pushed: ops.length,
+    pulled: pull.length,
+    pushFailures,
+    rateLimited,
+    nextSyncToken: listed.nextSyncToken,
+  };
 }

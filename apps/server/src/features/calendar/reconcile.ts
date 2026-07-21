@@ -5,7 +5,12 @@ import type { GoogleCalendarClient } from "./google-client";
 import { runLivedLane } from "./lived-engine";
 import { runTaskLane, type SyncDeps } from "./sync-engine";
 import { withSyncLock } from "./sync-lock";
-import { isBenignSyncFault, listConnectedUids, readGcalAccount } from "./token-store";
+import {
+  isBenignSyncFault,
+  listConnectedUids,
+  readGcalAccount,
+  writeGcalAccount,
+} from "./token-store";
 
 const RENEW_THRESHOLD_MS = 2 * 864e5;
 
@@ -72,7 +77,12 @@ export async function runReconcile(deps: ReconcileDeps, uid: string): Promise<Sy
 
   return withSyncLock(deps.firestore, uid, async () => {
     const lived = await runLivedLane(deps, uid, writeCalendarId, readCalendarIds, timeZone);
-    const task = await runTaskLane(deps, uid, writeCalendarId, timeZone);
+    const task = await runTaskLane(deps, uid, account);
+    if (task.nextSyncToken) {
+      await writeGcalAccount(deps.firestore, uid, {
+        syncTokens: { ...(account.syncTokens ?? {}), [writeCalendarId]: task.nextSyncToken },
+      });
+    }
     const tombstonesSwept = await sweepTombstones(deps.firestore, uid, Date.parse(deps.now()));
     const client = await deps.getClient(uid);
     const channelsRenewed = await renewChannels(deps, uid, client, deps.now());

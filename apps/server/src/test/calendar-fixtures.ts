@@ -24,6 +24,7 @@ export async function connectCalendar(
   await writeGcalAccount(server.firestore, uid, {
     writeCalendarId: options.writeCalendarId,
     readCalendarIds: options.readCalendarIds ?? [],
+    syncTokens: {},
   });
 }
 
