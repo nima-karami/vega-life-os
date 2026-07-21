@@ -38,6 +38,9 @@ describe("calendar selection and sync procedures", () => {
       writeCalendarId: "cal-w-proc",
       readCalendarIds: ["cal-old"],
     });
+    await writeGcalAccount(server.firestore, uid, {
+      calendarPrefs: { "cal-old": { visible: true, summary: "Old", color: null } },
+    });
     server.google.seedCalendarInfo({
       id: "cal-new",
       summary: "New",
@@ -51,6 +54,9 @@ describe("calendar selection and sync procedures", () => {
     const channels = await listChannelsForUid(server.firestore, uid);
     expect(channels.some((channel) => channel.calendarId === "cal-new")).toBe(true);
     expect(channels.some((channel) => channel.calendarId === "cal-old")).toBe(false);
+    const selected = await readGcalAccount(server.firestore, uid);
+    expect(selected?.calendarPrefs?.["cal-old"]).toBeUndefined();
+    expect(selected?.calendarPrefs?.["cal-new"]?.visible).toBe(true);
 
     const tooMany = Array.from({ length: 11 }, (_, index) => `cal-${index}`);
     await expect(

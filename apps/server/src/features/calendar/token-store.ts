@@ -97,21 +97,40 @@ export async function clearGcalAccount(firestore: Firestore, uid: string): Promi
   await accountRef(firestore, uid).delete();
 }
 
-/** Delete map keys from the stored `syncTokens` — a merge write can't remove a key, so an absent one would survive. */
-export async function removeSyncTokens(
+type AccountMapField = "syncTokens" | "calendarPrefs";
+
+/** Delete keys from a stored account map — a merge write can't remove a key, so an absent one would survive. */
+async function removeAccountMapKeys(
   firestore: Firestore,
   uid: string,
+  mapField: AccountMapField,
   calendarIds: string[],
 ): Promise<void> {
   if (calendarIds.length === 0) return;
   // Calendar ids contain dots (`user@gmail.com`); a dotted string path would split, so key by FieldPath.
   const [firstId, ...restIds] = calendarIds;
-  const rest = restIds.flatMap((id) => [new FieldPath("syncTokens", id), FieldValue.delete()]);
+  const rest = restIds.flatMap((id) => [new FieldPath(mapField, id), FieldValue.delete()]);
   await accountRef(firestore, uid).update(
-    new FieldPath("syncTokens", firstId),
+    new FieldPath(mapField, firstId),
     FieldValue.delete(),
     ...rest,
   );
+}
+
+export function removeSyncTokens(
+  firestore: Firestore,
+  uid: string,
+  calendarIds: string[],
+): Promise<void> {
+  return removeAccountMapKeys(firestore, uid, "syncTokens", calendarIds);
+}
+
+export function removeCalendarPrefs(
+  firestore: Firestore,
+  uid: string,
+  calendarIds: string[],
+): Promise<void> {
+  return removeAccountMapKeys(firestore, uid, "calendarPrefs", calendarIds);
 }
 
 /** Every uid holding a live (non-revoked) refresh token — the Scheduler reconcile iterates these. */

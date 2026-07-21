@@ -3,7 +3,7 @@ import { createRepository } from "../../../core/repository";
 import { connectCalendar } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
-import { readGcalAccount } from "../token-store";
+import { readGcalAccount, writeGcalAccount } from "../token-store";
 
 const WRITE_CAL = "cal-write-lived-incr";
 
@@ -74,6 +74,9 @@ describe("incremental lived lane", () => {
       writeCalendarId: WRITE_CAL,
       readCalendarIds: ["cal-gone", "cal-stays"],
     });
+    await writeGcalAccount(server.firestore, uid, {
+      calendarPrefs: { "cal-gone": { visible: true, summary: "Gone", color: null } },
+    });
     server.google.seedEvent("cal-gone", {
       id: "g-meaning",
       iCalUID: "gm@google.com",
@@ -102,6 +105,7 @@ describe("incremental lived lane", () => {
     const account = await readGcalAccount(server.firestore, uid);
     expect(account?.readCalendarIds).toEqual(["cal-stays"]);
     expect(account?.syncTokens?.["cal-gone"]).toBeUndefined();
+    expect(account?.calendarPrefs?.["cal-gone"]).toBeUndefined();
     const rows = await repo.list();
     expect(rows.find((row) => row.googleId === "g-plain")).toBeUndefined();
     expect(rows.find((row) => row.googleId === "g-meaning")?.removedAt).toBeTruthy();

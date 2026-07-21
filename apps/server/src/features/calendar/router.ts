@@ -20,6 +20,7 @@ import {
   type GcalAccount,
   isBenignSyncFault,
   readGcalAccount,
+  removeCalendarPrefs,
   removeSyncTokens,
   storeConnection,
   writeGcalAccount,
@@ -181,18 +182,14 @@ export const calendarRouter = router({
         calendarPrefs,
       });
       await removeSyncTokens(ctx.firestore, ctx.uid, removed);
+      await removeCalendarPrefs(ctx.firestore, ctx.uid, removed);
 
       const deps = reconcileDepsFrom(ctx);
       await registerCalendarChannels(deps, ctx.uid, client, added);
       await stopCalendarChannels(ctx.firestore, ctx.uid, client, removed);
       const now = ctx.calendar.now();
-      const syncDeps = {
-        firestore: ctx.firestore,
-        getClient: ctx.calendar.getClient,
-        now: ctx.calendar.now,
-      };
       for (const id of removed) {
-        await retireCalendarMirrors(syncDeps, ctx.uid, id, now);
+        await retireCalendarMirrors(deps, ctx.uid, id, now);
       }
       await runReconcile(deps, ctx.uid).catch((error) => {
         if (!isBenignSyncFault(error)) throw error;

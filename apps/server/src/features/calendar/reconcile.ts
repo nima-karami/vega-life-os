@@ -11,6 +11,7 @@ import {
   isBenignSyncFault,
   listConnectedUids,
   readGcalAccount,
+  removeCalendarPrefs,
   removeSyncTokens,
   writeGcalAccount,
 } from "./token-store";
@@ -82,6 +83,7 @@ async function reconcileLanes(
   const client = await deps.getClient(uid);
   if (lived.vanishedCalendarIds.length) {
     await removeSyncTokens(deps.firestore, uid, lived.vanishedCalendarIds);
+    await removeCalendarPrefs(deps.firestore, uid, lived.vanishedCalendarIds);
     await stopCalendarChannels(deps.firestore, uid, client, lived.vanishedCalendarIds);
   }
   const tombstonesSwept = await sweepTombstones(deps.firestore, uid, Date.parse(deps.now()));
