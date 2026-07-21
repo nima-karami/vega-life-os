@@ -10,8 +10,8 @@ describe("shouldUpdateTimeZone", () => {
     expect(shouldUpdateTimeZone("Europe/Berlin", "Europe/Berlin")).toBe(false);
   });
 
-  it("is false when the account has no synced zone yet", () => {
-    expect(shouldUpdateTimeZone(null, "Europe/Berlin")).toBe(false);
-    expect(shouldUpdateTimeZone(undefined, "Europe/Berlin")).toBe(false);
+  it("is true for a legacy account with no synced zone (adopt the browser zone)", () => {
+    expect(shouldUpdateTimeZone(null, "Europe/Berlin")).toBe(true);
+    expect(shouldUpdateTimeZone(undefined, "Europe/Berlin")).toBe(true);
   });
 });

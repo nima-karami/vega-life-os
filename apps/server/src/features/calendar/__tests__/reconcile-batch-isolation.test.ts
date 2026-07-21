@@ -15,9 +15,8 @@ describe("runReconcileAll per-uid isolation", () => {
     await server.close();
   });
 
-  it("keeps reconciling healthy uids when another uid faults non-benignly", async () => {
-    const poisoned = "u-poisoned";
-    await writeGcalAccount(server.firestore, poisoned, {
+  const poison = (uid: string) =>
+    writeGcalAccount(server.firestore, uid, {
       refreshTokenCipher: "not-a-valid-cipher-payload",
       needsReauth: false,
       connectedAt: server.now(),
@@ -27,13 +26,18 @@ describe("runReconcileAll per-uid isolation", () => {
       syncTokens: {},
     });
 
-    const healthy = "u-healthy";
+  it("keeps reconciling healthy uids when another uid faults non-benignly", async () => {
+    // Bracket the healthy uid so a poisoned one precedes it under any listConnectedUids order.
+    await poison("u-iso-aaa-poison");
+    await poison("u-iso-zzz-poison");
+
+    const healthy = "u-iso-healthy";
     await connectCalendar(server, healthy, { writeCalendarId: WRITE_CAL });
     await upsertTask(server, healthy, "t-h", { date: "2026-08-12", time: "10:00" });
 
     const result = await runReconcileAll(server.reconcileDeps);
 
-    expect(result.users).toBeGreaterThanOrEqual(2);
+    expect(result.users).toBeGreaterThanOrEqual(3);
     const live = server.google.rawEvents(WRITE_CAL).filter((event) => event.status !== "cancelled");
     expect(live).toHaveLength(1);
   });
