@@ -175,7 +175,8 @@ export async function runReconcileAll(deps: ReconcileDeps): Promise<{ users: num
       await runReconcile(deps, uid);
     } catch (error) {
       if (isBenignSyncFault(error)) continue;
-      throw error;
+      // A non-benign fault for one uid must never starve the rest of the scheduled batch.
+      console.error(`reconcile failed for uid ${uid}`, error);
     }
   }
   return { users: uids.length };

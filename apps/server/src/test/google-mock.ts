@@ -166,12 +166,15 @@ export class GoogleMock {
       listCalendars: async () => [...this.calendarInfos],
       insertEvent: async (calendarId, body) => {
         this.consumePushBudget();
-        this.calendarOf(calendarId).set(body.id ?? "", {
+        const id = body.id ?? "";
+        // Real Google keeps a deleted id (status cancelled) and 409s a re-insert; never silently overwrite.
+        if (this.calendarOf(calendarId).has(id)) throw new GoogleHttpError(409);
+        this.calendarOf(calendarId).set(id, {
           ...withAbsoluteTimes(body),
           status: "confirmed",
           updated: this.clock(),
         });
-        this.bumpVersion(calendarId, body.id ?? "");
+        this.bumpVersion(calendarId, id);
       },
       patchEvent: async (calendarId, eventId, body) => {
         this.consumePushBudget();

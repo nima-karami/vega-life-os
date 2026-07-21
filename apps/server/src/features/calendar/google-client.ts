@@ -109,17 +109,25 @@ export function createGoogleClient(accessToken: string): GoogleCalendarClient {
       return calendars;
     },
     async insertEvent(calendarId, body) {
-      await calendar.events.insert({ calendarId, requestBody: body });
+      try {
+        await calendar.events.insert({ calendarId, requestBody: body });
+      } catch (error) {
+        throw toWriteError(error);
+      }
     },
     async patchEvent(calendarId, eventId, body) {
-      await calendar.events.patch({ calendarId, eventId, requestBody: body });
+      try {
+        await calendar.events.patch({ calendarId, eventId, requestBody: body });
+      } catch (error) {
+        throw toWriteError(error);
+      }
     },
     async deleteEvent(calendarId, eventId) {
       try {
         await calendar.events.delete({ calendarId, eventId });
       } catch (error) {
         if (isHttpStatus(error, 404) || isHttpStatus(error, 410)) return;
-        throw error;
+        throw toWriteError(error);
       }
     },
     async insertCalendar(summary) {
@@ -149,11 +157,22 @@ export function createGoogleClient(accessToken: string): GoogleCalendarClient {
   };
 }
 
-function isHttpStatus(error: unknown, status: number): boolean {
-  if (error instanceof GoogleHttpError) return error.status === status;
-  if (typeof error !== "object" || error === null) return false;
+function httpStatusOf(error: unknown): number | null {
+  if (error instanceof GoogleHttpError) return error.status;
+  if (typeof error !== "object" || error === null) return null;
   const record = error as Record<string, unknown>;
-  return record.code === status || record.status === status;
+  const code = record.code ?? record.status;
+  return typeof code === "number" ? code : null;
+}
+
+function isHttpStatus(error: unknown, status: number): boolean {
+  return httpStatusOf(error) === status;
+}
+
+/** Any HTTP-status-bearing write fault becomes a GoogleHttpError so the engines classify it; an unknown-shaped error rethrows as-is. */
+function toWriteError(error: unknown): unknown {
+  const status = httpStatusOf(error);
+  return status == null ? error : new GoogleHttpError(status);
 }
 
 function toListError(error: unknown, isTokenMode: boolean): Error {

@@ -187,9 +187,23 @@ async function applyTaskOp(
     return;
   }
   if (!op.body) return;
-  if (op.kind === "insert") await client.insertEvent(calendarId, op.body);
+  if (op.kind === "insert") await insertResurrecting(client, calendarId, op.body);
   else await client.patchEvent(calendarId, op.id, op.body);
   await writeMirrorRows(firestore, uid, [toMirrorRow({ ...op.body, status: "confirmed" })]);
+}
+
+/** Google retains a deleted event's id (status cancelled) and 409s the re-insert; patch it back to confirmed. */
+async function insertResurrecting(
+  client: GoogleCalendarClient,
+  calendarId: string,
+  body: GEvent,
+): Promise<void> {
+  try {
+    await client.insertEvent(calendarId, body);
+  } catch (error) {
+    if (!(error instanceof GoogleHttpError) || error.status !== 409) throw error;
+    await client.patchEvent(calendarId, body.id ?? "", { ...body, status: "confirmed" });
+  }
 }
 
 const isRateLimit = (status: number) => status === 429 || status === 403 || status >= 500;
