@@ -11,8 +11,8 @@ describe("describeSyncFailure", () => {
   it("maps needs_reauth to a reconnect prompt", () => {
     expect(describeSyncFailure("needs_reauth")).toMatch(/reconnect/i);
   });
-  it("maps write_calendar_missing to a recreate prompt", () => {
-    expect(describeSyncFailure("write_calendar_missing")).toMatch(/missing/i);
+  it("maps write_calendar_missing to a banner recreate prompt", () => {
+    expect(describeSyncFailure("write_calendar_missing")).toMatch(/banner/i);
   });
   it("falls back to a generic message for an unknown reason", () => {
     expect(describeSyncFailure(undefined)).toMatch(/try again/i);

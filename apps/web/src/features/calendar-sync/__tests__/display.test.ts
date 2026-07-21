@@ -1,6 +1,6 @@
 import type { CalendarEvent } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { filterVisibleEvents } from "../display";
+import { dedupeForDisplay, filterVisibleEvents } from "../display";
 
 function event(over: Partial<CalendarEvent>): CalendarEvent {
   return {
@@ -45,5 +45,27 @@ describe("filterVisibleEvents", () => {
   it("treats a calendar with no pref as visible", () => {
     const events = [event({ id: "ce_1", calendarId: "cal-unknown" })];
     expect(filterVisibleEvents(events, {})).toHaveLength(1);
+  });
+});
+
+describe("dedupeForDisplay", () => {
+  it("collapses two rows sharing an iCalUID into one (shared invite)", () => {
+    const events = [event({ id: "ce_1", googleId: "g1" }), event({ id: "ce_2", googleId: "g2" })];
+    expect(dedupeForDisplay(events).map((row) => row.id)).toEqual(["ce_1"]);
+  });
+
+  it("keeps a declined invite when it carries a value, goal, or note", () => {
+    const events = [event({ id: "ce_1", responseStatus: "declined", valueId: "v1" })];
+    expect(dedupeForDisplay(events).map((row) => row.id)).toEqual(["ce_1"]);
+  });
+
+  it("excludes a removed row", () => {
+    const events = [event({ id: "ce_1", removedAt: "2026-07-20T00:00:00.000Z" })];
+    expect(dedupeForDisplay(events)).toHaveLength(0);
+  });
+
+  it("excludes a row pending deletion", () => {
+    const events = [event({ id: "ce_1", pendingDelete: true })];
+    expect(dedupeForDisplay(events)).toHaveLength(0);
   });
 });

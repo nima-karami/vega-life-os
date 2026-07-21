@@ -13,7 +13,7 @@ export function describeSyncFailure(reason: SyncFailureReason | undefined): stri
     case "needs_reauth":
       return "Reconnect Google Calendar to keep syncing";
     case "write_calendar_missing":
-      return "Your VEGA calendar is missing — reconnect to recreate it";
+      return "Sync is paused — use the calendar banner to recreate it";
     default:
       return "Couldn’t sync right now — try again";
   }

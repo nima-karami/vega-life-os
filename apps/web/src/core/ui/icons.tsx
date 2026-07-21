@@ -97,6 +97,7 @@ import {
   Lamp,
   Languages,
   Laptop,
+  Layers,
   Leaf,
   Library,
   Lightbulb,
@@ -234,6 +235,7 @@ export const Ic: Record<IconName, LucideIcon> = {
   archive: Archive,
   pause: Pause,
   play: Play,
+  layers: Layers,
 
   // Focus & goals
   target: Target,

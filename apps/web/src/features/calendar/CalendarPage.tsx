@@ -15,12 +15,13 @@ import {
   useCompactModal,
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
-import { dedupeForDisplay } from "@/features/calendar-sync";
+import { filterVisibleEvents } from "@/features/calendar-sync";
 import { getFocusableGoals } from "@/features/goals";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { BulkActionBar } from "./BulkActionBar";
 import { CalendarSync } from "./CalendarSync";
+import { CalendarsPopover } from "./CalendarsPopover";
 import { AllDayChip } from "./components/AllDayChip";
 import { BacklogItem } from "./components/BacklogItem";
 import { FilterChip } from "./components/FilterChip";
@@ -116,12 +117,13 @@ export function CalendarPage() {
   }, [focusGoalId, focusableGoals, setFocusGoal]);
 
   const calendarEvents = useStore((s) => s.calendarEvents);
+  const calendarPrefs = useStore((s) => s.gcalStatus?.calendarPrefs);
   const showGoogleEvents = useStore((s) => s.showGoogleEvents);
   const writeCalendarMissing = useStore((s) => Boolean(s.gcalStatus?.writeCalendarMissing));
   useCalendarAutoRefresh();
   const livedEvents = useMemo(
-    () => (showGoogleEvents ? dedupeForDisplay(calendarEvents) : []),
-    [calendarEvents, showGoogleEvents],
+    () => (showGoogleEvents ? filterVisibleEvents(calendarEvents, calendarPrefs ?? {}) : []),
+    [calendarEvents, calendarPrefs, showGoogleEvents],
   );
 
   const [weekRef, setWeekRef] = useState(() => new Date());
@@ -940,6 +942,7 @@ export function CalendarPage() {
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
           <CalendarSync />
+          <CalendarsPopover />
           <div className="flex items-center gap-1.5">
             <Button
               isIconOnly
