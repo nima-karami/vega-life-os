@@ -58,10 +58,11 @@ const legacyIdOf = (event: GEvent) => event.extendedProperties?.private?.vegaTas
 const isVegaEvent = (event: GEvent) =>
   Boolean(event.id?.startsWith("vega") || keyOf(event) || legacyIdOf(event));
 
-// Compare wall-clock only: our pushed body is naive, Google echoes an offset — slice past the
-// seconds so the two representations of the same time don't re-patch every reconcile.
+// Compare wall-clock + zone: our pushed body is naive, Google echoes an offset — slice past the
+// seconds so the two representations of the same time don't re-patch, but keep the zone so a
+// browser timezone change re-pushes the events instead of silently drifting (spec edge #24).
 const signatureOf = (event: GEvent) =>
-  `${(event.start?.dateTime ?? event.start?.date ?? "").slice(0, 19)}|${event.summary ?? ""}`;
+  `${(event.start?.dateTime ?? event.start?.date ?? "").slice(0, 19)}|${event.start?.timeZone ?? ""}|${event.summary ?? ""}`;
 
 function newestVegaScheduleTime(task: Task): string {
   const meta = task.fieldUpdatedAt ?? {};

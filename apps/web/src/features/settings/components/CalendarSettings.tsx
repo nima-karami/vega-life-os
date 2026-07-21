@@ -6,6 +6,7 @@ import { Icon } from "@/core/ui";
 import { CalendarPicker } from "@/features/calendar/CalendarPicker";
 import { WriteCalendarMissingBanner } from "@/features/calendar/WriteCalendarMissingBanner";
 import { describeSyncFailure } from "@/features/calendar-sync/sync-feedback";
+import { shouldUpdateTimeZone } from "@/features/calendar-sync/timezone";
 import { SettingsCard } from "../SettingsCard";
 import { DisconnectDialog } from "./DisconnectDialog";
 
@@ -20,6 +21,15 @@ export function CalendarSettings() {
   useEffect(() => {
     void refreshGcalStatus();
   }, [refreshGcalStatus]);
+
+  useEffect(() => {
+    const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!status?.connected || !shouldUpdateTimeZone(status.timeZone, browserZone)) return;
+    void getTrpcClient()
+      .calendar.setTimeZone.mutate({ timeZone: browserZone })
+      .then(() => refreshGcalStatus())
+      .catch(() => {});
+  }, [status?.connected, status?.timeZone, refreshGcalStatus]);
 
   const connect = async () => {
     setBusy(true);
