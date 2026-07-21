@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { Firestore } from "firebase-admin/firestore";
 import { sweepTombstones } from "../../core/tombstone";
-import { listNearExpiryChannels, registerChannel, removeChannel } from "./channel-registry";
+import {
+  listChannelsForUid,
+  listNearExpiryChannels,
+  registerChannel,
+  removeChannel,
+} from "./channel-registry";
 import type { GoogleCalendarClient } from "./google-client";
 import { runLivedLane } from "./lived-engine";
 import { runTaskLane, type SyncDeps } from "./sync-engine";
@@ -67,21 +73,47 @@ async function renewChannels(
   return near.length;
 }
 
+/** Drop registry rows for a deselected calendar's watch channels; Task 7 will also stop them at Google. */
+async function retireVanishedChannels(
+  firestore: Firestore,
+  uid: string,
+  vanishedCalendarIds: string[],
+): Promise<void> {
+  const gone = new Set(vanishedCalendarIds);
+  const channels = (await listChannelsForUid(firestore, uid)).filter((channel) =>
+    gone.has(channel.calendarId),
+  );
+  for (const channel of channels) await removeChannel(firestore, channel.channelId);
+}
+
 /** Run both lanes for one uid under the per-uid lock, then sweep tombstones and renew near-expiry channels. */
 export async function runReconcile(deps: ReconcileDeps, uid: string): Promise<SyncResult> {
   const account = await readGcalAccount(deps.firestore, uid);
   if (!account || account.needsReauth || !account.writeCalendarId) return emptyResult();
   const writeCalendarId = account.writeCalendarId;
   const readCalendarIds = account.readCalendarIds ?? [];
-  const timeZone = account.timeZone ?? "UTC";
 
   return withSyncLock(deps.firestore, uid, async () => {
-    const lived = await runLivedLane(deps, uid, writeCalendarId, readCalendarIds, timeZone);
+    const lived = await runLivedLane(deps, uid, account);
     const task = await runTaskLane(deps, uid, account);
-    if (task.nextSyncToken) {
-      await writeGcalAccount(deps.firestore, uid, {
-        syncTokens: { ...(account.syncTokens ?? {}), [writeCalendarId]: task.nextSyncToken },
-      });
+    const syncTokens = {
+      ...(account.syncTokens ?? {}),
+      ...lived.nextSyncTokens,
+      ...(task.nextSyncToken ? { [writeCalendarId]: task.nextSyncToken } : {}),
+    };
+    for (const gone of lived.vanishedCalendarIds) delete syncTokens[gone];
+    await writeGcalAccount(deps.firestore, uid, {
+      syncTokens,
+      ...(lived.vanishedCalendarIds.length
+        ? {
+            readCalendarIds: readCalendarIds.filter(
+              (id) => !lived.vanishedCalendarIds.includes(id),
+            ),
+          }
+        : {}),
+    });
+    if (lived.vanishedCalendarIds.length) {
+      await retireVanishedChannels(deps.firestore, uid, lived.vanishedCalendarIds);
     }
     const tombstonesSwept = await sweepTombstones(deps.firestore, uid, Date.parse(deps.now()));
     const client = await deps.getClient(uid);
