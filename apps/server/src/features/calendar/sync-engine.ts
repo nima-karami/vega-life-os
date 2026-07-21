@@ -32,8 +32,10 @@ const legacyIdOf = (event: GEvent) => event.extendedProperties?.private?.vegaTas
 const isVegaEvent = (event: GEvent) =>
   Boolean(event.id?.startsWith("vega") || keyOf(event) || legacyIdOf(event));
 
+// Compare wall-clock only: our pushed body is naive, Google echoes an offset — slice past the
+// seconds so the two representations of the same time don't re-patch every reconcile.
 const signatureOf = (event: GEvent) =>
-  `${event.start?.dateTime ?? event.start?.date ?? ""}|${event.summary ?? ""}`;
+  `${(event.start?.dateTime ?? event.start?.date ?? "").slice(0, 19)}|${event.summary ?? ""}`;
 
 function newestVegaScheduleTime(task: Task): string {
   const meta = task.fieldUpdatedAt ?? {};
@@ -57,18 +59,18 @@ function googleWins(task: Task, event: GEvent): boolean {
  * unschedules an unresolved task but NEVER a resolved (done/skip) one (commit 7af64aa); a moved
  * event wins only under whole-event LWW.
  */
-export function computePullUpdate(task: Task, event: GEvent): PullUpdate | null {
+export function computePullUpdate(task: Task, event: GEvent, timeZone: string): PullUpdate | null {
   if (event.status === "cancelled") {
     if (task.status === "done" || task.status === "skip") return null;
     return { taskId: task.id, date: null, time: null, unscheduled: true };
   }
-  const want = fromGEvent(event);
+  const want = fromGEvent(event, timeZone);
   if (want.date === task.date && want.time === task.time) return null;
   if (!googleWins(task, event)) return null;
   return { taskId: task.id, date: want.date, time: want.time };
 }
 
-export function computeTaskPull(tasks: Task[], events: GEvent[]): PullUpdate[] {
+export function computeTaskPull(tasks: Task[], events: GEvent[], timeZone: string): PullUpdate[] {
   const byKey = new Map(tasks.map((task) => [getStablePushKey(task), task]));
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const updates: PullUpdate[] = [];
@@ -77,7 +79,7 @@ export function computeTaskPull(tasks: Task[], events: GEvent[]): PullUpdate[] {
     const legacyId = legacyIdOf(event);
     const task = (key ? byKey.get(key) : undefined) ?? (legacyId ? byId.get(legacyId) : undefined);
     if (!task) continue;
-    const update = computePullUpdate(task, event);
+    const update = computePullUpdate(task, event, timeZone);
     if (update) updates.push(update);
   }
   return updates;
@@ -91,10 +93,10 @@ export function computeTaskPull(tasks: Task[], events: GEvent[]): PullUpdate[] {
  */
 type DesiredEvent = { body: GEvent; task: Task };
 
-function buildDesiredEvents(tasks: Task[]): Map<string, DesiredEvent> {
+function buildDesiredEvents(tasks: Task[], timeZone: string): Map<string, DesiredEvent> {
   const desired = new Map<string, DesiredEvent>();
   for (const task of tasks.filter(isSchedulable)) {
-    const body = toGEvent(task);
+    const body = toGEvent(task, timeZone);
     if (body.id) desired.set(body.id, { body, task });
   }
   return desired;
@@ -123,8 +125,9 @@ export function computeTaskBatch(
   tasks: Task[],
   existing: GEvent[],
   isInsertable: (task: Task) => boolean = () => true,
+  timeZone = "UTC",
 ): BatchOp[] {
-  const desired = buildDesiredEvents(tasks);
+  const desired = buildDesiredEvents(tasks, timeZone);
   const have = buildExistingEvents(existing);
 
   const ops: BatchOp[] = [];
@@ -171,13 +174,14 @@ export async function runTaskLane(
   deps: SyncDeps,
   uid: string,
   writeCalendarId: string,
+  timeZone: string,
 ): Promise<TaskLaneResult> {
   const client = await deps.getClient(uid);
   const repo = createRepository(deps.firestore, uid, "tasks", deps.now);
   const tasks = await repo.list();
   const { events } = await client.listEvents(writeCalendarId, { window: TASK_WINDOW });
 
-  const pull = computeTaskPull(tasks, events);
+  const pull = computeTaskPull(tasks, events, timeZone);
   for (const update of pull) {
     const task = tasks.find((candidate) => candidate.id === update.taskId);
     if (!task) continue;
@@ -191,7 +195,7 @@ export async function runTaskLane(
 
   const current = pull.length ? await repo.list() : tasks;
   const inWindow = makeWindowGuard(deps.now().slice(0, 10));
-  const ops = computeTaskBatch(current, events, inWindow);
+  const ops = computeTaskBatch(current, events, inWindow, timeZone);
   const pushFailures = await applyTaskBatch(client, writeCalendarId, ops);
   return { pushed: ops.length, pulled: pull.length, pushFailures };
 }

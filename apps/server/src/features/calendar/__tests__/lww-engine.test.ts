@@ -6,8 +6,8 @@ import { computePullUpdate, computeTaskPull } from "../sync-engine";
 const timedEvent = (over: Partial<GEvent> = {}): GEvent => ({
   id: "vega1",
   summary: "Task",
-  start: { dateTime: "2026-07-20T14:00:00" },
-  end: { dateTime: "2026-07-20T14:30:00" },
+  start: { dateTime: "2026-07-20T14:00:00Z" },
+  end: { dateTime: "2026-07-20T14:30:00Z" },
   updated: "2026-07-13T09:00:00.000Z",
   extendedProperties: { private: { vegaTaskId: "t1", vegaKey: "task:t1" } },
   status: "confirmed",
@@ -23,7 +23,7 @@ describe("whole-event LWW pull", () => {
       fieldUpdatedAt: { time: "2026-07-13T12:00:00.000Z" },
     });
     const inbound = timedEvent({ updated: "2026-07-13T08:00:00.000Z" });
-    expect(computePullUpdate(task, inbound)).toBeNull();
+    expect(computePullUpdate(task, inbound, "UTC")).toBeNull();
   });
 
   it("adopts a Google edit newer than every VEGA schedule-field time", () => {
@@ -34,7 +34,7 @@ describe("whole-event LWW pull", () => {
       fieldUpdatedAt: { time: "2026-07-13T12:00:00.000Z" },
     });
     const inbound = timedEvent({ updated: "2026-07-13T18:00:00.000Z" });
-    expect(computePullUpdate(task, inbound)).toEqual({
+    expect(computePullUpdate(task, inbound, "UTC")).toEqual({
       taskId: "t1",
       date: "2026-07-20",
       time: "14:00",
@@ -50,7 +50,7 @@ describe("whole-event LWW pull", () => {
       updatedAt: "2026-07-13T20:00:00.000Z",
     });
     const inbound = timedEvent({ updated: "2026-07-13T12:00:00.000Z" });
-    expect(computePullUpdate(task, inbound)).toEqual({
+    expect(computePullUpdate(task, inbound, "UTC")).toEqual({
       taskId: "t1",
       date: "2026-07-20",
       time: "14:00",
@@ -66,12 +66,12 @@ describe("whole-event LWW pull", () => {
       updatedAt: "2026-07-13T20:00:00.000Z",
     });
     const inbound = timedEvent({ updated: "2026-07-13T12:00:00.000Z" });
-    expect(computePullUpdate(task, inbound)).toBeNull();
+    expect(computePullUpdate(task, inbound, "UTC")).toBeNull();
   });
 
   it("is a no-op when the event already matches the task's schedule", () => {
     const task = storedTask({ id: "t1", date: "2026-07-20", time: "14:00" });
-    expect(computePullUpdate(task, timedEvent())).toBeNull();
+    expect(computePullUpdate(task, timedEvent(), "UTC")).toBeNull();
   });
 
   it("matches events to tasks by stable key then legacy id", () => {
@@ -81,7 +81,11 @@ describe("whole-event LWW pull", () => {
       time: "09:00",
       fieldUpdatedAt: { time: "2026-07-13T08:00:00.000Z" },
     });
-    const updates = computeTaskPull([task], [timedEvent({ updated: "2026-07-13T20:00:00.000Z" })]);
+    const updates = computeTaskPull(
+      [task],
+      [timedEvent({ updated: "2026-07-13T20:00:00.000Z" })],
+      "UTC",
+    );
     expect(updates).toEqual([{ taskId: "t1", date: "2026-07-20", time: "14:00" }]);
   });
 });

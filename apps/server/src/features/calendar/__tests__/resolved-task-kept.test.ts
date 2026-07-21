@@ -13,17 +13,17 @@ const cancelled: GEvent = {
 describe("resolved task is not unscheduled when its Google event is cancelled", () => {
   it("keeps a done task scheduled on a cancelled event", () => {
     const task = storedTask({ id: "t1", date: "2026-07-20", status: "done" });
-    expect(computePullUpdate(task, cancelled)).toBeNull();
+    expect(computePullUpdate(task, cancelled, "UTC")).toBeNull();
   });
 
   it("keeps a skipped task scheduled on a cancelled event", () => {
     const task = storedTask({ id: "t1", date: "2026-07-20", status: "skip" });
-    expect(computePullUpdate(task, cancelled)).toBeNull();
+    expect(computePullUpdate(task, cancelled, "UTC")).toBeNull();
   });
 
   it("still unschedules an UNRESOLVED task on a cancelled event", () => {
     const task = storedTask({ id: "t1", date: "2026-07-20", status: "todo" });
-    expect(computePullUpdate(task, cancelled)).toEqual({
+    expect(computePullUpdate(task, cancelled, "UTC")).toEqual({
       taskId: "t1",
       date: null,
       time: null,

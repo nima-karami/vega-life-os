@@ -35,7 +35,7 @@ describe("aged-out event of a live task is never evicted, even under concurrent 
     // The task is still scheduled, but its date has aged far past the 7-day-back / 90-day-fwd window.
     await upsertTask(server, uid, "t-aged", { date: "2020-01-01", time: "09:00" });
     server.google.seedEvent(WRITE_CAL, {
-      ...toGEvent(storedTask({ id: "t-aged", date: "2020-01-01", time: "09:00" })),
+      ...toGEvent(storedTask({ id: "t-aged", date: "2020-01-01", time: "09:00" }), "UTC"),
       status: "confirmed",
       updated: "2020-01-01T09:00:00.000Z",
     });

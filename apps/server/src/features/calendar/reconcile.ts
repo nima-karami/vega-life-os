@@ -68,10 +68,11 @@ export async function runReconcile(deps: ReconcileDeps, uid: string): Promise<Sy
   if (!account || account.needsReauth || !account.writeCalendarId) return emptyResult();
   const writeCalendarId = account.writeCalendarId;
   const readCalendarIds = account.readCalendarIds ?? [];
+  const timeZone = account.timeZone ?? "UTC";
 
   return withSyncLock(deps.firestore, uid, async () => {
-    const lived = await runLivedLane(deps, uid, writeCalendarId, readCalendarIds);
-    const task = await runTaskLane(deps, uid, writeCalendarId);
+    const lived = await runLivedLane(deps, uid, writeCalendarId, readCalendarIds, timeZone);
+    const task = await runTaskLane(deps, uid, writeCalendarId, timeZone);
     const tombstonesSwept = await sweepTombstones(deps.firestore, uid, Date.parse(deps.now()));
     const client = await deps.getClient(uid);
     const channelsRenewed = await renewChannels(deps, uid, client, deps.now());

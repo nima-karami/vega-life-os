@@ -1,4 +1,4 @@
-import type { GEvent } from "../features/calendar/event-map";
+import type { GEvent, GEventTime } from "../features/calendar/event-map";
 import {
   type GCalendarInfo,
   type GoogleCalendarClient,
@@ -9,6 +9,49 @@ import {
 import { type OauthGateway, OauthHttpError, type OauthTokens } from "../features/calendar/oauth";
 
 type RefreshBehavior = "ok" | "transient" | "revoked";
+
+const hasOffset = (dateTime: string) => /(?:Z|[+-]\d{2}:\d{2})$/.test(dateTime);
+
+function zoneOffsetMs(timeZone: string, instant: Date): number {
+  const parts = new Map(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .formatToParts(instant)
+      .map((part) => [part.type, part.value]),
+  );
+  const asUtc = Date.UTC(
+    Number(parts.get("year")),
+    Number(parts.get("month")) - 1,
+    Number(parts.get("day")),
+    Number(parts.get("hour")),
+    Number(parts.get("minute")),
+    Number(parts.get("second")),
+  );
+  return asUtc - instant.getTime();
+}
+
+/** Google returns absolute (offset-bearing) datetimes; resolve a naive wall-clock + IANA zone to one. */
+function toAbsolute(time: GEventTime | undefined): GEventTime | undefined {
+  if (!time?.dateTime || hasOffset(time.dateTime)) return time;
+  const guess = new Date(`${time.dateTime}Z`);
+  const instant = new Date(guess.getTime() - zoneOffsetMs(time.timeZone ?? "UTC", guess));
+  return { ...time, dateTime: instant.toISOString() };
+}
+
+function withAbsoluteTimes(event: GEvent): GEvent {
+  const next = { ...event };
+  if (event.start) next.start = toAbsolute(event.start);
+  if (event.end) next.end = toAbsolute(event.end);
+  return next;
+}
 
 export type MockChannel = {
   channelId: string;
@@ -52,7 +95,10 @@ export class GoogleMock {
   }
 
   seedEvent(calendarId: string, event: GEvent): void {
-    this.calendarOf(calendarId).set(event.id ?? "", { updated: this.clock(), ...event });
+    this.calendarOf(calendarId).set(event.id ?? "", {
+      updated: this.clock(),
+      ...withAbsoluteTimes(event),
+    });
     this.bumpVersion(calendarId, event.id ?? "");
   }
 
@@ -101,7 +147,7 @@ export class GoogleMock {
       insertEvent: async (calendarId, body) => {
         this.consumePushBudget();
         this.calendarOf(calendarId).set(body.id ?? "", {
-          ...body,
+          ...withAbsoluteTimes(body),
           status: "confirmed",
           updated: this.clock(),
         });
@@ -112,7 +158,7 @@ export class GoogleMock {
         const prior = this.calendarOf(calendarId).get(eventId) ?? { id: eventId };
         this.calendarOf(calendarId).set(eventId, {
           ...prior,
-          ...body,
+          ...withAbsoluteTimes(body),
           status: "confirmed",
           updated: this.clock(),
         });

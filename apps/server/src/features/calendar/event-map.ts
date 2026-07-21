@@ -1,7 +1,8 @@
 import type { CalendarEvent, Task } from "@vega/shared";
 import { addDays, addMinutes, differenceInMinutes, format, parseISO } from "date-fns";
+import { formatInstantInZone } from "./time-zone";
 
-export type GEventTime = { dateTime?: string; date?: string };
+export type GEventTime = { dateTime?: string; date?: string; timeZone?: string };
 
 export type GEvent = {
   id?: string;
@@ -42,12 +43,10 @@ export function getGoogleEventId(task: Task): string {
   return encodeEventId(getStablePushKey(task));
 }
 
-export function toLocalRfc3339(date: Date): string {
-  return format(date, "yyyy-MM-dd'T'HH:mm:ssxxx");
-}
+const toNaiveDateTime = (moment: Date) => format(moment, "yyyy-MM-dd'T'HH:mm:ss");
 
 /** The Google event body VEGA writes for a task — timed if it has a time, else all-day. */
-export function toGEvent(task: Task): GEvent {
+export function toGEvent(task: Task, timeZone: string): GEvent {
   const body: GEvent = {
     id: getGoogleEventId(task),
     summary: task.title,
@@ -56,8 +55,8 @@ export function toGEvent(task: Task): GEvent {
   if (task.time && task.date) {
     const start = parseISO(`${task.date}T${task.time}:00`);
     const end = addMinutes(start, task.durationMin || 30);
-    body.start = { dateTime: toLocalRfc3339(start) };
-    body.end = { dateTime: toLocalRfc3339(end) };
+    body.start = { dateTime: toNaiveDateTime(start), timeZone };
+    body.end = { dateTime: toNaiveDateTime(end), timeZone };
   } else {
     body.start = { date: task.date ?? undefined };
     body.end = { date: task.date ?? undefined };
@@ -66,10 +65,13 @@ export function toGEvent(task: Task): GEvent {
 }
 
 /** The { date, time } a task should adopt from a (moved) Google event. */
-export function fromGEvent(event: GEvent): { date: string | null; time: string | null } {
+export function fromGEvent(
+  event: GEvent,
+  timeZone: string,
+): { date: string | null; time: string | null } {
   if (event.start?.dateTime) {
-    const start = parseISO(event.start.dateTime);
-    return { date: format(start, "yyyy-MM-dd"), time: format(start, "HH:mm") };
+    const { date, time } = formatInstantInZone(parseISO(event.start.dateTime), timeZone);
+    return { date, time };
   }
   if (event.start?.date) return { date: event.start.date, time: null };
   return { date: null, time: null };
@@ -101,9 +103,13 @@ function readSelfResponse(event: GEvent): CalendarEvent["responseStatus"] {
 }
 
 /** The Google-owned fields of a mirrored lived event — meaning/bookkeeping fields are added by the store. */
-export function gEventToSyncedFields(event: GEvent, calendarId: string): SyncedFields {
+export function gEventToSyncedFields(
+  event: GEvent,
+  calendarId: string,
+  timeZone: string,
+): SyncedFields {
   const allDay = !event.start?.dateTime;
-  const timing = allDay ? readAllDayTiming(event) : readTimedTiming(event);
+  const timing = allDay ? readAllDayTiming(event) : readTimedTiming(event, timeZone);
   return {
     googleId: event.id ?? "",
     iCalUID: event.iCalUID ?? event.id ?? "",
@@ -120,15 +126,17 @@ export function gEventToSyncedFields(event: GEvent, calendarId: string): SyncedF
 
 type EventTiming = Pick<CalendarEvent, "date" | "endDate" | "time" | "durationMin">;
 
-function readTimedTiming(event: GEvent): EventTiming {
+function readTimedTiming(event: GEvent, timeZone: string): EventTiming {
   const start = parseISO(event.start?.dateTime ?? "");
   const end = event.end?.dateTime ? parseISO(event.end.dateTime) : addMinutes(start, 30);
   const lastMoment = addMinutes(end, -1);
+  const startWall = formatInstantInZone(start, timeZone);
+  const endWall = formatInstantInZone(lastMoment < start ? start : lastMoment, timeZone);
   return {
-    date: toIsoDay(start),
-    time: format(start, "HH:mm"),
+    date: startWall.date,
+    time: startWall.time,
     durationMin: Math.max(0, differenceInMinutes(end, start)),
-    endDate: toIsoDay(lastMoment < start ? start : lastMoment),
+    endDate: endWall.date,
   };
 }
 
@@ -143,12 +151,13 @@ function readAllDayTiming(event: GEvent): EventTiming {
 /** The Google patch body (title + start/end) for a locally-edited lived event. */
 export function calendarEventToGPatch(
   event: Pick<CalendarEvent, "title" | "date" | "endDate" | "time" | "durationMin" | "allDay">,
+  timeZone: string,
 ): GEvent {
   const body: GEvent = { summary: event.title };
   if (!event.allDay && event.date && event.time) {
     const start = parseISO(`${event.date}T${event.time}:00`);
-    body.start = { dateTime: toLocalRfc3339(start) };
-    body.end = { dateTime: toLocalRfc3339(addMinutes(start, event.durationMin || 30)) };
+    body.start = { dateTime: toNaiveDateTime(start), timeZone };
+    body.end = { dateTime: toNaiveDateTime(addMinutes(start, event.durationMin || 30)), timeZone };
   } else if (event.date) {
     body.start = { date: event.date };
     body.end = { date: toIsoDay(addDays(parseISO(event.endDate ?? event.date), 1)) };

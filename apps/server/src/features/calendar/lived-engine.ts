@@ -79,6 +79,7 @@ export function reconcileLived(
   calendarId: string,
   now: string,
   tombstonedGoogleIds: Set<string>,
+  timeZone: string,
 ): LivedReconcile {
   const byGoogleId = new Map(existing.map((event) => [event.googleId, event]));
   const upserts: LivedRow[] = [];
@@ -86,7 +87,7 @@ export function reconcileLived(
 
   for (const event of incoming) {
     if (event.extendedProperties?.private?.vegaTaskId) continue;
-    const synced = gEventToSyncedFields(event, calendarId);
+    const synced = gEventToSyncedFields(event, calendarId, timeZone);
     const outcome = reconcileLivedEvent(
       synced,
       byGoogleId.get(synced.googleId),
@@ -99,7 +100,12 @@ export function reconcileLived(
   return { upserts, dropIds };
 }
 
-async function pushLived(deps: SyncDeps, uid: string, client: GoogleCalendarClient): Promise<void> {
+async function pushLived(
+  deps: SyncDeps,
+  uid: string,
+  client: GoogleCalendarClient,
+  timeZone: string,
+): Promise<void> {
   const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
   const rows = await repo.list();
   const now = deps.now();
@@ -115,7 +121,7 @@ async function pushLived(deps: SyncDeps, uid: string, client: GoogleCalendarClie
   }
   for (const row of rows.filter((event) => event.vegaEditedAt)) {
     try {
-      await client.patchEvent(row.calendarId, row.googleId, calendarEventToGPatch(row));
+      await client.patchEvent(row.calendarId, row.googleId, calendarEventToGPatch(row, timeZone));
       await repo.upsert({ ...toWritable<"calendarEvents">(row), vegaEditedAt: null });
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
@@ -129,6 +135,7 @@ export async function runLivedLane(
   uid: string,
   writeCalendarId: string,
   readCalendarIds: string[],
+  timeZone: string,
 ): Promise<{ lived: number }> {
   const client = await deps.getClient(uid);
   const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
@@ -144,12 +151,19 @@ export async function runLivedLane(
     if (calendarId === writeCalendarId) continue;
     const { events } = await client.listEvents(calendarId, { window: LIVED_WINDOW });
     const existing = (await repo.list()).filter((event) => event.calendarId === calendarId);
-    const { upserts, dropIds } = reconcileLived(existing, events, calendarId, now, tombstoned);
+    const { upserts, dropIds } = reconcileLived(
+      existing,
+      events,
+      calendarId,
+      now,
+      tombstoned,
+      timeZone,
+    );
     for (const row of upserts) await repo.upsert(row);
     for (const id of dropIds) await repo.remove(id);
     lived += upserts.length + dropIds.length;
   }
 
-  await pushLived(deps, uid, client);
+  await pushLived(deps, uid, client, timeZone);
   return { lived };
 }

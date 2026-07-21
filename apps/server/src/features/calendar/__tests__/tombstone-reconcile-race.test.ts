@@ -32,7 +32,7 @@ describe("deletion tombstone beats a racing inbound edit", () => {
     // An inbound edit (a moved event with a fresh `updated`) races the delete — it is already
     // sitting in Google when the user deletes the task locally.
     const inbound = {
-      ...toGEvent(storedTask({ id: "t-race", date: "2026-07-20", time: "13:00" })),
+      ...toGEvent(storedTask({ id: "t-race", date: "2026-07-20", time: "13:00" }), "UTC"),
       updated: new Date(Date.now() + 864e5).toISOString(),
       status: "confirmed",
     };
