@@ -117,14 +117,14 @@ export function ReviewSection() {
 
       <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="space-y-5">
-          <Panel className="flex items-center gap-4 p-6">
-            <Gauge value={rollup.completion} size={76} stroke={7} hue={CHART_PRIMARY} sub="done" />
-            <div>
-              <p className="text-3xl font-semibold leading-none tracking-tight text-foreground">
-                {Math.round(rollup.completion * 100)}%
-              </p>
-              <Label className="mt-1">completion</Label>
-            </div>
+          <Panel className="flex items-center justify-center p-6">
+            <Gauge
+              value={rollup.completion}
+              size={76}
+              stroke={7}
+              hue={CHART_PRIMARY}
+              sub="completion"
+            />
           </Panel>
 
           {noActivity ? (
@@ -157,7 +157,7 @@ export function ReviewSection() {
                     </div>
                   ))}
                   {!rollup.habitRows.length && (
-                    <p className="text-sm text-muted">No habits scheduled this week.</p>
+                    <p className="text-sm text-muted">No habit activity this week.</p>
                   )}
                 </div>
               </Panel>

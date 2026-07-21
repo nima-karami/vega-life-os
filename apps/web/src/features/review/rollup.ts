@@ -56,16 +56,20 @@ export function computeWeekRollup(
     .filter((t) => (t.date ?? "") < today && t.status !== "done" && t.status !== "skip")
     .slice(0, CAP);
 
-  const habitRows = habits.map((h) => {
-    const scheduled = weekTasks.filter((t) => t.habitId === h.id && t.status !== "skip");
-    const doneCount = scheduled.filter((t) => t.status === "done").length;
-    return {
-      h,
-      rate: scheduled.length ? doneCount / scheduled.length : 0,
-      done: doneCount,
-      total: scheduled.length,
-    };
-  });
+  const habitRows = habits
+    .map((h) => {
+      const scheduled = weekTasks.filter(
+        (t) => t.habitId === h.id && t.status !== "skip" && (t.date ?? "") <= today,
+      );
+      const doneCount = scheduled.filter((t) => t.status === "done").length;
+      return {
+        h,
+        rate: scheduled.length ? doneCount / scheduled.length : 0,
+        done: doneCount,
+        total: scheduled.length,
+      };
+    })
+    .filter((row) => row.total > 0);
 
   return { completion, byValue, maxV, wins, slipped, habitRows };
 }

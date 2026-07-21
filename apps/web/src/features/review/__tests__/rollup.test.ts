@@ -127,3 +127,49 @@ describe("computeWeekRollup", () => {
     expect(r.habitRows).toEqual([{ h: habits[0], rate: 0.5, done: 1, total: 2 }]);
   });
 });
+
+describe("computeWeekRollup habitRows filtering", () => {
+  it("omits a habit with no instances in the week", () => {
+    const habits: Habit[] = [{ id: "active", name: "Run" } as Habit];
+    const tasks = [task({ date: "2026-06-08", status: "done", habitId: "other" })];
+    const r = computeWeekRollup(tasks, [], habits, WEEK, "2026-06-20");
+    expect(r.habitRows).toEqual([]);
+  });
+
+  it("keeps a habit archived mid-week that has counted instances", () => {
+    const habits: Habit[] = [
+      { id: "h1", name: "Stretch", archivedAt: "2026-06-11" } as unknown as Habit,
+    ];
+    const tasks = [task({ date: "2026-06-10", status: "done", habitId: "h1" })];
+    const r = computeWeekRollup(tasks, [], habits, WEEK, "2026-06-20");
+    expect(r.habitRows).toEqual([{ h: habits[0], rate: 1, done: 1, total: 1 }]);
+  });
+
+  it("omits a habit whose only week instances are skips", () => {
+    const habits: Habit[] = [{ id: "h1", name: "Run" } as Habit];
+    const tasks = [task({ date: "2026-06-09", status: "skip", habitId: "h1" })];
+    const r = computeWeekRollup(tasks, [], habits, WEEK, "2026-06-20");
+    expect(r.habitRows).toEqual([]);
+  });
+
+  it("ignores instances dated after today", () => {
+    const habits: Habit[] = [{ id: "h1", name: "Run" } as Habit];
+    const tasks = [
+      task({ date: "2026-06-12", status: "todo", habitId: "h1" }), // WEEK[4], future
+      task({ date: "2026-06-13", status: "todo", habitId: "h1" }), // WEEK[5], future
+    ];
+    // today = WEEK[2]
+    const r = computeWeekRollup(tasks, [], habits, WEEK, "2026-06-10");
+    expect(r.habitRows).toEqual([]);
+  });
+
+  it("counts only up-to-today instances toward a shown row", () => {
+    const habits: Habit[] = [{ id: "h1", name: "Run" } as Habit];
+    const tasks = [
+      task({ date: "2026-06-08", status: "done", habitId: "h1" }), // past, counts
+      task({ date: "2026-06-12", status: "todo", habitId: "h1" }), // future, excluded
+    ];
+    const r = computeWeekRollup(tasks, [], habits, WEEK, "2026-06-10");
+    expect(r.habitRows).toEqual([{ h: habits[0], rate: 1, done: 1, total: 1 }]);
+  });
+});
