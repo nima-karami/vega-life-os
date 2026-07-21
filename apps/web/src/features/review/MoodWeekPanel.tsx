@@ -12,7 +12,7 @@ const DELTA_COPY = {
 
 const moodTint = (mood: number) => ({
   background: "var(--color-accent)",
-  opacity: 0.25 + (mood - 1) * 0.1875, // 1→.25 … 5→1, matches the chart's calm scale
+  opacity: 0.25 + (mood - 1) * 0.1875, // 1→.25 … 5→1
 });
 
 export function MoodWeekPanel({ week }: { week: MoodWeek }) {
