@@ -62,6 +62,22 @@ function withAbsoluteTimes(event: GEvent): GEvent {
   return next;
 }
 
+/** Google's events.patch merges each nested start/end field-wise; an explicit null unsets that field. */
+function mergePatchTime(
+  prior: GEventTime | undefined,
+  incoming: GEventTime | undefined,
+): GEventTime | undefined {
+  if (!incoming) return prior;
+  const merged: GEventTime = { ...prior, ...incoming };
+  for (const key of Object.keys(merged) as (keyof GEventTime)[]) {
+    if (merged[key] === null) delete merged[key];
+  }
+  return merged;
+}
+
+const hasDateAndDateTime = (time: GEventTime | undefined) =>
+  Boolean(time?.date) && Boolean(time?.dateTime);
+
 export type MockChannel = {
   channelId: string;
   channelToken: string;
@@ -179,9 +195,16 @@ export class GoogleMock {
       patchEvent: async (calendarId, eventId, body) => {
         this.consumePushBudget();
         const prior = this.calendarOf(calendarId).get(eventId) ?? { id: eventId };
+        const start = mergePatchTime(prior.start, body.start);
+        const end = mergePatchTime(prior.end, body.end);
+        if (hasDateAndDateTime(start) || hasDateAndDateTime(end)) throw new GoogleHttpError(400);
+        const merged: GEvent = { ...prior, ...body };
+        if (start) merged.start = start;
+        else delete merged.start;
+        if (end) merged.end = end;
+        else delete merged.end;
         this.calendarOf(calendarId).set(eventId, {
-          ...prior,
-          ...withAbsoluteTimes(body),
+          ...withAbsoluteTimes(merged),
           status: "confirmed",
           updated: this.clock(),
         });

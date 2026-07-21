@@ -20,7 +20,7 @@ import {
   type ListEventsResult,
   SyncTokenExpiredError,
 } from "./google-client";
-import type { SyncDeps } from "./sync-engine";
+import { isRateLimit, type SyncDeps } from "./sync-engine";
 import type { GcalAccount } from "./token-store";
 
 const LIVED_WINDOW = { backDays: 30, fwdDays: 120 };
@@ -222,6 +222,8 @@ async function pushLived(
       await writeTombstone(deps.firestore, uid, "calendarEvents", row.googleId, now);
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
+      if (!isRateLimit(error.status))
+        console.error(`gcal push failed: lived delete ${row.googleId} status ${error.status}`);
     }
   }
   for (const row of rows.filter((event) => event.vegaEditedAt)) {
@@ -230,6 +232,8 @@ async function pushLived(
       await repo.upsert({ ...toWritable<"calendarEvents">(row), vegaEditedAt: null });
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
+      if (!isRateLimit(error.status))
+        console.error(`gcal push failed: lived patch ${row.googleId} status ${error.status}`);
     }
   }
 }

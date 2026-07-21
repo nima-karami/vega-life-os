@@ -207,7 +207,7 @@ async function insertResurrecting(
   }
 }
 
-const isRateLimit = (status: number) => status === 429 || status === 403 || status >= 500;
+export const isRateLimit = (status: number) => status === 429 || status === 403 || status >= 500;
 
 async function applyTaskBatch(
   firestore: Firestore,
@@ -225,6 +225,7 @@ async function applyTaskBatch(
       if (!(error instanceof GoogleHttpError)) throw error;
       pushFailures += 1;
       if (isRateLimit(error.status)) rateLimited = true;
+      else console.error(`gcal push failed: task ${op.kind} ${op.id} status ${error.status}`);
     }
   }
   return { pushFailures, rateLimited };

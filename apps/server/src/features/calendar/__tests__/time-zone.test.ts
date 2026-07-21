@@ -28,8 +28,16 @@ describe("zone-aware event mapping", () => {
   it("pushes naive wall-clock datetimes with an explicit timeZone", () => {
     const task = storedTask({ date: "2026-07-21", time: "14:00", durationMin: 45 });
     const body = toGEvent(task, "America/Toronto");
-    expect(body.start).toEqual({ dateTime: "2026-07-21T14:00:00", timeZone: "America/Toronto" });
-    expect(body.end).toEqual({ dateTime: "2026-07-21T14:45:00", timeZone: "America/Toronto" });
+    expect(body.start).toEqual({
+      dateTime: "2026-07-21T14:00:00",
+      timeZone: "America/Toronto",
+      date: null,
+    });
+    expect(body.end).toEqual({
+      dateTime: "2026-07-21T14:45:00",
+      timeZone: "America/Toronto",
+      date: null,
+    });
   });
 
   it("reads an offset-bearing Google datetime through the user zone", () => {

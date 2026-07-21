@@ -2,7 +2,11 @@ import type { CalendarEvent, Task } from "@vega/shared";
 import { addDays, addMinutes, differenceInMinutes, format, parseISO } from "date-fns";
 import { formatInstantInZone } from "./time-zone";
 
-export type GEventTime = { dateTime?: string; date?: string; timeZone?: string };
+export type GEventTime = {
+  dateTime?: string | null;
+  date?: string | null;
+  timeZone?: string | null;
+};
 
 export type GEvent = {
   id?: string;
@@ -55,11 +59,12 @@ export function toGEvent(task: Task, timeZone: string): GEvent {
   if (task.time && task.date) {
     const start = parseISO(`${task.date}T${task.time}:00`);
     const end = addMinutes(start, task.durationMin || 30);
-    body.start = { dateTime: toNaiveDateTime(start), timeZone };
-    body.end = { dateTime: toNaiveDateTime(end), timeZone };
+    // Google's events.patch merges nested start/end field-wise, so the opposing field must be nulled to clear it.
+    body.start = { dateTime: toNaiveDateTime(start), timeZone, date: null };
+    body.end = { dateTime: toNaiveDateTime(end), timeZone, date: null };
   } else {
-    body.start = { date: task.date ?? undefined };
-    body.end = { date: task.date ?? undefined };
+    body.start = { date: task.date ?? undefined, dateTime: null, timeZone: null };
+    body.end = { date: task.date ?? undefined, dateTime: null, timeZone: null };
   }
   return body;
 }
@@ -156,11 +161,20 @@ export function calendarEventToGPatch(
   const body: GEvent = { summary: event.title };
   if (!event.allDay && event.date && event.time) {
     const start = parseISO(`${event.date}T${event.time}:00`);
-    body.start = { dateTime: toNaiveDateTime(start), timeZone };
-    body.end = { dateTime: toNaiveDateTime(addMinutes(start, event.durationMin || 30)), timeZone };
+    // Google's events.patch merges nested start/end field-wise, so the opposing field must be nulled to clear it.
+    body.start = { dateTime: toNaiveDateTime(start), timeZone, date: null };
+    body.end = {
+      dateTime: toNaiveDateTime(addMinutes(start, event.durationMin || 30)),
+      timeZone,
+      date: null,
+    };
   } else if (event.date) {
-    body.start = { date: event.date };
-    body.end = { date: toIsoDay(addDays(parseISO(event.endDate ?? event.date), 1)) };
+    body.start = { date: event.date, dateTime: null, timeZone: null };
+    body.end = {
+      date: toIsoDay(addDays(parseISO(event.endDate ?? event.date), 1)),
+      dateTime: null,
+      timeZone: null,
+    };
   }
   return body;
 }
