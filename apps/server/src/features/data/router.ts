@@ -4,6 +4,7 @@ import { parseRecord, writeRecord } from "../../core/collection-store";
 import { createRepository } from "../../core/repository";
 import { writeTombstone } from "../../core/tombstone";
 import { protectedProcedure, router } from "../../trpc/trpc";
+import { shouldTriggerCalendarSync } from "../calendar/schedule-reconcile";
 
 const unknownRecord = z.record(z.string(), z.unknown());
 
@@ -30,14 +31,21 @@ export const dataRouter = router({
 
   upsert: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, record: unknownRecord }))
-    .mutation(({ ctx, input }) =>
-      writeRecord(ctx, input.collection, parseRecord(input.collection, input.record)),
-    ),
+    .mutation(({ ctx, input }) => {
+      const written = writeRecord(
+        ctx,
+        input.collection,
+        parseRecord(input.collection, input.record),
+      );
+      if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);
+      return written;
+    }),
 
   remove: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await createRepository(ctx.firestore, ctx.uid, input.collection).remove(input.id);
+      if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);
       return { id: input.id };
     }),
 
@@ -46,6 +54,7 @@ export const dataRouter = router({
     .mutation(async ({ ctx, input }) => {
       const repo = createRepository(ctx.firestore, ctx.uid, input.collection);
       for (const raw of input.records) await repo.upsert(parseRecord(input.collection, raw));
+      if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);
       return { count: input.records.length };
     }),
 
@@ -69,6 +78,7 @@ export const dataRouter = router({
         await batch.commit();
       }
     }
+    ctx.calendar.scheduleReconcile(ctx.uid);
     return { ok: true };
   }),
 });

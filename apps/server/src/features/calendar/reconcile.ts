@@ -1,7 +1,8 @@
 import { sweepTombstones } from "../../core/tombstone";
+import { clearSyncBackoff, isBackingOff, recordSyncFailure } from "./backoff";
 import { listChannelsForUid, listNearExpiryChannels, removeChannel } from "./channel-registry";
 import { registerCalendarChannels, stopCalendarChannels } from "./channel-setup";
-import type { GoogleCalendarClient } from "./google-client";
+import { type GoogleCalendarClient, GoogleHttpError } from "./google-client";
 import { runLivedLane } from "./lived-engine";
 import { migrateProfileCalendarConfig } from "./migrate-config";
 import { runTaskLane, type SyncDeps, WriteCalendarMissingError } from "./sync-engine";
@@ -57,12 +58,14 @@ async function renewChannels(
   return near.length;
 }
 
+type LaneOutcome = { result: SyncResult; listRateLimited: boolean };
+
 /** Both lanes plus token/channel bookkeeping — the happy path of one locked reconcile. */
 async function reconcileLanes(
   deps: ReconcileDeps,
   uid: string,
   account: GcalAccount,
-): Promise<SyncResult> {
+): Promise<LaneOutcome> {
   const writeCalendarId = account.writeCalendarId ?? "";
   const readCalendarIds = account.readCalendarIds ?? [];
   const lived = await runLivedLane(deps, uid, account);
@@ -90,13 +93,38 @@ async function reconcileLanes(
   const channelsRenewed = await renewChannels(deps, uid, client, deps.now());
   await registerCalendarChannels(deps, uid, client, [writeCalendarId, ...activeReadCalendarIds]);
   return {
-    pulled: task.pulled,
-    pushed: task.pushed,
-    pushFailures: task.pushFailures,
-    lived: lived.lived,
-    tombstonesSwept,
-    channelsRenewed,
+    result: {
+      pulled: task.pulled,
+      pushed: task.pushed,
+      pushFailures: task.pushFailures,
+      lived: lived.lived,
+      tombstonesSwept,
+      channelsRenewed,
+    },
+    // Only a list-level rate-limit backs off; a partial push failure stays persisted and
+    // self-heals on the next reconcile, so it must not gate the account out.
+    listRateLimited: lived.rateLimited,
   };
+}
+
+/** 403/429/5xx from Google — a quota or availability fault the caller retries under backoff. */
+function isQuotaFault(error: unknown): error is GoogleHttpError {
+  return (
+    error instanceof GoogleHttpError &&
+    (error.status === 429 || error.status === 403 || error.status >= 500)
+  );
+}
+
+/** Extend the backoff window on a list-level rate-limit, clear it otherwise (also stamps lastSyncedAt). */
+async function settleSyncBackoff(
+  deps: ReconcileDeps,
+  uid: string,
+  account: GcalAccount,
+  listRateLimited: boolean,
+): Promise<void> {
+  if (listRateLimited)
+    await recordSyncFailure(deps.firestore, uid, account.backoff?.failures ?? 0, deps.now());
+  else await clearSyncBackoff(deps.firestore, uid, deps.now());
 }
 
 /** Flag the account and drop the dead write-calendar's watch channels so sync stays paused until the user acts. */
@@ -118,15 +146,22 @@ export async function runReconcile(deps: ReconcileDeps, uid: string): Promise<Sy
   const account = await readGcalAccount(deps.firestore, uid);
   if (!account || account.needsReauth || !account.writeCalendarId || account.writeCalendarMissing)
     return emptyResult();
+  if (isBackingOff(account.backoff, deps.now())) return emptyResult();
   const writeCalendarId = account.writeCalendarId;
 
   return withSyncLock(deps.firestore, uid, async () => {
     const migrated = await migrateProfileCalendarConfig(deps.firestore, uid, account);
     try {
-      return await reconcileLanes(deps, uid, migrated);
+      const { result, listRateLimited } = await reconcileLanes(deps, uid, migrated);
+      await settleSyncBackoff(deps, uid, account, listRateLimited);
+      return result;
     } catch (error) {
       if (error instanceof WriteCalendarMissingError)
         return pauseForMissingWriteCalendar(deps, uid, writeCalendarId);
+      if (isQuotaFault(error)) {
+        await recordSyncFailure(deps.firestore, uid, account.backoff?.failures ?? 0, deps.now());
+        return emptyResult();
+      }
       throw error;
     }
   });

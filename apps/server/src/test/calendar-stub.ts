@@ -16,4 +16,5 @@ export const stubCalendar: CalendarContext = {
   },
   now: () => new Date().toISOString(),
   webhookUrl: "https://stub.example/webhooks/gcal",
+  scheduleReconcile: () => {},
 };

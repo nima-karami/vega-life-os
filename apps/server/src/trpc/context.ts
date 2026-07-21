@@ -10,6 +10,7 @@ export type CalendarContext = {
   getClient: (uid: string) => Promise<GoogleCalendarClient>;
   now: () => string;
   webhookUrl: string;
+  scheduleReconcile: (uid: string) => void;
 };
 
 export type Context = {

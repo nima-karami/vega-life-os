@@ -7,6 +7,7 @@ import { type AppDeps, buildApp, type OidcVerifier } from "../app";
 import { assertDbMatchesEnv, type ServerConfig } from "../core/config";
 import { initAdmin } from "../core/firebase-admin";
 import type { ReconcileDeps } from "../features/calendar/reconcile";
+import { createReconcileScheduler } from "../features/calendar/schedule-reconcile";
 import { refreshAccessToken } from "../features/calendar/token-store";
 import { type CalendarContext, makeCreateContext, type TokenVerifier } from "../trpc/context";
 import type { AppRouter } from "../trpc/router";
@@ -27,6 +28,7 @@ export type TestServer = {
   config: ServerConfig;
   google: GoogleMock;
   reconcileDeps: ReconcileDeps;
+  flushReconciles: () => Promise<void>;
   now: () => string;
   close(): Promise<void>;
 };
@@ -64,7 +66,17 @@ export async function bootTestServer(options: BootOptions = {}): Promise<TestSer
     await refreshAccessToken(tokenDeps, uid);
     return google.client;
   };
-  const calendar: CalendarContext = { gateway: google.gateway, getClient, now, webhookUrl };
+  const reconcileDeps: ReconcileDeps = { firestore, getClient, now, webhookUrl };
+  // Large debounce so the router-wired scheduler never auto-fires mid-test and races a
+  // test-owned scheduler on the sync lock; tests drive it via flushReconciles()/close().
+  const reconcileScheduler = createReconcileScheduler(reconcileDeps, 3_600_000);
+  const calendar: CalendarContext = {
+    gateway: google.gateway,
+    getClient,
+    now,
+    webhookUrl,
+    scheduleReconcile: reconcileScheduler.schedule,
+  };
   const verifyOidc: OidcVerifier = options.verifyOidc ?? (async (token) => token === OIDC_TOKEN);
 
   const deps: AppDeps = {
@@ -97,12 +109,15 @@ export async function bootTestServer(options: BootOptions = {}): Promise<TestSer
     auth,
     config,
     google,
-    reconcileDeps: { firestore, getClient, now, webhookUrl },
+    reconcileDeps,
+    flushReconciles: () => reconcileScheduler.flush(),
     now,
-    close: () =>
-      new Promise<void>((resolve, reject) => {
+    close: async () => {
+      await reconcileScheduler.flush();
+      await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
-      }),
+      });
+    },
   };
 }
 
