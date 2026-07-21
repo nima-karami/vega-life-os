@@ -82,9 +82,14 @@ export class GoogleMock {
   private readonly tokenEpochs = new Map<string, number>();
   private readonly calendarInfos: GCalendarInfo[] = [];
   private listFailures: number[] = [];
+  private nextExchangeOmitsRefreshToken = false;
 
   setRefreshBehavior(behavior: RefreshBehavior): void {
     this.refreshBehavior = behavior;
+  }
+
+  failNextExchangeWithoutRefreshToken(): void {
+    this.nextExchangeOmitsRefreshToken = true;
   }
 
   failNextPushes(count: number): void {
@@ -127,7 +132,13 @@ export class GoogleMock {
     return {
       buildConsentUrl: (state) =>
         `https://consent.example/oauth?state=${encodeURIComponent(state)}`,
-      exchangeCode: async (code) => tokensFor(`refresh-${code}`),
+      exchangeCode: async (code) => {
+        if (this.nextExchangeOmitsRefreshToken) {
+          this.nextExchangeOmitsRefreshToken = false;
+          return tokensFor(null);
+        }
+        return tokensFor(`refresh-${code}`);
+      },
       refresh: async () => this.doRefresh(),
     };
   }

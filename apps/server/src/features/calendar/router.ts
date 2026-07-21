@@ -4,7 +4,8 @@ import { AppError, toTrpcError } from "../../core/errors";
 import type { CalendarContext } from "../../trpc/context";
 import { protectedProcedure, router } from "../../trpc/trpc";
 import { ensureWriteCalendar } from "./calendar-setup";
-import { listChannelsForUid, removeChannel } from "./channel-registry";
+import { listChannelsForUid } from "./channel-registry";
+import { registerCalendarChannels, stopCalendarChannels } from "./channel-setup";
 import { clearMirror } from "./gcal-mirror";
 import { SCOPE_VERSION } from "./oauth";
 import { type ReconcileDeps, runReconcile } from "./reconcile";
@@ -70,11 +71,11 @@ export const calendarRouter = router({
   }),
 
   oauthCallback: protectedProcedure
-    .input(z.object({ code: z.string() }).strict())
+    .input(z.object({ code: z.string(), timeZone: z.string() }).strict())
     .mutation(async ({ ctx, input }) => {
       const tokens = await ctx.calendar.gateway.exchangeCode(input.code);
       if (!tokens.refreshToken) {
-        throw toTrpcError(new AppError("BAD_REQUEST", "google returned no refresh token"));
+        throw toTrpcError(new AppError("BAD_REQUEST", "GCAL_NO_REFRESH_TOKEN"));
       }
       await storeConnection(
         ctx.firestore,
@@ -85,16 +86,48 @@ export const calendarRouter = router({
       );
       const client = await ctx.calendar.getClient(ctx.uid);
       const writeCalendarId = await ensureWriteCalendar(ctx.firestore, ctx.uid, client);
+
+      const account = await readGcalAccount(ctx.firestore, ctx.uid);
+      let readCalendarIds = account?.readCalendarIds ?? [];
+      let calendarPrefs = account?.calendarPrefs ?? {};
+      if (readCalendarIds.length === 0) {
+        const primary = (await client.listCalendars()).find((calendar) => calendar.primary);
+        if (primary) {
+          readCalendarIds = [primary.id];
+          calendarPrefs = {
+            [primary.id]: {
+              visible: true,
+              summary: primary.summary,
+              color: primary.backgroundColor,
+            },
+          };
+        }
+      }
+      await writeGcalAccount(ctx.firestore, ctx.uid, {
+        timeZone: input.timeZone,
+        readCalendarIds,
+        calendarPrefs,
+        writeCalendarMissing: false,
+        backoff: null,
+      });
+
+      const deps = reconcileDepsFrom(ctx);
+      await registerCalendarChannels(deps, ctx.uid, client, [writeCalendarId, ...readCalendarIds]);
+      await runReconcile(deps, ctx.uid).catch((error) => {
+        if (!isBenignSyncFault(error)) throw error;
+      });
       return { connected: true, writeCalendarId };
     }),
 
   disconnect: protectedProcedure.mutation(async ({ ctx }) => {
     const channels = await listChannelsForUid(ctx.firestore, ctx.uid);
-    for (const channel of channels) {
-      const client = await ctx.calendar.getClient(ctx.uid).catch(() => null);
-      await client?.stopChannel(channel.channelId, channel.resourceId).catch(() => undefined);
-      await removeChannel(ctx.firestore, channel.channelId);
-    }
+    const client = await ctx.calendar.getClient(ctx.uid).catch(() => null);
+    await stopCalendarChannels(
+      ctx.firestore,
+      ctx.uid,
+      client,
+      channels.map((channel) => channel.calendarId),
+    );
     await clearGcalAccount(ctx.firestore, ctx.uid);
     return { connected: false };
   }),

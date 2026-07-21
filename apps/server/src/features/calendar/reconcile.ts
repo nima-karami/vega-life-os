@@ -1,14 +1,9 @@
-import { randomUUID } from "node:crypto";
-import type { Firestore } from "firebase-admin/firestore";
 import { sweepTombstones } from "../../core/tombstone";
-import {
-  listChannelsForUid,
-  listNearExpiryChannels,
-  registerChannel,
-  removeChannel,
-} from "./channel-registry";
+import { listChannelsForUid, listNearExpiryChannels, removeChannel } from "./channel-registry";
+import { registerCalendarChannels, stopCalendarChannels } from "./channel-setup";
 import type { GoogleCalendarClient } from "./google-client";
 import { runLivedLane } from "./lived-engine";
+import { migrateProfileCalendarConfig } from "./migrate-config";
 import { runTaskLane, type SyncDeps, WriteCalendarMissingError } from "./sync-engine";
 import { withSyncLock } from "./sync-lock";
 import {
@@ -54,38 +49,11 @@ async function renewChannels(
     (channel) => channel.uid === uid,
   );
   for (const channel of near) {
-    const channelId = randomUUID();
-    const channelToken = randomUUID();
-    const { resourceId, expiration } = await client.watch(channel.calendarId, {
-      channelId,
-      channelToken,
-      address: deps.webhookUrl,
-    });
-    await registerChannel(deps.firestore, {
-      channelId,
-      channelToken,
-      resourceId,
-      uid,
-      calendarId: channel.calendarId,
-      expiration,
-    });
     await removeChannel(deps.firestore, channel.channelId);
+    await registerCalendarChannels(deps, uid, client, [channel.calendarId]);
     await client.stopChannel(channel.channelId, channel.resourceId).catch(() => undefined);
   }
   return near.length;
-}
-
-/** Drop registry rows for a deselected calendar's watch channels; Task 7 will also stop them at Google. */
-async function retireVanishedChannels(
-  firestore: Firestore,
-  uid: string,
-  vanishedCalendarIds: string[],
-): Promise<void> {
-  const gone = new Set(vanishedCalendarIds);
-  const channels = (await listChannelsForUid(firestore, uid)).filter((channel) =>
-    gone.has(channel.calendarId),
-  );
-  for (const channel of channels) await removeChannel(firestore, channel.channelId);
 }
 
 /** Both lanes plus token/channel bookkeeping — the happy path of one locked reconcile. */
@@ -98,6 +66,9 @@ async function reconcileLanes(
   const readCalendarIds = account.readCalendarIds ?? [];
   const lived = await runLivedLane(deps, uid, account);
   const task = await runTaskLane(deps, uid, account);
+  const activeReadCalendarIds = readCalendarIds.filter(
+    (id) => !lived.vanishedCalendarIds.includes(id),
+  );
   const syncTokens = {
     ...(account.syncTokens ?? {}),
     ...lived.nextSyncTokens,
@@ -106,17 +77,16 @@ async function reconcileLanes(
   for (const gone of lived.vanishedCalendarIds) delete syncTokens[gone];
   await writeGcalAccount(deps.firestore, uid, {
     syncTokens,
-    ...(lived.vanishedCalendarIds.length
-      ? { readCalendarIds: readCalendarIds.filter((id) => !lived.vanishedCalendarIds.includes(id)) }
-      : {}),
+    ...(lived.vanishedCalendarIds.length ? { readCalendarIds: activeReadCalendarIds } : {}),
   });
+  const client = await deps.getClient(uid);
   if (lived.vanishedCalendarIds.length) {
     await removeSyncTokens(deps.firestore, uid, lived.vanishedCalendarIds);
-    await retireVanishedChannels(deps.firestore, uid, lived.vanishedCalendarIds);
+    await stopCalendarChannels(deps.firestore, uid, client, lived.vanishedCalendarIds);
   }
   const tombstonesSwept = await sweepTombstones(deps.firestore, uid, Date.parse(deps.now()));
-  const client = await deps.getClient(uid);
   const channelsRenewed = await renewChannels(deps, uid, client, deps.now());
+  await registerCalendarChannels(deps, uid, client, [writeCalendarId, ...activeReadCalendarIds]);
   return {
     pulled: task.pulled,
     pushed: task.pushed,
@@ -149,8 +119,9 @@ export async function runReconcile(deps: ReconcileDeps, uid: string): Promise<Sy
   const writeCalendarId = account.writeCalendarId;
 
   return withSyncLock(deps.firestore, uid, async () => {
+    const migrated = await migrateProfileCalendarConfig(deps.firestore, uid, account);
     try {
-      return await reconcileLanes(deps, uid, account);
+      return await reconcileLanes(deps, uid, migrated);
     } catch (error) {
       if (error instanceof WriteCalendarMissingError)
         return pauseForMissingWriteCalendar(deps, uid, writeCalendarId);

@@ -51,9 +51,11 @@ describe("full reconcile cycle (both lanes, lock, channel renewal, OIDC endpoint
     expect(result.channelsRenewed).toBe(1);
     expect(await lookupChannel(server.firestore, "chan-old")).toBeNull();
 
-    const channels = await listChannelsForUid(server.firestore, uid);
-    expect(channels).toHaveLength(1);
-    expect(channels[0].channelId).not.toBe("chan-old");
+    const watchChannels = (await listChannelsForUid(server.firestore, uid)).filter(
+      (channel) => channel.calendarId === "cal-watch",
+    );
+    expect(watchChannels).toHaveLength(1);
+    expect(watchChannels[0].channelId).not.toBe("chan-old");
     expect(server.google.channelsForCalendar("cal-watch")).toHaveLength(1);
   });
 
