@@ -14,7 +14,9 @@ import {
   SectionHead,
 } from "@/core/ui";
 import { useValueColor } from "@/features/values/useValueColor";
+import { MoodWeekPanel } from "./MoodWeekPanel";
 import { REVIEW_PROMPTS } from "./model";
+import { computeMoodWeek } from "./mood";
 import { computeWeekRollup } from "./rollup";
 
 /** Advisory cap for the past-reviews list (D5) — "show more" reveals the rest. */
@@ -30,6 +32,7 @@ export function ReviewSection() {
   const tasks = useStore((s) => s.tasks);
   const values = useStore((s) => s.values);
   const habits = useStore((s) => s.habits);
+  const journal = useStore((s) => s.journal);
   const reviews = useStore((s) => s.reviews);
   const saveReview = useStore((s) => s.saveReview);
   const pushToast = useStore((s) => s.pushToast);
@@ -43,6 +46,10 @@ export function ReviewSection() {
   const rollup = useMemo(
     () => computeWeekRollup(tasks, values, habits, weekIsos, todayISO()),
     [tasks, values, habits, weekIsos],
+  );
+  const moodWeek = useMemo(
+    () => computeMoodWeek(journal, periodKey, todayISO()),
+    [journal, periodKey],
   );
 
   // prompt answers (prefill from existing); reset when the active review changes
@@ -126,6 +133,8 @@ export function ReviewSection() {
               sub="completion"
             />
           </Panel>
+
+          <MoodWeekPanel week={moodWeek} />
 
           {noActivity ? (
             <Panel className="p-6">
