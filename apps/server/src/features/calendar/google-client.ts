@@ -3,12 +3,23 @@ import type { GEvent } from "./event-map";
 
 export type ListWindow = { backDays: number; fwdDays: number };
 
-export type ListEventsOptions = {
-  window: ListWindow;
-};
+export type ListEventsOptions = { window: ListWindow } | { syncToken: string };
 
-export type ListEventsResult = {
-  events: GEvent[];
+export type ListEventsResult = { events: GEvent[]; nextSyncToken: string | null };
+
+/** The stored syncToken is no longer valid (HTTP 410) — the caller falls back to one full windowed list. */
+export class SyncTokenExpiredError extends Error {
+  constructor() {
+    super("sync token expired");
+    this.name = "SyncTokenExpiredError";
+  }
+}
+
+export type GCalendarInfo = {
+  id: string;
+  summary: string;
+  primary: boolean;
+  backgroundColor: string | null;
 };
 
 export type WatchRequest = {
@@ -30,6 +41,7 @@ export class GoogleHttpError extends Error {
 /** The Google Calendar surface the sync engines depend on — a real impl and an in-memory mock satisfy it. */
 export type GoogleCalendarClient = {
   listEvents(calendarId: string, options: ListEventsOptions): Promise<ListEventsResult>;
+  listCalendars(): Promise<GCalendarInfo[]>;
   insertEvent(calendarId: string, body: GEvent): Promise<void>;
   patchEvent(calendarId: string, eventId: string, body: GEvent): Promise<void>;
   deleteEvent(calendarId: string, eventId: string): Promise<void>;
@@ -53,21 +65,48 @@ export function createGoogleClient(accessToken: string): GoogleCalendarClient {
 
   return {
     async listEvents(calendarId, options) {
+      const modeParams =
+        "syncToken" in options
+          ? { syncToken: options.syncToken }
+          : buildWindowedParams(options.window);
       const events: GEvent[] = [];
       let pageToken: string | undefined;
+      let nextSyncToken: string | null = null;
+      try {
+        do {
+          const response = await calendar.events.list({
+            calendarId,
+            showDeleted: true,
+            singleEvents: true,
+            maxResults: 250,
+            pageToken,
+            ...modeParams,
+          });
+          events.push(...((response.data.items ?? []) as GEvent[]));
+          pageToken = response.data.nextPageToken ?? undefined;
+          nextSyncToken = response.data.nextSyncToken ?? nextSyncToken;
+        } while (pageToken);
+      } catch (error) {
+        throw toListError(error, "syncToken" in options);
+      }
+      return { events, nextSyncToken };
+    },
+    async listCalendars() {
+      const calendars: GCalendarInfo[] = [];
+      let pageToken: string | undefined;
       do {
-        const response = await calendar.events.list({
-          calendarId,
-          showDeleted: true,
-          singleEvents: true,
-          maxResults: 250,
-          pageToken,
-          ...buildWindowedParams(options.window),
-        });
-        events.push(...((response.data.items ?? []) as GEvent[]));
+        const response = await calendar.calendarList.list({ maxResults: 250, pageToken });
+        for (const item of response.data.items ?? []) {
+          calendars.push({
+            id: item.id ?? "",
+            summary: item.summary ?? "",
+            primary: item.primary ?? false,
+            backgroundColor: item.backgroundColor ?? null,
+          });
+        }
         pageToken = response.data.nextPageToken ?? undefined;
       } while (pageToken);
-      return { events };
+      return calendars;
     },
     async insertEvent(calendarId, body) {
       await calendar.events.insert({ calendarId, requestBody: body });
@@ -115,4 +154,12 @@ function isHttpStatus(error: unknown, status: number): boolean {
   if (typeof error !== "object" || error === null) return false;
   const record = error as Record<string, unknown>;
   return record.code === status || record.status === status;
+}
+
+function toListError(error: unknown, isTokenMode: boolean): Error {
+  if (isTokenMode && isHttpStatus(error, 410)) return new SyncTokenExpiredError();
+  for (const status of [403, 404, 410, 429, 500, 502, 503]) {
+    if (isHttpStatus(error, status)) return new GoogleHttpError(status);
+  }
+  return error instanceof Error ? error : new GoogleHttpError(500);
 }

@@ -1,7 +1,9 @@
 import type { GEvent } from "../features/calendar/event-map";
 import {
+  type GCalendarInfo,
   type GoogleCalendarClient,
   GoogleHttpError,
+  SyncTokenExpiredError,
   type WatchRequest,
 } from "../features/calendar/google-client";
 import { type OauthGateway, OauthHttpError, type OauthTokens } from "../features/calendar/oauth";
@@ -23,6 +25,11 @@ export class GoogleMock {
   private refreshBehavior: RefreshBehavior = "ok";
   private pushFailuresLeft = 0;
   private clock = () => new Date().toISOString();
+  private readonly versions = new Map<string, number>();
+  private readonly eventVersions = new Map<string, Map<string, number>>();
+  private readonly tokenEpochs = new Map<string, number>();
+  private readonly calendarInfos: GCalendarInfo[] = [];
+  private listFailures: number[] = [];
 
   setRefreshBehavior(behavior: RefreshBehavior): void {
     this.refreshBehavior = behavior;
@@ -32,8 +39,21 @@ export class GoogleMock {
     this.pushFailuresLeft = count;
   }
 
+  seedCalendarInfo(info: GCalendarInfo): void {
+    this.calendarInfos.push(info);
+  }
+
+  expireSyncTokens(calendarId: string): void {
+    this.tokenEpochs.set(calendarId, (this.tokenEpochs.get(calendarId) ?? 0) + 1);
+  }
+
+  failNextList(status: number): void {
+    this.listFailures.push(status);
+  }
+
   seedEvent(calendarId: string, event: GEvent): void {
     this.calendarOf(calendarId).set(event.id ?? "", { updated: this.clock(), ...event });
+    this.bumpVersion(calendarId, event.id ?? "");
   }
 
   rawEvents(calendarId: string): GEvent[] {
@@ -59,9 +79,25 @@ export class GoogleMock {
 
   get client(): GoogleCalendarClient {
     return {
-      listEvents: async (calendarId) => {
-        return { events: this.rawEvents(calendarId) };
+      listEvents: async (calendarId, options) => {
+        const failStatus = this.listFailures.shift();
+        if (failStatus) throw new GoogleHttpError(failStatus);
+        if ("syncToken" in options) {
+          const [tokenCal, tokenEpoch, tokenVersion] = options.syncToken.split("|");
+          const epoch = this.tokenEpochs.get(calendarId) ?? 0;
+          if (tokenCal !== calendarId || Number(tokenEpoch) !== epoch) {
+            throw new SyncTokenExpiredError();
+          }
+          const since = Number(tokenVersion);
+          const byEvent = this.eventVersions.get(calendarId) ?? new Map<string, number>();
+          const events = this.rawEvents(calendarId).filter(
+            (event) => (byEvent.get(event.id ?? "") ?? 0) > since,
+          );
+          return { events, nextSyncToken: this.mintToken(calendarId) };
+        }
+        return { events: this.rawEvents(calendarId), nextSyncToken: this.mintToken(calendarId) };
       },
+      listCalendars: async () => [...this.calendarInfos],
       insertEvent: async (calendarId, body) => {
         this.consumePushBudget();
         this.calendarOf(calendarId).set(body.id ?? "", {
@@ -69,6 +105,7 @@ export class GoogleMock {
           status: "confirmed",
           updated: this.clock(),
         });
+        this.bumpVersion(calendarId, body.id ?? "");
       },
       patchEvent: async (calendarId, eventId, body) => {
         this.consumePushBudget();
@@ -79,10 +116,12 @@ export class GoogleMock {
           status: "confirmed",
           updated: this.clock(),
         });
+        this.bumpVersion(calendarId, eventId);
       },
       deleteEvent: async (calendarId, eventId) => {
         const prior = this.calendarOf(calendarId).get(eventId);
         if (prior) this.calendarOf(calendarId).set(eventId, { ...prior, status: "cancelled" });
+        this.bumpVersion(calendarId, eventId);
       },
       insertCalendar: async (summary) => {
         const id = `mock-cal-${summary.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -118,6 +157,19 @@ export class GoogleMock {
       this.pushFailuresLeft -= 1;
       throw new GoogleHttpError(503);
     }
+  }
+
+  private bumpVersion(calendarId: string, eventId: string): void {
+    const version = (this.versions.get(calendarId) ?? 0) + 1;
+    this.versions.set(calendarId, version);
+    const byEvent = this.eventVersions.get(calendarId) ?? new Map<string, number>();
+    byEvent.set(eventId, version);
+    this.eventVersions.set(calendarId, byEvent);
+  }
+
+  private mintToken(calendarId: string): string {
+    const epoch = this.tokenEpochs.get(calendarId) ?? 0;
+    return `${calendarId}|${epoch}|${this.versions.get(calendarId) ?? 0}`;
   }
 
   private calendarOf(calendarId: string): Map<string, GEvent> {
