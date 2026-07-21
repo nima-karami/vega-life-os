@@ -3,7 +3,6 @@ import { useState } from "react";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { useCompactModal } from "@/core/ui";
-import { clearAllSyncTokens, clearCalendarToken } from "@/features/calendar-sync";
 
 /**
  * Disconnect flow: revoke the server-side connection (the VEGA write-calendar and
@@ -12,7 +11,7 @@ import { clearAllSyncTokens, clearCalendarToken } from "@/features/calendar-sync
  */
 export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const responsive = useCompactModal("sm");
-  const setGcalEnabled = useStore((s) => s.setGcalEnabled);
+  const refreshGcalStatus = useStore((s) => s.refreshGcalStatus);
   const pushToast = useStore((s) => s.pushToast);
   const [busy, setBusy] = useState(false);
 
@@ -27,9 +26,7 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
     setBusy(true);
     try {
       await getTrpcClient().calendar.disconnect.mutate();
-      clearCalendarToken();
-      clearAllSyncTokens();
-      setGcalEnabled(false);
+      await refreshGcalStatus();
       pushToast("Disconnected — your VEGA calendar stays in Google");
       onClose();
     } catch {

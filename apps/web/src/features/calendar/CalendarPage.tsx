@@ -114,7 +114,7 @@ export function CalendarPage() {
   }, [focusGoalId, focusableGoals, setFocusGoal]);
 
   const calendarEvents = useStore((s) => s.calendarEvents);
-  const showGoogleEvents = useStore((s) => s.gcal.showGoogleEvents);
+  const showGoogleEvents = useStore((s) => s.showGoogleEvents);
   const livedEvents = useMemo(
     () => (showGoogleEvents ? dedupeForDisplay(calendarEvents) : []),
     [calendarEvents, showGoogleEvents],

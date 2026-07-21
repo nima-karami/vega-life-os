@@ -1,43 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mem = new Map<string, string>();
-vi.stubGlobal("localStorage", {
-  getItem: (k: string) => (mem.has(k) ? mem.get(k) : null),
-  setItem: (k: string, v: string) => void mem.set(k, String(v)),
-  removeItem: (k: string) => void mem.delete(k),
-  clear: () => mem.clear(),
+const { getCloudProfile, setCloudProfile } = vi.hoisted(() => ({
+  getCloudProfile: vi.fn(),
+  setCloudProfile: vi.fn(async () => {}),
+}));
+
+vi.mock("@/core/firebase/profile", () => ({ getCloudProfile, setCloudProfile }));
+
+import { loadShowGoogleEvents, saveShowGoogleEvents } from "../config";
+
+beforeEach(() => vi.clearAllMocks());
+
+describe("loadShowGoogleEvents", () => {
+  it("defaults to true when signed out (no profile read)", async () => {
+    expect(await loadShowGoogleEvents(null)).toBe(true);
+    expect(getCloudProfile).not.toHaveBeenCalled();
+  });
+
+  it("returns true unless the profile explicitly turned it off", async () => {
+    getCloudProfile.mockResolvedValueOnce({ gcalShowEvents: undefined });
+    expect(await loadShowGoogleEvents("u1")).toBe(true);
+    getCloudProfile.mockResolvedValueOnce({ gcalShowEvents: false });
+    expect(await loadShowGoogleEvents("u1")).toBe(false);
+  });
 });
 
-import { createDefaultGcalConfig, readLocalGcalConfig } from "../config";
-
-beforeEach(() => mem.clear());
-
-describe("gcal config (device-local read)", () => {
-  it("defaults to disabled, primary read calendar, events shown", () => {
-    expect(readLocalGcalConfig()).toEqual({
-      enabled: false,
-      writeCalendarId: null,
-      readCalendarIds: ["primary"],
-      showGoogleEvents: true,
-    });
-    expect(createDefaultGcalConfig()).toEqual(readLocalGcalConfig());
+describe("saveShowGoogleEvents", () => {
+  it("persists to the cloud profile when signed in", () => {
+    saveShowGoogleEvents("u1", false);
+    expect(setCloudProfile).toHaveBeenCalledWith({ gcalShowEvents: false });
   });
 
-  it("reads persisted values", () => {
-    localStorage.setItem("vega.gcal.enabled", "1");
-    localStorage.setItem("vega.gcal.writeCalendarId", "cal_vega");
-    localStorage.setItem("vega.gcal.readCalendarIds", JSON.stringify(["a", "b"]));
-    localStorage.setItem("vega.gcal.showEvents", "0");
-    expect(readLocalGcalConfig()).toEqual({
-      enabled: true,
-      writeCalendarId: "cal_vega",
-      readCalendarIds: ["a", "b"],
-      showGoogleEvents: false,
-    });
-  });
-
-  it("migrates a legacy single calendarId into the read set", () => {
-    localStorage.setItem("vega.gcal.calendarId", "primary");
-    expect(readLocalGcalConfig().readCalendarIds).toEqual(["primary"]);
+  it("is a no-op when signed out", () => {
+    saveShowGoogleEvents(null, false);
+    expect(setCloudProfile).not.toHaveBeenCalled();
   });
 });

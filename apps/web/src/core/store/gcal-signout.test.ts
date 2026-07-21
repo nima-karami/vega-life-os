@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { clearAll, dexieClear, clearCalendarToken } = vi.hoisted(() => ({
+const { clearAll, dexieClear } = vi.hoisted(() => ({
   clearAll: vi.fn(async () => {}),
   dexieClear: vi.fn(async () => {}),
-  clearCalendarToken: vi.fn(),
 }));
 
 vi.mock("@/core/persistence", async (orig) => {
@@ -28,29 +27,32 @@ vi.mock("@/core/persistence/sandbox-meta", () => ({
   isSandboxDirty: () => false,
 }));
 vi.mock("./persist", () => ({ setPersistAuth: vi.fn(), bindPersistStore: vi.fn() }));
-vi.mock("@/features/calendar-sync/google-auth", () => ({ clearCalendarToken }));
 
-import { createDefaultGcalConfig } from "@/features/calendar-sync/config";
 import { useStore } from "./store";
 
 describe("sign-out tears down the Google Calendar connection", () => {
   beforeEach(() => {
-    clearCalendarToken.mockClear();
     useStore.setState({
       authUid: "u1",
       authResolved: true,
-      gcal: {
-        enabled: true,
+      showGoogleEvents: false,
+      gcalStatus: {
+        connected: true,
+        needsReauth: false,
+        writeCalendarMissing: false,
         writeCalendarId: "cal_vega",
         readCalendarIds: ["primary"],
-        showGoogleEvents: false,
+        calendarPrefs: {},
+        lastSyncedAt: null,
+        backoffUntil: null,
+        timeZone: null,
       },
     });
   });
 
-  it("resets the gcal slice to defaults and clears the device token", async () => {
+  it("clears the account's gcal status and resets the display pref", async () => {
     await useStore.getState().onAuthChange(null);
-    expect(useStore.getState().gcal).toEqual(createDefaultGcalConfig());
-    expect(clearCalendarToken).toHaveBeenCalledOnce();
+    expect(useStore.getState().gcalStatus).toBeNull();
+    expect(useStore.getState().showGoogleEvents).toBe(true);
   });
 });

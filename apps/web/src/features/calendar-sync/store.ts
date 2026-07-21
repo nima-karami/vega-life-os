@@ -1,10 +1,24 @@
+import type { CalendarEvent } from "@vega/shared";
+import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import { createDefaultGcalConfig, type GcalConfig, saveGcalConfig } from "./config";
-import type { CalendarEvent } from "./events-model";
-import { dedupeForDisplay } from "./reconcile-lived";
+import { saveShowGoogleEvents } from "./config";
+import { filterVisibleEvents } from "./display";
 
 const nowISO = () => new Date().toISOString();
+
+/** The server's Google Calendar connection status (mirror of `calendar.status`). */
+export interface GcalStatus {
+  connected: boolean;
+  needsReauth: boolean;
+  writeCalendarMissing: boolean;
+  writeCalendarId: string | null;
+  readCalendarIds: string[];
+  calendarPrefs: Record<string, { visible: boolean; summary: string; color: string | null }>;
+  lastSyncedAt: string | null;
+  backoffUntil: string | null;
+  timeZone: string | null;
+}
 
 export interface CalendarEventsSlice {
   calendarEvents: CalendarEvent[];
@@ -24,91 +38,102 @@ export interface CalendarEventsSlice {
   markEventForDelete: (id: string) => void;
   /** replace one calendar's mirrors with reconcile output (engine pull) */
   applyLivedSync: (calendarId: string, upserts: CalendarEvent[], dropIds: string[]) => void;
-  /** deduped, display-ready lived events */
+  /** deduped, display-ready lived events (per-calendar visibility applied) */
   visibleEvents: () => CalendarEvent[];
-  /** user-level connection config (cloud profile when signed in, else device-local) */
-  gcal: GcalConfig;
-  /** replace the whole config (used on load/sign-in hydration) */
-  hydrateGcalConfig: (c: GcalConfig) => void;
-  setGcalEnabled: (v: boolean) => void;
-  setGcalWriteCalendarId: (id: string | null) => void;
-  setGcalReadCalendarIds: (ids: string[]) => void;
-  /** show/hide Google events on the calendar */
-  setShowGoogleEvents: (v: boolean) => void;
-  /** transient: a background sync found the VEGA write-calendar gone (not persisted) */
-  gcalMissing: boolean;
-  setGcalMissing: (v: boolean) => void;
-  /** transient: the engine can't get a token without user action (actionable reconnect) */
-  gcalNeedsReconnect: boolean;
-  setGcalNeedsReconnect: (v: boolean) => void;
-  /** transient: a transient fault is being retried with backoff (calm "will retry") */
-  gcalBackingOff: boolean;
-  setGcalBackingOff: (v: boolean) => void;
+  /** server-owned connection status; null when signed out */
+  gcalStatus: GcalStatus | null;
+  hydrateGcalStatus: (status: GcalStatus | null) => void;
+  refreshGcalStatus: () => Promise<void>;
+  /** optimistic per-calendar visibility toggle; reconciles on mutation failure */
+  setCalendarVisible: (calendarId: string, visible: boolean) => void;
+  /** global show/hide of Google events on the calendar (profile-persisted display pref) */
+  showGoogleEvents: boolean;
+  hydrateShowGoogleEvents: (visible: boolean) => void;
+  setShowGoogleEvents: (visible: boolean) => void;
 }
 
-export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) => {
-  // Update one config field in the store, then persist to its home (cloud/local).
-  const patchGcal = (patch: Partial<GcalConfig>) => {
-    const next = { ...get().gcal, ...patch };
-    set({ gcal: next });
-    saveGcalConfig(get().authUid, next);
-  };
-  return {
-    calendarEvents: [],
+export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) => ({
+  calendarEvents: [],
 
-    tagEvent: (id, patch) => {
-      const target = get().calendarEvents.find((e) => e.id === id);
-      if (!target) return;
-      const touched: CalendarEvent[] = [];
-      set((s) => ({
-        calendarEvents: s.calendarEvents.map((e) => {
-          if (e.iCalUID !== target.iCalUID) return e;
-          const next = { ...e, ...patch };
-          touched.push(next);
-          return next;
-        }),
-      }));
-      for (const e of touched) savePut("calendarEvents", e);
-    },
+  tagEvent: (id, patch) => {
+    const target = get().calendarEvents.find((e) => e.id === id);
+    if (!target) return;
+    const touched: CalendarEvent[] = [];
+    set((s) => ({
+      calendarEvents: s.calendarEvents.map((e) => {
+        if (e.iCalUID !== target.iCalUID) return e;
+        const next = { ...e, ...patch };
+        touched.push(next);
+        return next;
+      }),
+    }));
+    for (const e of touched) savePut("calendarEvents", e);
+  },
 
-    editEventTime: (id, at) => updateOne(set, id, { ...at, vegaEditedAt: nowISO() }),
-    renameEvent: (id, title) => updateOne(set, id, { title, vegaEditedAt: nowISO() }),
-    markEventForDelete: (id) => updateOne(set, id, { pendingDelete: true }),
+  editEventTime: (id, at) => updateOne(set, id, { ...at, vegaEditedAt: nowISO() }),
+  renameEvent: (id, title) => updateOne(set, id, { title, vegaEditedAt: nowISO() }),
+  markEventForDelete: (id) => updateOne(set, id, { pendingDelete: true }),
 
-    applyLivedSync: (_calendarId, upserts, dropIds) => {
-      // Merge by id (incremental pulls carry only changed events) and drop removals;
-      // untouched rows — including pending local edits — are preserved.
-      const drop = new Set(dropIds);
-      const byId = new Map(upserts.map((e) => [e.id, e]));
-      set((s) => {
-        const next = s.calendarEvents
-          .filter((e) => !drop.has(e.id))
-          .map((e) => byId.get(e.id) ?? e);
-        const existingIds = new Set(s.calendarEvents.map((e) => e.id));
-        for (const e of upserts) if (!existingIds.has(e.id)) next.push(e);
-        return { calendarEvents: next };
-      });
-      for (const e of upserts) savePut("calendarEvents", e);
-      for (const id of dropIds) saveRemove("calendarEvents", id);
-    },
+  applyLivedSync: (_calendarId, upserts, dropIds) => {
+    // Merge by id (incremental pulls carry only changed events) and drop removals;
+    // untouched rows — including pending local edits — are preserved.
+    const drop = new Set(dropIds);
+    const byId = new Map(upserts.map((e) => [e.id, e]));
+    set((s) => {
+      const next = s.calendarEvents.filter((e) => !drop.has(e.id)).map((e) => byId.get(e.id) ?? e);
+      const existingIds = new Set(s.calendarEvents.map((e) => e.id));
+      for (const e of upserts) if (!existingIds.has(e.id)) next.push(e);
+      return { calendarEvents: next };
+    });
+    for (const e of upserts) savePut("calendarEvents", e);
+    for (const id of dropIds) saveRemove("calendarEvents", id);
+  },
 
-    visibleEvents: () => dedupeForDisplay(get().calendarEvents),
+  visibleEvents: () =>
+    filterVisibleEvents(get().calendarEvents, get().gcalStatus?.calendarPrefs ?? {}),
 
-    gcal: createDefaultGcalConfig(),
-    hydrateGcalConfig: (c) => set({ gcal: c }),
-    setGcalEnabled: (v) => patchGcal({ enabled: v }),
-    setGcalWriteCalendarId: (id) => patchGcal({ writeCalendarId: id }),
-    setGcalReadCalendarIds: (ids) => patchGcal({ readCalendarIds: ids }),
-    setShowGoogleEvents: (v) => patchGcal({ showGoogleEvents: v }),
-
-    gcalMissing: false,
-    setGcalMissing: (v) => set({ gcalMissing: v }),
-    gcalNeedsReconnect: false,
-    setGcalNeedsReconnect: (v) => set({ gcalNeedsReconnect: v }),
-    gcalBackingOff: false,
-    setGcalBackingOff: (v) => set({ gcalBackingOff: v }),
-  };
-};
+  gcalStatus: null,
+  hydrateGcalStatus: (status) => set({ gcalStatus: status }),
+  refreshGcalStatus: async () => {
+    if (!get().authUid) {
+      set({ gcalStatus: null });
+      return;
+    }
+    try {
+      const status = await getTrpcClient().calendar.status.query();
+      set({ gcalStatus: status });
+    } catch {
+      /* offline / server down — keep last-known status */
+    }
+  },
+  setCalendarVisible: (calendarId, visible) => {
+    const status = get().gcalStatus;
+    if (!status) return;
+    const prior = status.calendarPrefs[calendarId];
+    set({
+      gcalStatus: {
+        ...status,
+        calendarPrefs: {
+          ...status.calendarPrefs,
+          [calendarId]: {
+            visible,
+            summary: prior?.summary ?? calendarId,
+            color: prior?.color ?? null,
+          },
+        },
+      },
+    });
+    void getTrpcClient()
+      .calendar.setCalendarVisibility.mutate({ calendarId, visible })
+      .catch(() => get().refreshGcalStatus());
+  },
+  showGoogleEvents: true,
+  hydrateShowGoogleEvents: (visible) => set({ showGoogleEvents: visible }),
+  setShowGoogleEvents: (visible) => {
+    set({ showGoogleEvents: visible });
+    saveShowGoogleEvents(get().authUid, visible);
+  },
+});
 
 function updateOne(
   set: (fn: (s: CalendarEventsSlice) => Partial<CalendarEventsSlice>) => void,

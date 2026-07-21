@@ -13,12 +13,7 @@ import {
 import { runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
-import {
-  createDefaultGcalConfig,
-  loadGcalConfig,
-  readLocalGcalConfig,
-} from "@/features/calendar-sync/config";
-import { clearCalendarToken } from "@/features/calendar-sync/google-auth";
+import { loadShowGoogleEvents } from "@/features/calendar-sync/config";
 import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
@@ -61,7 +56,8 @@ async function loadAccount(
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
     set({ ready: true }); // name known — safe to render the app / ProfileStep
-    get().hydrateGcalConfig(await loadGcalConfig(uid)); // user-level GCal config (cloud)
+    await get().refreshGcalStatus(); // server-owned GCal connection status
+    get().hydrateShowGoogleEvents(await loadShowGoogleEvents(uid)); // display pref (profile)
     get().hydrateStreakRules(await loadStreakRules(uid)); // user-level streak rules (cloud)
     get().ensureUpcoming(14);
   } catch {
@@ -117,7 +113,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     await persistence.init();
     const loaded = await persistence.loadAll();
     set({ ...(sortDataset(loaded) as Partial<RootState>), ready: true });
-    get().hydrateGcalConfig(readLocalGcalConfig()); // signed-out sandbox: device-local config
+    get().hydrateGcalStatus(null); // signed-out sandbox: no Google Calendar connection
     get().hydrateStreakRules(readLocalStreakRules());
     runDataMigrations(get, set);
     get().ensureUpcoming(14);
@@ -278,8 +274,8 @@ export const useStore = create<RootState>((set, get, api) => ({
       routing.setDelegate(new DexieAdapter());
       await get().clearLocal();
       void setSandboxDirty(false);
-      clearCalendarToken(); // drop the device Google token
-      get().hydrateGcalConfig(createDefaultGcalConfig()); // don't leak the account's GCal config into the sandbox
+      get().hydrateGcalStatus(null); // clear the account's Google Calendar status
+      get().hydrateShowGoogleEvents(true); // back to the default display pref
       get().hydrateStreakRules(readLocalStreakRules()); // back to the device-local sandbox rules
       get().setOnboarded(false);
       get().hydrateProfile({

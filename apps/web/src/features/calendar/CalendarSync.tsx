@@ -1,20 +1,12 @@
 /**
  * Minimal GCal control for /calendar: a single sync icon (its tone signals state),
  * a show/hide toggle for Google events, and a subtle "last synced" hint. Connecting
- * and disconnecting live in Settings — this surfaces only once connected. It triggers
- * the shipped `calendar-sync` engine; it never forks the reconcile/mapping logic.
+ * and disconnecting live in Settings — this surfaces only once connected. Sync runs
+ * server-side; this pulls the latest server truth into the store.
  */
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
-import {
-  gcalConfigured,
-  getCalendarToken,
-  getLastSyncedAt,
-  getScopeVersion,
-  isCalendarConnected,
-  SCOPE_VERSION,
-} from "@/features/calendar-sync";
 import { deriveSyncPhase, formatLastSynced, type SyncPhase } from "./sync-status";
 
 /** Icon tone by phase — calm when healthy, danger when it needs attention. */
@@ -38,61 +30,47 @@ const ATTENTION: Partial<Record<SyncPhase, string>> = {
 
 export function CalendarSync() {
   const pushToast = useStore((s) => s.pushToast);
-  const enabled = useStore((s) => s.gcal.enabled);
-  const showGoogle = useStore((s) => s.gcal.showGoogleEvents);
+  const gcalStatus = useStore((s) => s.gcalStatus);
+  const showGoogle = useStore((s) => s.showGoogleEvents);
   const setShowGoogle = useStore((s) => s.setShowGoogleEvents);
-  const needsReconnectFlag = useStore((s) => s.gcalNeedsReconnect);
-  const backingOff = useStore((s) => s.gcalBackingOff);
-  const [, force] = useState(0);
-  const refresh = () => force((n) => n + 1);
   const [busy, setBusy] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [lastSynced, setLastSynced] = useState<number | null>(() => getLastSyncedAt());
   const [announce, setAnnounce] = useState("");
 
   // Only surface on /calendar once connected; connect/disconnect live in Settings.
-  if (!gcalConfigured || !enabled) return null;
+  if (!gcalStatus?.connected) return null;
 
-  // recorded 0 = never tracked (legacy connect) → treat as current, don't nag.
-  const scopeStale = getScopeVersion() !== 0 && getScopeVersion() < SCOPE_VERSION;
+  const lastSyncedMs = gcalStatus.lastSyncedAt ? Date.parse(gcalStatus.lastSyncedAt) : null;
   const phase = deriveSyncPhase({
-    configured: gcalConfigured,
-    enabled,
-    connected: isCalendarConnected(),
+    configured: true,
+    enabled: true,
+    connected: true,
     busy,
     error: hasError,
-    needsReconnect: needsReconnectFlag,
-    backingOff,
-    scopeStale,
+    needsReconnect: gcalStatus.needsReauth,
+    backingOff: gcalStatus.backoffUntil != null,
   });
-  const needsReconnect = phase === "needs-reconnect" || phase === "needs-upgraded-consent";
-  const lastLabel = formatLastSynced(lastSynced);
+  const lastLabel = formatLastSynced(lastSyncedMs);
   const hint =
     ATTENTION[phase] ?? (phase === "connected" && lastLabel ? `Synced ${lastLabel}` : "");
 
-  // Sync itself runs server-side now; this pulls the latest server truth into the
-  // store (re-consenting first if the token expired) — the client never writes Google.
   const sync = async () => {
     setBusy(true);
     setHasError(false);
     setAnnounce("Refreshing…");
     try {
-      if (needsReconnect) await getCalendarToken(true); // re-consent first
       await useStore.getState().refetchAll();
-      setLastSynced(Date.now());
+      await useStore.getState().refreshGcalStatus();
       const message = "Calendar refreshed";
       pushToast(message);
       setAnnounce(message);
     } catch {
       setHasError(true);
-      const message = needsReconnect
-        ? "Couldn’t reconnect Google Calendar"
-        : "Refresh failed — check your connection";
+      const message = "Refresh failed — check your connection";
       pushToast(message);
       setAnnounce(message);
     } finally {
       setBusy(false);
-      refresh();
     }
   };
 
@@ -101,7 +79,7 @@ export function CalendarSync() {
       {hint && (
         <span
           className="mr-0.5 hidden text-[11px] text-muted sm:inline"
-          title={lastSynced ? new Date(lastSynced).toLocaleString() : undefined}
+          title={lastSyncedMs ? new Date(lastSyncedMs).toLocaleString() : undefined}
         >
           {hint}
         </span>
@@ -119,8 +97,8 @@ export function CalendarSync() {
         onClick={() => void sync()}
         disabled={busy}
         aria-busy={busy || undefined}
-        aria-label={needsReconnect ? "Reconnect Google Calendar" : "Sync Google Calendar now"}
-        title={needsReconnect ? "Reconnect" : lastLabel ? `Synced ${lastLabel}` : "Sync now"}
+        aria-label="Sync Google Calendar now"
+        title={lastLabel ? `Synced ${lastLabel}` : "Sync now"}
         className={cx(
           "rounded-[8px] p-1.5 transition-colors hover:bg-surface-secondary",
           TONE[phase],
@@ -129,11 +107,7 @@ export function CalendarSync() {
         <Icon name="refresh-cw" size={15} className={cx(busy && "animate-spin")} />
       </button>
 
-      <span
-        className="sr-only"
-        role={needsReconnect ? "alert" : "status"}
-        aria-live={needsReconnect ? "assertive" : "polite"}
-      >
+      <span className="sr-only" role="status" aria-live="polite">
         {announce}
       </span>
     </div>

@@ -8,7 +8,7 @@
  * These mirror the spec's "placed on grid iff time != null && date == visibleDay"
  * rule and keep the view free of filtering logic.
  */
-import type { CalendarEvent } from "@/features/calendar-sync/events-model";
+import type { CalendarEvent } from "@vega/shared";
 import type { Task } from "@/features/tasks";
 
 /** Timed tasks for a given ISO day (rendered as positioned chips). */

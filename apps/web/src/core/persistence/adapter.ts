@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "@/features/calendar-sync/events-model";
+import type { CalendarEvent } from "@vega/shared";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { DayEntry } from "@/features/journal/model";

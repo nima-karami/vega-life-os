@@ -1,32 +1,38 @@
 import { Button } from "@heroui/react";
 import { useEffect, useState } from "react";
+import { getTrpcClient, type TrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import { type GCalendar, isVegaCalendar, listCalendars } from "@/features/calendar-sync";
+
+type GoogleCalendar = Awaited<ReturnType<TrpcClient["calendar"]["listCalendars"]["query"]>>[number];
 
 /**
  * Pick which Google calendars feed VEGA (multi-select, persisted on toggle).
  * VEGA writes its own task-blocks to a separate auto-created "VEGA" calendar,
- * so your real calendars stay uncluttered — surfaced here as a note.
+ * so your real calendars stay uncluttered — surfaced here as a note. The server's
+ * listCalendars already excludes the VEGA write-calendar.
  */
 export function CalendarPicker() {
   const pushToast = useStore((s) => s.pushToast);
-  const selected = useStore((s) => s.gcal.readCalendarIds);
-  const setReadCalendarIds = useStore((s) => s.setGcalReadCalendarIds);
-  const writeId = useStore((s) => s.gcal.writeCalendarId);
-  const [calendars, setCalendars] = useState<GCalendar[] | null>(null);
+  const status = useStore((s) => s.gcalStatus);
+  const refreshGcalStatus = useStore((s) => s.refreshGcalStatus);
+  const selected = status?.readCalendarIds ?? [];
+  const [calendars, setCalendars] = useState<GoogleCalendar[] | null>(null);
   const [hasFailed, setHasFailed] = useState(false);
 
   useEffect(() => {
-    listCalendars(false)
-      // VEGA's own write-calendar as a read source would be circular
-      .then((list) => setCalendars(list.filter((c) => c.id !== writeId && !isVegaCalendar(c))))
+    getTrpcClient()
+      .calendar.listCalendars.query()
+      .then(setCalendars)
       .catch(() => setHasFailed(true));
-  }, [writeId]);
+  }, []);
 
   const toggleCalendar = (id: string) => {
     const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
-    setReadCalendarIds(next);
+    void getTrpcClient()
+      .calendar.setReadCalendars.mutate({ ids: next })
+      .then(() => refreshGcalStatus())
+      .catch(() => pushToast("Couldn’t save calendar selection"));
     pushToast("Calendar selection saved");
   };
 

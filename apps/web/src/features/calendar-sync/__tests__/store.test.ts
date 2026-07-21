@@ -2,9 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/core/store/persist", () => ({ savePut: vi.fn(), saveRemove: vi.fn() }));
 
+const { setCalendarVisibility } = vi.hoisted(() => ({
+  setCalendarVisibility: vi.fn(async () => ({ ok: true as const })),
+}));
+vi.mock("@/core/persistence/trpc-client", () => ({
+  getTrpcClient: () => ({ calendar: { setCalendarVisibility: { mutate: setCalendarVisibility } } }),
+}));
+
+import type { CalendarEvent } from "@vega/shared";
 import { create } from "zustand";
-import type { CalendarEvent } from "../events-model";
-import { type CalendarEventsSlice, createCalendarEventsSlice } from "../store";
+import { type CalendarEventsSlice, createCalendarEventsSlice, type GcalStatus } from "../store";
 
 const ev = (over: Partial<CalendarEvent>): CalendarEvent => ({
   id: "ce_1",
@@ -27,6 +34,8 @@ const ev = (over: Partial<CalendarEvent>): CalendarEvent => ({
   vegaEditedAt: null,
   pendingDelete: false,
   removedAt: null,
+  updatedAt: "2026-07-04T00:00:00.000Z",
+  fieldUpdatedAt: {},
   ...over,
 });
 
@@ -101,5 +110,56 @@ describe("applyLivedSync / visibleEvents", () => {
       ev({ id: "ce_b", googleId: "gb", iCalUID: "shared" }),
     ]);
     expect(s.getState().visibleEvents()).toHaveLength(1);
+  });
+  it("visibleEvents drops rows on a calendar toggled off", () => {
+    const s = mk([ev({ id: "ce_a", calendarId: "hidden" })]);
+    s.setState({
+      gcalStatus: statusWith({ hidden: { visible: false, summary: "H", color: null } }),
+    });
+    expect(s.getState().visibleEvents()).toHaveLength(0);
+  });
+});
+
+const statusWith = (calendarPrefs: GcalStatus["calendarPrefs"]): GcalStatus => ({
+  connected: true,
+  needsReauth: false,
+  writeCalendarMissing: false,
+  writeCalendarId: "cal_vega",
+  readCalendarIds: ["primary"],
+  calendarPrefs,
+  lastSyncedAt: null,
+  backoffUntil: null,
+  timeZone: null,
+});
+
+describe("setCalendarVisible", () => {
+  it("optimistically flips the pref and fires the mutation", () => {
+    const s = mk([]);
+    s.setState({
+      gcalStatus: statusWith({ work: { visible: true, summary: "Work", color: "#123" } }),
+    });
+    s.getState().setCalendarVisible("work", false);
+    expect(s.getState().gcalStatus?.calendarPrefs.work).toEqual({
+      visible: false,
+      summary: "Work",
+      color: "#123",
+    });
+    expect(setCalendarVisibility).toHaveBeenCalledWith({ calendarId: "work", visible: false });
+  });
+  it("does nothing without a connected status", () => {
+    const s = mk([]);
+    s.getState().setCalendarVisible("work", false);
+    expect(setCalendarVisibility).not.toHaveBeenCalled();
+  });
+});
+
+describe("showGoogleEvents", () => {
+  it("hydrates and toggles the display pref", () => {
+    const s = mk([]);
+    expect(s.getState().showGoogleEvents).toBe(true);
+    s.getState().setShowGoogleEvents(false);
+    expect(s.getState().showGoogleEvents).toBe(false);
+    s.getState().hydrateShowGoogleEvents(true);
+    expect(s.getState().showGoogleEvents).toBe(true);
   });
 });

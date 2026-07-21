@@ -1,53 +1,23 @@
-import { Button, Code } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { CalendarPicker } from "@/features/calendar/CalendarPicker";
-import { gcalConfigured } from "@/features/calendar-sync";
 import { SettingsCard } from "../SettingsCard";
 import { DisconnectDialog } from "./DisconnectDialog";
 
 export function CalendarSettings() {
   const pushToast = useStore((s) => s.pushToast);
-  const on = useStore((s) => s.gcal.enabled);
-  const setEnabled = useStore((s) => s.setGcalEnabled);
-  const setWriteCalendarId = useStore((s) => s.setGcalWriteCalendarId);
+  const status = useStore((s) => s.gcalStatus);
+  const refreshGcalStatus = useStore((s) => s.refreshGcalStatus);
+  const on = status?.connected ?? false;
   const [busy, setBusy] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
-  // Reconcile the store's device-local `enabled` flag with the server's connection truth.
   useEffect(() => {
-    if (!gcalConfigured) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const status = await getTrpcClient().calendar.status.query();
-        if (cancelled) return;
-        if (status.connected !== on) setEnabled(status.connected);
-        if (status.connected && status.writeCalendarId) {
-          setWriteCalendarId(status.writeCalendarId);
-        }
-      } catch {
-        /* offline / server down — leave the last-known state untouched */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [on, setEnabled, setWriteCalendarId]);
-
-  if (!gcalConfigured) {
-    return (
-      <SettingsCard title="Google Calendar">
-        <p className="text-sm leading-relaxed text-muted">
-          Set <Code>VITE_GOOGLE_CLIENT_ID</Code> in <Code>.env.local</Code> to enable two-way
-          calendar sync. Your VEGA time-blocks then appear in Google Calendar, and the Calendar app
-          on your phone handles the reminders.
-        </p>
-      </SettingsCard>
-    );
-  }
+    void refreshGcalStatus();
+  }, [refreshGcalStatus]);
 
   const connect = async () => {
     setBusy(true);
@@ -64,6 +34,7 @@ export function CalendarSettings() {
     setBusy(true);
     try {
       await useStore.getState().refetchAll();
+      await refreshGcalStatus();
       pushToast("Calendar refreshed");
     } catch {
       pushToast("Refresh failed — reconnect?");

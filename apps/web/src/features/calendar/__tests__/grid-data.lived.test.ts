@@ -1,5 +1,5 @@
+import type { CalendarEvent } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import type { CalendarEvent } from "@/features/calendar-sync/events-model";
 import {
   getAllDayLivedForDay,
   getSingleDayAllDayLived,
@@ -28,6 +28,8 @@ const e = (over: Partial<CalendarEvent>): CalendarEvent => ({
   vegaEditedAt: null,
   pendingDelete: false,
   removedAt: null,
+  updatedAt: "2026-07-04T00:00:00.000Z",
+  fieldUpdatedAt: {},
   ...over,
 });
 

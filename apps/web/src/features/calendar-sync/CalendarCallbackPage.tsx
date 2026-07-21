@@ -12,8 +12,7 @@ const RETURN_DELAY_MS = 1200;
 export function CalendarCallbackPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const setEnabled = useStore((s) => s.setGcalEnabled);
-  const setWriteCalendarId = useStore((s) => s.setGcalWriteCalendarId);
+  const refreshGcalStatus = useStore((s) => s.refreshGcalStatus);
   const [phase, setPhase] = useState<ConnectPhase>("connecting");
   const started = useRef(false);
 
@@ -31,19 +30,18 @@ export function CalendarCallbackPage() {
 
     void (async () => {
       try {
-        const result = await getTrpcClient().calendar.oauthCallback.mutate({
+        await getTrpcClient().calendar.oauthCallback.mutate({
           code,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
-        setEnabled(true);
-        setWriteCalendarId(result.writeCalendarId);
+        await refreshGcalStatus();
         setPhase("connected");
         setTimeout(() => navigate("/settings", { replace: true }), RETURN_DELAY_MS);
       } catch {
         setPhase("error");
       }
     })();
-  }, [params, navigate, setEnabled, setWriteCalendarId]);
+  }, [params, navigate, refreshGcalStatus]);
 
   return (
     <div className="mx-auto grid h-full min-h-[60vh] max-w-3xl place-items-center p-10">
