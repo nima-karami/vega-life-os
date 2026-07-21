@@ -1,6 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { Firestore } from "firebase-admin/firestore";
 import type { ServerConfig } from "../../core/config";
+import type { BackoffState } from "./backoff";
+import { SyncBackingOffError } from "./backoff";
 import { type OauthGateway, OauthHttpError } from "./oauth";
 import { SyncLockBusyError } from "./sync-lock";
 
@@ -25,9 +27,12 @@ export function isBenignSyncFault(error: unknown): boolean {
   return (
     error instanceof SyncLockBusyError ||
     error instanceof TokenRevokedError ||
-    error instanceof TransientTokenError
+    error instanceof TransientTokenError ||
+    error instanceof SyncBackingOffError
   );
 }
+
+export type CalendarPref = { visible: boolean; summary: string; color: string | null };
 
 export type GcalAccount = {
   refreshTokenCipher: string;
@@ -36,6 +41,12 @@ export type GcalAccount = {
   writeCalendarId: string | null;
   readCalendarIds: string[];
   needsReauth: boolean;
+  calendarPrefs?: Record<string, CalendarPref>;
+  syncTokens?: Record<string, string>;
+  timeZone?: string;
+  writeCalendarMissing?: boolean;
+  backoff?: BackoffState | null;
+  lastSyncedAt?: string | null;
 };
 
 const ALGORITHM = "aes-256-gcm";
