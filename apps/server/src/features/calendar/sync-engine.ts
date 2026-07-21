@@ -20,6 +20,17 @@ export type SyncDeps = {
   now: () => string;
 };
 
+/** The dedicated VEGA calendar is gone from Google — pause-and-ask, never auto-recreate (user decision, spec §0). */
+export class WriteCalendarMissingError extends Error {
+  constructor() {
+    super("write calendar missing");
+    this.name = "WriteCalendarMissingError";
+  }
+}
+
+const isMissingCalendarFault = (error: unknown): boolean =>
+  error instanceof GoogleHttpError && (error.status === 404 || error.status === 410);
+
 export type TaskLaneResult = {
   pushed: number;
   pulled: number;
@@ -222,11 +233,17 @@ async function listWriteCalendar(
       const delta = await client.listEvents(calendarId, { syncToken: token });
       return { ...delta, mode: "delta" };
     } catch (error) {
+      if (isMissingCalendarFault(error)) throw new WriteCalendarMissingError();
       if (!(error instanceof SyncTokenExpiredError)) throw error;
     }
   }
-  const full = await client.listEvents(calendarId, { window: TASK_WINDOW });
-  return { ...full, mode: "full" };
+  try {
+    const full = await client.listEvents(calendarId, { window: TASK_WINDOW });
+    return { ...full, mode: "full" };
+  } catch (error) {
+    if (isMissingCalendarFault(error)) throw new WriteCalendarMissingError();
+    throw error;
+  }
 }
 
 /**
