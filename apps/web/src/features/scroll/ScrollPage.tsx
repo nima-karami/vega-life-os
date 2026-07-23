@@ -1,6 +1,13 @@
 import { Button } from "@heroui/react";
 import { useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
@@ -48,6 +55,7 @@ export function ScrollPage() {
   const vocab = useStore((s) => s.vocab);
   const hideMindCard = useStore((s) => s.hideMindCard);
   const setMindCardLearning = useStore((s) => s.setMindCardLearning);
+  const toggleMindCardLike = useStore((s) => s.toggleMindCardLike);
   const gradeMindCard = useStore((s) => s.gradeMindCard);
   const reviewVocab = useStore((s) => s.reviewVocab);
   const pushToast = useStore((s) => s.pushToast);
@@ -213,6 +221,20 @@ export function ScrollPage() {
     announce(next ? "Learning on" : "Learning off");
   };
 
+  const handleToggleLike = (card: FeedCard) => {
+    toggleMindCardLike(card.id);
+    announce(card.liked ? "Like removed" : "Liked");
+  };
+
+  const handleFeedKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Enter") return;
+    const entry = queueEntries[currentIndexRef.current];
+    if (!entry || isRecapId(entry.cardId)) return;
+    const card = poolById.get(entry.cardId);
+    if (!card || !card.flippable || card.body === "") return;
+    setFlippedId((current) => (current === card.id ? null : card.id));
+  };
+
   const handleGrade = (card: FeedCard, correct: boolean) => {
     if (card.box === null) return;
     const nextBox = stepLeitner(card.box, correct, today).box;
@@ -243,9 +265,11 @@ export function ScrollPage() {
         reversed={entry.reversed}
         flipped={flippedId === card.id}
         onFlip={() => setFlippedId((current) => (current === card.id ? null : card.id))}
+        onToggleLike={() => handleToggleLike(card)}
         onToggleLearning={() => handleToggleLearning(card)}
         onHide={() => handleHide(card)}
         onEdit={() => openEditor(card.id)}
+        onManage={() => navigate("/scroll/manage")}
         onGrade={(correct) => handleGrade(card, correct)}
       />
     );
@@ -264,6 +288,7 @@ export function ScrollPage() {
             ref={scrollRef}
             aria-label="Card feed"
             tabIndex={SCROLL_TABINDEX}
+            onKeyDown={handleFeedKeyDown}
             className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain pb-2 outline-none"
           >
             {queueEntries.map((entry, index) => (

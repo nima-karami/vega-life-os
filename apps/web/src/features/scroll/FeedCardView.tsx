@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
 import { motion, type PanInfo, useReducedMotion } from "framer-motion";
-import { useRef } from "react";
-import { cx, Icon, Label, Menu } from "@/core/ui";
+import { useRef, useState } from "react";
+import { ContextMenu, cx, Icon, Label, type MenuItem } from "@/core/ui";
 import { CardMarkdown } from "./CardMarkdown";
 import type { FeedCard } from "./feed-cards";
 
@@ -10,9 +10,11 @@ export interface FeedCardViewProps {
   reversed: boolean;
   flipped: boolean;
   onFlip: () => void;
+  onToggleLike: () => void;
   onToggleLearning: () => void;
   onHide: () => void;
   onEdit: () => void;
+  onManage: () => void;
   onGrade: (correct: boolean) => void;
 }
 
@@ -44,6 +46,28 @@ function CardFront({ card }: { card: FeedCard }) {
         </h2>
       </div>
       {card.source ? <p className="text-sm text-muted">{card.source}</p> : <span aria-hidden />}
+    </div>
+  );
+}
+
+function SingleFaceCard({ card }: { card: FeedCard }) {
+  return (
+    <div className="flex h-full flex-col px-8 pt-16 pb-24 text-center">
+      <Label className="uppercase tracking-wide">{card.category}</Label>
+      <h2
+        className={cx(
+          "mt-10 font-semibold tracking-tight text-foreground",
+          getTitleSizeClass(card.title),
+        )}
+      >
+        {card.title}
+      </h2>
+      {card.body !== "" && (
+        <div className="mt-6 flex-1 overflow-y-auto">
+          <CardMarkdown markdown={card.body} className="journal-prose text-left" />
+        </div>
+      )}
+      {card.source ? <p className="mt-auto text-sm text-muted">{card.source}</p> : null}
     </div>
   );
 }
@@ -108,47 +132,45 @@ function GradeButtons({ onGrade }: { onGrade: (correct: boolean) => void }) {
 
 function RightRail({
   card,
+  onToggleLike,
   onToggleLearning,
-  onHide,
-  onEdit,
-}: Pick<FeedCardViewProps, "card" | "onToggleLearning" | "onHide" | "onEdit">) {
+}: Pick<FeedCardViewProps, "card" | "onToggleLike" | "onToggleLearning">) {
   const isVocab = card.kind === "vocab";
   return (
     <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-3">
       <button
         type="button"
-        aria-label="Learning mode"
-        aria-pressed={card.learning}
-        aria-disabled={isVocab || undefined}
-        disabled={isVocab}
-        title={isVocab ? "Vocabulary is always in learning mode" : undefined}
-        onClick={isVocab ? undefined : onToggleLearning}
+        aria-label="Like card"
+        aria-pressed={card.liked}
+        onClick={onToggleLike}
         className={cx(
           RAIL_BUTTON,
-          card.learning
+          card.liked
             ? "border-accent bg-accent text-accent-foreground"
             : "border-border bg-surface/80 text-muted hover:text-foreground",
-          isVocab && "opacity-60",
         )}
       >
-        <Icon name="brain" size={20} />
+        <Icon name="heart" size={20} />
       </button>
-      <button
-        type="button"
-        aria-label="Hide card"
-        onClick={onHide}
-        className={cx(RAIL_BUTTON, "border-border bg-surface/80 text-muted hover:text-foreground")}
-      >
-        <Icon name="eye-off" size={20} />
-      </button>
-      {!isVocab && (
-        <Menu
-          isIconOnly
-          triggerContent={<Icon name="dots" size={20} />}
-          triggerLabel="More actions"
-          triggerClassName="h-11 w-11 rounded-full border border-border bg-surface/80"
-          items={[{ label: "Edit", icon: "edit", onSelect: onEdit }]}
-        />
+      {card.flippable && (
+        <button
+          type="button"
+          aria-label="Learning mode"
+          aria-pressed={card.learning}
+          aria-disabled={isVocab || undefined}
+          disabled={isVocab}
+          title={isVocab ? "Vocabulary is always in learning mode" : undefined}
+          onClick={isVocab ? undefined : onToggleLearning}
+          className={cx(
+            RAIL_BUTTON,
+            card.learning
+              ? "border-accent bg-accent text-accent-foreground"
+              : "border-border bg-surface/80 text-muted hover:text-foreground",
+            isVocab && "opacity-60",
+          )}
+        >
+          <Icon name="brain" size={20} />
+        </button>
       )}
     </div>
   );
@@ -159,17 +181,28 @@ export function FeedCardView({
   reversed,
   flipped,
   onFlip,
+  onToggleLike,
   onToggleLearning,
   onHide,
   onEdit,
+  onManage,
   onGrade,
 }: FeedCardViewProps) {
   const shouldReduceMotion = useReducedMotion();
-  const canFlip = card.body !== "";
+  const [isPressPending, setIsPressPending] = useState(false);
+  const canFlip = card.flippable && card.body !== "";
   const canGrade = flipped && card.learning;
   const faceRef = useRef<HTMLDivElement>(null);
   const voidedDragRef = useRef(false);
   const ariaLabel = card.kind === "vocab" ? `Vocabulary card: ${card.title}` : card.title || "Card";
+
+  const menuItems: MenuItem[] = [
+    { label: "Not interested", icon: "eye-off", onSelect: onHide },
+    ...(card.kind === "authored"
+      ? [{ label: "Edit", icon: "edit", onSelect: onEdit } satisfies MenuItem]
+      : []),
+    { label: "Manage cards", icon: "sliders", onSelect: onManage },
+  ];
 
   const handleDragStart = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const pointerX = info.point.x;
@@ -189,48 +222,55 @@ export function FeedCardView({
   };
 
   return (
-    <article aria-label={ariaLabel} className="relative h-full w-full select-none">
-      <motion.div
-        ref={faceRef}
-        className="h-full w-full"
-        style={{ touchAction: "pan-y" }}
-        drag={canGrade ? "x" : false}
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={shouldReduceMotion ? 0 : 0.6}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+    <ContextMenu items={menuItems} longPress onLongPressPending={setIsPressPending}>
+      <article
+        aria-label={ariaLabel}
+        className="relative h-full w-full select-none [-webkit-touch-callout:none]"
       >
-        <div className="h-full w-full [perspective:1200px]">
-          <motion.div
-            className={cx("relative h-full w-full", canFlip && "cursor-pointer")}
-            style={{ transformStyle: "preserve-3d" }}
-            animate={{ rotateY: flipped ? 180 : 0 }}
-            transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, ease: EASE }}
-            onClick={canFlip ? onFlip : undefined}
-          >
-            <div className={FACE}>
-              {reversed ? <ReversedFront card={card} /> : <CardFront card={card} />}
-            </div>
-            <div className={cx(FACE, "[transform:rotateY(180deg)]")}>
-              {reversed ? <ReversedBack card={card} /> : <CardBack card={card} />}
-            </div>
-          </motion.div>
+        <div
+          className={cx(
+            "h-full w-full",
+            !shouldReduceMotion && "transition-transform duration-150",
+          )}
+          style={{ transform: isPressPending ? "scale(0.98)" : undefined }}
+        >
+          {card.flippable ? (
+            <motion.div
+              ref={faceRef}
+              className="h-full w-full"
+              style={{ touchAction: "pan-y" }}
+              drag={canGrade ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={shouldReduceMotion ? 0 : 0.6}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="h-full w-full [perspective:1200px]">
+                <motion.div
+                  className={cx("relative h-full w-full", canFlip && "cursor-pointer")}
+                  style={{ transformStyle: "preserve-3d" }}
+                  animate={{ rotateY: flipped ? 180 : 0 }}
+                  transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, ease: EASE }}
+                  onClick={canFlip ? onFlip : undefined}
+                >
+                  <div className={FACE}>
+                    {reversed ? <ReversedFront card={card} /> : <CardFront card={card} />}
+                  </div>
+                  <div className={cx(FACE, "[transform:rotateY(180deg)]")}>
+                    {reversed ? <ReversedBack card={card} /> : <CardBack card={card} />}
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          ) : (
+            <SingleFaceCard card={card} />
+          )}
         </div>
-      </motion.div>
 
-      {canGrade ? (
-        <GradeButtons onGrade={onGrade} />
-      ) : (
-        canFlip && (
-          <div className="absolute inset-x-0 bottom-8 z-10 flex justify-center">
-            <Button size="sm" variant="secondary" aria-expanded={flipped} onPress={onFlip}>
-              {reversed ? "Reveal" : "Flip"}
-            </Button>
-          </div>
-        )
-      )}
+        {canGrade && <GradeButtons onGrade={onGrade} />}
 
-      <RightRail card={card} onToggleLearning={onToggleLearning} onHide={onHide} onEdit={onEdit} />
-    </article>
+        <RightRail card={card} onToggleLike={onToggleLike} onToggleLearning={onToggleLearning} />
+      </article>
+    </ContextMenu>
   );
 }
