@@ -2,7 +2,7 @@ import type { MindCard, MindMetaRecord } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import type { VocabEntry } from "@/features/library/model";
 import { buildAuthoredFeedCards, buildFeedPool, buildVocabFeedCards } from "../feed-cards";
-import { buildMetaId } from "../model";
+import { buildMetaId, buildVocabCardId } from "../model";
 
 const TODAY = "2026-07-22";
 
@@ -112,7 +112,22 @@ describe("buildAuthoredFeedCards", () => {
       box: null,
       due: false,
       maskedBody: null,
+      flippable: true,
+      liked: false,
     });
+  });
+
+  it("carries flippable and liked from the card record", () => {
+    const cards = buildAuthoredFeedCards(
+      [
+        card({ id: "mc_a", flippable: false, type: "affirmation" }),
+        card({ id: "mc_b", likedAt: "2026-07-23T00:00:00.000Z" }),
+      ],
+      [],
+      TODAY,
+    );
+    expect(cards[0]).toMatchObject({ flippable: false, liked: false });
+    expect(cards[1]).toMatchObject({ flippable: true, liked: true });
   });
 });
 
@@ -155,7 +170,20 @@ describe("buildVocabFeedCards", () => {
       box: 4,
       due: false,
       maskedBody: "**hello**",
+      flippable: true,
+      liked: false,
     });
+  });
+
+  it("is always flippable and reads liked from mindMeta", () => {
+    const likeRecord = meta({
+      id: buildMetaId("like", buildVocabCardId("v1")),
+      kind: "like",
+      key: buildVocabCardId("v1"),
+      value: true,
+    });
+    const cards = buildVocabFeedCards([entry({ id: "v1" })], [likeRecord], TODAY);
+    expect(cards[0]).toMatchObject({ flippable: true, liked: true });
   });
 
   it("omits the example paragraph when the example is empty", () => {

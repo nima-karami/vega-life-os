@@ -14,6 +14,8 @@ export type FeedCard = {
   box: number | null;
   due: boolean;
   maskedBody: string | null;
+  flippable: boolean;
+  liked: boolean;
 };
 
 const isDue = (nextDue: string | null, today: string): boolean =>
@@ -47,6 +49,8 @@ export function buildAuthoredFeedCards(
       box: c.box,
       due: isDue(c.nextDue, today),
       maskedBody: null,
+      flippable: c.flippable,
+      liked: c.likedAt !== null,
     }));
 }
 
@@ -58,6 +62,9 @@ export function buildVocabFeedCards(
   if (!isScrollKeyEnabled(meta, "source", "vocab")) return [];
   const hiddenDerivedIds = new Set(
     meta.filter((m) => m.kind === "hide" && m.value === true).map((m) => m.id),
+  );
+  const likedDerivedIds = new Set(
+    meta.filter((m) => m.kind === "like" && m.value === true).map((m) => m.id),
   );
   return vocab
     .filter((entry) => !hiddenDerivedIds.has(buildMetaId("hide", buildVocabCardId(entry.id))))
@@ -72,6 +79,8 @@ export function buildVocabFeedCards(
       box: entry.box,
       due: isDue(entry.nextDue, today),
       maskedBody: buildVocabDefinition(entry.definition),
+      flippable: true,
+      liked: likedDerivedIds.has(buildMetaId("like", buildVocabCardId(entry.id))),
     }));
 }
 

@@ -13,6 +13,8 @@ const feedCard = (id: string, category: string): FeedCard => ({
   box: null,
   due: false,
   maskedBody: null,
+  flippable: true,
+  liked: false,
 });
 
 const range = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
