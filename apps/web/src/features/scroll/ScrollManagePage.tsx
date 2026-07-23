@@ -1,8 +1,8 @@
 import { Button } from "@heroui/react";
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { cx, Icon } from "@/core/ui";
+import { cx, EmptyState, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
 import { BulkImportModal } from "./BulkImportModal";
 import { CardEditorModal } from "./CardEditorModal";
 import { CardMarkdown } from "./CardMarkdown";
@@ -81,11 +81,7 @@ export function ScrollManagePage() {
     setCategory(null);
   };
   const handleSortColumn = (column: CardSortColumn) => {
-    setSort((current) =>
-      current.column === column
-        ? { column, direction: current.direction === "asc" ? "desc" : "asc" }
-        : { column, direction: column === "addedAt" ? "desc" : "asc" },
-    );
+    setSort((current) => toggleColumnSort(current, column, ["addedAt"]));
   };
 
   return (
@@ -191,20 +187,7 @@ export function ScrollManagePage() {
         <div className="mt-4 overflow-x-auto">
           <div className={cx("grid min-w-[640px] items-center gap-3 px-2 pb-1.5", GRID_COLS)}>
             <span />
-            {SORT_COLUMNS.map(({ column, label }) => (
-              <button
-                key={column}
-                type="button"
-                onClick={() => handleSortColumn(column)}
-                aria-pressed={sort.column === column}
-                className="flex items-center gap-1 justify-self-start text-xs font-medium text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {label}
-                {sort.column === column && (
-                  <Icon name={sort.direction === "asc" ? "chevU" : "chevD"} size={12} />
-                )}
-              </button>
-            ))}
+            <SortHeader columns={SORT_COLUMNS} sort={sort} onSort={handleSortColumn} />
             <span />
           </div>
           <ul className="min-w-[640px] divide-y divide-border rounded-[16px] border border-border bg-surface">
@@ -429,15 +412,5 @@ function SourcesSection({
         </Button>
       </div>
     </section>
-  );
-}
-
-function EmptyState({ title, body, cta }: { title: string; body: string; cta: ReactNode }) {
-  return (
-    <div className="mt-10 flex flex-col items-center gap-3 rounded-[16px] border border-dashed border-border py-16 text-center">
-      <p className="text-base font-medium text-foreground">{title}</p>
-      <p className="max-w-sm text-sm text-muted">{body}</p>
-      <div className="mt-2">{cta}</div>
-    </div>
   );
 }

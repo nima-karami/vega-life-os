@@ -5,6 +5,7 @@ export { ContextMenu, FloatingMenu } from "./contextmenu";
 export { cx } from "./cx";
 export { Disclosure } from "./Disclosure";
 export { CalendarPopover, DatePicker, DurationStepper, TimePicker, TimeRange } from "./datetime";
+export { EmptyState } from "./EmptyState";
 export { IconField } from "./IconField";
 export { Ic, Icon } from "./icons";
 export { getValueStripeStyle, Lineage } from "./lineage";
@@ -22,6 +23,7 @@ export {
   Tag,
 } from "./primitives";
 export { SortableList } from "./SortableList";
+export { type ColumnSort, SortHeader, toggleColumnSort } from "./SortHeader";
 export { StreakBadge } from "./StreakBadge";
 export type { SelectOption } from "./select";
 export { NONE, Select } from "./select";
