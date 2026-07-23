@@ -4,6 +4,8 @@ import { iso } from "./helpers";
 
 const card = (
   id: string,
+  type: MindCard["type"],
+  flippable: boolean,
   category: string,
   title: string,
   body: string,
@@ -12,13 +14,13 @@ const card = (
   id,
   title,
   body,
-  type: "model",
+  type,
   category,
   source: null,
   addedAt: iso(addDays(new Date(), -daysAgo)),
   hiddenAt: null,
   likedAt: null,
-  flippable: true,
+  flippable,
   box: null,
   lastReviewed: null,
   nextDue: null,
@@ -30,6 +32,8 @@ export function buildMindCards(): MindCard[] {
   return [
     card(
       "mc_inversion",
+      "model",
+      true,
       "mental models",
       "Inversion",
       "**Solve the problem backward.** Instead of asking how to succeed, ask what would guarantee failure — then avoid those things. Removing the obvious blunders often beats chasing clever wins.",
@@ -37,6 +41,8 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_second_order",
+      "model",
+      true,
       "mental models",
       "Second-order thinking",
       "**Ask: and then what?** First-order effects are obvious; the consequences of those consequences are where the real cost or payoff hides. Trace at least two steps out before you decide.",
@@ -44,6 +50,8 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_circle_competence",
+      "model",
+      true,
       "mental models",
       "Circle of competence",
       "**Know the edge of what you know.** You don't have to be an expert in everything — you have to be honest about where your expertise ends. Staying inside the circle beats wandering confidently outside it.",
@@ -51,6 +59,8 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_opportunity_cost",
+      "model",
+      true,
       "mental models",
       "Opportunity cost",
       "**Every yes is a no to something else.** The true cost of a choice is the best alternative you gave up to make it. Time and attention spent here cannot be spent there — price the road not taken.",
@@ -58,6 +68,8 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_anchoring",
+      "model",
+      true,
       "mental models",
       "Anchoring",
       "**The first number frames the rest.** Once a figure is on the table, every later judgment drifts toward it, even when it's arbitrary. Notice the anchor before you negotiate against it, and set your own when you can.",
@@ -65,6 +77,8 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_batna",
+      "model",
+      true,
       "negotiation",
       "BATNA",
       "**Know your walk-away before you sit down.** Your Best Alternative To a Negotiated Agreement is the floor no deal should fall below. The stronger your BATNA, the calmer and more credible you are at the table.",
@@ -72,6 +86,8 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_mirroring",
+      "model",
+      true,
       "negotiation",
       "Mirroring",
       "**Repeat their last few words, then go quiet.** Mirroring signals you're listening and nudges the other side to expand and clarify. The silence after does the work — resist filling it.",
@@ -79,10 +95,22 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_calibrated_questions",
+      "model",
+      true,
       "negotiation",
       "Calibrated questions",
       '**Ask "how" and "what," never "why."** Open questions that start with how or what hand the other side the problem to solve without triggering defensiveness. "How am I supposed to do that?" invites help instead of a fight.',
       6,
     ),
+    card(
+      "mc_principle_deep_work",
+      "principle",
+      false,
+      "action",
+      "No inputs before noon",
+      "Mornings are for output. Messages, feeds, and news wait until the day's real work exists.",
+      1,
+    ),
+    card("mc_affirm_shipping", "affirmation", false, "life", "I finish what I start", "", 2),
   ];
 }
