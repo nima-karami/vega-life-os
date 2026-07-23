@@ -13,6 +13,10 @@ import { RecapCard } from "./RecapCard";
 
 const NO_REPEAT_WINDOW = 20;
 const RENDER_RADIUS = 2;
+const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
+// The feed is a deliberately focusable scroll region so ArrowUp/Down page it (WCAG 2.1.1);
+// a computed tabindex is jsx-a11y's sanctioned "developer-asserted focusable container" path.
+const SCROLL_TABINDEX = 0;
 
 const isRecap = (cardId: string) => cardId.startsWith("recap:");
 
@@ -60,6 +64,19 @@ export function ScrollPage() {
   const currentIndexRef = useRef(0);
   const passCountRef = useRef(0);
   const initializedRef = useRef(false);
+  const queueEntriesRef = useRef<QueueEntry[]>([]);
+  const announceNonceRef = useRef(0);
+
+  useEffect(() => {
+    queueEntriesRef.current = queueEntries;
+  }, [queueEntries]);
+
+  // A trailing zero-width space that flips each call so screen readers re-announce
+  // an identical consecutive message (two Hides in a row).
+  const announce = (message: string) => {
+    announceNonceRef.current += 1;
+    setAnnouncement(message + ZERO_WIDTH_SPACE.repeat(announceNonceRef.current % 2));
+  };
 
   const keySeqRef = useRef(0);
   const keyMapRef = useRef(new WeakMap<QueueEntry, string>());
@@ -85,29 +102,31 @@ export function ScrollPage() {
   };
 
   // Build the first pass, and on any pool change rebuild only the unplayed tail —
-  // the seen prefix + current entry stay frozen (spec §2.3 lifecycle).
+  // the seen prefix + current entry stay frozen (spec §2.3 lifecycle). All impurity
+  // (ref reads/writes, queue build) stays in the effect body; setState gets a value.
   useEffect(() => {
     if (pool.length === 0) {
       initializedRef.current = false;
+      passCountRef.current = 0;
       setQueueEntries([]);
       return;
     }
-    setQueueEntries((prev) => {
-      if (!initializedRef.current || prev.length === 0) {
-        initializedRef.current = true;
-        passCountRef.current = 1;
-        return buildFeedQueue(pool, { seed: baseSeed, today });
-      }
-      const freezeUpTo = Math.min(currentIndexRef.current, prev.length - 1);
-      const frozen = prev.slice(0, freezeUpTo + 1);
-      const tail = buildFeedQueue(pool, {
-        seed: baseSeed + passCountRef.current,
-        today,
-        exclude: recentCardIds(frozen, NO_REPEAT_WINDOW),
-      });
-      passCountRef.current += 1;
-      return [...frozen, ...tail];
+    const prev = queueEntriesRef.current;
+    if (!initializedRef.current || prev.length === 0) {
+      initializedRef.current = true;
+      passCountRef.current = 1;
+      setQueueEntries(buildFeedQueue(pool, { seed: baseSeed, today }));
+      return;
+    }
+    const freezeUpTo = Math.min(currentIndexRef.current, prev.length - 1);
+    const frozen = prev.slice(0, freezeUpTo + 1);
+    const tail = buildFeedQueue(pool, {
+      seed: baseSeed + passCountRef.current,
+      today,
+      exclude: recentCardIds(frozen, NO_REPEAT_WINDOW),
     });
+    passCountRef.current += 1;
+    setQueueEntries([...frozen, ...tail]);
   }, [pool, baseSeed, today]);
 
   // Scrolling onto the trailing recap chains the next pass, excluding the last-20 shown.
@@ -115,15 +134,13 @@ export function ScrollPage() {
     const entry = queueEntries[currentIndex];
     if (!entry || pool.length === 0) return;
     if (isRecap(entry.cardId) && currentIndex === queueEntries.length - 1) {
-      setQueueEntries((prev) => {
-        const tail = buildFeedQueue(pool, {
-          seed: baseSeed + passCountRef.current,
-          today,
-          exclude: recentCardIds(prev, NO_REPEAT_WINDOW),
-        });
-        passCountRef.current += 1;
-        return [...prev, ...tail];
+      const tail = buildFeedQueue(pool, {
+        seed: baseSeed + passCountRef.current,
+        today,
+        exclude: recentCardIds(queueEntries, NO_REPEAT_WINDOW),
       });
+      passCountRef.current += 1;
+      setQueueEntries((prev) => [...prev, ...tail]);
     }
   }, [currentIndex, queueEntries, pool, baseSeed, today]);
 
@@ -157,7 +174,7 @@ export function ScrollPage() {
 
   const handleHide = (card: FeedCard) => {
     hideMindCard(card.id);
-    setAnnouncement("Hidden");
+    announce("Hidden");
     pushToast("Hidden");
     advance();
   };
@@ -165,7 +182,7 @@ export function ScrollPage() {
   const handleToggleLearning = (card: FeedCard) => {
     const next = !card.learning;
     setMindCardLearning(card.id, next);
-    setAnnouncement(next ? "Learning on" : "Learning off");
+    announce(next ? "Learning on" : "Learning off");
   };
 
   const renderEntry = (entry: QueueEntry, index: number) => {
@@ -206,7 +223,8 @@ export function ScrollPage() {
           <section
             ref={scrollRef}
             aria-label="Card feed"
-            className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain pb-2"
+            tabIndex={SCROLL_TABINDEX}
+            className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain pb-2 outline-none"
           >
             {queueEntries.map((entry, index) => (
               <div
