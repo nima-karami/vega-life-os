@@ -4,6 +4,8 @@ import { calendarEventCreateSchema, calendarEventSchema } from "./entities/calen
 import { goalCreateSchema, goalSchema } from "./entities/goal";
 import { habitCreateSchema, habitSchema } from "./entities/habit";
 import { dayEntryCreateSchema, dayEntrySchema } from "./entities/journal";
+import { mindCardCreateSchema, mindCardSchema } from "./entities/mind-card";
+import { mindMetaCreateSchema, mindMetaSchema } from "./entities/mind-meta";
 import { movieCreateSchema, movieSchema } from "./entities/movie";
 import { reviewCreateSchema, reviewSchema } from "./entities/review";
 import { taskCreateSchema, taskSchema } from "./entities/task";
@@ -22,6 +24,8 @@ export const schemasByCollection = {
   reviews: reviewSchema,
   journal: dayEntrySchema,
   calendarEvents: calendarEventSchema,
+  mindCards: mindCardSchema,
+  mindMeta: mindMetaSchema,
 } as const;
 
 /** Client-settable input schema per collection — server-owned meta + unknown keys stripped, not rejected. */
@@ -36,6 +40,8 @@ export const createSchemasByCollection = {
   reviews: reviewCreateSchema,
   journal: dayEntryCreateSchema,
   calendarEvents: calendarEventCreateSchema,
+  mindCards: mindCardCreateSchema,
+  mindMeta: mindMetaCreateSchema,
 } as const;
 
 export const COLLECTIONS = [
@@ -49,6 +55,8 @@ export const COLLECTIONS = [
   "reviews",
   "journal",
   "calendarEvents",
+  "mindCards",
+  "mindMeta",
 ] as const;
 
 export const collectionNameSchema = z.enum(COLLECTIONS);

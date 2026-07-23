@@ -4,6 +4,8 @@ export * from "./entities/calendar-event";
 export * from "./entities/goal";
 export * from "./entities/habit";
 export * from "./entities/journal";
+export * from "./entities/mind-card";
+export * from "./entities/mind-meta";
 export * from "./entities/movie";
 export * from "./entities/review";
 export * from "./entities/task";
