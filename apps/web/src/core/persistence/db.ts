@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "@vega/shared";
+import type { CalendarEvent, MindCard, MindMetaRecord } from "@vega/shared";
 import Dexie, { type Table } from "dexie";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
@@ -19,6 +19,8 @@ export class VegaDB extends Dexie {
   reviews!: Table<Review, string>;
   journal!: Table<DayEntry, string>;
   calendarEvents!: Table<CalendarEvent, string>;
+  mindCards!: Table<MindCard, string>;
+  mindMeta!: Table<MindMetaRecord, string>;
   meta!: Table<{ key: string; dirty?: boolean }, string>;
 
   constructor() {
@@ -48,6 +50,15 @@ export class VegaDB extends Dexie {
       journal: "id, date",
       meta: "key",
       calendarEvents: "id, calendarId, iCalUID, valueId, date",
+    });
+    this.version(6).stores({
+      ...stores,
+      reviews: "id, periodKey",
+      journal: "id, date",
+      meta: "key",
+      calendarEvents: "id, calendarId, iCalUID, valueId, date",
+      mindCards: "id, category, box, nextDue, addedAt",
+      mindMeta: "id, kind",
     });
   }
 }

@@ -3,6 +3,7 @@ import { createEmptyDataset, type Dataset } from "../adapter";
 import { buildGoals } from "./goals";
 import { buildHabits } from "./habits";
 import { buildBooks, buildMovies, buildVocab } from "./library";
+import { buildMindCards } from "./mind-cards";
 import { buildReviews } from "./reviews";
 import { buildTasks } from "./tasks";
 import { buildValues } from "./values";
@@ -23,6 +24,7 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   ds.movies = buildMovies(weekStart);
   ds.vocab = buildVocab(ref, weekStart);
   ds.reviews = buildReviews(weekStart);
+  ds.mindCards = buildMindCards();
 
   return ds;
 }

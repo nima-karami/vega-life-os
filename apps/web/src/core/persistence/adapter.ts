@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "@vega/shared";
+import type { CalendarEvent, MindCard, MindMetaRecord } from "@vega/shared";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { DayEntry } from "@/features/journal/model";
@@ -19,6 +19,8 @@ export interface Dataset {
   reviews: Review[];
   journal: DayEntry[];
   calendarEvents: CalendarEvent[];
+  mindCards: MindCard[];
+  mindMeta: MindMetaRecord[];
 }
 
 export type CollectionName = keyof Dataset;
@@ -35,6 +37,8 @@ export const COLLECTIONS: CollectionName[] = [
   "reviews",
   "journal",
   "calendarEvents",
+  "mindCards",
+  "mindMeta",
 ];
 
 export function createEmptyDataset(): Dataset {
@@ -49,6 +53,8 @@ export function createEmptyDataset(): Dataset {
     reviews: [],
     journal: [],
     calendarEvents: [],
+    mindCards: [],
+    mindMeta: [],
   };
 }
 

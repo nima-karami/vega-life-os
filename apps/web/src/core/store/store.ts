@@ -21,6 +21,7 @@ import { createHabitsSlice } from "@/features/habits/store";
 import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
 import { createReviewSlice } from "@/features/review/store";
+import { createScrollSlice } from "@/features/scroll/store";
 import { loadStreakRules, readLocalStreakRules } from "@/features/streaks/config";
 import { createStreaksSlice } from "@/features/streaks/store";
 import { createTasksSlice } from "@/features/tasks/store";
@@ -100,6 +101,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createReviewSlice(set, get, api),
   ...createJournalSlice(set, get, api),
   ...createCalendarEventsSlice(set, get, api),
+  ...createScrollSlice(set, get, api),
   ...createStreaksSlice(set, get, api),
   ...createUiSlice(set, get, api),
 
@@ -148,6 +150,8 @@ export const useStore = create<RootState>((set, get, api) => ({
       vocab: seed.vocab,
       reviews: seed.reviews,
       journal: seed.journal,
+      mindCards: seed.mindCards,
+      mindMeta: [],
     });
     void setSandboxDirty(false);
   },
@@ -178,6 +182,8 @@ export const useStore = create<RootState>((set, get, api) => ({
       vocab: state.vocab,
       reviews: state.reviews,
       journal: state.journal,
+      mindCards: state.mindCards,
+      mindMeta: state.mindMeta,
     };
     return JSON.stringify(
       { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data: dataset },
