@@ -190,6 +190,22 @@ describe("SRS due-injection lane", () => {
   });
 });
 
+describe("liked-card weight boost", () => {
+  it("boosts liked cards in the shuffle without letting them dominate", () => {
+    const pool = [
+      { ...feedCard("liked", "thinking"), liked: true },
+      feedCard("plain", "decisions"),
+    ];
+    let likedFirst = 0;
+    for (let seed = 0; seed < 1000; seed++) {
+      const [first] = buildFeedQueue(pool, { seed, today: TODAY });
+      if (first.cardId === "liked") likedFirst++;
+    }
+    expect(likedFirst).toBeGreaterThan(550);
+    expect(likedFirst).toBeLessThan(650);
+  });
+});
+
 describe("reversed recall decisions", () => {
   it("marks ~1/3 of box>=2 learning appearances reversed, seeded", () => {
     const pool = [

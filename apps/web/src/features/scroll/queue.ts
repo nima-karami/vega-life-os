@@ -13,6 +13,7 @@ const NO_REPEAT_WINDOW = 20;
 const CATEGORY_SHARE_CAP = 0.3;
 const DUE_EVERY = 4;
 const REVERSED_SHARE = 1 / 3;
+const LIKED_BOOST = 1.5;
 const RECAP_PREFIX = "recap:";
 
 export const isRecapId = (cardId: string): boolean => cardId.startsWith(RECAP_PREFIX);
@@ -160,7 +161,8 @@ export function buildFeedQueue(pool: FeedCard[], options: QueueOptions): QueueEn
     excludeSet: new Set(exclude),
     excludeWindow: Math.min(NO_REPEAT_WINDOW, Math.max(1, pool.length - 1)),
   };
-  const weightOf = (card: FeedCard): number => 1 / (counts.get(matchKey(card.category)) ?? 1);
+  const weightOf = (card: FeedCard): number =>
+    (card.liked ? LIKED_BOOST : 1) / (counts.get(matchKey(card.category)) ?? 1);
   const pools: PassPools = {
     dueQueue: shuffleWithRng(pool.filter(isDueLearning), rng),
     restRemaining: pool.filter((card) => !isDueLearning(card)),
