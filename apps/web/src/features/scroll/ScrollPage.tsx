@@ -8,17 +8,26 @@ import { Icon } from "@/core/ui";
 import { CardEditorModal } from "./CardEditorModal";
 import { FeedCardView } from "./FeedCardView";
 import { buildFeedPool, type FeedCard } from "./feed-cards";
+import { stepLeitner } from "./leitner";
 import { buildFeedQueue, type QueueEntry } from "./queue";
 import { RecapCard } from "./RecapCard";
 
 const NO_REPEAT_WINDOW = 20;
 const RENDER_RADIUS = 2;
+const VOCAB_ID_PREFIX = "d:vocab:";
 const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 // The feed is a deliberately focusable scroll region so ArrowUp/Down page it (WCAG 2.1.1);
 // a computed tabindex is jsx-a11y's sanctioned "developer-asserted focusable container" path.
 const SCROLL_TABINDEX = 0;
 
 const isRecap = (cardId: string) => cardId.startsWith("recap:");
+
+// A due card shown or graded (or a card recruited into learning) this session must not be
+// re-injected by later passes — it re-enters next visit via nextDue. exclude alone can't do
+// this: the queue's due lane bypasses excludeSet, so drop such still-due cards from the pool.
+function poolWithoutDeferredDue(pool: FeedCard[], deferred: Set<string>): FeedCard[] {
+  return pool.filter((card) => !(card.due && card.learning && deferred.has(card.id)));
+}
 
 function recentCardIds(entries: QueueEntry[], limit: number): string[] {
   return entries
@@ -41,6 +50,8 @@ export function ScrollPage() {
   const vocab = useStore((s) => s.vocab);
   const hideMindCard = useStore((s) => s.hideMindCard);
   const setMindCardLearning = useStore((s) => s.setMindCardLearning);
+  const gradeMindCard = useStore((s) => s.gradeMindCard);
+  const reviewVocab = useStore((s) => s.reviewVocab);
   const pushToast = useStore((s) => s.pushToast);
   const reduce = useReducedMotion();
 
@@ -66,6 +77,7 @@ export function ScrollPage() {
   const initializedRef = useRef(false);
   const queueEntriesRef = useRef<QueueEntry[]>([]);
   const announceNonceRef = useRef(0);
+  const deferredDueRef = useRef(new Set<string>());
 
   useEffect(() => {
     queueEntriesRef.current = queueEntries;
@@ -112,15 +124,16 @@ export function ScrollPage() {
       return;
     }
     const prev = queueEntriesRef.current;
+    const activePool = poolWithoutDeferredDue(pool, deferredDueRef.current);
     if (!initializedRef.current || prev.length === 0) {
       initializedRef.current = true;
       passCountRef.current = 1;
-      setQueueEntries(buildFeedQueue(pool, { seed: baseSeed, today }));
+      setQueueEntries(buildFeedQueue(activePool, { seed: baseSeed, today }));
       return;
     }
     const freezeUpTo = Math.min(currentIndexRef.current, prev.length - 1);
     const frozen = prev.slice(0, freezeUpTo + 1);
-    const tail = buildFeedQueue(pool, {
+    const tail = buildFeedQueue(activePool, {
       seed: baseSeed + passCountRef.current,
       today,
       exclude: recentCardIds(frozen, NO_REPEAT_WINDOW),
@@ -134,7 +147,7 @@ export function ScrollPage() {
     const entry = queueEntries[currentIndex];
     if (!entry || pool.length === 0) return;
     if (isRecap(entry.cardId) && currentIndex === queueEntries.length - 1) {
-      const tail = buildFeedQueue(pool, {
+      const tail = buildFeedQueue(poolWithoutDeferredDue(pool, deferredDueRef.current), {
         seed: baseSeed + passCountRef.current,
         today,
         exclude: recentCardIds(queueEntries, NO_REPEAT_WINDOW),
@@ -163,6 +176,15 @@ export function ScrollPage() {
     return () => observer.disconnect();
   }, [queueEntries, setCurrentIndex]);
 
+  // A due card that reaches the viewport is spent for this session (graded or scrolled past);
+  // record it so later passes defer it (poolWithoutDeferredDue).
+  useEffect(() => {
+    const entry = queueEntries[currentIndex];
+    if (!entry || isRecap(entry.cardId)) return;
+    const card = poolById.get(entry.cardId);
+    if (card?.due && card.learning) deferredDueRef.current.add(card.id);
+  }, [currentIndex, queueEntries, poolById]);
+
   const advance = () => {
     const scroller = scrollRef.current;
     if (!scroller) return;
@@ -182,7 +204,18 @@ export function ScrollPage() {
   const handleToggleLearning = (card: FeedCard) => {
     const next = !card.learning;
     setMindCardLearning(card.id, next);
+    // Recruiting sets nextDue=today, so the rebuild would due-inject it this session — defer it.
+    if (next) deferredDueRef.current.add(card.id);
     announce(next ? "Learning on" : "Learning off");
+  };
+
+  const handleGrade = (card: FeedCard, correct: boolean) => {
+    if (card.box === null) return;
+    const nextBox = stepLeitner(card.box, correct, today).box;
+    if (card.kind === "vocab") reviewVocab(card.id.slice(VOCAB_ID_PREFIX.length), correct);
+    else gradeMindCard(card.id, correct);
+    announce(correct ? `Got it — box ${nextBox}` : "Again — back to box 1");
+    advance();
   };
 
   const renderEntry = (entry: QueueEntry, index: number) => {
@@ -202,11 +235,13 @@ export function ScrollPage() {
     return (
       <FeedCardView
         card={card}
+        reversed={entry.reversed}
         flipped={flippedId === card.id}
         onFlip={() => setFlippedId((current) => (current === card.id ? null : card.id))}
         onToggleLearning={() => handleToggleLearning(card)}
         onHide={() => handleHide(card)}
         onEdit={() => openEditor(card.id)}
+        onGrade={(correct) => handleGrade(card, correct)}
       />
     );
   };
