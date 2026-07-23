@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { MindCard } from "../model";
-import { type CardFilter, listCategories, parseBulkImport, queryMindCards } from "../queries";
+import {
+  type CardFilter,
+  computeStats,
+  listCategories,
+  parseBulkImport,
+  queryMindCards,
+} from "../queries";
 
 const card = (over: Partial<MindCard> = {}): MindCard => ({
   id: over.id ?? "mc_1",
@@ -119,6 +125,22 @@ describe("listCategories", () => {
   it("ignores blank categories", () => {
     const cards = [card({ id: "a", category: "" }), card({ id: "b", category: "Focus" })];
     expect(listCategories(cards)).toEqual(["Focus"]);
+  });
+});
+
+describe("computeStats", () => {
+  it("counts total, learning (box set), and due (nextDue <= today)", () => {
+    const cards = [
+      card({ id: "a" }),
+      card({ id: "b", box: 2 }),
+      card({ id: "c", box: 1, nextDue: "2026-07-01" }),
+      card({ id: "d", box: 3, nextDue: "2026-08-01" }),
+    ];
+    expect(computeStats(cards, "2026-07-23")).toEqual({ cards: 4, learning: 3, dueToday: 1 });
+  });
+
+  it("is empty for no cards", () => {
+    expect(computeStats([], "2026-07-23")).toEqual({ cards: 0, learning: 0, dueToday: 0 });
   });
 });
 

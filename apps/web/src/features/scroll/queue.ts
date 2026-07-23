@@ -1,21 +1,21 @@
 import type { FeedCard } from "./feed-cards";
+import { matchKey } from "./model";
 
 export type QueueEntry = { cardId: string; reversed: boolean };
 
 export type QueueOptions = {
   seed: number;
   today: string;
-  noRepeatWindow?: number;
-  shareCap?: number;
   exclude?: string[];
-  dueEvery?: number;
-  reversedShare?: number;
 };
 
 const NO_REPEAT_WINDOW = 20;
 const CATEGORY_SHARE_CAP = 0.3;
 const DUE_EVERY = 4;
 const REVERSED_SHARE = 1 / 3;
+const RECAP_PREFIX = "recap:";
+
+export const isRecapId = (cardId: string): boolean => cardId.startsWith(RECAP_PREFIX);
 
 export function createSeededRng(seed: number): () => number {
   let a = seed >>> 0;
@@ -28,12 +28,10 @@ export function createSeededRng(seed: number): () => number {
   };
 }
 
-const categoryKey = (category: string): string => category.trim().toLowerCase();
-
 function groupByCategory(pool: FeedCard[]): Map<string, FeedCard[]> {
   const groups = new Map<string, FeedCard[]>();
   for (const card of pool) {
-    const key = categoryKey(card.category);
+    const key = matchKey(card.category);
     const group = groups.get(key);
     if (group) group.push(card);
     else groups.set(key, [card]);
@@ -47,10 +45,10 @@ function violatesInterleave(
   categoryCount: number,
 ): boolean {
   if (categoryCount < 2 || placed.length < 2) return false;
-  const key = categoryKey(candidate.category);
+  const key = matchKey(candidate.category);
   return (
-    categoryKey(placed[placed.length - 1].category) === key &&
-    categoryKey(placed[placed.length - 2].category) === key
+    matchKey(placed[placed.length - 1].category) === key &&
+    matchKey(placed[placed.length - 2].category) === key
   );
 }
 
@@ -83,7 +81,7 @@ function isPlaceable(
   applyExclude: boolean,
   ctx: PassContext,
 ): boolean {
-  const key = categoryKey(card.category);
+  const key = matchKey(card.category);
   if ((ctx.placedPerCategory.get(key) ?? 0) >= ctx.categoryCap) return false;
   if (violatesInterleave(ctx.placed, card, ctx.categoryCount)) return false;
   if (applyExclude && position < ctx.excludeWindow && ctx.excludeSet.has(card.id)) return false;
@@ -97,7 +95,7 @@ function selectCandidates(remaining: FeedCard[], position: number, ctx: PassCont
   return remaining.filter((card) => isPlaceable(card, position, false, ctx));
 }
 
-const isDueLearning = (card: FeedCard): boolean => card.due && card.learning;
+export const isDueLearning = (card: FeedCard): boolean => card.due && card.learning;
 
 const isReversibleLearning = (card: FeedCard): boolean =>
   card.learning && card.box !== null && card.box >= 2;
@@ -113,7 +111,7 @@ function shuffleWithRng<T>(items: T[], rng: () => number): T[] {
 
 function placeCard(card: FeedCard, ctx: PassContext): void {
   ctx.placed.push(card);
-  const key = categoryKey(card.category);
+  const key = matchKey(card.category);
   ctx.placedPerCategory.set(key, (ctx.placedPerCategory.get(key) ?? 0) + 1);
 }
 
@@ -149,14 +147,7 @@ function chooseNextCard(
 }
 
 export function buildFeedQueue(pool: FeedCard[], opts: QueueOptions): QueueEntry[] {
-  const {
-    seed,
-    noRepeatWindow = NO_REPEAT_WINDOW,
-    shareCap = CATEGORY_SHARE_CAP,
-    exclude = [],
-    dueEvery = DUE_EVERY,
-    reversedShare = REVERSED_SHARE,
-  } = opts;
+  const { seed, exclude = [] } = opts;
   const rng = createSeededRng(seed);
   const groups = groupByCategory(pool);
   const counts = new Map([...groups].map(([key, cards]) => [key, cards.length]));
@@ -164,26 +155,27 @@ export function buildFeedQueue(pool: FeedCard[], opts: QueueOptions): QueueEntry
     placed: [],
     placedPerCategory: new Map(),
     categoryCount: groups.size,
-    categoryCap: groups.size >= 4 ? Math.ceil(shareCap * pool.length) : Number.POSITIVE_INFINITY,
+    categoryCap:
+      groups.size >= 4 ? Math.ceil(CATEGORY_SHARE_CAP * pool.length) : Number.POSITIVE_INFINITY,
     excludeSet: new Set(exclude),
-    excludeWindow: Math.min(noRepeatWindow, Math.max(1, pool.length - 1)),
+    excludeWindow: Math.min(NO_REPEAT_WINDOW, Math.max(1, pool.length - 1)),
   };
-  const weightOf = (card: FeedCard): number => 1 / (counts.get(categoryKey(card.category)) ?? 1);
+  const weightOf = (card: FeedCard): number => 1 / (counts.get(matchKey(card.category)) ?? 1);
   const pools: PassPools = {
     dueQueue: shuffleWithRng(pool.filter(isDueLearning), rng),
     restRemaining: pool.filter((card) => !isDueLearning(card)),
   };
 
   while (pools.dueQueue.length > 0 || pools.restRemaining.length > 0) {
-    const chosen = chooseNextCard(pools, ctx.placed.length, dueEvery, ctx, weightOf, rng);
+    const chosen = chooseNextCard(pools, ctx.placed.length, DUE_EVERY, ctx, weightOf, rng);
     if (!chosen) break;
     placeCard(chosen, ctx);
   }
 
   const entries: QueueEntry[] = ctx.placed.map((card) => ({
     cardId: card.id,
-    reversed: isReversibleLearning(card) ? rng() < reversedShare : false,
+    reversed: isReversibleLearning(card) ? rng() < REVERSED_SHARE : false,
   }));
-  entries.push({ cardId: `recap:${seed}`, reversed: false });
+  entries.push({ cardId: `${RECAP_PREFIX}${seed}`, reversed: false });
   return entries;
 }

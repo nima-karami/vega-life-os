@@ -6,8 +6,14 @@ import { cx, Icon } from "@/core/ui";
 import { BulkImportModal } from "./BulkImportModal";
 import { CardEditorModal } from "./CardEditorModal";
 import { CardMarkdown } from "./markdown-view";
-import type { MindCard } from "./model";
-import { type CardFilter, type CardSort, listCategories, queryMindCards } from "./queries";
+import { isSameCategory, type MindCard } from "./model";
+import {
+  type CardFilter,
+  type CardSort,
+  computeStats,
+  listCategories,
+  queryMindCards,
+} from "./queries";
 import { isScrollKeyEnabled } from "./store";
 
 const FIELD =
@@ -55,7 +61,7 @@ export function ScrollManagePage() {
     [mindCards, query, filter, sort, category],
   );
   const categories = useMemo(() => listCategories(mindCards), [mindCards]);
-  const stats = useMemo(() => computeStats(mindCards), [mindCards]);
+  const stats = useMemo(() => computeStats(mindCards, todayISO()), [mindCards]);
 
   const isEmpty = mindCards.length === 0;
   const isHiddenView = filter === "hidden";
@@ -144,13 +150,11 @@ export function ScrollManagePage() {
                 <CategoryChip
                   key={label}
                   label={label}
-                  isActive={category !== null && category.toLowerCase() === label.toLowerCase()}
+                  isActive={category !== null && isSameCategory(category, label)}
                   isEnabled={isScrollKeyEnabled(mindMeta, "category", label)}
                   onFilter={() =>
                     setCategory((current) =>
-                      current !== null && current.toLowerCase() === label.toLowerCase()
-                        ? null
-                        : label,
+                      current !== null && isSameCategory(current, label) ? null : label,
                     )
                   }
                   onToggle={(enabled) => setScrollToggle("category", label, enabled)}
@@ -220,17 +224,6 @@ export function ScrollManagePage() {
   );
 }
 
-function computeStats(cards: MindCard[]): { cards: number; learning: number; dueToday: number } {
-  const today = todayISO();
-  let learning = 0;
-  let dueToday = 0;
-  for (const card of cards) {
-    if (card.box !== null) learning++;
-    if (card.nextDue !== null && card.nextDue <= today) dueToday++;
-  }
-  return { cards: cards.length, learning, dueToday };
-}
-
 function CategoryChip({
   label,
   isActive,
@@ -251,7 +244,7 @@ function CategoryChip({
 
   const commitRename = () => {
     const next = draft.trim();
-    if (next && next.toLowerCase() !== label.toLowerCase()) onRename(next);
+    if (next && !isSameCategory(next, label)) onRename(next);
     setIsRenaming(false);
   };
 

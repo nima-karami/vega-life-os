@@ -9,36 +9,34 @@ import { CardEditorModal } from "./CardEditorModal";
 import { FeedCardView } from "./FeedCardView";
 import { buildFeedPool, type FeedCard } from "./feed-cards";
 import { stepLeitner } from "./leitner";
-import { buildFeedQueue, type QueueEntry } from "./queue";
+import { parseVocabCardId } from "./model";
+import { buildFeedQueue, isDueLearning, isRecapId, type QueueEntry } from "./queue";
 import { RecapCard } from "./RecapCard";
 
 const NO_REPEAT_WINDOW = 20;
 const RENDER_RADIUS = 2;
-const VOCAB_ID_PREFIX = "d:vocab:";
 const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 // The feed is a deliberately focusable scroll region so ArrowUp/Down page it (WCAG 2.1.1);
 // a computed tabindex is jsx-a11y's sanctioned "developer-asserted focusable container" path.
 const SCROLL_TABINDEX = 0;
 
-const isRecap = (cardId: string) => cardId.startsWith("recap:");
-
 // A due card shown or graded (or a card recruited into learning) this session must not be
 // re-injected by later passes — it re-enters next visit via nextDue. exclude alone can't do
 // this: the queue's due lane bypasses excludeSet, so drop such still-due cards from the pool.
 function poolWithoutDeferredDue(pool: FeedCard[], deferred: Set<string>): FeedCard[] {
-  return pool.filter((card) => !(card.due && card.learning && deferred.has(card.id)));
+  return pool.filter((card) => !(isDueLearning(card) && deferred.has(card.id)));
 }
 
 function recentCardIds(entries: QueueEntry[], limit: number): string[] {
   return entries
-    .filter((entry) => !isRecap(entry.cardId))
+    .filter((entry) => !isRecapId(entry.cardId))
     .slice(-limit)
     .map((entry) => entry.cardId);
 }
 
 function previousRecapIndex(entries: QueueEntry[], before: number): number {
   for (let i = before - 1; i >= 0; i--) {
-    if (isRecap(entries[i].cardId)) return i;
+    if (isRecapId(entries[i].cardId)) return i;
   }
   return -1;
 }
@@ -113,6 +111,20 @@ export function ScrollPage() {
     setIsEditorOpen(true);
   };
 
+  // Build the next pass off the frozen prefix (exclude its last-20) and append it.
+  const appendPass = useCallback(
+    (prefix: QueueEntry[]) => {
+      const tail = buildFeedQueue(poolWithoutDeferredDue(pool, deferredDueRef.current), {
+        seed: baseSeed + passCountRef.current,
+        today,
+        exclude: recentCardIds(prefix, NO_REPEAT_WINDOW),
+      });
+      passCountRef.current += 1;
+      setQueueEntries([...prefix, ...tail]);
+    },
+    [pool, baseSeed, today],
+  );
+
   // Build the first pass, and on any pool change rebuild only the unplayed tail —
   // the seen prefix + current entry stay frozen (spec §2.3 lifecycle). All impurity
   // (ref reads/writes, queue build) stays in the effect body; setState gets a value.
@@ -124,38 +136,29 @@ export function ScrollPage() {
       return;
     }
     const prev = queueEntriesRef.current;
-    const activePool = poolWithoutDeferredDue(pool, deferredDueRef.current);
     if (!initializedRef.current || prev.length === 0) {
       initializedRef.current = true;
       passCountRef.current = 1;
-      setQueueEntries(buildFeedQueue(activePool, { seed: baseSeed, today }));
+      setQueueEntries(
+        buildFeedQueue(poolWithoutDeferredDue(pool, deferredDueRef.current), {
+          seed: baseSeed,
+          today,
+        }),
+      );
       return;
     }
     const freezeUpTo = Math.min(currentIndexRef.current, prev.length - 1);
-    const frozen = prev.slice(0, freezeUpTo + 1);
-    const tail = buildFeedQueue(activePool, {
-      seed: baseSeed + passCountRef.current,
-      today,
-      exclude: recentCardIds(frozen, NO_REPEAT_WINDOW),
-    });
-    passCountRef.current += 1;
-    setQueueEntries([...frozen, ...tail]);
-  }, [pool, baseSeed, today]);
+    appendPass(prev.slice(0, freezeUpTo + 1));
+  }, [pool, baseSeed, today, appendPass]);
 
   // Scrolling onto the trailing recap chains the next pass, excluding the last-20 shown.
   useEffect(() => {
     const entry = queueEntries[currentIndex];
     if (!entry || pool.length === 0) return;
-    if (isRecap(entry.cardId) && currentIndex === queueEntries.length - 1) {
-      const tail = buildFeedQueue(poolWithoutDeferredDue(pool, deferredDueRef.current), {
-        seed: baseSeed + passCountRef.current,
-        today,
-        exclude: recentCardIds(queueEntries, NO_REPEAT_WINDOW),
-      });
-      passCountRef.current += 1;
-      setQueueEntries((prev) => [...prev, ...tail]);
+    if (isRecapId(entry.cardId) && currentIndex === queueEntries.length - 1) {
+      appendPass(queueEntries);
     }
-  }, [currentIndex, queueEntries, pool, baseSeed, today]);
+  }, [currentIndex, queueEntries, pool, appendPass]);
 
   // Track the current entry via the sections crossing the viewport centre; re-runs
   // when the queue grows so freshly-appended sections get observed too.
@@ -180,9 +183,9 @@ export function ScrollPage() {
   // record it so later passes defer it (poolWithoutDeferredDue).
   useEffect(() => {
     const entry = queueEntries[currentIndex];
-    if (!entry || isRecap(entry.cardId)) return;
+    if (!entry || isRecapId(entry.cardId)) return;
     const card = poolById.get(entry.cardId);
-    if (card?.due && card.learning) deferredDueRef.current.add(card.id);
+    if (card && isDueLearning(card)) deferredDueRef.current.add(card.id);
   }, [currentIndex, queueEntries, poolById]);
 
   const advance = () => {
@@ -213,7 +216,7 @@ export function ScrollPage() {
   const handleGrade = (card: FeedCard, correct: boolean) => {
     if (card.box === null) return;
     const nextBox = stepLeitner(card.box, correct, today).box;
-    if (card.kind === "vocab") reviewVocab(card.id.slice(VOCAB_ID_PREFIX.length), correct);
+    if (card.kind === "vocab") reviewVocab(parseVocabCardId(card.id), correct);
     else gradeMindCard(card.id, correct);
     announce(correct ? `Got it — box ${nextBox}` : "Again — back to box 1");
     setFlippedId(null);
@@ -221,7 +224,7 @@ export function ScrollPage() {
   };
 
   const renderEntry = (entry: QueueEntry, index: number) => {
-    if (isRecap(entry.cardId)) {
+    if (isRecapId(entry.cardId)) {
       const prevRecap = previousRecapIndex(queueEntries, index);
       return (
         <RecapCard

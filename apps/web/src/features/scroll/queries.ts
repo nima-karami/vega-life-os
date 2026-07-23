@@ -58,6 +58,19 @@ export function queryMindCards(
   return rows.sort(compareBy(opts.sort));
 }
 
+export function computeStats(
+  cards: MindCard[],
+  today: string,
+): { cards: number; learning: number; dueToday: number } {
+  let learning = 0;
+  let dueToday = 0;
+  for (const card of cards) {
+    if (card.box !== null) learning++;
+    if (card.nextDue !== null && card.nextDue <= today) dueToday++;
+  }
+  return { cards: cards.length, learning, dueToday };
+}
+
 export function listCategories(cards: MindCard[]): string[] {
   const firstCasingByKey = new Map<string, string>();
   for (const card of cards) {
