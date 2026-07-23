@@ -1,8 +1,8 @@
-import { addDays, format } from "date-fns";
 import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+import { stepLeitner } from "@/features/scroll/leitner";
 import type { Book, Movie, VocabEntry } from "./model";
 
 export interface LibrarySlice {
@@ -24,8 +24,6 @@ export interface LibrarySlice {
   /** Leitner review: correct bumps the box, wrong resets to 1 */
   reviewVocab: (id: string, correct: boolean) => void;
 }
-
-const LEITNER_DAYS = [0, 1, 2, 4, 8, 16];
 
 export const createLibrarySlice: Slice<LibrarySlice> = (set, get) => ({
   books: [],
@@ -133,13 +131,8 @@ export const createLibrarySlice: Slice<LibrarySlice> = (set, get) => ({
   reviewVocab: (id, correct) => {
     const entry = get().vocab.find((x) => x.id === id);
     if (!entry) return;
-    const box = correct ? Math.min(5, entry.box + 1) : 1;
-    const next: VocabEntry = {
-      ...entry,
-      box,
-      lastReviewed: todayISO(),
-      nextDue: format(addDays(new Date(), LEITNER_DAYS[box]), "yyyy-MM-dd"),
-    };
+    const step = stepLeitner(entry.box, correct, todayISO());
+    const next: VocabEntry = { ...entry, ...step };
     set((s) => ({ vocab: s.vocab.map((x) => (x.id === id ? next : x)) }));
     savePut("vocab", next);
   },

@@ -80,6 +80,24 @@ describe("scroll slice", () => {
     );
   });
 
+  it("gradeMindCard applies stepLeitner on a learning card, no-op on a regular card", () => {
+    const s = mk();
+    const learning = s.getState().addMindCard({ title: "Inversion", box: 2 });
+    s.getState().gradeMindCard(learning.id, true);
+    expect(s.getState().mindCards.find((c) => c.id === learning.id)).toMatchObject({
+      box: 3,
+      lastReviewed: todayISO(),
+    });
+
+    const regular = s.getState().addMindCard({ title: "Plain" });
+    s.getState().gradeMindCard(regular.id, true);
+    expect(s.getState().mindCards.find((c) => c.id === regular.id)).toMatchObject({
+      box: null,
+      lastReviewed: null,
+      nextDue: null,
+    });
+  });
+
   it("setScrollToggle + isScrollKeyEnabled: absence = enabled, case-insensitive keys", () => {
     const s = mk();
     expect(isScrollKeyEnabled(s.getState().mindMeta, "category", "topic m")).toBe(true);

@@ -2,6 +2,7 @@ import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+import { stepLeitner } from "./leitner";
 import {
   isSameCategory,
   type MindCard,
@@ -19,6 +20,7 @@ export interface ScrollSlice {
   hideMindCard: (cardId: string) => void;
   restoreMindCard: (cardId: string) => void;
   setMindCardLearning: (id: string, on: boolean) => void;
+  gradeMindCard: (id: string, correct: boolean) => void;
   setScrollToggle: (kind: "category" | "source", key: string, enabled: boolean) => void;
   renameMindCategory: (from: string, to: string) => void;
 }
@@ -103,6 +105,11 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
         id,
         on ? { box: 1, nextDue: todayISO() } : { box: null, nextDue: null, lastReviewed: null },
       );
+    },
+    gradeMindCard: (id, correct) => {
+      const card = get().mindCards.find((c) => c.id === id);
+      if (!card || card.box === null) return;
+      get().updateMindCard(id, stepLeitner(card.box, correct, todayISO()));
     },
     setScrollToggle: (kind, key, enabled) => putMeta(kind, key, enabled),
     renameMindCategory: (from, to) => {
