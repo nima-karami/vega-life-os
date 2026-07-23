@@ -100,6 +100,15 @@ export function CommandBar() {
     close();
   };
 
+  const addAsWord = () => {
+    const term = query.trim();
+    if (!term) return;
+    useStore.getState().setPendingVocabTerm(term);
+    navigate("/vocab");
+    setQuery("");
+    close();
+  };
+
   const runAction = (cmd: ActionCommand) => {
     cmd.run(buildApi(query));
   };
@@ -166,13 +175,20 @@ export function CommandBar() {
                     </p>
                   )}
 
-                  <Command.Empty className="px-3 py-6 text-center">
+                  <Command.Empty className="flex flex-col items-center gap-2 px-3 py-6 text-center">
                     <button
                       type="button"
                       onClick={quickAdd}
                       className="text-sm font-medium text-accent underline-offset-4 hover:underline"
                     >
                       + Add &ldquo;{query}&rdquo; to backlog
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addAsWord}
+                      className="text-sm font-medium text-accent underline-offset-4 hover:underline"
+                    >
+                      + Add &ldquo;{query}&rdquo; as a word
                     </button>
                   </Command.Empty>
 
