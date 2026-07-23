@@ -142,4 +142,54 @@ describe("scroll slice", () => {
     expect(isScrollKeyEnabled(s.getState().mindMeta, "category", "Topic M")).toBe(false);
     expect(s.getState().mindMeta.filter((m) => m.kind === "category")).toHaveLength(1);
   });
+
+  it("addMindCard defaults type/flippable/likedAt and derives flippable from type", () => {
+    const s = mk();
+    const model = s.getState().addMindCard({ title: "Inversion" });
+    expect(model).toMatchObject({ type: "model", flippable: true, likedAt: null });
+
+    const affirmation = s.getState().addMindCard({ title: "I ship daily", type: "affirmation" });
+    expect(affirmation).toMatchObject({ type: "affirmation", flippable: false });
+  });
+
+  it("updateMindCard clears learning when a card becomes non-flippable", () => {
+    const s = mk();
+    const card = s.getState().addMindCard({ title: "Via negativa" });
+    s.getState().setMindCardLearning(card.id, true);
+    s.getState().updateMindCard(card.id, { flippable: false });
+    expect(s.getState().mindCards[0]).toMatchObject({
+      flippable: false,
+      box: null,
+      nextDue: null,
+      lastReviewed: null,
+    });
+  });
+
+  it("setMindCardLearning refuses a non-flippable card", () => {
+    const s = mk();
+    const card = s.getState().addMindCard({ title: "I ship daily", type: "affirmation" });
+    s.getState().setMindCardLearning(card.id, true);
+    expect(s.getState().mindCards[0].box).toBeNull();
+  });
+
+  it("toggleMindCardLike stamps likedAt on authored cards and toggles it off", () => {
+    const s = mk();
+    const card = s.getState().addMindCard({ title: "BATNA" });
+    s.getState().toggleMindCardLike(card.id);
+    expect(s.getState().mindCards[0].likedAt).not.toBeNull();
+    s.getState().toggleMindCardLike(card.id);
+    expect(s.getState().mindCards[0].likedAt).toBeNull();
+  });
+
+  it("toggleMindCardLike writes a mindMeta like record for derived ids", () => {
+    const s = mk();
+    s.getState().toggleMindCardLike("d:vocab:v1");
+    expect(s.getState().mindMeta).toContainEqual(
+      expect.objectContaining({ id: "like:d:vocab:v1", kind: "like", value: true }),
+    );
+    s.getState().toggleMindCardLike("d:vocab:v1");
+    expect(s.getState().mindMeta).toContainEqual(
+      expect.objectContaining({ id: "like:d:vocab:v1", value: false }),
+    );
+  });
 });

@@ -6,6 +6,7 @@ import { stepLeitner } from "./leitner";
 import {
   buildMetaId,
   isDerivedId,
+  isFlippableByDefault,
   isSameCategory,
   type MindCard,
   type MindMetaRecord,
@@ -22,6 +23,7 @@ export interface ScrollSlice {
   hideMindCard: (cardId: string) => void;
   restoreMindCard: (cardId: string) => void;
   setMindCardLearning: (id: string, enabled: boolean) => void;
+  toggleMindCardLike: (cardId: string) => void;
   gradeMindCard: (id: string, correct: boolean) => void;
   setScrollToggle: (kind: "category" | "source", key: string, enabled: boolean) => void;
   renameMindCategory: (from: string, to: string) => void;
@@ -38,17 +40,18 @@ export function isScrollKeyEnabled(
 }
 
 function buildMindCard(patch: Partial<MindCard>): MindCard {
+  const type = patch.type ?? "model";
   return {
     id: patch.id ?? uid("mc_"),
     title: patch.title ?? "",
     body: patch.body ?? "",
-    type: patch.type ?? "model",
+    type,
     category: normalizeCategory(patch.category ?? ""),
     source: patch.source ?? null,
     addedAt: patch.addedAt ?? todayISO(),
     hiddenAt: patch.hiddenAt ?? null,
     likedAt: patch.likedAt ?? null,
-    flippable: patch.flippable ?? true,
+    flippable: patch.flippable ?? isFlippableByDefault(type),
     box: patch.box ?? null,
     lastReviewed: patch.lastReviewed ?? null,
     nextDue: patch.nextDue ?? null,
@@ -94,7 +97,11 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
       set((s) => ({
         mindCards: s.mindCards.map((c) => {
           if (c.id !== id) return c;
-          next = { ...c, ...patch, id };
+          const merged = { ...c, ...patch, id };
+          // Learning requires a hidden back to recall — a non-flippable card exits it.
+          next = merged.flippable
+            ? merged
+            : { ...merged, box: null, nextDue: null, lastReviewed: null };
           return next;
         }),
       }));
@@ -113,12 +120,26 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
       else get().updateMindCard(cardId, { hiddenAt: null });
     },
     setMindCardLearning: (id, enabled) => {
+      const card = get().mindCards.find((c) => c.id === id);
+      if (!card || (enabled && !card.flippable)) return;
       get().updateMindCard(
         id,
         enabled
           ? { box: 1, nextDue: todayISO() }
           : { box: null, nextDue: null, lastReviewed: null },
       );
+    },
+    toggleMindCardLike: (cardId) => {
+      if (isDerivedId(cardId)) {
+        const existing = get().mindMeta.find((m) => m.id === buildMetaId("like", cardId));
+        putMeta("like", cardId, !(existing?.value ?? false));
+        return;
+      }
+      const card = get().mindCards.find((c) => c.id === cardId);
+      if (!card) return;
+      get().updateMindCard(cardId, {
+        likedAt: card.likedAt === null ? new Date().toISOString() : null,
+      });
     },
     gradeMindCard: (id, correct) => {
       const card = get().mindCards.find((c) => c.id === id);
