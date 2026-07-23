@@ -6,7 +6,7 @@ import { CategoryField, FIELD_CLASS } from "./card-fields";
 import { parseBulkImport } from "./queries";
 
 export function BulkImportModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const addMindCard = useStore((s) => s.addMindCard);
+  const bulkAddMindCards = useStore((s) => s.bulkAddMindCards);
   const cards = useStore((s) => s.mindCards);
   const pushToast = useStore((s) => s.pushToast);
 
@@ -42,9 +42,9 @@ export function BulkImportModal({ isOpen, onClose }: { isOpen: boolean; onClose:
 
   const handleImport = () => {
     const trimmedCategory = category.trim();
-    for (const { title, body } of parsed.cards) {
-      addMindCard({ title, body, category: trimmedCategory });
-    }
+    bulkAddMindCards(
+      parsed.cards.map(({ title, body }) => ({ title, body, category: trimmedCategory })),
+    );
     pushToast(`Imported ${parsed.cards.length} card${parsed.cards.length === 1 ? "" : "s"}`);
     onClose();
   };

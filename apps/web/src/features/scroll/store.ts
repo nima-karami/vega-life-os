@@ -4,6 +4,7 @@ import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { stepLeitner } from "./leitner";
 import {
+  isDerivedId,
   isSameCategory,
   type MindCard,
   type MindMetaRecord,
@@ -15,6 +16,7 @@ export interface ScrollSlice {
   mindCards: MindCard[];
   mindMeta: MindMetaRecord[];
   addMindCard: (patch?: Partial<MindCard>) => MindCard;
+  bulkAddMindCards: (cards: { title: string; body: string; category: string }[]) => void;
   updateMindCard: (id: string, patch: Partial<MindCard>) => void;
   removeMindCard: (id: string) => void;
   hideMindCard: (cardId: string) => void;
@@ -35,7 +37,22 @@ export function isScrollKeyEnabled(
   return record ? record.value : true;
 }
 
-const isDerivedId = (cardId: string) => cardId.startsWith("d:");
+function buildMindCard(patch: Partial<MindCard>): MindCard {
+  return {
+    id: patch.id ?? uid("mc_"),
+    title: patch.title ?? "",
+    body: patch.body ?? "",
+    category: normalizeCategory(patch.category ?? ""),
+    source: patch.source ?? null,
+    addedAt: patch.addedAt ?? todayISO(),
+    hiddenAt: patch.hiddenAt ?? null,
+    box: patch.box ?? null,
+    lastReviewed: patch.lastReviewed ?? null,
+    nextDue: patch.nextDue ?? null,
+    updatedAt: "",
+    fieldUpdatedAt: {},
+  };
+}
 
 export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
   const putMeta = (kind: MindMetaRecord["kind"], key: string, value: boolean) => {
@@ -59,23 +76,15 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
     mindMeta: [],
 
     addMindCard: (patch = {}) => {
-      const card: MindCard = {
-        id: patch.id ?? uid("mc_"),
-        title: patch.title ?? "",
-        body: patch.body ?? "",
-        category: normalizeCategory(patch.category ?? ""),
-        source: patch.source ?? null,
-        addedAt: patch.addedAt ?? todayISO(),
-        hiddenAt: patch.hiddenAt ?? null,
-        box: patch.box ?? null,
-        lastReviewed: patch.lastReviewed ?? null,
-        nextDue: patch.nextDue ?? null,
-        updatedAt: "",
-        fieldUpdatedAt: {},
-      };
+      const card = buildMindCard(patch);
       set((s) => ({ mindCards: [...s.mindCards, card] }));
       savePut("mindCards", card);
       return card;
+    },
+    bulkAddMindCards: (inputs) => {
+      const cards = inputs.map(buildMindCard);
+      set((s) => ({ mindCards: [...s.mindCards, ...cards] }));
+      for (const card of cards) savePut("mindCards", card);
     },
     updateMindCard: (id, patch) => {
       let next: MindCard | undefined;

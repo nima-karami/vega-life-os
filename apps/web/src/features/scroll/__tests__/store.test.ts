@@ -37,6 +37,17 @@ describe("scroll slice", () => {
     expect(savePut).toHaveBeenCalledWith("mindCards", card);
   });
 
+  it("bulkAddMindCards appends every card and persists one write each", () => {
+    const s = mk();
+    s.getState().bulkAddMindCards([
+      { title: "a", body: "", category: "focus" },
+      { title: "b", body: "note", category: "focus" },
+    ]);
+    expect(s.getState().mindCards.map((c) => c.title)).toEqual(["a", "b"]);
+    expect(s.getState().mindCards.every((c) => c.category === "focus")).toBe(true);
+    expect(savePut).toHaveBeenCalledTimes(2);
+  });
+
   it("setMindCardLearning on/off sets and clears the Leitner fields", () => {
     const s = mk();
     const card = s.getState().addMindCard({ title: "Anchoring" });

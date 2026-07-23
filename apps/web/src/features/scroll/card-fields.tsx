@@ -1,6 +1,6 @@
 import { Button } from "@heroui/react";
 import { useMemo } from "react";
-import type { MindCard } from "./model";
+import { isSameCategory, type MindCard } from "./model";
 import { listCategories } from "./queries";
 
 export const FIELD_CLASS =
@@ -16,12 +16,13 @@ export function CategoryField({
   onChange: (next: string) => void;
   cards: MindCard[];
 }) {
+  const allCategories = useMemo(() => listCategories(cards), [cards]);
   const suggestions = useMemo(() => {
     const query = value.trim().toLowerCase();
-    return listCategories(cards)
-      .filter((label) => label.toLowerCase() !== query && label.toLowerCase().includes(query))
+    return allCategories
+      .filter((label) => !isSameCategory(label, value) && label.toLowerCase().includes(query))
       .slice(0, 6);
-  }, [value, cards]);
+  }, [value, allCategories]);
 
   return (
     <div className="space-y-2">

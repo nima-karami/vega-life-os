@@ -1,6 +1,6 @@
 import type { MindCard, MindMetaRecord } from "@vega/shared";
 import type { VocabEntry } from "@/features/library/model";
-import { metaId } from "./model";
+import { metaId, vocabCardId } from "./model";
 import { isScrollKeyEnabled } from "./store";
 
 export type FeedCard = {
@@ -19,9 +19,6 @@ export type FeedCard = {
 const isDue = (nextDue: string | null, today: string): boolean =>
   nextDue !== null && nextDue <= today;
 
-const isVocabHidden = (meta: MindMetaRecord[], cardId: string): boolean =>
-  meta.some((m) => m.id === metaId("hide", cardId) && m.value === true);
-
 const vocabDefinition = (definition: string): string => `**${definition}**`;
 
 const vocabBody = (definition: string, example: string): string =>
@@ -32,8 +29,11 @@ export function buildAuthoredFeedCards(
   meta: MindMetaRecord[],
   today: string,
 ): FeedCard[] {
+  const disabledCategoryIds = new Set(
+    meta.filter((m) => m.kind === "category" && m.value === false).map((m) => m.id),
+  );
   return cards
-    .filter((c) => c.hiddenAt === null && isScrollKeyEnabled(meta, "category", c.category))
+    .filter((c) => c.hiddenAt === null && !disabledCategoryIds.has(metaId("category", c.category)))
     .map((c) => ({
       id: c.id,
       kind: "authored",
@@ -54,10 +54,13 @@ export function buildVocabFeedCards(
   today: string,
 ): FeedCard[] {
   if (!isScrollKeyEnabled(meta, "source", "vocab")) return [];
+  const hiddenDerivedIds = new Set(
+    meta.filter((m) => m.kind === "hide" && m.value === true).map((m) => m.id),
+  );
   return vocab
-    .filter((entry) => !isVocabHidden(meta, `d:vocab:${entry.id}`))
+    .filter((entry) => !hiddenDerivedIds.has(metaId("hide", vocabCardId(entry.id))))
     .map((entry) => ({
-      id: `d:vocab:${entry.id}`,
+      id: vocabCardId(entry.id),
       kind: "vocab",
       category: "vocabulary",
       title: entry.term,
