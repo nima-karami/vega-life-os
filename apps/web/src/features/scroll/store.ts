@@ -4,11 +4,11 @@ import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { stepLeitner } from "./leitner";
 import {
+  buildMetaId,
   isDerivedId,
   isSameCategory,
   type MindCard,
   type MindMetaRecord,
-  metaId,
   normalizeCategory,
 } from "./model";
 
@@ -21,19 +21,19 @@ export interface ScrollSlice {
   removeMindCard: (id: string) => void;
   hideMindCard: (cardId: string) => void;
   restoreMindCard: (cardId: string) => void;
-  setMindCardLearning: (id: string, on: boolean) => void;
+  setMindCardLearning: (id: string, enabled: boolean) => void;
   gradeMindCard: (id: string, correct: boolean) => void;
   setScrollToggle: (kind: "category" | "source", key: string, enabled: boolean) => void;
   renameMindCategory: (from: string, to: string) => void;
 }
 
-/** Absence of a toggle record means enabled — first run needs zero config. */
+// Absence of a toggle record means enabled — first run needs zero config.
 export function isScrollKeyEnabled(
   meta: MindMetaRecord[],
   kind: "category" | "source",
   key: string,
 ): boolean {
-  const record = meta.find((m) => m.id === metaId(kind, key));
+  const record = meta.find((m) => m.id === buildMetaId(kind, key));
   return record ? record.value : true;
 }
 
@@ -57,7 +57,7 @@ function buildMindCard(patch: Partial<MindCard>): MindCard {
 export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
   const putMeta = (kind: MindMetaRecord["kind"], key: string, value: boolean) => {
     const record: MindMetaRecord = {
-      id: metaId(kind, key),
+      id: buildMetaId(kind, key),
       kind,
       key: normalizeCategory(key),
       value,
@@ -109,10 +109,12 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
       if (isDerivedId(cardId)) putMeta("hide", cardId, false);
       else get().updateMindCard(cardId, { hiddenAt: null });
     },
-    setMindCardLearning: (id, on) => {
+    setMindCardLearning: (id, enabled) => {
       get().updateMindCard(
         id,
-        on ? { box: 1, nextDue: todayISO() } : { box: null, nextDue: null, lastReviewed: null },
+        enabled
+          ? { box: 1, nextDue: todayISO() }
+          : { box: null, nextDue: null, lastReviewed: null },
       );
     },
     gradeMindCard: (id, correct) => {
@@ -126,12 +128,12 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
       for (const card of get().mindCards.filter((c) => isSameCategory(c.category, from))) {
         get().updateMindCard(card.id, { category: target });
       }
-      const targetId = metaId("category", target);
-      const old = get().mindMeta.find((m) => m.id === metaId("category", from));
-      if (old && !old.value) putMeta("category", target, false);
-      if (old && old.id !== targetId) {
-        set((s) => ({ mindMeta: s.mindMeta.filter((m) => m.id !== old.id) }));
-        saveRemove("mindMeta", old.id);
+      const targetId = buildMetaId("category", target);
+      const existingToggle = get().mindMeta.find((m) => m.id === buildMetaId("category", from));
+      if (existingToggle && !existingToggle.value) putMeta("category", target, false);
+      if (existingToggle && existingToggle.id !== targetId) {
+        set((s) => ({ mindMeta: s.mindMeta.filter((m) => m.id !== existingToggle.id) }));
+        saveRemove("mindMeta", existingToggle.id);
       }
     },
   };

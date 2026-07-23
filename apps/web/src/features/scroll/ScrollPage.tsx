@@ -23,18 +23,18 @@ const SCROLL_TABINDEX = 0;
 // A due card shown or graded (or a card recruited into learning) this session must not be
 // re-injected by later passes — it re-enters next visit via nextDue. exclude alone can't do
 // this: the queue's due lane bypasses excludeSet, so drop such still-due cards from the pool.
-function poolWithoutDeferredDue(pool: FeedCard[], deferred: Set<string>): FeedCard[] {
+function excludeDeferredDue(pool: FeedCard[], deferred: Set<string>): FeedCard[] {
   return pool.filter((card) => !(isDueLearning(card) && deferred.has(card.id)));
 }
 
-function recentCardIds(entries: QueueEntry[], limit: number): string[] {
+function getRecentCardIds(entries: QueueEntry[], limit: number): string[] {
   return entries
     .filter((entry) => !isRecapId(entry.cardId))
     .slice(-limit)
     .map((entry) => entry.cardId);
 }
 
-function previousRecapIndex(entries: QueueEntry[], before: number): number {
+function findPreviousRecapIndex(entries: QueueEntry[], before: number): number {
   for (let i = before - 1; i >= 0; i--) {
     if (isRecapId(entries[i].cardId)) return i;
   }
@@ -51,7 +51,7 @@ export function ScrollPage() {
   const gradeMindCard = useStore((s) => s.gradeMindCard);
   const reviewVocab = useStore((s) => s.reviewVocab);
   const pushToast = useStore((s) => s.pushToast);
-  const reduce = useReducedMotion();
+  const shouldReduceMotion = useReducedMotion();
 
   const today = todayISO();
   const pool = useMemo(
@@ -114,10 +114,10 @@ export function ScrollPage() {
   // Build the next pass off the frozen prefix (exclude its last-20) and append it.
   const appendPass = useCallback(
     (prefix: QueueEntry[]) => {
-      const tail = buildFeedQueue(poolWithoutDeferredDue(pool, deferredDueRef.current), {
+      const tail = buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current), {
         seed: baseSeed + passCountRef.current,
         today,
-        exclude: recentCardIds(prefix, NO_REPEAT_WINDOW),
+        exclude: getRecentCardIds(prefix, NO_REPEAT_WINDOW),
       });
       passCountRef.current += 1;
       setQueueEntries([...prefix, ...tail]);
@@ -140,7 +140,7 @@ export function ScrollPage() {
       initializedRef.current = true;
       passCountRef.current = 1;
       setQueueEntries(
-        buildFeedQueue(poolWithoutDeferredDue(pool, deferredDueRef.current), {
+        buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current), {
           seed: baseSeed,
           today,
         }),
@@ -180,7 +180,7 @@ export function ScrollPage() {
   }, [queueEntries, setCurrentIndex]);
 
   // A due card that reaches the viewport is spent for this session (graded or scrolled past);
-  // record it so later passes defer it (poolWithoutDeferredDue).
+  // record it so later passes defer it (excludeDeferredDue).
   useEffect(() => {
     const entry = queueEntries[currentIndex];
     if (!entry || isRecapId(entry.cardId)) return;
@@ -193,7 +193,7 @@ export function ScrollPage() {
     if (!scroller) return;
     const sections = scroller.querySelectorAll<HTMLElement>("[data-index]");
     sections[currentIndexRef.current + 1]?.scrollIntoView({
-      behavior: reduce ? "auto" : "smooth",
+      behavior: shouldReduceMotion ? "auto" : "smooth",
     });
   };
 
@@ -225,7 +225,7 @@ export function ScrollPage() {
 
   const renderEntry = (entry: QueueEntry, index: number) => {
     if (isRecapId(entry.cardId)) {
-      const prevRecap = previousRecapIndex(queueEntries, index);
+      const prevRecap = findPreviousRecapIndex(queueEntries, index);
       return (
         <RecapCard
           seenThisPass={index - prevRecap - 1}

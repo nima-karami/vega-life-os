@@ -5,7 +5,7 @@ import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
 import { BulkImportModal } from "./BulkImportModal";
 import { CardEditorModal } from "./CardEditorModal";
-import { CardMarkdown } from "./markdown-view";
+import { CardMarkdown } from "./CardMarkdown";
 import { isSameCategory, type MindCard } from "./model";
 import {
   type CardFilter,

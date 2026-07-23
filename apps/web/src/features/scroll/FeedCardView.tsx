@@ -2,8 +2,8 @@ import { Button } from "@heroui/react";
 import { motion, type PanInfo, useReducedMotion } from "framer-motion";
 import { useRef } from "react";
 import { cx, Icon, Label, Menu } from "@/core/ui";
+import { CardMarkdown } from "./CardMarkdown";
 import type { FeedCard } from "./feed-cards";
-import { CardMarkdown } from "./markdown-view";
 
 export interface FeedCardViewProps {
   card: FeedCard;
@@ -25,7 +25,7 @@ const FACE = "absolute inset-0 [backface-visibility:hidden]";
 const RAIL_BUTTON =
   "grid h-11 w-11 place-items-center rounded-full border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent";
 
-function titleSizeClass(title: string): string {
+function getTitleSizeClass(title: string): string {
   return title.length > 120 ? "text-xl" : "text-3xl";
 }
 
@@ -37,7 +37,7 @@ function CardFront({ card }: { card: FeedCard }) {
         <h2
           className={cx(
             "line-clamp-6 font-semibold tracking-tight text-foreground",
-            titleSizeClass(card.title),
+            getTitleSizeClass(card.title),
           )}
         >
           {card.title}
@@ -76,7 +76,7 @@ function ReversedBack({ card }: { card: FeedCard }) {
       <h2
         className={cx(
           "mb-4 font-semibold tracking-tight text-foreground",
-          titleSizeClass(card.title),
+          getTitleSizeClass(card.title),
         )}
       >
         {card.title}
@@ -164,7 +164,7 @@ export function FeedCardView({
   onEdit,
   onGrade,
 }: FeedCardViewProps) {
-  const reduce = useReducedMotion();
+  const shouldReduceMotion = useReducedMotion();
   const canFlip = card.body !== "";
   const canGrade = flipped && card.learning;
   const faceRef = useRef<HTMLDivElement>(null);
@@ -196,7 +196,7 @@ export function FeedCardView({
         style={{ touchAction: "pan-y" }}
         drag={canGrade ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={reduce ? 0 : 0.6}
+        dragElastic={shouldReduceMotion ? 0 : 0.6}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
@@ -205,7 +205,7 @@ export function FeedCardView({
             className={cx("relative h-full w-full", canFlip && "cursor-pointer")}
             style={{ transformStyle: "preserve-3d" }}
             animate={{ rotateY: flipped ? 180 : 0 }}
-            transition={reduce ? { duration: 0 } : { duration: 0.5, ease: EASE }}
+            transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, ease: EASE }}
             onClick={canFlip ? onFlip : undefined}
           >
             <div className={FACE}>

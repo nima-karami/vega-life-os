@@ -41,13 +41,13 @@ const compareBy =
 
 export function queryMindCards(
   cards: MindCard[],
-  opts: { query: string; filter: CardFilter; sort: CardSort; category: string | null },
+  options: { query: string; filter: CardFilter; sort: CardSort; category: string | null },
 ): MindCard[] {
-  const normalizedQuery = opts.query.trim().toLowerCase();
+  const normalizedQuery = options.query.trim().toLowerCase();
 
   const rows = cards.filter((card) => {
-    if (!matchesFilter(card, opts.filter)) return false;
-    if (opts.category !== null && !isSameCategory(card.category, opts.category)) return false;
+    if (!matchesFilter(card, options.filter)) return false;
+    if (options.category !== null && !isSameCategory(card.category, options.category)) return false;
     if (normalizedQuery) {
       const haystack = `${card.title} ${card.body}`.toLowerCase();
       if (!haystack.includes(normalizedQuery)) return false;
@@ -55,7 +55,7 @@ export function queryMindCards(
     return true;
   });
 
-  return rows.sort(compareBy(opts.sort));
+  return rows.sort(compareBy(options.sort));
 }
 
 export function computeStats(

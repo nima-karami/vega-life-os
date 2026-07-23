@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon, useCompactModal } from "@/core/ui";
 import { RichJournalEditor } from "@/features/journal/editor";
-import { CategoryField, FIELD_CLASS } from "./card-fields";
+import { CategoryField, FIELD_CLASS } from "./CategoryField";
 import type { MindCard } from "./model";
 
 const TITLE_HINT = 280;

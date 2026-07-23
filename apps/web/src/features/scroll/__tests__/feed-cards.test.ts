@@ -2,7 +2,7 @@ import type { MindCard, MindMetaRecord } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import type { VocabEntry } from "@/features/library/model";
 import { buildAuthoredFeedCards, buildFeedPool, buildVocabFeedCards } from "../feed-cards";
-import { metaId } from "../model";
+import { buildMetaId } from "../model";
 
 const TODAY = "2026-07-22";
 
@@ -46,7 +46,7 @@ const meta = (over: Partial<MindMetaRecord> & { id: string }): MindMetaRecord =>
 });
 
 const disableCategory = (key: string): MindMetaRecord =>
-  meta({ id: metaId("category", key), kind: "category", key, value: false });
+  meta({ id: buildMetaId("category", key), kind: "category", key, value: false });
 
 describe("buildAuthoredFeedCards", () => {
   it("excludes hidden cards", () => {
@@ -116,7 +116,7 @@ describe("buildAuthoredFeedCards", () => {
 describe("buildVocabFeedCards", () => {
   it("returns nothing when the vocab source toggle is off", () => {
     const disabled = meta({
-      id: metaId("source", "vocab"),
+      id: buildMetaId("source", "vocab"),
       kind: "source",
       key: "vocab",
       value: false,
@@ -126,7 +126,7 @@ describe("buildVocabFeedCards", () => {
 
   it("respects a per-entry hide meta", () => {
     const hide = meta({
-      id: metaId("hide", "d:vocab:v1"),
+      id: buildMetaId("hide", "d:vocab:v1"),
       kind: "hide",
       key: "d:vocab:v1",
       value: true,
@@ -212,7 +212,7 @@ describe("buildFeedPool", () => {
     ];
     const vocab = [entry({ id: "v1" })];
     const mindMeta = [
-      meta({ id: metaId("source", "vocab"), kind: "source", key: "vocab", value: false }),
+      meta({ id: buildMetaId("source", "vocab"), kind: "source", key: "vocab", value: false }),
     ];
     const pool = buildFeedPool({ mindCards, mindMeta, vocab }, TODAY);
     expect(pool.map((c) => c.id)).toEqual(["a"]);

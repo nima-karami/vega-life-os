@@ -1,6 +1,6 @@
 import type { MindCard, MindMetaRecord } from "@vega/shared";
 import type { VocabEntry } from "@/features/library/model";
-import { metaId, vocabCardId } from "./model";
+import { buildMetaId, buildVocabCardId } from "./model";
 import { isScrollKeyEnabled } from "./store";
 
 export type FeedCard = {
@@ -19,10 +19,10 @@ export type FeedCard = {
 const isDue = (nextDue: string | null, today: string): boolean =>
   nextDue !== null && nextDue <= today;
 
-const vocabDefinition = (definition: string): string => `**${definition}**`;
+const buildVocabDefinition = (definition: string): string => `**${definition}**`;
 
-const vocabBody = (definition: string, example: string): string =>
-  example ? `${vocabDefinition(definition)}\n\n${example}` : vocabDefinition(definition);
+const buildVocabBody = (definition: string, example: string): string =>
+  example ? `${buildVocabDefinition(definition)}\n\n${example}` : buildVocabDefinition(definition);
 
 export function buildAuthoredFeedCards(
   cards: MindCard[],
@@ -33,7 +33,9 @@ export function buildAuthoredFeedCards(
     meta.filter((m) => m.kind === "category" && m.value === false).map((m) => m.id),
   );
   return cards
-    .filter((c) => c.hiddenAt === null && !disabledCategoryIds.has(metaId("category", c.category)))
+    .filter(
+      (c) => c.hiddenAt === null && !disabledCategoryIds.has(buildMetaId("category", c.category)),
+    )
     .map((c) => ({
       id: c.id,
       kind: "authored",
@@ -58,18 +60,18 @@ export function buildVocabFeedCards(
     meta.filter((m) => m.kind === "hide" && m.value === true).map((m) => m.id),
   );
   return vocab
-    .filter((entry) => !hiddenDerivedIds.has(metaId("hide", vocabCardId(entry.id))))
+    .filter((entry) => !hiddenDerivedIds.has(buildMetaId("hide", buildVocabCardId(entry.id))))
     .map((entry) => ({
-      id: vocabCardId(entry.id),
+      id: buildVocabCardId(entry.id),
       kind: "vocab",
       category: "vocabulary",
       title: entry.term,
-      body: vocabBody(entry.definition, entry.example),
+      body: buildVocabBody(entry.definition, entry.example),
       source: null,
       learning: true,
       box: entry.box,
       due: isDue(entry.nextDue, today),
-      maskedBody: vocabDefinition(entry.definition),
+      maskedBody: buildVocabDefinition(entry.definition),
     }));
 }
 

@@ -2,7 +2,7 @@ import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { useCompactModal } from "@/core/ui";
-import { CategoryField, FIELD_CLASS } from "./card-fields";
+import { CategoryField, FIELD_CLASS } from "./CategoryField";
 import { parseBulkImport } from "./queries";
 
 export function BulkImportModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {

@@ -146,8 +146,8 @@ function chooseNextCard(
   return sampleRest(pools, position, ctx, weightOf, rng) ?? pools.dueQueue.shift() ?? null;
 }
 
-export function buildFeedQueue(pool: FeedCard[], opts: QueueOptions): QueueEntry[] {
-  const { seed, exclude = [] } = opts;
+export function buildFeedQueue(pool: FeedCard[], options: QueueOptions): QueueEntry[] {
+  const { seed, exclude = [] } = options;
   const rng = createSeededRng(seed);
   const groups = groupByCategory(pool);
   const counts = new Map([...groups].map(([key, cards]) => [key, cards.length]));
