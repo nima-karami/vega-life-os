@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FeedCard } from "../feed-cards";
-import { buildFeedQueue, createSeededRng } from "../queue";
+import { buildFeedQueue, createSeededRng, type QueueEntry } from "../queue";
 
 const feedCard = (id: string, category: string): FeedCard => ({
   id,
@@ -126,5 +126,95 @@ describe("buildFeedQueue", () => {
     const firstWindow = ids.slice(0, 20);
     for (const id of excluded) expect(firstWindow).not.toContain(id);
     expect(new Set(ids)).toEqual(new Set(pool.map((c) => c.id)));
+  });
+});
+
+const restCategories = ["alpha", "beta", "gamma", "delta"];
+
+const dueVocabCard = (id: string): FeedCard => ({
+  ...feedCard(id, "vocabulary"),
+  kind: "vocab",
+  learning: true,
+  box: 3,
+  due: true,
+});
+
+const learningCard = (id: string, box: number): FeedCard => ({
+  ...feedCard(id, "vocabulary"),
+  kind: "vocab",
+  learning: true,
+  box,
+  due: false,
+});
+
+describe("SRS due-injection lane", () => {
+  it("injects due cards at most every 4th position and exhausts leftovers gracefully", () => {
+    const pool = [
+      ...range(40).map((i) => dueVocabCard(`due${i}`)),
+      ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
+    ];
+    const dueIds = new Set(pool.filter((c) => c.due && c.learning).map((c) => c.id));
+    const ids = contentIds(buildFeedQueue(pool, { seed: 7, today: TODAY }));
+
+    expect(new Set(ids)).toEqual(new Set(pool.map((c) => c.id)));
+    expect(ids.length).toBe(pool.length);
+
+    const first20 = ids.slice(0, 20);
+    const dueInFirst20 = first20.filter((id) => dueIds.has(id)).length;
+    expect(dueInFirst20).toBeLessThanOrEqual(5);
+
+    const restInFirst20 = first20.filter((id) => !dueIds.has(id));
+    expect(restInFirst20.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it("falls back to shuffle when nothing is due", () => {
+    const pool = range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length]));
+    const first = buildFeedQueue(pool, { seed: 5, today: TODAY });
+    const second = buildFeedQueue(pool, { seed: 5, today: TODAY });
+    expect(first).toEqual(second);
+    expect(new Set(contentIds(first))).toEqual(new Set(pool.map((c) => c.id)));
+    expect(first.every((e) => e.reversed === false)).toBe(true);
+  });
+
+  it("keeps determinism with the lane active", () => {
+    const pool = [
+      ...range(40).map((i) => dueVocabCard(`due${i}`)),
+      ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
+    ];
+    const first = buildFeedQueue(pool, { seed: 13, today: TODAY });
+    const second = buildFeedQueue(pool, { seed: 13, today: TODAY });
+    expect(first).toEqual(second);
+    expect(buildFeedQueue(pool, { seed: 14, today: TODAY })).not.toEqual(first);
+  });
+});
+
+describe("reversed recall decisions", () => {
+  it("marks ~1/3 of box>=2 learning appearances reversed, seeded", () => {
+    const pool = [
+      ...range(20).map((i) => learningCard(`hi${i}`, 3)),
+      ...range(10).map((i) => learningCard(`lo${i}`, 1)),
+      ...range(10).map((i) => feedCard(`reg${i}`, "history")),
+    ];
+    const byId = new Map(pool.map((c) => [c.id, c]));
+    const isReversible = (entry: QueueEntry): boolean => {
+      const card = byId.get(entry.cardId);
+      if (card === undefined) return false;
+      return card.learning && card.box !== null && card.box >= 2;
+    };
+    const entries = range(200).flatMap((seed) => buildFeedQueue(pool, { seed, today: TODAY }));
+    const eligible = entries.filter(isReversible);
+    const never = entries.filter((entry) => !isReversible(entry));
+
+    expect(never.every((entry) => entry.reversed === false)).toBe(true);
+    const rate = eligible.filter((entry) => entry.reversed).length / eligible.length;
+    expect(rate).toBeGreaterThanOrEqual(0.2);
+    expect(rate).toBeLessThanOrEqual(0.45);
+  });
+
+  it("is deterministic per seed", () => {
+    const pool = range(20).map((i) => learningCard(`hi${i}`, 4));
+    const first = buildFeedQueue(pool, { seed: 77, today: TODAY });
+    const second = buildFeedQueue(pool, { seed: 77, today: TODAY });
+    expect(first).toEqual(second);
   });
 });

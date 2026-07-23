@@ -151,7 +151,7 @@ describe("buildVocabFeedCards", () => {
       learning: true,
       box: 4,
       due: false,
-      maskedBody: null,
+      maskedBody: "**hello**",
     });
   });
 
@@ -162,6 +162,23 @@ describe("buildVocabFeedCards", () => {
       TODAY,
     );
     expect(built[0].body).toBe("**hello**");
+  });
+
+  it("fills maskedBody with the definition only (example redacted)", () => {
+    const withExample = buildVocabFeedCards(
+      [entry({ id: "v1", definition: "hello", example: "hola amigo" })],
+      [],
+      TODAY,
+    )[0];
+    expect(withExample.maskedBody).toBe("**hello**");
+    expect(withExample.maskedBody).not.toContain("hola amigo");
+
+    const noExample = buildVocabFeedCards(
+      [entry({ id: "v2", definition: "hello", example: "" })],
+      [],
+      TODAY,
+    )[0];
+    expect(noExample.maskedBody).toBe(noExample.body);
   });
 
   it("derives due from the entry's own nextDue", () => {

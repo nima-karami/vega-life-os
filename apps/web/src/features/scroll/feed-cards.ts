@@ -22,8 +22,10 @@ const isDue = (nextDue: string | null, today: string): boolean =>
 const isVocabHidden = (meta: MindMetaRecord[], cardId: string): boolean =>
   meta.some((m) => m.id === metaId("hide", cardId) && m.value === true);
 
+const vocabDefinition = (definition: string): string => `**${definition}**`;
+
 const vocabBody = (definition: string, example: string): string =>
-  example ? `**${definition}**\n\n${example}` : `**${definition}**`;
+  example ? `${vocabDefinition(definition)}\n\n${example}` : vocabDefinition(definition);
 
 export function buildAuthoredFeedCards(
   cards: MindCard[],
@@ -64,7 +66,7 @@ export function buildVocabFeedCards(
       learning: true,
       box: entry.box,
       due: isDue(entry.nextDue, today),
-      maskedBody: null,
+      maskedBody: vocabDefinition(entry.definition),
     }));
 }
 

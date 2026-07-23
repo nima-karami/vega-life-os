@@ -8,10 +8,14 @@ export type QueueOptions = {
   noRepeatWindow?: number;
   shareCap?: number;
   exclude?: string[];
+  dueEvery?: number;
+  reversedShare?: number;
 };
 
 const NO_REPEAT_WINDOW = 20;
 const CATEGORY_SHARE_CAP = 0.3;
+const DUE_EVERY = 4;
+const REVERSED_SHARE = 1 / 3;
 
 export function createSeededRng(seed: number): () => number {
   let a = seed >>> 0;
@@ -93,12 +97,65 @@ function selectCandidates(remaining: FeedCard[], position: number, ctx: PassCont
   return remaining.filter((card) => isPlaceable(card, position, false, ctx));
 }
 
+const isDueLearning = (card: FeedCard): boolean => card.due && card.learning;
+
+const isReversibleLearning = (card: FeedCard): boolean =>
+  card.learning && card.box !== null && card.box >= 2;
+
+function shuffleWithRng<T>(items: T[], rng: () => number): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+function placeCard(card: FeedCard, ctx: PassContext): void {
+  ctx.placed.push(card);
+  const key = categoryKey(card.category);
+  ctx.placedPerCategory.set(key, (ctx.placedPerCategory.get(key) ?? 0) + 1);
+}
+
+type PassPools = { dueQueue: FeedCard[]; restRemaining: FeedCard[] };
+
+function sampleRest(
+  pools: PassPools,
+  position: number,
+  ctx: PassContext,
+  weightOf: (card: FeedCard) => number,
+  rng: () => number,
+): FeedCard | null {
+  const candidates = selectCandidates(pools.restRemaining, position, ctx);
+  if (candidates.length === 0) return null;
+  const chosen = pickWeighted(candidates, weightOf, rng);
+  pools.restRemaining.splice(pools.restRemaining.indexOf(chosen), 1);
+  return chosen;
+}
+
+// Due cards land only on every `dueEvery`-th slot; a slot with no due card left (or a
+// non-due slot the shuffle can't fill) falls back to the other pool, draining both.
+function chooseNextCard(
+  pools: PassPools,
+  position: number,
+  dueEvery: number,
+  ctx: PassContext,
+  weightOf: (card: FeedCard) => number,
+  rng: () => number,
+): FeedCard | null {
+  const isDueSlot = (position + 1) % dueEvery === 0;
+  if (isDueSlot && pools.dueQueue.length > 0) return pools.dueQueue.shift() ?? null;
+  return sampleRest(pools, position, ctx, weightOf, rng) ?? pools.dueQueue.shift() ?? null;
+}
+
 export function buildFeedQueue(pool: FeedCard[], opts: QueueOptions): QueueEntry[] {
   const {
     seed,
     noRepeatWindow = NO_REPEAT_WINDOW,
     shareCap = CATEGORY_SHARE_CAP,
     exclude = [],
+    dueEvery = DUE_EVERY,
+    reversedShare = REVERSED_SHARE,
   } = opts;
   const rng = createSeededRng(seed);
   const groups = groupByCategory(pool);
@@ -112,19 +169,21 @@ export function buildFeedQueue(pool: FeedCard[], opts: QueueOptions): QueueEntry
     excludeWindow: Math.min(noRepeatWindow, Math.max(1, pool.length - 1)),
   };
   const weightOf = (card: FeedCard): number => 1 / (counts.get(categoryKey(card.category)) ?? 1);
-  const remaining = [...pool];
+  const pools: PassPools = {
+    dueQueue: shuffleWithRng(pool.filter(isDueLearning), rng),
+    restRemaining: pool.filter((card) => !isDueLearning(card)),
+  };
 
-  while (remaining.length > 0) {
-    const candidates = selectCandidates(remaining, ctx.placed.length, ctx);
-    if (candidates.length === 0) break;
-    const chosen = pickWeighted(candidates, weightOf, rng);
-    remaining.splice(remaining.indexOf(chosen), 1);
-    ctx.placed.push(chosen);
-    const key = categoryKey(chosen.category);
-    ctx.placedPerCategory.set(key, (ctx.placedPerCategory.get(key) ?? 0) + 1);
+  while (pools.dueQueue.length > 0 || pools.restRemaining.length > 0) {
+    const chosen = chooseNextCard(pools, ctx.placed.length, dueEvery, ctx, weightOf, rng);
+    if (!chosen) break;
+    placeCard(chosen, ctx);
   }
 
-  const entries: QueueEntry[] = ctx.placed.map((card) => ({ cardId: card.id, reversed: false }));
+  const entries: QueueEntry[] = ctx.placed.map((card) => ({
+    cardId: card.id,
+    reversed: isReversibleLearning(card) ? rng() < reversedShare : false,
+  }));
   entries.push({ cardId: `recap:${seed}`, reversed: false });
   return entries;
 }
