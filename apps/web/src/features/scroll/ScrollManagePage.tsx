@@ -6,7 +6,7 @@ import { cx, Icon } from "@/core/ui";
 import { BulkImportModal } from "./BulkImportModal";
 import { CardEditorModal } from "./CardEditorModal";
 import { CardMarkdown } from "./CardMarkdown";
-import { isSameCategory, type MindCard } from "./model";
+import { isSameCategory, MIND_CARD_TYPE_LABELS, type MindCard } from "./model";
 import {
   type CardFilter,
   type CardSort,
@@ -33,18 +33,15 @@ const FILTERS: { id: CardFilter; label: string }[] = [
   { id: "hidden", label: "Hidden" },
 ];
 
-const SORT_CYCLE: CardSort[] = [
-  { column: "addedAt", direction: "desc" },
-  { column: "category", direction: "asc" },
-  { column: "status", direction: "asc" },
+const GRID_COLS = "grid-cols-[2rem_1fr_5.5rem_8rem_7rem_6rem_2.5rem]";
+
+const SORT_COLUMNS: { column: CardSortColumn; label: string }[] = [
+  { column: "title", label: "Name" },
+  { column: "type", label: "Type" },
+  { column: "category", label: "Category" },
+  { column: "status", label: "Status" },
+  { column: "addedAt", label: "Added" },
 ];
-const SORT_LABEL: Record<CardSortColumn, string> = {
-  addedAt: "Newest",
-  category: "Category",
-  status: "Box",
-  title: "Name",
-  type: "Type",
-};
 
 export function ScrollManagePage() {
   const mindCards = useStore((s) => s.mindCards);
@@ -82,6 +79,13 @@ export function ScrollManagePage() {
     setQuery("");
     setFilter("all");
     setCategory(null);
+  };
+  const handleSortColumn = (column: CardSortColumn) => {
+    setSort((current) =>
+      current.column === column
+        ? { column, direction: current.direction === "asc" ? "desc" : "asc" }
+        : { column, direction: column === "addedAt" ? "desc" : "asc" },
+    );
   };
 
   return (
@@ -139,23 +143,6 @@ export function ScrollManagePage() {
                 </button>
               ))}
             </fieldset>
-            <button
-              type="button"
-              onClick={() =>
-                setSort(
-                  (s) =>
-                    SORT_CYCLE[
-                      (SORT_CYCLE.findIndex((option) => option.column === s.column) + 1) %
-                        SORT_CYCLE.length
-                    ],
-                )
-              }
-              className="flex items-center gap-1.5 rounded-[10px] border border-border px-3 py-1.5 text-sm text-muted outline-none hover:border-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
-              aria-label={`Sort by ${SORT_LABEL[sort.column]}`}
-            >
-              <Icon name="layers" size={14} />
-              {SORT_LABEL[sort.column]}
-            </button>
           </div>
 
           {categories.length > 0 && (
@@ -202,6 +189,24 @@ export function ScrollManagePage() {
         />
       ) : (
         <div className="mt-4 overflow-x-auto">
+          <div className={cx("grid min-w-[640px] items-center gap-3 px-2 pb-1.5", GRID_COLS)}>
+            <span />
+            {SORT_COLUMNS.map(({ column, label }) => (
+              <button
+                key={column}
+                type="button"
+                onClick={() => handleSortColumn(column)}
+                aria-pressed={sort.column === column}
+                className="flex items-center gap-1 justify-self-start text-xs font-medium text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {label}
+                {sort.column === column && (
+                  <Icon name={sort.direction === "asc" ? "chevU" : "chevD"} size={12} />
+                )}
+              </button>
+            ))}
+            <span />
+          </div>
           <ul className="min-w-[640px] divide-y divide-border rounded-[16px] border border-border bg-surface">
             {rows.map((card) => (
               <li key={card.id}>
@@ -342,7 +347,7 @@ function CardRow({
   const mode = card.box !== null ? `learning · box ${card.box}` : "regular";
   return (
     <div>
-      <div className="grid grid-cols-[2rem_1fr_8rem_7rem_6rem_2.5rem] items-center gap-3 px-2 py-1.5">
+      <div className={cx("grid items-center gap-3 px-2 py-1.5", GRID_COLS)}>
         <button
           type="button"
           onClick={onToggleExpand}
@@ -360,6 +365,7 @@ function CardRow({
         >
           {card.title || "Untitled"}
         </button>
+        <span className="truncate text-sm text-muted">{MIND_CARD_TYPE_LABELS[card.type]}</span>
         <span className="truncate text-sm text-muted">{card.category || "—"}</span>
         <span
           className={cx(
