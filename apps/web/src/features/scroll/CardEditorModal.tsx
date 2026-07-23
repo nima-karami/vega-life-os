@@ -71,7 +71,7 @@ function useCardEditorForm({
     const fields = {
       title,
       body: values.body,
-      category: values.category,
+      category: values.category.trim(),
       source: values.source.trim() || null,
     };
     try {
