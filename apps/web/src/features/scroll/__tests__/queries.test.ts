@@ -28,7 +28,13 @@ const card = (over: Partial<MindCard> = {}): MindCard => ({
 });
 
 const query = (cards: MindCard[], over: Partial<Parameters<typeof queryMindCards>[1]> = {}) =>
-  queryMindCards(cards, { query: "", filter: "all", sort: "newest", category: null, ...over });
+  queryMindCards(cards, {
+    query: "",
+    filter: "all",
+    sort: { column: "addedAt", direction: "desc" },
+    category: null,
+    ...over,
+  });
 
 describe("queryMindCards", () => {
   it("searches title AND body case-insensitively", () => {
@@ -78,7 +84,9 @@ describe("queryMindCards", () => {
       card({ id: "a", addedAt: "2026-07-01" }),
       card({ id: "c", addedAt: "2026-07-03" }),
     ];
-    expect(query(cards, { sort: "newest" }).map((c) => c.id)).toEqual(["c", "b", "a"]);
+    expect(
+      query(cards, { sort: { column: "addedAt", direction: "desc" } }).map((c) => c.id),
+    ).toEqual(["c", "b", "a"]);
   });
 
   it("sorts by category A→Z then newest", () => {
@@ -87,7 +95,9 @@ describe("queryMindCards", () => {
       card({ id: "y", category: "alpha", addedAt: "2026-07-01" }),
       card({ id: "z", category: "alpha", addedAt: "2026-07-04" }),
     ];
-    expect(query(cards, { sort: "category" }).map((c) => c.id)).toEqual(["z", "y", "x"]);
+    expect(
+      query(cards, { sort: { column: "category", direction: "asc" } }).map((c) => c.id),
+    ).toEqual(["z", "y", "x"]);
   });
 
   it("sorts by box desc with nulls last", () => {
@@ -96,11 +106,33 @@ describe("queryMindCards", () => {
       card({ id: "b1", box: 1 }),
       card({ id: "b3", box: 3 }),
     ];
-    expect(query(cards, { sort: "box", filter: "all" }).map((c) => c.id)).toEqual([
-      "b3",
-      "b1",
-      "n",
-    ]);
+    expect(
+      query(cards, { sort: { column: "status", direction: "asc" }, filter: "all" }).map(
+        (c) => c.id,
+      ),
+    ).toEqual(["b3", "b1", "n"]);
+  });
+
+  it("sorts by type ascending with newest as tiebreak", () => {
+    const cards = [
+      card({ id: "m", type: "model", addedAt: "2026-07-01" }),
+      card({ id: "f2", type: "fact", addedAt: "2026-07-02" }),
+      card({ id: "f1", type: "fact", addedAt: "2026-07-05" }),
+    ];
+    const rows = query(cards, { sort: { column: "type", direction: "asc" } });
+    expect(rows.map((row) => row.type)).toEqual([...rows.map((row) => row.type)].sort());
+    expect(rows.map((row) => row.id)).toEqual(["f1", "f2", "m"]);
+  });
+
+  it("sorts by type descending with newest as tiebreak", () => {
+    const cards = [
+      card({ id: "m", type: "model", addedAt: "2026-07-01" }),
+      card({ id: "f2", type: "fact", addedAt: "2026-07-02" }),
+      card({ id: "f1", type: "fact", addedAt: "2026-07-05" }),
+    ];
+    const rows = query(cards, { sort: { column: "type", direction: "desc" } });
+    expect(rows.map((row) => row.type)).toEqual([...rows.map((row) => row.type)].sort().reverse());
+    expect(rows.map((row) => row.id)).toEqual(["m", "f1", "f2"]);
   });
 
   it("does not mutate the input array", () => {
@@ -109,7 +141,7 @@ describe("queryMindCards", () => {
       card({ id: "b", addedAt: "2026-07-02" }),
     ];
     const snapshot = cards.map((c) => c.id);
-    query(cards, { sort: "newest" });
+    query(cards, { sort: { column: "addedAt", direction: "desc" } });
     expect(cards.map((c) => c.id)).toEqual(snapshot);
   });
 });

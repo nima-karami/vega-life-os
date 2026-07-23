@@ -10,7 +10,9 @@ import { isSameCategory, type MindCard } from "./model";
 import {
   type CardFilter,
   type CardSort,
+  type CardSortColumn,
   computeStats,
+  DEFAULT_CARD_SORT,
   listCategories,
   queryMindCards,
 } from "./queries";
@@ -31,11 +33,17 @@ const FILTERS: { id: CardFilter; label: string }[] = [
   { id: "hidden", label: "Hidden" },
 ];
 
-const SORT_CYCLE: CardSort[] = ["newest", "category", "box"];
-const SORT_LABEL: Record<CardSort, string> = {
-  newest: "Newest",
+const SORT_CYCLE: CardSort[] = [
+  { column: "addedAt", direction: "desc" },
+  { column: "category", direction: "asc" },
+  { column: "status", direction: "asc" },
+];
+const SORT_LABEL: Record<CardSortColumn, string> = {
+  addedAt: "Newest",
   category: "Category",
-  box: "Box",
+  status: "Box",
+  title: "Name",
+  type: "Type",
 };
 
 export function ScrollManagePage() {
@@ -49,7 +57,7 @@ export function ScrollManagePage() {
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CardFilter>("all");
-  const [sort, setSort] = useState<CardSort>("newest");
+  const [sort, setSort] = useState<CardSort>(DEFAULT_CARD_SORT);
   const [category, setCategory] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editorCardId, setEditorCardId] = useState<string | null>(null);
@@ -134,13 +142,19 @@ export function ScrollManagePage() {
             <button
               type="button"
               onClick={() =>
-                setSort((s) => SORT_CYCLE[(SORT_CYCLE.indexOf(s) + 1) % SORT_CYCLE.length])
+                setSort(
+                  (s) =>
+                    SORT_CYCLE[
+                      (SORT_CYCLE.findIndex((option) => option.column === s.column) + 1) %
+                        SORT_CYCLE.length
+                    ],
+                )
               }
               className="flex items-center gap-1.5 rounded-[10px] border border-border px-3 py-1.5 text-sm text-muted outline-none hover:border-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
-              aria-label={`Sort by ${SORT_LABEL[sort]}`}
+              aria-label={`Sort by ${SORT_LABEL[sort.column]}`}
             >
               <Icon name="layers" size={14} />
-              {SORT_LABEL[sort]}
+              {SORT_LABEL[sort.column]}
             </button>
           </div>
 

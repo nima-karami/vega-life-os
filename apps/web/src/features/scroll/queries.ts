@@ -1,7 +1,10 @@
 import { isSameCategory, type MindCard } from "./model";
 
 export type CardFilter = "all" | "learning" | "regular" | "hidden";
-export type CardSort = "newest" | "category" | "box";
+export type CardSortColumn = "title" | "type" | "category" | "status" | "addedAt";
+export type CardSort = { column: CardSortColumn; direction: "asc" | "desc" };
+
+export const DEFAULT_CARD_SORT: CardSort = { column: "addedAt", direction: "desc" };
 
 const collator = new Intl.Collator();
 
@@ -24,20 +27,26 @@ const matchesFilter = (card: MindCard, filter: CardFilter): boolean => {
 const compareNewest = (a: MindCard, b: MindCard): number =>
   b.addedAt.localeCompare(a.addedAt) || b.id.localeCompare(a.id);
 
-const compareBy =
-  (sort: CardSort) =>
-  (a: MindCard, b: MindCard): number => {
-    if (sort === "category") {
-      return collator.compare(a.category, b.category) || compareNewest(a, b);
-    }
-    if (sort === "box") {
-      if (a.box === b.box) return compareNewest(a, b);
-      if (a.box === null) return 1;
-      if (b.box === null) return -1;
-      return b.box - a.box;
-    }
-    return compareNewest(a, b);
-  };
+const compareStatus = (a: MindCard, b: MindCard): number => {
+  if ((a.box === null) !== (b.box === null)) return a.box === null ? 1 : -1;
+  if (a.box !== null && b.box !== null && a.box !== b.box) return b.box - a.box;
+  return 0;
+};
+
+const compareByColumn = (column: CardSortColumn, a: MindCard, b: MindCard): number => {
+  switch (column) {
+    case "title":
+      return collator.compare(a.title, b.title);
+    case "type":
+      return collator.compare(a.type, b.type);
+    case "category":
+      return collator.compare(a.category, b.category);
+    case "status":
+      return compareStatus(a, b);
+    case "addedAt":
+      return a.addedAt.localeCompare(b.addedAt);
+  }
+};
 
 export function queryMindCards(
   cards: MindCard[],
@@ -55,7 +64,10 @@ export function queryMindCards(
     return true;
   });
 
-  return rows.sort(compareBy(options.sort));
+  return rows.sort((a, b) => {
+    const ordered = compareByColumn(options.sort.column, a, b);
+    return (options.sort.direction === "asc" ? ordered : -ordered) || compareNewest(a, b);
+  });
 }
 
 export function computeStats(
