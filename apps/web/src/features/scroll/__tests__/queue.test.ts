@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FeedCard } from "../feed-cards";
-import { buildFeedQueue, createSeededRng, type QueueEntry } from "../queue";
+import { buildFeedQueue, computePassSeed, createSeededRng, type QueueEntry } from "../queue";
 
 const feedCard = (id: string, category: string): FeedCard => ({
   id,
@@ -117,9 +117,9 @@ describe("buildFeedQueue", () => {
   it("ends the pass with the recap sentinel derived from the seed", () => {
     const pool = range(4).map((i) => feedCard(`v${i}`, "vocabulary"));
     const zero = buildFeedQueue(pool, { seed: 0, today: TODAY });
-    expect(zero.at(-1)).toEqual({ cardId: "recap:0", reversed: false });
+    expect(zero.at(-1)).toEqual({ cardId: "recap:0", reversed: false, variant: 0 });
     const five = buildFeedQueue(pool, { seed: 5, today: TODAY });
-    expect(five.at(-1)).toEqual({ cardId: "recap:5", reversed: false });
+    expect(five.at(-1)).toEqual({ cardId: "recap:5", reversed: false, variant: 0 });
     expect(zero.every((e) => e.reversed === false)).toBe(true);
   });
 
@@ -236,5 +236,53 @@ describe("reversed recall decisions", () => {
     const first = buildFeedQueue(pool, { seed: 77, today: TODAY });
     const second = buildFeedQueue(pool, { seed: 77, today: TODAY });
     expect(first).toEqual(second);
+  });
+});
+
+describe("example-variant stamping", () => {
+  const vocabWithVariants = (id: string, variantCount: number): FeedCard => ({
+    ...feedCard(id, "vocabulary"),
+    kind: "vocab",
+    bodyVariants: range(variantCount).map((index) => `body ${index}`),
+  });
+
+  it("stamps variant = seed % variant count, and 0 for cards without variants", () => {
+    const pool = [vocabWithVariants("w", 3), feedCard("a", "history")];
+    const queue = buildFeedQueue(pool, { seed: 7, today: TODAY });
+    expect(queue.find((e) => e.cardId === "w")?.variant).toBe(7 % 3);
+    expect(queue.find((e) => e.cardId === "a")?.variant).toBe(0);
+  });
+
+  it("cycles through all variants across consecutive pass seeds with no repeat", () => {
+    const pool = [vocabWithVariants("w", 3), feedCard("a", "history")];
+    const variants = [21, 22, 23].map(
+      (seed) => buildFeedQueue(pool, { seed, today: TODAY }).find((e) => e.cardId === "w")?.variant,
+    );
+    expect(new Set(variants)).toEqual(new Set([0, 1, 2]));
+  });
+
+  it("is deterministic: the same seed stamps the same variants", () => {
+    const pool = [vocabWithVariants("w", 3), vocabWithVariants("x", 4), feedCard("a", "history")];
+    expect(buildFeedQueue(pool, { seed: 9, today: TODAY })).toEqual(
+      buildFeedQueue(pool, { seed: 9, today: TODAY }),
+    );
+  });
+
+  it("never consumes rng for variants — placement and reversal are unchanged by variant counts", () => {
+    const base = [learningCard("hi", 3), ...range(10).map((i) => feedCard(`r${i}`, "history"))];
+    const withVariants = base.map((card) =>
+      card.id === "hi" ? { ...card, bodyVariants: ["a", "b", "c"] } : card,
+    );
+    const plain = buildFeedQueue(base, { seed: 9, today: TODAY });
+    const varied = buildFeedQueue(withVariants, { seed: 9, today: TODAY });
+    expect(varied.map((e) => ({ cardId: e.cardId, reversed: e.reversed }))).toEqual(
+      plain.map((e) => ({ cardId: e.cardId, reversed: e.reversed })),
+    );
+  });
+
+  it("pass seeds increment by exactly 1 — the no-repeat rotation depends on it", () => {
+    expect(computePassSeed(100, 0)).toBe(100);
+    for (const passIndex of range(5))
+      expect(computePassSeed(100, passIndex + 1)).toBe(computePassSeed(100, passIndex) + 1);
   });
 });

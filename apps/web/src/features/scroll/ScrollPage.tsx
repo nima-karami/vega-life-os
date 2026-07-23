@@ -17,7 +17,13 @@ import { FeedCardView } from "./FeedCardView";
 import { buildFeedPool, type FeedCard } from "./feed-cards";
 import { stepLeitner } from "./leitner";
 import { parseVocabCardId } from "./model";
-import { buildFeedQueue, isDueLearning, isRecapId, type QueueEntry } from "./queue";
+import {
+  buildFeedQueue,
+  computePassSeed,
+  isDueLearning,
+  isRecapId,
+  type QueueEntry,
+} from "./queue";
 import { RecapCard } from "./RecapCard";
 
 const NO_REPEAT_WINDOW = 20;
@@ -123,7 +129,7 @@ export function ScrollPage() {
   const appendPass = useCallback(
     (prefix: QueueEntry[]) => {
       const tail = buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current), {
-        seed: baseSeed + passCountRef.current,
+        seed: computePassSeed(baseSeed, passCountRef.current),
         today,
         exclude: getRecentCardIds(prefix, NO_REPEAT_WINDOW),
       });
@@ -149,7 +155,7 @@ export function ScrollPage() {
       passCountRef.current = 1;
       setQueueEntries(
         buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current), {
-          seed: baseSeed,
+          seed: computePassSeed(baseSeed, 0),
           today,
         }),
       );

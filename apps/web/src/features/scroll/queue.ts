@@ -1,7 +1,7 @@
 import type { FeedCard } from "./feed-cards";
 import { matchKey } from "./model";
 
-export type QueueEntry = { cardId: string; reversed: boolean };
+export type QueueEntry = { cardId: string; reversed: boolean; variant: number };
 
 export type QueueOptions = {
   seed: number;
@@ -17,6 +17,13 @@ const LIKED_BOOST = 1.5;
 const RECAP_PREFIX = "recap:";
 
 export const isRecapId = (cardId: string): boolean => cardId.startsWith(RECAP_PREFIX);
+
+// Pass seeds MUST step by exactly 1: variant = seed % k then cycles all k examples.
+export const computePassSeed = (baseSeed: number, passIndex: number): number =>
+  baseSeed + passIndex;
+
+const computeBodyVariant = (seed: number, card: FeedCard): number =>
+  card.bodyVariants === null ? 0 : seed % Math.max(1, card.bodyVariants.length);
 
 export function createSeededRng(seed: number): () => number {
   let a = seed >>> 0;
@@ -177,7 +184,8 @@ export function buildFeedQueue(pool: FeedCard[], options: QueueOptions): QueueEn
   const entries: QueueEntry[] = ctx.placed.map((card) => ({
     cardId: card.id,
     reversed: isReversibleLearning(card) ? rng() < REVERSED_SHARE : false,
+    variant: computeBodyVariant(seed, card),
   }));
-  entries.push({ cardId: `${RECAP_PREFIX}${seed}`, reversed: false });
+  entries.push({ cardId: `${RECAP_PREFIX}${seed}`, reversed: false, variant: 0 });
   return entries;
 }
