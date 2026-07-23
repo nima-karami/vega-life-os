@@ -4,6 +4,7 @@ import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { CalendarCallbackPage } from "@/features/calendar-sync";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { EntriesPage, JournalPage } from "@/features/journal";
+import { VocabPage } from "@/features/library/VocabPage";
 import { ScrollManagePage } from "@/features/scroll/ScrollManagePage";
 import { ScrollPage } from "@/features/scroll/ScrollPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
           { path: "entries", element: <EntriesPage /> },
           { path: "scroll", element: <ScrollPage /> },
           { path: "scroll/manage", element: <ScrollManagePage /> },
+          { path: "vocab", element: <VocabPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "settings", element: <SettingsPage /> },
           // Catch removed routes + unknown paths → 404 recovery
