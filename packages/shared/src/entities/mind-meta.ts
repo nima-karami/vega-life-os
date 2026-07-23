@@ -3,7 +3,7 @@ import { defineEntity } from "./base";
 
 const { schema, createSchema } = defineEntity({
   id: z.string(),
-  kind: z.enum(["hide", "category", "source"]),
+  kind: z.enum(["hide", "category", "source", "like"]),
   key: z.string(),
   value: z.boolean(),
   setAt: z.string(),
