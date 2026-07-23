@@ -109,7 +109,9 @@ describe("buildAuthoredFeedCards", () => {
       kind: "authored",
       category: "Focus",
       title: "Inversion",
+      subtitle: null,
       body: "avoid",
+      bodyVariants: null,
       source: "Munger",
       learning: false,
       box: null,
@@ -167,7 +169,9 @@ describe("buildVocabFeedCards", () => {
       kind: "vocab",
       category: "vocabulary",
       title: "hola",
+      subtitle: null,
       body: "**hello**\n\nhola amigo",
+      bodyVariants: ["**hello**\n\nhola amigo"],
       source: null,
       learning: true,
       box: 4,
@@ -227,6 +231,71 @@ describe("buildVocabFeedCards", () => {
     expect(byId["d:vocab:overdue"].due).toBe(true);
     expect(byId["d:vocab:future"].due).toBe(false);
     expect(byId["d:vocab:unscheduled"].due).toBe(false);
+  });
+
+  it("composes one back variant per example with the synonyms line", () => {
+    const built = buildVocabFeedCards(
+      [
+        entry({
+          id: "v1",
+          term: "digression",
+          definition: "a turn away from the main subject",
+          phonetic: "/daɪˈɡrɛʃ(ə)n/",
+          examples: ["A digression in the data.", "A moral digression.", "One digression aside."],
+          synonyms: ["tangent", "detour"],
+          example: "",
+        }),
+      ],
+      [],
+      TODAY,
+    );
+    expect(built[0].subtitle).toBe("/daɪˈɡrɛʃ(ə)n/");
+    expect(built[0].bodyVariants).toEqual([
+      "**a turn away from the main subject**\n\nA digression in the data.\n\n_Synonyms: tangent, detour_",
+      "**a turn away from the main subject**\n\nA moral digression.\n\n_Synonyms: tangent, detour_",
+      "**a turn away from the main subject**\n\nOne digression aside.\n\n_Synonyms: tangent, detour_",
+    ]);
+    expect(built[0].body).toBe(built[0].bodyVariants?.[0]);
+  });
+
+  it("lifts a legacy single example into one variant", () => {
+    const built = buildVocabFeedCards(
+      [entry({ id: "v1", definition: "hello", example: "hola amigo", examples: [] })],
+      [],
+      TODAY,
+    );
+    expect(built[0].bodyVariants).toEqual(["**hello**\n\nhola amigo"]);
+  });
+
+  it("builds a single definition-only variant when there are no effective examples", () => {
+    const built = buildVocabFeedCards(
+      [entry({ id: "v1", definition: "hello", example: "", synonyms: ["hi"] })],
+      [],
+      TODAY,
+    );
+    expect(built[0].bodyVariants).toEqual(["**hello**\n\n_Synonyms: hi_"]);
+    expect(built[0].subtitle).toBeNull();
+  });
+
+  it("keeps maskedBody free of phonetic, examples, and synonyms", () => {
+    const built = buildVocabFeedCards(
+      [
+        entry({
+          id: "v1",
+          definition: "hello",
+          phonetic: "/oʊˈlɑ/",
+          examples: ["secret example"],
+          synonyms: ["secret synonym"],
+          example: "",
+        }),
+      ],
+      [],
+      TODAY,
+    );
+    expect(built[0].maskedBody).toBe("**hello**");
+    expect(built[0].maskedBody).not.toContain("secret example");
+    expect(built[0].maskedBody).not.toContain("secret synonym");
+    expect(built[0].maskedBody).not.toContain("/oʊˈlɑ/");
   });
 });
 

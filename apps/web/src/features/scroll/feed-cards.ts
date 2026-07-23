@@ -1,5 +1,5 @@
 import type { MindCard, MindMetaRecord } from "@vega/shared";
-import type { VocabEntry } from "@/features/library/model";
+import { listVocabExamples, type VocabEntry } from "@/features/library/model";
 import { buildMetaId, buildVocabCardId } from "./model";
 import { isScrollKeyEnabled } from "./store";
 
@@ -8,7 +8,9 @@ export type FeedCard = {
   kind: "authored" | "vocab" | "recap";
   category: string;
   title: string;
+  subtitle: string | null;
   body: string;
+  bodyVariants: string[] | null;
   source: string | null;
   learning: boolean;
   box: number | null;
@@ -23,8 +25,20 @@ const isDue = (nextDue: string | null, today: string): boolean =>
 
 const buildVocabDefinition = (definition: string): string => `**${definition}**`;
 
-const buildVocabBody = (definition: string, example: string): string =>
-  example ? `${buildVocabDefinition(definition)}\n\n${example}` : buildVocabDefinition(definition);
+const buildVocabBack = (definition: string, example: string, synonyms: string[]): string => {
+  const parts = [buildVocabDefinition(definition)];
+  if (example) parts.push(example);
+  if (synonyms.length > 0) parts.push(`_Synonyms: ${synonyms.join(", ")}_`);
+  return parts.join("\n\n");
+};
+
+const buildVocabBackVariants = (entry: VocabEntry): string[] => {
+  const examples = listVocabExamples(entry);
+  const synonyms = entry.synonyms ?? [];
+  return (examples.length > 0 ? examples : [""]).map((example) =>
+    buildVocabBack(entry.definition, example, synonyms),
+  );
+};
 
 export function buildAuthoredFeedCards(
   cards: MindCard[],
@@ -43,7 +57,9 @@ export function buildAuthoredFeedCards(
       kind: "authored",
       category: c.category,
       title: c.title,
+      subtitle: null,
       body: c.body,
+      bodyVariants: null,
       source: c.source,
       learning: c.box !== null,
       box: c.box,
@@ -68,20 +84,25 @@ export function buildVocabFeedCards(
   );
   return vocab
     .filter((entry) => !hiddenDerivedIds.has(buildMetaId("hide", buildVocabCardId(entry.id))))
-    .map((entry) => ({
-      id: buildVocabCardId(entry.id),
-      kind: "vocab",
-      category: "vocabulary",
-      title: entry.term,
-      body: buildVocabBody(entry.definition, entry.example),
-      source: null,
-      learning: true,
-      box: entry.box,
-      due: isDue(entry.nextDue, today),
-      maskedBody: buildVocabDefinition(entry.definition),
-      flippable: true,
-      liked: likedDerivedIds.has(buildMetaId("like", buildVocabCardId(entry.id))),
-    }));
+    .map((entry) => {
+      const bodyVariants = buildVocabBackVariants(entry);
+      return {
+        id: buildVocabCardId(entry.id),
+        kind: "vocab" as const,
+        category: "vocabulary",
+        title: entry.term,
+        subtitle: entry.phonetic || null,
+        body: bodyVariants[0],
+        bodyVariants,
+        source: null,
+        learning: true,
+        box: entry.box,
+        due: isDue(entry.nextDue, today),
+        maskedBody: buildVocabDefinition(entry.definition),
+        flippable: true,
+        liked: likedDerivedIds.has(buildMetaId("like", buildVocabCardId(entry.id))),
+      };
+    });
 }
 
 export function buildFeedPool(
