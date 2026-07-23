@@ -1,4 +1,12 @@
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { cx } from "./cx";
 import { Icon } from "./icons";
@@ -111,24 +119,88 @@ export function FloatingMenu({
   );
 }
 
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+
 /**
  * Right-click context menu, styled like `Menu`. HeroUI has no context-menu
  * primitive (and its Dropdown's dismiss-on-interact-outside races with the
  * right-click that would open it), so this wraps the target in a `display:contents`
- * element and opens a {@link FloatingMenu} at the cursor.
+ * element and opens a {@link FloatingMenu} at the cursor. With `longPress`, a held
+ * touch/pen pointer opens it too.
  */
-export function ContextMenu({ children, items }: { children: ReactNode; items: MenuItem[] }) {
+export function ContextMenu({
+  children,
+  items,
+  longPress = false,
+  onLongPressPending,
+}: {
+  children: ReactNode;
+  items: MenuItem[];
+  longPress?: boolean;
+  onLongPressPending?: (pending: boolean) => void;
+}) {
   const [pos, setPos] = useState<MenuPos | null>(null);
+  const pressTimerRef = useRef<number | null>(null);
+  const pressOriginRef = useRef<MenuPos | null>(null);
+  const suppressClickRef = useRef(false);
+
+  const cancelPress = () => {
+    if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
+    pressTimerRef.current = null;
+    pressOriginRef.current = null;
+    onLongPressPending?.(false);
+  };
+
+  useEffect(
+    () => () => {
+      if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
+    },
+    [],
+  );
+
+  const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!longPress || event.pointerType === "mouse") return;
+    pressOriginRef.current = { x: event.clientX, y: event.clientY };
+    onLongPressPending?.(true);
+    pressTimerRef.current = window.setTimeout(() => {
+      pressTimerRef.current = null;
+      suppressClickRef.current = true;
+      onLongPressPending?.(false);
+      setPos(pressOriginRef.current);
+      pressOriginRef.current = null;
+    }, LONG_PRESS_MS);
+  };
+
+  const handlePressMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const origin = pressOriginRef.current;
+    if (origin === null || pressTimerRef.current === null) return;
+    const distance = Math.hypot(event.clientX - origin.x, event.clientY - origin.y);
+    if (distance > LONG_PRESS_MOVE_TOLERANCE_PX) cancelPress();
+  };
+
+  const handleClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) return;
+    suppressClickRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
     <>
-      {/** biome-ignore lint/a11y/noStaticElementInteractions: a layout-neutral (display:contents) wrapper that only forwards right-click; keyboard users reach the same actions via the row's Menu (⋯) */}
+      {/** biome-ignore lint/a11y/noStaticElementInteractions: a layout-neutral (display:contents) wrapper that only forwards right-click/long-press; keyboard users reach the same actions via each surface's own controls (row ⋯ menus, the scroll manager) */}
       <div
         className="contents"
         onContextMenu={(e) => {
           e.preventDefault();
+          cancelPress();
           setPos({ x: e.clientX, y: e.clientY });
         }}
+        onPointerDown={handlePressStart}
+        onPointerMove={handlePressMove}
+        onPointerUp={cancelPress}
+        onPointerCancel={cancelPress}
+        onClickCapture={handleClickCapture}
       >
         {children}
       </div>
