@@ -69,6 +69,10 @@ export interface UiSlice {
   copyTask: (t: Task) => void;
   clearClipboard: () => void;
 
+  /** one-shot ⌘K → /vocab handoff; the vocab page consumes and clears it */
+  pendingVocabTerm: string | null;
+  setPendingVocabTerm: (term: string | null) => void;
+
   toast: ToastState | null;
   pushToast: (msg: string) => void;
   /** A sticky toast with a single action (e.g. the PWA "Reload" prompt). Stays until dismissed or acted on. */
@@ -216,6 +220,9 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
       },
     }),
   clearClipboard: () => set({ clipboardTask: null }),
+
+  pendingVocabTerm: null,
+  setPendingVocabTerm: (pendingVocabTerm) => set({ pendingVocabTerm }),
 
   toast: null,
   pushToast: (message) => {

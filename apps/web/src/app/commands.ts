@@ -102,6 +102,14 @@ export const NAV_COMMANDS: NavCommand[] = [
     to: "/scroll/manage",
     keywords: "cards scroll mind deck flashcards manage",
   },
+  {
+    id: "nav-vocab",
+    label: "Vocabulary",
+    sublabel: "Words · manager",
+    icon: "book",
+    to: "/vocab",
+    keywords: "vocab words dictionary language vocabulary terms",
+  },
 ];
 
 export const ACTION_COMMANDS: ActionCommand[] = [
@@ -146,6 +154,17 @@ export const ACTION_COMMANDS: ActionCommand[] = [
     run: ({ store, close }) => {
       void store.getState().resetDemo();
       store.getState().pushToast("Demo data reset");
+      close();
+    },
+  },
+  {
+    id: "action-add-word",
+    label: "Add word",
+    icon: "languages",
+    keywords: "add word new vocab vocabulary term",
+    run: ({ store, query, navigate, close }) => {
+      store.getState().setPendingVocabTerm(query.trim());
+      navigate("/vocab");
       close();
     },
   },

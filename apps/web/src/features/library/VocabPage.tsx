@@ -1,5 +1,5 @@
 import { Button } from "@heroui/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, cx, EmptyState, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
@@ -41,6 +41,8 @@ const SORT_COLUMNS: { column: VocabSortColumn; label: string }[] = [
 export function VocabPage() {
   const vocab = useStore((s) => s.vocab);
   const removeVocab = useStore((s) => s.removeVocab);
+  const pendingVocabTerm = useStore((s) => s.pendingVocabTerm);
+  const setPendingVocabTerm = useStore((s) => s.setPendingVocabTerm);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<VocabFilter>("all");
@@ -76,6 +78,14 @@ export function VocabPage() {
     if (pendingDelete) removeVocab(pendingDelete.id);
     setPendingDelete(null);
   };
+
+  useEffect(() => {
+    if (pendingVocabTerm === null) return;
+    setEditorEntryId(null);
+    setPrefillTerm(pendingVocabTerm);
+    setIsEditorOpen(true);
+    setPendingVocabTerm(null);
+  }, [pendingVocabTerm, setPendingVocabTerm]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
