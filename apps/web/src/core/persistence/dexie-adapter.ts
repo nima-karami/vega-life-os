@@ -1,5 +1,6 @@
 import type { Table } from "dexie";
 import {
+  COLLECTIONS,
   type CollectionName,
   createEmptyDataset,
   type Dataset,
@@ -23,32 +24,10 @@ export class DexieAdapter implements PersistenceAdapter {
   }
 
   async loadAll(): Promise<Dataset> {
-    const [values, goals, habits, tasks, books, movies, vocab, reviews, journal, calendarEvents] =
-      await Promise.all([
-        db.values.toArray(),
-        db.goals.toArray(),
-        db.habits.toArray(),
-        db.tasks.toArray(),
-        db.books.toArray(),
-        db.movies.toArray(),
-        db.vocab.toArray(),
-        db.reviews.toArray(),
-        db.journal.toArray(),
-        db.calendarEvents.toArray(),
-      ]);
-    return {
-      ...createEmptyDataset(),
-      values,
-      goals,
-      habits,
-      tasks,
-      books,
-      movies,
-      vocab,
-      reviews,
-      journal,
-      calendarEvents,
-    };
+    const entries = await Promise.all(
+      COLLECTIONS.map(async (col) => [col, await tableFor(col).toArray()] as const),
+    );
+    return { ...createEmptyDataset(), ...Object.fromEntries(entries) } as Dataset;
   }
 
   async load<C extends CollectionName>(col: C): Promise<Dataset[C]> {
@@ -68,17 +47,6 @@ export class DexieAdapter implements PersistenceAdapter {
   }
 
   async clearAll(): Promise<void> {
-    await Promise.all([
-      db.values.clear(),
-      db.goals.clear(),
-      db.habits.clear(),
-      db.tasks.clear(),
-      db.books.clear(),
-      db.movies.clear(),
-      db.vocab.clear(),
-      db.reviews.clear(),
-      db.journal.clear(),
-      db.calendarEvents.clear(),
-    ]);
+    await Promise.all(COLLECTIONS.map((col) => db[col].clear()));
   }
 }
