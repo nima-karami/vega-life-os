@@ -198,6 +198,7 @@ export function ScrollPage() {
     hideMindCard(card.id);
     announce("Hidden");
     pushToast("Hidden");
+    setFlippedId(null);
     advance();
   };
 
@@ -215,6 +216,7 @@ export function ScrollPage() {
     if (card.kind === "vocab") reviewVocab(card.id.slice(VOCAB_ID_PREFIX.length), correct);
     else gradeMindCard(card.id, correct);
     announce(correct ? `Got it — box ${nextBox}` : "Again — back to box 1");
+    setFlippedId(null);
     advance();
   };
 
