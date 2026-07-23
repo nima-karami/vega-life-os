@@ -110,9 +110,10 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
       for (const card of get().mindCards.filter((c) => isSameCategory(c.category, from))) {
         get().updateMindCard(card.id, { category: target });
       }
+      const targetId = metaId("category", target);
       const old = get().mindMeta.find((m) => m.id === metaId("category", from));
       if (old && !old.value) putMeta("category", target, false);
-      if (old) {
+      if (old && old.id !== targetId) {
         set((s) => ({ mindMeta: s.mindMeta.filter((m) => m.id !== old.id) }));
         saveRemove("mindMeta", old.id);
       }

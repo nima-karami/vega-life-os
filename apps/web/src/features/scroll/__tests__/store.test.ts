@@ -102,4 +102,15 @@ describe("scroll slice", () => {
     expect(isScrollKeyEnabled(s.getState().mindMeta, "category", "Topic M")).toBe(false);
     expect(s.getState().mindMeta.some((m) => m.id === "category:tpoic m")).toBe(false);
   });
+
+  it("renameMindCategory preserves a disabled toggle on a case-only rename", () => {
+    const s = mk();
+    s.getState().addMindCard({ title: "a", category: "topic m" });
+    s.getState().setScrollToggle("category", "topic m", false);
+
+    s.getState().renameMindCategory("topic m", "Topic M");
+
+    expect(isScrollKeyEnabled(s.getState().mindMeta, "category", "Topic M")).toBe(false);
+    expect(s.getState().mindMeta.filter((m) => m.kind === "category")).toHaveLength(1);
+  });
 });
