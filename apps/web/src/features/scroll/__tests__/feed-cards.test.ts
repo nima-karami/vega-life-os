@@ -1,5 +1,6 @@
-import type { MindCard, MindMetaRecord, VocabEntry } from "@vega/shared";
+import type { MindCard, MindMetaRecord } from "@vega/shared";
 import { describe, expect, it } from "vitest";
+import type { VocabEntry } from "@/features/library/model";
 import { buildAuthoredFeedCards, buildFeedPool, buildVocabFeedCards } from "../feed-cards";
 import { metaId } from "../model";
 
@@ -31,8 +32,6 @@ const entry = (over: Partial<VocabEntry> = {}): VocabEntry => ({
   lastReviewed: null,
   nextDue: null,
   addedAt: "2026-07-01",
-  updatedAt: "",
-  fieldUpdatedAt: {},
   ...over,
 });
 

@@ -1,4 +1,5 @@
-import type { MindCard, MindMetaRecord, VocabEntry } from "@vega/shared";
+import type { MindCard, MindMetaRecord } from "@vega/shared";
+import type { VocabEntry } from "@/features/library/model";
 import { metaId } from "./model";
 import { isScrollKeyEnabled } from "./store";
 
