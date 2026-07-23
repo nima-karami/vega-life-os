@@ -3,11 +3,12 @@ import { motion, type PanInfo, useReducedMotion } from "framer-motion";
 import { useRef, useState } from "react";
 import { ContextMenu, cx, Icon, Label, type MenuItem } from "@/core/ui";
 import { CardMarkdown } from "./CardMarkdown";
-import type { FeedCard } from "./feed-cards";
+import { type FeedCard, resolveBodyVariant } from "./feed-cards";
 
 export interface FeedCardViewProps {
   card: FeedCard;
   reversed: boolean;
+  variant: number;
   flipped: boolean;
   onFlip: () => void;
   onToggleLike: () => void;
@@ -35,7 +36,7 @@ function CardFront({ card }: { card: FeedCard }) {
   return (
     <div className="flex h-full flex-col px-8 pt-16 pb-24 text-center">
       <Label className="uppercase tracking-wide">{card.category}</Label>
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-1 flex-col items-center justify-center">
         <h2
           className={cx(
             "line-clamp-6 font-semibold tracking-tight text-foreground",
@@ -44,6 +45,7 @@ function CardFront({ card }: { card: FeedCard }) {
         >
           {card.title}
         </h2>
+        {card.subtitle && <p className="mt-3 text-sm text-muted">{card.subtitle}</p>}
       </div>
       {card.source ? <p className="text-sm text-muted">{card.source}</p> : <span aria-hidden />}
     </div>
@@ -72,11 +74,11 @@ function SingleFaceCard({ card }: { card: FeedCard }) {
   );
 }
 
-function CardBack({ card }: { card: FeedCard }) {
+function CardBack({ body }: { body: string }) {
   return (
     <div className="flex h-full flex-col px-8 pt-16 pb-24">
       <div className="flex-1 overflow-y-auto">
-        <CardMarkdown markdown={card.body} className="journal-prose text-left" />
+        <CardMarkdown markdown={body} className="journal-prose text-left" />
       </div>
     </div>
   );
@@ -94,19 +96,20 @@ function ReversedFront({ card }: { card: FeedCard }) {
   );
 }
 
-function ReversedBack({ card }: { card: FeedCard }) {
+function ReversedBack({ card, body }: { card: FeedCard; body: string }) {
   return (
     <div className="flex h-full flex-col px-8 pt-16 pb-24">
       <h2
         className={cx(
-          "mb-4 font-semibold tracking-tight text-foreground",
+          "font-semibold tracking-tight text-foreground",
           getTitleSizeClass(card.title),
         )}
       >
         {card.title}
       </h2>
-      <div className="flex-1 overflow-y-auto">
-        <CardMarkdown markdown={card.body} className="journal-prose text-left" />
+      {card.subtitle && <p className="mt-1 text-sm text-muted">{card.subtitle}</p>}
+      <div className="mt-4 flex-1 overflow-y-auto">
+        <CardMarkdown markdown={body} className="journal-prose text-left" />
       </div>
     </div>
   );
@@ -179,6 +182,7 @@ function RightRail({
 export function FeedCardView({
   card,
   reversed,
+  variant,
   flipped,
   onFlip,
   onToggleLike,
@@ -189,6 +193,7 @@ export function FeedCardView({
   onGrade,
 }: FeedCardViewProps) {
   const shouldReduceMotion = useReducedMotion();
+  const backBody = resolveBodyVariant(card, variant);
   const [isPressPending, setIsPressPending] = useState(false);
   const canFlip = card.flippable && card.body !== "";
   const canGrade = flipped && card.learning;
@@ -257,7 +262,11 @@ export function FeedCardView({
                     {reversed ? <ReversedFront card={card} /> : <CardFront card={card} />}
                   </div>
                   <div className={cx(FACE, "[transform:rotateY(180deg)]")}>
-                    {reversed ? <ReversedBack card={card} /> : <CardBack card={card} />}
+                    {reversed ? (
+                      <ReversedBack card={card} body={backBody} />
+                    ) : (
+                      <CardBack body={backBody} />
+                    )}
                   </div>
                 </motion.div>
               </div>

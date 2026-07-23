@@ -269,6 +269,7 @@ export function ScrollPage() {
       <FeedCardView
         card={card}
         reversed={entry.reversed}
+        variant={entry.variant}
         flipped={flippedId === card.id}
         onFlip={() => setFlippedId((current) => (current === card.id ? null : card.id))}
         onToggleLike={() => handleToggleLike(card)}
