@@ -1,19 +1,26 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, Icon, useCompactModal } from "@/core/ui";
+import { ConfirmDialog, Icon, Select, type SelectOption, useCompactModal } from "@/core/ui";
 import { RichJournalEditor } from "@/features/journal/editor";
 import { CategoryField, FIELD_CLASS } from "./CategoryField";
-import type { MindCard } from "./model";
+import type { MindCard, MindCardType } from "./model";
+import { isFlippableByDefault, MIND_CARD_TYPE_LABELS } from "./model";
 
 const TITLE_HINT = 280;
 const BODY_HINT = 500;
 
+const TYPE_OPTIONS: SelectOption[] = Object.entries(MIND_CARD_TYPE_LABELS).map(
+  ([value, label]) => ({ value, label }),
+);
+
 interface CardFormValues {
   title: string;
   body: string;
+  type: MindCardType;
   category: string;
   source: string;
+  flippable: boolean;
   learning: boolean;
 }
 
@@ -21,8 +28,10 @@ function readCardFields(card: MindCard | null): CardFormValues {
   return {
     title: card?.title ?? "",
     body: card?.body ?? "",
+    type: card?.type ?? "model",
     category: card?.category ?? "",
     source: card?.source ?? "",
+    flippable: card?.flippable ?? true,
     learning: card ? card.box !== null : false,
   };
 }
@@ -65,14 +74,41 @@ function useCardEditorForm({
   const setField = <K extends keyof CardFormValues>(key: K, next: CardFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: next }));
 
+  const handleTypeChange = (type: MindCardType) => {
+    const flippable = isFlippableByDefault(type);
+    setValues((current) => ({
+      ...current,
+      type,
+      flippable,
+      learning: flippable ? current.learning : false,
+    }));
+  };
+
+  const handleFlippableToggle = () => {
+    setValues((current) => ({
+      ...current,
+      flippable: !current.flippable,
+      learning: current.flippable ? false : current.learning,
+    }));
+  };
+
+  useEffect(() => {
+    if (isOpen && cardId !== null && card === null) {
+      pushToast("Card no longer exists");
+      onClose();
+    }
+  }, [isOpen, cardId, card, onClose, pushToast]);
+
   const handleSave = () => {
     const title = values.title.trim();
     if (!title) return;
     const fields = {
       title,
       body: values.body,
+      type: values.type,
       category: values.category.trim(),
       source: values.source.trim() || null,
+      flippable: values.flippable,
     };
     try {
       if (isCreate) {
@@ -90,9 +126,9 @@ function useCardEditorForm({
   };
 
   const handleDelete = () => {
-    if (cardId) removeMindCard(cardId);
     setIsConfirmingDelete(false);
     onClose();
+    if (cardId) removeMindCard(cardId);
   };
 
   return {
@@ -100,6 +136,9 @@ function useCardEditorForm({
     isCreate,
     values,
     setField,
+    handleTypeChange,
+    handleFlippableToggle,
+    wasLearning: initialLearning.current,
     handleSave,
     handleDelete,
     isConfirmingDelete,
@@ -121,6 +160,9 @@ export function CardEditorModal({
     isCreate,
     values,
     setField,
+    handleTypeChange,
+    handleFlippableToggle,
+    wasLearning,
     handleSave,
     handleDelete,
     isConfirmingDelete,
@@ -181,6 +223,16 @@ export function CardEditorModal({
                 </div>
 
                 <div className="space-y-2.5">
+                  <span className="text-xs text-muted">Type</span>
+                  <Select
+                    ariaLabel="Card type"
+                    value={values.type}
+                    onValueChange={(type) => handleTypeChange(type as MindCardType)}
+                    options={TYPE_OPTIONS}
+                  />
+                </div>
+
+                <div className="space-y-2.5">
                   <span className="text-xs text-muted">Category</span>
                   <CategoryField
                     value={values.category}
@@ -202,16 +254,35 @@ export function CardEditorModal({
                 </label>
 
                 <div className="space-y-2.5">
-                  <span className="text-xs text-muted">Review</span>
-                  <Button
-                    size="sm"
-                    aria-pressed={values.learning}
-                    variant={values.learning ? "primary" : "outline"}
-                    onPress={() => setField("learning", !values.learning)}
-                  >
-                    <Icon name="brain" size={14} />
-                    Learning mode
-                  </Button>
+                  <span className="text-xs text-muted">Behavior</span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      aria-pressed={values.flippable}
+                      variant={values.flippable ? "primary" : "outline"}
+                      onPress={handleFlippableToggle}
+                    >
+                      <Icon name="repeat" size={14} />
+                      Flippable
+                    </Button>
+                    <Button
+                      size="sm"
+                      aria-pressed={values.learning}
+                      isDisabled={!values.flippable}
+                      variant={values.learning ? "primary" : "outline"}
+                      onPress={() => setField("learning", !values.learning)}
+                    >
+                      <Icon name="brain" size={14} />
+                      Learning mode
+                    </Button>
+                  </div>
+                  {!values.flippable && (
+                    <p className="text-xs text-muted">
+                      {wasLearning
+                        ? "Saving ends this card's learning — reviews need a hidden back."
+                        : "Learning needs a flippable card."}
+                    </p>
+                  )}
                 </div>
 
                 {isOverLong && (

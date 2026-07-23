@@ -10,6 +10,18 @@ const FLIPPABLE_BY_DEFAULT: readonly MindCardType[] = ["model", "fact"];
 export const isFlippableByDefault = (type: MindCardType): boolean =>
   FLIPPABLE_BY_DEFAULT.includes(type);
 
+export const MIND_CARD_TYPE_LABELS: Record<MindCardType, string> = {
+  model: "Model",
+  fact: "Fact",
+  excerpt: "Excerpt",
+  quote: "Quote",
+  principle: "Principle",
+  affirmation: "Affirmation",
+  reminder: "Reminder",
+  aspiration: "Aspiration",
+  prompt: "Prompt",
+};
+
 export const normalizeCategory = (raw: string): string => raw.trim();
 
 export const matchKey = (raw: string): string => raw.trim().toLowerCase();
