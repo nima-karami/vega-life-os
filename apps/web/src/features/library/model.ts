@@ -39,11 +39,23 @@ export interface VocabEntry {
   id: string;
   term: string;
   definition: string;
+  /** legacy single example — superseded by `examples`, kept inert for old records */
   example: string;
+  /** American IPA, slash-delimited; "" = unknown */
+  phonetic: string;
+  examples: string[];
+  synonyms: string[];
   language: string;
   /** Leitner box 1..5 for spaced repetition */
   box: number;
   lastReviewed: string | null; // ISO date
   nextDue: string | null; // ISO date
   addedAt: string; // ISO date
+}
+
+// Dexie loads skip schema parsing, so a legacy sandbox record may lack the array.
+export function listVocabExamples(entry: VocabEntry): string[] {
+  const authored = (entry.examples ?? []).filter((example) => example.trim() !== "");
+  if (authored.length > 0) return authored;
+  return entry.example ? [entry.example] : [];
 }
