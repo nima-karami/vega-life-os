@@ -5,6 +5,7 @@ import { CalendarCallbackPage } from "@/features/calendar-sync";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { EntriesPage, JournalPage } from "@/features/journal";
 import { ScrollManagePage } from "@/features/scroll/ScrollManagePage";
+import { ScrollPage } from "@/features/scroll/ScrollPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { TodayPage } from "@/features/today/TodayPage";
 import { ValuesView } from "@/features/values";
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
           { path: "calendar/callback", element: <CalendarCallbackPage /> },
           { path: "journal/:date", element: <JournalPage /> },
           { path: "entries", element: <EntriesPage /> },
+          { path: "scroll", element: <ScrollPage /> },
           { path: "scroll/manage", element: <ScrollManagePage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "settings", element: <SettingsPage /> },

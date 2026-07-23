@@ -70,6 +70,7 @@ import {
   Flower,
   Footprints,
   Fuel,
+  GalleryVertical,
   Gamepad2,
   Gem,
   Gift,
@@ -236,6 +237,7 @@ export const Ic: Record<IconName, LucideIcon> = {
   pause: Pause,
   play: Play,
   layers: Layers,
+  scroll: GalleryVertical,
 
   // Focus & goals
   target: Target,

@@ -87,6 +87,14 @@ export const NAV_COMMANDS: NavCommand[] = [
     keywords: "entries journal gratitude mood log history past",
   },
   {
+    id: "nav-scroll",
+    label: "Scroll",
+    sublabel: "Mind scroll · feed",
+    icon: "scroll",
+    to: "/scroll",
+    keywords: "scroll feed cards mind flashcards",
+  },
+  {
     id: "nav-scroll-manage",
     label: "Cards",
     sublabel: "Mind scroll · deck",

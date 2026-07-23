@@ -145,7 +145,7 @@ test("phone bottom nav shows the primary tabs and navigates between routes (390p
 
   const nav = page.getByRole("navigation", { name: "Primary" });
   await expect(nav).toBeVisible();
-  for (const label of ["Today", "Calendar", "Habits", "Values", "Analytics"]) {
+  for (const label of ["Today", "Calendar", "Habits", "Values", "Analytics", "Scroll"]) {
     await expect(nav.getByRole("button", { name: label })).toBeVisible();
   }
 
