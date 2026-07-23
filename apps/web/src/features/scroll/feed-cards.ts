@@ -20,6 +20,11 @@ export type FeedCard = {
   liked: boolean;
 };
 
+export const resolveBodyVariant = (card: FeedCard, variant: number): string => {
+  if (card.bodyVariants === null || card.bodyVariants.length === 0) return card.body;
+  return card.bodyVariants[variant % card.bodyVariants.length];
+};
+
 const isDue = (nextDue: string | null, today: string): boolean =>
   nextDue !== null && nextDue <= today;
 

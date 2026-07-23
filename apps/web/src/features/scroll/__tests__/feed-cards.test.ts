@@ -1,7 +1,12 @@
 import type { MindCard, MindMetaRecord } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import type { VocabEntry } from "@/features/library/model";
-import { buildAuthoredFeedCards, buildFeedPool, buildVocabFeedCards } from "../feed-cards";
+import {
+  buildAuthoredFeedCards,
+  buildFeedPool,
+  buildVocabFeedCards,
+  resolveBodyVariant,
+} from "../feed-cards";
 import { buildMetaId, buildVocabCardId } from "../model";
 
 const TODAY = "2026-07-22";
@@ -296,6 +301,34 @@ describe("buildVocabFeedCards", () => {
     expect(built[0].maskedBody).not.toContain("secret example");
     expect(built[0].maskedBody).not.toContain("secret synonym");
     expect(built[0].maskedBody).not.toContain("/oʊˈlɑ/");
+  });
+});
+
+describe("resolveBodyVariant", () => {
+  const vocabCard = buildVocabFeedCards(
+    [
+      entry({
+        id: "v1",
+        definition: "hello",
+        examples: ["first", "second", "third"],
+        example: "",
+      }),
+    ],
+    [],
+    TODAY,
+  )[0];
+
+  it("selects the stamped variant", () => {
+    expect(resolveBodyVariant(vocabCard, 1)).toBe("**hello**\n\nsecond");
+  });
+
+  it("clamps an out-of-range variant via modulo", () => {
+    expect(resolveBodyVariant(vocabCard, 7)).toBe(resolveBodyVariant(vocabCard, 1));
+  });
+
+  it("returns body for cards without variants", () => {
+    const authored = buildAuthoredFeedCards([card({ id: "a", body: "note" })], [], TODAY)[0];
+    expect(resolveBodyVariant(authored, 2)).toBe("note");
   });
 });
 
