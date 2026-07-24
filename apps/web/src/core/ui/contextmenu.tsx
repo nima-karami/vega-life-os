@@ -121,6 +121,9 @@ export function FloatingMenu({
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+// Hold this long before the press "dips" (scale feedback). A quick tap-to-flip stays
+// below it, so it flips with no dip; only a genuine hold engages the press feedback.
+const PRESS_FEEDBACK_MS = 180;
 
 /**
  * Right-click context menu, styled like `Menu`. HeroUI has no context-menu
@@ -142,12 +145,15 @@ export function ContextMenu({
 }) {
   const [pos, setPos] = useState<MenuPos | null>(null);
   const pressTimerRef = useRef<number | null>(null);
+  const feedbackTimerRef = useRef<number | null>(null);
   const pressOriginRef = useRef<MenuPos | null>(null);
   const suppressClickRef = useRef(false);
 
   const cancelPress = () => {
     if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
+    if (feedbackTimerRef.current !== null) window.clearTimeout(feedbackTimerRef.current);
     pressTimerRef.current = null;
+    feedbackTimerRef.current = null;
     pressOriginRef.current = null;
     onLongPressPending?.(false);
   };
@@ -155,6 +161,7 @@ export function ContextMenu({
   useEffect(
     () => () => {
       if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
+      if (feedbackTimerRef.current !== null) window.clearTimeout(feedbackTimerRef.current);
     },
     [],
   );
@@ -162,7 +169,10 @@ export function ContextMenu({
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!longPress || event.pointerType === "mouse") return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
-    onLongPressPending?.(true);
+    feedbackTimerRef.current = window.setTimeout(() => {
+      feedbackTimerRef.current = null;
+      onLongPressPending?.(true);
+    }, PRESS_FEEDBACK_MS);
     pressTimerRef.current = window.setTimeout(() => {
       pressTimerRef.current = null;
       suppressClickRef.current = true;

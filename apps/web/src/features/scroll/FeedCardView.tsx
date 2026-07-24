@@ -1,5 +1,4 @@
-import { Button } from "@heroui/react";
-import { motion, type PanInfo, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, type PanInfo, useReducedMotion } from "framer-motion";
 import { useRef, useState } from "react";
 import { ContextMenu, cx, Icon, Label, type MenuItem } from "@/core/ui";
 import { CardMarkdown } from "./CardMarkdown";
@@ -46,8 +45,8 @@ function CardFront({ card }: { card: FeedCard }) {
           {card.title}
         </h2>
         {card.subtitle && <p className="mt-3 text-sm text-muted">{card.subtitle}</p>}
+        {card.source && <p className="mt-2 text-sm text-muted">{card.source}</p>}
       </div>
-      {card.source ? <p className="text-sm text-muted">{card.source}</p> : <span aria-hidden />}
     </div>
   );
 }
@@ -64,12 +63,12 @@ function SingleFaceCard({ card }: { card: FeedCard }) {
       >
         {card.title}
       </h2>
+      {card.source && <p className="mt-2 text-sm text-muted">{card.source}</p>}
       {card.body !== "" && (
         <div className="mt-6 flex-1 overflow-y-auto">
           <CardMarkdown markdown={card.body} className="journal-prose text-left" />
         </div>
       )}
-      {card.source ? <p className="mt-auto text-sm text-muted">{card.source}</p> : null}
     </div>
   );
 }
@@ -115,32 +114,58 @@ function ReversedBack({ card, body }: { card: FeedCard; body: string }) {
   );
 }
 
-function GradeButtons({ onGrade }: { onGrade: (correct: boolean) => void }) {
+function GradeRailButtons({
+  onGrade,
+  shouldReduceMotion,
+}: {
+  onGrade: (correct: boolean) => void;
+  shouldReduceMotion: boolean | null;
+}) {
   return (
-    <div className="absolute inset-x-0 bottom-8 z-10 flex justify-center gap-4 px-8">
-      <Button
-        size="lg"
-        variant="secondary"
-        className="min-h-12 w-32"
-        onPress={() => onGrade(false)}
+    <motion.div
+      className="flex flex-col items-center gap-3"
+      initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: EASE }}
+    >
+      <button
+        type="button"
+        aria-label="Got it"
+        onClick={() => onGrade(true)}
+        className={cx(RAIL_BUTTON, "border-border bg-surface/80 text-muted hover:text-foreground")}
       >
-        Again
-      </Button>
-      <Button size="lg" variant="primary" className="min-h-12 w-32" onPress={() => onGrade(true)}>
-        Got it
-      </Button>
-    </div>
+        <Icon name="check" size={20} />
+      </button>
+      <button
+        type="button"
+        aria-label="Again"
+        onClick={() => onGrade(false)}
+        className={cx(RAIL_BUTTON, "border-border bg-surface/80 text-muted hover:text-foreground")}
+      >
+        <Icon name="repeat" size={20} />
+      </button>
+    </motion.div>
   );
 }
 
 function RightRail({
   card,
+  canGrade,
+  shouldReduceMotion,
   onToggleLike,
   onToggleLearning,
-}: Pick<FeedCardViewProps, "card" | "onToggleLike" | "onToggleLearning">) {
+  onGrade,
+}: Pick<FeedCardViewProps, "card" | "onToggleLike" | "onToggleLearning" | "onGrade"> & {
+  canGrade: boolean;
+  shouldReduceMotion: boolean | null;
+}) {
   const isVocab = card.kind === "vocab";
   return (
     <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-3">
+      <AnimatePresence>
+        {canGrade && <GradeRailButtons onGrade={onGrade} shouldReduceMotion={shouldReduceMotion} />}
+      </AnimatePresence>
       <button
         type="button"
         aria-label="Like card"
@@ -276,9 +301,14 @@ export function FeedCardView({
           )}
         </div>
 
-        {canGrade && <GradeButtons onGrade={onGrade} />}
-
-        <RightRail card={card} onToggleLike={onToggleLike} onToggleLearning={onToggleLearning} />
+        <RightRail
+          card={card}
+          canGrade={canGrade}
+          shouldReduceMotion={shouldReduceMotion}
+          onToggleLike={onToggleLike}
+          onToggleLearning={onToggleLearning}
+          onGrade={onGrade}
+        />
       </article>
     </ContextMenu>
   );
