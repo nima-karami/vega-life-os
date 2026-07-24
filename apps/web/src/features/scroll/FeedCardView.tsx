@@ -51,7 +51,7 @@ function CardFront({ card }: { card: FeedCard }) {
   );
 }
 
-function SingleFaceCard({ card }: { card: FeedCard }) {
+function NoteCard({ card }: { card: FeedCard }) {
   return (
     <div className="flex h-full flex-col px-8 pt-16 pb-24 text-center">
       <Label className="uppercase tracking-wide">{card.category}</Label>
@@ -71,6 +71,37 @@ function SingleFaceCard({ card }: { card: FeedCard }) {
       )}
     </div>
   );
+}
+
+function QuoteCard({ card }: { card: FeedCard }) {
+  return (
+    <div className="flex h-full flex-col px-8 pt-16 pb-24 text-center">
+      <Label className="uppercase tracking-wide">{card.category}</Label>
+      <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto">
+        <p className="text-2xl italic leading-relaxed tracking-tight text-foreground">
+          {card.body}
+        </p>
+        {card.source && <p className="mt-6 text-sm text-muted">— {card.source}</p>}
+      </div>
+    </div>
+  );
+}
+
+function PromptCard({ card }: { card: FeedCard }) {
+  return (
+    <div className="flex h-full flex-col px-8 pt-16 pb-24 text-center">
+      <Label className="uppercase tracking-wide">{card.category}</Label>
+      <div className="flex flex-1 items-center justify-center overflow-y-auto py-16">
+        <p className="text-2xl leading-relaxed tracking-tight text-foreground">{card.body}</p>
+      </div>
+    </div>
+  );
+}
+
+function SingleFaceCard({ card }: { card: FeedCard }) {
+  if (card.type === "quote") return <QuoteCard card={card} />;
+  if (card.type === "prompt") return <PromptCard card={card} />;
+  return <NoteCard card={card} />;
 }
 
 function CardBack({ body }: { body: string }) {

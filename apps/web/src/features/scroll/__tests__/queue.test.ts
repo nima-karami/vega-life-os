@@ -5,6 +5,7 @@ import { buildFeedQueue, computePassSeed, createSeededRng, type QueueEntry } fro
 const feedCard = (id: string, category: string): FeedCard => ({
   id,
   kind: "authored",
+  type: "note",
   category,
   title: id,
   subtitle: null,

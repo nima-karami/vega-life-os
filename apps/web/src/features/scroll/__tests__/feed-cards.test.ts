@@ -113,6 +113,7 @@ describe("buildAuthoredFeedCards", () => {
     expect(built[0]).toEqual({
       id: "a",
       kind: "authored",
+      type: "note",
       category: "Focus",
       title: "Inversion",
       subtitle: null,
@@ -173,6 +174,7 @@ describe("buildVocabFeedCards", () => {
     expect(built[0]).toEqual({
       id: "d:vocab:v1",
       kind: "vocab",
+      type: null,
       category: "vocabulary",
       title: "hola",
       subtitle: null,
@@ -353,5 +355,12 @@ describe("buildFeedPool", () => {
     ];
     const pool = buildFeedPool({ mindCards, mindMeta, vocab }, TODAY);
     expect(pool.map((c) => c.id)).toEqual(["a"]);
+  });
+
+  it("carries the mind-card type onto authored cards and null for vocab", () => {
+    const mindCards = [card({ id: "mc_q", type: "quote", flippable: false, source: "Seneca" })];
+    const pool = buildFeedPool({ mindCards, mindMeta: [], vocab: [entry({ id: "v1" })] }, TODAY);
+    expect(pool.find((c) => c.id === "mc_q")?.type).toBe("quote");
+    expect(pool.find((c) => c.kind === "vocab")?.type).toBeNull();
   });
 });

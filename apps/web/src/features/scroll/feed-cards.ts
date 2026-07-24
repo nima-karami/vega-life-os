@@ -1,11 +1,12 @@
 import type { MindCard, MindMetaRecord } from "@vega/shared";
 import { listVocabExamples, type VocabEntry } from "@/features/library/model";
-import { buildMetaId, buildVocabCardId } from "./model";
+import { buildMetaId, buildVocabCardId, type MindCardType } from "./model";
 import { isScrollKeyEnabled } from "./store";
 
 export type FeedCard = {
   id: string;
   kind: "authored" | "vocab" | "recap";
+  type: MindCardType | null;
   category: string;
   title: string;
   subtitle: string | null;
@@ -60,6 +61,7 @@ export function buildAuthoredFeedCards(
     .map((c) => ({
       id: c.id,
       kind: "authored",
+      type: c.type,
       category: c.category,
       title: c.title,
       subtitle: null,
@@ -94,6 +96,7 @@ export function buildVocabFeedCards(
       return {
         id: buildVocabCardId(entry.id),
         kind: "vocab" as const,
+        type: null,
         category: "vocabulary",
         title: entry.term,
         subtitle: entry.phonetic || null,
