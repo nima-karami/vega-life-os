@@ -1,5 +1,5 @@
 import { Modal, useOverlayState } from "@heroui/react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useStore } from "@/core/store";
 import { Icon, useCompactModal } from "@/core/ui";
 import type { Habit } from "@/features/habits/model";

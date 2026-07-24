@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { type AgentAction, runAgent } from "@/core/agent";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";

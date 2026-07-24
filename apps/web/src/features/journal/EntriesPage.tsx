@@ -1,6 +1,6 @@
 import { Button } from "@heroui/react";
 import { type ReactNode, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";

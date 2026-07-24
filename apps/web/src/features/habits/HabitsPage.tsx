@@ -1,6 +1,6 @@
 import { Card } from "@heroui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
 import { AddButton, Disclosure, Icon, Menu, type MenuItem } from "@/core/ui";

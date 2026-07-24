@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { DOW, dowIndex } from "@/core/lib/date";
 import { MOOD_LABEL } from "@/features/journal/model";
 import { CHART_PRIMARY } from "../chart-constants";

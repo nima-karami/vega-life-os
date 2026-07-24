@@ -1,6 +1,6 @@
 import { Button, ButtonGroup } from "@heroui/react";
 import { type ReactNode, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
 import { computeHabitWindowRate } from "@/features/habits";

@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Panel, SectionHead } from "@/core/ui";
 import { MOOD_LABEL } from "@/features/journal/model";
 import { describeMoodDelta, type MoodWeek } from "./mood";

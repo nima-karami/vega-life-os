@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";

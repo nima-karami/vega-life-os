@@ -1,6 +1,6 @@
 import { Avatar, Dropdown } from "@heroui/react";
 import { type ReactNode, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { firebaseEnabled, onAuth, signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";

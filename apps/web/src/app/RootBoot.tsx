@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router";
 import { onAuth } from "@/core/auth";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";

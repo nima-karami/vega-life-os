@@ -1,6 +1,6 @@
 import { isValid, parseISO } from "date-fns";
 import { useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router";
 import { formatLongDate, formatRelativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon, Label, UndoBar } from "@/core/ui";

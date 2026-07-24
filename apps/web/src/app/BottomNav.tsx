@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";

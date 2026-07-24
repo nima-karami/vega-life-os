@@ -1,6 +1,6 @@
 import { Button } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { formatLongDate, formatRelativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { CalendarPopover, Icon, IconButton, UndoBar } from "@/core/ui";

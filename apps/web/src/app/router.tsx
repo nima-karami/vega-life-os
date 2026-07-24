@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter } from "react-router";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { CalendarCallbackPage } from "@/features/calendar-sync";
