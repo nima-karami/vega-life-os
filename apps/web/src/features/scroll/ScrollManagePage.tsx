@@ -310,6 +310,18 @@ function CategoryChip({
   );
 }
 
+const EXCERPT_MAX = 60;
+
+const buildCardLabel = (card: MindCard): string => {
+  if (card.title.trim() !== "") return card.title;
+  const excerpt = card.body
+    .replace(/[*_`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (excerpt === "") return "Untitled";
+  return excerpt.length > EXCERPT_MAX ? `${excerpt.slice(0, EXCERPT_MAX).trimEnd()}…` : excerpt;
+};
+
 function CardRow({
   card,
   isExpanded,
@@ -328,13 +340,14 @@ function CardRow({
   onRestore: () => void;
 }) {
   const mode = card.box !== null ? `learning · box ${card.box}` : "regular";
+  const label = buildCardLabel(card);
   return (
     <div>
       <div className={cx("grid items-center gap-3 px-2 py-1.5", GRID_COLS)}>
         <button
           type="button"
           onClick={onToggleExpand}
-          aria-label={isExpanded ? `Collapse ${card.title}` : `Preview ${card.title}`}
+          aria-label={isExpanded ? `Collapse ${label}` : `Preview ${label}`}
           aria-expanded={isExpanded}
           className="justify-self-center rounded p-1.5 text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
         >
@@ -343,10 +356,10 @@ function CardRow({
         <button
           type="button"
           onClick={onOpen}
-          aria-label={`Edit ${card.title || "untitled card"}`}
+          aria-label={`Edit ${label}`}
           className="truncate text-left text-sm font-medium text-foreground outline-none hover:text-accent focus-visible:ring-2 focus-visible:ring-accent"
         >
-          {card.title || "Untitled"}
+          {label}
         </button>
         <span className="truncate text-sm text-muted">{MIND_CARD_TYPE_LABELS[card.type]}</span>
         <span className="truncate text-sm text-muted">{card.category || "—"}</span>
@@ -362,7 +375,7 @@ function CardRow({
         <button
           type="button"
           onClick={isHiddenView ? onRestore : onHide}
-          aria-label={isHiddenView ? `Restore ${card.title}` : `Hide ${card.title}`}
+          aria-label={isHiddenView ? `Restore ${label}` : `Hide ${label}`}
           className="justify-self-center rounded p-1.5 text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
         >
           <Icon name={isHiddenView ? "eye" : "eye-off"} size={14} />
