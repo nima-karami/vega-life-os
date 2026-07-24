@@ -1,24 +1,18 @@
-export type { MindCard, MindCardType, MindMetaRecord } from "@vega/shared";
+export type { MindCard, MindCardOrigin, MindCardType, MindMetaRecord } from "@vega/shared";
 
 import type { MindCardType, MindMetaRecord } from "@vega/shared";
 
 const VOCAB_ID_PREFIX = "d:vocab:";
 const DERIVED_ID_PREFIX = "d:";
 
-const FLIPPABLE_BY_DEFAULT: readonly MindCardType[] = ["model", "fact"];
+const FLIPPABLE_BY_DEFAULT: readonly MindCardType[] = ["note"];
 
 export const isFlippableByDefault = (type: MindCardType): boolean =>
   FLIPPABLE_BY_DEFAULT.includes(type);
 
 export const MIND_CARD_TYPE_LABELS: Record<MindCardType, string> = {
-  model: "Model",
-  fact: "Fact",
-  excerpt: "Excerpt",
+  note: "Note",
   quote: "Quote",
-  principle: "Principle",
-  affirmation: "Affirmation",
-  reminder: "Reminder",
-  aspiration: "Aspiration",
   prompt: "Prompt",
 };
 

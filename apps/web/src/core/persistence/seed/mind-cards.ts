@@ -15,6 +15,7 @@ const card = (
   title,
   body,
   type,
+  origin: "manual",
   category,
   source: null,
   addedAt: iso(addDays(new Date(), -daysAgo)),
@@ -32,7 +33,7 @@ export function buildMindCards(): MindCard[] {
   return [
     card(
       "mc_inversion",
-      "model",
+      "note",
       true,
       "mental models",
       "Inversion",
@@ -41,7 +42,7 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_second_order",
-      "model",
+      "note",
       true,
       "mental models",
       "Second-order thinking",
@@ -50,7 +51,7 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_circle_competence",
-      "model",
+      "note",
       true,
       "mental models",
       "Circle of competence",
@@ -59,7 +60,7 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_opportunity_cost",
-      "model",
+      "note",
       true,
       "mental models",
       "Opportunity cost",
@@ -68,7 +69,7 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_anchoring",
-      "model",
+      "note",
       true,
       "mental models",
       "Anchoring",
@@ -77,7 +78,7 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_batna",
-      "model",
+      "note",
       true,
       "negotiation",
       "BATNA",
@@ -86,7 +87,7 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_mirroring",
-      "model",
+      "note",
       true,
       "negotiation",
       "Mirroring",
@@ -95,7 +96,7 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_calibrated_questions",
-      "model",
+      "note",
       true,
       "negotiation",
       "Calibrated questions",
@@ -104,13 +105,13 @@ export function buildMindCards(): MindCard[] {
     ),
     card(
       "mc_principle_deep_work",
-      "principle",
+      "note",
       false,
       "action",
       "No inputs before noon",
       "Mornings are for output. Messages, feeds, and news wait until the day's real work exists.",
       1,
     ),
-    card("mc_affirm_shipping", "affirmation", false, "life", "I finish what I start", "", 2),
+    card("mc_affirm_shipping", "note", false, "life", "I finish what I start", "", 2),
   ];
 }

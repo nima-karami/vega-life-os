@@ -68,7 +68,7 @@ function readCardFields(card: MindCard | null): CardFormValues {
   return {
     title: card?.title ?? "",
     body: card?.body ?? "",
-    type: card?.type ?? "model",
+    type: card?.type ?? "note",
     category: card?.category ?? "",
     source: card?.source ?? "",
     flippable: card?.flippable ?? true,

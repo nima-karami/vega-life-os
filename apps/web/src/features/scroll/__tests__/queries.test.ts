@@ -12,7 +12,8 @@ const card = (over: Partial<MindCard> = {}): MindCard => ({
   id: over.id ?? "mc_1",
   title: "",
   body: "",
-  type: "model",
+  type: "note",
+  origin: "manual",
   category: "",
   source: null,
   addedAt: "2026-07-01",
@@ -115,9 +116,9 @@ describe("queryMindCards", () => {
 
   it("sorts by type ascending with newest as tiebreak", () => {
     const cards = [
-      card({ id: "m", type: "model", addedAt: "2026-07-01" }),
-      card({ id: "f2", type: "fact", addedAt: "2026-07-02" }),
-      card({ id: "f1", type: "fact", addedAt: "2026-07-05" }),
+      card({ id: "m", type: "quote", addedAt: "2026-07-01" }),
+      card({ id: "f2", type: "note", addedAt: "2026-07-02" }),
+      card({ id: "f1", type: "note", addedAt: "2026-07-05" }),
     ];
     const rows = query(cards, { sort: { column: "type", direction: "asc" } });
     expect(rows.map((row) => row.type)).toEqual([...rows.map((row) => row.type)].sort());
@@ -126,9 +127,9 @@ describe("queryMindCards", () => {
 
   it("sorts by type descending with newest as tiebreak", () => {
     const cards = [
-      card({ id: "m", type: "model", addedAt: "2026-07-01" }),
-      card({ id: "f2", type: "fact", addedAt: "2026-07-02" }),
-      card({ id: "f1", type: "fact", addedAt: "2026-07-05" }),
+      card({ id: "m", type: "quote", addedAt: "2026-07-01" }),
+      card({ id: "f2", type: "note", addedAt: "2026-07-02" }),
+      card({ id: "f1", type: "note", addedAt: "2026-07-05" }),
     ];
     const rows = query(cards, { sort: { column: "type", direction: "desc" } });
     expect(rows.map((row) => row.type)).toEqual([...rows.map((row) => row.type)].sort().reverse());

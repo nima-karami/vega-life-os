@@ -40,12 +40,13 @@ export function isScrollKeyEnabled(
 }
 
 function buildMindCard(patch: Partial<MindCard>): MindCard {
-  const type = patch.type ?? "model";
+  const type = patch.type ?? "note";
   return {
     id: patch.id ?? uid("mc_"),
     title: patch.title ?? "",
     body: patch.body ?? "",
     type,
+    origin: patch.origin ?? "manual",
     category: normalizeCategory(patch.category ?? ""),
     source: patch.source ?? null,
     addedAt: patch.addedAt ?? todayISO(),

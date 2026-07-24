@@ -15,7 +15,8 @@ const card = (over: Partial<MindCard> = {}): MindCard => ({
   id: over.id ?? "mc_1",
   title: "",
   body: "",
-  type: "model",
+  type: "note",
+  origin: "manual",
   category: "",
   source: null,
   addedAt: "2026-07-01",
@@ -130,7 +131,7 @@ describe("buildAuthoredFeedCards", () => {
   it("carries flippable and liked from the card record", () => {
     const cards = buildAuthoredFeedCards(
       [
-        card({ id: "mc_a", flippable: false, type: "affirmation" }),
+        card({ id: "mc_a", flippable: false, type: "note" }),
         card({ id: "mc_b", likedAt: "2026-07-23T00:00:00.000Z" }),
       ],
       [],

@@ -146,10 +146,17 @@ describe("scroll slice", () => {
   it("addMindCard defaults type/flippable/likedAt and derives flippable from type", () => {
     const s = mk();
     const model = s.getState().addMindCard({ title: "Inversion" });
-    expect(model).toMatchObject({ type: "model", flippable: true, likedAt: null });
+    expect(model).toMatchObject({ type: "note", flippable: true, likedAt: null });
 
-    const affirmation = s.getState().addMindCard({ title: "I ship daily", type: "affirmation" });
-    expect(affirmation).toMatchObject({ type: "affirmation", flippable: false });
+    const prompt = s.getState().addMindCard({ title: "What matters today?", type: "prompt" });
+    expect(prompt).toMatchObject({ type: "prompt", flippable: false });
+  });
+
+  it("stamps origin manual on every card the user creates", () => {
+    const s = mk();
+    expect(s.getState().addMindCard({ title: "Authored" }).origin).toBe("manual");
+    s.getState().bulkAddMindCards([{ title: "Bulk", body: "b", category: "life" }]);
+    expect(s.getState().mindCards.find((c) => c.title === "Bulk")?.origin).toBe("manual");
   });
 
   it("updateMindCard clears learning when a card becomes non-flippable", () => {
@@ -167,7 +174,7 @@ describe("scroll slice", () => {
 
   it("setMindCardLearning refuses a non-flippable card", () => {
     const s = mk();
-    const card = s.getState().addMindCard({ title: "I ship daily", type: "affirmation" });
+    const card = s.getState().addMindCard({ title: "I ship daily", type: "prompt" });
     s.getState().setMindCardLearning(card.id, true);
     expect(s.getState().mindCards[0].box).toBeNull();
   });
