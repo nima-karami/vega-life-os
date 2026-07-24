@@ -10,6 +10,7 @@ const card = (
   title: string,
   body: string,
   daysAgo: number,
+  source: string | null = null,
 ): MindCard => ({
   id,
   title,
@@ -17,7 +18,7 @@ const card = (
   type,
   origin: "manual",
   category,
-  source: null,
+  source,
   addedAt: iso(addDays(new Date(), -daysAgo)),
   hiddenAt: null,
   likedAt: null,
@@ -113,5 +114,24 @@ export function buildMindCards(): MindCard[] {
       1,
     ),
     card("mc_affirm_shipping", "note", false, "life", "I finish what I start", "", 2),
+    card(
+      "mc_quote_seneca",
+      "quote",
+      false,
+      "life",
+      "",
+      "We suffer more often in imagination than in reality.",
+      5,
+      "Seneca",
+    ),
+    card(
+      "mc_prompt_easy",
+      "prompt",
+      false,
+      "life",
+      "",
+      "What would this look like if it were easy?",
+      3,
+    ),
   ];
 }
