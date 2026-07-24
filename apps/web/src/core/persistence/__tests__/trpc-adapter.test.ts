@@ -62,6 +62,21 @@ describe("TrpcAdapter", () => {
     });
   });
 
+  it("routes router-less collections (mindCards, mindMeta) through the generic data router", async () => {
+    const client = makeClient();
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient);
+    await adapter.put("mindCards", asTask("mc1"));
+    expect(client.data.upsert.mutate).toHaveBeenCalledWith({
+      collection: "mindCards",
+      record: { id: "mc1" },
+    });
+    await adapter.remove("mindMeta", "category:life");
+    expect(client.data.remove.mutate).toHaveBeenCalledWith({
+      collection: "mindMeta",
+      id: "category:life",
+    });
+  });
+
   it("routes bulkPut to data.importCollection and clearAll to data.deleteAll", async () => {
     const client = makeClient();
     const adapter = new TrpcAdapter(client as unknown as TrpcClient);

@@ -2,7 +2,9 @@ import type { CollectionName, Dataset, PersistenceAdapter } from "./adapter";
 import { createTrpcClient, type TrpcClient } from "./trpc-client";
 
 /** The `calendarEvents` mirror has no domain router — it goes through the generic `data` router. */
-const isDataCollection = (col: CollectionName): col is "calendarEvents" => col === "calendarEvents";
+// Collections without a dedicated domain router go through the generic `data` router.
+const DATA_COLLECTIONS = new Set<CollectionName>(["calendarEvents", "mindCards", "mindMeta"]);
+const isDataCollection = (col: CollectionName): boolean => DATA_COLLECTIONS.has(col);
 
 type DomainProcedures = {
   list: { query: () => Promise<unknown[]> };
