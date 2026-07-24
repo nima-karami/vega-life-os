@@ -155,6 +155,16 @@ export function reconcileLived(
   return { upserts, dropIds };
 }
 
+/** A tagged mirror survives as a `removedAt` snapshot (meaning kept); a plain one is dropped outright. */
+async function retireRow(
+  repo: Repository<"calendarEvents">,
+  row: CalendarEvent,
+  now: string,
+): Promise<void> {
+  if (hasMeaning(row)) await repo.upsert({ ...toWritable<"calendarEvents">(row), removedAt: now });
+  else await repo.remove(row.id);
+}
+
 /** A tagged mirror survives its calendar vanishing (kept with `removedAt`); a plain one is dropped. */
 export async function retireCalendarMirrors(
   deps: SyncDeps,
@@ -164,13 +174,7 @@ export async function retireCalendarMirrors(
 ): Promise<void> {
   const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
   const rows = (await repo.list()).filter((event) => event.calendarId === calendarId);
-  for (const row of rows) {
-    if (hasMeaning(row)) {
-      await repo.upsert({ ...toWritable<"calendarEvents">(row), removedAt: nowIso });
-    } else {
-      await repo.remove(row.id);
-    }
-  }
+  for (const row of rows) await retireRow(repo, row, nowIso);
 }
 
 /**
@@ -238,25 +242,27 @@ async function pushLived(
   }
 }
 
+type ReadCalendarListing = ListEventsResult & { mode: "full" | "delta" };
+
 /** Prefer the stored delta token; a 410 (or first run) falls back to one full windowed list. */
 async function listReadCalendar(
   client: GoogleCalendarClient,
   calendarId: string,
   syncTokens: Record<string, string>,
-): Promise<ListEventsResult> {
+): Promise<ReadCalendarListing> {
   const token = syncTokens[calendarId];
   if (token) {
     try {
-      return await client.listEvents(calendarId, { syncToken: token });
+      return { ...(await client.listEvents(calendarId, { syncToken: token })), mode: "delta" };
     } catch (error) {
       if (!(error instanceof SyncTokenExpiredError)) throw error;
     }
   }
-  return client.listEvents(calendarId, { window: LIVED_WINDOW });
+  return { ...(await client.listEvents(calendarId, { window: LIVED_WINDOW })), mode: "full" };
 }
 
 type ReadListing =
-  | { kind: "ok"; listing: ListEventsResult }
+  | { kind: "ok"; listing: ReadCalendarListing }
   | { kind: "vanished" }
   | { kind: "faulted"; rateLimited: boolean };
 
@@ -280,11 +286,12 @@ async function classifyReadCalendar(
 
 async function applyReadListing(
   repo: Repository<"calendarEvents">,
-  listing: ListEventsResult,
+  listing: ReadCalendarListing,
   calendarId: string,
   now: string,
   tombstoned: Set<string>,
   isInsertableDate: (date: string | null) => boolean,
+  isInWindow: (event: CalendarEvent) => boolean,
   timeZone: string,
 ): Promise<number> {
   const allRows = await repo.list();
@@ -302,7 +309,33 @@ async function applyReadListing(
   );
   for (const row of upserts) await repo.upsert(row);
   for (const id of dropIds) await repo.remove(id);
-  return upserts.length + dropIds.length;
+  const removedByAbsence =
+    listing.mode === "full"
+      ? await removeAbsentRows(repo, existing, listing.events, now, isInWindow)
+      : 0;
+  return upserts.length + dropIds.length + removedByAbsence;
+}
+
+/**
+ * A full resync omits deletions (Google surfaces a cancellation only through a syncToken delta), so a
+ * strictly-in-window mirror row absent from the listing was deleted on Google — retire it. Mirrors the
+ * task lane's set-difference self-heal; scoped strictly in-window so an out-of-window event isn't false-dropped.
+ */
+async function removeAbsentRows(
+  repo: Repository<"calendarEvents">,
+  existing: CalendarEvent[],
+  incoming: GEvent[],
+  now: string,
+  isInWindow: (event: CalendarEvent) => boolean,
+): Promise<number> {
+  const listedIds = new Set(incoming.map((event) => event.id));
+  let removed = 0;
+  for (const row of existing) {
+    if (row.removedAt != null || listedIds.has(row.googleId) || !isInWindow(row)) continue;
+    await retireRow(repo, row, now);
+    removed += 1;
+  }
+  return removed;
 }
 
 export type LivedLaneResult = {
@@ -338,6 +371,10 @@ export async function runLivedLane(
   const lo = format(addDays(today, -LIVED_WINDOW.backDays), "yyyy-MM-dd");
   const hi = format(addDays(today, LIVED_WINDOW.fwdDays), "yyyy-MM-dd");
   const isInsertableDate = (date: string | null) => date != null && date >= lo && date <= hi;
+  // Strictly inside the window (not merely overlapping the boundary) so a full-list absence is a real
+  // deletion, never an event Google didn't list because it fell outside the requested range.
+  const isStrictlyInWindow = (event: CalendarEvent) =>
+    event.date != null && event.date > lo && (event.endDate ?? event.date) < hi;
 
   let lived = 0;
   for (const calendarId of readCalendarIds) {
@@ -359,6 +396,7 @@ export async function runLivedLane(
       now,
       tombstoned,
       isInsertableDate,
+      isStrictlyInWindow,
       timeZone,
     );
   }

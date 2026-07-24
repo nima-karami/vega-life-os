@@ -29,9 +29,13 @@ export function isSchedulable(task: Task): boolean {
   return task.date !== null && task.status !== "skip" && !(task.kind === "habit" && !task.time);
 }
 
-/** Immutable identity of a task's event: a habit slot keys on (habitId, slot); everything else on its id. */
+/**
+ * Immutable identity of a task's event: a habit slot keys on (habitId, slot); everything else on its id.
+ * `detached` is deliberately NOT in the key — a customized-but-still-linked instance keeps its slot
+ * identity, so a detach never re-keys the event. Only unlinking (habitId → null) changes identity.
+ */
 export function getStablePushKey(task: Task): string {
-  return task.kind === "habit" && task.habitId && !task.detached
+  return task.kind === "habit" && task.habitId
     ? `habit:${task.habitId}:${task.slotDate ?? task.date}`
     : `task:${task.id}`;
 }

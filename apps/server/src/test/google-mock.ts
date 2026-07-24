@@ -91,6 +91,7 @@ export class GoogleMock {
   private readonly calendars = new Map<string, Map<string, GEvent>>();
   readonly channels = new Map<string, MockChannel>();
   private refreshBehavior: RefreshBehavior = "ok";
+  private stripCancels = false;
   private pushFailuresLeft = 0;
   private clock = () => new Date().toISOString();
   private readonly versions = new Map<string, number>();
@@ -110,6 +111,11 @@ export class GoogleMock {
 
   failNextPushes(count: number): void {
     this.pushFailuresLeft = count;
+  }
+
+  /** Real Google strips a cancelled event down to {id,status,updated} in a delta — no properties, no start/end. */
+  emitStrippedCancels(): void {
+    this.stripCancels = true;
   }
 
   seedCalendarInfo(info: GCalendarInfo): void {
@@ -172,12 +178,14 @@ export class GoogleMock {
           }
           const since = Number(tokenVersion);
           const byEvent = this.eventVersions.get(calendarId) ?? new Map<string, number>();
-          const events = this.rawEvents(calendarId).filter(
-            (event) => (byEvent.get(event.id ?? "") ?? 0) > since,
-          );
+          const events = this.rawEvents(calendarId)
+            .filter((event) => (byEvent.get(event.id ?? "") ?? 0) > since)
+            .map((event) => this.presentDelta(event));
           return { events, nextSyncToken: this.mintToken(calendarId) };
         }
-        return { events: this.rawEvents(calendarId), nextSyncToken: this.mintToken(calendarId) };
+        // A windowed list omits cancelled events — real Google surfaces a deletion only through a syncToken delta.
+        const live = this.rawEvents(calendarId).filter((event) => event.status !== "cancelled");
+        return { events: live, nextSyncToken: this.mintToken(calendarId) };
       },
       listCalendars: async () => [...this.calendarInfos],
       insertEvent: async (calendarId, body) => {
@@ -212,7 +220,13 @@ export class GoogleMock {
       },
       deleteEvent: async (calendarId, eventId) => {
         const prior = this.calendarOf(calendarId).get(eventId);
-        if (prior) this.calendarOf(calendarId).set(eventId, { ...prior, status: "cancelled" });
+        // Real Google stamps the deletion time onto `updated` — LWW on a cancelled delta relies on it.
+        if (prior)
+          this.calendarOf(calendarId).set(eventId, {
+            ...prior,
+            status: "cancelled",
+            updated: this.clock(),
+          });
         this.bumpVersion(calendarId, eventId);
       },
       insertCalendar: async (summary) => {
@@ -236,6 +250,11 @@ export class GoogleMock {
         this.channels.delete(channelId);
       },
     };
+  }
+
+  private presentDelta(event: GEvent): GEvent {
+    if (event.status !== "cancelled" || !this.stripCancels) return event;
+    return { id: event.id, status: "cancelled", updated: event.updated };
   }
 
   private doRefresh(): OauthTokens {

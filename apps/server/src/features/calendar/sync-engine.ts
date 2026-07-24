@@ -2,7 +2,14 @@ import type { Task } from "@vega/shared";
 import { addDays, format, parseISO } from "date-fns";
 import type { Firestore } from "firebase-admin/firestore";
 import { createRepository, toWritable } from "../../core/repository";
-import { fromGEvent, type GEvent, getStablePushKey, isSchedulable, toGEvent } from "./event-map";
+import {
+  fromGEvent,
+  type GEvent,
+  getGoogleEventId,
+  getStablePushKey,
+  isSchedulable,
+  toGEvent,
+} from "./event-map";
 import {
   clearMirror,
   readMirror,
@@ -83,12 +90,14 @@ function googleWins(task: Task, event: GEvent): boolean {
 
 /**
  * The schedule change (if any) a task should adopt from its Google event. A cancelled event
- * unschedules an unresolved task but NEVER a resolved (done/skip) one (commit 7af64aa); a moved
- * event wins only under whole-event LWW.
+ * unschedules an unresolved task but NEVER a resolved (done/skip) one (commit 7af64aa), and never
+ * when a newer VEGA reschedule outdates the deletion (a self-delete echo racing a re-schedule); a
+ * moved event wins only under whole-event LWW.
  */
 export function computePullUpdate(task: Task, event: GEvent, timeZone: string): PullUpdate | null {
   if (event.status === "cancelled") {
     if (task.status === "done" || task.status === "skip") return null;
+    if (!googleWins(task, event)) return null;
     return { taskId: task.id, date: null, time: null, unscheduled: true };
   }
   const want = fromGEvent(event, timeZone);
@@ -97,14 +106,31 @@ export function computePullUpdate(task: Task, event: GEvent, timeZone: string): 
   return { taskId: task.id, date: want.date, time: want.time };
 }
 
+/**
+ * A cancelled event may only unschedule the task it CURRENTLY represents — matched by its
+ * self-describing id (no `extendedProperties` needed, which Google strips on cancellations), never
+ * the legacy `vegaTaskId` fallback. So a re-keyed event's stale cancellation can never unschedule
+ * the task that moved to a new id. The legacy fallback survives for non-cancelled move-adoption.
+ */
+function matchTaskForEvent(
+  event: GEvent,
+  byEventId: Map<string, Task>,
+  byKey: Map<string, Task>,
+  byLegacyId: Map<string, Task>,
+): Task | undefined {
+  if (event.status === "cancelled") return event.id ? byEventId.get(event.id) : undefined;
+  const key = keyOf(event);
+  const legacyId = legacyIdOf(event);
+  return (key ? byKey.get(key) : undefined) ?? (legacyId ? byLegacyId.get(legacyId) : undefined);
+}
+
 export function computeTaskPull(tasks: Task[], events: GEvent[], timeZone: string): PullUpdate[] {
+  const byEventId = new Map(tasks.map((task) => [getGoogleEventId(task), task]));
   const byKey = new Map(tasks.map((task) => [getStablePushKey(task), task]));
-  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const byLegacyId = new Map(tasks.map((task) => [task.id, task]));
   const updates: PullUpdate[] = [];
   for (const event of events) {
-    const key = keyOf(event);
-    const legacyId = legacyIdOf(event);
-    const task = (key ? byKey.get(key) : undefined) ?? (legacyId ? byId.get(legacyId) : undefined);
+    const task = matchTaskForEvent(event, byEventId, byKey, byLegacyId);
     if (!task) continue;
     const update = computePullUpdate(task, event, timeZone);
     if (update) updates.push(update);

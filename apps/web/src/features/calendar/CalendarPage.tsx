@@ -302,12 +302,11 @@ export function CalendarPage() {
     });
   };
 
-  // commit a schedule change; a moved/resized habit instance detaches.
+  // commit a schedule change; a bare move/resize keeps a habit instance bound to its slot (no detach) —
+  // updateTask locks slotDate, so the origin day never regenerates a phantom.
   const commit = (id: string, patch: Partial<Task>) => {
-    const t = tasksRef.current.find((x) => x.id === id);
     try {
-      if (t?.kind === "habit") updateTask(id, { ...patch, detached: true });
-      else updateTask(id, patch);
+      updateTask(id, patch);
     } catch {
       pushToast("Couldn’t save that change");
       setAnnounce("Couldn’t save that change");
