@@ -54,6 +54,18 @@ const TYPE_OPTIONS: SelectOption[] = Object.entries(MIND_CARD_TYPE_LABELS).map(
   ([value, label]) => ({ value, label }),
 );
 
+const TYPE_FIELDS: Record<MindCardType, { title: boolean; source: boolean; behavior: boolean }> = {
+  note: { title: true, source: true, behavior: true },
+  quote: { title: false, source: true, behavior: false },
+  prompt: { title: false, source: false, behavior: false },
+};
+
+const BODY_PLACEHOLDERS: Record<MindCardType, string> = {
+  note: "Explain it well…",
+  quote: "The passage, word for word…",
+  prompt: "Ask the question…",
+};
+
 interface CardFormValues {
   title: string;
   body: string;
@@ -139,11 +151,15 @@ function useCardEditorForm({
     }
   }, [isOpen, cardId, card, onClose, pushToast]);
 
+  const requiresTitle = values.type === "note" && values.flippable;
+  const canSave = requiresTitle
+    ? values.title.trim().length > 0 && values.body.trim().length > 0
+    : values.body.trim().length > 0;
+
   const handleSave = () => {
-    const title = values.title.trim();
-    if (!title) return;
+    if (!canSave) return;
     const fields = {
-      title,
+      title: values.title.trim(),
       body: values.body,
       type: values.type,
       category: values.category.trim(),
@@ -179,6 +195,7 @@ function useCardEditorForm({
     handleTypeChange,
     handleFlippableToggle,
     wasLearning: initialLearning.current,
+    canSave,
     handleSave,
     handleDelete,
     isConfirmingDelete,
@@ -203,6 +220,7 @@ export function CardEditorModal({
     handleTypeChange,
     handleFlippableToggle,
     wasLearning,
+    canSave,
     handleSave,
     handleDelete,
     isConfirmingDelete,
@@ -222,7 +240,10 @@ export function CardEditorModal({
     },
   });
 
-  const canSave = values.title.trim().length > 0;
+  const visibleFields = TYPE_FIELDS[values.type];
+  const isQuote = values.type === "quote";
+  const sourceLabel = isQuote ? "Attribution" : "Source";
+  const sourcePlaceholder = isQuote ? "Who said it (optional)" : "Where it came from (optional)";
   const heading = isCreate ? "New card" : "Edit card";
 
   return (
@@ -257,22 +278,24 @@ export function CardEditorModal({
                   />
                 </div>
 
-                <label className="block space-y-2.5">
-                  <span className="flex items-center justify-between">
-                    <span className="text-xs text-muted">Title</span>
-                    <CharCounter length={values.title.length} max={TITLE_MAX} />
-                  </span>
-                  <input
-                    ref={titleRef}
-                    type="text"
-                    aria-label="Card title"
-                    placeholder="Name the idea"
-                    value={values.title}
-                    maxLength={TITLE_MAX}
-                    onChange={(event) => setField("title", event.target.value)}
-                    className={FIELD_CLASS}
-                  />
-                </label>
+                {visibleFields.title && (
+                  <label className="block space-y-2.5">
+                    <span className="flex items-center justify-between">
+                      <span className="text-xs text-muted">Title</span>
+                      <CharCounter length={values.title.length} max={TITLE_MAX} />
+                    </span>
+                    <input
+                      ref={titleRef}
+                      type="text"
+                      aria-label="Card title"
+                      placeholder="Name the idea"
+                      value={values.title}
+                      maxLength={TITLE_MAX}
+                      onChange={(event) => setField("title", event.target.value)}
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+                )}
 
                 <div className="space-y-2.5">
                   <span className="flex items-center justify-between">
@@ -283,54 +306,58 @@ export function CardEditorModal({
                     value={values.body}
                     onChange={(body) => setField("body", body)}
                     ariaLabel="Card body"
-                    placeholder="Explain it well…"
+                    placeholder={BODY_PLACEHOLDERS[values.type]}
                     maxLength={BODY_MAX}
                   />
                 </div>
 
-                <label className="block space-y-2.5">
-                  <span className="text-xs text-muted">Source</span>
-                  <input
-                    type="text"
-                    aria-label="Source"
-                    placeholder="Where it came from (optional)"
-                    value={values.source}
-                    onChange={(event) => setField("source", event.target.value)}
-                    className={FIELD_CLASS}
-                  />
-                </label>
+                {visibleFields.source && (
+                  <label className="block space-y-2.5">
+                    <span className="text-xs text-muted">{sourceLabel}</span>
+                    <input
+                      type="text"
+                      aria-label={sourceLabel}
+                      placeholder={sourcePlaceholder}
+                      value={values.source}
+                      onChange={(event) => setField("source", event.target.value)}
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+                )}
 
-                <div className="space-y-2.5">
-                  <span className="text-xs text-muted">Behavior</span>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      aria-pressed={values.flippable}
-                      variant={values.flippable ? "primary" : "outline"}
-                      onPress={handleFlippableToggle}
-                    >
-                      <Icon name="repeat" size={14} />
-                      Flippable
-                    </Button>
-                    <Button
-                      size="sm"
-                      aria-pressed={values.learning}
-                      isDisabled={!values.flippable}
-                      variant={values.learning ? "primary" : "outline"}
-                      onPress={() => setField("learning", !values.learning)}
-                    >
-                      <Icon name="brain" size={14} />
-                      Learning mode
-                    </Button>
+                {visibleFields.behavior && (
+                  <div className="space-y-2.5">
+                    <span className="text-xs text-muted">Behavior</span>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        aria-pressed={values.flippable}
+                        variant={values.flippable ? "primary" : "outline"}
+                        onPress={handleFlippableToggle}
+                      >
+                        <Icon name="repeat" size={14} />
+                        Flippable
+                      </Button>
+                      <Button
+                        size="sm"
+                        aria-pressed={values.learning}
+                        isDisabled={!values.flippable}
+                        variant={values.learning ? "primary" : "outline"}
+                        onPress={() => setField("learning", !values.learning)}
+                      >
+                        <Icon name="brain" size={14} />
+                        Learning mode
+                      </Button>
+                    </div>
+                    {!values.flippable && (
+                      <p className="text-xs text-muted">
+                        {wasLearning
+                          ? "Saving ends this card's learning — reviews need a hidden back."
+                          : "Learning needs a flippable card."}
+                      </p>
+                    )}
                   </div>
-                  {!values.flippable && (
-                    <p className="text-xs text-muted">
-                      {wasLearning
-                        ? "Saving ends this card's learning — reviews need a hidden back."
-                        : "Learning needs a flippable card."}
-                    </p>
-                  )}
-                </div>
+                )}
               </Modal.Body>
 
               <Modal.Footer className="justify-between">
