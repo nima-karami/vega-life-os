@@ -1,14 +1,54 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon, Select, type SelectOption, useCompactModal } from "@/core/ui";
-import { RichJournalEditor } from "@/features/journal/editor";
 import { CategoryField, FIELD_CLASS } from "./CategoryField";
 import type { MindCard, MindCardType } from "./model";
 import { isFlippableByDefault, MIND_CARD_TYPE_LABELS } from "./model";
 
-const TITLE_HINT = 280;
-const BODY_HINT = 500;
+const TITLE_MAX = 160;
+const BODY_MAX = 600;
+const COUNTER_NEAR = 40;
+
+function CharCounter({ length, max }: { length: number; max: number }) {
+  if (length <= max - COUNTER_NEAR) return null;
+  return <span className="text-xs text-muted tabular-nums">{`${length}/${max}`}</span>;
+}
+
+function AutoGrowTextarea({
+  value,
+  onChange,
+  ariaLabel,
+  placeholder,
+  maxLength,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  ariaLabel: string;
+  placeholder: string;
+  maxLength: number;
+}) {
+  const fitToContent = useCallback((el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  return (
+    <textarea
+      ref={fitToContent}
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      value={value}
+      rows={2}
+      maxLength={maxLength}
+      onChange={(event) => {
+        fitToContent(event.currentTarget);
+        onChange(event.target.value);
+      }}
+      className={`${FIELD_CLASS} max-h-48 resize-none overflow-y-auto leading-relaxed`}
+    />
+  );
+}
 
 const TYPE_OPTIONS: SelectOption[] = Object.entries(MIND_CARD_TYPE_LABELS).map(
   ([value, label]) => ({ value, label }),
@@ -183,7 +223,6 @@ export function CardEditorModal({
   });
 
   const canSave = values.title.trim().length > 0;
-  const isOverLong = values.title.length > TITLE_HINT || values.body.length > BODY_HINT;
   const heading = isCreate ? "New card" : "Edit card";
 
   return (
@@ -199,29 +238,6 @@ export function CardEditorModal({
               </Modal.Header>
 
               <Modal.Body className="space-y-5">
-                <label className="block space-y-2.5">
-                  <span className="text-xs text-muted">Title</span>
-                  <input
-                    ref={titleRef}
-                    type="text"
-                    aria-label="Card title"
-                    placeholder="Name the idea"
-                    value={values.title}
-                    onChange={(event) => setField("title", event.target.value)}
-                    className={FIELD_CLASS}
-                  />
-                </label>
-
-                <div className="space-y-2.5">
-                  <span className="text-xs text-muted">Body</span>
-                  <RichJournalEditor
-                    value={values.body}
-                    onChange={(body) => setField("body", body)}
-                    ariaLabel="Card body"
-                    placeholder="Explain it well… type / for commands"
-                  />
-                </div>
-
                 <div className="space-y-2.5">
                   <span className="text-xs text-muted">Type</span>
                   <Select
@@ -238,6 +254,37 @@ export function CardEditorModal({
                     value={values.category}
                     onChange={(category) => setField("category", category)}
                     cards={cards}
+                  />
+                </div>
+
+                <label className="block space-y-2.5">
+                  <span className="flex items-center justify-between">
+                    <span className="text-xs text-muted">Title</span>
+                    <CharCounter length={values.title.length} max={TITLE_MAX} />
+                  </span>
+                  <input
+                    ref={titleRef}
+                    type="text"
+                    aria-label="Card title"
+                    placeholder="Name the idea"
+                    value={values.title}
+                    maxLength={TITLE_MAX}
+                    onChange={(event) => setField("title", event.target.value)}
+                    className={FIELD_CLASS}
+                  />
+                </label>
+
+                <div className="space-y-2.5">
+                  <span className="flex items-center justify-between">
+                    <span className="text-xs text-muted">Body</span>
+                    <CharCounter length={values.body.length} max={BODY_MAX} />
+                  </span>
+                  <AutoGrowTextarea
+                    value={values.body}
+                    onChange={(body) => setField("body", body)}
+                    ariaLabel="Card body"
+                    placeholder="Explain it well…"
+                    maxLength={BODY_MAX}
                   />
                 </div>
 
@@ -284,10 +331,6 @@ export function CardEditorModal({
                     </p>
                   )}
                 </div>
-
-                {isOverLong && (
-                  <p className="text-xs text-muted">Long card — consider trimming for the feed.</p>
-                )}
               </Modal.Body>
 
               <Modal.Footer className="justify-between">
