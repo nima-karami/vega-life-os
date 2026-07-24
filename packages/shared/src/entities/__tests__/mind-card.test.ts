@@ -51,21 +51,8 @@ describe("mind card schema v2", () => {
     expect(mindCardSchema.parse({ ...base, origin: "external" }).origin).toBe("external");
   });
 
-  it("maps every legacy type onto the new taxonomy", () => {
-    const cases: [string, string][] = [
-      ["model", "note"],
-      ["fact", "note"],
-      ["principle", "note"],
-      ["affirmation", "note"],
-      ["aspiration", "note"],
-      ["reminder", "note"],
-      ["excerpt", "quote"],
-      ["quote", "quote"],
-      ["prompt", "prompt"],
-    ];
-    for (const [stored, expected] of cases) {
-      expect(mindCardSchema.parse({ ...base, type: stored }).type).toBe(expected);
-    }
+  it("rejects a retired legacy type once the data is migrated", () => {
+    expect(() => mindCardSchema.parse({ ...base, type: "model" })).toThrow();
   });
 
   it("accepts the three current types", () => {
