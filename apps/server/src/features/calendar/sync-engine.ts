@@ -2,6 +2,7 @@ import type { Task } from "@vega/shared";
 import { addDays, format, parseISO } from "date-fns";
 import type { Firestore } from "firebase-admin/firestore";
 import { createRepository, toWritable } from "../../core/repository";
+import { listTombstones, writeTombstone } from "../../core/tombstone";
 import {
   fromGEvent,
   type GEvent,
@@ -139,6 +140,48 @@ export function computeTaskPull(tasks: Task[], events: GEvent[], timeZone: strin
 }
 
 /**
+ * A resolved (done/skip) task stays scheduled so its completed day keeps counting, so a cancelled
+ * event can't unschedule it — but the user DID delete that block in Google. Soft-delete it: tombstone
+ * the event id so the push won't resurrect it, while the completion record is left untouched.
+ */
+export function computeTaskTombstones(
+  tasks: Task[],
+  events: GEvent[],
+): { eventId: string; deletedAt: string }[] {
+  const byEventId = new Map(tasks.map((task) => [getGoogleEventId(task), task]));
+  const out: { eventId: string; deletedAt: string }[] = [];
+  for (const event of events) {
+    if (event.status !== "cancelled" || !event.id) continue;
+    const task = byEventId.get(event.id);
+    if (task && (task.status === "done" || task.status === "skip")) {
+      out.push({ eventId: event.id, deletedAt: event.updated ?? "" });
+    }
+  }
+  return out;
+}
+
+/** A tombstoned event resurrects only once VEGA's schedule edit outdates the deletion (LWW) — a
+ * re-scheduled task re-creates its block; a stale tombstone is ignored and later swept. */
+function isResurrectBlocked(task: Task, id: string, tombstonedAt: Map<string, string>): boolean {
+  const deletedAt = tombstonedAt.get(id);
+  if (!deletedAt) return false;
+  const vega = newestVegaScheduleTime(task);
+  return !vega || deletedAt > vega;
+}
+
+async function readTaskEventTombstones(
+  firestore: Firestore,
+  uid: string,
+): Promise<Map<string, string>> {
+  const tombstones = await listTombstones(firestore, uid);
+  return new Map(
+    tombstones
+      .filter((tombstone) => tombstone.collection === "tasks")
+      .map((tombstone) => [tombstone.id, tombstone.deletedAt]),
+  );
+}
+
+/**
  * Set-difference push. `desired` = ALL scheduled tasks (any date), so a still-scheduled task's
  * event is protected from deletion; `isInsertable` gates only *creation* to the push window. An
  * event aged past the window is kept, never evicted (commit f550ae2), so the pull can't misread a
@@ -167,17 +210,17 @@ function diffDesiredEvent(
   id: string,
   { body, task }: DesiredEvent,
   have: Map<string, GEvent>,
-  isInsertable: (task: Task) => boolean,
+  canInsert: (task: Task, id: string) => boolean,
 ): BatchOp | null {
   const current = have.get(id);
-  if (!current) return isInsertable(task) ? { kind: "insert", id, body } : null;
+  if (!current) return canInsert(task, id) ? { kind: "insert", id, body } : null;
   return signatureOf(current) === signatureOf(body) ? null : { kind: "patch", id, body };
 }
 
 export function computeTaskBatch(
   tasks: Task[],
   existing: GEvent[],
-  isInsertable: (task: Task) => boolean = () => true,
+  canInsert: (task: Task, id: string) => boolean = () => true,
   timeZone = "UTC",
 ): BatchOp[] {
   const desired = buildDesiredEvents(tasks, timeZone);
@@ -185,7 +228,7 @@ export function computeTaskBatch(
 
   const ops: BatchOp[] = [];
   for (const [id, entry] of desired) {
-    const op = diffDesiredEvent(id, entry, have, isInsertable);
+    const op = diffDesiredEvent(id, entry, have, canInsert);
     if (op) ops.push(op);
   }
   for (const id of have.keys()) {
@@ -321,12 +364,18 @@ export async function runTaskLane(
       ...(update.unscheduled ? { status: "open" as const } : {}),
     });
   }
+  for (const { eventId, deletedAt } of computeTaskTombstones(tasks, vegaDelta)) {
+    await writeTombstone(deps.firestore, uid, "tasks", eventId, deletedAt || deps.now());
+  }
 
   const current = pull.length ? await repo.list() : tasks;
   const mirror = await readMirror(deps.firestore, uid);
   const haveEvents = [...mirror.values()].map(toMirrorGEvent);
+  const tombstonedAt = await readTaskEventTombstones(deps.firestore, uid);
   const inWindow = makeWindowGuard(deps.now().slice(0, 10));
-  const ops = computeTaskBatch(current, haveEvents, inWindow, timeZone);
+  const canInsert = (task: Task, id: string) =>
+    inWindow(task) && !isResurrectBlocked(task, id, tombstonedAt);
+  const ops = computeTaskBatch(current, haveEvents, canInsert, timeZone);
   const { pushFailures, rateLimited } = await applyTaskBatch(
     deps.firestore,
     uid,
