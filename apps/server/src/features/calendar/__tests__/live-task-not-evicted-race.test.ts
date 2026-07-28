@@ -32,7 +32,7 @@ describe("aged-out event of a live task is never evicted, even under concurrent 
   it("keeps the aged event and the task's schedule across racing reconciles", async () => {
     const uid = "u-aged-race";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    // The task is still scheduled, but its date has aged far past the 7-day-back / 90-day-fwd window.
+    // The task is still scheduled, but its date has aged far past the push window.
     await upsertTask(server, uid, "t-aged", { date: "2020-01-01", time: "09:00" });
     server.google.seedEvent(WRITE_CAL, {
       ...toGEvent(storedTask({ id: "t-aged", date: "2020-01-01", time: "09:00" }), "UTC"),

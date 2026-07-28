@@ -2,7 +2,7 @@ import type { Task } from "@vega/shared";
 import { addDays, format, parseISO } from "date-fns";
 import type { Firestore } from "firebase-admin/firestore";
 import { createRepository, toWritable } from "../../core/repository";
-import { listTombstones, writeTombstone } from "../../core/tombstone";
+import { listTombstones, RETENTION_DAYS, writeTombstone } from "../../core/tombstone";
 import {
   fromGEvent,
   type GEvent,
@@ -57,7 +57,9 @@ export type PullUpdate = {
 export type BatchOp = { kind: "insert" | "patch" | "delete"; id: string; body?: GEvent };
 
 const TASK_WINDOW = { backDays: 366, fwdDays: 732 };
-const PUSH_WINDOW = { backDays: 7, fwdDays: 90 };
+// Back edge = tombstone retention: only inside it do we still know what the user deleted, so an
+// older insert can't be told apart from resurrecting a deletion.
+const PUSH_WINDOW = { backDays: RETENTION_DAYS, fwdDays: 90 };
 
 const keyOf = (event: GEvent) => event.extendedProperties?.private?.vegaKey;
 const legacyIdOf = (event: GEvent) => event.extendedProperties?.private?.vegaTaskId;
@@ -237,7 +239,7 @@ export function computeTaskBatch(
   return ops;
 }
 
-function makeWindowGuard(todayIso: string): (task: { date: string | null }) => boolean {
+export function makeWindowGuard(todayIso: string): (task: { date: string | null }) => boolean {
   const lo = format(addDays(parseISO(todayIso), -PUSH_WINDOW.backDays), "yyyy-MM-dd");
   const hi = format(addDays(parseISO(todayIso), PUSH_WINDOW.fwdDays), "yyyy-MM-dd");
   return (task) => task.date != null && task.date >= lo && task.date <= hi;

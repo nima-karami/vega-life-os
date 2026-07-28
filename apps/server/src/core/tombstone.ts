@@ -1,7 +1,7 @@
 import { type CollectionName, type Tombstone, tombstoneSchema } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 
-const RETENTION_DAYS = 30;
+export const RETENTION_DAYS = 30;
 
 const tombstones = (firestore: Firestore, uid: string) =>
   firestore.collection(`users/${uid}/tombstones`);
@@ -36,7 +36,7 @@ export async function listTombstones(firestore: Firestore, uid: string): Promise
   return snap.docs.map((doc) => doc.data() as Tombstone);
 }
 
-/** Drop tombstones past the 30-day retention window; returns how many were swept. */
+/** Drop tombstones past the retention window; returns how many were swept. */
 export async function sweepTombstones(
   firestore: Firestore,
   uid: string,
