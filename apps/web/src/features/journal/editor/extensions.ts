@@ -1,7 +1,7 @@
 import type { Extensions } from "@tiptap/core";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
-import { Placeholder } from "@tiptap/extensions";
+import { CharacterCount, Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 
@@ -47,3 +47,8 @@ export function buildJournalExtensions(placeholder?: string): Extensions {
     Placeholder.configure({ placeholder: placeholder ?? "" }),
   ];
 }
+
+/** `autoTrim: false` so a stored body already over the cap loads intact instead of
+ * being trimmed from position 0. */
+export const buildCharacterCap = (limit: number) =>
+  CharacterCount.configure({ limit, mode: "textSize", autoTrim: false });

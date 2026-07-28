@@ -118,9 +118,10 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
 
   // Compact: dock the toolbar to the bottom (above the keyboard) instead of
   // floating over the selection, where it's hidden by the caret/handles.
+  // The wrapper is larger than the bar it centers, so it must not swallow taps behind it.
   const wrapperClass = compact
-    ? "safe-mb fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-2"
-    : "fixed z-50 -translate-x-1/2 -translate-y-full pb-2";
+    ? "safe-mb pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-2"
+    : "pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full pb-2";
   const wrapperStyle = compact ? undefined : { top: pos.top, left: pos.left };
 
   return (
@@ -128,7 +129,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
       {linkOpen ? (
         <form
           onSubmit={applyLink}
-          className="flex items-center gap-1 rounded-[12px] border border-border bg-surface p-1 shadow-md"
+          className="pointer-events-auto flex items-center gap-1 rounded-[12px] border border-border bg-surface p-1 shadow-md"
         >
           <input
             ref={linkInputRef}
@@ -164,7 +165,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
         <div
           role="toolbar"
           aria-label="Text formatting"
-          className="flex items-center gap-0.5 rounded-[12px] border border-border bg-surface p-1 shadow-md"
+          className="pointer-events-auto flex items-center gap-0.5 rounded-[12px] border border-border bg-surface p-1 shadow-md"
         >
           {MARKS.map((m) => {
             const MarkIcon = m.icon;
