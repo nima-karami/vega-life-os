@@ -33,19 +33,23 @@ import {
   type Box,
   type ChipBox,
   DAY_START,
+  DRAG_THRESHOLD_PX,
   DROP_DURATION,
   type DragMode,
+  type DropZone,
   dropToSchedule,
   formatMinutes,
   GUTTER,
   getChipHeight,
   getChipTop,
+  getColumnIndexAt,
   getMarqueeHits,
   getMinuteAtOffset,
   HOUR_PX,
   HOURS,
   layoutColumns,
   resolveDrag,
+  resolveDropZone,
   shiftSelection,
 } from "./geometry";
 import {
@@ -61,16 +65,18 @@ import { WriteCalendarMissingBanner } from "./WriteCalendarMissingBanner";
 
 interface DragState {
   id: string;
-  /** "schedule" = an all-day chip being dragged onto the timed grid. */
-  mode: DragMode | "schedule";
+  /** "allday" = a drag that began on an all-day chip; it can stay untimed or take a time. */
+  mode: DragMode | "allday";
   origDate: string;
   origStart: number;
   origDur: number;
   grabMin: number;
   moved: boolean;
-  /** pointer origin for the all-day drag threshold (schedule mode only). */
+  /** pointer origin for the all-day drag threshold (allday mode only). */
   startX: number;
   startY: number;
+  /** sticky untimed-vs-timed zone, carried across pointermoves (allday mode only). */
+  zone: DropZone;
   /** when set, the move shifts a whole selection by the anchor's delta. */
   group?: GroupMember[];
 }
@@ -86,6 +92,8 @@ interface Preview {
   date: string;
   start: number;
   durationMin: number;
+  /** the release keeps the task untimed — start/durationMin are then inert */
+  isUntimed: boolean;
 }
 
 const MOBILE_QUERY = "(max-width: 639px)";
@@ -147,6 +155,7 @@ export function CalendarPage() {
   const [activeDay, setActiveDay] = useState(0); // mobile single-day index 0..6
 
   const gridRef = useRef<HTMLDivElement>(null);
+  const allDayRowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const previewRef = useRef<Preview | null>(null);
   // Id of a task freshly created by clicking an empty slot — discarded on close
@@ -201,7 +210,11 @@ export function CalendarPage() {
   // Track the mobile breakpoint so the wide grid degrades to a single day.
   useEffect(() => {
     const mql = window.matchMedia(MOBILE_QUERY);
-    const onChange = () => setMobile(mql.matches);
+    const onChange = () => {
+      // the column set changes underneath the pointer — never commit a day the user didn't target
+      if (dragRef.current) cancelDragRef.current();
+      setMobile(mql.matches);
+    };
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, []);
@@ -311,6 +324,14 @@ export function CalendarPage() {
       pushToast("Couldn’t save that change");
       setAnnounce("Couldn’t save that change");
     }
+  };
+
+  // Swallow the click that follows a real drag — it would otherwise create a draft task.
+  const markJustDragged = () => {
+    justDragged.current = true;
+    setTimeout(() => {
+      justDragged.current = false;
+    }, 0);
   };
 
   // ── Selection helpers ───────────────────────────────────────────────────────
@@ -487,16 +508,17 @@ export function CalendarPage() {
       moved: false,
       startX: e.clientX,
       startY: e.clientY,
+      zone: "timed",
       group,
     };
-    const p = { date: t.date, start: origStart, durationMin: t.durationMin };
+    const p = { date: t.date, start: origStart, durationMin: t.durationMin, isUntimed: false };
     previewRef.current = p;
     setPreview(p);
     setDragId(t.id);
   };
 
-  // Begin dragging an all-day chip onto the timed grid (drag-to-schedule).
-  const beginScheduleDrag = (e: React.PointerEvent, t: Task) => {
+  // Begin dragging an all-day chip: sideways keeps it untimed, down onto the grid schedules it.
+  const beginAllDayDrag = (e: React.PointerEvent, t: Task) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.date) return;
     // Selection via modifier-click (desktop only).
@@ -519,7 +541,7 @@ export function CalendarPage() {
     if (!selectedRef.current.has(t.id)) clearSelection();
     dragRef.current = {
       id: t.id,
-      mode: "schedule",
+      mode: "allday",
       origDate: t.date,
       origStart: 0,
       origDur: DROP_DURATION,
@@ -527,8 +549,9 @@ export function CalendarPage() {
       moved: false,
       startX: e.clientX,
       startY: e.clientY,
+      zone: "untimed",
     };
-    const p = { date: t.date, start: DAY_START, durationMin: DROP_DURATION };
+    const p = { date: t.date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true };
     previewRef.current = p;
     setPreview(p);
     setDragId(t.id);
@@ -541,6 +564,8 @@ export function CalendarPage() {
     setDragId(null);
     setPreview(null);
   };
+  const cancelDragRef = useRef(cancelDrag);
+  cancelDragRef.current = cancelDrag;
 
   // Rubber-band selection: press-drag on empty timed-grid space (desktop only).
   const beginMarquee = (e: React.PointerEvent) => {
@@ -569,7 +594,8 @@ export function CalendarPage() {
     const onMove = (ev: PointerEvent) => {
       const m = marqueeRef.current;
       if (!m) return;
-      if (!m.moved && Math.hypot(ev.clientX - m.startX, ev.clientY - m.startY) < 4) return;
+      if (!m.moved && Math.hypot(ev.clientX - m.startX, ev.clientY - m.startY) < DRAG_THRESHOLD_PX)
+        return;
       m.moved = true;
       const r = grid.getBoundingClientRect();
       const box: Box = {
@@ -597,10 +623,7 @@ export function CalendarPage() {
       });
       anchorRef.current = null;
       setAnnounce(`${lastHits.length} ${lastHits.length === 1 ? "task" : "tasks"} selected`);
-      justDragged.current = true;
-      setTimeout(() => {
-        justDragged.current = false;
-      }, 0);
+      markJustDragged();
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -640,25 +663,29 @@ export function CalendarPage() {
 
   // Resolve a drag release: commit a real change, or treat a no-move as a tap.
   const endDrag = (d: DragState, p: Preview) => {
-    if (d.mode === "schedule") {
+    if (d.mode === "allday") {
       const t = tasksRef.current.find((x) => x.id === d.id);
       if (!d.moved) {
         if (t) openTask(t); // a tap on an all-day chip still opens it
+        return;
+      }
+      markJustDragged();
+      if (!t) return; // vanished under a mid-drag refetch
+      if (p.isUntimed) {
+        if (p.date === d.origDate) return; // released over its own bucket: write nothing
+        commitRef.current(d.id, { date: p.date });
+        setAnnounce(`Moved ${t.title} to ${formatShortDate(p.date)}`);
         return;
       }
       commitRef.current(d.id, {
         date: p.date,
         time: formatMinutes(p.start),
         durationMin: DROP_DURATION,
-        ...(t?.status === "open" ? { status: "todo" } : {}),
+        ...(t.status === "open" ? { status: "todo" } : {}),
       });
       setAnnounce(
-        `Scheduled ${t?.title ?? "task"} on ${p.date}, ${formatMinutes(p.start)}–${addMinutes(formatMinutes(p.start), DROP_DURATION)}`,
+        `Scheduled ${t.title} on ${p.date}, ${formatMinutes(p.start)}–${addMinutes(formatMinutes(p.start), DROP_DURATION)}`,
       );
-      justDragged.current = true;
-      setTimeout(() => {
-        justDragged.current = false;
-      }, 0);
       return;
     }
     // Group move: shift every selected member by the anchor's delta.
@@ -667,10 +694,7 @@ export function CalendarPage() {
       const minDelta = p.start - d.origStart;
       const members = tasksRef.current.filter((t) => d.group?.some((g) => g.id === t.id));
       applyGroupShift(members, dayDelta, minDelta);
-      justDragged.current = true;
-      setTimeout(() => {
-        justDragged.current = false;
-      }, 0);
+      markJustDragged();
       return;
     }
     const changed = p.date !== d.origDate || p.start !== d.origStart || p.durationMin !== d.origDur;
@@ -683,10 +707,7 @@ export function CalendarPage() {
       setAnnounce(
         `Moved to ${p.date}, ${formatMinutes(p.start)}–${addMinutes(formatMinutes(p.start), p.durationMin)}`,
       );
-      justDragged.current = true;
-      setTimeout(() => {
-        justDragged.current = false;
-      }, 0);
+      markJustDragged();
       return;
     }
     // a tap (no movement): paste-replace if armed, else clear selection + open
@@ -715,27 +736,41 @@ export function CalendarPage() {
       if (!d || !grid) return;
       const rect = grid.getBoundingClientRect();
       const cols = dragDaysRef.current;
-      const colW = (rect.width - GUTTER) / cols.length;
-      let dayIdx = Math.floor((e.clientX - rect.left - GUTTER) / colW);
-      dayIdx = Math.max(0, Math.min(cols.length - 1, dayIdx));
 
-      if (d.mode === "schedule") {
+      if (d.mode === "allday") {
         // ignore sub-threshold jitter so a tap still opens the chip
-        if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 4) return;
+        const travelPx = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
+        if (!d.moved && travelPx < DRAG_THRESHOLD_PX) return;
         d.moved = true;
-        const { startMin } = dropToSchedule(e.clientY - rect.top);
-        const next = { date: cols[dayIdx].iso, start: startMin, durationMin: DROP_DURATION };
+        // the seam is the all-day row's bottom edge; a grid-relative Y drifts as the grid scrolls
+        const allDayRect = allDayRowRef.current?.getBoundingClientRect();
+        d.zone = allDayRect ? resolveDropZone(e.clientY - allDayRect.bottom, d.zone) : "timed";
+        const untimed = d.zone === "untimed" && allDayRect != null;
+        const box = untimed && allDayRect ? allDayRect : rect;
+        const date = cols[getColumnIndexAt(e.clientX, box, cols.length)].iso;
+        const next = untimed
+          ? { date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true }
+          : {
+              date,
+              start: dropToSchedule(e.clientY - rect.top).startMin,
+              durationMin: DROP_DURATION,
+              isUntimed: false,
+            };
         previewRef.current = next;
         setPreview(next);
         return;
       }
 
+      const date = cols[getColumnIndexAt(e.clientX, rect, cols.length)].iso;
       const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
-      const next = resolveDrag(
-        d.mode,
-        { origDate: d.origDate, origStart: d.origStart, origDur: d.origDur },
-        { pointerMin, grabMin: d.grabMin, targetDate: cols[dayIdx].iso },
-      );
+      const next = {
+        ...resolveDrag(
+          d.mode,
+          { origDate: d.origDate, origStart: d.origStart, origDur: d.origDur },
+          { pointerMin, grabMin: d.grabMin, targetDate: date },
+        ),
+        isUntimed: false,
+      };
       d.moved = true;
       previewRef.current = next;
       setPreview(next);
@@ -749,20 +784,19 @@ export function CalendarPage() {
       setDragId(null);
       setPreview(null);
     };
-    // Esc abandons the gesture with no change.
+    // Esc, or a touch interrupted by a system gesture, abandons the drag with no change.
+    const onCancel = () => cancelDragRef.current();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      dragRef.current = null;
-      previewRef.current = null;
-      setDragId(null);
-      setPreview(null);
+      if (e.key === "Escape") cancelDragRef.current();
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp, { once: true });
+    window.addEventListener("pointercancel", onCancel);
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
       window.removeEventListener("keydown", onKey);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -817,9 +851,9 @@ export function CalendarPage() {
     return { date: t.date ?? "", start: minutesOf(t.time ?? "00:00"), durationMin: t.durationMin };
   };
 
-  // The chip currently dragged, and whether it's an all-day → grid schedule drag.
+  // The chip currently dragged, and whether the drag began on an all-day chip.
   const dragTask = dragId ? tasks.find((t) => t.id === dragId) : null;
-  const scheduleDragging = dragTask != null && dragTask.time == null;
+  const isAllDayDragging = dragTask != null && dragTask.time == null;
 
   const copyToClipboard = (t: Task) => {
     copyTask(t);
@@ -1082,7 +1116,7 @@ export function CalendarPage() {
             </div>
 
             {/* all-day / untimed row */}
-            <div className="border-b border-border">
+            <div ref={allDayRowRef} className="border-b border-border">
               {/* continuous multi-day bars, packed into lanes */}
               {spanBars.lanes > 0 && (
                 <div
@@ -1116,29 +1150,44 @@ export function CalendarPage() {
                 <div className="flex items-center justify-end px-1.5 py-1">
                   <span className="text-xs text-muted">All day</span>
                 </div>
-                {visibleDays.map((d) => (
-                  <div key={d.iso} className="min-h-[28px] space-y-1 border-l border-border p-1">
-                    {getSingleDayAllDayLived(livedEvents, d.iso).map((ev) => (
-                      <CalendarEventChip
-                        key={ev.id}
-                        event={ev}
-                        variant="allday"
-                        onOpen={() => setEditingEvent(ev)}
-                      />
-                    ))}
-                    {getUntimedTasksForDay(tasks, d.iso).map((t) => (
-                      <AllDayChip
-                        key={t.id}
-                        task={t}
-                        dragging={dragId === t.id}
-                        selected={selectedIds.has(t.id)}
-                        onPointerDownBody={(e) => beginScheduleDrag(e, t)}
-                        onOpen={() => openTask(t)}
-                        menuItems={allDayMenuItems(t)}
-                      />
-                    ))}
-                  </div>
-                ))}
+                {visibleDays.map((d) => {
+                  const isUntimedTarget =
+                    dragId != null && preview?.isUntimed === true && preview.date === d.iso;
+                  return (
+                    <div
+                      key={d.iso}
+                      className={cx(
+                        "relative min-h-[28px] space-y-1 border-l border-border p-1",
+                        isUntimedTarget && "bg-surface-secondary ring-1 ring-inset ring-accent",
+                      )}
+                    >
+                      {getSingleDayAllDayLived(livedEvents, d.iso).map((ev) => (
+                        <CalendarEventChip
+                          key={ev.id}
+                          event={ev}
+                          variant="allday"
+                          onOpen={() => setEditingEvent(ev)}
+                        />
+                      ))}
+                      {getUntimedTasksForDay(tasks, d.iso).map((t) => (
+                        <AllDayChip
+                          key={t.id}
+                          task={t}
+                          dragging={dragId === t.id}
+                          selected={selectedIds.has(t.id)}
+                          onPointerDownBody={(e) => beginAllDayDrag(e, t)}
+                          onOpen={() => openTask(t)}
+                          menuItems={allDayMenuItems(t)}
+                        />
+                      ))}
+                      {isUntimedTarget && (
+                        <div className="pointer-events-none absolute inset-x-1 top-1 truncate rounded-[2px] border-l-[3px] border-accent bg-surface px-1.5 py-0.5 text-[10px] text-foreground opacity-80 shadow-sm">
+                          {dragTask?.title}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1191,7 +1240,11 @@ export function CalendarPage() {
                       durationMin: ev.durationMin,
                     })),
                   ]);
-                  const isTarget = dragId != null && preview?.date === d.iso;
+                  const isTarget =
+                    dragId != null &&
+                    preview != null &&
+                    !preview.isUntimed &&
+                    preview.date === d.iso;
                   return (
                     <div
                       key={d.iso}
@@ -1220,7 +1273,7 @@ export function CalendarPage() {
                         />
                       ))}
                       {d.today && <NowLine />}
-                      {isTarget && preview && scheduleDragging && (
+                      {isTarget && preview && isAllDayDragging && (
                         <div
                           className="pointer-events-none absolute inset-x-0.5 z-30 overflow-hidden rounded-[2px] border-l-[3px] border-accent bg-surface/80 px-1.5 py-1 shadow-md ring-1 ring-accent"
                           style={{
