@@ -19,8 +19,11 @@ type(scope): subject
 
 optional body — the why, wrapped ~72 cols
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 ```
+
+The trailer names **the model that actually did the work** — update it when the model
+changes rather than copying the previous commit's name.
 
 - **type:** `feat` · `fix` · `docs` · `chore` · `refactor` · `test` · `perf`.
 - **scope:** the feature slice touched (`calendar-sync`, `streaks`, `auth`). Multiple →

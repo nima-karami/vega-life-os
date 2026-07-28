@@ -132,8 +132,12 @@ the existing `RoutingAdapter` seam), direct client→Firestore writes are gone, 
 signed-out demo still runs standalone on local Dexie.** NOT yet done (needs the user):
 the server is **not deployed** (Cloud Run / Secret Manager / Scheduler / WIF need their GCP
 project) and **live Google OAuth** needs their client id+secret — so a signed-in session
-needs the server running + configured. **Running server tests needs Java 11+** (JDK 21 at
-`C:\Users\karam\tools\jdk-21.0.11+10`, `JAVA_HOME` set). See the run report
+needs the server running + configured. **Running server tests needs JDK 21 on `PATH`, not
+just `JAVA_HOME`** — the tests boot the Firestore emulator through firebase-tools, and if
+`java` resolves to an older JRE the whole server suite fails misleadingly (every calendar
+test at once, with errors that look like product bugs). Prepend it for the session:
+`export PATH="/c/Users/karam/tools/jdk-21.0.11+10/bin:$PATH"` (verify with `java -version`).
+See the run report
 [`docs/runs/2026-07-13-backend-build/report.md`](docs/runs/2026-07-13-backend-build/report.md),
 the spec, and [`docs/adr/2026-07-13-0003-backend-architecture.md`](docs/adr/2026-07-13-0003-backend-architecture.md).
 
@@ -150,8 +154,10 @@ SDK types lag the runtime payload, hence the deliberate cast in `anthropic-agent
   never read it into output or commit it.
 - **Commit/push only when the user asks.** Don't auto-commit or auto-push.
 - Before any commit, run `git status` and confirm **only intended files** are staged.
-- Commit message bodies end with:
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+- Commit message bodies end with a `Co-Authored-By:` trailer naming **the model that
+  actually did the work** — don't copy a stale model name from an older commit. As of
+  2026-07-28 that is:
+  `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
 - **Scratch/throwaway artifacts** (screenshots, scratch scripts, logs, `.har`) go to
   the OS temp dir (`%TEMP%\claude-scratch\`), **never** the repo. Pass absolute temp
   paths to Playwright screenshots — a bare filename lands in the repo root. Clean up
