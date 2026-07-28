@@ -434,6 +434,36 @@ test("calendar: the untimed drop zone survives a scrolled timed grid", async ({ 
   expect(after?.x ?? 0).toBeLessThan((colBox?.x ?? 0) + (colBox?.width ?? 0));
 });
 
+test("calendar: 'Move to day…' moves an all-day task, keeps it untimed, and returns focus", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+  await chip.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Move to day…" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Move to a day", { timeout: 10_000 });
+
+  const friday = page.getByRole("button", { name: /^Add task on Fri/ });
+  const friBox = await friday.boundingBox();
+  await dialog.getByRole("button", { name: /^Fri, / }).click();
+  await expect(dialog).toBeHidden();
+
+  // Still untimed, now in Friday's all-day bucket, and focus followed the chip.
+  await expect(
+    page.getByRole("button", { name: /^Pick up dry cleaning, \d{2}:\d{2}/ }),
+  ).toHaveCount(0);
+  const after = await chip.boundingBox();
+  expect(after?.x ?? 0).toBeGreaterThan(friBox?.x ?? 0);
+  expect(after?.x ?? 0).toBeLessThan((friBox?.x ?? 0) + (friBox?.width ?? 0));
+  await expect(chip).toBeFocused();
+});
+
 test("calendar: relink a detached habit instance snaps it back to the template", async ({
   page,
 }) => {

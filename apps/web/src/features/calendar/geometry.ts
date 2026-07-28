@@ -81,8 +81,9 @@ export function resolveDropZone(offsetPx: number, current: DropZone): DropZone {
 
 /**
  * Day-column index for a pointer X against a grid-aligned box, clamped to the visible columns.
- * The day headers, the all-day row and the timed grid all use `GUTTER + repeat(n, 1fr)` from the
- * same left origin, so either box resolves the same column.
+ * The day headers, the all-day row and the timed grid share the `GUTTER + repeat(n, 1fr)` template
+ * and left origin, so their columns agree to within the grid's scrollbar width (~2px per column
+ * once `ScrollShadow` shows one) — each caller measures against the box its own zone owns.
  */
 export function getColumnIndexAt(
   clientX: number,

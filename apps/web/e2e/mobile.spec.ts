@@ -202,3 +202,46 @@ test("analytics charts do not overflow horizontally on mobile (360px)", async ({
     `analytics (90d, heatmap) overflows by ${wideOverflow}px`,
   ).toBeLessThanOrEqual(1);
 });
+
+test("calendar: long-press an all-day chip → 'Move to day…' moves it to another day", async ({
+  page,
+}) => {
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // Compact shows one day; the seeded all-day one-off is on Tuesday.
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+
+  const box = await chip.boundingBox();
+  const touch = {
+    pointerType: "touch",
+    pointerId: 1,
+    isPrimary: true,
+    button: 0,
+    buttons: 1,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX: (box?.x ?? 0) + 8,
+    clientY: (box?.y ?? 0) + 8,
+  };
+  await chip.dispatchEvent("pointerdown", touch);
+  const moveItem = page.getByRole("menuitem", { name: "Move to day…" });
+  await expect(moveItem).toBeVisible({ timeout: 5_000 });
+  await chip.dispatchEvent("pointerup", { ...touch, buttons: 0 });
+
+  await moveItem.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Move to a day", { timeout: 10_000 });
+  await dialog.getByRole("button", { name: /^Wed, / }).click();
+
+  // It left Tuesday (the only rendered day) and is untimed on Wednesday.
+  await expect(page.getByRole("button", { name: "Pick up dry cleaning, all day" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Wed\s*\d{2}$/ }).click();
+  await expect(page.getByRole("button", { name: "Pick up dry cleaning, all day" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Pick up dry cleaning, \d{2}:\d{2}/ }),
+  ).toHaveCount(0);
+});

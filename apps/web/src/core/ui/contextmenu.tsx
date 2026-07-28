@@ -136,12 +136,18 @@ export function ContextMenu({
   children,
   items,
   longPress = false,
+  longPressMoveTolerancePx = LONG_PRESS_MOVE_TOLERANCE_PX,
   onLongPressPending,
+  onLongPress,
 }: {
   children: ReactNode;
   items: MenuItem[];
   longPress?: boolean;
+  /** movement that abandons a pending long-press — lower it to match a surface's drag threshold */
+  longPressMoveTolerancePx?: number;
   onLongPressPending?: (pending: boolean) => void;
+  /** the held press won: a caller that also armed a drag on this pointerdown must abandon it */
+  onLongPress?: () => void;
 }) {
   const [pos, setPos] = useState<MenuPos | null>(null);
   const pressTimerRef = useRef<number | null>(null);
@@ -177,6 +183,7 @@ export function ContextMenu({
       pressTimerRef.current = null;
       suppressClickRef.current = true;
       onLongPressPending?.(false);
+      onLongPress?.();
       setPos(pressOriginRef.current);
       pressOriginRef.current = null;
     }, LONG_PRESS_MS);
@@ -186,7 +193,7 @@ export function ContextMenu({
     const origin = pressOriginRef.current;
     if (origin === null || pressTimerRef.current === null) return;
     const distance = Math.hypot(event.clientX - origin.x, event.clientY - origin.y);
-    if (distance > LONG_PRESS_MOVE_TOLERANCE_PX) cancelPress();
+    if (distance > longPressMoveTolerancePx) cancelPress();
   };
 
   const handleClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {

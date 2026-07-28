@@ -1,4 +1,4 @@
-import { Button, Card, Modal, ScrollShadow, useOverlayState } from "@heroui/react";
+import { Button, ButtonGroup, Card, Modal, ScrollShadow, useOverlayState } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
@@ -147,6 +147,8 @@ export function CalendarPage() {
   const [scheduleSlot, setScheduleSlot] = useState<{ date: string; time: string } | null>(null);
   // "Schedule to time…" — the keyboard path that gives an all-day chip a time.
   const [scheduleTask, setScheduleTask] = useState<Task | null>(null);
+  // "Move to day…" — the keyboard/touch path that changes an all-day chip's day.
+  const [dayMoveTask, setDayMoveTask] = useState<Task | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
   const [mobile, setMobile] = useState(
@@ -536,8 +538,9 @@ export function CalendarPage() {
         return;
       }
     }
+    // No stopPropagation: the chip's ContextMenu wrapper must still see this pointerdown
+    // to arm its long-press (the only route to the menu on touch).
     e.preventDefault();
-    e.stopPropagation();
     if (!selectedRef.current.has(t.id)) clearSelection();
     dragRef.current = {
       id: t.id,
@@ -638,6 +641,23 @@ export function CalendarPage() {
     });
     pushToast(`Scheduled "${t.title}"`);
     setAnnounce(`Scheduled ${t.title} at ${time}`);
+  };
+
+  // Return focus to the moved chip: it unmounts from the old cell and remounts in the new one.
+  const focusChip = (id: string) => {
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-chip-id="${id}"]`)?.focus();
+    });
+  };
+
+  // Move an all-day task to another visible day, day-only (the non-drag pathway).
+  const moveToDay = (id: string, dayIso: string) => {
+    const t = tasksRef.current.find((x) => x.id === id);
+    if (!t || t.date === dayIso) return;
+    commit(id, { date: dayIso });
+    pushToast(`Moved "${t.title}" to ${formatShortDate(dayIso)}`);
+    setAnnounce(`Moved ${t.title} to ${formatShortDate(dayIso)}`);
+    focusChip(id);
   };
 
   // The relink action for a task's context menu, or null when relink doesn't apply.
@@ -744,11 +764,12 @@ export function CalendarPage() {
         d.moved = true;
         // the seam is the all-day row's bottom edge; a grid-relative Y drifts as the grid scrolls
         const allDayRect = allDayRowRef.current?.getBoundingClientRect();
-        d.zone = allDayRect ? resolveDropZone(e.clientY - allDayRect.bottom, d.zone) : "timed";
-        const untimed = d.zone === "untimed" && allDayRect != null;
-        const box = untimed && allDayRect ? allDayRect : rect;
+        // no row box = no seam to measure, so stay untimed rather than silently schedule
+        d.zone = allDayRect ? resolveDropZone(e.clientY - allDayRect.bottom, d.zone) : "untimed";
+        const isUntimedZone = d.zone === "untimed";
+        const box = isUntimedZone && allDayRect ? allDayRect : rect;
         const date = cols[getColumnIndexAt(e.clientX, box, cols.length)].iso;
-        const next = untimed
+        const next = isUntimedZone
           ? { date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true }
           : {
               date,
@@ -886,6 +907,7 @@ export function CalendarPage() {
     return [
       { label: "Open", icon: "edit", onSelect: () => openTask(t) },
       { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
+      { label: "Move to day…", icon: "calendar", onSelect: () => setDayMoveTask(t) },
       { label: "Schedule to time…", icon: "clock", onSelect: () => setScheduleTask(t) },
       { label: "Unschedule", icon: "calendar-off", onSelect: () => unschedule(t) },
       { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
@@ -947,6 +969,12 @@ export function CalendarPage() {
     isOpen: !!scheduleTask,
     onOpenChange: (next) => {
       if (!next) setScheduleTask(null);
+    },
+  });
+  const dayMoveState = useOverlayState({
+    isOpen: !!dayMoveTask,
+    onOpenChange: (next) => {
+      if (!next) setDayMoveTask(null);
     },
   });
 
@@ -1177,6 +1205,7 @@ export function CalendarPage() {
                           selected={selectedIds.has(t.id)}
                           onPointerDownBody={(e) => beginAllDayDrag(e, t)}
                           onOpen={() => openTask(t)}
+                          onLongPress={cancelDrag}
                           menuItems={allDayMenuItems(t)}
                         />
                       ))}
@@ -1508,6 +1537,52 @@ export function CalendarPage() {
                     setScheduleTask(null);
                   }}
                 />
+              </Modal.Body>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+
+      {/* "Move to day…" — change an all-day chip's day without dragging */}
+      <Modal state={dayMoveState}>
+        <Modal.Backdrop variant="blur">
+          <Modal.Container {...modalResponsive}>
+            <Modal.Dialog aria-label="Move to a day">
+              <Modal.Header className="flex-col items-start gap-0.5">
+                <Modal.Heading className="text-base font-semibold text-foreground">
+                  Move to a day
+                </Modal.Heading>
+                {dayMoveTask?.date && (
+                  <span className="text-sm font-normal text-muted">
+                    {dayMoveTask.title} · {formatShortDate(dayMoveTask.date)}
+                  </span>
+                )}
+              </Modal.Header>
+              <Modal.Body className="pb-6">
+                <p className="text-sm text-muted">
+                  Pick a day this week. It stays an all-day item — no time is assigned.
+                </p>
+                <ButtonGroup fullWidth>
+                  {days.map((d) => (
+                    <Button
+                      key={d.iso}
+                      size="sm"
+                      aria-label={`${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
+                      aria-pressed={dayMoveTask?.date === d.iso}
+                      variant={dayMoveTask?.date === d.iso ? "primary" : "outline"}
+                      className={cx("flex-col gap-0 px-1 py-1.5", d.today && "ring-1 ring-accent")}
+                      onPress={() => {
+                        if (dayMoveTask) moveToDay(dayMoveTask.id, d.iso);
+                        setDayMoveTask(null);
+                      }}
+                    >
+                      <span className="text-[10px] leading-none opacity-70">{d.dow}</span>
+                      <span className="text-sm font-semibold leading-none tabular-nums">
+                        {String(d.dom).padStart(2, "0")}
+                      </span>
+                    </Button>
+                  ))}
+                </ButtonGroup>
               </Modal.Body>
             </Modal.Dialog>
           </Modal.Container>
