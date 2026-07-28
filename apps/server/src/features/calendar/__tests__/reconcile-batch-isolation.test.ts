@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcileAll } from "../reconcile";
 import { writeGcalAccount } from "../token-store";
@@ -33,7 +33,7 @@ describe("runReconcileAll per-uid isolation", () => {
 
     const healthy = "u-iso-healthy";
     await connectCalendar(server, healthy, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, healthy, "t-h", { date: "2026-08-12", time: "10:00" });
+    await upsertTask(server, healthy, "t-h", { date: isoDaysFromToday(3), time: "10:00" });
 
     const result = await runReconcileAll(server.reconcileDeps);
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 import { readGcalAccount } from "../token-store";
@@ -18,7 +18,7 @@ describe("deleted VEGA calendar pauses sync and recreate re-pushes (pause-and-as
   it("a 404 on the write calendar sets writeCalendarMissing and pauses both lanes", async () => {
     const uid = "u-missing";
     await connectCalendar(server, uid, { writeCalendarId: "cal-deleted" });
-    await upsertTask(server, uid, "t-m", { date: "2026-07-28", time: "09:00" });
+    await upsertTask(server, uid, "t-m", { date: isoDaysFromToday(2), time: "09:00" });
     server.google.failNextList(404);
     await runReconcile(server.reconcileDeps, uid);
 
@@ -34,7 +34,7 @@ describe("deleted VEGA calendar pauses sync and recreate re-pushes (pause-and-as
   it("recreateWriteCalendar makes a fresh calendar and re-pushes every scheduled task", async () => {
     const uid = "u-recreate";
     await connectCalendar(server, uid, { writeCalendarId: "cal-was-deleted" });
-    await upsertTask(server, uid, "t-r", { date: "2026-07-29", time: "10:00" });
+    await upsertTask(server, uid, "t-r", { date: isoDaysFromToday(3), time: "10:00" });
     server.google.failNextList(404);
     await runReconcile(server.reconcileDeps, uid);
 

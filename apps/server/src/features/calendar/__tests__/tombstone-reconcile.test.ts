@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
 import { hasTombstone, sweepTombstones, writeTombstone } from "../../../core/tombstone";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 
@@ -21,7 +21,7 @@ describe("deletion tombstones + reconcile-race (real server vs emulator + mocked
   it("removes the Google counterpart on delete and never re-creates the task", async () => {
     const uid = "u-tomb";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, uid, "t-tomb", { date: "2026-07-20", time: "09:00" });
+    await upsertTask(server, uid, "t-tomb", { date: isoDaysFromToday(1), time: "09:00" });
 
     await runReconcile(server.reconcileDeps, uid);
     const confirmed = server.google

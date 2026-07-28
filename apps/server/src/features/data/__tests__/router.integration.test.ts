@@ -1,7 +1,7 @@
 import { collectionNameSchema } from "@vega/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../../calendar/reconcile";
 
@@ -117,6 +117,7 @@ describe("data router (real server vs emulator)", () => {
     const uid = "data-wipe-reconcile";
     const extCal = "cal-ext-wipe";
     const mirror = () => createRepository(server.firestore, uid, "calendarEvents");
+    const eventDate = isoDaysFromToday(2);
     await connectCalendar(server, uid, {
       writeCalendarId: "cal-write-wipe",
       readCalendarIds: [extCal],
@@ -125,8 +126,8 @@ describe("data router (real server vs emulator)", () => {
       id: "g-wipe-1",
       iCalUID: "ical-wipe-1",
       summary: "External",
-      start: { dateTime: "2026-07-22T09:00:00+00:00" },
-      end: { dateTime: "2026-07-22T09:30:00+00:00" },
+      start: { dateTime: `${eventDate}T09:00:00+00:00` },
+      end: { dateTime: `${eventDate}T09:30:00+00:00` },
       updated: "2026-07-13T08:00:00.000Z",
       status: "confirmed",
     });

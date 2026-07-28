@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { getGoogleEventId } from "../event-map";
 import { runReconcile } from "../reconcile";
 
 const WRITE_CAL = "cal-write-resolved-race";
+const SCHEDULED_DATE = isoDaysFromToday(1);
 
 /**
  * Invariant (commit 7af64aa) hardened under a reconcile race: a task the user already resolved
@@ -26,7 +27,7 @@ describe("resolved task is not unscheduled on a cancelled event under a reconcil
     const uid = "u-resolved-race";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
     const stored = await upsertTask(server, uid, "t-done", {
-      date: "2026-07-20",
+      date: SCHEDULED_DATE,
       time: "09:00",
       status: "done",
     });
@@ -46,7 +47,7 @@ describe("resolved task is not unscheduled on a cancelled event under a reconcil
 
     const task = await taskRepo(uid).get("t-done");
     expect(task?.status).toBe("done");
-    expect(task?.date).toBe("2026-07-20");
+    expect(task?.date).toBe(SCHEDULED_DATE);
     expect(task?.time).toBe("09:00");
   }, 30_000);
 });

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 
@@ -23,7 +23,7 @@ describe("stripped cancelled delta still unschedules via id-equality", () => {
   it("unschedules a todo task whose VEGA event was deleted in Google (properties stripped)", async () => {
     const uid = "u-stripped";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, uid, "t-s", { date: "2026-08-15", time: "09:00" });
+    await upsertTask(server, uid, "t-s", { date: isoDaysFromToday(4), time: "09:00" });
     await runReconcile(server.reconcileDeps, uid); // push the event
     await runReconcile(server.reconcileDeps, uid); // idle: advance the token past the insert
 

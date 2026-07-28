@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 
@@ -19,7 +19,7 @@ describe("Firestore-confirmed but Google-push-failed self-heal", () => {
   it("keeps the record persisted when the Google push fails, then heals on the next reconcile", async () => {
     const uid = "u-unpushed";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, uid, "t-unpushed", { date: "2026-07-21", time: "10:00" });
+    await upsertTask(server, uid, "t-unpushed", { date: isoDaysFromToday(2), time: "10:00" });
 
     server.google.failNextPushes(1);
     const first = await runReconcile(server.reconcileDeps, uid);

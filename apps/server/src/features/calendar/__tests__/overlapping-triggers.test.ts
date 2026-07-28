@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { registerChannel } from "../channel-registry";
 import { runReconcile } from "../reconcile";
@@ -9,6 +9,7 @@ import { handleWebhook, type WebhookHeaders } from "../webhook";
 
 const WRITE_CAL = "cal-write-overlap";
 const LOCK_TIMEOUT_MS = 30_000;
+const SCHEDULED_DATE = isoDaysFromToday(2);
 
 /**
  * Inline-push, webhook, and reconcile can fire for one uid at once across stateless instances.
@@ -37,7 +38,7 @@ describe("overlapping sync triggers for one uid serialize under the lock", () =>
     async () => {
       const uid = "u-overlap-race";
       await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-      await upsertTask(server, uid, "t-overlap", { date: "2026-07-24", time: "08:00" });
+      await upsertTask(server, uid, "t-overlap", { date: SCHEDULED_DATE, time: "08:00" });
 
       const settled = await Promise.allSettled(
         Array.from({ length: 3 }, () => runReconcile(server.reconcileDeps, uid)),
@@ -70,11 +71,11 @@ describe("overlapping sync triggers for one uid serialize under the lock", () =>
         calendarId: "cal-watch-overlap",
         expiration: new Date(Date.now() + 7 * 864e5).toISOString(),
       });
-      await upsertTask(server, uid, "t-mixed", { date: "2026-07-24", time: "09:00" });
+      await upsertTask(server, uid, "t-mixed", { date: SCHEDULED_DATE, time: "09:00" });
       await runReconcile(server.reconcileDeps, uid);
       expect(confirmedOwned("t-mixed")).toHaveLength(1);
 
-      await upsertTask(server, uid, "t-mixed", { date: "2026-07-24", time: "17:00" });
+      await upsertTask(server, uid, "t-mixed", { date: SCHEDULED_DATE, time: "17:00" });
       const headers: WebhookHeaders = {
         channelId: "chan-overlap",
         channelToken: "tok-overlap",

@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 
 const WRITE_CAL = "cal-write-resolved-del";
+const SCHEDULED_DATE = isoDaysFromToday(5);
+const RESCHEDULED_DATE = isoDaysFromToday(6);
 
 const liveVegaEvents = (server: TestServer) =>
   server.google
@@ -25,7 +27,11 @@ describe("deleting a completed task's block in Google stays deleted", () => {
   it("does not resurrect a done task's event, and keeps the completion intact", async () => {
     const uid = "u-resolved-del";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, uid, "t-done", { date: "2026-08-20", time: "10:00", status: "done" });
+    await upsertTask(server, uid, "t-done", {
+      date: SCHEDULED_DATE,
+      time: "10:00",
+      status: "done",
+    });
     await runReconcile(server.reconcileDeps, uid); // push the event
     await runReconcile(server.reconcileDeps, uid); // idle: advance the token past the insert
 
@@ -39,13 +45,13 @@ describe("deleting a completed task's block in Google stays deleted", () => {
     expect(liveVegaEvents(server)).toHaveLength(0);
     const task = await createRepository(server.firestore, uid, "tasks").get("t-done");
     expect(task?.status).toBe("done");
-    expect(task?.date).toBe("2026-08-20");
+    expect(task?.date).toBe(SCHEDULED_DATE);
   });
 
   it("resurrects the block once the task is re-scheduled (deletion outdated by LWW)", async () => {
     const uid = "u-resolved-resched";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, uid, "t-r", { date: "2026-08-20", time: "10:00", status: "done" });
+    await upsertTask(server, uid, "t-r", { date: SCHEDULED_DATE, time: "10:00", status: "done" });
     await runReconcile(server.reconcileDeps, uid);
     await runReconcile(server.reconcileDeps, uid);
 
@@ -55,7 +61,7 @@ describe("deleting a completed task's block in Google stays deleted", () => {
     await runReconcile(server.reconcileDeps, uid); // tombstone, stays deleted
     expect(liveVegaEvents(server)).toHaveLength(0);
 
-    await upsertTask(server, uid, "t-r", { date: "2026-08-21", time: "10:00", status: "todo" });
+    await upsertTask(server, uid, "t-r", { date: RESCHEDULED_DATE, time: "10:00", status: "todo" });
     await runReconcile(server.reconcileDeps, uid); // schedule newer than the tombstone → re-create
 
     expect(liveVegaEvents(server)).toHaveLength(1);

@@ -1,12 +1,13 @@
 import type { CalendarEvent } from "@vega/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 
 const WRITE_CAL = "cal-write-lived";
 const EXT_CAL = "cal-external";
+const EVENT_DATE = isoDaysFromToday(2);
 
 describe("lived lane: external calendars ⇄ calendarEvents mirror (server-owned)", () => {
   let server: TestServer;
@@ -28,8 +29,8 @@ describe("lived lane: external calendars ⇄ calendarEvents mirror (server-owned
       id: "g-ext-1",
       iCalUID: "ical-ext-1",
       summary: "Standup",
-      start: { dateTime: "2026-07-22T09:00:00+00:00" },
-      end: { dateTime: "2026-07-22T09:30:00+00:00" },
+      start: { dateTime: `${EVENT_DATE}T09:00:00+00:00` },
+      end: { dateTime: `${EVENT_DATE}T09:30:00+00:00` },
       updated: "2026-07-13T08:00:00.000Z",
       status: "confirmed",
     });

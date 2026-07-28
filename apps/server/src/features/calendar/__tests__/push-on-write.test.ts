@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { connectCalendar, taskInput } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, taskInput } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 import { createReconcileScheduler } from "../schedule-reconcile";
@@ -23,7 +23,7 @@ describe("debounced push-on-write", () => {
     const client = server.asUid(uid);
     for (let index = 0; index < 5; index += 1) {
       await client.tasks.upsert.mutate(
-        taskInput(`t-burst-${index}`, { date: "2026-07-30", time: `0${index + 1}:00` }),
+        taskInput(`t-burst-${index}`, { date: isoDaysFromToday(3), time: `0${index + 1}:00` }),
       );
       scheduler.schedule(uid);
     }
@@ -39,7 +39,7 @@ describe("debounced push-on-write", () => {
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
     await server
       .asUid(uid)
-      .tasks.upsert.mutate(taskInput("t-wired", { date: "2026-07-31", time: "09:00" }));
+      .tasks.upsert.mutate(taskInput("t-wired", { date: isoDaysFromToday(4), time: "09:00" }));
     await server.flushReconciles();
     const pushed = server.google
       .rawEvents(WRITE_CAL)

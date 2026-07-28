@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 
@@ -23,7 +23,7 @@ describe("persisted-but-unpushed self-heal across repeated failures", () => {
   it("keeps the record across three failed pushes, then pushes it on the fourth reconcile", async () => {
     const uid = "u-heal";
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, uid, "t-heal", { date: "2026-07-21", time: "10:00" });
+    await upsertTask(server, uid, "t-heal", { date: isoDaysFromToday(2), time: "10:00" });
     server.google.failNextPushes(3);
 
     for (let cycle = 0; cycle < 3; cycle += 1) {

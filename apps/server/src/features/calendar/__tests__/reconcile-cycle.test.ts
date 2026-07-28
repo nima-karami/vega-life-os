@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { listChannelsForUid, lookupChannel, registerChannel } from "../channel-registry";
 import { runReconcile } from "../reconcile";
@@ -19,11 +19,12 @@ describe("full reconcile cycle (both lanes, lock, channel renewal, OIDC endpoint
 
   it("keeps a just-moved task and pushes the new time (the edit-revert bug is fixed)", async () => {
     const uid = "u-cycle";
+    const scheduledDate = isoDaysFromToday(2);
     await connectCalendar(server, uid, { writeCalendarId: WRITE_CAL });
-    await upsertTask(server, uid, "t-move", { date: "2026-07-25", time: "09:00" });
+    await upsertTask(server, uid, "t-move", { date: scheduledDate, time: "09:00" });
     await runReconcile(server.reconcileDeps, uid);
 
-    await upsertTask(server, uid, "t-move", { date: "2026-07-25", time: "15:00" });
+    await upsertTask(server, uid, "t-move", { date: scheduledDate, time: "15:00" });
     const result = await runReconcile(server.reconcileDeps, uid);
 
     const task = await createRepository(server.firestore, uid, "tasks").get("t-move");

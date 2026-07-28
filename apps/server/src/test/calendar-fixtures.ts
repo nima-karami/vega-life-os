@@ -1,10 +1,15 @@
 import type { Task } from "@vega/shared";
+import { addDays, format } from "date-fns";
 import { createRepository, type WritableEntity } from "../core/repository";
 import { storeConnection, writeGcalAccount } from "../features/calendar/token-store";
 import type { TestServer } from "./harness";
 import { sampleByCollection } from "./samples";
 
 export type ConnectOptions = { writeCalendarId: string; readCalendarIds?: string[] };
+
+/** Sync only pushes dates inside a window around today, so a fixture date must track the clock. */
+export const isoDaysFromToday = (offset: number): string =>
+  format(addDays(new Date(), offset), "yyyy-MM-dd");
 
 export async function connectCalendar(
   server: TestServer,

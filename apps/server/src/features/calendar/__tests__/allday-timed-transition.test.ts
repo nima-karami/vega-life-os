@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
 
-const DATE = "2026-07-25";
+const DATE = isoDaysFromToday(2);
 
 const liveEvent = (server: TestServer, calendarId: string) =>
   server.google.rawEvents(calendarId).find((event) => event.status !== "cancelled");

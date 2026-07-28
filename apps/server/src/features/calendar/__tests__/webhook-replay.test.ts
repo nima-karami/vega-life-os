@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { connectCalendar, upsertTask } from "../../../test/calendar-fixtures";
+import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { registerChannel } from "../channel-registry";
 
 const WRITE_CAL = "cal-write-replay";
 const CHANNEL = { id: "chan-replay", token: "tok-replay" };
+const SCHEDULED_DATE = isoDaysFromToday(1);
 
 /** The webhook only triggers a full set-difference reconcile, so replayed / out-of-order notifications converge. */
 describe("webhook replay + out-of-order notifications converge idempotently", () => {
@@ -34,7 +35,7 @@ describe("webhook replay + out-of-order notifications converge idempotently", ()
       calendarId: "cal-watch-replay",
       expiration: new Date(Date.now() + 7 * 864e5).toISOString(),
     });
-    await upsertTask(server, "u-replay", "t-replay", { date: "2026-07-20", time: "09:00" });
+    await upsertTask(server, "u-replay", "t-replay", { date: SCHEDULED_DATE, time: "09:00" });
   });
   afterAll(async () => {
     await server.close();
@@ -55,7 +56,7 @@ describe("webhook replay + out-of-order notifications converge idempotently", ()
   });
 
   it("a stale replay after a later edit does not revert the newer schedule", async () => {
-    await upsertTask(server, "u-replay", "t-replay", { date: "2026-07-20", time: "16:00" });
+    await upsertTask(server, "u-replay", "t-replay", { date: SCHEDULED_DATE, time: "16:00" });
     await notify();
     await notify();
 
