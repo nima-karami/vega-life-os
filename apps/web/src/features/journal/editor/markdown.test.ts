@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
+import { Editor } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
-import { isSafeHref } from "./extensions";
-import { normalizeMarkdown } from "./markdown";
+import { buildJournalExtensions, isSafeHref } from "./extensions";
+import { countPlainTextLength, normalizeMarkdown } from "./markdown";
 
 /**
  * Round-trip = parse Markdown into the editor schema then serialize back. Each
@@ -91,5 +92,80 @@ describe("isSafeHref (link safety contract)", () => {
 
   it("rejects case/space-obfuscated javascript", () => {
     expect(isSafeHref("  JavaScript:alert(1)")).toBe(false);
+  });
+});
+
+describe("countPlainTextLength (what the cap counts)", () => {
+  const measure = (build: (editor: Editor) => void): number => {
+    const editor = new Editor({ extensions: buildJournalExtensions() });
+    build(editor);
+    const length = countPlainTextLength(editor);
+    editor.destroy();
+    return length;
+  };
+  const measureSource = (source: string) =>
+    measure((editor) => {
+      editor.commands.setContent(source);
+    });
+
+  it("counts an empty document as 0", () => {
+    expect(measureSource("")).toBe(0);
+  });
+
+  it("counts markdown syntax as the text it renders", () => {
+    expect(measureSource("**bold**")).toBe(4);
+  });
+
+  it("charges nothing for block boundaries", () => {
+    expect(measureSource("ab\n\ncd")).toBe(4);
+  });
+
+  it("counts a body of only a divider as 0", () => {
+    expect(measure((editor) => editor.commands.setHorizontalRule())).toBe(0);
+  });
+
+  it("counts a body of only an empty checkbox as 0", () => {
+    expect(measure((editor) => editor.commands.toggleTaskList())).toBe(0);
+  });
+
+  it("does not truncate an over-cap body when measuring it", () => {
+    expect(measureSource("x".repeat(800))).toBe(800);
+  });
+});
+
+describe("legacy card bodies (round-trip)", () => {
+  it("serializes an empty document to a string that is empty after trim", () => {
+    expect(normalizeMarkdown("").trim()).toBe("");
+  });
+
+  it("leaves plain text byte-identical", () => {
+    expect(normalizeMarkdown("Solve the problem backward.")).toBe("Solve the problem backward.");
+  });
+
+  it("collapses a single newline inside a paragraph to a space", () => {
+    expect(normalizeMarkdown("first line\nsecond line")).toBe("first line second line");
+  });
+
+  it("canonicalizes * and + bullets to -", () => {
+    expect(normalizeMarkdown("* one\n* two")).toBe("- one\n- two");
+    expect(normalizeMarkdown("+ one\n+ two")).toBe("- one\n- two");
+  });
+
+  it("collapses three or more blank lines to one", () => {
+    expect(normalizeMarkdown("a\n\n\n\n\nb")).toBe("a\n\nb");
+  });
+
+  it("leaves a #-leading line as a heading", () => {
+    expect(normalizeMarkdown("# Heading")).toBe("# Heading");
+  });
+
+  it("keeps raw HTML as literal text, preserving its characters", () => {
+    const out = normalizeMarkdown("before <b>bold</b> after");
+    expect(out).toContain("bold");
+    expect(out).not.toContain("<b>");
+  });
+
+  it("keeps every character of an over-cap body", () => {
+    expect(normalizeMarkdown("x".repeat(800))).toHaveLength(800);
   });
 });

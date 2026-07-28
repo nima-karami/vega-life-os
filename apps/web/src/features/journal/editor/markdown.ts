@@ -25,3 +25,8 @@ export function normalizeMarkdown(source: string): string {
     return getEditorMarkdown(editor);
   });
 }
+
+/** Visible-text length — block boundaries are free, and a leaf node's placeholder
+ * space is trimmed so a body of only `---` measures 0. */
+export const countPlainTextLength = (editor: Editor): number =>
+  editor.state.doc.textBetween(0, editor.state.doc.content.size, undefined, " ").trim().length;
