@@ -193,7 +193,7 @@ export function ContextMenu({
     const origin = pressOriginRef.current;
     if (origin === null || pressTimerRef.current === null) return;
     const distance = Math.hypot(event.clientX - origin.x, event.clientY - origin.y);
-    if (distance > longPressMoveTolerancePx) cancelPress();
+    if (distance >= longPressMoveTolerancePx) cancelPress();
   };
 
   const handleClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
