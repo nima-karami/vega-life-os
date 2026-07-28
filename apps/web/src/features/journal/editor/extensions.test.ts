@@ -38,6 +38,13 @@ describe("buildCharacterCap (hard plain-text cap)", () => {
     editor.destroy();
   });
 
+  it("lets an insert that stays under the cap through", () => {
+    const editor = buildCappedEditor("x".repeat(10));
+    editor.commands.insertContentAt(editor.state.doc.content.size - 1, "Z");
+    expect(editor.storage.characterCount.characters()).toBe(11);
+    editor.destroy();
+  });
+
   it("accepts a body under the cap and counts its plain text", () => {
     const editor = buildCappedEditor("**bold**");
     expect(editor.storage.characterCount.characters()).toBe(4);

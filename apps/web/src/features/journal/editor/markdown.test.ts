@@ -2,7 +2,7 @@
 import { Editor } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
 import { buildJournalExtensions, isSafeHref } from "./extensions";
-import { countPlainTextLength, normalizeMarkdown } from "./markdown";
+import { countCappedCharacters, countPlainTextLength, normalizeMarkdown } from "./markdown";
 
 /**
  * Round-trip = parse Markdown into the editor schema then serialize back. Each
@@ -130,6 +130,25 @@ describe("countPlainTextLength (what the cap counts)", () => {
 
   it("does not truncate an over-cap body when measuring it", () => {
     expect(measureSource("x".repeat(800))).toBe(800);
+  });
+});
+
+describe("countCappedCharacters (what the cap enforces)", () => {
+  const measureCapped = (build: (editor: Editor) => void): number => {
+    const editor = new Editor({ extensions: buildJournalExtensions() });
+    build(editor);
+    const length = countCappedCharacters(editor);
+    editor.destroy();
+    return length;
+  };
+
+  it("matches the plain-text count for ordinary text", () => {
+    expect(measureCapped((editor) => editor.commands.setContent("**bold**"))).toBe(4);
+  });
+
+  it("charges for a leaf node's separator, unlike the trimmed count", () => {
+    const build = (editor: Editor) => editor.commands.setHorizontalRule();
+    expect(measureCapped(build)).toBeGreaterThan(0);
   });
 });
 

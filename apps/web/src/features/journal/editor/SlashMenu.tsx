@@ -253,6 +253,8 @@ export const SlashMenu = Extension.create({
               renderer = new ReactRenderer(SlashList, { props, editor: props.editor });
               popup = document.createElement("div");
               popup.style.zIndex = "60";
+              // Over a modal, React Aria inerts every other body child; this opts the portal out.
+              popup.dataset.reactAriaTopLayer = "true";
               popup.appendChild(renderer.element);
               document.body.appendChild(popup);
               reposition(props.clientRect);
