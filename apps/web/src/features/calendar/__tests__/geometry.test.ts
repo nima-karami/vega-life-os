@@ -6,8 +6,10 @@ import {
   DROP_DURATION,
   dropToSchedule,
   formatMinutes,
+  GUTTER,
   getChipHeight,
   getChipTop,
+  getColumnIndexAt,
   getMarqueeHits,
   getMinuteAtOffset,
   HOUR_PX,
@@ -15,6 +17,7 @@ import {
   layoutColumns,
   MIN_CHIP_PX,
   resolveDrag,
+  resolveDropZone,
   SNAP,
   shiftSelection,
   snap,
@@ -259,5 +262,45 @@ describe("resolveDrag", () => {
     });
     expect(r.start).toBe(base.origStart + base.origDur - SNAP);
     expect(r.durationMin).toBe(SNAP);
+  });
+});
+
+describe("resolveDropZone", () => {
+  it("stays untimed while the pointer is above the all-day row's bottom edge", () => {
+    expect(resolveDropZone(-200, "untimed")).toBe("untimed");
+    expect(resolveDropZone(-1, "untimed")).toBe("untimed");
+  });
+  it("holds the untimed zone inside the hysteresis band", () => {
+    expect(resolveDropZone(3, "untimed")).toBe("untimed");
+  });
+  it("flips to timed at the band edge and below the grid", () => {
+    expect(resolveDropZone(4, "untimed")).toBe("timed");
+    expect(resolveDropZone(5000, "untimed")).toBe("timed");
+  });
+  it("holds the timed zone until the pointer clears the band symmetrically", () => {
+    expect(resolveDropZone(-3, "timed")).toBe("timed");
+    expect(resolveDropZone(-4, "timed")).toBe("untimed");
+    expect(resolveDropZone(-5, "timed")).toBe("untimed");
+  });
+});
+
+describe("getColumnIndexAt", () => {
+  const box = { left: 0, width: GUTTER + 700 };
+  it("maps a pointer X to its day column past the gutter", () => {
+    expect(getColumnIndexAt(GUTTER + 1, box, 7)).toBe(0);
+    expect(getColumnIndexAt(GUTTER + 150, box, 7)).toBe(1);
+    expect(getColumnIndexAt(GUTTER + 699, box, 7)).toBe(6);
+  });
+  it("clamps a pointer left of the gutter to the first column", () => {
+    expect(getColumnIndexAt(-500, box, 7)).toBe(0);
+  });
+  it("clamps a pointer past the last column to the last column", () => {
+    expect(getColumnIndexAt(GUTTER + 5000, box, 7)).toBe(6);
+  });
+  it("resolves everything to column 0 on a single-column (compact) grid", () => {
+    expect(getColumnIndexAt(GUTTER + 400, box, 1)).toBe(0);
+  });
+  it("is offset by the box's own left origin", () => {
+    expect(getColumnIndexAt(300 + GUTTER + 150, { left: 300, width: GUTTER + 700 }, 7)).toBe(1);
   });
 });

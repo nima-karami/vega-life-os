@@ -59,6 +59,42 @@ export const dropToSchedule = (offsetPx: number): { startMin: number; durationMi
   durationMin: DROP_DURATION,
 });
 
+/** Pointer movement that turns a press into a drag rather than a tap. */
+export const DRAG_THRESHOLD_PX = 4;
+
+/** Which half of the calendar an all-day drag is over. */
+export type DropZone = "untimed" | "timed";
+
+/** Slack at the seam before the zone flips. Module-private — an unused export fails Knip. */
+const ZONE_HYSTERESIS_PX = 4;
+
+/**
+ * Zone for an all-day drag. `offsetPx` is the pointer's Y relative to the **bottom edge of the
+ * all-day row** — negative above it (untimed), positive below it (over the timed grid). Sticky:
+ * the current zone holds until the pointer clears the hysteresis band, so jitter at the seam
+ * cannot flicker between two very different previews.
+ */
+export function resolveDropZone(offsetPx: number, current: DropZone): DropZone {
+  if (current === "untimed") return offsetPx >= ZONE_HYSTERESIS_PX ? "timed" : "untimed";
+  return offsetPx <= -ZONE_HYSTERESIS_PX ? "untimed" : "timed";
+}
+
+/**
+ * Day-column index for a pointer X against a grid-aligned box, clamped to the visible columns.
+ * The day headers, the all-day row and the timed grid share the `GUTTER + repeat(n, 1fr)` template
+ * and left origin, so their columns agree to within the grid's scrollbar width (~2px per column
+ * once `ScrollShadow` shows one) — each caller measures against the box its own zone owns.
+ */
+export function getColumnIndexAt(
+  clientX: number,
+  box: { left: number; width: number },
+  colCount: number,
+): number {
+  const colW = (box.width - GUTTER) / colCount;
+  const idx = Math.floor((clientX - box.left - GUTTER) / colW);
+  return Math.max(0, Math.min(colCount - 1, idx));
+}
+
 /** An axis-aligned pixel box, grid-content-relative (left/top/right/bottom). */
 export interface Box {
   left: number;

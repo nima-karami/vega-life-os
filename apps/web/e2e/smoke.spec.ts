@@ -357,6 +357,113 @@ test("calendar: 'Schedule to time…' gives an all-day task a time (leaves the a
   ).toBeVisible();
 });
 
+/** Drag an all-day chip sideways onto another day, staying inside the all-day row. */
+async function dragAllDayChipToColumn(
+  page: import("@playwright/test").Page,
+  chip: import("@playwright/test").Locator,
+  column: import("@playwright/test").Locator,
+) {
+  const from = await chip.boundingBox();
+  const to = await column.boundingBox();
+  if (!from || !to) throw new Error("chip or column has no bounding box");
+  const y = from.y + from.height / 2;
+  await page.mouse.move(from.x + from.width / 2, y);
+  await page.mouse.down();
+  // clear the 4px tap threshold, then travel to the target column at the same height
+  await page.mouse.move(from.x + from.width / 2 + 10, y, { steps: 3 });
+  await page.mouse.move(to.x + to.width / 2, y, { steps: 10 });
+  await page.mouse.up();
+}
+
+test("calendar: dragging an all-day chip sideways changes its day and keeps it untimed", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // The seeded all-day one-off sits on Tuesday.
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+  const wednesday = page.getByRole("button", { name: /^Add task on Wed/ });
+  const wedBox = await wednesday.boundingBox();
+
+  await dragAllDayChipToColumn(page, chip, wednesday);
+
+  // Still an all-day chip — no time was acquired — and now over Wednesday's column.
+  await expect(chip).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Pick up dry cleaning, \d{2}:\d{2}/ }),
+  ).toHaveCount(0);
+  const after = await chip.boundingBox();
+  expect(after?.x ?? 0).toBeGreaterThan(wedBox?.x ?? 0);
+  expect(after?.x ?? 0).toBeLessThan((wedBox?.x ?? 0) + (wedBox?.width ?? 0));
+});
+
+test("calendar: the untimed drop zone survives a scrolled timed grid", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+
+  // Scroll the timed grid: a grid-anchored seam would now misread the all-day row as "timed".
+  const thursday = page.getByRole("button", { name: /^Add task on Thu/ });
+  const colBox = await thursday.boundingBox();
+  await page.mouse.move((colBox?.x ?? 0) + 10, (colBox?.y ?? 0) + 40);
+  await page.mouse.wheel(0, 300);
+  // the wheel event resolves before the scroll settles, so poll for it
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Math.max(...[...document.querySelectorAll<HTMLElement>("div")].map((el) => el.scrollTop)),
+      ),
+    )
+    .toBeGreaterThan(0);
+
+  await dragAllDayChipToColumn(page, chip, thursday);
+
+  await expect(page.getByRole("button", { name: "Pick up dry cleaning, all day" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Pick up dry cleaning, \d{2}:\d{2}/ }),
+  ).toHaveCount(0);
+  // and it really did travel — a no-op drag would pass the untimed assertion too
+  const after = await chip.boundingBox();
+  expect(after?.x ?? 0).toBeGreaterThan(colBox?.x ?? 0);
+  expect(after?.x ?? 0).toBeLessThan((colBox?.x ?? 0) + (colBox?.width ?? 0));
+});
+
+test("calendar: 'Move to day…' moves an all-day task, keeps it untimed, and returns focus", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+  await chip.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Move to day…" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Move to a day", { timeout: 10_000 });
+
+  const friday = page.getByRole("button", { name: /^Add task on Fri/ });
+  const friBox = await friday.boundingBox();
+  await dialog.getByRole("button", { name: /^Fri, / }).click();
+  await expect(dialog).toBeHidden();
+
+  // Still untimed, now in Friday's all-day bucket, and focus followed the chip.
+  await expect(
+    page.getByRole("button", { name: /^Pick up dry cleaning, \d{2}:\d{2}/ }),
+  ).toHaveCount(0);
+  const after = await chip.boundingBox();
+  expect(after?.x ?? 0).toBeGreaterThan(friBox?.x ?? 0);
+  expect(after?.x ?? 0).toBeLessThan((friBox?.x ?? 0) + (friBox?.width ?? 0));
+  await expect(chip).toBeFocused();
+});
+
 test("calendar: relink a detached habit instance snaps it back to the template", async ({
   page,
 }) => {
