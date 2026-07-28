@@ -10,7 +10,7 @@ import { SlashMenu } from "./SlashMenu";
 export interface EditorTextLengths {
   /** Trimmed visible text — 0 for a document of only a divider or an empty checkbox. */
   plainText: number;
-  /** The untrimmed tally `maxLength` enforces — the only honest number to display. */
+  /** The untrimmed tally `maxLength` enforces. */
   capped: number;
 }
 

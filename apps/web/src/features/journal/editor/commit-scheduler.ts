@@ -5,8 +5,7 @@ export interface CommitScheduler {
 }
 
 /** Commit timing for the markdown editors: an idle debounce with a hard cap so continuous
- * typing still lands, `debounceMs: 0` meaning "commit every change". Kept out of the React
- * shell so the timers are testable without a DOM. */
+ * typing still lands, `debounceMs: 0` meaning "commit every change". */
 export function createCommitScheduler({
   initialValue,
   debounceMs,

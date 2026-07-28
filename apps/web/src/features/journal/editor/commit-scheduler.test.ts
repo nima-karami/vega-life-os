@@ -36,6 +36,17 @@ describe("createCommitScheduler (debounced path)", () => {
     expect(emit).toHaveBeenCalledExactlyOnceWith("ab");
   });
 
+  it("restarts the idle window on each keystroke rather than committing on a fixed interval", () => {
+    const { scheduler, emit } = buildScheduler();
+    scheduler.queueSave("a");
+    vi.advanceTimersByTime(300);
+    scheduler.queueSave("ab");
+    vi.advanceTimersByTime(300);
+    expect(emit).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(DEBOUNCE_MS - 300);
+    expect(emit).toHaveBeenCalledExactlyOnceWith("ab");
+  });
+
   it("reports saving while a commit is pending and idle once it lands", () => {
     const { scheduler, setSaving } = buildScheduler();
     scheduler.queueSave("a");
