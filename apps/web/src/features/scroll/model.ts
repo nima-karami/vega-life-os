@@ -10,6 +10,23 @@ const FLIPPABLE_BY_DEFAULT: readonly MindCardType[] = ["note"];
 export const isFlippableByDefault = (type: MindCardType): boolean =>
   FLIPPABLE_BY_DEFAULT.includes(type);
 
+/** Gated on plain text, not `trim()` — a body of only `---` or an empty checkbox is not a card. */
+export const canSaveCard = ({
+  type,
+  flippable,
+  title,
+  bodyTextLength,
+}: {
+  type: MindCardType;
+  flippable: boolean;
+  title: string;
+  bodyTextLength: number;
+}): boolean => {
+  if (bodyTextLength === 0) return false;
+  const requiresTitle = type === "note" && flippable;
+  return !requiresTitle || title.trim().length > 0;
+};
+
 export const MIND_CARD_TYPE_LABELS: Record<MindCardType, string> = {
   note: "Note",
   quote: "Quote",

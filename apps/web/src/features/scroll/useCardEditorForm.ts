@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import type { EditorTextLengths } from "@/features/journal/editor/RichMarkdownEditor";
 import type { MindCard, MindCardType } from "./model";
-import { isFlippableByDefault } from "./model";
+import { canSaveCard, isFlippableByDefault } from "./model";
 
 const EMPTY_BODY_LENGTHS: EditorTextLengths = { plainText: 0, capped: 0 };
 
@@ -93,10 +93,12 @@ export function useCardEditorForm({
     }
   }, [isOpen, cardId, card, onClose, pushToast]);
 
-  const requiresTitle = values.type === "note" && values.flippable;
-  const canSave = requiresTitle
-    ? values.title.trim().length > 0 && values.body.trim().length > 0
-    : values.body.trim().length > 0;
+  const canSave = canSaveCard({
+    type: values.type,
+    flippable: values.flippable,
+    title: values.title,
+    bodyTextLength: bodyLengths.plainText,
+  });
 
   const handleSave = () => {
     if (!canSave) return;
@@ -138,7 +140,6 @@ export function useCardEditorForm({
     handleTypeChange,
     handleFlippableToggle,
     wasLearning: initialLearning.current,
-    bodyTextLength: bodyLengths.plainText,
     bodyCappedLength: bodyLengths.capped,
     setBodyLengths,
     canSave,

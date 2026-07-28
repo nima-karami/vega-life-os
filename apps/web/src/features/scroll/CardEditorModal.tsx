@@ -88,6 +88,40 @@ export function CardEditorModal({
                   />
                 </div>
 
+                {visibleFields.behavior && (
+                  <div className="space-y-2.5">
+                    <span className="text-xs text-muted">Behavior</span>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        aria-pressed={values.flippable}
+                        variant={values.flippable ? "primary" : "outline"}
+                        onPress={handleFlippableToggle}
+                      >
+                        <Icon name="repeat" size={14} />
+                        Flippable
+                      </Button>
+                      <Button
+                        size="sm"
+                        aria-pressed={values.learning}
+                        isDisabled={!values.flippable}
+                        variant={values.learning ? "primary" : "outline"}
+                        onPress={() => setField("learning", !values.learning)}
+                      >
+                        <Icon name="brain" size={14} />
+                        Learning mode
+                      </Button>
+                    </div>
+                    {!values.flippable && (
+                      <p className="text-xs text-muted">
+                        {wasLearning
+                          ? "Saving ends this card's learning — reviews need a hidden back."
+                          : "Learning needs a flippable card."}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-2.5">
                   <span className="text-xs text-muted">Category</span>
                   <CategoryField
@@ -138,40 +172,6 @@ export function CardEditorModal({
                       className={FIELD_CLASS}
                     />
                   </label>
-                )}
-
-                {visibleFields.behavior && (
-                  <div className="space-y-2.5">
-                    <span className="text-xs text-muted">Behavior</span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        aria-pressed={values.flippable}
-                        variant={values.flippable ? "primary" : "outline"}
-                        onPress={handleFlippableToggle}
-                      >
-                        <Icon name="repeat" size={14} />
-                        Flippable
-                      </Button>
-                      <Button
-                        size="sm"
-                        aria-pressed={values.learning}
-                        isDisabled={!values.flippable}
-                        variant={values.learning ? "primary" : "outline"}
-                        onPress={() => setField("learning", !values.learning)}
-                      >
-                        <Icon name="brain" size={14} />
-                        Learning mode
-                      </Button>
-                    </div>
-                    {!values.flippable && (
-                      <p className="text-xs text-muted">
-                        {wasLearning
-                          ? "Saving ends this card's learning — reviews need a hidden back."
-                          : "Learning needs a flippable card."}
-                      </p>
-                    )}
-                  </div>
                 )}
               </Modal.Body>
 
