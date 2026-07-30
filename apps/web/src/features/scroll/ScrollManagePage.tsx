@@ -5,7 +5,8 @@ import { useStore } from "@/core/store";
 import { cx, EmptyState, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
 import { BulkImportModal } from "./BulkImportModal";
 import { CardEditorModal } from "./CardEditorModal";
-import { CardMarkdown } from "./CardMarkdown";
+import { CardPreview } from "./CardPreview";
+import { toAuthoredFeedCard } from "./feed-cards";
 import { isSameCategory, MIND_CARD_TYPE_LABELS, type MindCard } from "./model";
 import {
   type CardFilter,
@@ -382,12 +383,11 @@ function CardRow({
         </button>
       </div>
       {isExpanded && (
-        <div className="border-t border-border bg-surface-secondary px-4 py-3">
-          {card.body.trim() ? (
-            <CardMarkdown markdown={card.body} className="journal-prose text-sm" />
-          ) : (
-            <p className="text-sm text-muted">No body yet.</p>
-          )}
+        <div className="border-t border-border bg-surface-secondary px-4 py-4">
+          <CardPreview
+            card={toAuthoredFeedCard(card, todayISO())}
+            className="mx-auto max-w-[240px]"
+          />
         </div>
       )}
     </div>

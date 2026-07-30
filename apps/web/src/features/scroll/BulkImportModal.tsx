@@ -1,7 +1,7 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { useCompactModal } from "@/core/ui";
+import { draftSafeBackdrop, useCompactModal } from "@/core/ui";
 import { CategoryField, FIELD_CLASS } from "./CategoryField";
 import { parseBulkImport } from "./queries";
 
@@ -51,7 +51,7 @@ export function BulkImportModal({ isOpen, onClose }: { isOpen: boolean; onClose:
 
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur">
+      <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
         <Modal.Container {...responsive}>
           <Modal.Dialog aria-label="Bulk import cards">
             <Modal.Header>

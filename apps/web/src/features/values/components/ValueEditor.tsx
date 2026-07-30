@@ -3,7 +3,7 @@ import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { cx, Icon, IconField, useCompactModal } from "@/core/ui";
+import { cx, draftSafeBackdrop, Icon, IconField, useCompactModal } from "@/core/ui";
 import { getValueColor, VALUE_HUES, VALUE_PALETTE } from "../color";
 import type { Value } from "../model";
 import { EditorField, HuePicker } from "./editor-bits";
@@ -74,7 +74,7 @@ export function ValueEditor({
   });
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur">
+      <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
         <Modal.Container {...responsive}>
           <Modal.Dialog aria-label={creating ? "New value" : "Edit value"}>
             {isOpen && (

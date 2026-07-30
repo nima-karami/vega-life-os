@@ -2,7 +2,7 @@ import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { uid } from "@/core/lib/id";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, Icon, useCompactModal } from "@/core/ui";
+import { ConfirmDialog, draftSafeBackdrop, Icon, useCompactModal } from "@/core/ui";
 import { listVocabExamples, type VocabEntry } from "./model";
 
 const FIELD_CLASS =
@@ -192,7 +192,7 @@ export function VocabEditorModal({
   return (
     <>
       <Modal state={state}>
-        <Modal.Backdrop variant="blur">
+        <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
           <Modal.Container {...responsive}>
             <Modal.Dialog aria-label={heading}>
               <Modal.Header>

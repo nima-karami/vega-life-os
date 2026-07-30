@@ -2,7 +2,16 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx, DatePicker, Icon, IconField, Select, SortableList, useCompactModal } from "@/core/ui";
+import {
+  cx,
+  DatePicker,
+  draftSafeBackdrop,
+  Icon,
+  IconField,
+  Select,
+  SortableList,
+  useCompactModal,
+} from "@/core/ui";
 import { EditorField, FractionSlider } from "@/features/values/components/editor-bits";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
 import {
@@ -105,7 +114,7 @@ export function GoalEditor({
   });
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur">
+      <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
         <Modal.Container {...responsive}>
           <Modal.Dialog aria-label="Edit goal">
             {goal && (

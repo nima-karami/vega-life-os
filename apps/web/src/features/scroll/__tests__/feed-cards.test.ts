@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { VocabEntry } from "@/features/library/model";
 import {
   buildAuthoredFeedCards,
+  buildDraftFeedCard,
   buildFeedPool,
   buildVocabFeedCards,
   resolveBodyVariant,
+  toAuthoredFeedCard,
 } from "../feed-cards";
 import { buildMetaId, buildVocabCardId } from "../model";
 
@@ -362,5 +364,52 @@ describe("buildFeedPool", () => {
     const pool = buildFeedPool({ mindCards, mindMeta: [], vocab: [entry({ id: "v1" })] }, TODAY);
     expect(pool.find((c) => c.id === "mc_q")?.type).toBe("quote");
     expect(pool.find((c) => c.kind === "vocab")?.type).toBeNull();
+  });
+});
+
+describe("toAuthoredFeedCard", () => {
+  it("renders a hidden card — the manager previews cards the feed filters out", () => {
+    const hidden = card({ id: "h", title: "Hidden", hiddenAt: "2026-07-02" });
+    expect(toAuthoredFeedCard(hidden, TODAY).title).toBe("Hidden");
+  });
+
+  it("derives learning from the box and due from nextDue", () => {
+    const learning = card({ box: 2, nextDue: "2026-07-20" });
+    expect(toAuthoredFeedCard(learning, TODAY)).toMatchObject({ learning: true, due: true });
+    expect(toAuthoredFeedCard(card(), TODAY)).toMatchObject({ learning: false, due: false });
+  });
+});
+
+describe("buildDraftFeedCard", () => {
+  const draft = {
+    type: "note" as const,
+    title: "  Second-order thinking  ",
+    body: "Ask **and then what?**",
+    category: "  mental models ",
+    source: "  ",
+    flippable: true,
+    learning: false,
+  };
+
+  it("trims the text the face renders", () => {
+    expect(buildDraftFeedCard(draft)).toMatchObject({
+      title: "Second-order thinking",
+      category: "mental models",
+      body: "Ask **and then what?**",
+    });
+  });
+
+  it("treats a blank source as absent so the face omits it", () => {
+    expect(buildDraftFeedCard(draft).source).toBeNull();
+    expect(buildDraftFeedCard({ ...draft, source: " Munger " }).source).toBe("Munger");
+  });
+
+  it("carries the behavior toggles the preview switches on", () => {
+    expect(buildDraftFeedCard({ ...draft, flippable: false })).toMatchObject({
+      flippable: false,
+      box: null,
+      due: false,
+      liked: false,
+    });
   });
 });

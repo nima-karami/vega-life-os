@@ -1,9 +1,19 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { useEffect, useRef } from "react";
-import { ConfirmDialog, Icon, Select, type SelectOption, useCompactModal } from "@/core/ui";
+import { useEffect, useRef, useState } from "react";
+import {
+  ConfirmDialog,
+  cx,
+  draftSafeBackdrop,
+  Icon,
+  Select,
+  type SelectOption,
+  useCompactModal,
+} from "@/core/ui";
 import { CardBodyField } from "./CardBodyField";
+import { CardPreview } from "./CardPreview";
 import { CategoryField, FIELD_CLASS } from "./CategoryField";
 import { CharCounter } from "./CharCounter";
+import { buildDraftFeedCard } from "./feed-cards";
 import { MIND_CARD_TYPE_LABELS, type MindCardType } from "./model";
 import { useCardEditorForm } from "./useCardEditorForm";
 
@@ -46,10 +56,17 @@ export function CardEditorModal({
     setIsConfirmingDelete,
   } = useCardEditorForm({ cardId, isOpen, onClose });
 
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const previewedKey = useRef<string | null>(null);
+  if (previewedKey.current !== openKey) {
+    previewedKey.current = openKey;
+    if (isPreviewing) setIsPreviewing(false);
+  }
+
   const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (isOpen && isCreate) titleRef.current?.focus();
-  }, [isOpen, isCreate]);
+    if (isOpen && isCreate && !isPreviewing) titleRef.current?.focus();
+  }, [isOpen, isCreate, isPreviewing]);
 
   const responsive = useCompactModal();
   const state = useOverlayState({
@@ -68,111 +85,140 @@ export function CardEditorModal({
   return (
     <>
       <Modal state={state}>
-        <Modal.Backdrop variant="blur">
+        <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
           <Modal.Container {...responsive}>
             <Modal.Dialog aria-label={heading}>
-              <Modal.Header>
+              <Modal.Header className="flex-row items-center justify-between gap-3">
                 <Modal.Heading className="text-base font-semibold text-foreground">
                   {heading}
                 </Modal.Heading>
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    aria-pressed={!isPreviewing}
+                    variant={isPreviewing ? "outline" : "primary"}
+                    onPress={() => setIsPreviewing(false)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    aria-pressed={isPreviewing}
+                    variant={isPreviewing ? "primary" : "outline"}
+                    onPress={() => setIsPreviewing(true)}
+                  >
+                    <Icon name="eye" size={14} />
+                    Preview
+                  </Button>
+                </div>
               </Modal.Header>
 
-              <Modal.Body className="space-y-5">
-                <div className="space-y-2.5">
-                  <span className="text-xs text-muted">Type</span>
-                  <Select
-                    ariaLabel="Card type"
-                    value={values.type}
-                    onValueChange={(type) => handleTypeChange(type as MindCardType)}
-                    options={TYPE_OPTIONS}
+              <Modal.Body>
+                {isPreviewing && (
+                  <CardPreview
+                    card={buildDraftFeedCard(values)}
+                    className="mx-auto max-w-[300px]"
                   />
-                </div>
+                )}
 
-                {visibleFields.behavior && (
+                {/* Kept mounted while previewing so the body editor doesn't lose its instance. */}
+                <div className={cx("space-y-5", isPreviewing && "hidden")}>
                   <div className="space-y-2.5">
-                    <span className="text-xs text-muted">Behavior</span>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        aria-pressed={values.flippable}
-                        variant={values.flippable ? "primary" : "outline"}
-                        onPress={handleFlippableToggle}
-                      >
-                        <Icon name="repeat" size={14} />
-                        Flippable
-                      </Button>
-                      <Button
-                        size="sm"
-                        aria-pressed={values.learning}
-                        isDisabled={!values.flippable}
-                        variant={values.learning ? "primary" : "outline"}
-                        onPress={() => setField("learning", !values.learning)}
-                      >
-                        <Icon name="brain" size={14} />
-                        Learning mode
-                      </Button>
-                    </div>
-                    {!values.flippable && (
-                      <p className="text-xs text-muted">
-                        {wasLearning
-                          ? "Saving ends this card's learning — reviews need a hidden back."
-                          : "Learning needs a flippable card."}
-                      </p>
-                    )}
+                    <span className="text-xs text-muted">Type</span>
+                    <Select
+                      ariaLabel="Card type"
+                      value={values.type}
+                      onValueChange={(type) => handleTypeChange(type as MindCardType)}
+                      options={TYPE_OPTIONS}
+                    />
                   </div>
-                )}
 
-                <div className="space-y-2.5">
-                  <span className="text-xs text-muted">Category</span>
-                  <CategoryField
-                    value={values.category}
-                    onChange={(category) => setField("category", category)}
-                    cards={cards}
+                  {visibleFields.behavior && (
+                    <div className="space-y-2.5">
+                      <span className="text-xs text-muted">Behavior</span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          aria-pressed={values.flippable}
+                          variant={values.flippable ? "primary" : "outline"}
+                          onPress={handleFlippableToggle}
+                        >
+                          <Icon name="repeat" size={14} />
+                          Flippable
+                        </Button>
+                        <Button
+                          size="sm"
+                          aria-pressed={values.learning}
+                          isDisabled={!values.flippable}
+                          variant={values.learning ? "primary" : "outline"}
+                          onPress={() => setField("learning", !values.learning)}
+                        >
+                          <Icon name="brain" size={14} />
+                          Learning mode
+                        </Button>
+                      </div>
+                      {!values.flippable && (
+                        <p className="text-xs text-muted">
+                          {wasLearning
+                            ? "Saving ends this card's learning — reviews need a hidden back."
+                            : "Learning needs a flippable card."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-2.5">
+                    <span className="text-xs text-muted">Category</span>
+                    <CategoryField
+                      value={values.category}
+                      onChange={(category) => setField("category", category)}
+                      cards={cards}
+                    />
+                  </div>
+
+                  {visibleFields.title && (
+                    <label className="block space-y-2.5">
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-muted">Title</span>
+                        <CharCounter length={values.title.length} max={TITLE_MAX} />
+                      </span>
+                      <input
+                        ref={titleRef}
+                        type="text"
+                        aria-label="Card title"
+                        placeholder="Name the idea"
+                        value={values.title}
+                        maxLength={TITLE_MAX}
+                        onChange={(event) => setField("title", event.target.value)}
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                  )}
+
+                  <CardBodyField
+                    key={`${openKey}:${values.type}`}
+                    type={values.type}
+                    value={values.body}
+                    cappedLength={bodyCappedLength}
+                    onChange={(body) => setField("body", body)}
+                    onLengthChange={setBodyLengths}
+                    onSubmit={handleSave}
                   />
+
+                  {visibleFields.source && (
+                    <label className="block space-y-2.5">
+                      <span className="text-xs text-muted">{sourceLabel}</span>
+                      <input
+                        type="text"
+                        aria-label={sourceLabel}
+                        placeholder={sourcePlaceholder}
+                        value={values.source}
+                        onChange={(event) => setField("source", event.target.value)}
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                  )}
                 </div>
-
-                {visibleFields.title && (
-                  <label className="block space-y-2.5">
-                    <span className="flex items-center gap-2">
-                      <span className="text-xs text-muted">Title</span>
-                      <CharCounter length={values.title.length} max={TITLE_MAX} />
-                    </span>
-                    <input
-                      ref={titleRef}
-                      type="text"
-                      aria-label="Card title"
-                      placeholder="Name the idea"
-                      value={values.title}
-                      maxLength={TITLE_MAX}
-                      onChange={(event) => setField("title", event.target.value)}
-                      className={FIELD_CLASS}
-                    />
-                  </label>
-                )}
-
-                <CardBodyField
-                  key={`${openKey}:${values.type}`}
-                  type={values.type}
-                  value={values.body}
-                  cappedLength={bodyCappedLength}
-                  onChange={(body) => setField("body", body)}
-                  onLengthChange={setBodyLengths}
-                  onSubmit={handleSave}
-                />
-
-                {visibleFields.source && (
-                  <label className="block space-y-2.5">
-                    <span className="text-xs text-muted">{sourceLabel}</span>
-                    <input
-                      type="text"
-                      aria-label={sourceLabel}
-                      placeholder={sourcePlaceholder}
-                      value={values.source}
-                      onChange={(event) => setField("source", event.target.value)}
-                      className={FIELD_CLASS}
-                    />
-                  </label>
-                )}
               </Modal.Body>
 
               <Modal.Footer className="justify-between">

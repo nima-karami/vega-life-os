@@ -11,6 +11,7 @@ export { Ic, Icon } from "./icons";
 export { getValueStripeStyle, Lineage } from "./lineage";
 export type { MenuItem } from "./menu";
 export { Menu } from "./menu";
+export { draftSafeBackdrop } from "./modal";
 export { Popover } from "./popover";
 export {
   Button,

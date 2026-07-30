@@ -1,7 +1,16 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { formatLongDate } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { DatePicker, Icon, Label, NONE, Select, TimeRange, useCompactModal } from "@/core/ui";
+import {
+  DatePicker,
+  draftSafeBackdrop,
+  Icon,
+  Label,
+  NONE,
+  Select,
+  TimeRange,
+  useCompactModal,
+} from "@/core/ui";
 import { STATUS_LABEL, type Task, type TaskStatus } from "../model";
 
 const STATUSES: TaskStatus[] = ["open", "todo", "done", "skip"];
@@ -36,7 +45,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
 
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur">
+      <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
         <Modal.Container {...responsive}>
           <Modal.Dialog aria-label="Edit task">
             {task && (

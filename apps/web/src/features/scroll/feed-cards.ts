@@ -46,6 +46,58 @@ const buildVocabBackVariants = (entry: VocabEntry): string[] => {
   );
 };
 
+type AuthoredFields = Pick<
+  FeedCard,
+  "id" | "type" | "category" | "title" | "body" | "source" | "flippable" | "learning" | "box"
+> & { due: boolean; liked: boolean };
+
+const buildAuthoredCard = (fields: AuthoredFields): FeedCard => ({
+  ...fields,
+  kind: "authored",
+  subtitle: null,
+  bodyVariants: null,
+  maskedBody: null,
+});
+
+export const toAuthoredFeedCard = (card: MindCard, today: string): FeedCard =>
+  buildAuthoredCard({
+    id: card.id,
+    type: card.type,
+    category: card.category,
+    title: card.title,
+    body: card.body,
+    source: card.source,
+    flippable: card.flippable,
+    learning: card.box !== null,
+    box: card.box,
+    due: isDue(card.nextDue, today),
+    liked: card.likedAt !== null,
+  });
+
+/** An unsaved editor draft rendered as the feed would render it. */
+export const buildDraftFeedCard = (draft: {
+  type: MindCardType;
+  title: string;
+  body: string;
+  category: string;
+  source: string;
+  flippable: boolean;
+  learning: boolean;
+}): FeedCard =>
+  buildAuthoredCard({
+    id: "draft",
+    type: draft.type,
+    category: draft.category.trim(),
+    title: draft.title.trim(),
+    body: draft.body,
+    source: draft.source.trim() || null,
+    flippable: draft.flippable,
+    learning: draft.learning,
+    box: null,
+    due: false,
+    liked: false,
+  });
+
 export function buildAuthoredFeedCards(
   cards: MindCard[],
   meta: MindMetaRecord[],
@@ -58,23 +110,7 @@ export function buildAuthoredFeedCards(
     .filter(
       (c) => c.hiddenAt === null && !disabledCategoryIds.has(buildMetaId("category", c.category)),
     )
-    .map((c) => ({
-      id: c.id,
-      kind: "authored",
-      type: c.type,
-      category: c.category,
-      title: c.title,
-      subtitle: null,
-      body: c.body,
-      bodyVariants: null,
-      source: c.source,
-      learning: c.box !== null,
-      box: c.box,
-      due: isDue(c.nextDue, today),
-      maskedBody: null,
-      flippable: c.flippable,
-      liked: c.likedAt !== null,
-    }));
+    .map((c) => toAuthoredFeedCard(c, today));
 }
 
 export function buildVocabFeedCards(

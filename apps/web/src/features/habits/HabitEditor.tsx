@@ -5,6 +5,7 @@ import { useStore } from "@/core/store";
 import {
   cx,
   DurationStepper,
+  draftSafeBackdrop,
   Icon,
   IconField,
   NONE,
@@ -164,7 +165,7 @@ export function HabitEditor({ habit, isOpen, onClose, onRequestDelete }: HabitEd
   });
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur">
+      <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
         <Modal.Container {...responsive}>
           <Modal.Dialog aria-label={isCreate ? "New habit" : "Edit habit"}>
             {!habitExists ? (

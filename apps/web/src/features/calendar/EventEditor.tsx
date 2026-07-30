@@ -6,6 +6,7 @@ import {
   ConfirmDialog,
   cx,
   DatePicker,
+  draftSafeBackdrop,
   Icon,
   Label,
   NONE,
@@ -150,7 +151,7 @@ export function EventEditor({
 
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur">
+      <Modal.Backdrop variant="blur" {...draftSafeBackdrop}>
         <Modal.Container {...responsive}>
           <Modal.Dialog aria-label="Edit calendar event">
             {event && (
