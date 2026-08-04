@@ -116,6 +116,17 @@ describe("an annual charge spread over twelve months", () => {
     expect(computeHouseholdTotal(book, NEXT_MONTH)).toBe(0);
     expect(computeSettlementBalance(book, NEXT_MONTH)).toBe(0);
   });
+
+  it("puts the remainder of an uneven split on the first month, losing nothing", () => {
+    const uneven = makeBook({
+      financeTransactions: [row("2026-03-10", -100000, { categoryId: SOFTWARE, spreadMonths: 12 })],
+    });
+    const recognised = Array.from({ length: 12 }, (_, step) =>
+      computeBorneSpend(uneven, monthAfter(step), SOFTWARE),
+    );
+    expect(recognised).toEqual([8337, ...Array.from({ length: 11 }, () => 8333)]);
+    expect(recognised.reduce((sum, cents) => sum + cents, 0)).toBe(100000);
+  });
 });
 
 describe("resolveEffectiveBudget", () => {
@@ -187,8 +198,9 @@ describe("rounding", () => {
     expect(computePaidOut(book, MONTH)).toBe(2175);
   });
 
-  it("rounds the settlement balance once over the whole expression", () => {
-    expect(computeSettlementBalance(book, MONTH)).toBe(1088);
+  it("derives the balance from the rounded share so the strip adds up on screen", () => {
+    // The owner reads 2175 paid and 1088 borne, and 2175 − 1088 must be the figure shown.
+    expect(computeSettlementBalance(book, MONTH)).toBe(1087);
   });
 });
 
@@ -216,6 +228,12 @@ describe("settlement carry and payment", () => {
 });
 
 describe("rows that must not reach a personal figure", () => {
+  const businessBook = makeBook({
+    financeTransactions: [
+      row("2026-03-06", -10000, { accountId: BUSINESS, isHousehold: true, myShareBps: 5000 }),
+    ],
+  });
+
   it("excludes internal transfers from every aggregate", () => {
     const book = makeBook({
       financeTransactions: [
@@ -231,22 +249,20 @@ describe("rows that must not reach a personal figure", () => {
     expect(computeSettlementBalance(book, MONTH)).toBe(0);
   });
 
-  it("excludes business accounts by default and includes them on request", () => {
-    const book = makeBook({
-      financeTransactions: [
-        row("2026-03-06", -10000, { accountId: BUSINESS, isHousehold: true, myShareBps: 5000 }),
-      ],
-    });
-    expect(computeBorneSpend(book, MONTH, GROCERIES)).toBe(0);
-    expect(computePaidOut(book, MONTH)).toBe(0);
-    expect(computeHouseholdTotal(book, MONTH)).toBe(0);
-    expect(computeSettlementBalance(book, MONTH)).toBe(0);
+  it("keeps a business account out of the personal figures until asked", () => {
+    expect(computeBorneSpend(businessBook, MONTH, GROCERIES)).toBe(0);
+    expect(computePaidOut(businessBook, MONTH)).toBe(0);
+    expect(projectMonthEnd(businessBook, MONTH, GROCERIES, new Date("2026-03-10"))).toBe(0);
 
     const included = { includeBusiness: true };
-    expect(computeBorneSpend(book, MONTH, GROCERIES, included)).toBe(5000);
-    expect(computePaidOut(book, MONTH, included)).toBe(10000);
-    expect(computeHouseholdTotal(book, MONTH, included)).toBe(10000);
-    expect(computeSettlementBalance(book, MONTH, included)).toBe(5000);
+    expect(computeBorneSpend(businessBook, MONTH, GROCERIES, included)).toBe(5000);
+    expect(computePaidOut(businessBook, MONTH, included)).toBe(10000);
+  });
+
+  it("never lets a business account erase a debt", () => {
+    expect(computeHouseholdTotal(businessBook, MONTH)).toBe(10000);
+    expect(computeMyTrueShare(businessBook, MONTH)).toBe(5000);
+    expect(computeSettlementBalance(businessBook, MONTH)).toBe(5000);
   });
 
   it("counts nothing for a category that is not a spend category", () => {

@@ -30,7 +30,11 @@ export interface FinanceBook {
 }
 
 export interface FinanceQueryOptions {
-  /** Business accounts sit outside the personal figures unless the caller opts in. */
+  /**
+   * Business accounts sit outside the *personal* figures unless the caller opts in. The
+   * household and settlement figures never take this option — business spending must not
+   * pollute a budget, but it must never erase a debt either.
+   */
   includeBusiness?: boolean;
 }
 
@@ -51,7 +55,7 @@ const borneCents = (txn: FinanceTransaction) => BigInt(-txn.amountCents);
  * Non-internal rows on accounts that count towards the owner's personal figures. Partner-paid
  * rows carry no account, so they are always in.
  */
-function selectCountedRows(book: FinanceBook, options: FinanceQueryOptions): FinanceTransaction[] {
+function selectPersonalRows(book: FinanceBook, options: FinanceQueryOptions): FinanceTransaction[] {
   const businessAccountIds = new Set(
     book.financeAccounts.filter((account) => account.isBusiness).map((account) => account.id),
   );
@@ -74,10 +78,23 @@ const isCategoryOfKind = (
 /** Cash basis: one period key, and it is always `txnDate`. */
 const isInMonth = (txn: FinanceTransaction, month: string) => monthOf(txn.txnDate) === month;
 
-/** A row is recognised in the `spreadMonths` months beginning at its own month. */
-function isRecognisedIn(txn: FinanceTransaction, month: string): boolean {
+/** How many months after its own a row is recognised in; -1 once it is out of the schedule. */
+function recognitionOffset(txn: FinanceTransaction, month: string): number {
   const offset = differenceInCalendarMonths(monthStart(month), monthStart(monthOf(txn.txnDate)));
-  return offset >= 0 && offset < spreadMonthsOf(txn);
+  return offset >= 0 && offset < spreadMonthsOf(txn) ? offset : -1;
+}
+
+/**
+ * One instalment of an amortized row. The instalments sum to the full borne amount — the
+ * remainder an even split leaves over lands on the first month rather than going missing.
+ */
+function recogniseInstalment(txn: FinanceTransaction, offset: number): CentsFraction {
+  const borne = makeCentsFraction(borneCents(txn) * shareBpsOf(txn), BPS_SCALE);
+  const spread = spreadMonthsOf(txn);
+  if (spread === 1) return borne;
+  const instalment = fromCents(roundToCents(scaleCentsFraction(borne, 1n, BigInt(spread))));
+  if (offset > 0) return instalment;
+  return subtractCentsFractions(borne, scaleCentsFraction(instalment, BigInt(spread - 1), 1n));
 }
 
 function sumBorneSpend(
@@ -88,21 +105,20 @@ function sumBorneSpend(
 ): CentsFraction {
   if (!isCategoryOfKind(book, categoryId, "spend")) return ZERO_CENTS;
   let total = ZERO_CENTS;
-  for (const txn of selectCountedRows(book, options)) {
-    if (txn.categoryId !== categoryId || !isRecognisedIn(txn, month)) continue;
-    const term = makeCentsFraction(
-      borneCents(txn) * shareBpsOf(txn),
-      BPS_SCALE * BigInt(spreadMonthsOf(txn)),
-    );
-    total = addCentsFractions(total, term);
+  for (const txn of selectPersonalRows(book, options)) {
+    if (txn.categoryId !== categoryId) continue;
+    const offset = recognitionOffset(txn, month);
+    if (offset < 0) continue;
+    total = addCentsFractions(total, recogniseInstalment(txn, offset));
   }
   return total;
 }
 
 /**
  * The budget number: what the owner actually bears in a category that month, at their share,
- * amortized across `spreadMonths`. Money-in rows in the category (refunds, rebates) net against
- * it. Amortization is a budget lens only — it never moves cash flow or settlement.
+ * amortized across `spreadMonths` so the instalments sum back to the full amount. Money-in rows
+ * in the category (refunds, rebates) net against it. Amortization is a budget lens only — it
+ * never moves cash flow or settlement.
  */
 export function computeBorneSpend(
   book: FinanceBook,
@@ -134,7 +150,7 @@ export function computePaidOut(
   options: FinanceQueryOptions = {},
 ): number {
   let total = 0;
-  for (const txn of selectCountedRows(book, options)) {
+  for (const txn of selectPersonalRows(book, options)) {
     if (txn.payer !== "me" || txn.amountCents >= 0 || !isInMonth(txn, month)) continue;
     total -= txn.amountCents;
   }
@@ -151,7 +167,7 @@ export function computeCashIn(
   options: FinanceQueryOptions = {},
 ): number {
   let total = 0;
-  for (const txn of selectCountedRows(book, options)) {
+  for (const txn of selectPersonalRows(book, options)) {
     if (txn.payer !== "me" || txn.amountCents <= 0 || !isInMonth(txn, month)) continue;
     if (!isCategoryOfKind(book, txn.categoryId, "income")) continue;
     total += txn.amountCents;
@@ -159,8 +175,11 @@ export function computeCashIn(
   return total;
 }
 
-const selectHouseholdRows = (book: FinanceBook, month: string, options: FinanceQueryOptions) =>
-  selectCountedRows(book, options).filter((txn) => txn.isHousehold && isInMonth(txn, month));
+/** Every household row of the month, whatever the account — a debt is never a personal figure. */
+const selectHouseholdRows = (book: FinanceBook, month: string) =>
+  book.financeTransactions.filter(
+    (txn) => !txn.isInternal && txn.isHousehold && isInMonth(txn, month),
+  );
 
 function sumTrueShare(rows: FinanceTransaction[]): CentsFraction {
   let total = ZERO_CENTS;
@@ -173,45 +192,34 @@ function sumTrueShare(rows: FinanceTransaction[]): CentsFraction {
   return total;
 }
 
-/** Every household row that month, either payer, at full amount — settlement never spreads. */
-export function computeHouseholdTotal(
-  book: FinanceBook,
-  month: string,
-  options: FinanceQueryOptions = {},
-): number {
+/** The household month, either payer, at full amount — settlement never spreads. */
+export function computeHouseholdTotal(book: FinanceBook, month: string): number {
   let total = 0;
-  for (const txn of selectHouseholdRows(book, month, options)) total -= txn.amountCents;
+  for (const txn of selectHouseholdRows(book, month)) total -= txn.amountCents;
   return total;
 }
 
 /** The owner's own share of the household month, whoever paid. */
-export function computeMyTrueShare(
-  book: FinanceBook,
-  month: string,
-  options: FinanceQueryOptions = {},
-): number {
-  return roundToCents(sumTrueShare(selectHouseholdRows(book, month, options)));
+export function computeMyTrueShare(book: FinanceBook, month: string): number {
+  return roundToCents(sumTrueShare(selectHouseholdRows(book, month)));
 }
 
 /**
  * What the partner owes the owner: what the owner laid out for the household, less the owner's
  * own share, plus anything carried in, less what has already been paid. Negative means the owner
  * owes the partner — a real case, not a guard.
+ *
+ * Built from the same rounded share the screen shows, so the strip always adds up; a sub-cent
+ * difference matters far less than a total the owner can't reconcile by eye.
  */
-export function computeSettlementBalance(
-  book: FinanceBook,
-  month: string,
-  options: FinanceQueryOptions = {},
-): number {
-  const rows = selectHouseholdRows(book, month, options);
+export function computeSettlementBalance(book: FinanceBook, month: string): number {
+  const rows = selectHouseholdRows(book, month);
   let ownerPaid = 0;
   for (const txn of rows) if (txn.payer === "me") ownerPaid -= txn.amountCents;
   const settlement = book.financeSettlements.find((entry) => entry.month === month);
   const carried = settlement?.carriedDeltaCents ?? 0;
   const paid = settlement?.paidCents ?? 0;
-  return roundToCents(
-    subtractCentsFractions(fromCents(ownerPaid + carried - paid), sumTrueShare(rows)),
-  );
+  return ownerPaid - roundToCents(sumTrueShare(rows)) + carried - paid;
 }
 
 function countElapsedDays(month: string, asOf: Date, daysInMonth: number): number {
