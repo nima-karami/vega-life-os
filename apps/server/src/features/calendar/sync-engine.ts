@@ -20,6 +20,7 @@ import {
   writeMirrorRows,
 } from "./gcal-mirror";
 import { type GoogleCalendarClient, GoogleHttpError, SyncTokenExpiredError } from "./google-client";
+import { formatInstantInZone } from "./time-zone";
 import type { GcalAccount } from "./token-store";
 
 export type SyncDeps = {
@@ -68,11 +69,27 @@ const legacyIdOf = (event: GEvent) => event.extendedProperties?.private?.vegaTas
 const isVegaEvent = (event: GEvent) =>
   Boolean(event.id?.startsWith("vega") || keyOf(event) || legacyIdOf(event));
 
-// Compare wall-clock + zone: our pushed body is naive, Google echoes an offset — slice past the
-// seconds so the two representations of the same time don't re-patch, but keep the zone so a
-// browser timezone change re-pushes the events instead of silently drifting (spec edge #24).
-const signatureOf = (event: GEvent) =>
-  `${(event.start?.dateTime ?? event.start?.date ?? "").slice(0, 19)}|${event.start?.timeZone ?? ""}|${event.summary ?? ""}`;
+/**
+ * Google echoes a pushed start either with a zone offset OR as a plain UTC instant (`…Z`), so the
+ * raw text of two identical times differs. Project any zoned stamp back to its wall clock before
+ * comparing — a bare 19-char slice reads `21:00:00Z` as the wall clock and re-patches forever, and
+ * every patch re-notifies us, which is an endless (and metered) sync loop.
+ */
+const startSignature = (event: GEvent, accountZone: string): string => {
+  const start = event.start;
+  if (!start?.dateTime) return start?.date ?? "";
+  if (start.dateTime.length <= 19) return start.dateTime;
+  const instant = new Date(start.dateTime);
+  // A stamp Google sends but we can't parse must not throw and strand the whole reconcile.
+  if (Number.isNaN(instant.getTime())) return start.dateTime.slice(0, 19);
+  const zoned = formatInstantInZone(instant, accountZone);
+  return `${zoned.date}T${zoned.time}:00`;
+};
+
+// The zone stays in the signature so a browser timezone change still re-pushes the events instead
+// of silently drifting (spec edge #24).
+const signatureOf = (event: GEvent, accountZone: string) =>
+  `${startSignature(event, accountZone)}|${event.start?.timeZone ?? ""}|${event.summary ?? ""}`;
 
 function newestVegaScheduleTime(task: Task): string {
   const meta = task.fieldUpdatedAt ?? {};
@@ -213,10 +230,13 @@ function diffDesiredEvent(
   { body, task }: DesiredEvent,
   have: Map<string, GEvent>,
   canInsert: (task: Task, id: string) => boolean,
+  timeZone: string,
 ): BatchOp | null {
   const current = have.get(id);
   if (!current) return canInsert(task, id) ? { kind: "insert", id, body } : null;
-  return signatureOf(current) === signatureOf(body) ? null : { kind: "patch", id, body };
+  return signatureOf(current, timeZone) === signatureOf(body, timeZone)
+    ? null
+    : { kind: "patch", id, body };
 }
 
 export function computeTaskBatch(
@@ -230,7 +250,7 @@ export function computeTaskBatch(
 
   const ops: BatchOp[] = [];
   for (const [id, entry] of desired) {
-    const op = diffDesiredEvent(id, entry, have, canInsert);
+    const op = diffDesiredEvent(id, entry, have, canInsert, timeZone);
     if (op) ops.push(op);
   }
   for (const id of have.keys()) {
@@ -378,6 +398,17 @@ export async function runTaskLane(
   const canInsert = (task: Task, id: string) =>
     inWindow(task) && !isResurrectBlocked(task, id, tombstonedAt);
   const ops = computeTaskBatch(current, haveEvents, canInsert, timeZone);
+  // A settled sync writes nothing, and every write re-notifies us — so a non-empty batch on a
+  // quiet calendar is the signature of a feedback loop. Name the ops so it can be diagnosed.
+  if (ops.length > 0)
+    console.log(
+      JSON.stringify({
+        event: "gcal-task-push",
+        uid,
+        total: ops.length,
+        ops: ops.slice(0, 10).map((op) => `${op.kind}:${op.id}`),
+      }),
+    );
   const { pushFailures, rateLimited } = await applyTaskBatch(
     deps.firestore,
     uid,

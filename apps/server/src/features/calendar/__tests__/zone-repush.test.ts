@@ -20,4 +20,30 @@ describe("computeTaskBatch re-pushes on a timezone change", () => {
     const ops = computeTaskBatch([task], existing, () => true, "America/New_York");
     expect(ops).toHaveLength(0);
   });
+
+  /** Google echoes some events as a bare UTC instant; reading that text as a wall clock re-patched
+   * every reconcile, and each patch re-notified us — a self-feeding sync loop. */
+  it("emits no op when Google echoes the pushed start as a UTC instant", () => {
+    const existing: GEvent[] = [
+      {
+        ...toGEvent(task, "America/New_York"),
+        status: "confirmed",
+        start: { dateTime: "2026-08-15T13:00:00Z", timeZone: "America/New_York" },
+      },
+    ];
+    const ops = computeTaskBatch([task], existing, () => true, "America/New_York");
+    expect(ops).toHaveLength(0);
+  });
+
+  it("still emits a patch when the UTC echo is a genuinely different instant", () => {
+    const existing: GEvent[] = [
+      {
+        ...toGEvent(task, "America/New_York"),
+        status: "confirmed",
+        start: { dateTime: "2026-08-15T18:00:00Z", timeZone: "America/New_York" },
+      },
+    ];
+    const ops = computeTaskBatch([task], existing, () => true, "America/New_York");
+    expect(ops).toHaveLength(1);
+  });
 });

@@ -218,10 +218,12 @@ async function pushLived(
   const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
   const rows = await repo.list();
   const now = deps.now();
+  const googleWrites: string[] = [];
 
   for (const row of rows.filter((event) => event.pendingDelete)) {
     try {
       await client.deleteEvent(row.calendarId, row.googleId);
+      googleWrites.push(`delete:${row.googleId}`);
       await repo.remove(row.id);
       await writeTombstone(deps.firestore, uid, "calendarEvents", row.googleId, now);
     } catch (error) {
@@ -233,6 +235,7 @@ async function pushLived(
   for (const row of rows.filter((event) => event.vegaEditedAt)) {
     try {
       await client.patchEvent(row.calendarId, row.googleId, calendarEventToGPatch(row, timeZone));
+      googleWrites.push(`patch:${row.googleId}`);
       await repo.upsert({ ...toWritable<"calendarEvents">(row), vegaEditedAt: null });
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
@@ -240,6 +243,16 @@ async function pushLived(
         console.error(`gcal push failed: lived patch ${row.googleId} status ${error.status}`);
     }
   }
+  // A settled lived lane writes nothing; sustained writes mean a feedback loop.
+  if (googleWrites.length > 0)
+    console.log(
+      JSON.stringify({
+        event: "gcal-lived-push",
+        uid,
+        total: googleWrites.length,
+        ops: googleWrites.slice(0, 10),
+      }),
+    );
 }
 
 type ReadCalendarListing = ListEventsResult & { mode: "full" | "delta" };
