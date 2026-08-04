@@ -2,6 +2,7 @@ import { collectionNameSchema, type Dataset } from "@vega/shared";
 import { z } from "zod";
 import { parseRecord, writeRecord } from "../../core/collection-store";
 import { createRepository } from "../../core/repository";
+import { bumpSyncVersion, readSyncVersion } from "../../core/sync-version";
 import { writeTombstone } from "../../core/tombstone";
 import { protectedProcedure, router } from "../../trpc/trpc";
 import { shouldTriggerCalendarSync } from "../calendar/schedule-reconcile";
@@ -18,6 +19,9 @@ export const dataRouter = router({
   list: protectedProcedure
     .input(z.object({ collection: collectionNameSchema }))
     .query(({ ctx, input }) => createRepository(ctx.firestore, ctx.uid, input.collection).list()),
+
+  /** One read that answers "has anything changed?", so an idle client never pulls the dataset. */
+  syncVersion: protectedProcedure.query(({ ctx }) => readSyncVersion(ctx.firestore, ctx.uid)),
 
   loadAll: protectedProcedure.query(async ({ ctx }): Promise<Dataset> => {
     const collections = collectionNameSchema.options;
@@ -78,6 +82,9 @@ export const dataRouter = router({
         await batch.commit();
       }
     }
+    // The batched deletes bypass the repository, so the counter has to be bumped by hand or a
+    // polling client would never learn the wipe happened.
+    await bumpSyncVersion(ctx.firestore, ctx.uid);
     ctx.calendar.scheduleReconcile(ctx.uid);
     return { ok: true };
   }),

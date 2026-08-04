@@ -1,6 +1,7 @@
 import type { CollectionName, Dataset } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 import { mergeWithFieldLww, type StoredRecord } from "./field-lww";
+import { bumpSyncVersion } from "./sync-version";
 import { writeTombstone } from "./tombstone";
 
 export type StoredEntity<C extends CollectionName> = Dataset[C][number];
@@ -55,11 +56,13 @@ export function createRepository<C extends CollectionName>(
       );
       const stamped = { ...merged, fieldUpdatedAt };
       await ref.set(stamped);
+      await bumpSyncVersion(firestore, uid);
       return stamped as StoredEntity<C>;
     },
     async remove(id) {
       await col.doc(id).delete();
       await writeTombstone(firestore, uid, collection, id, now());
+      await bumpSyncVersion(firestore, uid);
     },
   };
 }

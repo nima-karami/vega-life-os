@@ -34,6 +34,11 @@ export class DexieAdapter implements PersistenceAdapter {
     return (await tableFor(col).toArray()) as Dataset[C];
   }
 
+  /** The sandbox is the only writer of its own database, so it can never be behind. */
+  async readSyncVersion(): Promise<number> {
+    return 0;
+  }
+
   async put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void> {
     await tableFor(col).put(item);
   }

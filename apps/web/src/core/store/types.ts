@@ -36,6 +36,7 @@ export interface RootState
   exportJSON: () => string;
   importJSON: (text: string) => Promise<boolean>;
   refetchAll: () => Promise<void>;
+  refetchIfChanged: () => Promise<void>;
   refetchCollection: (col: import("@/core/persistence").CollectionName) => Promise<void>;
   onAuthChange: (uid: string | null) => Promise<void>;
 }

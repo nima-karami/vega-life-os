@@ -23,6 +23,9 @@ export class RoutingAdapter implements PersistenceAdapter {
   loadAll() {
     return this.current.loadAll();
   }
+  readSyncVersion() {
+    return this.current.readSyncVersion();
+  }
   load<C extends CollectionName>(col: C) {
     return this.current.load(col);
   }

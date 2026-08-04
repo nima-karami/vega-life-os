@@ -49,6 +49,10 @@ export class TrpcAdapter implements PersistenceAdapter {
     return (await this.client.data.loadAll.query()) as Dataset;
   }
 
+  async readSyncVersion(): Promise<number> {
+    return await this.client.data.syncVersion.query();
+  }
+
   async put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void> {
     if (isDataCollection(col)) {
       await this.client.data.upsert.mutate({

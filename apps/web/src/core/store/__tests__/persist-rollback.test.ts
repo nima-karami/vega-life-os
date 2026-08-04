@@ -9,6 +9,7 @@ const rejectingAdapter: PersistenceAdapter = {
   init: async () => {},
   isEmpty: async () => true,
   loadAll: () => down() as Promise<never>,
+  readSyncVersion: () => down() as Promise<never>,
   load: () => down() as Promise<never>,
   put: () => down(),
   bulkPut: () => down(),

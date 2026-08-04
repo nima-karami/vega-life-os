@@ -67,6 +67,8 @@ export interface PersistenceAdapter {
   init(): Promise<void>;
   isEmpty(): Promise<boolean>;
   loadAll(): Promise<Dataset>;
+  /** Monotonic per-user write counter — one read that says whether `loadAll` is worth paying for. */
+  readSyncVersion(): Promise<number>;
   load<C extends CollectionName>(col: C): Promise<Dataset[C]>;
   put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void>;
   bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void>;

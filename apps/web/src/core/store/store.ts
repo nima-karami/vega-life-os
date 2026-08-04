@@ -32,6 +32,9 @@ import { resolveProfile } from "./profile";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
 
+/** The server write-counter this store is known to be consistent with; null until an account loads. */
+let syncedVersion: number | null = null;
+
 async function loadAccount(
   uid: string,
   set: (p: Partial<RootState>) => void,
@@ -51,6 +54,9 @@ async function loadAccount(
   set({ ready: false });
   await get().clearLocal(); // abandon the local sandbox — never uploaded
   try {
+    // Read the counter first: recording a version taken *after* the load would swallow a write
+    // that landed mid-load, leaving the client silently stale.
+    syncedVersion = await cloud.readSyncVersion().catch(() => null);
     const loaded = await cloud.loadAll(); // hydrating → hydrated
     set({ ...(sortDataset(loaded) as Partial<RootState>), loadFailed: false });
     runDataMigrations(get, set);
@@ -229,6 +235,21 @@ export const useStore = create<RootState>((set, get, api) => ({
     } catch {
       /* keep current state; next focus/interval retries */
     }
+  },
+
+  // Poll the write-counter, not the dataset: one read answers "is there anything to fetch?", so an
+  // idle tab costs a single document instead of the whole account.
+  refetchIfChanged: async () => {
+    if (!get().authUid) return;
+    let version: number;
+    try {
+      version = await persistence.readSyncVersion();
+    } catch {
+      return; // treat an unreachable counter as "unknown", not as "unchanged"
+    }
+    if (syncedVersion !== null && version === syncedVersion) return;
+    syncedVersion = version;
+    await get().refetchAll();
   },
 
   refetchCollection: async (col) => {
