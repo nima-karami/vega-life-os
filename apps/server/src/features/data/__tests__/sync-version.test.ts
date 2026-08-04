@@ -55,6 +55,17 @@ describe("sync version counter", () => {
     expect(await call.data.syncVersion.query()).toBeGreaterThan(beforeWipe);
   });
 
+  it("stays put when an identical record is written again", async () => {
+    const call = server.asUid("sv-replay");
+    await call.tasks.upsert.mutate(taskInput("sv-t5"));
+    const settled = await call.data.syncVersion.query();
+
+    await call.tasks.upsert.mutate(taskInput("sv-t5"));
+    await call.tasks.upsert.mutate(taskInput("sv-t5"));
+
+    expect(await call.data.syncVersion.query()).toBe(settled);
+  });
+
   it("stays put when nothing is written", async () => {
     const call = server.asUid("sv-idle");
     await call.tasks.upsert.mutate(taskInput("sv-t4"));

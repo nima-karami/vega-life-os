@@ -6,6 +6,8 @@ export type StoredRecord = Record<string, unknown> & {
 export type FieldLwwResult = {
   merged: Record<string, unknown> & { updatedAt: string };
   fieldUpdatedAt: Record<string, string>;
+  /** Whether the stored record actually moved — a replayed identical write reports `false`. */
+  changed: boolean;
 };
 
 const META_KEYS = new Set(["updatedAt", "fieldUpdatedAt"]);
@@ -26,7 +28,10 @@ export function mergeWithFieldLww(
   const priorFields = stored ? stripMeta(stored) : {};
   const fieldUpdatedAt: Record<string, string> = { ...(stored?.fieldUpdatedAt ?? {}) };
 
-  let hasChange = stored === null;
+  // The write is whole-record, so a key the incoming record no longer carries is dropped — that
+  // counts as a change even though no incoming key differs.
+  const dropsField = Object.keys(priorFields).some((key) => !(key in incomingFields));
+  let hasChange = stored === null || dropsField;
   for (const key of Object.keys(incomingFields)) {
     if (!isSameValue(incomingFields[key], priorFields[key])) {
       fieldUpdatedAt[key] = now;
@@ -35,7 +40,7 @@ export function mergeWithFieldLww(
   }
 
   const updatedAt = hasChange ? now : (stored?.updatedAt ?? now);
-  return { merged: { ...incomingFields, updatedAt }, fieldUpdatedAt };
+  return { merged: { ...incomingFields, updatedAt }, fieldUpdatedAt, changed: hasChange };
 }
 
 function stripMeta(record: Record<string, unknown>): Record<string, unknown> {

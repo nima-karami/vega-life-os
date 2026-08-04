@@ -49,14 +49,16 @@ export function createRepository<C extends CollectionName>(
       const ref = col.doc(id);
       const priorSnap = await ref.get();
       const prior = priorSnap.exists ? (priorSnap.data() as StoredRecord) : null;
-      const { merged, fieldUpdatedAt } = mergeWithFieldLww(
+      const { merged, fieldUpdatedAt, changed } = mergeWithFieldLww(
         prior,
         record as Record<string, unknown>,
         now(),
       );
       const stamped = { ...merged, fieldUpdatedAt };
       await ref.set(stamped);
-      await bumpSyncVersion(firestore, uid);
+      // A replayed identical write must not move the counter, or every client re-pulls the whole
+      // account for nothing.
+      if (changed) await bumpSyncVersion(firestore, uid);
       return stamped as StoredEntity<C>;
     },
     async remove(id) {

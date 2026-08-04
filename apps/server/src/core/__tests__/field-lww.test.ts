@@ -30,6 +30,21 @@ describe("mergeWithFieldLww (whole-record shape the client transmits)", () => {
     expect(fieldUpdatedAt).toEqual(stored.fieldUpdatedAt);
   });
 
+  /** `changed` gates the sync counter, so a false positive makes every client re-pull for nothing
+   * and a false negative leaves them stale. */
+  it("reports whether the record actually moved", () => {
+    const stored = { id: "t1", title: "A", fieldUpdatedAt: { title: "2026-07-13T10:00Z" } };
+
+    expect(mergeWithFieldLww(stored, { id: "t1", title: "A" }, "now").changed).toBe(false);
+    expect(mergeWithFieldLww(stored, { id: "t1", title: "B" }, "now").changed).toBe(true);
+    expect(mergeWithFieldLww(null, { id: "t1", title: "A" }, "now").changed).toBe(true);
+  });
+
+  it("counts a dropped field as a change, since the write replaces the whole record", () => {
+    const stored = { id: "t1", title: "A", note: "keep", fieldUpdatedAt: {} };
+    expect(mergeWithFieldLww(stored, { id: "t1", title: "A" }, "now").changed).toBe(true);
+  });
+
   it("stamps every field on a first insert (no prior record)", () => {
     const incoming = { id: "t1", title: "A", time: "09:00" };
     const { merged, fieldUpdatedAt } = mergeWithFieldLww(null, incoming, "2026-07-13T09:00Z");
