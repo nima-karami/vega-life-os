@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { COLLECTIONS, schemasByCollection } from "../collections";
 
-// Mirrors apps/web/src/core/persistence/adapter.ts COLLECTIONS (12 collections).
-const EXPECTED_COLLECTION_COUNT = 12;
+// Mirrors apps/web/src/core/persistence/adapter.ts COLLECTIONS (19 collections).
+const EXPECTED_COLLECTION_COUNT = 19;
 
 describe("collection parity", () => {
   it("registers exactly the expected number of collections", () => {

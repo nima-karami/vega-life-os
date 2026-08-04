@@ -1,9 +1,19 @@
 import type { CollectionName, Dataset, PersistenceAdapter } from "./adapter";
 import { createTrpcClient, type TrpcClient } from "./trpc-client";
 
-/** The `calendarEvents` mirror has no domain router — it goes through the generic `data` router. */
-// Collections without a dedicated domain router go through the generic `data` router.
-const DATA_COLLECTIONS = new Set<CollectionName>(["calendarEvents", "mindCards", "mindMeta"]);
+/** Collections without a dedicated domain router go through the generic `data` router. */
+const DATA_COLLECTIONS = new Set<CollectionName>([
+  "calendarEvents",
+  "mindCards",
+  "mindMeta",
+  "financeAccounts",
+  "financeCategories",
+  "financeBudgets",
+  "financeMerchants",
+  "financeImportBatches",
+  "financeTransactions",
+  "financeSettlements",
+]);
 const isDataCollection = (col: CollectionName): boolean => DATA_COLLECTIONS.has(col);
 
 type DomainProcedures = {
@@ -14,8 +24,8 @@ type DomainProcedures = {
 
 /**
  * Backend-backed persistence for signed-in users. Every method maps to a tRPC
- * procedure — the 9 app-data domains to their routers, `calendarEvents` to the
- * generic `data` router. No `subscribe`: realtime is off; the store refetches on
+ * procedure — the 9 app-data domains to their routers, the rest to the generic
+ * `data` router. No `subscribe`: realtime is off; the store refetches on
  * focus + interval instead. Writes are online-first — a rejection propagates so
  * the persist layer can revert the optimistic store update.
  */

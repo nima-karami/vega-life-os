@@ -1,6 +1,22 @@
 import { z } from "zod";
 import { bookCreateSchema, bookSchema } from "./entities/book";
 import { calendarEventCreateSchema, calendarEventSchema } from "./entities/calendar-event";
+import { financeAccountCreateSchema, financeAccountSchema } from "./entities/finance-account";
+import { financeBudgetCreateSchema, financeBudgetSchema } from "./entities/finance-budget";
+import { financeCategoryCreateSchema, financeCategorySchema } from "./entities/finance-category";
+import {
+  financeImportBatchCreateSchema,
+  financeImportBatchSchema,
+} from "./entities/finance-import-batch";
+import { financeMerchantCreateSchema, financeMerchantSchema } from "./entities/finance-merchant";
+import {
+  financeSettlementCreateSchema,
+  financeSettlementSchema,
+} from "./entities/finance-settlement";
+import {
+  financeTransactionCreateSchema,
+  financeTransactionSchema,
+} from "./entities/finance-transaction";
 import { goalCreateSchema, goalSchema } from "./entities/goal";
 import { habitCreateSchema, habitSchema } from "./entities/habit";
 import { dayEntryCreateSchema, dayEntrySchema } from "./entities/journal";
@@ -26,6 +42,13 @@ export const schemasByCollection = {
   calendarEvents: calendarEventSchema,
   mindCards: mindCardSchema,
   mindMeta: mindMetaSchema,
+  financeAccounts: financeAccountSchema,
+  financeCategories: financeCategorySchema,
+  financeBudgets: financeBudgetSchema,
+  financeMerchants: financeMerchantSchema,
+  financeImportBatches: financeImportBatchSchema,
+  financeTransactions: financeTransactionSchema,
+  financeSettlements: financeSettlementSchema,
 } as const;
 
 /** Client-settable input schema per collection — server-owned meta + unknown keys stripped, not rejected. */
@@ -42,6 +65,13 @@ export const createSchemasByCollection = {
   calendarEvents: calendarEventCreateSchema,
   mindCards: mindCardCreateSchema,
   mindMeta: mindMetaCreateSchema,
+  financeAccounts: financeAccountCreateSchema,
+  financeCategories: financeCategoryCreateSchema,
+  financeBudgets: financeBudgetCreateSchema,
+  financeMerchants: financeMerchantCreateSchema,
+  financeImportBatches: financeImportBatchCreateSchema,
+  financeTransactions: financeTransactionCreateSchema,
+  financeSettlements: financeSettlementCreateSchema,
 } as const;
 
 export const COLLECTIONS = [
@@ -57,6 +87,13 @@ export const COLLECTIONS = [
   "calendarEvents",
   "mindCards",
   "mindMeta",
+  "financeAccounts",
+  "financeCategories",
+  "financeBudgets",
+  "financeMerchants",
+  "financeImportBatches",
+  "financeTransactions",
+  "financeSettlements",
 ] as const;
 
 export const collectionNameSchema = z.enum(COLLECTIONS);

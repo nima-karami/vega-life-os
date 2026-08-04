@@ -23,6 +23,7 @@ vi.mock("@/core/persistence", async (orig) => {
 });
 vi.mock("@/core/persistence/sandbox-meta", () => ({ setSandboxDirty: vi.fn(async () => {}) }));
 
+import { buildSeed, COLLECTIONS, createEmptyDataset } from "@/core/persistence";
 import { useStore } from "./store";
 
 describe("scope-aware data actions", () => {
@@ -30,10 +31,11 @@ describe("scope-aware data actions", () => {
     clearAll.mockClear();
     dexieClear.mockClear();
     useStore.setState({
+      ...createEmptyDataset(),
       authUid: null,
       values: [{ id: "v1" } as never],
       tasks: [{ id: "t1" } as never],
-    });
+    } as never);
   });
 
   it("deleteAllData clears persistence and empties in-memory collections", async () => {
@@ -55,5 +57,28 @@ describe("scope-aware data actions", () => {
     await useStore.getState().resetDemo();
     expect(dexieClear).toHaveBeenCalledOnce();
     expect(useStore.getState().values.length).toBeGreaterThan(0);
+  });
+
+  // resetDemo and exportJSON both hand-enumerate the dataset, so a new collection is
+  // silently dropped from the sandbox reset and from every backup unless both are guarded.
+  it("resetDemo lands every seeded collection in the store", async () => {
+    await useStore.getState().resetDemo();
+    const seed = buildSeed();
+    const state = useStore.getState() as unknown as Record<string, unknown[]>;
+    for (const col of COLLECTIONS.filter((name) => seed[name].length > 0)) {
+      expect(state[col].length, col).toBeGreaterThan(0);
+    }
+  });
+
+  it("exportJSON carries every registered collection", () => {
+    // calendarEvents is the Google mirror and is absent from the export literal today.
+    const exported = new Set(COLLECTIONS.filter((col) => col !== "calendarEvents"));
+    useStore.setState(
+      Object.fromEntries(COLLECTIONS.map((col) => [col, [{ id: `${col}-1` }]])) as never,
+    );
+    const backup = JSON.parse(useStore.getState().exportJSON()) as {
+      data: Record<string, { id: string }[]>;
+    };
+    for (const col of exported) expect(backup.data[col], col).toEqual([{ id: `${col}-1` }]);
   });
 });
