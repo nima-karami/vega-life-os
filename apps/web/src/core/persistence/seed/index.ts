@@ -1,5 +1,6 @@
 import { startOfWeek } from "date-fns";
 import { createEmptyDataset, type Dataset } from "../adapter";
+import { buildFinance } from "./finance";
 import { buildGoals } from "./goals";
 import { buildHabits } from "./habits";
 import { buildBooks, buildMovies, buildVocab } from "./library";
@@ -26,5 +27,5 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   ds.reviews = buildReviews(weekStart);
   ds.mindCards = buildMindCards();
 
-  return ds;
+  return { ...ds, ...buildFinance(ref) };
 }

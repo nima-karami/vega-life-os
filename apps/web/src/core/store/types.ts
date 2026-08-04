@@ -1,4 +1,5 @@
 import type { CalendarEventsSlice } from "@/features/calendar-sync/store";
+import type { FinanceSlice } from "@/features/finance/store";
 import type { GoalsSlice } from "@/features/goals/store";
 import type { HabitsSlice } from "@/features/habits/store";
 import type { JournalSlice } from "@/features/journal/store";
@@ -21,6 +22,7 @@ export interface RootState
     CalendarEventsSlice,
     ScrollSlice,
     StreaksSlice,
+    FinanceSlice,
     UiSlice {
   ready: boolean;
   authUid: string | null;

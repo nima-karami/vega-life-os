@@ -1,4 +1,15 @@
-import type { CalendarEvent, MindCard, MindMetaRecord } from "@vega/shared";
+import type {
+  CalendarEvent,
+  FinanceAccount,
+  FinanceBudget,
+  FinanceCategory,
+  FinanceImportBatch,
+  FinanceMerchant,
+  FinanceSettlement,
+  FinanceTransaction,
+  MindCard,
+  MindMetaRecord,
+} from "@vega/shared";
 import Dexie, { type Table } from "dexie";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
@@ -21,6 +32,13 @@ export class VegaDB extends Dexie {
   calendarEvents!: Table<CalendarEvent, string>;
   mindCards!: Table<MindCard, string>;
   mindMeta!: Table<MindMetaRecord, string>;
+  financeAccounts!: Table<FinanceAccount, string>;
+  financeCategories!: Table<FinanceCategory, string>;
+  financeBudgets!: Table<FinanceBudget, string>;
+  financeMerchants!: Table<FinanceMerchant, string>;
+  financeImportBatches!: Table<FinanceImportBatch, string>;
+  financeTransactions!: Table<FinanceTransaction, string>;
+  financeSettlements!: Table<FinanceSettlement, string>;
   meta!: Table<{ key: string; dirty?: boolean }, string>;
 
   constructor() {
@@ -51,7 +69,7 @@ export class VegaDB extends Dexie {
       meta: "key",
       calendarEvents: "id, calendarId, iCalUID, valueId, date",
     });
-    this.version(6).stores({
+    const storesV6 = {
       ...stores,
       reviews: "id, periodKey",
       journal: "id, date",
@@ -59,6 +77,18 @@ export class VegaDB extends Dexie {
       calendarEvents: "id, calendarId, iCalUID, valueId, date",
       mindCards: "id, category, box, nextDue, addedAt",
       mindMeta: "id, kind",
+    };
+    this.version(6).stores(storesV6);
+    this.version(7).stores({
+      ...storesV6,
+      financeAccounts: "id, slug",
+      financeCategories: "id, order",
+      financeBudgets: "id, categoryId, month",
+      financeMerchants: "id, pattern",
+      financeImportBatches: "id, status, startedAt",
+      financeTransactions:
+        "id, txnDate, accountId, categoryId, merchantId, dedupeKey, importBatchId",
+      financeSettlements: "id",
     });
   }
 }

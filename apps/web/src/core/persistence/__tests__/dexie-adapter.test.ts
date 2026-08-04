@@ -37,6 +37,13 @@ const { fakeDb } = vi.hoisted(() => {
     "calendarEvents",
     "mindCards",
     "mindMeta",
+    "financeAccounts",
+    "financeCategories",
+    "financeBudgets",
+    "financeMerchants",
+    "financeImportBatches",
+    "financeTransactions",
+    "financeSettlements",
   ];
   return { fakeDb: Object.fromEntries(columns.map((col) => [col, new FakeTable()])) };
 });
