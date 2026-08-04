@@ -16,6 +16,10 @@ import { Shortcuts } from "./Shortcuts";
 import { SignInGate } from "./SignInGate";
 import { Toast } from "./Toast";
 
+const SYNC_POLL_MS = 5 * 60_000;
+// Focus fires on every alt-tab, so a bare refetch-on-focus turns tab-hopping into a burst of pulls.
+const SYNC_STALE_MS = 30_000;
+
 const isCommandKey = (e: KeyboardEvent): boolean =>
   (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
 
@@ -50,19 +54,40 @@ export function RootBoot() {
     return unsub;
   }, []);
 
-  // Realtime is off: signed-in clients pull server truth when the tab becomes visible
-  // + a low-frequency interval, so out-of-band server changes (e.g. calendar reconcile) land.
+  // Realtime is off: signed-in clients pull server truth when the tab becomes visible + a
+  // low-frequency poll, so out-of-band server changes (e.g. calendar reconcile) land. The poll is
+  // suspended while the tab is hidden — an unattended tab used to re-read the whole account every
+  // five minutes indefinitely.
   useEffect(() => {
     if (!authUid) return;
-    const refetch = () => void useStore.getState().refetchAll();
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refetch();
+    let lastCheckedAt = Date.now();
+    let timer: ReturnType<typeof setInterval> | undefined;
+
+    const check = () => {
+      lastCheckedAt = Date.now();
+      void useStore.getState().refetchIfChanged();
     };
-    document.addEventListener("visibilitychange", onVisible);
-    const interval = setInterval(refetch, 5 * 60_000);
+    const startPolling = () => {
+      timer ??= setInterval(check, SYNC_POLL_MS);
+    };
+    const stopPolling = () => {
+      if (timer !== undefined) clearInterval(timer);
+      timer = undefined;
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+        return;
+      }
+      if (Date.now() - lastCheckedAt >= SYNC_STALE_MS) check();
+      startPolling();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    if (!document.hidden) startPolling();
     return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      stopPolling();
     };
   }, [authUid]);
 
