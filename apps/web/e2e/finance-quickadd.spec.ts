@@ -18,6 +18,8 @@ interface StoredTransaction {
   dedupeKey: string | null;
   isHousehold: boolean;
   myShareBps: number;
+  categoryId: string | null;
+  reviewFlags: string[];
 }
 
 async function enterApp(page: Page) {
@@ -113,6 +115,9 @@ test("a partner-paid household expense lands in the ledger with no account", asy
       dedupeKey: null,
       isHousehold: true,
       myShareBps: 5000,
+      // `no-category` is derived from the null categoryId, so nothing is stored here.
+      categoryId: null,
+      reviewFlags: [],
     });
 });
 

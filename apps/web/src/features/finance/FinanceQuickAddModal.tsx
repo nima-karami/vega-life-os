@@ -155,7 +155,9 @@ export function FinanceQuickAddModal({
       note: values.note.trim(),
       source: "manual",
       enteredBy: values.payer === "partner" ? "partner-reported" : "me",
-      reviewFlags: categoryId === null ? ["no-category"] : [],
+      // `no-category` is derived from a null categoryId at read time, never stored — a
+      // stored copy would need clearing on every path that later sets a category.
+      reviewFlags: [],
     });
     pushToast(`Added ${description} — ${formatCents(amountCents)}`);
     onClose();
