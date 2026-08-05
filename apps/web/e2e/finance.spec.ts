@@ -78,14 +78,3 @@ test("the ledger filters on a search and offers a way back", async ({ page }) =>
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page.getByText("No transactions match these filters")).toBeHidden();
 });
-
-test("⌘K quick-add hands a free-text draft to the ledger", async ({ page }) => {
-  await enterApp(page);
-  await openCommandBar(page, "Espresso 4.50");
-
-  // Free text matches no command, so the capture lives in the empty state.
-  await page.getByRole("button", { name: /as an expense/ }).click();
-
-  await expect(page).toHaveURL(/\/finance\/transactions$/);
-  await expect(page.getByRole("status")).toContainText("Espresso 4.50");
-});

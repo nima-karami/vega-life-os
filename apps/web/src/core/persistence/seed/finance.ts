@@ -262,11 +262,11 @@ export function buildFinance(ref: Date): FinanceSeed {
       myShareBps: 5000,
       sourceRowNumber: 5,
     }),
+    // No stored no-category flag: it derives from `categoryId === null && !isInternal`.
     transaction("ftxn_unknown", iso(addDays(ref, -5)), "SQ *8231 VENDOR 4417", -4499, {
       dedupeKey: "a057e93c2148bd6f:0",
       accountId: CARD_ID,
       importBatchId: CARD_BATCH_ID,
-      reviewFlags: ["no-category"],
       sourceRowNumber: 3,
     }),
     transaction("ftxn_market_partner", iso(addDays(ref, -3)), "Green Market — her run", -11200, {
