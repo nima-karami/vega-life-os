@@ -232,14 +232,14 @@ describe("ledger sorting", () => {
 });
 
 describe("settled months", () => {
-  const settlements = [settlement("2026-03", "settled"), settlement("2026-04", "amended")];
+  const settlements = [settlement("2026-03", "settled"), settlement("2026-04", "open")];
   const settled = listSettledMonths(settlements);
 
   it("locks rows in a settled month", () => {
     expect(isTransactionLocked(LEDGER[0], settled)).toBe(true);
   });
 
-  it("releases rows once the month is amended", () => {
+  it("leaves rows in an open month editable", () => {
     expect(isTransactionLocked(LEDGER[1], settled)).toBe(false);
   });
 

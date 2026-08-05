@@ -11,7 +11,7 @@ const { schema, createSchema } = defineEntity({
   accountId: nullableString,
   // the single period key: cash basis, so budgets, cash flow and settlement all read this
   txnDate: z.string(),
-  spreadMonths: z.number().default(1),
+  spreadMonths: z.number().int().min(1).max(36).default(1),
   description: z.string(),
   amountCents: z.number(),
   currency: z.string().default("CAD"),
@@ -21,7 +21,8 @@ const { schema, createSchema } = defineEntity({
   merchantId: nullableString,
   payer: financePayerSchema,
   isHousehold: z.boolean().default(false),
-  myShareBps: z.number().default(10000),
+  // out of range here silently poisons every derived share and the settlement balance
+  myShareBps: z.number().int().min(0).max(10000).default(10000),
   isInternal: z.boolean().default(false),
   source: financeTransactionSourceSchema,
   enteredBy: financeEnteredBySchema,

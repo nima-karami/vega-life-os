@@ -130,10 +130,10 @@ export const NAV_COMMANDS: NavCommand[] = [
   {
     id: "nav-finance-import",
     label: "Import statements",
-    sublabel: "Finance · CSV · XLSX",
+    sublabel: "Finance · CSV · TSV",
     icon: "upload",
     to: "/finance/import",
-    keywords: "import statements bank csv xlsx excel finance upload",
+    keywords: "import statements bank csv tsv finance upload",
   },
   {
     id: "nav-finance-categories",

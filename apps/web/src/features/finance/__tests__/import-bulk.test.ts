@@ -1,14 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { savePut, saveRemove, bulkPut } = vi.hoisted(() => ({
-  savePut: vi.fn(),
-  saveRemove: vi.fn(),
-  bulkPut: vi.fn(async () => {}),
-}));
+const { savePut, saveRemove, bulkPut, landsEverything } = vi.hoisted(() => {
+  const landsEverything = async (_col: string, items: unknown[]) => ({
+    inserted: items.length,
+    skipped: 0,
+    writtenChunks: 1,
+  });
+  return {
+    savePut: vi.fn(),
+    saveRemove: vi.fn(),
+    bulkPut: vi.fn(landsEverything),
+    landsEverything,
+  };
+});
 vi.mock("@/core/store/persist", () => ({ savePut, saveRemove }));
-vi.mock("@/core/persistence", () => ({ persistence: { bulkPut } }));
+vi.mock("@/core/persistence", async () => ({
+  persistence: { bulkPut },
+  ...(await vi.importActual<typeof import("@/core/persistence/partial-write")>(
+    "@/core/persistence/partial-write",
+  )),
+}));
 
 import { create } from "zustand";
+import { PartialWriteError } from "@/core/persistence/partial-write";
 import { createFinanceSlice, type FinanceSlice } from "../store";
 
 const mk = () =>
@@ -27,7 +41,7 @@ const rows = (count: number) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  bulkPut.mockImplementation(async () => {});
+  bulkPut.mockImplementation(landsEverything);
 });
 
 describe("importFinanceTransactions", () => {
@@ -54,8 +68,14 @@ describe("importFinanceTransactions", () => {
     });
   });
 
-  it("splits a large import into 450-row chunks", async () => {
+  it("hands a large import to the backend in one call and reports its chunk count", async () => {
     const s = mk();
+    bulkPut.mockImplementation(async (_col, items) => ({
+      inserted: items.length,
+      skipped: 0,
+      writtenChunks: 3,
+    }));
+
     const outcome = await s.getState().importFinanceTransactions({
       transactions: rows(901),
       merchants: [],
@@ -63,16 +83,14 @@ describe("importFinanceTransactions", () => {
     });
 
     expect(outcome.writtenChunks).toBe(3);
-    expect(bulkPut).toHaveBeenCalledTimes(3);
+    expect(bulkPut).toHaveBeenCalledTimes(1);
     expect(s.getState().financeTransactions).toHaveLength(901);
   });
 
-  it("reports a partial commit and keeps only the rows that landed", async () => {
+  it("reports a partial commit from the backend's own count and keeps only what landed", async () => {
     const s = mk();
-    let call = 0;
     bulkPut.mockImplementation(async () => {
-      call += 1;
-      if (call === 2) throw new Error("rejected");
+      throw new PartialWriteError({ writtenRows: 450, writtenChunks: 1, failedChunk: 1 });
     });
 
     const outcome = await s.getState().importFinanceTransactions({
@@ -88,6 +106,22 @@ describe("importFinanceTransactions", () => {
       committedAt: null,
       writtenChunks: 1,
     });
+  });
+
+  it("keeps nothing when the whole call fails", async () => {
+    const s = mk();
+    bulkPut.mockImplementation(async () => {
+      throw new Error("offline");
+    });
+
+    const outcome = await s.getState().importFinanceTransactions({
+      transactions: rows(3),
+      merchants: [],
+      batch: { id: "fbat_5" },
+    });
+
+    expect(outcome).toEqual({ writtenRows: 0, writtenChunks: 0, failedChunk: 0 });
+    expect(s.getState().financeTransactions).toHaveLength(0);
   });
 
   it("re-importing the same rows upserts on the built id instead of duplicating", async () => {

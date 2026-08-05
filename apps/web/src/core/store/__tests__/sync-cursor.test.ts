@@ -21,7 +21,7 @@ const countingAdapter: PersistenceAdapter = {
   },
   load: async () => [] as never,
   put: async () => {},
-  bulkPut: async () => {},
+  bulkPut: async () => ({ inserted: 0, skipped: 0, writtenChunks: 0 }),
   remove: async () => {},
   clearAll: async () => {},
 };

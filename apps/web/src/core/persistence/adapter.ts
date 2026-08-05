@@ -91,6 +91,16 @@ export function createEmptyDataset(): Dataset {
 }
 
 /**
+ * What a bulk write landed. The backend chunks the payload itself and reports its own
+ * counts, so no caller has to know the chunk size; Dexie writes the array as one chunk.
+ */
+export interface BulkPutResult {
+  inserted: number;
+  skipped: number;
+  writtenChunks: number;
+}
+
+/**
  * The persistence seam. `DexieAdapter` (IndexedDB) backs the signed-out sandbox;
  * `TrpcAdapter` (the backend) backs signed-in users. The `RoutingAdapter` swaps
  * between them on auth change without feature code noticing.
@@ -103,7 +113,7 @@ export interface PersistenceAdapter {
   readSyncVersion(): Promise<number>;
   load<C extends CollectionName>(col: C): Promise<Dataset[C]>;
   put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void>;
-  bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void>;
+  bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult>;
   remove(col: CollectionName, id: string): Promise<void>;
   clearAll(): Promise<void>;
 }

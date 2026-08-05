@@ -42,6 +42,7 @@ export async function importRecords<C extends CollectionName>(
       // stays stale on them forever.
       if (inserted > 0) await bumpSyncVersion(firestore, uid);
       throw toPartialCommitError({
+        writtenRows: start,
         writtenChunks,
         failedChunk: Math.floor(start / CHUNK_SIZE),
         reason: error instanceof Error ? error.message : String(error),
