@@ -331,7 +331,7 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
       sightings.length === 0 || (await saveBulkPut("financeMerchants", sightings)).result !== null;
     const landing = didWriteMerchants
       ? await saveBulkPut("financeTransactions", rows)
-      : { landedRows: 0, writtenChunks: 0, result: null };
+      : { landedRows: 0, writtenChunks: 0, failedChunk: 0, result: null };
 
     const landed = rows.slice(0, landing.landedRows);
     const next: Partial<FinanceSlice> = {
@@ -340,17 +340,20 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
     if (didWriteMerchants) next.financeMerchants = mergeById(get().financeMerchants, sightings);
     set(next);
 
-    // Chunks are written in order, so the first one the backend didn't write is the one it rejected.
-    const failedChunk = landing.result === null ? landing.writtenChunks : null;
+    const didCommit = landing.failedChunk === null;
     batches.add({
       ...input.batch,
-      status: failedChunk === null ? "committed" : "partial-commit",
+      status: didCommit ? "committed" : "partial-commit",
       rowsInserted: landed.length,
       writtenChunks: landing.writtenChunks,
-      committedAt: failedChunk === null ? new Date().toISOString() : null,
+      committedAt: didCommit ? new Date().toISOString() : null,
     });
 
-    return { writtenRows: landed.length, writtenChunks: landing.writtenChunks, failedChunk };
+    return {
+      writtenRows: landed.length,
+      writtenChunks: landing.writtenChunks,
+      failedChunk: landing.failedChunk,
+    };
   };
 
   return {
