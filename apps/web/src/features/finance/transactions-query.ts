@@ -52,14 +52,19 @@ export const formatMonthLabel = (month: string): string =>
  * `no-category` is derived from the row at read time, never stored: the row already carries the
  * truth, and a stored copy would have to be cleared by every path that assigns a category. The
  * other flags have no other source of truth, so they stay stored and explicitly resolved.
+ *
+ * An internal transfer is exempt — it never earns a category, so deriving the flag there would
+ * park every transfer in the queue for good. `auto-internal` already covers its real review need.
  */
-const NO_CATEGORY_FLAG = "no-category";
+export const NO_CATEGORY_FLAG = "no-category";
+
+const needsCategory = (txn: FinanceTransaction) => txn.categoryId === null && !txn.isInternal;
 
 export function listUnresolvedFlags(txn: FinanceTransaction): string[] {
   const stored = txn.reviewFlags.filter(
     (flag) => flag !== NO_CATEGORY_FLAG && !txn.resolvedFlags.includes(flag),
   );
-  return txn.categoryId === null ? [NO_CATEGORY_FLAG, ...stored] : stored;
+  return needsCategory(txn) ? [NO_CATEGORY_FLAG, ...stored] : stored;
 }
 
 const REVIEW_FLAG_LABELS: Record<string, string> = {

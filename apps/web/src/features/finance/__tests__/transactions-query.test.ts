@@ -174,6 +174,26 @@ describe("no-category is derived, never stored", () => {
     const legacy = txn({ id: "d3", reviewFlags: ["no-category", "near-duplicate"] });
     expect(listUnresolvedFlags(legacy)).toEqual(["no-category", "near-duplicate"]);
   });
+
+  it("exempts an internal transfer, which never earns a category", () => {
+    const transfer = txn({ id: "d4", isInternal: true });
+    expect(listUnresolvedFlags(transfer)).toEqual([]);
+  });
+
+  it("still surfaces an internal transfer while its auto-flag is unresolved", () => {
+    const unconfirmed = txn({ id: "d5", isInternal: true, reviewFlags: ["auto-internal"] });
+    expect(listUnresolvedFlags(unconfirmed)).toEqual(["auto-internal"]);
+  });
+
+  it("clears the internal transfer once the auto-flag is resolved", () => {
+    const confirmed = txn({
+      id: "d6",
+      isInternal: true,
+      reviewFlags: ["auto-internal"],
+      resolvedFlags: ["auto-internal"],
+    });
+    expect(listUnresolvedFlags(confirmed)).toEqual([]);
+  });
 });
 
 describe("ledger sorting", () => {

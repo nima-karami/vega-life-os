@@ -40,6 +40,12 @@ const anyRow = (page: Page) => page.getByRole("button", { name: /^Details for / 
 const check = (page: Page, name: string) =>
   page.getByRole("checkbox", { name }).click({ force: true });
 
+// A house Select trigger carries aria-labelledby alongside our aria-label, and labelledby wins: its
+// accessible name is "<current value> <ariaLabel>", so a name anchored on the label never matches.
+// Scoping to the row and taking the trigger sidesteps the naming entirely.
+const rowCategory = (page: Page, description: string) =>
+  page.locator("ul li", { hasText: description }).locator("[aria-haspopup='listbox']");
+
 test("search and the review filter narrow the ledger", async ({ page }) => {
   await openLedger(page);
   const rowCount = await anyRow(page).count();
@@ -53,6 +59,7 @@ test("search and the review filter narrow the ledger", async ({ page }) => {
   await expect(anyRow(page)).toHaveCount(rowCount);
 
   // The unknown-merchant row has no category, so it is unreviewed; the salary row is filed.
+  // The internal transfers are exempt — a transfer never earns a category.
   await page.getByRole("button", { name: "Needs review", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Details for SQ \*8231/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Details for PAYROLL DEPOSIT/ })).toHaveCount(0);
@@ -75,12 +82,23 @@ test("a bulk category change lands on every selected row", async ({ page }) => {
   await page.getByRole("button").filter({ hasText: "Choose…" }).first().click();
   await page.getByRole("option", { name: "Dining out", exact: true }).click();
 
-  await expect(page.getByRole("button", { name: /^Category for PAYROLL DEPOSIT/ })).toHaveText(
-    "Dining out",
-  );
-  await expect(page.getByRole("button", { name: /^Category for PAYMENT RECEIVED/ })).toHaveText(
-    "Dining out",
-  );
+  await expect(rowCategory(page, "PAYROLL DEPOSIT")).toHaveText("Dining out");
+  await expect(rowCategory(page, "PAYMENT RECEIVED")).toHaveText("Dining out");
+});
+
+test("a row's own category picker files it in one click", async ({ page }) => {
+  await openLedger(page);
+  await searchBox(page).fill("SQ *8231");
+  await expect(anyRow(page)).toHaveCount(1);
+
+  await rowCategory(page, "SQ *8231").click();
+  await page.getByRole("option", { name: "Groceries", exact: true }).click();
+  await expect(rowCategory(page, "SQ *8231")).toHaveText("Groceries");
+
+  // `no-category` derives from the row, so filing it empties the queue with no flag bookkeeping.
+  await searchBox(page).fill("");
+  await page.getByRole("button", { name: "Needs review", exact: true }).click();
+  await expect(anyRow(page)).toHaveCount(0);
 });
 
 test("shift-click selects the range between two rows", async ({ page }) => {

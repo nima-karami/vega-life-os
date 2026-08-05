@@ -1,6 +1,5 @@
 import { Checkbox } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
-import { useState } from "react";
 import { cx, Icon, Menu, type MenuItem, NONE, Select, type SelectOption } from "@/core/ui";
 import { formatCents } from "./money";
 import { TransactionDetail } from "./TransactionDetail";
@@ -9,6 +8,7 @@ import {
   formatShareBps,
   formatTransactionDate,
   listUnresolvedFlags,
+  NO_CATEGORY_FLAG,
 } from "./transactions-query";
 
 export const TRANSACTION_GRID = "grid-cols-[2rem_5.5rem_1fr_10rem_7rem_5rem_2.5rem]";
@@ -35,6 +35,10 @@ export interface TransactionRowProps {
   onDelete: () => void;
 }
 
+/**
+ * A settled row's category is inert; an open one is a live picker. Only the rows on screen mount a
+ * Select — the page pages the list rather than mounting one per row across the whole ledger.
+ */
 function InlineCategory({
   label,
   categoryId,
@@ -50,21 +54,15 @@ function InlineCategory({
   isLocked: boolean;
   onPatch: (patch: Partial<FinanceTransaction>) => void;
 }) {
-  const [isPicking, setIsPicking] = useState(false);
   const ariaLabel = `Category for ${label}`;
 
-  if (isLocked || !isPicking)
+  if (isLocked)
     return (
       <button
         type="button"
-        disabled={isLocked}
+        disabled
         aria-label={ariaLabel}
-        onClick={() => setIsPicking(true)}
-        className={cx(
-          CELL_BUTTON,
-          categoryName === "" ? "text-muted" : "text-foreground",
-          !isLocked && "hover:text-accent",
-        )}
+        className={cx(CELL_BUTTON, "text-muted")}
       >
         {categoryName === "" ? "Uncategorised" : categoryName}
       </button>
@@ -75,10 +73,7 @@ function InlineCategory({
       ariaLabel={ariaLabel}
       value={categoryId ?? NONE}
       options={options}
-      onValueChange={(next) => {
-        onPatch({ categoryId: next === NONE ? null : next });
-        setIsPicking(false);
-      }}
+      onValueChange={(next) => onPatch({ categoryId: next === NONE ? null : next })}
     />
   );
 }
@@ -123,6 +118,8 @@ export function TransactionRow({
 }: TransactionRowProps) {
   const label = txn.description === "" ? "(no description)" : txn.description;
   const flags = listUnresolvedFlags(txn);
+  // the category cell already reads "No category" — a chip saying it again is noise on every row
+  const chips = flags.filter((flag) => flag !== NO_CATEGORY_FLAG);
 
   return (
     <div>
@@ -166,7 +163,7 @@ export function TransactionRow({
             </span>
           )}
           {txn.isInternal && <span className="shrink-0 text-xs text-muted">internal</span>}
-          {flags.map((flag) => (
+          {chips.map((flag) => (
             <span
               key={flag}
               className="shrink-0 rounded-full bg-danger/10 px-2 py-0.5 text-xs text-danger"
