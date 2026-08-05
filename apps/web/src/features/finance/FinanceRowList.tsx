@@ -15,10 +15,10 @@ export function FinanceRowList({ rows }: { rows: FinanceRowItem[] }) {
       {rows.map((row) => (
         <li key={row.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
           <span className="truncate text-sm text-foreground">{row.label}</span>
-          <span className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {row.meta && <span className="text-sm text-muted tabular-nums">{row.meta}</span>}
             {row.trailing}
-          </span>
+          </div>
         </li>
       ))}
     </ul>

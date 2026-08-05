@@ -1,6 +1,6 @@
 import type { FinanceSettlement } from "@vega/shared";
-import { addMonths, format, parseISO } from "date-fns";
 import { formatCents } from "./money";
+import { monthOfISO, shiftMonthKey } from "./month-cursor";
 import {
   computeHouseholdTotal,
   computeMyTrueShare,
@@ -9,7 +9,7 @@ import {
 } from "./queries";
 
 /** What the screen shows. A settled month whose rows later moved is `amended` the moment they move. */
-export type SettlementPhase = "open" | "settled" | "amended";
+type SettlementPhase = "open" | "settled" | "amended";
 
 export interface SettlementFigures {
   month: string;
@@ -39,15 +39,6 @@ export interface SettlementWrite {
   month: string;
   patch: Partial<FinanceSettlement>;
 }
-
-const monthOfDate = (isoDate: string) => format(parseISO(isoDate), "yyyy-MM");
-
-export const monthLabel = (month: string) => format(parseISO(`${month}-01`), "MMMM yyyy");
-
-export const shiftMonth = (month: string, by: number) =>
-  format(addMonths(parseISO(`${month}-01`), by), "yyyy-MM");
-
-export const isMonthKey = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 
 function derivePhase(
   isFrozen: boolean,
@@ -97,7 +88,7 @@ export function computeSettlementFigures(book: FinanceBook, month: string): Sett
     headlineBalanceCents: isFrozen ? frozenBalanceCents : currentBalanceCents,
     outstandingCents,
     householdRowCount: book.financeTransactions.filter(
-      (txn) => !txn.isInternal && txn.isHousehold && monthOfDate(txn.txnDate) === month,
+      (txn) => !txn.isInternal && txn.isHousehold && monthOfISO(txn.txnDate) === month,
     ).length,
     settledAt: record?.settledAt ?? null,
     paidAt: record?.paidAt ?? null,
@@ -122,7 +113,7 @@ export function describeBalance(cents: number, tense: "now" | "still"): string {
 export function listSettlementMonths(book: FinanceBook, currentMonth: string): string[] {
   const months = new Set<string>([currentMonth]);
   for (const txn of book.financeTransactions) {
-    if (!txn.isInternal && txn.isHousehold) months.add(monthOfDate(txn.txnDate));
+    if (!txn.isInternal && txn.isHousehold) months.add(monthOfISO(txn.txnDate));
   }
   for (const entry of book.financeSettlements) months.add(entry.month);
   return [...months].sort((left, right) => (left < right ? 1 : -1));
@@ -130,11 +121,11 @@ export function listSettlementMonths(book: FinanceBook, currentMonth: string): s
 
 /** Where a delta carries to: the first month after this one nobody has settled yet. */
 export function findNextOpenMonth(book: FinanceBook, month: string): string {
-  let candidate = shiftMonth(month, 1);
+  let candidate = shiftMonthKey(month, 1);
   for (let step = 0; step <= book.financeSettlements.length; step += 1) {
     const record = book.financeSettlements.find((entry) => entry.month === candidate);
     if (record === undefined || record.status === "open") return candidate;
-    candidate = shiftMonth(candidate, 1);
+    candidate = shiftMonthKey(candidate, 1);
   }
   return candidate;
 }

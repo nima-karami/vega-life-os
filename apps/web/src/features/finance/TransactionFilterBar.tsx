@@ -1,8 +1,8 @@
 import type { FinanceAccount, FinanceCategory } from "@vega/shared";
 import { useMemo } from "react";
 import { cx, Select, type SelectOption } from "@/core/ui";
-import { buildCategoryOptions } from "./TransactionControls";
-import { ANY, formatMonthLabel, type TransactionFilters } from "./transactions-query";
+import { formatMonthLabel } from "./month-cursor";
+import { ANY, buildCategoryOptions, type TransactionFilters } from "./transactions-query";
 
 const PAYER_OPTIONS: SelectOption[] = [
   { value: ANY, label: "Anyone" },

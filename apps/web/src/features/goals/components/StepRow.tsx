@@ -1,8 +1,7 @@
 import { Checkbox } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
-import { cx, Icon } from "@/core/ui";
+import { cx, FIELD_CLASS, Icon } from "@/core/ui";
 import type { Subgoal } from "../model";
-import { FIELD_CLASS } from "./field-styles";
 
 /** A goal step: done toggle, click-to-rename name, remove. (Reorder handle is owned by SortableList.) */
 export function StepRow({

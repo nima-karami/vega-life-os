@@ -7,15 +7,16 @@ import type {
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
-import { format } from "date-fns";
 import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { type Dataset, PartialWriteError, persistence } from "@/core/persistence";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+import { FULL_SHARE_BPS, MIN_SPREAD_MONTHS } from "./money";
+import { toMonthKey } from "./month-cursor";
 
 /** What a statement import hands the store: the rows, the merchant sightings, and its batch record. */
-export interface FinanceImportInput {
+interface FinanceImportInput {
   transactions: Partial<FinanceTransaction>[];
   merchants: Partial<FinanceMerchant>[];
   batch: Partial<FinanceImportBatch>;
@@ -92,7 +93,7 @@ interface FinanceCrud<C extends FinanceCollection> {
 /** Server-owned meta, fresh per row so two rows never share a `fieldUpdatedAt` map. */
 const newMeta = () => ({ updatedAt: "", fieldUpdatedAt: {} });
 
-const currentMonth = () => format(new Date(), "yyyy-MM");
+const currentMonth = () => toMonthKey(new Date());
 
 /**
  * The one optimistic-write path every finance collection shares. `add` is an upsert on the
@@ -237,7 +238,7 @@ const buildTransactionAmounts = (
   txnDate: string,
 ): TransactionAmounts => ({
   txnDate,
-  spreadMonths: patch.spreadMonths ?? 1,
+  spreadMonths: patch.spreadMonths ?? MIN_SPREAD_MONTHS,
   description: patch.description ?? "",
   amountCents: patch.amountCents ?? 0,
   currency: patch.currency ?? "CAD",
@@ -250,7 +251,7 @@ const buildTransactionFiling = (patch: Partial<FinanceTransaction>): Transaction
   merchantId: patch.merchantId ?? null,
   payer: patch.payer ?? "me",
   isHousehold: patch.isHousehold ?? false,
-  myShareBps: patch.myShareBps ?? 10000,
+  myShareBps: patch.myShareBps ?? FULL_SHARE_BPS,
   isInternal: patch.isInternal ?? false,
   reviewFlags: patch.reviewFlags ?? [],
   resolvedFlags: patch.resolvedFlags ?? [],

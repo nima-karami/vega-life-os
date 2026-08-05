@@ -7,15 +7,15 @@ const TONES = {
   danger: { border: "border-border", text: "text-danger", icon: "alert" },
 } as const;
 
-export interface FinanceImportStatusProps {
+export interface FinanceNoticeProps {
   tone: keyof typeof TONES;
   title: string;
-  body: string;
+  body?: string;
   actions?: ReactNode;
 }
 
-/** Every terminal state of an import reads the same way, and announces itself when it arrives. */
-export function FinanceImportStatus({ tone, title, body, actions }: FinanceImportStatusProps) {
+/** Every offline, failure and terminal state on the money screens reads the same way, and announces itself. */
+export function FinanceNotice({ tone, title, body, actions }: FinanceNoticeProps) {
   const style = TONES[tone];
   return (
     <section
@@ -26,7 +26,7 @@ export function FinanceImportStatus({ tone, title, body, actions }: FinanceImpor
         <Icon name={style.icon} size={16} />
         {title}
       </p>
-      <p className="mt-1.5 text-sm text-muted">{body}</p>
+      {body && <p className="mt-1.5 text-sm text-muted">{body}</p>}
       {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
     </section>
   );

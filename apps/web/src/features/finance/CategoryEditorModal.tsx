@@ -2,12 +2,10 @@ import { Button } from "@heroui/react";
 import type { FinanceBudget, FinanceCategory } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
+import { FIELD_CLASS, SegmentButton } from "@/core/ui";
 import { CategoryModalFrame } from "./CategoryModalFrame";
 import { parseAmountCents } from "./import/fields";
 import { formatCents } from "./money";
-
-const FIELD_CLASS =
-  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 const KINDS: { id: FinanceCategory["kind"]; label: string }[] = [
   { id: "spend", label: "Spend" },
@@ -106,16 +104,13 @@ export function CategoryEditorModal({
         <span className="text-xs text-muted">Kind</span>
         <div className="flex gap-2">
           {KINDS.map((option) => (
-            <Button
+            <SegmentButton
               key={option.id}
-              size="sm"
-              aria-pressed={kind === option.id}
-              variant={kind === option.id ? "primary" : "outline"}
-              onPress={() => setKind(option.id)}
-              className="flex-1"
+              isSelected={kind === option.id}
+              onClick={() => setKind(option.id)}
             >
               {option.label}
-            </Button>
+            </SegmentButton>
           ))}
         </div>
       </div>

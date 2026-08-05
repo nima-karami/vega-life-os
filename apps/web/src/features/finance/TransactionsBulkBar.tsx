@@ -1,8 +1,8 @@
 import { Button } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
-import { Icon, NONE, Select, type SelectOption } from "@/core/ui";
-import { ControlGroup, DraftInput } from "./TransactionControls";
-import { parseShareBps } from "./transactions-query";
+import { EditorField, Icon, NONE, Select, type SelectOption } from "@/core/ui";
+import { DraftInput } from "./DraftInput";
+import { parseShareBps } from "./money";
 
 export interface TransactionsBulkBarProps {
   selectedCount: number;
@@ -51,7 +51,7 @@ export function TransactionsBulkBar({
         )}
       </div>
 
-      <ControlGroup label="Set category" className="w-48">
+      <EditorField label="Set category" className="w-48">
         <Select
           ariaLabel="Set category for selection"
           value=""
@@ -59,9 +59,9 @@ export function TransactionsBulkBar({
           options={categoryOptions}
           onValueChange={(next) => onPatchSelection({ categoryId: next === NONE ? null : next })}
         />
-      </ControlGroup>
+      </EditorField>
 
-      <ControlGroup label="Set share %" className="w-28">
+      <EditorField label="Set share %" className="w-28">
         <DraftInput
           type="number"
           min={0}
@@ -77,7 +77,7 @@ export function TransactionsBulkBar({
             return false;
           }}
         />
-      </ControlGroup>
+      </EditorField>
 
       <div className="flex flex-wrap items-center gap-2">
         {FLAG_ACTIONS.map((action) => (

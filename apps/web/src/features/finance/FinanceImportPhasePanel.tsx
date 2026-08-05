@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
 import type { FinanceImportBatch } from "@vega/shared";
 import { FinanceImportPreview } from "./FinanceImportPreview";
-import { FinanceImportStatus } from "./FinanceImportStatus";
+import { FinanceNotice } from "./FinanceNotice";
 import { type AccountMismatch, describeLimitBreach } from "./import-staging";
 import type { StatementImport } from "./useStatementImport";
 
@@ -31,7 +31,7 @@ export function FinanceImportPhasePanel({
   switch (phase.status) {
     case "parsing":
       return (
-        <FinanceImportStatus
+        <FinanceNotice
           tone="info"
           title={`Reading ${phase.fileName}`}
           body="Nothing has been written."
@@ -40,7 +40,7 @@ export function FinanceImportPhasePanel({
 
     case "limit-reached":
       return (
-        <FinanceImportStatus
+        <FinanceNotice
           tone="danger"
           title={`${phase.fileName} is over the limit`}
           body={describeLimitBreach(phase.breach)}
@@ -49,7 +49,7 @@ export function FinanceImportPhasePanel({
 
     case "parse-failed":
       return (
-        <FinanceImportStatus
+        <FinanceNotice
           tone="danger"
           title={`Couldn’t read ${phase.error.file}`}
           body={`Line ${phase.error.line}: ${phase.error.reason}. Nothing was written.`}
@@ -79,7 +79,7 @@ export function FinanceImportPhasePanel({
 
     case "committed":
       return (
-        <FinanceImportStatus
+        <FinanceNotice
           tone="info"
           title={`Imported ${phase.inserted} transactions, ${phase.skipped} skipped as duplicates`}
           body="Clearing the review queue is what makes the next import cheaper than this one."
@@ -93,7 +93,7 @@ export function FinanceImportPhasePanel({
 
     case "partial-commit":
       return (
-        <FinanceImportStatus
+        <FinanceNotice
           tone="danger"
           title="The import stopped partway"
           body={`${phase.outcome.writtenChunks} batches landed (${phase.outcome.writtenRows} rows) before chunk ${phase.outcome.failedChunk} was rejected. Retrying rewrites those same rows rather than duplicating them.`}

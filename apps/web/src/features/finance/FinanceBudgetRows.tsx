@@ -2,15 +2,11 @@ import { ProgressBar } from "@heroui/react";
 import { cx, Icon } from "@/core/ui";
 import {
   type BudgetedCategoryFigures,
+  computeUsedPercent,
   isOverBudget,
   isOverBudgetAtThisPace,
 } from "./dashboard-figures";
 import { formatCents } from "./money";
-
-const usedPercent = (row: BudgetedCategoryFigures) => {
-  if (row.budgetCents <= 0) return row.spentCents > 0 ? 100 : 0;
-  return Math.min(100, Math.max(0, (row.spentCents / row.budgetCents) * 100));
-};
 
 function BudgetVerdict({ row }: { row: BudgetedCategoryFigures }) {
   if (isOverBudget(row)) {
@@ -56,7 +52,7 @@ function BudgetRow({ row }: { row: BudgetedCategoryFigures }) {
       </div>
       <ProgressBar
         aria-label={`${row.name}: ${formatCents(row.spentCents)} borne of ${formatCents(row.budgetCents)} budgeted`}
-        value={usedPercent(row)}
+        value={computeUsedPercent(row.spentCents, row.budgetCents)}
         className="mt-2"
       >
         <ProgressBar.Track className="h-1.5 overflow-hidden rounded-full bg-surface-secondary">

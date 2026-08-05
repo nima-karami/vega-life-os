@@ -1,3 +1,5 @@
+import { parseAmountCents } from "./import/fields";
+
 /**
  * Turning what the owner typed into a form. The ⌘K command can only hand over one free-text
  * string, so an amount is teased out of it best-effort — a miss just leaves the field empty.
@@ -8,25 +10,12 @@ export interface QuickAddDraft {
 }
 
 const MONEY_TOKEN = /^\$?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$|^\$?\d+(?:\.\d{1,2})?$/;
-const PLAIN_DECIMAL = /^(\d*)(?:\.(\d*))?$/;
 
-/** Decimal text → an integer scaled by `decimals`, digit by digit so no float touches money. */
-function parseScaledDecimal(input: string, decimals: number): number | null {
-  const match = PLAIN_DECIMAL.exec(input.replace(/[$,\s]/g, ""));
-  if (!match) return null;
-  const whole = match[1] ?? "";
-  const fraction = match[2] ?? "";
-  if (whole === "" && fraction === "") return null;
-  if (fraction.length > decimals) return null;
-  const scaled = Number(`${whole || "0"}${fraction.padEnd(decimals, "0")}`);
-  return Number.isSafeInteger(scaled) ? scaled : null;
-}
-
-export const parseAmountToCents = (input: string): number | null => parseScaledDecimal(input, 2);
-
-/** Percent text → basis points: `50` is 5000, and `62.5` is exactly 6250. */
-export const parseSharePercentToBps = (input: string): number | null =>
-  parseScaledDecimal(input, 2);
+/** The quick-add field is a magnitude — the row's sign comes from what it is, not what was typed. */
+export const parseAmountToCents = (input: string): number | null => {
+  const cents = parseAmountCents(input);
+  return cents === null || cents < 0 ? null : cents;
+};
 
 /** The last money-looking token is the amount; whatever is left of the line is the description. */
 export function parseQuickAddDraft(text: string): QuickAddDraft {

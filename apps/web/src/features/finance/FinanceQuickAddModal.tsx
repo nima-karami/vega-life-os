@@ -3,19 +3,29 @@ import type { FinanceTransaction } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { DatePicker, draftSafeBackdrop, Icon, NONE, Select, useCompactModal } from "@/core/ui";
 import {
+  DatePicker,
+  draftSafeBackdrop,
   FIELD_CLASS,
-  FinanceQuickAddOptions,
-  MAX_SPREAD_MONTHS,
+  Icon,
+  NONE,
+  SegmentButton,
+  Select,
+  useCompactModal,
+} from "@/core/ui";
+import { FinanceQuickAddOptions, type QuickAddOptionValues } from "./FinanceQuickAddOptions";
+import {
+  FULL_SHARE_BPS,
+  formatCents,
+  formatShareBps,
+  HOUSEHOLD_DEFAULT_BPS,
+  isSpreadMonths,
   MIN_SPREAD_MONTHS,
-  type QuickAddOptionValues,
-} from "./FinanceQuickAddOptions";
-import { formatCents } from "./money";
-import { parseAmountToCents, parseQuickAddDraft, parseSharePercentToBps } from "./quick-add-draft";
+  parseShareBps,
+} from "./money";
+import { parseAmountToCents, parseQuickAddDraft } from "./quick-add-draft";
 
-const DEFAULT_SHARE_PERCENT = "50";
-const FULL_SHARE_BPS = 10000;
+const DEFAULT_SHARE_PERCENT = formatShareBps(HOUSEHOLD_DEFAULT_BPS);
 const PAYERS: { value: FinanceTransaction["payer"]; label: string }[] = [
   { value: "me", label: "Me" },
   { value: "partner", label: "Partner" },
@@ -50,13 +60,8 @@ const readAmountError = (input: string, cents: number | null) => {
   return cents === 0 ? "Amount must be more than zero" : null;
 };
 
-const readShareError = (isHousehold: boolean, bps: number | null) => {
-  if (!isHousehold) return null;
-  return bps === null || bps > FULL_SHARE_BPS ? "Enter a share between 0 and 100" : null;
-};
-
-const isSpreadValid = (months: number) =>
-  Number.isInteger(months) && months >= MIN_SPREAD_MONTHS && months <= MAX_SPREAD_MONTHS;
+const readShareError = (isHousehold: boolean, bps: number | null) =>
+  isHousehold && bps === null ? "Enter a share between 0 and 100" : null;
 
 /**
  * The in-month capture surface: the partner reports a purchase, or cash moves with no bank row
@@ -119,7 +124,7 @@ export function FinanceQuickAddModal({
   };
 
   const amountCents = parseAmountToCents(values.amountInput);
-  const shareBps = parseSharePercentToBps(values.sharePercentInput);
+  const shareBps = parseShareBps(values.sharePercentInput);
   const amountError = readAmountError(values.amountInput, amountCents);
   const shareError = readShareError(values.isHousehold, shareBps);
   const canSave =
@@ -128,7 +133,7 @@ export function FinanceQuickAddModal({
     values.description.trim() !== "" &&
     values.txnDate !== null &&
     shareError === null &&
-    isSpreadValid(values.spreadMonths);
+    isSpreadMonths(values.spreadMonths);
 
   const categoryOptions = [
     { value: NONE, label: "Uncategorised" },
@@ -224,15 +229,13 @@ export function FinanceQuickAddModal({
                 <span className="block text-xs text-muted">Paid by</span>
                 <ButtonGroup fullWidth>
                   {PAYERS.map((option) => (
-                    <Button
+                    <SegmentButton
                       key={option.value}
-                      size="sm"
-                      aria-pressed={values.payer === option.value}
-                      variant={values.payer === option.value ? "primary" : "outline"}
-                      onPress={() => handlePayerChange(option.value)}
+                      isSelected={values.payer === option.value}
+                      onClick={() => handlePayerChange(option.value)}
                     >
                       {option.label}
-                    </Button>
+                    </SegmentButton>
                   ))}
                 </ButtonGroup>
               </div>

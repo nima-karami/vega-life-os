@@ -2,23 +2,22 @@ import { Button, Checkbox } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
 import { useMemo, useState } from "react";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, cx, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
-import { FinancePageShell } from "./FinancePageShell";
+import { ConfirmDialog, cx, Icon, PageShell, SortHeader, toggleColumnSort } from "@/core/ui";
 import { FinanceQuickAddHost } from "./FinanceQuickAddHost";
 import { formatCents } from "./money";
+import { formatMonthLabel } from "./month-cursor";
 import { computeHouseholdTotal, computeMyTrueShare, type FinanceBook } from "./queries";
-import { buildCategoryOptions } from "./TransactionControls";
 import { TransactionFilterBar } from "./TransactionFilterBar";
 import { TRANSACTION_GRID, TRANSACTION_MIN_WIDTH, TransactionRow } from "./TransactionRow";
 import { TransactionsBulkBar } from "./TransactionsBulkBar";
 import {
   ANY,
   buildCategoryNames,
+  buildCategoryOptions,
   DEFAULT_TRANSACTION_FILTERS,
   DEFAULT_TRANSACTION_SORT,
   DESC_FIRST_COLUMNS,
   describeProvenance,
-  formatMonthLabel,
   isTransactionLocked,
   listSettledMonths,
   listTransactionMonths,
@@ -28,6 +27,7 @@ import {
   type TransactionFilters,
   type TransactionSortColumn,
 } from "./transactions-query";
+import { useFinanceBook } from "./useFinanceBook";
 import { useTransactionSelection } from "./useTransactionSelection";
 
 const PAGE_SIZE = 200;
@@ -52,11 +52,8 @@ function describeMonthFigures(book: FinanceBook, month: string): string {
 }
 
 export function FinanceTransactionsPage() {
-  const financeTransactions = useStore((s) => s.financeTransactions);
-  const financeAccounts = useStore((s) => s.financeAccounts);
-  const financeCategories = useStore((s) => s.financeCategories);
-  const financeBudgets = useStore((s) => s.financeBudgets);
-  const financeSettlements = useStore((s) => s.financeSettlements);
+  const book = useFinanceBook();
+  const { financeAccounts, financeCategories, financeSettlements, financeTransactions } = book;
   const financeImportBatches = useStore((s) => s.financeImportBatches);
   const updateFinanceTransaction = useStore((s) => s.updateFinanceTransaction);
   const removeFinanceTransaction = useStore((s) => s.removeFinanceTransaction);
@@ -81,17 +78,6 @@ export function FinanceTransactionsPage() {
     () => buildCategoryOptions(financeCategories, "assign"),
     [financeCategories],
   );
-  const book = useMemo<FinanceBook>(
-    () => ({
-      financeAccounts,
-      financeCategories,
-      financeBudgets,
-      financeTransactions,
-      financeSettlements,
-    }),
-    [financeAccounts, financeCategories, financeBudgets, financeTransactions, financeSettlements],
-  );
-
   const selectedRows = rows.filter((row) => selection.selectedIds.has(row.id));
   const editableIds = selectedRows
     .filter((row) => !isTransactionLocked(row, settledMonths))
@@ -123,7 +109,7 @@ export function FinanceTransactionsPage() {
 
   return (
     <>
-      <FinancePageShell
+      <PageShell
         title="Transactions"
         subtitle="Every row from every statement — the ledger you work in."
         summary={summary}
@@ -249,7 +235,7 @@ export function FinanceTransactionsPage() {
             </div>
           )}
         </div>
-      </FinancePageShell>
+      </PageShell>
 
       <ConfirmDialog
         open={pendingDeleteIds !== null}

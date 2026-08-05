@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
-import { cx, EmptyState, Icon } from "@/core/ui";
+import { cx } from "./cx";
+import { EmptyState } from "./EmptyState";
+import { Icon } from "./icons";
 
-const FIELD =
+const SEARCH_FIELD =
   "w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
 
 const CHIP_BASE =
@@ -9,47 +11,47 @@ const CHIP_BASE =
 const CHIP_ON = "border-accent text-foreground";
 const CHIP_OFF = "border-border text-muted hover:border-muted";
 
-export interface FinanceEmptyCopy {
+export interface EmptyCopy {
   title: string;
   body: string;
   cta?: ReactNode;
 }
 
-export interface FinanceSearchBox {
+interface SearchBox {
   value: string;
   onChange: (value: string) => void;
   label: string;
   placeholder: string;
 }
 
-export interface FinanceChipGroup {
+interface ChipGroup {
   label: string;
   options: { id: string; label: string }[];
   activeId: string;
   onSelect: (id: string) => void;
 }
 
-export interface FinancePageShellProps {
+export interface PageShellProps {
   title: string;
   subtitle: string;
   /** one-line figure read-out under the subtitle */
   summary?: string;
   /** the single primary action for the page */
   action?: ReactNode;
-  search?: FinanceSearchBox;
-  chips?: FinanceChipGroup;
+  search?: SearchBox;
+  chips?: ChipGroup;
   /** further filter controls (month selector, account picker) beside the search and chips */
   filters?: ReactNode;
   isEmpty: boolean;
-  empty: FinanceEmptyCopy;
+  empty: EmptyCopy;
   /** filters matched nothing — a different state from having no data at all */
   hasNoMatches?: boolean;
-  noMatches?: FinanceEmptyCopy;
+  noMatches?: EmptyCopy;
   children?: ReactNode;
 }
 
-/** The one page frame every finance surface renders into: header, filter bar, body, empty states. */
-export function FinancePageShell({
+/** The one wide-page frame: header, filter bar, body, empty states — same chrome on every page. */
+export function PageShell({
   title,
   subtitle,
   summary,
@@ -62,7 +64,7 @@ export function FinancePageShell({
   hasNoMatches = false,
   noMatches,
   children,
-}: FinancePageShellProps) {
+}: PageShellProps) {
   const hasFilterBar = !isEmpty && (search !== undefined || chips !== undefined || filters);
   const blank = isEmpty ? empty : hasNoMatches ? noMatches : undefined;
 
@@ -92,7 +94,7 @@ export function FinancePageShell({
                 onChange={(event) => search.onChange(event.target.value)}
                 placeholder={search.placeholder}
                 aria-label={search.label}
-                className={FIELD}
+                className={SEARCH_FIELD}
               />
             </div>
           )}
