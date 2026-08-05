@@ -39,6 +39,9 @@ function makeClient() {
       importCollection: {
         mutate: vi.fn(async () => ({ inserted: 2, skipped: 0, writtenChunks: 1 })),
       },
+      bulkRemove: {
+        mutate: vi.fn(async () => ({ removed: 2, missing: 0, writtenChunks: 1 })),
+      },
       deleteAll: { mutate: vi.fn(async () => ({ ok: true })) },
     },
   };
@@ -93,6 +96,32 @@ describe("TrpcAdapter", () => {
     });
     await adapter.clearAll();
     expect(client.data.deleteAll.mutate).toHaveBeenCalled();
+  });
+
+  it("routes bulkRemove through the generic data router for a domain collection too", async () => {
+    const client = makeClient();
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient);
+
+    expect(await adapter.bulkRemove("tasks", ["t1", "t2"])).toEqual({
+      removed: 2,
+      missing: 0,
+      writtenChunks: 1,
+    });
+    expect(client.data.bulkRemove.mutate).toHaveBeenCalledWith({
+      collection: "tasks",
+      ids: ["t1", "t2"],
+    });
+    expect(client.tasks.delete.mutate).not.toHaveBeenCalled();
+  });
+
+  it("turns a rejected bulkRemove's partial-commit detail into a PartialWriteError", async () => {
+    const client = makeClient();
+    const detail = { writtenRows: 225, writtenChunks: 1, failedChunk: 1 };
+    client.data.bulkRemove.mutate.mockRejectedValueOnce(
+      Object.assign(new Error("partial commit"), { data: { partialCommit: detail } }),
+    );
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient);
+    await expect(adapter.bulkRemove("tasks", ["t1"])).rejects.toMatchObject({ detail });
   });
 
   it("turns the server's partial-commit detail into a PartialWriteError", async () => {

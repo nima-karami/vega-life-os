@@ -14,6 +14,7 @@ const rejectingAdapter: PersistenceAdapter = {
   put: () => down(),
   bulkPut: () => down(),
   remove: () => down(),
+  bulkRemove: () => down(),
   clearAll: () => down(),
 };
 

@@ -1,65 +1,10 @@
-import type { Firestore, WriteBatch } from "firebase-admin/firestore";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { initAdmin } from "../../../core/firebase-admin";
 import { createRepository } from "../../../core/repository";
+import { mindCard as card, mindCards as cards } from "../../../test/data-fixtures";
 import { resolveEmulatorConfig } from "../../../test/emulator";
+import { withFailingCommit } from "../../../test/failing-commit";
 import { bootTestServer, type TestServer } from "../../../test/harness";
-
-function card(id: string, body = "seed") {
-  return {
-    id,
-    title: `Card ${id}`,
-    body,
-    type: "note" as const,
-    origin: "manual" as const,
-    category: "life",
-    source: null,
-    addedAt: "2026-08-01T00:00:00.000Z",
-    hiddenAt: null,
-    likedAt: null,
-    flippable: true,
-    box: null,
-    lastReviewed: null,
-    nextDue: null,
-  };
-}
-
-const cards = (count: number, prefix: string) =>
-  Array.from({ length: count }, (_, index) => card(`${prefix}_${index}`));
-
-/** Fails the nth `batch().commit()` once armed, so the partial-commit path can be exercised end to end. */
-function withFailingCommit(firestore: Firestore) {
-  const state = { commits: 0, failAt: Number.POSITIVE_INFINITY };
-  const proxied = new Proxy(firestore, {
-    get(target, key, receiver) {
-      if (key !== "batch") return bindMember(target, key, receiver);
-      return () => proxyBatch(target.batch(), state);
-    },
-  });
-  const armFailure = (failAt: number) => {
-    state.commits = 0;
-    state.failAt = failAt;
-  };
-  return { firestore: proxied, armFailure };
-}
-
-function proxyBatch(batch: WriteBatch, state: { commits: number; failAt: number }): WriteBatch {
-  return new Proxy(batch, {
-    get(target, key, receiver) {
-      if (key !== "commit") return bindMember(target, key, receiver);
-      return async () => {
-        state.commits += 1;
-        if (state.commits >= state.failAt) throw new Error("emulated commit failure");
-        return target.commit();
-      };
-    },
-  });
-}
-
-function bindMember(target: object, key: string | symbol, receiver: unknown): unknown {
-  const member = Reflect.get(target, key, receiver);
-  return typeof member === "function" ? member.bind(target) : member;
-}
 
 describe("batched importCollection (real server vs emulator)", () => {
   let server: TestServer;

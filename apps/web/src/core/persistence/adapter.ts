@@ -100,6 +100,13 @@ export interface BulkPutResult {
   writtenChunks: number;
 }
 
+/** What a bulk delete landed. `missing` ids were already gone — they cost no write and no counter bump. */
+export interface BulkRemoveResult {
+  removed: number;
+  missing: number;
+  writtenChunks: number;
+}
+
 /**
  * The persistence seam. `DexieAdapter` (IndexedDB) backs the signed-out sandbox;
  * `TrpcAdapter` (the backend) backs signed-in users. The `RoutingAdapter` swaps
@@ -115,5 +122,6 @@ export interface PersistenceAdapter {
   put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void>;
   bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult>;
   remove(col: CollectionName, id: string): Promise<void>;
+  bulkRemove<C extends CollectionName>(col: C, ids: string[]): Promise<BulkRemoveResult>;
   clearAll(): Promise<void>;
 }

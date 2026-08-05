@@ -2,33 +2,9 @@ import { collectionNameSchema } from "@vega/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
 import { connectCalendar, isoDaysFromToday } from "../../../test/calendar-fixtures";
+import { livedEvent } from "../../../test/data-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../../calendar/reconcile";
-
-function livedEvent(id: string) {
-  return {
-    id,
-    googleId: `g_${id}`,
-    iCalUID: `u_${id}`,
-    calendarId: "primary",
-    title: "Concert",
-    date: "2026-07-13",
-    endDate: null,
-    time: "09:00",
-    durationMin: 120,
-    allDay: false,
-    recurringEventId: null,
-    googleUpdated: null,
-    status: "confirmed" as const,
-    responseStatus: "accepted" as const,
-    valueId: null,
-    goalId: null,
-    note: "",
-    vegaEditedAt: null,
-    pendingDelete: false,
-    removedAt: null,
-  };
-}
 
 describe("data router (real server vs emulator)", () => {
   let server: TestServer;
