@@ -1,4 +1,4 @@
-import type { MappingWorkedExample } from "./import";
+import type { MappingWorkedExample } from "./import/types";
 import { formatCents } from "./money";
 
 /**

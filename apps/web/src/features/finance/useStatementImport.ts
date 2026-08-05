@@ -2,13 +2,9 @@ import type { FinanceAccount, FinanceColumnMapping } from "@vega/shared";
 import { useState } from "react";
 import { uid } from "@/core/lib/id";
 import { useStore } from "@/core/store";
-import {
-  type ParsedStatement,
-  type ParseFailedError,
-  parseDelimitedTable,
-  parseStatement,
-  type TableData,
-} from "./import";
+import { parseDelimitedTable } from "./import/delimited";
+import { parseStatement } from "./import/parse";
+import type { ParsedStatement, ParseFailedError, TableData } from "./import/types";
 import {
   computeFileHash,
   findLimitBreach,

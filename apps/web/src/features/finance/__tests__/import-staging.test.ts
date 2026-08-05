@@ -1,6 +1,11 @@
 import type { FinanceImportBatch, FinanceMerchant } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, type ParsedRow, type ParsedStatement } from "../import";
+import {
+  MAX_IMPORT_BYTES,
+  MAX_IMPORT_ROWS,
+  type ParsedRow,
+  type ParsedStatement,
+} from "../import/types";
 import {
   computeFileHash,
   describeLimitBreach,

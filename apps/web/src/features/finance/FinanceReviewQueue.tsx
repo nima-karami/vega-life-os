@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, NONE } from "@/core/ui";
 import { FinanceReviewRow } from "./FinanceReviewRow";
-import { normalizeMerchant } from "./import";
+import { normalizeMerchant } from "./import/merchant";
 import { type FinanceReviewFlag, groupForReview, withFlagResolved } from "./review-queue";
 
 /**

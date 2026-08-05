@@ -9,12 +9,6 @@ export interface StatementView {
 }
 
 /**
- * Whether a file has a header row decides what the headers even are, so the view and the
- * mapping resolve together: the account's remembered mapping wins, then the header-keyed
- * registry, and an unresolved file reports the heuristic view's headers so the mapper
- * still has something to show.
- */
-/**
  * A remembered mapping may force a file to be read headerless, but never the reverse:
  * misreading a real first transaction as headers loses it silently, while the opposite
  * fails loudly on the date.

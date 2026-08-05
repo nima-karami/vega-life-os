@@ -37,7 +37,7 @@ export interface ParseFailedError {
   reason: string;
 }
 
-export interface MappingRequiredError {
+interface MappingRequiredError {
   code: "MAPPING_REQUIRED";
   file: string;
   headers: string[];

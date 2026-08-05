@@ -7,7 +7,7 @@ import { FinanceImportStatus } from "./FinanceImportStatus";
 import { FinancePageShell } from "./FinancePageShell";
 import { FinanceReviewQueue } from "./FinanceReviewQueue";
 import { FinanceRowList } from "./FinanceRowList";
-import { normalizeMerchant } from "./import";
+import { normalizeMerchant } from "./import/merchant";
 import { findAccountMismatch, findPriorImport } from "./import-staging";
 import { useStatementImport } from "./useStatementImport";
 

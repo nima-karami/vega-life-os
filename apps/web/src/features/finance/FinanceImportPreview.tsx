@@ -3,7 +3,7 @@ import type { FinanceImportBatch } from "@vega/shared";
 import { format, parseISO } from "date-fns";
 import { Icon } from "@/core/ui";
 import { FinanceWorkedExample } from "./FinanceWorkedExample";
-import type { ParsedStatement } from "./import";
+import type { ParsedStatement } from "./import/types";
 import type { AccountMismatch } from "./import-staging";
 import { formatCents } from "./money";
 
