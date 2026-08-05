@@ -54,6 +54,11 @@ export const scaleCentsFraction = (
 ): CentsFraction =>
   makeCentsFraction(fraction.numerator * numerator, fraction.denominator * denominator);
 
+const CANADIAN_DOLLARS = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
+
+/** Display only — this is the one place a cent figure becomes a float, and it never flows back. */
+export const formatCents = (cents: number): string => CANADIAN_DOLLARS.format(cents / 100);
+
 /** Half-up away from zero, applied once, on the final figure (spec §3.6.5). */
 export function roundToCents(fraction: CentsFraction): number {
   const magnitude =

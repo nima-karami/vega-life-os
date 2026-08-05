@@ -109,6 +109,15 @@ export function CommandBar() {
     close();
   };
 
+  const addAsExpense = () => {
+    const entry = query.trim();
+    if (!entry) return;
+    useStore.getState().setPendingFinanceEntry(entry);
+    navigate("/finance/transactions");
+    setQuery("");
+    close();
+  };
+
   const runAction = (cmd: ActionCommand) => {
     cmd.run(buildApi(query));
   };
@@ -189,6 +198,13 @@ export function CommandBar() {
                       className="text-sm font-medium text-accent underline-offset-4 hover:underline"
                     >
                       + Add &ldquo;{query}&rdquo; as a word
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addAsExpense}
+                      className="text-sm font-medium text-accent underline-offset-4 hover:underline"
+                    >
+                      + Add &ldquo;{query}&rdquo; as an expense
                     </button>
                   </Command.Empty>
 

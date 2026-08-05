@@ -2,6 +2,11 @@ import { createBrowserRouter } from "react-router";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { CalendarCallbackPage } from "@/features/calendar-sync";
+import { FinanceCategoriesPage } from "@/features/finance/FinanceCategoriesPage";
+import { FinanceDashboardPage } from "@/features/finance/FinanceDashboardPage";
+import { FinanceImportPage } from "@/features/finance/FinanceImportPage";
+import { FinanceSettlementPage } from "@/features/finance/FinanceSettlementPage";
+import { FinanceTransactionsPage } from "@/features/finance/FinanceTransactionsPage";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { EntriesPage, JournalPage } from "@/features/journal";
 import { VocabPage } from "@/features/library/VocabPage";
@@ -34,6 +39,11 @@ export const router = createBrowserRouter([
           { path: "scroll", element: <ScrollPage /> },
           { path: "scroll/manage", element: <ScrollManagePage /> },
           { path: "vocab", element: <VocabPage /> },
+          { path: "finance", element: <FinanceDashboardPage /> },
+          { path: "finance/transactions", element: <FinanceTransactionsPage /> },
+          { path: "finance/import", element: <FinanceImportPage /> },
+          { path: "finance/categories", element: <FinanceCategoriesPage /> },
+          { path: "finance/settlement", element: <FinanceSettlementPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "settings", element: <SettingsPage /> },
           // Catch removed routes + unknown paths → 404 recovery

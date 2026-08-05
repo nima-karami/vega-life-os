@@ -73,6 +73,10 @@ export interface UiSlice {
   pendingVocabTerm: string | null;
   setPendingVocabTerm: (term: string | null) => void;
 
+  /** one-shot ⌘K → finance quick-add handoff; the finance host consumes and clears it */
+  pendingFinanceEntry: string | null;
+  setPendingFinanceEntry: (entry: string | null) => void;
+
   toast: ToastState | null;
   pushToast: (msg: string) => void;
   /** A sticky toast with a single action (e.g. the PWA "Reload" prompt). Stays until dismissed or acted on. */
@@ -223,6 +227,9 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
 
   pendingVocabTerm: null,
   setPendingVocabTerm: (pendingVocabTerm) => set({ pendingVocabTerm }),
+
+  pendingFinanceEntry: null,
+  setPendingFinanceEntry: (pendingFinanceEntry) => set({ pendingFinanceEntry }),
 
   toast: null,
   pushToast: (message) => {
