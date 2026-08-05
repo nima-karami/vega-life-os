@@ -1,5 +1,6 @@
 import { Button } from "@heroui/react";
 import type { FinanceCategory } from "@vega/shared";
+import { useMemo } from "react";
 import { deriveCashFlow, deriveCategoryBreakdown } from "./dashboard-figures";
 import { FinanceBudgetRows } from "./FinanceBudgetRows";
 import { FinanceCashStrip } from "./FinanceCashStrip";
@@ -66,8 +67,16 @@ export function FinanceDashboardBody({
   onRetry,
   onSetBudget,
 }: FinanceDashboardBodyProps) {
-  const cash = deriveCashFlow(book, month, { includeBusiness });
-  const breakdown = deriveCategoryBreakdown(book, month, asOf, { includeBusiness });
+  // Every derived figure walks the whole ledger, so a bare call here re-walks it on each keystroke,
+  // toggle and store write.
+  const cash = useMemo(
+    () => deriveCashFlow(book, month, { includeBusiness }),
+    [book, month, includeBusiness],
+  );
+  const breakdown = useMemo(
+    () => deriveCategoryBreakdown(book, month, asOf, { includeBusiness }),
+    [book, month, asOf, includeBusiness],
+  );
   const keepFocus = <T extends { id: string }>(rows: T[]) =>
     focusCategory === null ? rows : rows.filter((entry) => entry.id === focusCategory.id);
 

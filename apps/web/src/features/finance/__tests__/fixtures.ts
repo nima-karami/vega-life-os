@@ -5,7 +5,32 @@ import type {
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
-import type { FinanceBook } from "../queries";
+import {
+  computeBorneSpendByCategory,
+  computeMonthSpend,
+  type FinanceBook,
+  type FinanceQueryOptions,
+  resolveEffectiveBudgets,
+} from "../queries";
+
+/** The per-category figures, read one category at a time — the shape the assertions want. */
+export const borneSpend = (
+  book: FinanceBook,
+  month: string,
+  categoryId: string,
+  options: FinanceQueryOptions = {},
+): number => computeBorneSpendByCategory(book, month, options).get(categoryId) ?? 0;
+
+export const projectedSpend = (
+  book: FinanceBook,
+  month: string,
+  categoryId: string,
+  asOf: Date,
+  options: FinanceQueryOptions = {},
+): number => computeMonthSpend(book, month, asOf, options).get(categoryId)?.projectedCents ?? 0;
+
+export const effectiveBudget = (book: FinanceBook, categoryId: string, month: string) =>
+  resolveEffectiveBudgets(book, month).get(categoryId) ?? null;
 
 export const CHEQUING = "acc_chequing";
 export const BUSINESS = "acc_business";

@@ -82,6 +82,7 @@ export function FinanceQuickAddModal({
 }) {
   const financeCategories = useStore((s) => s.financeCategories);
   const addFinanceTransaction = useStore((s) => s.addFinanceTransaction);
+  const fileTransaction = useStore((s) => s.fileTransaction);
   const pushToast = useStore((s) => s.pushToast);
 
   const [values, setValues] = useState<QuickAddValues>(() => readInitialValues(query));
@@ -147,7 +148,7 @@ export function FinanceQuickAddModal({
     if (!canSave || amountCents === null || values.txnDate === null) return;
     const categoryId = values.categoryId === NONE ? null : values.categoryId;
     const description = values.description.trim();
-    addFinanceTransaction({
+    const added = addFinanceTransaction({
       txnDate: values.txnDate,
       description,
       amountCents: -amountCents,
@@ -164,6 +165,8 @@ export function FinanceQuickAddModal({
       // stored copy would need clearing on every path that later sets a category.
       reviewFlags: [],
     });
+    // Filing it is what teaches the merchant, so a hand-entered row files itself next time too.
+    if (categoryId !== null) fileTransaction(added.id, { categoryId });
     pushToast(`Added ${description} — ${formatCents(amountCents)}`);
     onClose();
   };

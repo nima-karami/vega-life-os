@@ -23,7 +23,6 @@ export function CategoryDeleteModal({
   onMerge: () => void;
   onClose: () => void;
 }) {
-  const financeBudgets = useStore((s) => s.financeBudgets);
   const removeFinanceCategory = useStore((s) => s.removeFinanceCategory);
   const removeFinanceBudget = useStore((s) => s.removeFinanceBudget);
   const pushToast = useStore((s) => s.pushToast);
@@ -56,9 +55,7 @@ export function CategoryDeleteModal({
   }
 
   const remove = () => {
-    for (const budget of financeBudgets) {
-      if (budget.categoryId === category.id) removeFinanceBudget(budget.id);
-    }
+    for (const budget of references.budgets) removeFinanceBudget(budget.id);
     removeFinanceCategory(category.id);
     pushToast(`Deleted ${category.name}`);
     onClose();

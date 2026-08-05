@@ -22,6 +22,10 @@ export function useTransactionSelection(orderedIds: string[]): TransactionSelect
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const anchorRef = useRef<string | null>(null);
   const rangeRef = useRef(false);
+  // The window listeners read the ids through this, so a filter change doesn't re-register them —
+  // and the live closure holds a ref rather than a whole ledger's worth of ids.
+  const orderedIdsRef = useRef(orderedIds);
+  orderedIdsRef.current = orderedIds;
 
   const orderedIdSet = useMemo(() => new Set(orderedIds), [orderedIds]);
   const activeIds = useMemo(
@@ -64,8 +68,8 @@ export function useTransactionSelection(orderedIds: string[]): TransactionSelect
 
   const selectAll = useCallback(() => {
     anchorRef.current = null;
-    setSelectedIds(new Set(orderedIds));
-  }, [orderedIds]);
+    setSelectedIds(new Set(orderedIdsRef.current));
+  }, []);
 
   useEffect(() => {
     const noteRangeIntent = (event: PointerEvent | KeyboardEvent) => {

@@ -1,10 +1,15 @@
 import { Checkbox } from "@heroui/react";
-import type { FinanceTransaction } from "@vega/shared";
+import type { FinanceImportBatch, FinanceTransaction } from "@vega/shared";
 import { cx, Icon, Menu, type MenuItem, NONE, Select, type SelectOption } from "@/core/ui";
 import { FULL_SHARE_BPS, formatCents, formatShareBps, HOUSEHOLD_DEFAULT_BPS } from "./money";
+import { formatMonthLabel } from "./month-cursor";
 import { describeFlag, NO_CATEGORY_FLAG, unresolvedFlags } from "./review-flags";
 import { TransactionDetail } from "./TransactionDetail";
-import { formatTransactionDate } from "./transactions-query";
+import {
+  describeProvenance,
+  formatTransactionDate,
+  monthOfTransaction,
+} from "./transactions-query";
 
 export const TRANSACTION_GRID = "grid-cols-[2rem_5.5rem_1fr_10rem_7rem_5rem_2.5rem]";
 export const TRANSACTION_MIN_WIDTH = "min-w-[880px]";
@@ -16,11 +21,11 @@ export interface TransactionRowProps {
   txn: FinanceTransaction;
   categoryName: string;
   categoryOptions: SelectOption[];
-  provenance: string;
+  /** The batch list, not a built string: only an expanded row ever reads its provenance. */
+  importBatches: FinanceImportBatch[];
   isSelected: boolean;
   isExpanded: boolean;
   isLocked: boolean;
-  lockedMonthLabel: string;
   onToggleSelect: () => void;
   onToggleExpand: () => void;
   onPatch: (patch: Partial<FinanceTransaction>) => void;
@@ -98,11 +103,10 @@ export function TransactionRow({
   txn,
   categoryName,
   categoryOptions,
-  provenance,
+  importBatches,
   isSelected,
   isExpanded,
   isLocked,
-  lockedMonthLabel,
   onToggleSelect,
   onToggleExpand,
   onPatch,
@@ -112,6 +116,8 @@ export function TransactionRow({
   const flags = unresolvedFlags(txn);
   // the category cell already reads "No category" — a chip saying it again is noise on every row
   const chips = flags.filter((flag) => flag !== NO_CATEGORY_FLAG);
+  // Built where they are read, not for all 200 rows on screen: only a locked or expanded row needs them.
+  const lockedMonthLabel = () => formatMonthLabel(monthOfTransaction(txn));
 
   return (
     <div>
@@ -148,7 +154,7 @@ export function TransactionRow({
           {isLocked && (
             <span
               role="img"
-              aria-label={`Read-only — ${lockedMonthLabel} is settled`}
+              aria-label={`Read-only — ${lockedMonthLabel()} is settled`}
               className="shrink-0 text-muted"
             >
               <Icon name="shield" size={13} />
@@ -214,10 +220,10 @@ export function TransactionRow({
       {isExpanded && (
         <TransactionDetail
           txn={txn}
-          provenance={provenance}
+          provenance={describeProvenance(txn, importBatches)}
           flags={flags}
           isLocked={isLocked}
-          lockedMonthLabel={lockedMonthLabel}
+          lockedMonthLabel={lockedMonthLabel()}
           onPatch={onPatch}
         />
       )}

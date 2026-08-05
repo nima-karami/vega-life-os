@@ -5,7 +5,6 @@ import { useStore } from "@/core/store";
 import { ConfirmDialog, cx, Icon, PageShell, SortHeader, toggleColumnSort } from "@/core/ui";
 import { FinanceQuickAddHost } from "./FinanceQuickAddHost";
 import { formatCents } from "./money";
-import { formatMonthLabel } from "./month-cursor";
 import { computeHouseholdTotal, computeMyTrueShare, type FinanceBook } from "./queries";
 import { TransactionFilterBar } from "./TransactionFilterBar";
 import { TRANSACTION_GRID, TRANSACTION_MIN_WIDTH, TransactionRow } from "./TransactionRow";
@@ -17,11 +16,9 @@ import {
   DEFAULT_TRANSACTION_FILTERS,
   DEFAULT_TRANSACTION_SORT,
   DESC_FIRST_COLUMNS,
-  describeProvenance,
   isTransactionLocked,
   listSettledMonths,
   listTransactionMonths,
-  monthOfTransaction,
   queryFinanceTransactions,
   type ReviewFilter,
   type TransactionFilters,
@@ -55,7 +52,8 @@ export function FinanceTransactionsPage() {
   const book = useFinanceBook();
   const { financeAccounts, financeCategories, financeSettlements, financeTransactions } = book;
   const financeImportBatches = useStore((s) => s.financeImportBatches);
-  const updateFinanceTransaction = useStore((s) => s.updateFinanceTransaction);
+  const fileTransaction = useStore((s) => s.fileTransaction);
+  const fileTransactions = useStore((s) => s.fileTransactions);
   const removeFinanceTransaction = useStore((s) => s.removeFinanceTransaction);
 
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
@@ -78,11 +76,17 @@ export function FinanceTransactionsPage() {
     () => buildCategoryOptions(financeCategories, "assign"),
     [financeCategories],
   );
-  const selectedRows = rows.filter((row) => selection.selectedIds.has(row.id));
-  const editableIds = selectedRows
-    .filter((row) => !isTransactionLocked(row, settledMonths))
-    .map((row) => row.id);
-  const lockedCount = selectedRows.length - editableIds.length;
+  const { selectedCount, editableIds, lockedCount } = useMemo(() => {
+    const selected = rows.filter((row) => selection.selectedIds.has(row.id));
+    const editable = selected
+      .filter((row) => !isTransactionLocked(row, settledMonths))
+      .map((row) => row.id);
+    return {
+      selectedCount: selected.length,
+      editableIds: editable,
+      lockedCount: selected.length - editable.length,
+    };
+  }, [rows, selection.selectedIds, settledMonths]);
 
   const visibleRows = rows.slice(0, visibleCount);
 
@@ -95,15 +99,19 @@ export function FinanceTransactionsPage() {
     setVisibleCount(PAGE_SIZE);
   };
   const patchSelection = (patch: Partial<FinanceTransaction>) => {
-    for (const id of editableIds) updateFinanceTransaction(id, patch);
+    void fileTransactions(editableIds, patch);
   };
+  // Row-at-a-time: there is no bulk delete seam behind `persistence`.
   const confirmDelete = () => {
     for (const id of pendingDeleteIds ?? []) removeFinanceTransaction(id);
     setPendingDeleteIds(null);
     selection.clear();
   };
 
-  const monthFigures = filters.month === ANY ? "" : describeMonthFigures(book, filters.month);
+  const monthFigures = useMemo(
+    () => (filters.month === ANY ? "" : describeMonthFigures(book, filters.month)),
+    [book, filters.month],
+  );
   const summary = `${financeTransactions.length} rows · ${rows.length} shown${monthFigures}`;
   const deleteCount = pendingDeleteIds?.length ?? 0;
 
@@ -150,9 +158,9 @@ export function FinanceTransactionsPage() {
           ),
         }}
       >
-        {selectedRows.length > 0 && (
+        {selectedCount > 0 && (
           <TransactionsBulkBar
-            selectedCount={selectedRows.length}
+            selectedCount={selectedCount}
             lockedCount={lockedCount}
             categoryOptions={assignOptions}
             onPatchSelection={patchSelection}
@@ -208,16 +216,15 @@ export function FinanceTransactionsPage() {
                     txn.categoryId === null ? "" : (categoryNames.get(txn.categoryId) ?? "")
                   }
                   categoryOptions={assignOptions}
-                  provenance={describeProvenance(txn, financeImportBatches)}
+                  importBatches={financeImportBatches}
                   isSelected={selection.selectedIds.has(txn.id)}
                   isExpanded={expandedId === txn.id}
                   isLocked={isTransactionLocked(txn, settledMonths)}
-                  lockedMonthLabel={formatMonthLabel(monthOfTransaction(txn))}
                   onToggleSelect={() => selection.toggleOne(txn.id)}
                   onToggleExpand={() =>
                     setExpandedId((current) => (current === txn.id ? null : txn.id))
                   }
-                  onPatch={(patch) => updateFinanceTransaction(txn.id, patch)}
+                  onPatch={(patch) => fileTransaction(txn.id, patch)}
                   onDelete={() => setPendingDeleteIds([txn.id])}
                 />
               </li>

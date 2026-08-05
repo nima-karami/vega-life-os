@@ -12,7 +12,7 @@ import { FinanceMonthCursor } from "./FinanceMonthCursor";
 import { type FinanceRowItem, FinanceRowList } from "./FinanceRowList";
 import { formatCents } from "./money";
 import { formatMonthLabel, toMonthKey } from "./month-cursor";
-import { computeBorneSpend, resolveEffectiveBudget } from "./queries";
+import { computeBorneSpendByCategory, resolveEffectiveBudgets } from "./queries";
 import { useFinanceBook } from "./useFinanceBook";
 
 const KIND_FILTERS = [
@@ -23,7 +23,7 @@ const KIND_FILTERS = [
 
 export function FinanceCategoriesPage() {
   const book = useFinanceBook();
-  const { financeCategories, financeTransactions } = book;
+  const { financeBudgets, financeCategories, financeTransactions } = book;
   const financeMerchants = useStore((s) => s.financeMerchants);
   const updateFinanceCategory = useStore((s) => s.updateFinanceCategory);
   const pushToast = useStore((s) => s.pushToast);
@@ -34,11 +34,17 @@ export function FinanceCategoriesPage() {
   const [editing, setEditing] = useState<{ category: FinanceCategory | null } | null>(null);
   const [mergingId, setMergingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isArchivedOpen, setIsArchivedOpen] = useState(false);
 
   const references = useMemo(
-    () => indexCategoryReferences({ financeTransactions, financeMerchants }),
-    [financeTransactions, financeMerchants],
+    () => indexCategoryReferences({ financeTransactions, financeMerchants, financeBudgets }),
+    [financeTransactions, financeMerchants, financeBudgets],
   );
+
+  // One walk of the ledger and one of the budgets for the whole page — a meter per category used
+  // to mean a walk per category, twice over once the totals were added up.
+  const spend = useMemo(() => computeBorneSpendByCategory(book, month), [book, month]);
+  const budgets = useMemo(() => resolveEffectiveBudgets(book, month), [book, month]);
 
   const monthRowCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -77,14 +83,14 @@ export function FinanceCategoriesPage() {
     return {
       id: category.id,
       label: category.name || "(unnamed)",
-      meta: pluralize(refs.transactions, "transaction"),
+      meta: pluralize(refs.transactions.length, "transaction"),
       trailing: (
         <>
           {isArchived && <Tag>Archived</Tag>}
           {category.kind === "spend" ? (
             <CategoryBudgetMeter
-              spendCents={computeBorneSpend(book, month, category.id)}
-              budgetCents={resolveEffectiveBudget(book, category.id, month)?.cents ?? null}
+              spendCents={spend.get(category.id) ?? 0}
+              budgetCents={budgets.get(category.id)?.cents ?? null}
             />
           ) : (
             <span className="text-sm text-muted">Income</span>
@@ -109,11 +115,11 @@ export function FinanceCategoriesPage() {
 
   const spendCategories = financeCategories.filter((category) => category.kind === "spend");
   const totalSpend = spendCategories.reduce(
-    (sum, category) => sum + computeBorneSpend(book, month, category.id),
+    (sum, category) => sum + (spend.get(category.id) ?? 0),
     0,
   );
   const totalBudget = spendCategories.reduce(
-    (sum, category) => sum + (resolveEffectiveBudget(book, category.id, month)?.cents ?? 0),
+    (sum, category) => sum + (budgets.get(category.id)?.cents ?? 0),
     0,
   );
 
@@ -152,8 +158,9 @@ export function FinanceCategoriesPage() {
         }}
       >
         {listed.length > 0 && <FinanceRowList rows={listed.map(buildRow)} />}
-        <Disclosure label="archived" count={retired.length}>
-          <FinanceRowList rows={retired.map(buildRow)} />
+        {/* Building the archived rows behind the gate keeps their meters out of a collapsed page. */}
+        <Disclosure label="archived" count={retired.length} onToggle={setIsArchivedOpen}>
+          {isArchivedOpen && <FinanceRowList rows={retired.map(buildRow)} />}
         </Disclosure>
       </PageShell>
 
@@ -162,9 +169,7 @@ export function FinanceCategoriesPage() {
           category={editing.category}
           month={month}
           monthLabel={formatMonthLabel(month)}
-          effectiveBudget={
-            editing.category ? resolveEffectiveBudget(book, editing.category.id, month) : null
-          }
+          effectiveBudget={editing.category ? (budgets.get(editing.category.id) ?? null) : null}
           onClose={() => setEditing(null)}
         />
       )}
