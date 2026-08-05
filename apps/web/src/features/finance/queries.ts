@@ -5,17 +5,19 @@ import type {
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
-import { differenceInCalendarMonths, format, getDate, getDaysInMonth, parseISO } from "date-fns";
+import { differenceInCalendarMonths, getDate, getDaysInMonth, parseISO } from "date-fns";
 import {
   addCentsFractions,
   type CentsFraction,
+  computeShareFraction,
+  FULL_SHARE_BPS,
   fromCents,
-  makeCentsFraction,
   roundToCents,
   scaleCentsFraction,
   subtractCentsFractions,
   ZERO_CENTS,
 } from "./money";
+import { monthOfISO } from "./month-cursor";
 
 /**
  * The finance collections a derived figure needs, named as the store holds them so a caller
@@ -38,18 +40,13 @@ export interface FinanceQueryOptions {
   includeBusiness?: boolean;
 }
 
-const BPS_SCALE = 10000n;
-const FULL_SHARE_BPS = 10000;
-
 const monthStart = (month: string) => parseISO(`${month}-01`);
-const monthOf = (isoDate: string) => format(parseISO(isoDate), "yyyy-MM");
 
 const spreadMonthsOf = (txn: FinanceTransaction) => Math.max(1, Math.trunc(txn.spreadMonths));
-const shareBpsOf = (txn: FinanceTransaction) =>
-  BigInt(txn.isHousehold ? txn.myShareBps : FULL_SHARE_BPS);
+const shareBpsOf = (txn: FinanceTransaction) => (txn.isHousehold ? txn.myShareBps : FULL_SHARE_BPS);
 
 /** Money out is negative on the row; every derived spend figure is a positive magnitude. */
-const borneCents = (txn: FinanceTransaction) => BigInt(-txn.amountCents);
+const borneCents = (txn: FinanceTransaction) => -txn.amountCents;
 
 /**
  * Non-internal rows on accounts that count towards the owner's personal figures. Partner-paid
@@ -76,11 +73,11 @@ const isCategoryOfKind = (
 ) => findCategory(book, categoryId)?.kind === kind;
 
 /** Cash basis: one period key, and it is always `txnDate`. */
-const isInMonth = (txn: FinanceTransaction, month: string) => monthOf(txn.txnDate) === month;
+const isInMonth = (txn: FinanceTransaction, month: string) => monthOfISO(txn.txnDate) === month;
 
 /** How many months after its own a row is recognised in; -1 once it is out of the schedule. */
 function recognitionOffset(txn: FinanceTransaction, month: string): number {
-  const offset = differenceInCalendarMonths(monthStart(month), monthStart(monthOf(txn.txnDate)));
+  const offset = differenceInCalendarMonths(monthStart(month), monthStart(monthOfISO(txn.txnDate)));
   return offset >= 0 && offset < spreadMonthsOf(txn) ? offset : -1;
 }
 
@@ -89,7 +86,7 @@ function recognitionOffset(txn: FinanceTransaction, month: string): number {
  * remainder an even split leaves over lands on the first month rather than going missing.
  */
 function recogniseInstalment(txn: FinanceTransaction, offset: number): CentsFraction {
-  const borne = makeCentsFraction(borneCents(txn) * shareBpsOf(txn), BPS_SCALE);
+  const borne = computeShareFraction(borneCents(txn), shareBpsOf(txn));
   const spread = spreadMonthsOf(txn);
   if (spread === 1) return borne;
   const instalment = fromCents(roundToCents(scaleCentsFraction(borne, 1n, BigInt(spread))));
@@ -184,10 +181,7 @@ const selectHouseholdRows = (book: FinanceBook, month: string) =>
 function sumTrueShare(rows: FinanceTransaction[]): CentsFraction {
   let total = ZERO_CENTS;
   for (const txn of rows) {
-    total = addCentsFractions(
-      total,
-      makeCentsFraction(borneCents(txn) * BigInt(txn.myShareBps), BPS_SCALE),
-    );
+    total = addCentsFractions(total, computeShareFraction(borneCents(txn), txn.myShareBps));
   }
   return total;
 }

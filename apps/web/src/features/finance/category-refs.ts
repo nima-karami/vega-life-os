@@ -1,4 +1,5 @@
 import type { FinanceMerchant, FinanceTransaction } from "@vega/shared";
+import { pluralize } from "@/core/lib/plural";
 
 /** What still points at a category — the numbers delete and merge have to be honest about. */
 export interface CategoryReferences {
@@ -30,12 +31,9 @@ export function indexCategoryReferences(
 export const isCategoryReferenced = (refs: CategoryReferences): boolean =>
   refs.transactions > 0 || refs.merchants > 0;
 
-export const countNoun = (count: number, noun: string): string =>
-  `${count} ${noun}${count === 1 ? "" : "s"}`;
-
 /** "42 transactions and 2 merchant defaults" — the phrase both destructive dialogs promise. */
 export function describeCategoryReferences(refs: CategoryReferences): string {
-  const parts = [countNoun(refs.transactions, "transaction")];
-  if (refs.merchants > 0) parts.push(countNoun(refs.merchants, "merchant default"));
+  const parts = [pluralize(refs.transactions, "transaction")];
+  if (refs.merchants > 0) parts.push(pluralize(refs.merchants, "merchant default"));
   return parts.join(" and ");
 }

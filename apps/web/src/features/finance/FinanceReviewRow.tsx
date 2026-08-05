@@ -1,14 +1,15 @@
 import { Button } from "@heroui/react";
 import type { FinanceMerchant, FinanceTransaction } from "@vega/shared";
 import { NONE, Select, type SelectOption } from "@/core/ui";
-import { formatCents } from "./money";
-import type { FinanceReviewFlag } from "./review-queue";
-
-const SHARE_FIELD =
-  "w-20 rounded-[10px] border border-border bg-surface px-2 py-1 text-sm text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-accent";
-
-const bpsToPercent = (bps: number) => Math.round(bps / 100);
-const percentToBps = (percent: number) => Math.min(10000, Math.max(0, Math.round(percent * 100)));
+import { DraftInput } from "./DraftInput";
+import {
+  FULL_SHARE_BPS,
+  formatCents,
+  formatShareBps,
+  HOUSEHOLD_DEFAULT_BPS,
+  parseShareBps,
+} from "./money";
+import type { FinanceReviewFlag } from "./review-flags";
 
 export interface FinanceReviewRowProps {
   txn: FinanceTransaction;
@@ -62,7 +63,7 @@ export function FinanceReviewRow({
           onPress={() =>
             onShare(txn, {
               isHousehold: !txn.isHousehold,
-              myShareBps: txn.isHousehold ? 10000 : 5000,
+              myShareBps: txn.isHousehold ? FULL_SHARE_BPS : HOUSEHOLD_DEFAULT_BPS,
             })
           }
         >
@@ -70,22 +71,25 @@ export function FinanceReviewRow({
         </Button>
 
         {txn.isHousehold && (
-          <label className="flex items-center gap-1.5 text-xs text-muted">
+          <span className="flex items-center gap-1.5 text-xs text-muted">
             My share
-            <input
+            <DraftInput
               type="number"
               min={0}
               max={100}
-              step={1}
-              value={bpsToPercent(txn.myShareBps)}
-              aria-label="My share, percent"
-              onChange={(event) =>
-                onShare(txn, { myShareBps: percentToBps(Number(event.target.value)) })
-              }
-              className={SHARE_FIELD}
+              step={0.01}
+              ariaLabel="My share, percent"
+              value={formatShareBps(txn.myShareBps)}
+              className="w-20"
+              onCommit={(raw) => {
+                const bps = parseShareBps(raw);
+                if (bps === null) return false;
+                onShare(txn, { myShareBps: bps });
+                return true;
+              }}
             />
             %
-          </label>
+          </span>
         )}
 
         {flag === "auto-internal" ? (

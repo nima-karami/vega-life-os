@@ -10,14 +10,10 @@ import {
   buildCategoryNames,
   DEFAULT_TRANSACTION_FILTERS,
   describeProvenance,
-  formatShareBps,
   isTransactionLocked,
   listSettledMonths,
   listTransactionMonths,
-  listUnresolvedFlags,
   NO_CATEGORY,
-  parseShareBps,
-  parseSpreadMonths,
   queryFinanceTransactions,
   selectIdRange,
   type TransactionFilters,
@@ -151,48 +147,11 @@ describe("ledger filtering", () => {
         resolvedFlags: ["auto-internal"],
       }),
     ];
-    expect(listUnresolvedFlags(resolved[0])).toEqual([]);
     expect(runQuery({ review: "flagged" }, resolved)).toEqual([]);
   });
 
   it("returns every row when nothing constrains it", () => {
     expect(runQuery({ accountId: ANY })).toHaveLength(3);
-  });
-});
-
-describe("no-category is derived, never stored", () => {
-  it("raises the flag from an empty category, with nothing stored on the row", () => {
-    expect(listUnresolvedFlags(txn({ id: "d1" }))).toEqual(["no-category"]);
-  });
-
-  it("drops the flag the moment a category is assigned, with no bookkeeping", () => {
-    const stale = txn({ id: "d2", categoryId: GROCERIES.id, reviewFlags: ["no-category"] });
-    expect(listUnresolvedFlags(stale)).toEqual([]);
-  });
-
-  it("never doubles a stored copy against the derived one", () => {
-    const legacy = txn({ id: "d3", reviewFlags: ["no-category", "near-duplicate"] });
-    expect(listUnresolvedFlags(legacy)).toEqual(["no-category", "near-duplicate"]);
-  });
-
-  it("exempts an internal transfer, which never earns a category", () => {
-    const transfer = txn({ id: "d4", isInternal: true });
-    expect(listUnresolvedFlags(transfer)).toEqual([]);
-  });
-
-  it("still surfaces an internal transfer while its auto-flag is unresolved", () => {
-    const unconfirmed = txn({ id: "d5", isInternal: true, reviewFlags: ["auto-internal"] });
-    expect(listUnresolvedFlags(unconfirmed)).toEqual(["auto-internal"]);
-  });
-
-  it("clears the internal transfer once the auto-flag is resolved", () => {
-    const confirmed = txn({
-      id: "d6",
-      isInternal: true,
-      reviewFlags: ["auto-internal"],
-      resolvedFlags: ["auto-internal"],
-    });
-    expect(listUnresolvedFlags(confirmed)).toEqual([]);
   });
 });
 
@@ -258,36 +217,6 @@ describe("range selection", () => {
 
   it("falls back to the target alone when the anchor has scrolled out of the list", () => {
     expect(selectIdRange(ordered, "z", "c")).toEqual(["c"]);
-  });
-});
-
-describe("share and spread parsing", () => {
-  it("takes any percentage, not just the presets", () => {
-    expect(parseShareBps("50")).toBe(5000);
-    expect(parseShareBps("37.25")).toBe(3725);
-    expect(parseShareBps("0")).toBe(0);
-    expect(parseShareBps("100")).toBe(10000);
-  });
-
-  it("refuses a figure that is not a share", () => {
-    expect(parseShareBps("")).toBeNull();
-    expect(parseShareBps("101")).toBeNull();
-    expect(parseShareBps("-1")).toBeNull();
-    expect(parseShareBps("half")).toBeNull();
-  });
-
-  it("round-trips basis points through the display string", () => {
-    expect(formatShareBps(3725)).toBe("37.25");
-    expect(formatShareBps(10000)).toBe("100");
-    expect(parseShareBps(formatShareBps(3725))).toBe(3725);
-  });
-
-  it("keeps spread a whole number of months inside the allowed range", () => {
-    expect(parseSpreadMonths("12")).toBe(12);
-    expect(parseSpreadMonths("1")).toBe(1);
-    expect(parseSpreadMonths("0")).toBeNull();
-    expect(parseSpreadMonths("37")).toBeNull();
-    expect(parseSpreadMonths("1.5")).toBeNull();
   });
 });
 

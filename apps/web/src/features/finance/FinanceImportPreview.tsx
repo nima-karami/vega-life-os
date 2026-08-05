@@ -1,8 +1,8 @@
 import { Button } from "@heroui/react";
 import type { FinanceImportBatch } from "@vega/shared";
-import { format, parseISO } from "date-fns";
 import { Icon } from "@/core/ui";
 import { FinanceWorkedExample } from "./FinanceWorkedExample";
+import { formatDateLabel } from "./import/fields";
 import type { ParsedStatement } from "./import/types";
 import type { AccountMismatch } from "./import-staging";
 import { formatCents } from "./money";
@@ -11,7 +11,7 @@ const ROW_LIMIT = 200;
 
 const describePriorImport = (batch: FinanceImportBatch) => {
   const when = batch.committedAt ?? batch.startedAt;
-  const on = when ? ` on ${format(parseISO(when), "d MMMM yyyy")}` : "";
+  const on = when ? ` on ${formatDateLabel(when)}` : "";
   return `You already imported this exact file${on} — ${batch.rowsInserted} rows landed then.`;
 };
 

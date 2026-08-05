@@ -1,21 +1,13 @@
 import { Checkbox } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
 import { cx, Icon, Menu, type MenuItem, NONE, Select, type SelectOption } from "@/core/ui";
-import { formatCents } from "./money";
+import { FULL_SHARE_BPS, formatCents, formatShareBps, HOUSEHOLD_DEFAULT_BPS } from "./money";
+import { describeFlag, NO_CATEGORY_FLAG, unresolvedFlags } from "./review-flags";
 import { TransactionDetail } from "./TransactionDetail";
-import {
-  describeFlag,
-  formatShareBps,
-  formatTransactionDate,
-  listUnresolvedFlags,
-  NO_CATEGORY_FLAG,
-} from "./transactions-query";
+import { formatTransactionDate } from "./transactions-query";
 
 export const TRANSACTION_GRID = "grid-cols-[2rem_5.5rem_1fr_10rem_7rem_5rem_2.5rem]";
 export const TRANSACTION_MIN_WIDTH = "min-w-[880px]";
-
-const HOUSEHOLD_DEFAULT_BPS = 5000;
-const FULL_SHARE_BPS = 10000;
 
 const CELL_BUTTON =
   "truncate rounded text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed";
@@ -117,7 +109,7 @@ export function TransactionRow({
   onDelete,
 }: TransactionRowProps) {
   const label = txn.description === "" ? "(no description)" : txn.description;
-  const flags = listUnresolvedFlags(txn);
+  const flags = unresolvedFlags(txn);
   // the category cell already reads "No category" — a chip saying it again is noise on every row
   const chips = flags.filter((flag) => flag !== NO_CATEGORY_FLAG);
 

@@ -1,17 +1,19 @@
 import type { FinanceCategory } from "@vega/shared";
-import { addMonths, format, parseISO } from "date-fns";
 import { useMemo, useState } from "react";
+import { pluralize } from "@/core/lib/plural";
 import { useStore } from "@/core/store";
-import { Button, Disclosure, Icon, IconButton, Menu, type MenuItem, Tag } from "@/core/ui";
+import { Button, Disclosure, Icon, Menu, type MenuItem, PageShell, Tag } from "@/core/ui";
 import { CategoryBudgetMeter } from "./CategoryBudgetMeter";
 import { CategoryDeleteModal } from "./CategoryDeleteModal";
 import { CategoryEditorModal } from "./CategoryEditorModal";
 import { CategoryMergeModal } from "./CategoryMergeModal";
-import { countNoun, indexCategoryReferences, NO_CATEGORY_REFERENCES } from "./category-refs";
-import { FinancePageShell } from "./FinancePageShell";
+import { indexCategoryReferences, NO_CATEGORY_REFERENCES } from "./category-refs";
+import { FinanceMonthCursor } from "./FinanceMonthCursor";
 import { type FinanceRowItem, FinanceRowList } from "./FinanceRowList";
 import { formatCents } from "./money";
+import { formatMonthLabel, toMonthKey } from "./month-cursor";
 import { computeBorneSpend, resolveEffectiveBudget } from "./queries";
+import { useFinanceBook } from "./useFinanceBook";
 
 const KIND_FILTERS = [
   { id: "all", label: "All" },
@@ -19,36 +21,19 @@ const KIND_FILTERS = [
   { id: "income", label: "Income" },
 ];
 
-const monthLabelOf = (month: string) => format(parseISO(`${month}-01`), "MMMM yyyy");
-const shiftMonth = (month: string, by: number) =>
-  format(addMonths(parseISO(`${month}-01`), by), "yyyy-MM");
-
 export function FinanceCategoriesPage() {
-  const financeAccounts = useStore((s) => s.financeAccounts);
-  const financeCategories = useStore((s) => s.financeCategories);
-  const financeBudgets = useStore((s) => s.financeBudgets);
+  const book = useFinanceBook();
+  const { financeCategories, financeTransactions } = book;
   const financeMerchants = useStore((s) => s.financeMerchants);
-  const financeTransactions = useStore((s) => s.financeTransactions);
-  const financeSettlements = useStore((s) => s.financeSettlements);
   const updateFinanceCategory = useStore((s) => s.updateFinanceCategory);
   const pushToast = useStore((s) => s.pushToast);
 
-  const [month, setMonth] = useState(() => format(new Date(), "yyyy-MM"));
+  const thisMonth = toMonthKey(new Date());
+  const [month, setMonth] = useState(thisMonth);
   const [kind, setKind] = useState("all");
   const [editing, setEditing] = useState<{ category: FinanceCategory | null } | null>(null);
   const [mergingId, setMergingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const book = useMemo(
-    () => ({
-      financeAccounts,
-      financeCategories,
-      financeBudgets,
-      financeTransactions,
-      financeSettlements,
-    }),
-    [financeAccounts, financeCategories, financeBudgets, financeTransactions, financeSettlements],
-  );
 
   const references = useMemo(
     () => indexCategoryReferences({ financeTransactions, financeMerchants }),
@@ -92,7 +77,7 @@ export function FinanceCategoriesPage() {
     return {
       id: category.id,
       label: category.name || "(unnamed)",
-      meta: countNoun(refs.transactions, "transaction"),
+      meta: pluralize(refs.transactions, "transaction"),
       trailing: (
         <>
           {isArchived && <Tag>Archived</Tag>}
@@ -142,7 +127,7 @@ export function FinanceCategoriesPage() {
 
   return (
     <>
-      <FinancePageShell
+      <PageShell
         title="Categories"
         subtitle="Your own categories, each with a budget you can set month by month."
         summary={`${financeCategories.length} categories · ${formatCents(totalSpend)} of ${formatCents(totalBudget)} budgeted`}
@@ -153,26 +138,7 @@ export function FinanceCategoriesPage() {
           activeId: kind,
           onSelect: setKind,
         }}
-        filters={
-          <div className="flex items-center gap-1">
-            <IconButton
-              name="chevL"
-              label="Previous month"
-              onPress={() => setMonth(shiftMonth(month, -1))}
-            />
-            <span
-              aria-live="polite"
-              className="min-w-[8.5rem] text-center text-sm text-foreground tabular-nums"
-            >
-              {monthLabelOf(month)}
-            </span>
-            <IconButton
-              name="chevR"
-              label="Next month"
-              onPress={() => setMonth(shiftMonth(month, 1))}
-            />
-          </div>
-        }
+        filters={<FinanceMonthCursor month={month} currentMonth={thisMonth} onChange={setMonth} />}
         isEmpty={financeCategories.length === 0}
         empty={{
           title: "No categories yet",
@@ -189,13 +155,13 @@ export function FinanceCategoriesPage() {
         <Disclosure label="archived" count={retired.length}>
           <FinanceRowList rows={retired.map(buildRow)} />
         </Disclosure>
-      </FinancePageShell>
+      </PageShell>
 
       {editing && (
         <CategoryEditorModal
           category={editing.category}
           month={month}
-          monthLabel={monthLabelOf(month)}
+          monthLabel={formatMonthLabel(month)}
           effectiveBudget={
             editing.category ? resolveEffectiveBudget(book, editing.category.id, month) : null
           }

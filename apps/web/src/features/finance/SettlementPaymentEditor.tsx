@@ -2,11 +2,17 @@ import { Button, Modal, useOverlayState } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
 import { useState } from "react";
 import { formatShortDate, todayISO } from "@/core/lib/date";
-import { DatePicker, draftSafeBackdrop, NONE, Select, useCompactModal } from "@/core/ui";
-import { FIELD_CLASS } from "@/features/goals/components/field-styles";
-import { EditorField } from "@/features/values/components/editor-bits";
+import {
+  DatePicker,
+  draftSafeBackdrop,
+  EditorField,
+  FIELD_CLASS,
+  NONE,
+  Select,
+  useCompactModal,
+} from "@/core/ui";
 import { parseAmountCents } from "./import/fields";
-import { formatCents } from "./money";
+import { formatCents, formatCentsPlain } from "./money";
 import type { SettlementFigures } from "./settlement";
 
 export interface SettlementPayment {
@@ -17,8 +23,6 @@ export interface SettlementPayment {
 
 /** Signed toward the balance, so discharging a debt the owner owes records a negative payment. */
 const directionOf = (figures: SettlementFigures) => (figures.headlineBalanceCents < 0 ? -1 : 1);
-
-const dollarsOf = (cents: number) => (Math.abs(cents) / 100).toFixed(2);
 
 /**
  * Records what actually moved, not what was owed — real payments arrive short, rounded, or in two
@@ -41,7 +45,7 @@ export function SettlementPaymentEditor({
   // A settled month with nothing outstanding is being corrected, so offer the figure it settled at.
   const suggestedCents =
     figures.outstandingCents !== 0 ? figures.outstandingCents : figures.headlineBalanceCents;
-  const [amount, setAmount] = useState(() => dollarsOf(suggestedCents));
+  const [amount, setAmount] = useState(() => formatCentsPlain(Math.abs(suggestedCents)));
   const [isTouched, setIsTouched] = useState(false);
   const [paidAt, setPaidAt] = useState<string | null>(todayISO());
   const [linkedId, setLinkedId] = useState(NONE);

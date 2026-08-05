@@ -1,13 +1,15 @@
 import type { FinanceTransaction } from "@vega/shared";
 import { Link } from "react-router";
-import { ControlGroup, DraftInput } from "./TransactionControls";
+import { EditorField } from "@/core/ui";
+import { DraftInput } from "./DraftInput";
 import {
-  describeFlag,
   formatShareBps,
   MAX_SPREAD_MONTHS,
+  MIN_SPREAD_MONTHS,
   parseShareBps,
   parseSpreadMonths,
-} from "./transactions-query";
+} from "./money";
+import { describeFlag } from "./review-flags";
 
 /**
  * The per-row editor, opened in place: share, amortization, note, and the provenance that answers
@@ -43,7 +45,7 @@ export function TransactionDetail({
       )}
 
       <div className="flex flex-wrap items-end gap-4">
-        <ControlGroup label="Your share" className="w-28">
+        <EditorField label="Your share" className="w-28">
           <DraftInput
             type="number"
             min={0}
@@ -59,12 +61,12 @@ export function TransactionDetail({
               return true;
             }}
           />
-        </ControlGroup>
+        </EditorField>
 
-        <ControlGroup label="Spread over months" className="w-32">
+        <EditorField label="Spread over months" className="w-32">
           <DraftInput
             type="number"
-            min={1}
+            min={MIN_SPREAD_MONTHS}
             max={MAX_SPREAD_MONTHS}
             step={1}
             ariaLabel={`Spread months for ${label}`}
@@ -77,9 +79,9 @@ export function TransactionDetail({
               return true;
             }}
           />
-        </ControlGroup>
+        </EditorField>
 
-        <ControlGroup label="Note" className="min-w-[16rem] flex-1">
+        <EditorField label="Note" className="min-w-[16rem] flex-1">
           <DraftInput
             ariaLabel={`Note for ${label}`}
             placeholder="Why this row is what it is"
@@ -90,7 +92,7 @@ export function TransactionDetail({
               return true;
             }}
           />
-        </ControlGroup>
+        </EditorField>
       </div>
 
       <p className="text-xs text-muted">{provenance}</p>

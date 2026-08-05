@@ -6,13 +6,16 @@ import {
   cx,
   DatePicker,
   draftSafeBackdrop,
+  EditorField,
+  FIELD_CLASS,
   Icon,
   IconField,
+  SegmentButton,
   Select,
   SortableList,
   useCompactModal,
 } from "@/core/ui";
-import { EditorField, FractionSlider } from "@/features/values/components/editor-bits";
+import { FractionSlider } from "@/features/values/components/editor-bits";
 import { GOAL_STATUS_LABEL, GOAL_STATUSES } from "../model";
 import {
   buildStatusChangePatch,
@@ -28,8 +31,6 @@ import {
   getPresetRangeOn,
   type Timeframe,
 } from "../timeframe";
-import { FIELD_CLASS } from "./field-styles";
-import { SegmentButton } from "./SegmentButton";
 import { StepRow } from "./StepRow";
 
 const TF_CHIPS: { id: Timeframe; label: string }[] = [

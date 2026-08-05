@@ -5,7 +5,9 @@ import type {
   FinanceTransaction,
 } from "@vega/shared";
 import { format, parseISO } from "date-fns";
-import type { ColumnSort } from "@/core/ui";
+import { type ColumnSort, NONE, type SelectOption } from "@/core/ui";
+import { monthOfISO } from "./month-cursor";
+import { unresolvedFlags } from "./review-flags";
 
 export type TransactionSortColumn = "date" | "description" | "category" | "amount";
 export type TransactionSort = ColumnSort<TransactionSortColumn>;
@@ -39,43 +41,10 @@ export const DEFAULT_TRANSACTION_FILTERS: TransactionFilters = {
 };
 
 /** Cash basis: the one period key is `txnDate`. */
-export const monthOfTransaction = (txn: FinanceTransaction): string =>
-  format(parseISO(txn.txnDate), "yyyy-MM");
+export const monthOfTransaction = (txn: FinanceTransaction): string => monthOfISO(txn.txnDate);
 
 export const formatTransactionDate = (isoDate: string): string =>
   format(parseISO(isoDate), "MMM d, yy");
-
-export const formatMonthLabel = (month: string): string =>
-  format(parseISO(`${month}-01`), "MMMM yyyy");
-
-/**
- * `no-category` is derived from the row at read time, never stored: the row already carries the
- * truth, and a stored copy would have to be cleared by every path that assigns a category. The
- * other flags have no other source of truth, so they stay stored and explicitly resolved.
- *
- * An internal transfer is exempt — it never earns a category, so deriving the flag there would
- * park every transfer in the queue for good. `auto-internal` already covers its real review need.
- */
-export const NO_CATEGORY_FLAG = "no-category";
-
-const needsCategory = (txn: FinanceTransaction) => txn.categoryId === null && !txn.isInternal;
-
-export function listUnresolvedFlags(txn: FinanceTransaction): string[] {
-  const stored = txn.reviewFlags.filter(
-    (flag) => flag !== NO_CATEGORY_FLAG && !txn.resolvedFlags.includes(flag),
-  );
-  return needsCategory(txn) ? [NO_CATEGORY_FLAG, ...stored] : stored;
-}
-
-const REVIEW_FLAG_LABELS: Record<string, string> = {
-  "no-category": "No category",
-  "possible-duplicate": "Possible duplicate",
-  "near-duplicate": "Near duplicate",
-  "auto-internal": "Auto-flagged internal",
-  "unmatched-ledger-row": "Unmatched ledger row",
-};
-
-export const describeFlag = (flag: string): string => REVIEW_FLAG_LABELS[flag] ?? flag;
 
 /** A settled figure is immutable, so its rows are frozen until the month is amended. */
 export const listSettledMonths = (settlements: FinanceSettlement[]): Set<string> =>
@@ -102,7 +71,7 @@ const matchesCategory = (txn: FinanceTransaction, categoryId: string): boolean =
 
 const matchesReview = (txn: FinanceTransaction, review: ReviewFilter): boolean => {
   if (review === "all") return true;
-  const isFlagged = listUnresolvedFlags(txn).length > 0;
+  const isFlagged = unresolvedFlags(txn).length > 0;
   return review === "flagged" ? isFlagged : !isFlagged;
 };
 
@@ -129,6 +98,31 @@ function compareOnColumn(
 
 export function buildCategoryNames(categories: FinanceCategory[]): Map<string, string> {
   return new Map(categories.map((category) => [category.id, category.name]));
+}
+
+/**
+ * The category picker's options. Assigning offers only live categories; filtering keeps archived
+ * ones, because an archived category still has to be findable in the months it has rows in.
+ */
+export function buildCategoryOptions(
+  categories: FinanceCategory[],
+  scope: "filter" | "assign",
+): SelectOption[] {
+  if (scope === "assign")
+    return [
+      { value: NONE, label: "No category" },
+      ...categories
+        .filter((category) => category.archivedAt === null)
+        .map((category) => ({ value: category.id, label: category.name })),
+    ];
+  return [
+    { value: ANY, label: "All categories" },
+    { value: NO_CATEGORY, label: "No category" },
+    ...categories.map((category) => ({
+      value: category.id,
+      label: category.archivedAt === null ? category.name : `${category.name} (archived)`,
+    })),
+  ];
 }
 
 /**
@@ -160,28 +154,6 @@ export function selectIdRange(orderedIds: string[], anchorId: string, targetId: 
   const to = orderedIds.indexOf(targetId);
   if (from < 0 || to < 0) return [targetId];
   return orderedIds.slice(Math.min(from, to), Math.max(from, to) + 1);
-}
-
-const BPS_PER_PERCENT = 100;
-export const MAX_SPREAD_MONTHS = 36;
-
-/** Any percentage, not a preset list. */
-export function parseShareBps(input: string): number | null {
-  const trimmed = input.trim();
-  if (trimmed === "") return null;
-  const percent = Number(trimmed);
-  if (!Number.isFinite(percent) || percent < 0 || percent > 100) return null;
-  return Math.round(percent * BPS_PER_PERCENT);
-}
-
-export const formatShareBps = (bps: number): string => String(Math.round(bps) / BPS_PER_PERCENT);
-
-export function parseSpreadMonths(input: string): number | null {
-  const trimmed = input.trim();
-  if (trimmed === "") return null;
-  const months = Number(trimmed);
-  if (!Number.isInteger(months) || months < 1 || months > MAX_SPREAD_MONTHS) return null;
-  return months;
 }
 
 /** Which statement document a row came from — the owner's stated provenance requirement. */

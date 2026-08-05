@@ -13,7 +13,7 @@ import {
 } from "./import-staging";
 import type { FinanceImportOutcome } from "./store";
 
-export interface StagedFile {
+interface StagedFile {
   fileName: string;
   fileHash: string;
   batchId: string;
@@ -27,7 +27,7 @@ interface SourceFile {
   table: TableData;
 }
 
-export type ImportPhase =
+type ImportPhase =
   | { status: "idle" }
   | { status: "parsing"; fileName: string }
   | { status: "mapping-required"; fileName: string; source: SourceFile; retryReason?: string }

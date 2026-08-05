@@ -1,30 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/core/store";
+import { PageShell } from "@/core/ui";
 import { FinanceImportDropZone } from "./FinanceImportDropZone";
 import { FinanceImportMapper } from "./FinanceImportMapper";
 import { FinanceImportPhasePanel } from "./FinanceImportPhasePanel";
-import { FinanceImportStatus } from "./FinanceImportStatus";
-import { FinancePageShell } from "./FinancePageShell";
+import { FinanceNotice } from "./FinanceNotice";
 import { FinanceReviewQueue } from "./FinanceReviewQueue";
 import { FinanceRowList } from "./FinanceRowList";
 import { normalizeMerchant } from "./import/merchant";
 import { findAccountMismatch, findPriorImport } from "./import-staging";
+import { useOnlineStatus } from "./useOnlineStatus";
 import { useStatementImport } from "./useStatementImport";
-
-function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(true);
-  useEffect(() => {
-    const update = () => setIsOnline(navigator.onLine);
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
-  return isOnline;
-}
 
 /** Pick an account, drop a file, confirm how it reads, preview, commit, clear the queue. */
 export function FinanceImportPage() {
@@ -69,7 +55,7 @@ export function FinanceImportPage() {
   }));
 
   return (
-    <FinancePageShell
+    <PageShell
       title="Import statements"
       subtitle="Pick the account, drop a CSV, confirm how it reads — nothing is written until you do."
       summary={`${batchRows.length} imports on record`}
@@ -77,7 +63,7 @@ export function FinanceImportPage() {
       empty={{ title: "No imports yet", body: "Drop a statement to get started." }}
     >
       {account === null ? (
-        <FinanceImportStatus
+        <FinanceNotice
           tone="warning"
           title="No account to import into"
           body="An account has to exist first — its slug is baked into every row’s duplicate key."
@@ -132,6 +118,6 @@ export function FinanceImportPage() {
           <FinanceRowList rows={batchRows} />
         </section>
       )}
-    </FinancePageShell>
+    </PageShell>
   );
 }

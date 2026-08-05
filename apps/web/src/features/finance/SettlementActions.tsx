@@ -1,5 +1,6 @@
 import { Button } from "@/core/ui";
-import { monthLabel, type SettlementFigures } from "./settlement";
+import { formatMonthLabel } from "./month-cursor";
+import type { SettlementFigures } from "./settlement";
 
 export type SettlementAction = "settle" | "resettle" | "carry" | "pay" | "reopen";
 
@@ -32,7 +33,7 @@ export function SettlementActions({
       )}
       {!isOpen && figures.outstandingCents !== 0 && (
         <Button icon="send" onPress={() => onAct("carry")}>
-          Carry into {monthLabel(nextOpenMonth)}
+          Carry into {formatMonthLabel(nextOpenMonth)}
         </Button>
       )}
       {!isOpen && (

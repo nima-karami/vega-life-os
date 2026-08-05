@@ -3,41 +3,23 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
+import { type EmptyCopy, PageShell, SegmentButton } from "@/core/ui";
 import { FinanceDashboardBody } from "./FinanceDashboardBody";
 import { FinanceDashboardSkeleton } from "./FinanceDashboardSkeleton";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
-import { type FinanceEmptyCopy, FinancePageShell } from "./FinancePageShell";
 import { isMonthKey, toMonthKey } from "./month-cursor";
-import type { FinanceBook } from "./queries";
+import { useFinanceBook } from "./useFinanceBook";
 import { useOnlineStatus } from "./useOnlineStatus";
 
 const SUBTITLE = "What came in, what went out, and where the month is drifting.";
-const NO_COPY: FinanceEmptyCopy = { title: "", body: "" };
-
-function useFinanceBook(): FinanceBook {
-  const financeAccounts = useStore((s) => s.financeAccounts);
-  const financeCategories = useStore((s) => s.financeCategories);
-  const financeBudgets = useStore((s) => s.financeBudgets);
-  const financeTransactions = useStore((s) => s.financeTransactions);
-  const financeSettlements = useStore((s) => s.financeSettlements);
-  return useMemo(
-    () => ({
-      financeAccounts,
-      financeCategories,
-      financeBudgets,
-      financeTransactions,
-      financeSettlements,
-    }),
-    [financeAccounts, financeCategories, financeBudgets, financeTransactions, financeSettlements],
-  );
-}
+const NO_COPY: EmptyCopy = { title: "", body: "" };
 
 /**
  * A dead server and an expired session both arrive as the same `loadFailed` flag, so the copy
  * names no cause — guessing "session expired" would send the owner to re-authenticate for a
  * problem authentication can't fix.
  */
-function buildRecoveryCopy(authUid: string | null, onRetry: () => void): FinanceEmptyCopy {
+function buildRecoveryCopy(authUid: string | null, onRetry: () => void): EmptyCopy {
   return {
     title: "Couldn't load your finances",
     body:
@@ -88,8 +70,8 @@ export function FinanceDashboardPage() {
   };
   const clearDeepLink = () => setParams(new URLSearchParams(), { replace: true });
 
-  const shell = (children: ReactNode, blank?: FinanceEmptyCopy) => (
-    <FinancePageShell
+  const shell = (children: ReactNode, blank?: EmptyCopy) => (
+    <PageShell
       title="Finance"
       subtitle={SUBTITLE}
       action={
@@ -101,22 +83,12 @@ export function FinanceDashboardPage() {
         <div className="flex flex-wrap items-center gap-3">
           <FinanceMonthCursor month={month} currentMonth={currentMonth} onChange={setMonth} />
           <ButtonGroup aria-label="Business accounts">
-            <Button
-              size="sm"
-              variant={includeBusiness ? "secondary" : "primary"}
-              aria-pressed={!includeBusiness}
-              onPress={() => setIncludeBusiness(false)}
-            >
+            <SegmentButton isSelected={!includeBusiness} onClick={() => setIncludeBusiness(false)}>
               Personal only
-            </Button>
-            <Button
-              size="sm"
-              variant={includeBusiness ? "primary" : "secondary"}
-              aria-pressed={includeBusiness}
-              onPress={() => setIncludeBusiness(true)}
-            >
+            </SegmentButton>
+            <SegmentButton isSelected={includeBusiness} onClick={() => setIncludeBusiness(true)}>
               With business
-            </Button>
+            </SegmentButton>
           </ButtonGroup>
         </div>
       }
@@ -124,7 +96,7 @@ export function FinanceDashboardPage() {
       empty={blank ?? NO_COPY}
     >
       {children}
-    </FinancePageShell>
+    </PageShell>
   );
 
   if (loadFailed)

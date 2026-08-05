@@ -1,11 +1,13 @@
 import { Button } from "@heroui/react";
-import { formatCents, makeCentsFraction, roundToCents } from "./money";
-
-export const FIELD_CLASS =
-  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
-
-export const MIN_SPREAD_MONTHS = 1;
-export const MAX_SPREAD_MONTHS = 36;
+import { FIELD_CLASS } from "@/core/ui";
+import {
+  computeShareFraction,
+  formatCents,
+  MAX_SPREAD_MONTHS,
+  MIN_SPREAD_MONTHS,
+  makeCentsFraction,
+  roundToCents,
+} from "./money";
 
 /** The fields that stay out of the way until the row is more than a simple expense. */
 export interface QuickAddOptionValues {
@@ -14,11 +16,6 @@ export interface QuickAddOptionValues {
   spreadMonths: number;
   note: string;
 }
-
-const BPS_SCALE = 10000n;
-
-const shareOfAmount = (amountCents: number, shareBps: number) =>
-  roundToCents(makeCentsFraction(BigInt(amountCents) * BigInt(shareBps), BPS_SCALE));
 
 const instalmentOfAmount = (amountCents: number, spreadMonths: number) =>
   roundToCents(makeCentsFraction(BigInt(amountCents), BigInt(spreadMonths)));
@@ -38,7 +35,8 @@ export function FinanceQuickAddOptions({
   shareError: string | null;
 }) {
   const { isHousehold, sharePercentInput, spreadMonths, note } = values;
-  const borne = shareBps === null ? null : shareOfAmount(amountCents, shareBps);
+  const borne =
+    shareBps === null ? null : roundToCents(computeShareFraction(amountCents, shareBps));
 
   return (
     <div className="space-y-4 rounded-[12px] border border-border bg-canvas p-3">

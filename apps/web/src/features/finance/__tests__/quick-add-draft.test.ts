@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAmountToCents, parseQuickAddDraft, parseSharePercentToBps } from "../quick-add-draft";
+import { parseAmountToCents, parseQuickAddDraft } from "../quick-add-draft";
 
 describe("parseQuickAddDraft", () => {
   it("splits a trailing amount off the description", () => {
@@ -52,24 +52,16 @@ describe("parseAmountToCents", () => {
     expect(parseAmountToCents(" 12.30 ")).toBe(1230);
   });
 
-  it("rejects anything that is not a plain decimal", () => {
+  it("rejects anything that is not a positive plain decimal", () => {
     expect(parseAmountToCents("")).toBeNull();
     expect(parseAmountToCents("abc")).toBeNull();
-    expect(parseAmountToCents("-4.50")).toBeNull();
     expect(parseAmountToCents("4.567")).toBeNull();
   });
-});
 
-describe("parseSharePercentToBps", () => {
-  it("keeps a fractional percentage exact", () => {
-    expect(parseSharePercentToBps("50")).toBe(5000);
-    expect(parseSharePercentToBps("37.25")).toBe(3725);
-    expect(parseSharePercentToBps("100")).toBe(10000);
-    expect(parseSharePercentToBps("0")).toBe(0);
-  });
-
-  it("rejects a percentage it cannot represent in basis points", () => {
-    expect(parseSharePercentToBps("50.005")).toBeNull();
-    expect(parseSharePercentToBps("half")).toBeNull();
+  // The field is a magnitude, so every way a statement writes a negative reads as no amount.
+  it("refuses a negative however it is written", () => {
+    expect(parseAmountToCents("-4.50")).toBeNull();
+    expect(parseAmountToCents("−7.00")).toBeNull();
+    expect(parseAmountToCents("(38.40)")).toBeNull();
   });
 });

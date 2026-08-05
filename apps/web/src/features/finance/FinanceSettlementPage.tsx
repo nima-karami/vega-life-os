@@ -1,12 +1,17 @@
 import type { FinanceSettlement, FinanceTransaction } from "@vega/shared";
-import { format, parseISO } from "date-fns";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { Button, ConfirmDialog, Select } from "@/core/ui";
-import { FinancePageShell } from "./FinancePageShell";
+import { Button, ConfirmDialog, PageShell, Select } from "@/core/ui";
 import { formatCents } from "./money";
+import {
+  formatMonthLabel,
+  isMonthKey,
+  monthOfISO,
+  shiftMonthKey,
+  toMonthKey,
+} from "./month-cursor";
 import type { FinanceBook } from "./queries";
 import { type SettlementAction, SettlementActions } from "./SettlementActions";
 import { SettlementBalanceCard } from "./SettlementBalanceCard";
@@ -19,12 +24,10 @@ import {
   computeSettlementFigures,
   describeBalance,
   findNextOpenMonth,
-  isMonthKey,
   listSettlementMonths,
-  monthLabel,
   type SettlementFigures,
-  shiftMonth,
 } from "./settlement";
+import { useFinanceBook } from "./useFinanceBook";
 
 type FinalAction = Exclude<SettlementAction, "pay">;
 
@@ -40,12 +43,12 @@ function selectPaymentCandidates(
   figures: SettlementFigures,
 ): FinanceTransaction[] {
   const direction = figures.headlineBalanceCents < 0 ? -1 : 1;
-  const until = shiftMonth(figures.month, 2);
+  const until = shiftMonthKey(figures.month, 2);
   return book.financeTransactions
     .filter((txn) => {
       if (txn.isInternal || txn.payer !== "me") return false;
       if (Math.sign(txn.amountCents) !== direction) return false;
-      const month = format(parseISO(txn.txnDate), "yyyy-MM");
+      const month = monthOfISO(txn.txnDate);
       return month >= figures.month && month <= until;
     })
     .sort((left, right) => (left.txnDate < right.txnDate ? 1 : -1))
@@ -64,39 +67,21 @@ function describeFinalAction(
     return {
       title: "Carry the difference forward?",
       confirmLabel: "Carry forward",
-      body: `${formatCents(Math.abs(figures.outstandingCents))} moves into ${monthLabel(nextOpenMonth)}. ${monthLabel(figures.month)} keeps the figure it was settled at and closes out.`,
+      body: `${formatCents(Math.abs(figures.outstandingCents))} moves into ${formatMonthLabel(nextOpenMonth)}. ${formatMonthLabel(figures.month)} keeps the figure it was settled at and closes out.`,
     };
   }
   if (action === "reopen") {
     return {
       title: "Reopen this month for editing?",
       confirmLabel: "Reopen",
-      body: `${monthLabel(figures.month)} unlocks so its rows can be edited again. The ${formatCents(Math.abs(figures.frozenBalanceCents ?? 0))} it was settled at is kept on record — settle again when you're done.`,
+      body: `${formatMonthLabel(figures.month)} unlocks so its rows can be edited again. The ${formatCents(Math.abs(figures.frozenBalanceCents ?? 0))} it was settled at is kept on record — settle again when you're done.`,
     };
   }
   return {
     title: "Freeze this month's figure?",
     confirmLabel: action === "resettle" ? "Re-settle" : "Settle",
-    body: `${monthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now").toLowerCase()}. Later edits to these rows amend the month; they never rewrite this figure.`,
+    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now").toLowerCase()}. Later edits to these rows amend the month; they never rewrite this figure.`,
   };
-}
-
-function useFinanceBook(): FinanceBook {
-  const financeAccounts = useStore((s) => s.financeAccounts);
-  const financeCategories = useStore((s) => s.financeCategories);
-  const financeBudgets = useStore((s) => s.financeBudgets);
-  const financeTransactions = useStore((s) => s.financeTransactions);
-  const financeSettlements = useStore((s) => s.financeSettlements);
-  return useMemo(
-    () => ({
-      financeAccounts,
-      financeCategories,
-      financeBudgets,
-      financeTransactions,
-      financeSettlements,
-    }),
-    [financeAccounts, financeCategories, financeBudgets, financeTransactions, financeSettlements],
-  );
 }
 
 export function FinanceSettlementPage() {
@@ -110,7 +95,7 @@ export function FinanceSettlementPage() {
   const [pending, setPending] = useState<FinalAction | null>(null);
   const [isPaying, setIsPaying] = useState(false);
 
-  const thisMonth = format(new Date(), "yyyy-MM");
+  const thisMonth = toMonthKey(new Date());
   const months = useMemo(() => listSettlementMonths(book, thisMonth), [book, thisMonth]);
   const requested = params.get("month");
   const month = requested !== null && isMonthKey(requested) ? requested : (months[0] ?? thisMonth);
@@ -160,10 +145,10 @@ export function FinanceSettlementPage() {
   const hasAnyData = book.financeSettlements.length > 0 || figures.householdRowCount > 0;
 
   return (
-    <FinancePageShell
+    <PageShell
       title="Settlement"
       subtitle="What the household cost, whose card it landed on, and who owes whom this month."
-      summary={`${monthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now")}`}
+      summary={`${formatMonthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now")}`}
       action={<SettlementActions figures={figures} nextOpenMonth={nextOpenMonth} onAct={act} />}
       filters={
         <Select
@@ -171,7 +156,7 @@ export function FinanceSettlementPage() {
           className="sm:w-56"
           value={month}
           onValueChange={selectMonth}
-          options={monthOptions.map((entry) => ({ value: entry, label: monthLabel(entry) }))}
+          options={monthOptions.map((entry) => ({ value: entry, label: formatMonthLabel(entry) }))}
         />
       }
       isEmpty={!hasAnyData}
@@ -181,7 +166,7 @@ export function FinanceSettlementPage() {
       }}
       hasNoMatches={figures.householdRowCount === 0 && record === undefined}
       noMatches={{
-        title: `No household expenses in ${monthLabel(month)}`,
+        title: `No household expenses in ${formatMonthLabel(month)}`,
         body: "Nothing was shared this month, so there is nothing to split.",
         cta: (
           <Button solid onPress={() => selectMonth(thisMonth)}>
@@ -212,6 +197,6 @@ export function FinanceSettlementPage() {
           onSave={recordPayment}
         />
       )}
-    </FinancePageShell>
+    </PageShell>
   );
 }

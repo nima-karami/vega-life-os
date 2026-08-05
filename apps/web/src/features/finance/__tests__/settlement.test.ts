@@ -13,10 +13,7 @@ import {
   describeBalance,
   describeDirection,
   findNextOpenMonth,
-  isMonthKey,
   listSettlementMonths,
-  monthLabel,
-  shiftMonth,
 } from "../settlement";
 import { makeBook, row, settlement } from "./fixtures";
 
@@ -227,19 +224,7 @@ describe("the month a delta carries into", () => {
   });
 });
 
-describe("month keys and labels", () => {
-  it("accepts only a real YYYY-MM", () => {
-    expect(isMonthKey("2026-03")).toBe(true);
-    expect(isMonthKey("2026-13")).toBe(false);
-    expect(isMonthKey("2026-3")).toBe(false);
-    expect(isMonthKey("nonsense")).toBe(false);
-  });
-
-  it("steps and labels months", () => {
-    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
-    expect(monthLabel("2026-03")).toBe("March 2026");
-  });
-
+describe("the months on offer", () => {
   it("offers every month with a household row or a record, newest first", () => {
     const book = makeBook({
       financeTransactions: [

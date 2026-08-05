@@ -4,7 +4,8 @@ import { useStore } from "@/core/store";
 import { ConfirmDialog, NONE } from "@/core/ui";
 import { FinanceReviewRow } from "./FinanceReviewRow";
 import { normalizeMerchant } from "./import/merchant";
-import { type FinanceReviewFlag, groupForReview, withFlagResolved } from "./review-queue";
+import { type FinanceReviewFlag, withFlagResolved } from "./review-flags";
+import { groupForReview } from "./review-queue";
 
 /**
  * The weekly ritual. Every correction here is what makes week 12 cheaper than week 1 — a
