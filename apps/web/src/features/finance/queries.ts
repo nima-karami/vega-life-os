@@ -63,14 +63,13 @@ function selectPersonalRows(book: FinanceBook, options: FinanceQueryOptions): Fi
   });
 }
 
-const findCategory = (book: FinanceBook, categoryId: string | null) =>
-  categoryId === null ? undefined : book.financeCategories.find((cat) => cat.id === categoryId);
-
-const isCategoryOfKind = (
-  book: FinanceBook,
-  categoryId: string | null,
-  kind: FinanceCategory["kind"],
-) => findCategory(book, categoryId)?.kind === kind;
+/** Looked up once per figure, not once per row — a `find` per row is a scan per row. */
+const selectCategoryIdsOfKind = (book: FinanceBook, kind: FinanceCategory["kind"]): Set<string> =>
+  new Set(
+    book.financeCategories
+      .filter((category) => category.kind === kind)
+      .map((category) => category.id),
+  );
 
 /** Cash basis: one period key, and it is always `txnDate`. */
 const isInMonth = (txn: FinanceTransaction, month: string) => monthOfISO(txn.txnDate) === month;
@@ -94,48 +93,53 @@ function recogniseInstalment(txn: FinanceTransaction, offset: number): CentsFrac
   return subtractCentsFractions(borne, scaleCentsFraction(instalment, BigInt(spread - 1), 1n));
 }
 
-function sumBorneSpend(
+/** One pass over the ledger for every category at once — a pass per category is what a page does. */
+function sumBorneSpendByCategory(
   book: FinanceBook,
   month: string,
-  categoryId: string,
   options: FinanceQueryOptions,
-): CentsFraction {
-  if (!isCategoryOfKind(book, categoryId, "spend")) return ZERO_CENTS;
-  let total = ZERO_CENTS;
+): Map<string, CentsFraction> {
+  const spendCategoryIds = selectCategoryIdsOfKind(book, "spend");
+  const totals = new Map<string, CentsFraction>();
   for (const txn of selectPersonalRows(book, options)) {
-    if (txn.categoryId !== categoryId) continue;
+    const categoryId = txn.categoryId;
+    if (categoryId === null || !spendCategoryIds.has(categoryId)) continue;
     const offset = recognitionOffset(txn, month);
     if (offset < 0) continue;
-    total = addCentsFractions(total, recogniseInstalment(txn, offset));
+    const total = totals.get(categoryId) ?? ZERO_CENTS;
+    totals.set(categoryId, addCentsFractions(total, recogniseInstalment(txn, offset)));
   }
-  return total;
+  return totals;
 }
 
 /**
- * The budget number: what the owner actually bears in a category that month, at their share,
+ * The budget number: what the owner actually bears in each category that month, at their share,
  * amortized across `spreadMonths` so the instalments sum back to the full amount. Money-in rows
  * in the category (refunds, rebates) net against it. Amortization is a budget lens only — it
  * never moves cash flow or settlement.
  */
-export function computeBorneSpend(
+export function computeBorneSpendByCategory(
   book: FinanceBook,
   month: string,
-  categoryId: string,
   options: FinanceQueryOptions = {},
-): number {
-  return roundToCents(sumBorneSpend(book, month, categoryId, options));
+): Map<string, number> {
+  const spend = new Map<string, number>();
+  for (const [categoryId, total] of sumBorneSpendByCategory(book, month, options)) {
+    spend.set(categoryId, roundToCents(total));
+  }
+  return spend;
 }
 
 /** Budgets are sparse rows: the effective one is the latest at or before the target month. */
-export function resolveEffectiveBudget(
+export function resolveEffectiveBudgets(
   book: FinanceBook,
-  categoryId: string,
   month: string,
-): FinanceBudget | null {
-  let effective: FinanceBudget | null = null;
+): Map<string, FinanceBudget> {
+  const effective = new Map<string, FinanceBudget>();
   for (const budget of book.financeBudgets) {
-    if (budget.categoryId !== categoryId || budget.month > month) continue;
-    if (effective === null || budget.month > effective.month) effective = budget;
+    if (budget.month > month) continue;
+    const known = effective.get(budget.categoryId);
+    if (known === undefined || budget.month > known.month) effective.set(budget.categoryId, budget);
   }
   return effective;
 }
@@ -163,10 +167,11 @@ export function computeCashIn(
   month: string,
   options: FinanceQueryOptions = {},
 ): number {
+  const incomeCategoryIds = selectCategoryIdsOfKind(book, "income");
   let total = 0;
   for (const txn of selectPersonalRows(book, options)) {
     if (txn.payer !== "me" || txn.amountCents <= 0 || !isInMonth(txn, month)) continue;
-    if (!isCategoryOfKind(book, txn.categoryId, "income")) continue;
+    if (txn.categoryId === null || !incomeCategoryIds.has(txn.categoryId)) continue;
     total += txn.amountCents;
   }
   return total;
@@ -222,16 +227,30 @@ function countElapsedDays(month: string, asOf: Date, daysInMonth: number): numbe
   return Math.min(Math.max(getDate(asOf), 1), daysInMonth);
 }
 
-/** Naive run-rate — the caller labels it an estimate. A month other than `asOf`'s is not projected. */
-export function projectMonthEnd(
+export interface CategorySpend {
+  spentCents: number;
+  /** Naive run-rate — the caller labels it an estimate. Outside `asOf`'s month it equals the spend. */
+  projectedCents: number;
+}
+
+/**
+ * Both figures off the one unrounded pass, so the projection scales the exact month-to-date and
+ * rounds once — projecting an already-rounded total drifts, and the run-rate compounds the drift.
+ */
+export function computeMonthSpend(
   book: FinanceBook,
   month: string,
-  categoryId: string,
   asOf: Date,
   options: FinanceQueryOptions = {},
-): number {
+): Map<string, CategorySpend> {
   const daysInMonth = getDaysInMonth(monthStart(month));
   const elapsed = countElapsedDays(month, asOf, daysInMonth);
-  const borne = sumBorneSpend(book, month, categoryId, options);
-  return roundToCents(scaleCentsFraction(borne, BigInt(daysInMonth), BigInt(elapsed)));
+  const figures = new Map<string, CategorySpend>();
+  for (const [categoryId, total] of sumBorneSpendByCategory(book, month, options)) {
+    figures.set(categoryId, {
+      spentCents: roundToCents(total),
+      projectedCents: roundToCents(scaleCentsFraction(total, BigInt(daysInMonth), BigInt(elapsed))),
+    });
+  }
+  return figures;
 }

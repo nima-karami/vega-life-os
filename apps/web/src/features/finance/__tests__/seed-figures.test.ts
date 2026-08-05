@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFinance } from "@/core/persistence/seed/finance";
 import {
-  computeBorneSpend,
   computeCashIn,
   computeHouseholdTotal,
   computeMyTrueShare,
@@ -9,6 +8,7 @@ import {
   computeSettlementBalance,
   type FinanceBook,
 } from "../queries";
+import { borneSpend } from "./fixtures";
 
 const REF = new Date("2026-08-04T12:00:00Z");
 const SETTLED_MONTH = "2026-06";
@@ -40,7 +40,7 @@ describe("the synthetic seed's settled month", () => {
     expect(computeMyTrueShare(book, SETTLED_MONTH)).toBe(111425);
     expect(computePaidOut(book, SETTLED_MONTH)).toBe(214250);
     expect(computeCashIn(book, SETTLED_MONTH)).toBe(0);
-    expect(computeBorneSpend(book, SETTLED_MONTH, categoryId("Home & rent"))).toBe(100000);
+    expect(borneSpend(book, SETTLED_MONTH, categoryId("Home & rent"))).toBe(100000);
   });
 });
 
@@ -52,9 +52,9 @@ describe("the synthetic seed's open months", () => {
 
   it("amortizes the annual licence across the months that follow it", () => {
     const software = categoryId("Software");
-    expect(computeBorneSpend(book, OPEN_MONTH, software)).toBe(3000);
-    expect(computeBorneSpend(book, CURRENT_MONTH, software)).toBe(3000);
-    expect(computeBorneSpend(book, SETTLED_MONTH, software)).toBe(0);
+    expect(borneSpend(book, OPEN_MONTH, software)).toBe(3000);
+    expect(borneSpend(book, CURRENT_MONTH, software)).toBe(3000);
+    expect(borneSpend(book, SETTLED_MONTH, software)).toBe(0);
   });
 
   it("leaves the owner owing the partner for her grocery run", () => {

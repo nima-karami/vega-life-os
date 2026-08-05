@@ -1,39 +1,66 @@
-import type { FinanceMerchant, FinanceTransaction } from "@vega/shared";
+import type { FinanceBudget, FinanceMerchant, FinanceTransaction } from "@vega/shared";
 import { pluralize } from "@/core/lib/plural";
 
-/** What still points at a category — the numbers delete and merge have to be honest about. */
+/** Every row that points at one category — what the count, the delete and the merge all read. */
 export interface CategoryReferences {
-  transactions: number;
-  merchants: number;
+  transactions: FinanceTransaction[];
+  merchants: FinanceMerchant[];
+  budgets: FinanceBudget[];
 }
 
 export interface CategoryReferenceBook {
   financeTransactions: FinanceTransaction[];
   financeMerchants: FinanceMerchant[];
+  financeBudgets: FinanceBudget[];
 }
 
-export const NO_CATEGORY_REFERENCES: CategoryReferences = { transactions: 0, merchants: 0 };
+export const NO_CATEGORY_REFERENCES: CategoryReferences = {
+  transactions: [],
+  merchants: [],
+  budgets: [],
+};
 
+/** One pass over the book; every screen and every destructive action reads this index. */
 export function indexCategoryReferences(
   book: CategoryReferenceBook,
 ): Map<string, CategoryReferences> {
   const index = new Map<string, CategoryReferences>();
-  const bump = (categoryId: string | null, field: keyof CategoryReferences) => {
-    if (categoryId === null) return;
-    const current = index.get(categoryId) ?? NO_CATEGORY_REFERENCES;
-    index.set(categoryId, { ...current, [field]: current[field] + 1 });
+  const at = (categoryId: string | null): CategoryReferences | null => {
+    if (categoryId === null) return null;
+    const known = index.get(categoryId);
+    if (known) return known;
+    const fresh: CategoryReferences = { transactions: [], merchants: [], budgets: [] };
+    index.set(categoryId, fresh);
+    return fresh;
   };
-  for (const txn of book.financeTransactions) bump(txn.categoryId, "transactions");
-  for (const merchant of book.financeMerchants) bump(merchant.defaultCategoryId, "merchants");
+  for (const txn of book.financeTransactions) at(txn.categoryId)?.transactions.push(txn);
+  for (const merchant of book.financeMerchants)
+    at(merchant.defaultCategoryId)?.merchants.push(merchant);
+  for (const budget of book.financeBudgets) at(budget.categoryId)?.budgets.push(budget);
   return index;
 }
 
+export const selectCategoryReferences = (
+  book: CategoryReferenceBook,
+  categoryId: string,
+): CategoryReferences => indexCategoryReferences(book).get(categoryId) ?? NO_CATEGORY_REFERENCES;
+
+/**
+ * Budgets are deliberately out: they are the owner's intent, not history, so a category budgeted
+ * but never spent against is still safe to hard-delete — the delete just takes its budgets with it.
+ */
 export const isCategoryReferenced = (refs: CategoryReferences): boolean =>
-  refs.transactions > 0 || refs.merchants > 0;
+  refs.transactions.length > 0 || refs.merchants.length > 0;
 
 /** "42 transactions and 2 merchant defaults" — the phrase both destructive dialogs promise. */
 export function describeCategoryReferences(refs: CategoryReferences): string {
-  const parts = [pluralize(refs.transactions, "transaction")];
-  if (refs.merchants > 0) parts.push(pluralize(refs.merchants, "merchant default"));
+  const parts = [pluralize(refs.transactions.length, "transaction")];
+  if (refs.merchants.length > 0) parts.push(pluralize(refs.merchants.length, "merchant default"));
   return parts.join(" and ");
+}
+
+/** Merge never adds two budgets together, so the source's own rows go rather than move. */
+export function describeDroppedBudgets(refs: CategoryReferences): string | null {
+  if (refs.budgets.length === 0) return null;
+  return `Removes ${pluralize(refs.budgets.length, "monthly budget")} set on it — merge never adds two budgets together.`;
 }

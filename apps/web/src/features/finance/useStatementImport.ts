@@ -60,8 +60,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const merchants = useStore((s) => s.financeMerchants);
   const transactions = useStore((s) => s.financeTransactions);
   const updateFinanceAccount = useStore((s) => s.updateFinanceAccount);
-  const removeFinanceTransaction = useStore((s) => s.removeFinanceTransaction);
-  const removeFinanceImportBatch = useStore((s) => s.removeFinanceImportBatch);
+  const rollBackFinanceImport = useStore((s) => s.rollBackFinanceImport);
   const importFinanceTransactions = useStore((s) => s.importFinanceTransactions);
 
   const [phase, setPhase] = useState<ImportPhase>({ status: "idle" });
@@ -167,10 +166,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     },
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
-      for (const txn of transactions.filter((row) => row.importBatchId === staged.batchId)) {
-        removeFinanceTransaction(txn.id);
-      }
-      removeFinanceImportBatch(staged.batchId);
+      rollBackFinanceImport(staged.batchId);
       setPhase({ status: "idle" });
     },
     confirmMapping: (mapping) => {

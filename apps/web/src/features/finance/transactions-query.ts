@@ -84,6 +84,10 @@ function matchesFilters(txn: FinanceTransaction, filters: TransactionFilters, ne
   return matchesReview(txn, filters.review);
 }
 
+/** ISO dates and generated ids are ASCII and already sort right — collation would only cost more. */
+const compareCodePoints = (left: string, right: string): number =>
+  left < right ? -1 : left > right ? 1 : 0;
+
 function compareOnColumn(
   left: FinanceTransaction,
   right: FinanceTransaction,
@@ -93,7 +97,7 @@ function compareOnColumn(
   if (column === "amount") return left.amountCents - right.amountCents;
   if (column === "description") return left.description.localeCompare(right.description);
   if (column === "category") return nameOf(left).localeCompare(nameOf(right));
-  return left.txnDate.localeCompare(right.txnDate);
+  return compareCodePoints(left.txnDate, right.txnDate);
 }
 
 export function buildCategoryNames(categories: FinanceCategory[]): Map<string, string> {
@@ -144,7 +148,7 @@ export function queryFinanceTransactions(
     .filter((txn) => matchesFilters(txn, filters, needle))
     .sort((left, right) => {
       const ranked = compareOnColumn(left, right, sort.column, nameOf);
-      return ranked !== 0 ? ranked * direction : left.id.localeCompare(right.id);
+      return ranked !== 0 ? ranked * direction : compareCodePoints(left.id, right.id);
     });
 }
 

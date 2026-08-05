@@ -35,19 +35,23 @@ export function FinanceImportPage() {
   const flow = useStatementImport(account);
   const { phase } = flow;
 
+  const staged = phase.status === "preview" ? phase.staged : null;
+
   // The account's own merchant history — the only signal that a file was filed against the
-  // wrong account, since the dedupe key carries the slug and can't catch it.
+  // wrong account, since the dedupe key carries the slug and can't catch it. Normalising every
+  // description is only worth paying for once something is actually staged against it.
   const accountPatterns = useMemo(
     () =>
-      new Set(
-        transactions
-          .filter((txn) => txn.accountId === account?.id)
-          .map((txn) => normalizeMerchant(txn.description)),
-      ),
-    [transactions, account],
+      staged === null
+        ? new Set<string>()
+        : new Set(
+            transactions
+              .filter((txn) => txn.accountId === account?.id)
+              .map((txn) => normalizeMerchant(txn.description)),
+          ),
+    [transactions, account, staged],
   );
 
-  const staged = phase.status === "preview" ? phase.staged : null;
   const batchRows = batches.map((batch) => ({
     id: batch.id,
     label: batch.fileNames.join(", ") || "(no file)",

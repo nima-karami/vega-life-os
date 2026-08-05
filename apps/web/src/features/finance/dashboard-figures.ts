@@ -1,12 +1,11 @@
 import { toMonthKey } from "./month-cursor";
 import {
-  computeBorneSpend,
   computeCashIn,
+  computeMonthSpend,
   computePaidOut,
   type FinanceBook,
   type FinanceQueryOptions,
-  projectMonthEnd,
-  resolveEffectiveBudget,
+  resolveEffectiveBudgets,
 } from "./queries";
 
 /** Cash actually moving through the owner's own accounts — not what they bear. */
@@ -86,13 +85,16 @@ export function deriveCategoryBreakdown(
 ): FinanceSection<CategoryBreakdown> {
   return deriveSection(() => {
     const isProjectable = month === toMonthKey(asOf);
+    const spend = computeMonthSpend(book, month, asOf, options);
+    const budgets = resolveEffectiveBudgets(book, month);
     const budgeted: BudgetedCategoryFigures[] = [];
     const untracked: UntrackedCategoryFigures[] = [];
 
     for (const { id, name } of selectBudgetableCategories(book)) {
-      const spentCents = computeBorneSpend(book, month, id, options);
-      const budget = resolveEffectiveBudget(book, id, month);
-      if (budget === null) {
+      const figures = spend.get(id);
+      const spentCents = figures?.spentCents ?? 0;
+      const budget = budgets.get(id);
+      if (budget === undefined) {
         // No budget and nothing spent is neither drift nor actionable — that gap lives on Categories.
         if (spentCents > 0) untracked.push({ id, name, spentCents });
         continue;
@@ -102,7 +104,7 @@ export function deriveCategoryBreakdown(
         name,
         spentCents,
         budgetCents: budget.cents,
-        projectedCents: isProjectable ? projectMonthEnd(book, month, id, asOf, options) : null,
+        projectedCents: isProjectable ? (figures?.projectedCents ?? 0) : null,
       });
     }
 
