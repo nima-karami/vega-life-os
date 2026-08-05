@@ -74,6 +74,22 @@ const titleOf = (id: string) => useStore.getState().mindCards.find((row) => row.
 const setCards = (cards: Card[]) => useStore.setState({ mindCards: cards as never });
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+/** The shared two-row optimistic put: c1 edited over a prior value, c2 freshly inserted. */
+function editThenInsert() {
+  setCards([card("c1", "Edited"), card("c2", "New")]);
+  return saveBulkPut("mindCards", [card("c1", "Edited"), card("c2", "New")] as never, [
+    { kind: "update", prior: card("c1", "Original") as never },
+    { kind: "insert" },
+  ]);
+}
+
+async function clickRetry() {
+  const toast = useStore.getState().toast;
+  expect(toast?.action?.label).toBe("Retry");
+  toast?.action?.onClick();
+  await flush();
+}
+
 function resetBulkHarness() {
   persistence.setDelegate(controlledAdapter);
   pendingPut = defer<BulkPutResult>();
@@ -133,6 +149,7 @@ describe("bulk writes participate in write tracking", () => {
     expect(await saved).toEqual({
       landedRows: 2,
       writtenChunks: 1,
+      failedChunk: null,
       result: { removed: 1, missing: 1, writtenChunks: 1 },
     });
   });
@@ -140,14 +157,6 @@ describe("bulk writes participate in write tracking", () => {
 
 describe("bulk writes revert their optimistic update on rejection", () => {
   beforeEach(resetBulkHarness);
-
-  const editThenInsert = () => {
-    setCards([card("c1", "Edited"), card("c2", "New")]);
-    return saveBulkPut("mindCards", [card("c1", "Edited"), card("c2", "New")] as never, [
-      { kind: "update", prior: card("c1", "Original") as never },
-      { kind: "insert" },
-    ]);
-  };
 
   it("restores prior rows and drops inserted ones when the whole put is rejected", async () => {
     const saved = editThenInsert();
@@ -216,6 +225,101 @@ describe("bulk writes revert their optimistic update on rejection", () => {
 
     expect(removeCalls).toHaveBeenCalledTimes(2);
     pendingRemove.settleWith({ removed: 1, missing: 0, writtenChunks: 1 });
+  });
+});
+
+describe("a successful retry leaves the store showing the rows it wrote", () => {
+  beforeEach(resetBulkHarness);
+
+  it("re-applies the reverted put when the retried write succeeds", async () => {
+    const saved = editThenInsert();
+    pendingPut.rejectWith(new Error("backend down"));
+    await saved;
+    expect(cardIds()).toEqual(["c1"]);
+
+    pendingPut = defer<BulkPutResult>();
+    await clickRetry();
+    pendingPut.settleWith({ inserted: 2, skipped: 0, writtenChunks: 1 });
+    await flush();
+
+    expect(cardIds()).toEqual(["c1", "c2"]);
+    expect(titleOf("c1")).toBe("Edited");
+    expect(titleOf("c2")).toBe("New");
+  });
+
+  it("re-applies the restored deletions when the retried delete succeeds", async () => {
+    const prior = [card("c1", "Original"), card("c2", "Second")];
+    setCards([]);
+    const saved = saveBulkRemove("mindCards", ["c1", "c2"], prior as never);
+    pendingRemove.rejectWith(new Error("backend down"));
+    await saved;
+    expect(cardIds()).toEqual(["c1", "c2"]);
+
+    pendingRemove = defer<BulkRemoveResult>();
+    await clickRetry();
+    pendingRemove.settleWith({ removed: 2, missing: 0, writtenChunks: 1 });
+    await flush();
+
+    expect(cardIds()).toEqual([]);
+  });
+
+  it("does not re-apply the landed prefix twice when retrying a partial put", async () => {
+    const saved = editThenInsert();
+    pendingPut.rejectWith(
+      new PartialWriteError({ writtenRows: 1, writtenChunks: 1, failedChunk: 1 }),
+    );
+    await saved;
+    expect(cardIds()).toEqual(["c1"]);
+
+    pendingPut = defer<BulkPutResult>();
+    await clickRetry();
+    pendingPut.settleWith({ inserted: 2, skipped: 0, writtenChunks: 1 });
+    await flush();
+
+    expect(cardIds()).toEqual(["c1", "c2"]);
+    expect(titleOf("c1")).toBe("Edited");
+  });
+
+  it("keeps the collection pending while the retried write is in flight", async () => {
+    const saved = saveBulkRemove("mindCards", ["c1"], [card("c1", "Original")] as never);
+    pendingRemove.rejectWith(new Error("backend down"));
+    await saved;
+    expect(pendingWriteCollections().has("mindCards")).toBe(false);
+
+    pendingRemove = defer<BulkRemoveResult>();
+    await clickRetry();
+    expect(pendingWriteCollections().has("mindCards")).toBe(true);
+
+    pendingRemove.settleWith({ removed: 1, missing: 0, writtenChunks: 1 });
+    await flush();
+    expect(pendingWriteCollections().has("mindCards")).toBe(false);
+  });
+});
+
+describe("a bulk save reports the chunk the backend rejected", () => {
+  beforeEach(resetBulkHarness);
+
+  it("reports no failed chunk when the whole call lands", async () => {
+    const saved = saveBulkPut("mindCards", [card("c1", "Edited")] as never);
+    pendingPut.settleWith({ inserted: 1, skipped: 0, writtenChunks: 1 });
+
+    expect((await saved).failedChunk).toBeNull();
+  });
+
+  it("reports the backend's failed chunk on a partial commit", async () => {
+    const saved = saveBulkPut("mindCards", [card("c1", "Edited")] as never);
+    pendingPut.rejectWith(
+      new PartialWriteError({ writtenRows: 450, writtenChunks: 1, failedChunk: 1 }),
+    );
+
+    expect(await saved).toMatchObject({ landedRows: 450, writtenChunks: 1, failedChunk: 1 });
+  });
+
+  it("blames the first chunk when the whole call is lost", async () => {
+    const saved = saveBulkRemove("mindCards", ["c1"]);
+    pendingRemove.rejectWith(new Error("backend down"));
+
+    expect(await saved).toMatchObject({ landedRows: 0, writtenChunks: 0, failedChunk: 0 });
   });
 });
 

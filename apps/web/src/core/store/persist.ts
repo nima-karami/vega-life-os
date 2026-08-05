@@ -130,33 +130,39 @@ export interface BulkSaveOutcome<R> {
   /** rows the backend confirmed; on a partial commit, the prefix that landed */
   landedRows: number;
   writtenChunks: number;
+  /** the chunk the backend rejected, `null` when the whole call landed */
+  failedChunk: number | null;
   result: R | null;
 }
 
-/** Every row a rejected bulk write has to undo: a prior value restores the row, `null` drops it. */
-type UndoRows<C extends CollectionName> = Map<string, Dataset[C][number] | null>;
+/** What a bulk write puts in the store, by row id: a row value upserts it, `null` drops it. */
+type RowStates<C extends CollectionName> = Map<string, Dataset[C][number] | null>;
 
-/** What a rejected chunked write says it left behind; a whole-call loss landed nothing. */
-function readBulkLanding(error: unknown): { landedRows: number; writtenChunks: number } {
+/** What a rejected chunked write says it left behind; a whole-call loss lost its first chunk. */
+function readBulkLanding(error: unknown): Omit<BulkSaveOutcome<never>, "result"> {
   const detail = error instanceof PartialWriteError ? error.detail : null;
-  return { landedRows: detail?.writtenRows ?? 0, writtenChunks: detail?.writtenChunks ?? 0 };
+  return {
+    landedRows: detail?.writtenRows ?? 0,
+    writtenChunks: detail?.writtenChunks ?? 0,
+    failedChunk: detail?.failedChunk ?? 0,
+  };
 }
 
-/** One store update for the whole revert — a per-row rollback would re-render once per row. */
-function revertRows<C extends CollectionName>(col: C, undo: UndoRows<C>) {
-  if (undo.size === 0) return;
+/** One store update for the whole batch — a per-row write would re-render once per row. */
+function applyRowStates<C extends CollectionName>(col: C, rows: RowStates<C>) {
+  if (rows.size === 0) return;
   store?.setState((state) => {
     const list = ((state as unknown as Record<string, Row[]>)[col] ?? []) as Row[];
-    const restored = list.flatMap((row) => {
-      if (!undo.has(row.id)) return [row];
-      const prior = undo.get(row.id);
-      return prior ? [prior as Row] : [];
+    const kept = list.flatMap((row) => {
+      if (!rows.has(row.id)) return [row];
+      const next = rows.get(row.id);
+      return next ? [next as Row] : [];
     });
-    const present = new Set(restored.map((row) => row.id));
-    const reAdded = [...undo].flatMap(([id, prior]) =>
-      prior && !present.has(id) ? [prior as Row] : [],
+    const present = new Set(kept.map((row) => row.id));
+    const added = [...rows].flatMap(([id, next]) =>
+      next && !present.has(id) ? [next as Row] : [],
     );
-    return { [col]: [...restored, ...reAdded] } as unknown as Partial<RootState>;
+    return { [col]: [...kept, ...added] } as unknown as Partial<RootState>;
   });
 }
 
@@ -164,8 +170,8 @@ function toPutUndo<C extends CollectionName>(
   items: Dataset[C],
   rollbacks: WriteRollback<C>[] | undefined,
   landedRows: number,
-): UndoRows<C> {
-  const undo: UndoRows<C> = new Map();
+): RowStates<C> {
+  const undo: RowStates<C> = new Map();
   if (!rollbacks) return undo;
   for (let index = landedRows; index < items.length; index += 1) {
     const rollback = rollbacks[index];
@@ -179,8 +185,8 @@ function toRemoveUndo<C extends CollectionName>(
   ids: string[],
   priorRows: (Dataset[C][number] | undefined)[] | undefined,
   landedRows: number,
-): UndoRows<C> {
-  const undo: UndoRows<C> = new Map();
+): RowStates<C> {
+  const undo: RowStates<C> = new Map();
   for (let index = landedRows; index < ids.length; index += 1) {
     const prior = priorRows?.[index];
     if (prior) undo.set(ids[index], prior);
@@ -191,21 +197,29 @@ function toRemoveUndo<C extends CollectionName>(
 /**
  * The shared body of both bulk saves: track the write so a focus refetch can't overwrite it
  * mid-flight, and on a rejection undo only the rows past the landed prefix before reconciling.
+ * `retry` must re-apply the optimistic rows before re-issuing the write, or a write that succeeds
+ * on the second attempt leaves the reverted rows on screen. Re-applying keys by id, so a prefix
+ * that already landed isn't applied twice.
  */
 async function saveBulk<C extends CollectionName, R extends { writtenChunks: number }>(
   col: C,
   rowCount: number,
   write: () => Promise<R>,
-  buildUndo: (landedRows: number) => UndoRows<C>,
+  buildUndo: (landedRows: number) => RowStates<C>,
   retry: () => void,
 ): Promise<BulkSaveOutcome<R>> {
   markDirtyIfSandbox();
   try {
     const result = await trackWrite(col, write());
-    return { landedRows: rowCount, writtenChunks: result.writtenChunks, result };
+    return {
+      landedRows: rowCount,
+      writtenChunks: result.writtenChunks,
+      failedChunk: null,
+      result,
+    };
   } catch (error) {
     const landing = readBulkLanding(error);
-    revertRows(col, buildUndo(landing.landedRows));
+    applyRowStates(col, buildUndo(landing.landedRows));
     void store?.getState().refetchCollection(col);
     raiseRetry(retry);
     return { ...landing, result: null };
@@ -226,7 +240,10 @@ export function saveBulkPut<C extends CollectionName>(
     items.length,
     () => persistence.bulkPut(col, items),
     (landedRows) => toPutUndo(items, rollbacks, landedRows),
-    () => void saveBulkPut(col, items, rollbacks),
+    () => {
+      applyRowStates(col, new Map(items.map((item) => [(item as Row).id, item])));
+      void saveBulkPut(col, items, rollbacks);
+    },
   );
 }
 
@@ -244,6 +261,9 @@ export function saveBulkRemove<C extends CollectionName>(
     ids.length,
     () => persistence.bulkRemove(col, ids),
     (landedRows) => toRemoveUndo<C>(ids, priorRows, landedRows),
-    () => void saveBulkRemove(col, ids, priorRows),
+    () => {
+      applyRowStates<C>(col, new Map(ids.map((id) => [id, null])));
+      void saveBulkRemove(col, ids, priorRows);
+    },
   );
 }
