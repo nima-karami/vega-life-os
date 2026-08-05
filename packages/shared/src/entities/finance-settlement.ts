@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { defineEntity, nullableString } from "./base";
 
-export const financeSettlementStatusSchema = z.enum(["open", "settled", "amended"]);
+// only these two are ever stored; "amended" is derived per-render from the frozen figure
+export const financeSettlementStatusSchema = z.enum(["open", "settled"]);
 
 const { schema, createSchema } = defineEntity({
   id: z.string(),

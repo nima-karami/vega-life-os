@@ -1,15 +1,8 @@
 import { z } from "zod";
 import { defineEntity, nullableString } from "./base";
 
-export const financeImportBatchStatusSchema = z.enum([
-  "parsing",
-  "previewing",
-  "committing",
-  "committed",
-  "parse-failed",
-  "mapping-required",
-  "partial-commit",
-]);
+// the row is only written at commit time; the earlier phases live in memory, never here
+export const financeImportBatchStatusSchema = z.enum(["parsing", "committed", "partial-commit"]);
 
 const { schema, createSchema } = defineEntity({
   id: z.string(),

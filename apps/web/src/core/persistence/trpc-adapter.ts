@@ -1,4 +1,5 @@
-import type { CollectionName, Dataset, PersistenceAdapter } from "./adapter";
+import type { BulkPutResult, CollectionName, Dataset, PersistenceAdapter } from "./adapter";
+import { toPartialWriteError } from "./partial-write";
 import { createTrpcClient, type TrpcClient } from "./trpc-client";
 
 /** Collections without a dedicated domain router go through the generic `data` router. */
@@ -74,11 +75,18 @@ export class TrpcAdapter implements PersistenceAdapter {
     await this.domain(col).upsert.mutate(item);
   }
 
-  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void> {
-    await this.client.data.importCollection.mutate({
-      collection: col,
-      records: items as unknown as Record<string, unknown>[],
-    });
+  /** The server chunks the payload and reports what landed — including on the partial-commit throw. */
+  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult> {
+    try {
+      return await this.client.data.importCollection.mutate({
+        collection: col,
+        records: items as unknown as Record<string, unknown>[],
+      });
+    } catch (error) {
+      const partial = toPartialWriteError(error);
+      if (partial) throw partial;
+      throw error;
+    }
   }
 
   async remove(col: CollectionName, id: string): Promise<void> {

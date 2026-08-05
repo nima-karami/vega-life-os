@@ -22,6 +22,8 @@ export function toTrpcError(error: AppError): TRPCError {
 }
 
 export type PartialCommitDetail = {
+  /** records covered by the chunks that landed — the client sets its state from exactly these */
+  writtenRows: number;
   writtenChunks: number;
   failedChunk: number;
   reason: string;

@@ -216,7 +216,7 @@ describe("batched importCollection (real server vs emulator)", () => {
         records: cards(451, "partial"),
       }),
     ).rejects.toMatchObject({
-      data: { partialCommit: { writtenChunks: 1, failedChunk: 1 } },
+      data: { partialCommit: { writtenRows: 450, writtenChunks: 1, failedChunk: 1 } },
     });
 
     expect((await failing.asUid(uid).data.syncVersion.query()) - before).toBe(1);

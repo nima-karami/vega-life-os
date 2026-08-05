@@ -1,5 +1,6 @@
 import type { Table } from "dexie";
 import {
+  type BulkPutResult,
   COLLECTIONS,
   type CollectionName,
   createEmptyDataset,
@@ -43,8 +44,9 @@ export class DexieAdapter implements PersistenceAdapter {
     await tableFor(col).put(item);
   }
 
-  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void> {
+  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult> {
     await tableFor(col).bulkPut(items);
+    return { inserted: items.length, skipped: 0, writtenChunks: 1 };
   }
 
   async remove(col: CollectionName, id: string): Promise<void> {

@@ -216,7 +216,7 @@ describe("the month a delta carries into", () => {
     const book = makeBook({
       financeSettlements: [
         settlement(NEXT_MONTH, { status: "settled", settledBalanceCents: 100 }),
-        settlement("2026-05", { status: "amended", settledBalanceCents: 100 }),
+        settlement("2026-05", { status: "settled", settledBalanceCents: 100 }),
       ],
     });
     expect(findNextOpenMonth(book, MONTH)).toBe("2026-06");

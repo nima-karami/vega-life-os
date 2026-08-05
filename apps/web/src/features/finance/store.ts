@@ -10,7 +10,7 @@ import type {
 import { format } from "date-fns";
 import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
-import { type Dataset, persistence } from "@/core/persistence";
+import { type Dataset, PartialWriteError, persistence } from "@/core/persistence";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 
@@ -299,17 +299,6 @@ const buildSettlement = (patch: Partial<FinanceSettlement>): FinanceSettlement =
   };
 };
 
-/** Firestore caps a batch at 500 writes; the server chunks at 450, so a rejected chunk is reportable. */
-const IMPORT_CHUNK_ROWS = 450;
-
-function chunkRows<T>(rows: readonly T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let start = 0; start < rows.length; start += size) {
-    chunks.push(rows.slice(start, start + size));
-  }
-  return chunks;
-}
-
 function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] {
   const incomingById = new Map(incoming.map((row) => [row.id, row]));
   const existingIds = new Set(existing.map((row) => row.id));
@@ -329,10 +318,10 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
   const settlements = createFinanceCrud("financeSettlements", buildSettlement, set, get);
 
   /**
-   * The one bulk write path: rows go through the adapter's `bulkPut`, which routes to the
-   * batched `data.importCollection`, so a statement costs a handful of sync-counter bumps
-   * instead of one per row. State is set from what actually landed — never optimistically —
-   * so a partial commit can't leave phantom rows on screen.
+   * The one bulk write path: the whole statement goes through the adapter's `bulkPut` in a
+   * single call — the backend does the chunking and bumps the sync counter once. State is set
+   * from what the backend says landed, never optimistically, so a partial commit can't leave
+   * phantom rows on screen.
    */
   const importFinanceTransactions = async (
     input: FinanceImportInput,
@@ -341,20 +330,23 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
     const transactions = input.transactions.map((patch) => buildTransaction(patch));
 
     let didWriteMerchants = false;
+    let writtenRows = 0;
     let writtenChunks = 0;
     let failedChunk: number | null = null;
     try {
       if (merchants.length > 0) await persistence.bulkPut("financeMerchants", merchants);
       didWriteMerchants = true;
-      for (const chunk of chunkRows(transactions, IMPORT_CHUNK_ROWS)) {
-        await persistence.bulkPut("financeTransactions", chunk);
-        writtenChunks += 1;
-      }
-    } catch {
-      failedChunk = writtenChunks;
+      const written = await persistence.bulkPut("financeTransactions", transactions);
+      writtenRows = transactions.length;
+      writtenChunks = written.writtenChunks;
+    } catch (error) {
+      const partial = error instanceof PartialWriteError ? error.detail : null;
+      writtenRows = partial?.writtenRows ?? 0;
+      writtenChunks = partial?.writtenChunks ?? 0;
+      failedChunk = partial?.failedChunk ?? 0;
     }
 
-    const landed = transactions.slice(0, writtenChunks * IMPORT_CHUNK_ROWS);
+    const landed = transactions.slice(0, writtenRows);
     const next: Partial<FinanceSlice> = {
       financeTransactions: mergeById(get().financeTransactions, landed),
     };
