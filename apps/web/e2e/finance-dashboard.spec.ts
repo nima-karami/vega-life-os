@@ -7,9 +7,11 @@ import { format, startOfMonth, subMonths } from "date-fns";
  * the current month's are not, and are only ever compared, never asserted exactly.
  */
 
-const SETTLED_MONTH = startOfMonth(subMonths(new Date(), 2));
-const SETTLED_LABEL = format(SETTLED_MONTH, "MMMM yyyy");
-const UNBUDGETED_LABEL = format(subMonths(SETTLED_MONTH, 1), "MMMM yyyy");
+const SETTLED_LABEL = format(startOfMonth(subMonths(new Date(), 2)), "MMMM yyyy");
+const TODAY = format(new Date(), "yyyy-MM-dd");
+
+const UNBUDGETED = { id: "fcat_e2e_unbudgeted", name: "E2E unbudgeted", order: 90 };
+const QUIET = { id: "fcat_e2e_quiet", name: "E2E quiet", order: 91 };
 
 async function bootSandbox(page: Page) {
   await page.goto("/", { waitUntil: "networkidle" });
@@ -32,15 +34,81 @@ async function passGratitudeGate(page: Page) {
   }
 }
 
-async function openDashboard(page: Page) {
-  await bootSandbox(page);
-  await passGratitudeGate(page);
+async function gotoDashboard(page: Page) {
   await page.goto("/finance", { waitUntil: "networkidle" });
   await passGratitudeGate(page);
   if (!/\/finance$/.test(page.url())) await page.goto("/finance", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({
     timeout: 10_000,
   });
+}
+
+async function openDashboard(page: Page) {
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  await gotoDashboard(page);
+}
+
+/**
+ * The untracked state needs a category that spends with no budget in force, which the seed
+ * deliberately doesn't carry. Written straight into the sandbox's Dexie store so the test owns
+ * its own setup and can't be broken by a later change to the seed.
+ */
+async function seedUnbudgetedSpend(page: Page, spentCents: number) {
+  await page.evaluate(
+    async (setup) => {
+      const meta = { updatedAt: "", fieldUpdatedAt: {} };
+      const category = (entry: { id: string; name: string; order: number }) => ({
+        ...entry,
+        kind: "spend",
+        archivedAt: null,
+        ...meta,
+      });
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("vega-life-os");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise<void>((resolve, reject) => {
+        const tx = database.transaction(["financeCategories", "financeTransactions"], "readwrite");
+        const categories = tx.objectStore("financeCategories");
+        categories.put(category(setup.unbudgeted));
+        categories.put(category(setup.quiet));
+        tx.objectStore("financeTransactions").put({
+          id: "ftxn_e2e_unbudgeted",
+          dedupeKey: null,
+          accountId: "facc_chequing",
+          txnDate: setup.txnDate,
+          spreadMonths: 1,
+          description: "E2E UNBUDGETED SPEND",
+          amountCents: -setup.spentCents,
+          currency: "CAD",
+          originalAmountCents: null,
+          originalCurrency: null,
+          categoryId: setup.unbudgeted.id,
+          merchantId: null,
+          payer: "me",
+          isHousehold: false,
+          myShareBps: 10000,
+          isInternal: false,
+          source: "manual",
+          enteredBy: "me",
+          importBatchId: null,
+          sourceRowNumber: null,
+          refundOfTransactionId: null,
+          reviewFlags: [],
+          resolvedFlags: [],
+          note: "",
+          createdAt: setup.txnDate,
+          ...meta,
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      database.close();
+    },
+    { unbudgeted: UNBUDGETED, quiet: QUIET, txnDate: TODAY, spentCents },
+  );
 }
 
 const cashStrip = (page: Page) => page.getByRole("region", { name: "Cash on your accounts" });
@@ -91,17 +159,27 @@ test("changing the month changes the figures", async ({ page }) => {
   expect(await cashStrip(page).innerText()).toBe(thisMonthCash);
 });
 
-test("a category with no budget shows as untracked with a way to set one", async ({ page }) => {
+test("a category spending with no budget shows as untracked with a way to set one", async ({
+  page,
+}) => {
   await openDashboard(page);
-  await stepBack(page, 3);
-  await expect(page.getByText(UNBUDGETED_LABEL, { exact: true })).toBeVisible();
+  await seedUnbudgetedSpend(page, 6400);
+  await gotoDashboard(page);
 
-  await expect(budgetSection(page)).toContainText("No category has a budget for this month yet");
+  // The partial state is budgeted rows AND untracked ones on the same screen.
+  await expect(
+    budgetSection(page).getByRole("progressbar", { name: /^Groceries: / }),
+  ).toBeVisible();
+
   const untracked = untrackedSection(page);
   await expect(untracked).toBeVisible();
-  await expect(untracked).toContainText("Groceries");
-  await expect(untracked.getByRole("button", { name: "Set a budget for Groceries" })).toBeVisible();
+  await expect(untracked).toContainText(UNBUDGETED.name);
+  await expect(untracked).toContainText("$64.00");
+  // No budget and nothing spent is not drift — it never reaches this list.
+  await expect(untracked).not.toContainText(QUIET.name);
 
-  await untracked.getByRole("button", { name: "Set a budget for Groceries" }).click();
-  await expect(page).toHaveURL(/\/finance\/categories\?category=/);
+  const setBudget = untracked.getByRole("button", { name: `Set a budget for ${UNBUDGETED.name}` });
+  await expect(setBudget).toBeVisible();
+  await setBudget.click();
+  await expect(page).toHaveURL(new RegExp(`/finance/categories\\?category=${UNBUDGETED.id}$`));
 });

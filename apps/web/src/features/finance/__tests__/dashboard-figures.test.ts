@@ -16,6 +16,7 @@ const base = makeBook();
 const [groceries, software] = base.financeCategories;
 const TRAVEL = "cat_travel";
 const ARCHIVED = "cat_archived";
+const QUIET = "cat_quiet";
 const travel = { ...software, id: TRAVEL, name: "travel", order: 3 };
 const archived = {
   ...groceries,
@@ -24,10 +25,11 @@ const archived = {
   order: 4,
   archivedAt: "2026-02-01",
 };
+const quiet = { ...software, id: QUIET, name: "quiet", order: 5 };
 
 const bookWithMonth = () =>
   makeBook({
-    financeCategories: [...base.financeCategories, travel, archived],
+    financeCategories: [...base.financeCategories, travel, archived, quiet],
     financeBudgets: [budget(GROCERIES, "2026-01", 57500)],
     financeTransactions: [
       row("2026-03-05", 400000, { categoryId: SALARY }),
@@ -90,11 +92,15 @@ describe("the category breakdown", () => {
     ]);
   });
 
-  it("groups the categories with no budget below, biggest spend first", () => {
+  it("groups the categories spending with no budget below, biggest spend first", () => {
     expect(breakdown().untracked).toEqual([
       { id: TRAVEL, name: "travel", spentCents: 8000 },
       { id: SOFTWARE, name: SOFTWARE, spentCents: 3000 },
     ]);
+  });
+
+  it("leaves out a category with no budget that spent nothing this month", () => {
+    expect(breakdown().untracked.map((entry) => entry.id)).not.toContain(QUIET);
   });
 
   it("shows neither an income category nor an archived one", () => {
@@ -102,6 +108,18 @@ describe("the category breakdown", () => {
     const listed = [...budgeted, ...untracked].map((entry) => entry.id);
     expect(listed).not.toContain(SALARY);
     expect(listed).not.toContain(ARCHIVED);
+  });
+
+  it("only counts a business row as untracked spend once the toggle asks for it", () => {
+    const book = makeBook({
+      financeTransactions: [row("2026-03-06", -4200, { accountId: BUSINESS })],
+    });
+    expect(deriveCategoryBreakdown(book, MONTH, MID_MONTH)).toMatchObject({
+      figures: { untracked: [] },
+    });
+    expect(
+      deriveCategoryBreakdown(book, MONTH, MID_MONTH, { includeBusiness: true }),
+    ).toMatchObject({ figures: { untracked: [{ id: GROCERIES, spentCents: 4200 }] } });
   });
 
   it("only estimates a month-end for the month the clock is in", () => {

@@ -33,28 +33,28 @@ function useFinanceBook(): FinanceBook {
 }
 
 /**
- * A signed-in hydrate failure and an expired session arrive as the same `loadFailed` flag, so
- * the remedy is chosen by whether there is an account at all.
+ * A dead server and an expired session both arrive as the same `loadFailed` flag, so the copy
+ * names no cause — guessing "session expired" would send the owner to re-authenticate for a
+ * problem authentication can't fix.
  */
 function buildRecoveryCopy(authUid: string | null, onRetry: () => void): FinanceEmptyCopy {
-  if (authUid === null) {
-    return {
-      title: "We couldn't load your finance data",
-      body: "Nothing was lost — the figures just haven't reached this screen yet.",
-      cta: (
+  return {
+    title: "Couldn't load your finances",
+    body:
+      authUid === null
+        ? "Nothing was lost — the figures just haven't reached this screen yet."
+        : "Nothing was lost. Retry first; if it keeps failing, signing in again is worth a try.",
+    cta: (
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <Button variant="primary" onPress={onRetry}>
           Retry
         </Button>
-      ),
-    };
-  }
-  return {
-    title: "Your session has expired",
-    body: "Sign in again to load this account's figures.",
-    cta: (
-      <Button variant="primary" onPress={() => void signOutUser()}>
-        Sign in again
-      </Button>
+        {authUid !== null && (
+          <Button variant="secondary" onPress={() => void signOutUser()}>
+            Sign in again
+          </Button>
+        )}
+      </div>
     ),
   };
 }

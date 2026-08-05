@@ -26,6 +26,7 @@ export interface BudgetedCategoryFigures {
   projectedCents: number | null;
 }
 
+/** A category spending this month with no budget in force — the gap worth acting on. */
 export interface UntrackedCategoryFigures {
   id: string;
   name: string;
@@ -86,7 +87,8 @@ export function deriveCategoryBreakdown(
       const spentCents = computeBorneSpend(book, month, id, options);
       const budget = resolveEffectiveBudget(book, id, month);
       if (budget === null) {
-        untracked.push({ id, name, spentCents });
+        // No budget and nothing spent is neither drift nor actionable — that gap lives on Categories.
+        if (spentCents > 0) untracked.push({ id, name, spentCents });
         continue;
       }
       budgeted.push({
