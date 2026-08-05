@@ -1,5 +1,11 @@
-import type { BulkPutResult, CollectionName, Dataset, PersistenceAdapter } from "./adapter";
-import { toPartialWriteError } from "./partial-write";
+import type {
+  BulkPutResult,
+  BulkRemoveResult,
+  CollectionName,
+  Dataset,
+  PersistenceAdapter,
+} from "./adapter";
+import { rethrowPartialWrites } from "./partial-write";
 import { createTrpcClient, type TrpcClient } from "./trpc-client";
 
 /** Collections without a dedicated domain router go through the generic `data` router. */
@@ -76,17 +82,13 @@ export class TrpcAdapter implements PersistenceAdapter {
   }
 
   /** The server chunks the payload and reports what landed — including on the partial-commit throw. */
-  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult> {
-    try {
-      return await this.client.data.importCollection.mutate({
+  bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult> {
+    return rethrowPartialWrites(() =>
+      this.client.data.importCollection.mutate({
         collection: col,
         records: items as unknown as Record<string, unknown>[],
-      });
-    } catch (error) {
-      const partial = toPartialWriteError(error);
-      if (partial) throw partial;
-      throw error;
-    }
+      }),
+    );
   }
 
   async remove(col: CollectionName, id: string): Promise<void> {
@@ -95,6 +97,11 @@ export class TrpcAdapter implements PersistenceAdapter {
       return;
     }
     await this.domain(col).delete.mutate({ id });
+  }
+
+  /** One chunked call for every collection — the domain routers have no batched delete. */
+  bulkRemove<C extends CollectionName>(col: C, ids: string[]): Promise<BulkRemoveResult> {
+    return rethrowPartialWrites(() => this.client.data.bulkRemove.mutate({ collection: col, ids }));
   }
 
   async clearAll(): Promise<void> {

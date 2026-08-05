@@ -7,6 +7,7 @@ import { writeTombstone } from "../../core/tombstone";
 import { protectedProcedure, router } from "../../trpc/trpc";
 import { shouldTriggerCalendarSync } from "../calendar/schedule-reconcile";
 import { importRecords } from "./batch-import";
+import { removeRecords } from "./batch-remove";
 
 const unknownRecord = z.record(z.string(), z.unknown());
 
@@ -62,6 +63,20 @@ export const dataRouter = router({
         ctx.uid,
         input.collection,
         input.records,
+        ctx.calendar.now(),
+      );
+      if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);
+      return result;
+    }),
+
+  bulkRemove: protectedProcedure
+    .input(z.object({ collection: collectionNameSchema, ids: z.array(z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await removeRecords(
+        ctx.firestore,
+        ctx.uid,
+        input.collection,
+        input.ids,
         ctx.calendar.now(),
       );
       if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);

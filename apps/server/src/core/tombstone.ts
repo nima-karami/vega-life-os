@@ -1,5 +1,5 @@
 import { type CollectionName, type Tombstone, tombstoneSchema } from "@vega/shared";
-import type { Firestore } from "firebase-admin/firestore";
+import type { DocumentReference, Firestore, WriteBatch } from "firebase-admin/firestore";
 
 export const RETENTION_DAYS = 30;
 
@@ -9,6 +9,19 @@ const tombstones = (firestore: Firestore, uid: string) =>
 const docId = (collectionName: CollectionName, id: string) =>
   `${collectionName}__${encodeURIComponent(id)}`;
 
+function buildTombstoneWrite(
+  firestore: Firestore,
+  uid: string,
+  collectionName: CollectionName,
+  id: string,
+  deletedAt: string,
+): { ref: DocumentReference; tombstone: Tombstone } {
+  return {
+    ref: tombstones(firestore, uid).doc(docId(collectionName, id)),
+    tombstone: tombstoneSchema.parse({ id, collection: collectionName, deletedAt }),
+  };
+}
+
 /** Record a deletion so a stale mirror or a racing pull never re-creates the removed record. */
 export async function writeTombstone(
   firestore: Firestore,
@@ -17,8 +30,21 @@ export async function writeTombstone(
   id: string,
   deletedAt: string,
 ): Promise<void> {
-  const tombstone = tombstoneSchema.parse({ id, collection: collectionName, deletedAt });
-  await tombstones(firestore, uid).doc(docId(collectionName, id)).set(tombstone);
+  const { ref, tombstone } = buildTombstoneWrite(firestore, uid, collectionName, id, deletedAt);
+  await ref.set(tombstone);
+}
+
+/** The batched form: a delete and its marker land in the same commit, so neither can survive alone. */
+export function stageTombstone(
+  batch: WriteBatch,
+  firestore: Firestore,
+  uid: string,
+  collectionName: CollectionName,
+  id: string,
+  deletedAt: string,
+): void {
+  const { ref, tombstone } = buildTombstoneWrite(firestore, uid, collectionName, id, deletedAt);
+  batch.set(ref, tombstone);
 }
 
 export async function hasTombstone(
