@@ -3,7 +3,7 @@ import type { FinanceBudget, FinanceCategory } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { CategoryModalFrame } from "./CategoryModalFrame";
-import { parseAmountCents } from "./import";
+import { parseAmountCents } from "./import/fields";
 import { formatCents } from "./money";
 
 const FIELD_CLASS =

@@ -5,7 +5,7 @@ import { formatShortDate, todayISO } from "@/core/lib/date";
 import { DatePicker, draftSafeBackdrop, NONE, Select, useCompactModal } from "@/core/ui";
 import { FIELD_CLASS } from "@/features/goals/components/field-styles";
 import { EditorField } from "@/features/values/components/editor-bits";
-import { parseAmountCents } from "./import";
+import { parseAmountCents } from "./import/fields";
 import { formatCents } from "./money";
 import type { SettlementFigures } from "./settlement";
 

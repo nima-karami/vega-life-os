@@ -70,7 +70,7 @@ function readPairCents(cells: readonly string[], columns: ColumnIndex): number |
   return value === null ? null : Math.abs(value);
 }
 
-export function readAmountCents(
+function readAmountCents(
   cells: readonly string[],
   columns: ColumnIndex,
   debitsArePositive: boolean,

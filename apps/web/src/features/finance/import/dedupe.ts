@@ -13,7 +13,7 @@ export interface DedupeAssignment {
 
 const KEY_LENGTH = 16;
 
-const toHex = (digest: ArrayBuffer) =>
+export const toHex = (digest: ArrayBuffer) =>
   Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 
 /** `sha256(txnDate | accountSlug | amountCents | description)`, truncated to 16 hex chars. */

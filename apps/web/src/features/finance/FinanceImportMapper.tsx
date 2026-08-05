@@ -4,17 +4,19 @@ import { useMemo, useRef, useState } from "react";
 import { draftSafeBackdrop, NONE, Select, useCompactModal } from "@/core/ui";
 import { FinanceWorkedExample } from "./FinanceWorkedExample";
 import {
-  FINANCE_DATE_FORMATS,
-  type FinanceDateFormat,
   formatDateLabel,
   isFinanceDateFormat,
-  type MappingWorkedExample,
   parseAmountCents,
   parseStatementDate,
+} from "./import/fields";
+import { viewTable } from "./import/table";
+import {
+  FINANCE_DATE_FORMATS,
+  type FinanceDateFormat,
+  type MappingWorkedExample,
   type TableData,
   type TableView,
-  viewTable,
-} from "./import";
+} from "./import/types";
 
 const PREVIEW_ROWS = 3;
 

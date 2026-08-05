@@ -52,11 +52,14 @@ const RBC_MAPPING = {
  * `mapping-required` on purpose — a registry entry that guessed a date format would be
  * the DD/MM↔MM/DD misread the whole contract exists to prevent.
  */
-export const STATEMENT_LAYOUTS: StatementLayout[] = [
+const STATEMENT_LAYOUTS: StatementLayout[] = [
   defineLayout("rbc-export", "RBC personal export", RBC_HEADERS, RBC_MAPPING),
-  defineLayout("rbc-export-usd", "RBC personal export (with USD)", [...RBC_HEADERS, "USD$"], {
-    ...RBC_MAPPING,
-  }),
+  defineLayout(
+    "rbc-export-usd",
+    "RBC personal export (with USD)",
+    [...RBC_HEADERS, "USD$"],
+    RBC_MAPPING,
+  ),
 ];
 
 export const detectLayout = (headers: readonly string[]): StatementLayout | null => {
@@ -64,10 +67,13 @@ export const detectLayout = (headers: readonly string[]): StatementLayout | null
   return STATEMENT_LAYOUTS.find((layout) => layout.signature === signature) ?? null;
 };
 
-const namedColumns = (mapping: FinanceColumnMapping) =>
-  [mapping.dateColumn, mapping.descriptionColumn, mapping.amountColumn, mapping.debitColumn].concat(
-    mapping.creditColumn,
-  );
+const namedColumns = (mapping: FinanceColumnMapping) => [
+  mapping.dateColumn,
+  mapping.descriptionColumn,
+  mapping.amountColumn,
+  mapping.debitColumn,
+  mapping.creditColumn,
+];
 
 /** A remembered account mapping only applies while every column it names is still present. */
 export function isMappingApplicable(

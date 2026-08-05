@@ -1,5 +1,11 @@
 import type { FinanceImportBatch, FinanceMerchant, FinanceTransaction } from "@vega/shared";
-import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, type ParsedRow, type ParsedStatement } from "./import";
+import { toHex } from "./import/dedupe";
+import {
+  MAX_IMPORT_BYTES,
+  MAX_IMPORT_ROWS,
+  type ParsedRow,
+  type ParsedStatement,
+} from "./import/types";
 
 /**
  * Provenance for the whole file, not a row. Row-level dedupe already stops a double-count;
@@ -7,8 +13,7 @@ import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, type ParsedRow, type ParsedStatement
  * file on 1 March" — instead of leaving the owner wondering whether the importer works.
  */
 export async function computeFileHash(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return toHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
 }
 
 export const findPriorImport = (
