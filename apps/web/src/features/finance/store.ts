@@ -11,7 +11,7 @@ import { type Dataset, PartialWriteError, persistence } from "@/core/persistence
 import { setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import { selectCategoryReferences } from "./category-refs";
+import { selectCategoryReferences } from "./category-references";
 import { normalizeMerchant } from "./import/merchant";
 import {
   buildAccount,
@@ -95,8 +95,8 @@ type FinanceCollection =
 
 type FinanceRow<C extends FinanceCollection> = Dataset[C][number];
 
-type FinanceSet = Parameters<Slice<FinanceSlice>>[0];
-type FinanceGet = Parameters<Slice<FinanceSlice>>[1];
+type FinanceStateWriter = Parameters<Slice<FinanceSlice>>[0];
+type FinanceStateReader = Parameters<Slice<FinanceSlice>>[1];
 
 interface FinanceCrud<C extends FinanceCollection> {
   add: (patch?: Partial<FinanceRow<C>>) => FinanceRow<C>;
@@ -114,8 +114,8 @@ const RETRY_MESSAGE = "Couldn’t save your change — check your connection";
 function createFinanceCrud<C extends FinanceCollection>(
   collection: C,
   buildRow: (patch: Partial<FinanceRow<C>>, rows: FinanceRow<C>[]) => FinanceRow<C>,
-  set: FinanceSet,
-  get: FinanceGet,
+  set: FinanceStateWriter,
+  get: FinanceStateReader,
 ): FinanceCrud<C> {
   const readRows = () => get()[collection] as FinanceRow<C>[];
   const commit = (rows: FinanceRow<C>[]) => set({ [collection]: rows } as Partial<FinanceSlice>);

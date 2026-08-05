@@ -31,7 +31,10 @@ function stripTrailingPlace(tokens: string[]): string[] {
  * so collapsing two descriptions onto one key is never a data loss.
  */
 export function normalizeMerchant(raw: string): string {
-  const stripped = raw.toUpperCase().replace(PROCESSOR_REFERENCE, " ").replace(LONG_DIGIT_RUN, " ");
-  const tokens = stripped.split(/\s+/).filter((token) => token !== "");
+  const strippedDescription = raw
+    .toUpperCase()
+    .replace(PROCESSOR_REFERENCE, " ")
+    .replace(LONG_DIGIT_RUN, " ");
+  const tokens = strippedDescription.split(/\s+/).filter((token) => token !== "");
   return stripTrailingPlace(tokens).join(" ").replace(EDGE_NOISE, "");
 }

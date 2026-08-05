@@ -2,7 +2,7 @@ import { Field } from "@/core/ui";
 import type { CashFlowFigures } from "./dashboard-figures";
 import { formatCents } from "./money";
 
-const netCaption = (netCents: number) => {
+const describeNetCaption = (netCents: number) => {
   if (netCents > 0) return "kept this month";
   if (netCents < 0) return "spent beyond what came in";
   return "in and out are level";
@@ -32,7 +32,7 @@ export function FinanceCashStrip({ figures }: { figures: CashFlowFigures }) {
           value={<span className="tabular-nums">{formatCents(figures.outCents)}</span>}
         />
         <Field
-          label={`Net — ${netCaption(figures.netCents)}`}
+          label={`Net — ${describeNetCaption(figures.netCents)}`}
           value={<span className="tabular-nums">{formatCents(figures.netCents)}</span>}
         />
       </div>

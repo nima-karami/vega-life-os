@@ -5,7 +5,7 @@ import { useStore } from "@/core/store";
 import { ConfirmDialog, NONE } from "@/core/ui";
 import { FinanceReviewRow } from "./FinanceReviewRow";
 import { normalizeMerchant } from "./import/merchant";
-import { type FinanceReviewFlag, withFlagResolved } from "./review-flags";
+import { buildResolvedFlags, type FinanceReviewFlag } from "./review-flags";
 import { groupForReview, pageReviewGroups, REVIEW_PAGE_SIZE } from "./review-queue";
 
 /**
@@ -36,19 +36,19 @@ export function FinanceReviewQueue() {
     () => new Map(merchants.map((merchant) => [merchant.pattern, merchant])),
     [merchants],
   );
-  const merchantFor = (txn: FinanceTransaction): FinanceMerchant | null =>
+  const findMerchant = (txn: FinanceTransaction): FinanceMerchant | null =>
     merchantsByPattern.get(normalizeMerchant(txn.description)) ?? null;
 
   const assignCategory = (txn: FinanceTransaction, choice: string) =>
     fileTransaction(txn.id, { categoryId: choice === NONE ? null : choice });
 
-  const resolve = (txn: FinanceTransaction, flag: FinanceReviewFlag) =>
-    updateFinanceTransaction(txn.id, { resolvedFlags: withFlagResolved(txn, flag) });
+  const markFlagResolved = (txn: FinanceTransaction, flag: FinanceReviewFlag) =>
+    updateFinanceTransaction(txn.id, { resolvedFlags: buildResolvedFlags(txn, flag) });
 
   const clearInternal = (txn: FinanceTransaction) =>
     updateFinanceTransaction(txn.id, {
       isInternal: false,
-      resolvedFlags: withFlagResolved(txn, "auto-internal"),
+      resolvedFlags: buildResolvedFlags(txn, "auto-internal"),
     });
 
   const changeShare = (txn: FinanceTransaction, patch: Partial<FinanceTransaction>) =>
@@ -92,9 +92,9 @@ export function FinanceReviewQueue() {
                 txn={txn}
                 flag={group.flag}
                 categories={categoryOptions}
-                merchant={merchantFor(txn)}
+                merchant={findMerchant(txn)}
                 onAssignCategory={assignCategory}
-                onResolve={resolve}
+                onResolve={markFlagResolved}
                 onClearInternal={clearInternal}
                 onShare={changeShare}
                 onDelete={setPendingDelete}

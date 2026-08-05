@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildResolvedFlags,
   describeFlag,
+  hasUnresolvedFlags,
   NO_CATEGORY_FLAG,
-  needsReview,
   REVIEW_FLAGS,
   unresolvedFlags,
-  withFlagResolved,
 } from "../review-flags";
 import { row } from "./fixtures";
 
@@ -14,7 +14,9 @@ describe("no-category is derived, never stored", () => {
     expect(unresolvedFlags(row("2026-07-10", -3840, { categoryId: null }))).toEqual([
       NO_CATEGORY_FLAG,
     ]);
-    expect(needsReview(row("2026-07-10", -3840, { categoryId: "cat_groceries" }))).toBe(false);
+    expect(hasUnresolvedFlags(row("2026-07-10", -3840, { categoryId: "cat_groceries" }))).toBe(
+      false,
+    );
   });
 
   it("drops a legacy stored copy the moment a category is assigned", () => {
@@ -40,7 +42,7 @@ describe("no-category is derived, never stored", () => {
       reviewFlags: ["auto-internal"],
       resolvedFlags: ["auto-internal"],
     });
-    expect(needsReview(transfer)).toBe(false);
+    expect(hasUnresolvedFlags(transfer)).toBe(false);
   });
 
   it("still surfaces an internal transfer while its auto-flag is unresolved", () => {
@@ -72,7 +74,7 @@ describe("stored flags", () => {
       reviewFlags: ["auto-internal"],
       resolvedFlags: ["auto-internal"],
     });
-    expect(needsReview(cleared)).toBe(false);
+    expect(hasUnresolvedFlags(cleared)).toBe(false);
   });
 
   it("resolves a flag once and stays idempotent", () => {
@@ -80,7 +82,7 @@ describe("stored flags", () => {
       reviewFlags: ["possible-duplicate"],
       resolvedFlags: ["possible-duplicate"],
     });
-    expect(withFlagResolved(flagged, "possible-duplicate")).toEqual(["possible-duplicate"]);
+    expect(buildResolvedFlags(flagged, "possible-duplicate")).toEqual(["possible-duplicate"]);
   });
 });
 

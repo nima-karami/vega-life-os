@@ -38,7 +38,7 @@ export function CategoryEditorModal({
 
   const [name, setName] = useState(category?.name ?? "");
   const [kind, setKind] = useState<FinanceCategory["kind"]>(category?.kind ?? "spend");
-  const [budget, setBudget] = useState(
+  const [budgetInput, setBudgetInput] = useState(
     effectiveBudget === null ? "" : formatCents(effectiveBudget.cents),
   );
 
@@ -48,7 +48,7 @@ export function CategoryEditorModal({
   }, []);
 
   const trimmedName = name.trim();
-  const trimmedBudget = budget.trim();
+  const trimmedBudget = budgetInput.trim();
   const isBudgetInvalid = trimmedBudget !== "" && readBudgetInput(trimmedBudget) === null;
   const canSave = trimmedName !== "" && !isBudgetInvalid;
 
@@ -64,7 +64,7 @@ export function CategoryEditorModal({
     addFinanceBudget({ categoryId, month, cents });
   };
 
-  const save = () => {
+  const handleSave = () => {
     if (!canSave) return;
     const categoryId = category ? category.id : addFinanceCategory({ name: trimmedName, kind }).id;
     if (category) updateFinanceCategory(category.id, { name: trimmedName, kind });
@@ -81,7 +81,7 @@ export function CategoryEditorModal({
           <Button size="sm" variant="ghost" onPress={onClose}>
             Cancel
           </Button>
-          <Button size="sm" variant="primary" isDisabled={!canSave} onPress={save}>
+          <Button size="sm" variant="primary" isDisabled={!canSave} onPress={handleSave}>
             {category ? "Save" : "Create category"}
           </Button>
         </>
@@ -122,9 +122,9 @@ export function CategoryEditorModal({
             type="text"
             inputMode="decimal"
             aria-label={`Budget for ${monthLabel}`}
-            value={budget}
+            value={budgetInput}
             placeholder="No budget"
-            onChange={(event) => setBudget(event.target.value)}
+            onChange={(event) => setBudgetInput(event.target.value)}
             className={FIELD_CLASS}
           />
           <span className="block text-xs text-muted">

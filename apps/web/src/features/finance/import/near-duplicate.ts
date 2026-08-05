@@ -17,8 +17,10 @@ interface PlacedSubject {
   position: number;
 }
 
-const isWithinTolerance = (a: number, b: number) =>
-  a * b > 0 && Math.abs(a - b) * AMOUNT_TOLERANCE_DIVISOR <= Math.max(Math.abs(a), Math.abs(b));
+const isWithinTolerance = (leftCents: number, rightCents: number) =>
+  leftCents * rightCents > 0 &&
+  Math.abs(leftCents - rightCents) * AMOUNT_TOLERANCE_DIVISOR <=
+    Math.max(Math.abs(leftCents), Math.abs(rightCents));
 
 function bucketByDate(
   existing: readonly NearDuplicateSubject[],
@@ -59,7 +61,9 @@ function matchRow(
       });
     }
   }
-  return matched.sort((a, b) => a.position - b.position).map((match) => match.candidate);
+  return matched
+    .sort((left, right) => left.position - right.position)
+    .map((match) => match.candidate);
 }
 
 /**

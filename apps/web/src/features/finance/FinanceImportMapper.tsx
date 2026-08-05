@@ -3,95 +3,19 @@ import type { FinanceColumnMapping } from "@vega/shared";
 import { useMemo, useRef, useState } from "react";
 import { draftSafeBackdrop, NONE, Select, useCompactModal } from "@/core/ui";
 import { FinanceWorkedExample } from "./FinanceWorkedExample";
+import { isFinanceDateFormat } from "./import/fields";
 import {
-  formatDateLabel,
-  isFinanceDateFormat,
-  parseAmountCents,
-  parseStatementDate,
-} from "./import/fields";
-import { viewTable } from "./import/table";
-import {
-  FINANCE_DATE_FORMATS,
-  type FinanceDateFormat,
-  type MappingWorkedExample,
-  type TableData,
-  type TableView,
-} from "./import/types";
+  buildMappingFromDraft,
+  buildPreviewExample,
+  createEmptyDraft,
+  isDraftComplete,
+  type MapperDraft,
+  readDraftFromMapping,
+} from "./import/mapper-draft";
+import { buildTableView } from "./import/table";
+import { FINANCE_DATE_FORMATS, type TableData } from "./import/types";
 
 const PREVIEW_ROWS = 3;
-
-interface MapperDraft {
-  hasHeaderRow: boolean;
-  dateColumn: string;
-  descriptionColumn: string;
-  amountColumn: string;
-  debitColumn: string;
-  creditColumn: string;
-  dateFormat: FinanceDateFormat;
-  debitsArePositive: boolean;
-}
-
-const emptyDraft = (hasHeaderRow: boolean): MapperDraft => ({
-  hasHeaderRow,
-  dateColumn: "",
-  descriptionColumn: "",
-  amountColumn: NONE,
-  debitColumn: NONE,
-  creditColumn: NONE,
-  dateFormat: "MM/DD/YYYY",
-  debitsArePositive: false,
-});
-
-const fromMapping = (mapping: FinanceColumnMapping): MapperDraft => ({
-  hasHeaderRow: mapping.hasHeaderRow,
-  dateColumn: mapping.dateColumn,
-  descriptionColumn: mapping.descriptionColumn,
-  amountColumn: mapping.amountColumn ?? NONE,
-  debitColumn: mapping.debitColumn ?? NONE,
-  creditColumn: mapping.creditColumn ?? NONE,
-  dateFormat: isFinanceDateFormat(mapping.dateFormat) ? mapping.dateFormat : "MM/DD/YYYY",
-  debitsArePositive: mapping.debitsArePositive,
-});
-
-const toMapping = (draft: MapperDraft): FinanceColumnMapping => ({
-  dateColumn: draft.dateColumn,
-  descriptionColumn: draft.descriptionColumn,
-  amountColumn: draft.amountColumn === NONE ? null : draft.amountColumn,
-  debitColumn: draft.debitColumn === NONE ? null : draft.debitColumn,
-  creditColumn: draft.creditColumn === NONE ? null : draft.creditColumn,
-  dateFormat: draft.dateFormat,
-  debitsArePositive: draft.debitsArePositive,
-  hasHeaderRow: draft.hasHeaderRow,
-});
-
-const isComplete = (draft: MapperDraft) =>
-  draft.dateColumn !== "" &&
-  draft.descriptionColumn !== "" &&
-  (draft.amountColumn !== NONE || draft.debitColumn !== NONE);
-
-const cellAt = (view: TableView, column: string) => {
-  const index = view.headers.indexOf(column);
-  return index === -1 ? "" : (view.rows[0]?.cells[index] ?? "");
-};
-
-/** The same figures the preview gate shows, recomputed live so the mapping is judged as it is set. */
-function previewExample(draft: MapperDraft, view: TableView): MappingWorkedExample | null {
-  const rawDate = cellAt(view, draft.dateColumn);
-  const amountColumn = draft.amountColumn === NONE ? draft.debitColumn : draft.amountColumn;
-  const rawAmount = cellAt(view, amountColumn);
-  const txnDate = parseStatementDate(rawDate, draft.dateFormat);
-  const parsed = parseAmountCents(rawAmount);
-  if (txnDate === null || parsed === null) return null;
-  const amountCents = draft.debitsArePositive ? -parsed : parsed;
-  return {
-    rawDate,
-    txnDate,
-    dateLabel: `${formatDateLabel(txnDate)} (${draft.dateFormat})`,
-    rawAmount,
-    amountCents,
-    directionLabel: amountCents < 0 ? "money out" : "money in",
-  };
-}
 
 export interface FinanceImportMapperProps {
   isOpen: boolean;
@@ -118,21 +42,24 @@ export function FinanceImportMapper({
   onConfirm,
 }: FinanceImportMapperProps) {
   const [draft, setDraft] = useState<MapperDraft>(() =>
-    initial ? fromMapping(initial) : emptyDraft(table.hasHeaderRow),
+    initial ? readDraftFromMapping(initial) : createEmptyDraft(table.hasHeaderRow),
   );
 
   const shownFile = useRef(fileName);
   if (shownFile.current !== fileName) {
     shownFile.current = fileName;
-    setDraft(initial ? fromMapping(initial) : emptyDraft(table.hasHeaderRow));
+    setDraft(initial ? readDraftFromMapping(initial) : createEmptyDraft(table.hasHeaderRow));
   }
 
-  const view = useMemo(() => viewTable(table, draft.hasHeaderRow), [table, draft.hasHeaderRow]);
-  const columns = view.headers.map((header) => ({ value: header, label: header }));
-  const optional = [{ value: NONE, label: "None" }, ...columns];
+  const tableView = useMemo(
+    () => buildTableView(table, draft.hasHeaderRow),
+    [table, draft.hasHeaderRow],
+  );
+  const columns = tableView.headers.map((header) => ({ value: header, label: header }));
+  const optionalColumns = [{ value: NONE, label: "None" }, ...columns];
   const patch = (change: Partial<MapperDraft>) => setDraft((prior) => ({ ...prior, ...change }));
-  const readHeaderRow = (hasHeaderRow: boolean) =>
-    patch({ ...emptyDraft(hasHeaderRow), dateFormat: draft.dateFormat });
+  const handleHeaderRowChoice = (hasHeaderRow: boolean) =>
+    patch({ ...createEmptyDraft(hasHeaderRow), dateFormat: draft.dateFormat });
 
   const responsive = useCompactModal();
   const state = useOverlayState({
@@ -168,7 +95,7 @@ export function FinanceImportMapper({
                     variant={draft.hasHeaderRow ? "primary" : "outline"}
                     aria-pressed={draft.hasHeaderRow}
                     isDisabled={!table.hasHeaderRow}
-                    onPress={() => readHeaderRow(true)}
+                    onPress={() => handleHeaderRowChoice(true)}
                   >
                     Column headers
                   </Button>
@@ -176,7 +103,7 @@ export function FinanceImportMapper({
                     size="sm"
                     variant={draft.hasHeaderRow ? "outline" : "primary"}
                     aria-pressed={!draft.hasHeaderRow}
-                    onPress={() => readHeaderRow(false)}
+                    onPress={() => handleHeaderRowChoice(false)}
                   >
                     A transaction
                   </Button>
@@ -214,7 +141,7 @@ export function FinanceImportMapper({
                     ariaLabel="Amount column"
                     value={draft.amountColumn}
                     onValueChange={(amountColumn) => patch({ amountColumn })}
-                    options={optional}
+                    options={optionalColumns}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -223,7 +150,7 @@ export function FinanceImportMapper({
                     ariaLabel="Debit column"
                     value={draft.debitColumn}
                     onValueChange={(debitColumn) => patch({ debitColumn })}
-                    options={optional}
+                    options={optionalColumns}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -232,7 +159,7 @@ export function FinanceImportMapper({
                     ariaLabel="Credit column"
                     value={draft.creditColumn}
                     onValueChange={(creditColumn) => patch({ creditColumn })}
-                    options={optional}
+                    options={optionalColumns}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -271,14 +198,14 @@ export function FinanceImportMapper({
               </div>
 
               <div className="rounded-[12px] border border-border px-3 py-2.5">
-                <FinanceWorkedExample example={previewExample(draft, view)} />
+                <FinanceWorkedExample example={buildPreviewExample(draft, tableView)} />
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="text-muted">
                     <tr>
-                      {view.headers.map((header) => (
+                      {tableView.headers.map((header) => (
                         <th key={header} className="whitespace-nowrap px-2 py-1 font-normal">
                           {header}
                         </th>
@@ -286,9 +213,9 @@ export function FinanceImportMapper({
                     </tr>
                   </thead>
                   <tbody className="text-foreground">
-                    {view.rows.slice(0, PREVIEW_ROWS).map((row) => (
+                    {tableView.rows.slice(0, PREVIEW_ROWS).map((row) => (
                       <tr key={row.line}>
-                        {view.headers.map((header, index) => (
+                        {tableView.headers.map((header, index) => (
                           <td key={header} className="whitespace-nowrap px-2 py-1 tabular-nums">
                             {row.cells[index] ?? ""}
                           </td>
@@ -307,8 +234,8 @@ export function FinanceImportMapper({
               <Button
                 size="sm"
                 variant="primary"
-                isDisabled={!isComplete(draft)}
-                onPress={() => onConfirm(toMapping(draft))}
+                isDisabled={!isDraftComplete(draft)}
+                onPress={() => onConfirm(buildMappingFromDraft(draft))}
               >
                 Confirm mapping
               </Button>

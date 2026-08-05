@@ -3,7 +3,7 @@ import { cx } from "@/core/ui";
 import { computeUsedPercent } from "./dashboard-figures";
 import { formatCents } from "./money";
 
-/** Spend against the month's effective budget. Over-budget carries text, never colour alone. */
+/** Over-budget carries text, never colour alone. */
 export function CategoryBudgetMeter({
   spendCents,
   budgetCents,

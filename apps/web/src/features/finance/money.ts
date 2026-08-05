@@ -16,11 +16,11 @@ const BPS_SCALE = BigInt(FULL_SHARE_BPS);
 export const MIN_SPREAD_MONTHS = 1;
 export const MAX_SPREAD_MONTHS = 36;
 
-const absolute = (value: bigint): bigint => (value < 0n ? -value : value);
+const computeAbsolute = (value: bigint): bigint => (value < 0n ? -value : value);
 
-function greatestCommonDivisor(left: bigint, right: bigint): bigint {
-  let current = absolute(left);
-  let remainder = absolute(right);
+function computeGreatestCommonDivisor(left: bigint, right: bigint): bigint {
+  let current = computeAbsolute(left);
+  let remainder = computeAbsolute(right);
   while (remainder !== 0n) {
     const next = current % remainder;
     current = remainder;
@@ -29,25 +29,25 @@ function greatestCommonDivisor(left: bigint, right: bigint): bigint {
   return current;
 }
 
-export function makeCentsFraction(numerator: bigint, denominator: bigint): CentsFraction {
+export function createCentsFraction(numerator: bigint, denominator: bigint): CentsFraction {
   if (denominator === 0n) throw new RangeError("cents fraction denominator must not be zero");
-  const signed = denominator < 0n ? -1n : 1n;
-  const divisor = greatestCommonDivisor(numerator, denominator) || 1n;
+  const signMultiplier = denominator < 0n ? -1n : 1n;
+  const divisor = computeGreatestCommonDivisor(numerator, denominator) || 1n;
   return {
-    numerator: (numerator * signed) / divisor,
-    denominator: (denominator * signed) / divisor,
+    numerator: (numerator * signMultiplier) / divisor,
+    denominator: (denominator * signMultiplier) / divisor,
   };
 }
 
-export const fromCents = (cents: number): CentsFraction => makeCentsFraction(BigInt(cents), 1n);
+export const fromCents = (cents: number): CentsFraction => createCentsFraction(BigInt(cents), 1n);
 
 export function addCentsFractions(left: CentsFraction, right: CentsFraction): CentsFraction {
-  const divisor = greatestCommonDivisor(left.denominator, right.denominator);
+  const divisor = computeGreatestCommonDivisor(left.denominator, right.denominator);
   const denominator = (left.denominator / divisor) * right.denominator;
   const numerator =
     left.numerator * (denominator / left.denominator) +
     right.numerator * (denominator / right.denominator);
-  return makeCentsFraction(numerator, denominator);
+  return createCentsFraction(numerator, denominator);
 }
 
 export const subtractCentsFractions = (left: CentsFraction, right: CentsFraction): CentsFraction =>
@@ -58,11 +58,11 @@ export const scaleCentsFraction = (
   numerator: bigint,
   denominator: bigint,
 ): CentsFraction =>
-  makeCentsFraction(fraction.numerator * numerator, fraction.denominator * denominator);
+  createCentsFraction(fraction.numerator * numerator, fraction.denominator * denominator);
 
 /** The one place a share is applied: an unrounded fraction the caller rounds once, at the end. */
 export const computeShareFraction = (cents: number, shareBps: number): CentsFraction =>
-  makeCentsFraction(BigInt(cents) * BigInt(shareBps), BPS_SCALE);
+  createCentsFraction(BigInt(cents) * BigInt(shareBps), BPS_SCALE);
 
 const CANADIAN_DOLLARS = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
 
@@ -81,7 +81,7 @@ export function formatCentsPlain(cents: number): string {
 /** Half-up away from zero, applied once, on the final figure (spec §3.6.5). */
 export function roundToCents(fraction: CentsFraction): number {
   const magnitude =
-    (2n * absolute(fraction.numerator) + fraction.denominator) / (2n * fraction.denominator);
+    (2n * computeAbsolute(fraction.numerator) + fraction.denominator) / (2n * fraction.denominator);
   return Number(fraction.numerator < 0n ? -magnitude : magnitude);
 }
 

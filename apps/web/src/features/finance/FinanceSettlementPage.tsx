@@ -92,17 +92,20 @@ export function FinanceSettlementPage() {
   const refetchAll = useStore((s) => s.refetchAll);
 
   const [params, setParams] = useSearchParams();
-  const [pending, setPending] = useState<FinalAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<FinalAction | null>(null);
   const [isPaying, setIsPaying] = useState(false);
 
   const thisMonth = toMonthKey(new Date());
   const months = useMemo(() => listSettlementMonths(book, thisMonth), [book, thisMonth]);
-  const requested = params.get("month");
-  const month = requested !== null && isMonthKey(requested) ? requested : (months[0] ?? thisMonth);
+  const requestedMonth = params.get("month");
+  const month =
+    requestedMonth !== null && isMonthKey(requestedMonth)
+      ? requestedMonth
+      : (months[0] ?? thisMonth);
   // A deep-linked month the book has never heard of still has to name itself in the picker.
   const monthOptions = months.includes(month) ? months : [month, ...months];
   const figures = useMemo(() => computeSettlementFigures(book, month), [book, month]);
-  const record = book.financeSettlements.find((entry) => entry.month === month);
+  const settlementRecord = book.financeSettlements.find((entry) => entry.month === month);
   const nextOpenMonth = findNextOpenMonth(book, month);
 
   const selectMonth = (next: string) => {
@@ -119,21 +122,21 @@ export function FinanceSettlementPage() {
     addSettlement({ month: target, ...patch });
   };
 
-  const act = (action: SettlementAction) => {
+  const handleSettlementAction = (action: SettlementAction) => {
     if (action === "pay") setIsPaying(true);
-    else setPending(action);
+    else setPendingAction(action);
   };
 
   const confirmAction = () => {
-    if (pending === "carry") {
+    if (pendingAction === "carry") {
       for (const write of buildCarryForwardWrites(book, figures))
         writeSettlement(write.month, write.patch);
-    } else if (pending === "reopen") {
+    } else if (pendingAction === "reopen") {
       writeSettlement(month, REOPEN_PATCH);
-    } else if (pending !== null) {
+    } else if (pendingAction !== null) {
       writeSettlement(month, buildSettlePatch(figures, todayISO()));
     }
-    setPending(null);
+    setPendingAction(null);
   };
 
   const recordPayment = (payment: SettlementPayment) => {
@@ -141,7 +144,7 @@ export function FinanceSettlementPage() {
     setIsPaying(false);
   };
 
-  const confirmCopy = describeFinalAction(pending ?? "settle", figures, nextOpenMonth);
+  const confirmCopy = describeFinalAction(pendingAction ?? "settle", figures, nextOpenMonth);
   const hasAnyData = book.financeSettlements.length > 0 || figures.householdRowCount > 0;
 
   return (
@@ -149,7 +152,13 @@ export function FinanceSettlementPage() {
       title="Settlement"
       subtitle="What the household cost, whose card it landed on, and who owes whom this month."
       summary={`${formatMonthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now")}`}
-      action={<SettlementActions figures={figures} nextOpenMonth={nextOpenMonth} onAct={act} />}
+      action={
+        <SettlementActions
+          figures={figures}
+          nextOpenMonth={nextOpenMonth}
+          onSelectAction={handleSettlementAction}
+        />
+      }
       filters={
         <Select
           ariaLabel="Settlement month"
@@ -164,7 +173,7 @@ export function FinanceSettlementPage() {
         title: "Nothing to settle yet",
         body: "Mark expenses as household and give each a share — the month's balance builds from there.",
       }}
-      hasNoMatches={figures.householdRowCount === 0 && record === undefined}
+      hasNoMatches={figures.householdRowCount === 0 && settlementRecord === undefined}
       noMatches={{
         title: `No household expenses in ${formatMonthLabel(month)}`,
         body: "Nothing was shared this month, so there is nothing to split.",
@@ -180,12 +189,12 @@ export function FinanceSettlementPage() {
       <SettlementStatusCard figures={figures} />
 
       <ConfirmDialog
-        open={pending !== null}
+        open={pendingAction !== null}
         title={confirmCopy.title}
         body={confirmCopy.body}
         confirmLabel={confirmCopy.confirmLabel}
         onConfirm={confirmAction}
-        onClose={() => setPending(null)}
+        onClose={() => setPendingAction(null)}
       />
 
       {isPaying && (

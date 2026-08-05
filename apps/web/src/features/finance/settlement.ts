@@ -103,7 +103,6 @@ export function describeDirection(cents: number, tense: "now" | "still"): string
   return tense === "still" ? "Nothing left to settle" : "Square — nothing owed either way";
 }
 
-/** The same direction with the figure attached, for a headline that stands on its own. */
 export function describeBalance(cents: number, tense: "now" | "still"): string {
   const direction = describeDirection(cents, tense);
   return cents === 0 ? direction : `${direction} ${formatCents(Math.abs(cents))}`;

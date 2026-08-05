@@ -33,13 +33,16 @@ export const describeFlag = (flag: string): string =>
  * exempt; it never earns a category, and `auto-internal` already carries the review it needs.
  */
 export function unresolvedFlags(txn: FinanceTransaction): string[] {
-  const stored = txn.reviewFlags.filter(
+  const storedFlags = txn.reviewFlags.filter(
     (flag) => flag !== NO_CATEGORY_FLAG && !txn.resolvedFlags.includes(flag),
   );
-  return txn.categoryId === null && !txn.isInternal ? [NO_CATEGORY_FLAG, ...stored] : stored;
+  return txn.categoryId === null && !txn.isInternal
+    ? [NO_CATEGORY_FLAG, ...storedFlags]
+    : storedFlags;
 }
 
-export const needsReview = (txn: FinanceTransaction): boolean => unresolvedFlags(txn).length > 0;
+export const hasUnresolvedFlags = (txn: FinanceTransaction): boolean =>
+  unresolvedFlags(txn).length > 0;
 
-export const withFlagResolved = (txn: FinanceTransaction, flag: FinanceReviewFlag): string[] =>
+export const buildResolvedFlags = (txn: FinanceTransaction, flag: FinanceReviewFlag): string[] =>
   txn.resolvedFlags.includes(flag) ? txn.resolvedFlags : [...txn.resolvedFlags, flag];

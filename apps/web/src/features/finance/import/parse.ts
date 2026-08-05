@@ -30,7 +30,7 @@ export interface ParseStatementInput {
   existingTransactions: readonly NearDuplicateSubject[];
 }
 
-const failed = (fileName: string, line: number, reason: string): ParseOutcome => ({
+const buildParseFailure = (fileName: string, line: number, reason: string): ParseOutcome => ({
   status: "parse-failed",
   error: { code: "PARSE_FAILED", file: fileName, line, reason },
 });
@@ -90,14 +90,14 @@ export async function parseStatement(input: ParseStatementInput): Promise<ParseO
   }
   const { mapping, layoutId } = resolved;
   if (!isFinanceDateFormat(mapping.dateFormat)) {
-    return failed(input.fileName, 1, `unsupported date format "${mapping.dateFormat}"`);
+    return buildParseFailure(input.fileName, 1, `unsupported date format "${mapping.dateFormat}"`);
   }
 
   const columns = resolveColumns(view.headers, mapping);
-  if ("reason" in columns) return failed(input.fileName, columns.line, columns.reason);
+  if ("reason" in columns) return buildParseFailure(input.fileName, columns.line, columns.reason);
 
   const drafts = buildDrafts(view.rows, columns, mapping, mapping.dateFormat);
-  if (!Array.isArray(drafts)) return failed(input.fileName, drafts.line, drafts.reason);
+  if (!Array.isArray(drafts)) return buildParseFailure(input.fileName, drafts.line, drafts.reason);
 
   const assignments = await assignDedupeKeys(
     drafts.map((draft) => ({

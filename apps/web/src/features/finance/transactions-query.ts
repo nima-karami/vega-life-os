@@ -147,17 +147,20 @@ export function queryFinanceTransactions(
   return transactions
     .filter((txn) => matchesFilters(txn, filters, needle))
     .sort((left, right) => {
-      const ranked = compareOnColumn(left, right, sort.column, nameOf);
-      return ranked !== 0 ? ranked * direction : compareCodePoints(left.id, right.id);
+      const rankedOrder = compareOnColumn(left, right, sort.column, nameOf);
+      return rankedOrder !== 0 ? rankedOrder * direction : compareCodePoints(left.id, right.id);
     });
 }
 
 /** Shift-click: everything between the anchor and the row just clicked, inclusive. */
 export function selectIdRange(orderedIds: string[], anchorId: string, targetId: string): string[] {
-  const from = orderedIds.indexOf(anchorId);
-  const to = orderedIds.indexOf(targetId);
-  if (from < 0 || to < 0) return [targetId];
-  return orderedIds.slice(Math.min(from, to), Math.max(from, to) + 1);
+  const anchorIndex = orderedIds.indexOf(anchorId);
+  const targetIndex = orderedIds.indexOf(targetId);
+  if (anchorIndex < 0 || targetIndex < 0) return [targetId];
+  return orderedIds.slice(
+    Math.min(anchorIndex, targetIndex),
+    Math.max(anchorIndex, targetIndex) + 1,
+  );
 }
 
 /** Which statement document a row came from — the owner's stated provenance requirement. */
@@ -166,6 +169,6 @@ export function describeProvenance(txn: FinanceTransaction, batches: FinanceImpo
   if (txn.source === "manual") return `Added by hand · ${enteredBy}`;
   const batch = batches.find((entry) => entry.id === txn.importBatchId);
   const file = batch?.fileNames[0] ?? "an unnamed file";
-  const row = txn.sourceRowNumber === null ? "" : `, row ${txn.sourceRowNumber}`;
-  return `Imported from ${file}${row} · ${enteredBy}`;
+  const rowSuffix = txn.sourceRowNumber === null ? "" : `, row ${txn.sourceRowNumber}`;
+  return `Imported from ${file}${rowSuffix} · ${enteredBy}`;
 }

@@ -8,7 +8,6 @@ export interface FinanceRowItem {
   trailing?: ReactNode;
 }
 
-/** The list container the finance surfaces share, so a row reads the same on every page. */
 export function FinanceRowList({ rows }: { rows: FinanceRowItem[] }) {
   return (
     <ul className="mt-4 divide-y divide-border rounded-[16px] border border-border bg-surface">

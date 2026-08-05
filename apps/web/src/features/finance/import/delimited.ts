@@ -1,4 +1,4 @@
-import { detectHasHeaderRow } from "./table";
+import { hasHeaderRow } from "./table";
 import type { TableData, TableRow } from "./types";
 
 export type DelimitedSeparator = "," | "\t";
@@ -22,7 +22,7 @@ export function detectSeparator(text: string): DelimitedSeparator {
   return tabs > commas ? "\t" : ",";
 }
 
-interface Scan {
+interface ScanState {
   records: TableRow[];
   cells: string[];
   field: string;
@@ -31,12 +31,12 @@ interface Scan {
   startLine: number;
 }
 
-function closeField(scan: Scan) {
+function closeField(scan: ScanState) {
   scan.cells.push(scan.field.trim());
   scan.field = "";
 }
 
-function closeRecord(scan: Scan) {
+function closeRecord(scan: ScanState) {
   closeField(scan);
   if (scan.cells.some((cell) => cell !== "")) {
     scan.records.push({ cells: scan.cells, line: scan.startLine });
@@ -46,7 +46,7 @@ function closeRecord(scan: Scan) {
 }
 
 /** Consumes one character inside a quoted field; returns how many characters it used. */
-function readQuoted(scan: Scan, char: string, next: string | undefined): number {
+function readQuoted(scan: ScanState, char: string, next: string | undefined): number {
   if (char === '"' && next === '"') {
     scan.field += '"';
     return 2;
@@ -60,7 +60,7 @@ function readQuoted(scan: Scan, char: string, next: string | undefined): number 
   return 1;
 }
 
-function readPlain(scan: Scan, char: string, separator: DelimitedSeparator) {
+function readPlain(scan: ScanState, char: string, separator: DelimitedSeparator) {
   if (char === '"' && scan.field === "") scan.inQuotes = true;
   else if (char === separator) closeField(scan);
   else if (char === "\n") {
@@ -72,7 +72,14 @@ function readPlain(scan: Scan, char: string, separator: DelimitedSeparator) {
 /** RFC 4180: quoted fields may hold the separator, newlines, and `""`-escaped quotes. */
 function readRecords(text: string, separator: DelimitedSeparator): TableRow[] {
   const source = stripBom(text);
-  const scan: Scan = { records: [], cells: [], field: "", inQuotes: false, line: 1, startLine: 1 };
+  const scan: ScanState = {
+    records: [],
+    cells: [],
+    field: "",
+    inQuotes: false,
+    line: 1,
+    startLine: 1,
+  };
   let index = 0;
   while (index < source.length) {
     if (scan.inQuotes) index += readQuoted(scan, source[index], source[index + 1]);
@@ -85,8 +92,7 @@ function readRecords(text: string, separator: DelimitedSeparator): TableRow[] {
   return scan.records;
 }
 
-/** CSV or TSV text to source records; UTF-8 BOM, CRLF and LF all accepted. */
 export function parseDelimitedTable(text: string, separator?: DelimitedSeparator): TableData {
   const records = readRecords(text, separator ?? detectSeparator(text));
-  return { records, hasHeaderRow: detectHasHeaderRow(records) };
+  return { records, hasHeaderRow: hasHeaderRow(records) };
 }

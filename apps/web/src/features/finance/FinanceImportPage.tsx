@@ -32,8 +32,8 @@ export function FinanceImportPage() {
   const account =
     openAccounts.find((candidate) => candidate.id === chosenAccountId) ?? openAccounts[0] ?? null;
 
-  const flow = useStatementImport(account);
-  const { phase } = flow;
+  const statementImport = useStatementImport(account);
+  const { phase } = statementImport;
 
   const staged = phase.status === "preview" ? phase.staged : null;
 
@@ -81,9 +81,9 @@ export function FinanceImportPage() {
           accountId={account.id}
           onAccountChange={(id) => {
             setChosenAccountId(id);
-            flow.reset();
+            statementImport.reset();
           }}
-          onFiles={flow.openFiles}
+          onFiles={statementImport.openFiles}
           isDisabled={
             isBlockedOffline || phase.status === "parsing" || phase.status === "committing"
           }
@@ -96,7 +96,7 @@ export function FinanceImportPage() {
       )}
 
       <FinanceImportPhasePanel
-        flow={flow}
+        flow={statementImport}
         accountName={account?.displayName ?? ""}
         mismatch={findAccountMismatch(staged?.statement.rows ?? [], accountPatterns)}
         priorImport={staged ? findPriorImport(staged.fileHash, staged.batchId, batches) : null}
@@ -109,8 +109,8 @@ export function FinanceImportPage() {
           table={phase.source.table}
           initial={account.columnMapping}
           retryReason={phase.retryReason}
-          onCancel={flow.reset}
-          onConfirm={flow.confirmMapping}
+          onCancel={statementImport.reset}
+          onConfirm={statementImport.confirmMapping}
         />
       )}
 

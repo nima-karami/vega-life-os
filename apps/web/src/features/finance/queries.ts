@@ -40,13 +40,14 @@ export interface FinanceQueryOptions {
   includeBusiness?: boolean;
 }
 
-const monthStart = (month: string) => parseISO(`${month}-01`);
+const computeMonthStart = (month: string) => parseISO(`${month}-01`);
 
-const spreadMonthsOf = (txn: FinanceTransaction) => Math.max(1, Math.trunc(txn.spreadMonths));
-const shareBpsOf = (txn: FinanceTransaction) => (txn.isHousehold ? txn.myShareBps : FULL_SHARE_BPS);
+const getSpreadMonths = (txn: FinanceTransaction) => Math.max(1, Math.trunc(txn.spreadMonths));
+const getShareBps = (txn: FinanceTransaction) =>
+  txn.isHousehold ? txn.myShareBps : FULL_SHARE_BPS;
 
 /** Money out is negative on the row; every derived spend figure is a positive magnitude. */
-const borneCents = (txn: FinanceTransaction) => -txn.amountCents;
+const computeBorneCents = (txn: FinanceTransaction) => -txn.amountCents;
 
 /**
  * Non-internal rows on accounts that count towards the owner's personal figures. Partner-paid
@@ -75,9 +76,12 @@ const selectCategoryIdsOfKind = (book: FinanceBook, kind: FinanceCategory["kind"
 const isInMonth = (txn: FinanceTransaction, month: string) => monthOfISO(txn.txnDate) === month;
 
 /** How many months after its own a row is recognised in; -1 once it is out of the schedule. */
-function recognitionOffset(txn: FinanceTransaction, month: string): number {
-  const offset = differenceInCalendarMonths(monthStart(month), monthStart(monthOfISO(txn.txnDate)));
-  return offset >= 0 && offset < spreadMonthsOf(txn) ? offset : -1;
+function computeRecognitionOffset(txn: FinanceTransaction, month: string): number {
+  const offset = differenceInCalendarMonths(
+    computeMonthStart(month),
+    computeMonthStart(monthOfISO(txn.txnDate)),
+  );
+  return offset >= 0 && offset < getSpreadMonths(txn) ? offset : -1;
 }
 
 /**
@@ -85,8 +89,8 @@ function recognitionOffset(txn: FinanceTransaction, month: string): number {
  * remainder an even split leaves over lands on the first month rather than going missing.
  */
 function recogniseInstalment(txn: FinanceTransaction, offset: number): CentsFraction {
-  const borne = computeShareFraction(borneCents(txn), shareBpsOf(txn));
-  const spread = spreadMonthsOf(txn);
+  const borne = computeShareFraction(computeBorneCents(txn), getShareBps(txn));
+  const spread = getSpreadMonths(txn);
   if (spread === 1) return borne;
   const instalment = fromCents(roundToCents(scaleCentsFraction(borne, 1n, BigInt(spread))));
   if (offset > 0) return instalment;
@@ -104,7 +108,7 @@ function sumBorneSpendByCategory(
   for (const txn of selectPersonalRows(book, options)) {
     const categoryId = txn.categoryId;
     if (categoryId === null || !spendCategoryIds.has(categoryId)) continue;
-    const offset = recognitionOffset(txn, month);
+    const offset = computeRecognitionOffset(txn, month);
     if (offset < 0) continue;
     const total = totals.get(categoryId) ?? ZERO_CENTS;
     totals.set(categoryId, addCentsFractions(total, recogniseInstalment(txn, offset)));
@@ -186,7 +190,7 @@ const selectHouseholdRows = (book: FinanceBook, month: string) =>
 function sumTrueShare(rows: FinanceTransaction[]): CentsFraction {
   let total = ZERO_CENTS;
   for (const txn of rows) {
-    total = addCentsFractions(total, computeShareFraction(borneCents(txn), txn.myShareBps));
+    total = addCentsFractions(total, computeShareFraction(computeBorneCents(txn), txn.myShareBps));
   }
   return total;
 }
@@ -222,7 +226,7 @@ export function computeSettlementBalance(book: FinanceBook, month: string): numb
 }
 
 function countElapsedDays(month: string, asOf: Date, daysInMonth: number): number {
-  const offset = differenceInCalendarMonths(asOf, monthStart(month));
+  const offset = differenceInCalendarMonths(asOf, computeMonthStart(month));
   if (offset !== 0) return daysInMonth;
   return Math.min(Math.max(getDate(asOf), 1), daysInMonth);
 }
@@ -243,7 +247,7 @@ export function computeMonthSpend(
   asOf: Date,
   options: FinanceQueryOptions = {},
 ): Map<string, CategorySpend> {
-  const daysInMonth = getDaysInMonth(monthStart(month));
+  const daysInMonth = getDaysInMonth(computeMonthStart(month));
   const elapsed = countElapsedDays(month, asOf, daysInMonth);
   const figures = new Map<string, CategorySpend>();
   for (const [categoryId, total] of sumBorneSpendByCategory(book, month, options)) {

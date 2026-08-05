@@ -7,8 +7,7 @@ export interface StatementLayout {
   mapping: FinanceColumnMapping;
 }
 
-/** Case- and whitespace-insensitive header fingerprint; trailing empty columns are ignored. */
-export function headerSignature(headers: readonly string[]): string {
+export function buildHeaderSignature(headers: readonly string[]): string {
   const normalized = headers.map((header) => header.trim().toLowerCase().replace(/\s+/g, " "));
   while (normalized.length > 0 && normalized[normalized.length - 1] === "") normalized.pop();
   return normalized.join("|");
@@ -23,7 +22,7 @@ function defineLayout(
   return {
     id,
     label,
-    signature: headerSignature(headers),
+    signature: buildHeaderSignature(headers),
     mapping: { ...mapping, debitColumn: null, creditColumn: null },
   };
 }
@@ -63,11 +62,11 @@ const STATEMENT_LAYOUTS: StatementLayout[] = [
 ];
 
 export const detectLayout = (headers: readonly string[]): StatementLayout | null => {
-  const signature = headerSignature(headers);
+  const signature = buildHeaderSignature(headers);
   return STATEMENT_LAYOUTS.find((layout) => layout.signature === signature) ?? null;
 };
 
-const namedColumns = (mapping: FinanceColumnMapping) => [
+const listNamedColumns = (mapping: FinanceColumnMapping) => [
   mapping.dateColumn,
   mapping.descriptionColumn,
   mapping.amountColumn,
@@ -80,10 +79,14 @@ export function isMappingApplicable(
   mapping: FinanceColumnMapping,
   headers: readonly string[],
 ): boolean {
-  const present = new Set(headers.map((header) => header.trim().toLowerCase()));
-  const named = namedColumns(mapping).filter((column): column is string => column !== null);
+  const presentHeaders = new Set(headers.map((header) => header.trim().toLowerCase()));
+  const namedColumns = listNamedColumns(mapping).filter(
+    (column): column is string => column !== null,
+  );
   const hasAmount = mapping.amountColumn !== null || mapping.debitColumn !== null;
-  return hasAmount && named.every((column) => present.has(column.trim().toLowerCase()));
+  return (
+    hasAmount && namedColumns.every((column) => presentHeaders.has(column.trim().toLowerCase()))
+  );
 }
 
 export interface ResolvedMapping {

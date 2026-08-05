@@ -49,18 +49,19 @@ export const selectCategoryReferences = (
  * Budgets are deliberately out: they are the owner's intent, not history, so a category budgeted
  * but never spent against is still safe to hard-delete — the delete just takes its budgets with it.
  */
-export const isCategoryReferenced = (refs: CategoryReferences): boolean =>
-  refs.transactions.length > 0 || refs.merchants.length > 0;
+export const isCategoryReferenced = (references: CategoryReferences): boolean =>
+  references.transactions.length > 0 || references.merchants.length > 0;
 
 /** "42 transactions and 2 merchant defaults" — the phrase both destructive dialogs promise. */
-export function describeCategoryReferences(refs: CategoryReferences): string {
-  const parts = [pluralize(refs.transactions.length, "transaction")];
-  if (refs.merchants.length > 0) parts.push(pluralize(refs.merchants.length, "merchant default"));
+export function describeCategoryReferences(references: CategoryReferences): string {
+  const parts = [pluralize(references.transactions.length, "transaction")];
+  if (references.merchants.length > 0)
+    parts.push(pluralize(references.merchants.length, "merchant default"));
   return parts.join(" and ");
 }
 
 /** Merge never adds two budgets together, so the source's own rows go rather than move. */
-export function describeDroppedBudgets(refs: CategoryReferences): string | null {
-  if (refs.budgets.length === 0) return null;
-  return `Removes ${pluralize(refs.budgets.length, "monthly budget")} set on it — merge never adds two budgets together.`;
+export function describeDroppedBudgets(references: CategoryReferences): string | null {
+  if (references.budgets.length === 0) return null;
+  return `Removes ${pluralize(references.budgets.length, "monthly budget")} set on it — merge never adds two budgets together.`;
 }

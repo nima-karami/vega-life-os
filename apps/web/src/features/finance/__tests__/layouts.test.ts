@@ -1,6 +1,6 @@
 import type { FinanceColumnMapping } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { detectLayout, headerSignature, isMappingApplicable } from "../import/layouts";
+import { buildHeaderSignature, detectLayout, isMappingApplicable } from "../import/layouts";
 
 const RBC_HEADERS = [
   "Account Type",
@@ -23,13 +23,13 @@ const paired: FinanceColumnMapping = {
   hasHeaderRow: true,
 };
 
-describe("headerSignature", () => {
+describe("buildHeaderSignature", () => {
   it("ignores case, padding and trailing empty columns", () => {
-    expect(headerSignature([" Date ", "AMOUNT", ""])).toBe("date|amount");
+    expect(buildHeaderSignature([" Date ", "AMOUNT", ""])).toBe("date|amount");
   });
 
   it("collapses runs of whitespace inside a header", () => {
-    expect(headerSignature(["Transaction   Date"])).toBe("transaction date");
+    expect(buildHeaderSignature(["Transaction   Date"])).toBe("transaction date");
   });
 });
 

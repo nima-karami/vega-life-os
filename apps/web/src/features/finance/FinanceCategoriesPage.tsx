@@ -7,7 +7,7 @@ import { CategoryBudgetMeter } from "./CategoryBudgetMeter";
 import { CategoryDeleteModal } from "./CategoryDeleteModal";
 import { CategoryEditorModal } from "./CategoryEditorModal";
 import { CategoryMergeModal } from "./CategoryMergeModal";
-import { indexCategoryReferences, NO_CATEGORY_REFERENCES } from "./category-refs";
+import { indexCategoryReferences, NO_CATEGORY_REFERENCES } from "./category-references";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
 import { type FinanceRowItem, FinanceRowList } from "./FinanceRowList";
 import { formatCents } from "./money";
@@ -55,11 +55,13 @@ export function FinanceCategoriesPage() {
     return counts;
   }, [financeTransactions, month]);
 
-  const sorted = useMemo(
+  const sortedCategories = useMemo(
     () => [...financeCategories].sort((left, right) => left.order - right.order),
     [financeCategories],
   );
-  const matching = sorted.filter((category) => kind === "all" || category.kind === kind);
+  const matchingCategories = sortedCategories.filter(
+    (category) => kind === "all" || category.kind === kind,
+  );
 
   const archive = (category: FinanceCategory, archived: boolean) => {
     updateFinanceCategory(category.id, { archivedAt: archived ? new Date().toISOString() : null });
@@ -67,7 +69,7 @@ export function FinanceCategoriesPage() {
   };
 
   const buildRow = (category: FinanceCategory): FinanceRowItem => {
-    const refs = references.get(category.id) ?? NO_CATEGORY_REFERENCES;
+    const categoryReferences = references.get(category.id) ?? NO_CATEGORY_REFERENCES;
     const isArchived = category.archivedAt !== null;
     const menuItems: MenuItem[] = [
       { label: "Edit", icon: "edit", onSelect: () => setEditing({ category }) },
@@ -83,7 +85,7 @@ export function FinanceCategoriesPage() {
     return {
       id: category.id,
       label: category.name || "(unnamed)",
-      meta: pluralize(refs.transactions.length, "transaction"),
+      meta: pluralize(categoryReferences.transactions.length, "transaction"),
       trailing: (
         <>
           {isArchived && <Tag>Archived</Tag>}
@@ -110,8 +112,8 @@ export function FinanceCategoriesPage() {
   // Archived stays on the page in any month it still has rows — it only leaves the pickers.
   const isRetired = (category: FinanceCategory) =>
     category.archivedAt !== null && (monthRowCounts.get(category.id) ?? 0) === 0;
-  const listed = matching.filter((category) => !isRetired(category));
-  const retired = matching.filter(isRetired);
+  const listedCategories = matchingCategories.filter((category) => !isRetired(category));
+  const retiredCategories = matchingCategories.filter(isRetired);
 
   const spendCategories = financeCategories.filter((category) => category.kind === "spend");
   const totalSpend = spendCategories.reduce(
@@ -123,9 +125,13 @@ export function FinanceCategoriesPage() {
     0,
   );
 
-  const merging = mergingId ? (financeCategories.find((c) => c.id === mergingId) ?? null) : null;
-  const deleting = deletingId ? (financeCategories.find((c) => c.id === deletingId) ?? null) : null;
-  const newCategory = (
+  const mergingCategory = mergingId
+    ? (financeCategories.find((category) => category.id === mergingId) ?? null)
+    : null;
+  const deletingCategory = deletingId
+    ? (financeCategories.find((category) => category.id === deletingId) ?? null)
+    : null;
+  const newCategoryButton = (
     <Button solid icon="plus" onPress={() => setEditing({ category: null })}>
       New category
     </Button>
@@ -137,7 +143,7 @@ export function FinanceCategoriesPage() {
         title="Categories"
         subtitle="Your own categories, each with a budget you can set month by month."
         summary={`${financeCategories.length} categories · ${formatCents(totalSpend)} of ${formatCents(totalBudget)} budgeted`}
-        action={newCategory}
+        action={newCategoryButton}
         chips={{
           label: "Filter categories",
           options: KIND_FILTERS,
@@ -149,18 +155,18 @@ export function FinanceCategoriesPage() {
         empty={{
           title: "No categories yet",
           body: "Categories are yours to name — start with the handful you actually budget against.",
-          cta: newCategory,
+          cta: newCategoryButton,
         }}
-        hasNoMatches={matching.length === 0}
+        hasNoMatches={matchingCategories.length === 0}
         noMatches={{
           title: "No categories match these filters",
           body: "Nothing is filed under that kind yet.",
         }}
       >
-        {listed.length > 0 && <FinanceRowList rows={listed.map(buildRow)} />}
+        {listedCategories.length > 0 && <FinanceRowList rows={listedCategories.map(buildRow)} />}
         {/* Building the archived rows behind the gate keeps their meters out of a collapsed page. */}
-        <Disclosure label="archived" count={retired.length} onToggle={setIsArchivedOpen}>
-          {isArchivedOpen && <FinanceRowList rows={retired.map(buildRow)} />}
+        <Disclosure label="archived" count={retiredCategories.length} onToggle={setIsArchivedOpen}>
+          {isArchivedOpen && <FinanceRowList rows={retiredCategories.map(buildRow)} />}
         </Disclosure>
       </PageShell>
 
@@ -173,27 +179,27 @@ export function FinanceCategoriesPage() {
           onClose={() => setEditing(null)}
         />
       )}
-      {merging && (
+      {mergingCategory && (
         <CategoryMergeModal
-          source={merging}
+          source={mergingCategory}
           targets={financeCategories.filter(
-            (category) => category.id !== merging.id && category.archivedAt === null,
+            (category) => category.id !== mergingCategory.id && category.archivedAt === null,
           )}
-          references={references.get(merging.id) ?? NO_CATEGORY_REFERENCES}
+          references={references.get(mergingCategory.id) ?? NO_CATEGORY_REFERENCES}
           onClose={() => setMergingId(null)}
         />
       )}
-      {deleting && (
+      {deletingCategory && (
         <CategoryDeleteModal
-          category={deleting}
-          references={references.get(deleting.id) ?? NO_CATEGORY_REFERENCES}
+          category={deletingCategory}
+          references={references.get(deletingCategory.id) ?? NO_CATEGORY_REFERENCES}
           onArchive={() => {
-            archive(deleting, true);
+            archive(deletingCategory, true);
             setDeletingId(null);
           }}
           onMerge={() => {
             setDeletingId(null);
-            setMergingId(deleting.id);
+            setMergingId(deletingCategory.id);
           }}
           onClose={() => setDeletingId(null)}
         />

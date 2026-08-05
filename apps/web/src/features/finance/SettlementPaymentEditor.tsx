@@ -22,7 +22,8 @@ export interface SettlementPayment {
 }
 
 /** Signed toward the balance, so discharging a debt the owner owes records a negative payment. */
-const directionOf = (figures: SettlementFigures) => (figures.headlineBalanceCents < 0 ? -1 : 1);
+const computePaymentDirection = (figures: SettlementFigures) =>
+  figures.headlineBalanceCents < 0 ? -1 : 1;
 
 /**
  * Records what actually moved, not what was owed — real payments arrive short, rounded, or in two
@@ -41,16 +42,16 @@ export function SettlementPaymentEditor({
   onClose: () => void;
   onSave: (payment: SettlementPayment) => void;
 }) {
-  const direction = directionOf(figures);
+  const direction = computePaymentDirection(figures);
   // A settled month with nothing outstanding is being corrected, so offer the figure it settled at.
   const suggestedCents =
     figures.outstandingCents !== 0 ? figures.outstandingCents : figures.headlineBalanceCents;
-  const [amount, setAmount] = useState(() => formatCentsPlain(Math.abs(suggestedCents)));
+  const [amountInput, setAmountInput] = useState(() => formatCentsPlain(Math.abs(suggestedCents)));
   const [isTouched, setIsTouched] = useState(false);
   const [paidAt, setPaidAt] = useState<string | null>(todayISO());
   const [linkedId, setLinkedId] = useState(NONE);
 
-  const magnitudeCents = parseAmountCents(amount);
+  const magnitudeCents = parseAmountCents(amountInput);
   const isValid = magnitudeCents !== null && magnitudeCents > 0 && paidAt !== null;
   const paidCents = magnitudeCents === null ? 0 : direction * Math.abs(magnitudeCents);
   const residualCents = figures.headlineBalanceCents - paidCents;
@@ -63,7 +64,7 @@ export function SettlementPaymentEditor({
     },
   });
 
-  const submit = () => {
+  const handleSave = () => {
     if (!isValid || paidAt === null) return;
     onSave({ paidCents, paidAt, paymentTransactionId: linkedId === NONE ? null : linkedId });
   };
@@ -87,10 +88,10 @@ export function SettlementPaymentEditor({
                   type="text"
                   inputMode="decimal"
                   aria-label="Payment amount"
-                  value={amount}
+                  value={amountInput}
                   onChange={(event) => {
                     setIsTouched(true);
-                    setAmount(event.target.value);
+                    setAmountInput(event.target.value);
                   }}
                   className={`${FIELD_CLASS} tabular-nums`}
                 />
@@ -130,7 +131,7 @@ export function SettlementPaymentEditor({
               <Button variant="ghost" onPress={onClose}>
                 Cancel
               </Button>
-              <Button variant="primary" isDisabled={!isValid} onPress={submit}>
+              <Button variant="primary" isDisabled={!isValid} onPress={handleSave}>
                 Record payment
               </Button>
             </Modal.Footer>

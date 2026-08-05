@@ -1,6 +1,6 @@
 import type { FinanceColumnMapping } from "@vega/shared";
 import { detectLayout, isMappingApplicable, type ResolvedMapping } from "./layouts";
-import { viewTable } from "./table";
+import { buildTableView } from "./table";
 import type { TableData, TableView } from "./types";
 
 export interface StatementView {
@@ -13,21 +13,21 @@ export interface StatementView {
  * misreading a real first transaction as headers loses it silently, while the opposite
  * fails loudly on the date.
  */
-const preferredHeaderRow = (table: TableData, accountMapping: FinanceColumnMapping | null) =>
+const shouldUseHeaderRow = (table: TableData, accountMapping: FinanceColumnMapping | null) =>
   (accountMapping?.hasHeaderRow ?? table.hasHeaderRow) && table.hasHeaderRow;
 
 export function resolveStatementView(
   table: TableData,
   accountMapping: FinanceColumnMapping | null,
 ): StatementView {
-  const preferred = viewTable(table, preferredHeaderRow(table, accountMapping));
-  if (accountMapping && isMappingApplicable(accountMapping, preferred.headers)) {
-    return { view: preferred, resolved: { mapping: accountMapping, layoutId: null } };
+  const preferredView = buildTableView(table, shouldUseHeaderRow(table, accountMapping));
+  if (accountMapping && isMappingApplicable(accountMapping, preferredView.headers)) {
+    return { view: preferredView, resolved: { mapping: accountMapping, layoutId: null } };
   }
-  const headered = viewTable(table, true);
-  const layout = detectLayout(headered.headers);
+  const headeredView = buildTableView(table, true);
+  const layout = detectLayout(headeredView.headers);
   if (layout) {
-    return { view: headered, resolved: { mapping: layout.mapping, layoutId: layout.id } };
+    return { view: headeredView, resolved: { mapping: layout.mapping, layoutId: layout.id } };
   }
-  return { view: preferred, resolved: null };
+  return { view: preferredView, resolved: null };
 }

@@ -12,37 +12,37 @@ export type SettlementAction = "settle" | "resettle" | "carry" | "pay" | "reopen
 export function SettlementActions({
   figures,
   nextOpenMonth,
-  onAct,
+  onSelectAction,
 }: {
   figures: SettlementFigures;
   nextOpenMonth: string;
-  onAct: (action: SettlementAction) => void;
+  onSelectAction: (action: SettlementAction) => void;
 }) {
   const isOpen = figures.phase === "open";
   return (
     <div className="flex flex-wrap items-center gap-2">
       {isOpen && figures.householdRowCount > 0 && (
-        <Button solid icon="handshake" onPress={() => onAct("settle")}>
+        <Button solid icon="handshake" onPress={() => onSelectAction("settle")}>
           Mark settled
         </Button>
       )}
       {figures.phase === "amended" && (
-        <Button solid icon="refresh-cw" onPress={() => onAct("resettle")}>
+        <Button solid icon="refresh-cw" onPress={() => onSelectAction("resettle")}>
           Re-settle
         </Button>
       )}
       {!isOpen && figures.outstandingCents !== 0 && (
-        <Button icon="send" onPress={() => onAct("carry")}>
+        <Button icon="send" onPress={() => onSelectAction("carry")}>
           Carry into {formatMonthLabel(nextOpenMonth)}
         </Button>
       )}
       {!isOpen && (
-        <Button icon="banknote" onPress={() => onAct("pay")}>
+        <Button icon="banknote" onPress={() => onSelectAction("pay")}>
           Record payment
         </Button>
       )}
       {!isOpen && (
-        <Button icon="edit" onPress={() => onAct("reopen")}>
+        <Button icon="edit" onPress={() => onSelectAction("reopen")}>
           Reopen for editing
         </Button>
       )}

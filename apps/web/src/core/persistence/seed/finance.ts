@@ -35,7 +35,7 @@ const TOOLWORKS_ID = "fmer_toolworks";
 const CHEQUING_BATCH_ID = "fbat_chequing";
 const CARD_BATCH_ID = "fbat_card";
 
-const account = (
+const buildAccount = (
   id: string,
   slug: string,
   displayName: string,
@@ -52,7 +52,7 @@ const account = (
   fieldUpdatedAt: {},
 });
 
-const category = (
+const buildCategory = (
   id: string,
   name: string,
   kind: FinanceCategory["kind"],
@@ -67,7 +67,7 @@ const category = (
   fieldUpdatedAt: {},
 });
 
-const budget = (categoryId: string, month: string, cents: number): FinanceBudget => ({
+const buildBudget = (categoryId: string, month: string, cents: number): FinanceBudget => ({
   id: `${categoryId}:${month}`,
   categoryId,
   month,
@@ -76,7 +76,7 @@ const budget = (categoryId: string, month: string, cents: number): FinanceBudget
   fieldUpdatedAt: {},
 });
 
-const merchant = (
+const buildMerchant = (
   id: string,
   pattern: string,
   displayName: string,
@@ -96,7 +96,7 @@ const merchant = (
   fieldUpdatedAt: {},
 });
 
-const importBatch = (
+const buildImportBatch = (
   id: string,
   accountId: string,
   fileName: string,
@@ -119,7 +119,7 @@ const importBatch = (
   fieldUpdatedAt: {},
 });
 
-const transaction = (
+const buildTransaction = (
   id: string,
   txnDate: string,
   description: string,
@@ -156,7 +156,7 @@ const transaction = (
   ...patch,
 });
 
-const settlement = (
+const buildSettlement = (
   month: string,
   status: FinanceSettlement["status"],
   patch: Partial<FinanceSettlement> = {},
@@ -178,35 +178,41 @@ const settlement = (
 
 /**
  * Synthetic sandbox data only — real financial data never enters the repo. Anchored
- * to `ref` so the demo never rots: the month two back is settled, everything since is
+ * to `referenceDate` so the demo never rots: the month two back is settled, everything since is
  * open. Deliberately covers the shapes the finance screens have to render — a
  * partner-paid row, an internal-transfer pair, an unknown merchant awaiting review, a
  * 50/50 household split, and an annual charge spread over twelve months.
  */
-export function buildFinance(ref: Date): FinanceSeed {
-  const settledStart = startOfMonth(subMonths(ref, 2));
+export function buildFinance(referenceDate: Date): FinanceSeed {
+  const settledStart = startOfMonth(subMonths(referenceDate, 2));
   const settledMonth = format(settledStart, "yyyy-MM");
-  const openMonth = format(subMonths(ref, 1), "yyyy-MM");
-  const currentMonth = format(ref, "yyyy-MM");
-  const importedOn = iso(addDays(ref, -2));
+  const openMonth = format(subMonths(referenceDate, 1), "yyyy-MM");
+  const currentMonth = format(referenceDate, "yyyy-MM");
+  const importedOn = iso(addDays(referenceDate, -2));
 
   const transactions = [
-    transaction("ftxn_rent", iso(addDays(settledStart, 1)), "PROPERTY MGMT — RENT", -200000, {
+    buildTransaction("ftxn_rent", iso(addDays(settledStart, 1)), "PROPERTY MGMT — RENT", -200000, {
       dedupeKey: "7f3a1c02d4e59b60:0",
       categoryId: HOME_ID,
       isHousehold: true,
       myShareBps: 5000,
       sourceRowNumber: 1,
     }),
-    transaction("ftxn_market_settled", iso(addDays(settledStart, 6)), "GREEN MARKET #114", -14250, {
-      dedupeKey: "b18e57ac902f4d31:0",
-      categoryId: GROCERIES_ID,
-      merchantId: MARKET_ID,
-      isHousehold: true,
-      myShareBps: 5000,
-      sourceRowNumber: 2,
-    }),
-    transaction(
+    buildTransaction(
+      "ftxn_market_settled",
+      iso(addDays(settledStart, 6)),
+      "GREEN MARKET #114",
+      -14250,
+      {
+        dedupeKey: "b18e57ac902f4d31:0",
+        categoryId: GROCERIES_ID,
+        merchantId: MARKET_ID,
+        isHousehold: true,
+        myShareBps: 5000,
+        sourceRowNumber: 2,
+      },
+    ),
+    buildTransaction(
       "ftxn_bistro_settled",
       iso(addDays(settledStart, 12)),
       "Corner Bistro dinner",
@@ -224,93 +230,135 @@ export function buildFinance(ref: Date): FinanceSeed {
         note: "Her card — split evenly",
       },
     ),
-    transaction("ftxn_salary", iso(addDays(ref, -25)), "PAYROLL DEPOSIT — ACMEWORKS", 480000, {
-      dedupeKey: "2c4419fd6a03e785:0",
-      categoryId: INCOME_ID,
-      sourceRowNumber: 3,
-    }),
-    transaction("ftxn_licence", iso(addDays(ref, -20)), "TOOLWORKS LICENCE ANNUAL", -36000, {
-      dedupeKey: "9ab6035ec71d4820:0",
-      accountId: CARD_ID,
-      spreadMonths: 12,
-      categoryId: SOFTWARE_ID,
-      merchantId: TOOLWORKS_ID,
-      importBatchId: CARD_BATCH_ID,
-      sourceRowNumber: 1,
-    }),
-    transaction("ftxn_transfer_out", iso(addDays(ref, -9)), "TRANSFER TO REWARDS CARD", -50000, {
-      dedupeKey: "5d720ea4cb18f396:0",
-      isInternal: true,
-      reviewFlags: ["auto-internal"],
-      resolvedFlags: ["auto-internal"],
-      sourceRowNumber: 4,
-    }),
-    transaction("ftxn_transfer_in", iso(addDays(ref, -8)), "PAYMENT RECEIVED — THANK YOU", 50000, {
-      dedupeKey: "e60c8b1379af245d:0",
-      accountId: CARD_ID,
-      isInternal: true,
-      importBatchId: CARD_BATCH_ID,
-      reviewFlags: ["auto-internal"],
-      resolvedFlags: ["auto-internal"],
-      sourceRowNumber: 2,
-    }),
-    transaction("ftxn_market_recent", iso(addDays(ref, -12)), "GREEN MARKET #114", -9875, {
-      dedupeKey: "3f812d0b6e5a97c4:0",
-      categoryId: GROCERIES_ID,
-      merchantId: MARKET_ID,
-      isHousehold: true,
-      myShareBps: 5000,
-      sourceRowNumber: 5,
-    }),
+    buildTransaction(
+      "ftxn_salary",
+      iso(addDays(referenceDate, -25)),
+      "PAYROLL DEPOSIT — ACMEWORKS",
+      480000,
+      {
+        dedupeKey: "2c4419fd6a03e785:0",
+        categoryId: INCOME_ID,
+        sourceRowNumber: 3,
+      },
+    ),
+    buildTransaction(
+      "ftxn_licence",
+      iso(addDays(referenceDate, -20)),
+      "TOOLWORKS LICENCE ANNUAL",
+      -36000,
+      {
+        dedupeKey: "9ab6035ec71d4820:0",
+        accountId: CARD_ID,
+        spreadMonths: 12,
+        categoryId: SOFTWARE_ID,
+        merchantId: TOOLWORKS_ID,
+        importBatchId: CARD_BATCH_ID,
+        sourceRowNumber: 1,
+      },
+    ),
+    buildTransaction(
+      "ftxn_transfer_out",
+      iso(addDays(referenceDate, -9)),
+      "TRANSFER TO REWARDS CARD",
+      -50000,
+      {
+        dedupeKey: "5d720ea4cb18f396:0",
+        isInternal: true,
+        reviewFlags: ["auto-internal"],
+        resolvedFlags: ["auto-internal"],
+        sourceRowNumber: 4,
+      },
+    ),
+    buildTransaction(
+      "ftxn_transfer_in",
+      iso(addDays(referenceDate, -8)),
+      "PAYMENT RECEIVED — THANK YOU",
+      50000,
+      {
+        dedupeKey: "e60c8b1379af245d:0",
+        accountId: CARD_ID,
+        isInternal: true,
+        importBatchId: CARD_BATCH_ID,
+        reviewFlags: ["auto-internal"],
+        resolvedFlags: ["auto-internal"],
+        sourceRowNumber: 2,
+      },
+    ),
+    buildTransaction(
+      "ftxn_market_recent",
+      iso(addDays(referenceDate, -12)),
+      "GREEN MARKET #114",
+      -9875,
+      {
+        dedupeKey: "3f812d0b6e5a97c4:0",
+        categoryId: GROCERIES_ID,
+        merchantId: MARKET_ID,
+        isHousehold: true,
+        myShareBps: 5000,
+        sourceRowNumber: 5,
+      },
+    ),
     // No stored no-category flag: it derives from `categoryId === null && !isInternal`.
-    transaction("ftxn_unknown", iso(addDays(ref, -5)), "SQ *8231 VENDOR 4417", -4499, {
-      dedupeKey: "a057e93c2148bd6f:0",
-      accountId: CARD_ID,
-      importBatchId: CARD_BATCH_ID,
-      sourceRowNumber: 3,
-    }),
-    transaction("ftxn_market_partner", iso(addDays(ref, -3)), "Green Market — her run", -11200, {
-      accountId: null,
-      categoryId: GROCERIES_ID,
-      merchantId: MARKET_ID,
-      payer: "partner",
-      isHousehold: true,
-      myShareBps: 5000,
-      source: "manual",
-      enteredBy: "partner-reported",
-      importBatchId: null,
-    }),
+    buildTransaction(
+      "ftxn_unknown",
+      iso(addDays(referenceDate, -5)),
+      "SQ *8231 VENDOR 4417",
+      -4499,
+      {
+        dedupeKey: "a057e93c2148bd6f:0",
+        accountId: CARD_ID,
+        importBatchId: CARD_BATCH_ID,
+        sourceRowNumber: 3,
+      },
+    ),
+    buildTransaction(
+      "ftxn_market_partner",
+      iso(addDays(referenceDate, -3)),
+      "Green Market — her run",
+      -11200,
+      {
+        accountId: null,
+        categoryId: GROCERIES_ID,
+        merchantId: MARKET_ID,
+        payer: "partner",
+        isHousehold: true,
+        myShareBps: 5000,
+        source: "manual",
+        enteredBy: "partner-reported",
+        importBatchId: null,
+      },
+    ),
   ];
 
   return {
     financeAccounts: [
-      account(CHEQUING_ID, "demo-chequing", "Everyday chequing", "chequing"),
-      account(CARD_ID, "demo-card", "Rewards card", "credit_card"),
+      buildAccount(CHEQUING_ID, "demo-chequing", "Everyday chequing", "chequing"),
+      buildAccount(CARD_ID, "demo-card", "Rewards card", "credit_card"),
     ],
     financeCategories: [
-      category(GROCERIES_ID, "Groceries", "spend", 0),
-      category(DINING_ID, "Dining out", "spend", 1),
-      category(HOME_ID, "Home & rent", "spend", 2),
-      category(SOFTWARE_ID, "Software", "spend", 3),
-      category(INCOME_ID, "Salary", "income", 4),
+      buildCategory(GROCERIES_ID, "Groceries", "spend", 0),
+      buildCategory(DINING_ID, "Dining out", "spend", 1),
+      buildCategory(HOME_ID, "Home & rent", "spend", 2),
+      buildCategory(SOFTWARE_ID, "Software", "spend", 3),
+      buildCategory(INCOME_ID, "Salary", "income", 4),
     ],
     financeBudgets: [
-      budget(GROCERIES_ID, settledMonth, 50000),
-      budget(GROCERIES_ID, currentMonth, 55000),
-      budget(DINING_ID, settledMonth, 25000),
-      budget(HOME_ID, settledMonth, 200000),
-      budget(SOFTWARE_ID, settledMonth, 5000),
+      buildBudget(GROCERIES_ID, settledMonth, 50000),
+      buildBudget(GROCERIES_ID, currentMonth, 55000),
+      buildBudget(DINING_ID, settledMonth, 25000),
+      buildBudget(HOME_ID, settledMonth, 200000),
+      buildBudget(SOFTWARE_ID, settledMonth, 5000),
     ],
     financeMerchants: [
-      merchant(
+      buildMerchant(
         MARKET_ID,
         "GREEN MARKET",
         "Green Market",
         GROCERIES_ID,
         { timesSeen: 6, timesShared: 4 },
-        iso(addDays(ref, -3)),
+        iso(addDays(referenceDate, -3)),
       ),
-      merchant(
+      buildMerchant(
         BISTRO_ID,
         "CORNER BISTRO",
         "Corner Bistro",
@@ -318,24 +366,24 @@ export function buildFinance(ref: Date): FinanceSeed {
         { timesSeen: 3, timesShared: 1 },
         iso(addDays(settledStart, 12)),
       ),
-      merchant(
+      buildMerchant(
         TOOLWORKS_ID,
         "TOOLWORKS LICENCE",
         "Toolworks",
         SOFTWARE_ID,
         { timesSeen: 1, timesShared: 0, defaultSpreadMonths: 12 },
-        iso(addDays(ref, -20)),
+        iso(addDays(referenceDate, -20)),
       ),
     ],
     financeImportBatches: [
-      importBatch(
+      buildImportBatch(
         CHEQUING_BATCH_ID,
         CHEQUING_ID,
         "demo-chequing.csv",
         { parsed: 5, inserted: 5, skipped: 0 },
         importedOn,
       ),
-      importBatch(
+      buildImportBatch(
         CARD_BATCH_ID,
         CARD_ID,
         "demo-card.csv",
@@ -345,13 +393,13 @@ export function buildFinance(ref: Date): FinanceSeed {
     ],
     financeTransactions: transactions,
     financeSettlements: [
-      settlement(settledMonth, "settled", {
+      buildSettlement(settledMonth, "settled", {
         settledBalanceCents: 102825,
         settledAt: iso(addDays(settledStart, 33)),
         paidCents: 102825,
         paidAt: iso(addDays(settledStart, 34)),
       }),
-      settlement(openMonth, "open"),
+      buildSettlement(openMonth, "open"),
     ],
   };
 }
