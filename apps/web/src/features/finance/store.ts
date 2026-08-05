@@ -7,9 +7,14 @@ import type {
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
-import { type Dataset, PartialWriteError, persistence } from "@/core/persistence";
-import { setSandboxDirty } from "@/core/persistence/sandbox-meta";
-import { savePut, saveRemove } from "@/core/store/persist";
+import type { Dataset } from "@/core/persistence";
+import {
+  saveBulkPut,
+  saveBulkRemove,
+  savePut,
+  saveRemove,
+  type WriteRollback,
+} from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { selectCategoryReferences } from "./category-references";
 import { normalizeMerchant } from "./import/merchant";
@@ -58,6 +63,7 @@ export interface FinanceSlice {
   addFinanceBudget: (patch?: Partial<FinanceBudget>) => FinanceBudget;
   updateFinanceBudget: (id: string, patch: Partial<FinanceBudget>) => void;
   removeFinanceBudget: (id: string) => void;
+  removeFinanceBudgets: (ids: readonly string[]) => Promise<void>;
 
   addFinanceMerchant: (patch?: Partial<FinanceMerchant>) => FinanceMerchant;
   updateFinanceMerchant: (id: string, patch: Partial<FinanceMerchant>) => void;
@@ -70,6 +76,7 @@ export interface FinanceSlice {
   addFinanceTransaction: (patch?: Partial<FinanceTransaction>) => FinanceTransaction;
   updateFinanceTransaction: (id: string, patch: Partial<FinanceTransaction>) => void;
   removeFinanceTransaction: (id: string) => void;
+  removeFinanceTransactions: (ids: readonly string[]) => Promise<void>;
 
   addFinanceSettlement: (patch?: Partial<FinanceSettlement>) => FinanceSettlement;
   updateFinanceSettlement: (id: string, patch: Partial<FinanceSettlement>) => void;
@@ -80,7 +87,7 @@ export interface FinanceSlice {
   /** The same rule over a whole selection, in one batched write. */
   fileTransactions: (ids: readonly string[], patch: Partial<FinanceTransaction>) => Promise<void>;
   mergeFinanceCategories: (sourceId: string, targetId: string) => Promise<void>;
-  rollBackFinanceImport: (batchId: string) => void;
+  rollBackFinanceImport: (batchId: string) => Promise<void>;
   importFinanceTransactions: (input: FinanceImportInput) => Promise<FinanceImportOutcome>;
 }
 
@@ -102,9 +109,8 @@ interface FinanceCrud<C extends FinanceCollection> {
   add: (patch?: Partial<FinanceRow<C>>) => FinanceRow<C>;
   update: (id: string, patch: Partial<FinanceRow<C>>) => void;
   remove: (id: string) => void;
+  removeMany: (ids: readonly string[]) => Promise<void>;
 }
-
-const RETRY_MESSAGE = "Couldn’t save your change — check your connection";
 
 /**
  * The one optimistic-write path every finance collection shares. `add` is an upsert on the
@@ -142,6 +148,18 @@ function createFinanceCrud<C extends FinanceCollection>(
       commit(readRows().filter((row) => row.id !== id));
       saveRemove(collection, id, prior);
     },
+    removeMany: async (ids) => {
+      const rowById = new Map(readRows().map((row) => [row.id, row]));
+      const doomedIds = ids.filter((id) => rowById.has(id));
+      if (doomedIds.length === 0) return;
+      const doomed = new Set(doomedIds);
+      commit(readRows().filter((row) => !doomed.has(row.id)));
+      await saveBulkRemove(
+        collection,
+        doomedIds,
+        doomedIds.map((id) => rowById.get(id)),
+      );
+    },
   };
 }
 
@@ -154,40 +172,14 @@ function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] 
   ];
 }
 
-/** What a chunked bulk call left behind: a landed prefix on a partial commit, nothing otherwise. */
-function readBulkLanding(error: unknown): FinanceImportOutcome {
-  const partial = error instanceof PartialWriteError ? error.detail : null;
-  return {
-    writtenRows: partial?.writtenRows ?? 0,
-    writtenChunks: partial?.writtenChunks ?? 0,
-    failedChunk: partial?.failedChunk ?? 0,
-  };
-}
-
-interface ImportLanding extends FinanceImportOutcome {
-  didWriteMerchants: boolean;
-}
-
-/** The two bulk calls a statement makes, reconciled into what actually landed. */
-async function landImportedRows(
-  merchants: FinanceMerchant[],
-  transactions: FinanceTransaction[],
-): Promise<ImportLanding> {
-  let didWriteMerchants = false;
-  try {
-    if (merchants.length > 0) await persistence.bulkPut("financeMerchants", merchants);
-    didWriteMerchants = true;
-    const written = await persistence.bulkPut("financeTransactions", transactions);
-    return {
-      didWriteMerchants,
-      writtenRows: transactions.length,
-      writtenChunks: written.writtenChunks,
-      failedChunk: null,
-    };
-  } catch (error) {
-    return { didWriteMerchants, ...readBulkLanding(error) };
-  }
-}
+/**
+ * A row the caller already applied optimistically: a known `prior` is restored on a rejection,
+ * a gap means the row is new and is dropped again.
+ */
+const toRollbacks = <C extends FinanceCollection>(
+  prior: (FinanceRow<C> | undefined)[],
+): WriteRollback<C>[] =>
+  prior.map((row) => (row ? { kind: "update", prior: row } : { kind: "insert" }));
 
 export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
   const accounts = createFinanceCrud("financeAccounts", buildAccount, set, get);
@@ -198,16 +190,11 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
   const transactions = createFinanceCrud("financeTransactions", buildTransaction, set, get);
   const settlements = createFinanceCrud("financeSettlements", buildSettlement, set, get);
 
-  const markSandboxDirty = () => {
-    if (get().authUid === null) void setSandboxDirty(true);
-  };
-
   /**
-   * The one bulk write path: the whole payload goes through the adapter's `bulkPut` in a single
-   * call — the backend chunks it and bumps the sync counter once, where a per-row loop bumps it
-   * once per row. A rejection puts the prior rows back and offers the same Retry a single write
-   * does; a partial commit keeps exactly the prefix the backend says landed. `prior` runs parallel
-   * to `next`, with a gap where the row is new — those can only be settled by the refetch.
+   * The one bulk upsert path: the whole payload goes through the persist seam in a single call —
+   * the backend chunks it and bumps the sync counter once, where a per-row loop bumps it once per
+   * row. The seam tracks the write so a focus refetch can't discard it mid-flight, and on a
+   * rejection reverts past the landed prefix, refetches, and offers the Retry.
    */
   const commitRows = async <C extends FinanceCollection>(
     collection: C,
@@ -215,21 +202,10 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
     prior: (FinanceRow<C> | undefined)[],
   ): Promise<void> => {
     if (next.length === 0) return;
-    markSandboxDirty();
-    const apply = (rows: FinanceRow<C>[]) =>
-      set({
-        [collection]: mergeById(get()[collection] as FinanceRow<C>[], rows),
-      } as Partial<FinanceSlice>);
-
-    apply(next);
-    try {
-      await persistence.bulkPut(collection, next as Dataset[C]);
-    } catch (error) {
-      const landed = readBulkLanding(error).writtenRows;
-      apply(prior.slice(landed).filter((row) => row !== undefined));
-      void get().refetchCollection(collection);
-      get().pushRetryToast(RETRY_MESSAGE, () => void commitRows(collection, next, prior));
-    }
+    set({
+      [collection]: mergeById(get()[collection] as FinanceRow<C>[], next),
+    } as Partial<FinanceSlice>);
+    await saveBulkPut(collection, next as Dataset[C], toRollbacks(prior));
   };
 
   const selectTransactions = (ids: readonly string[]): FinanceTransaction[] => {
@@ -327,15 +303,17 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
       refs.merchants.map((merchant) => ({ ...merchant, defaultCategoryId: targetId })),
       refs.merchants,
     );
-    for (const budget of refs.budgets) budgets.remove(budget.id);
+    await budgets.removeMany(refs.budgets.map((budget) => budget.id));
     categories.update(sourceId, { archivedAt: new Date().toISOString() });
   };
 
-  /** Row-at-a-time: there is no bulk delete seam, and a rolled-back batch is one statement's rows. */
-  const rollBackFinanceImport = (batchId: string) => {
-    for (const txn of get().financeTransactions) {
-      if (txn.importBatchId === batchId) transactions.remove(txn.id);
-    }
+  /** A rolled-back statement is one batched delete, however many rows it wrote. */
+  const rollBackFinanceImport = async (batchId: string) => {
+    await transactions.removeMany(
+      get()
+        .financeTransactions.filter((txn) => txn.importBatchId === batchId)
+        .map((txn) => txn.id),
+    );
     batches.remove(batchId);
   };
 
@@ -348,30 +326,31 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
   ): Promise<FinanceImportOutcome> => {
     const sightings = input.merchants.map((patch) => buildMerchant(patch));
     const rows = input.transactions.map((patch) => buildTransaction(patch));
-    markSandboxDirty();
 
-    const landing = await landImportedRows(sightings, rows);
-    const landed = rows.slice(0, landing.writtenRows);
+    const didWriteMerchants =
+      sightings.length === 0 || (await saveBulkPut("financeMerchants", sightings)).result !== null;
+    const landing = didWriteMerchants
+      ? await saveBulkPut("financeTransactions", rows)
+      : { landedRows: 0, writtenChunks: 0, result: null };
+
+    const landed = rows.slice(0, landing.landedRows);
     const next: Partial<FinanceSlice> = {
       financeTransactions: mergeById(get().financeTransactions, landed),
     };
-    if (landing.didWriteMerchants)
-      next.financeMerchants = mergeById(get().financeMerchants, sightings);
+    if (didWriteMerchants) next.financeMerchants = mergeById(get().financeMerchants, sightings);
     set(next);
 
+    // Chunks are written in order, so the first one the backend didn't write is the one it rejected.
+    const failedChunk = landing.result === null ? landing.writtenChunks : null;
     batches.add({
       ...input.batch,
-      status: landing.failedChunk === null ? "committed" : "partial-commit",
+      status: failedChunk === null ? "committed" : "partial-commit",
       rowsInserted: landed.length,
       writtenChunks: landing.writtenChunks,
-      committedAt: landing.failedChunk === null ? new Date().toISOString() : null,
+      committedAt: failedChunk === null ? new Date().toISOString() : null,
     });
 
-    return {
-      writtenRows: landed.length,
-      writtenChunks: landing.writtenChunks,
-      failedChunk: landing.failedChunk,
-    };
+    return { writtenRows: landed.length, writtenChunks: landing.writtenChunks, failedChunk };
   };
 
   return {
@@ -394,6 +373,7 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
     addFinanceBudget: budgets.add,
     updateFinanceBudget: budgets.update,
     removeFinanceBudget: budgets.remove,
+    removeFinanceBudgets: budgets.removeMany,
 
     addFinanceMerchant: merchants.add,
     updateFinanceMerchant: merchants.update,
@@ -406,6 +386,7 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
     addFinanceTransaction: transactions.add,
     updateFinanceTransaction: transactions.update,
     removeFinanceTransaction: transactions.remove,
+    removeFinanceTransactions: transactions.removeMany,
 
     addFinanceSettlement: settlements.add,
     updateFinanceSettlement: settlements.update,

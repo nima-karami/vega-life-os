@@ -1,34 +1,15 @@
+import type { FinanceMerchant } from "@vega/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PartialWriteError } from "@/core/persistence";
+import { useStore } from "@/core/store";
+import { pendingWriteCollections } from "@/core/store/persist";
+import { type FinanceBulkHarness, installFinanceBulkHarness, rejectsWith } from "./bulk-harness";
 
-const { savePut, saveRemove, bulkPut, landsEverything } = vi.hoisted(() => {
-  const landsEverything = async (_col: string, items: unknown[]) => ({
-    inserted: items.length,
-    skipped: 0,
-    writtenChunks: 1,
-  });
-  return {
-    savePut: vi.fn(),
-    saveRemove: vi.fn(),
-    bulkPut: vi.fn(landsEverything),
-    landsEverything,
-  };
-});
-vi.mock("@/core/store/persist", () => ({ savePut, saveRemove }));
-vi.mock("@/core/persistence", async () => ({
-  persistence: { bulkPut },
-  ...(await vi.importActual<typeof import("@/core/persistence/partial-write")>(
-    "@/core/persistence/partial-write",
-  )),
+vi.mock("@/core/persistence/sandbox-meta", () => ({
+  setSandboxDirty: vi.fn(async () => {}),
+  getSandboxDirty: vi.fn(async () => false),
+  isSandboxDirty: () => false,
 }));
-
-import { create } from "zustand";
-import { PartialWriteError } from "@/core/persistence/partial-write";
-import { createFinanceSlice, type FinanceSlice } from "../store";
-
-const mk = () =>
-  create<FinanceSlice>((set, get, api) =>
-    createFinanceSlice(set as never, get as never, api as never),
-  );
 
 const rows = (count: number) =>
   Array.from({ length: count }, (_, index) => ({
@@ -39,69 +20,62 @@ const rows = (count: number) =>
     source: "import" as const,
   }));
 
+const importStatement = (
+  count: number,
+  batchId: string,
+  merchants: Partial<FinanceMerchant>[] = [],
+) =>
+  useStore.getState().importFinanceTransactions({
+    transactions: rows(count),
+    merchants,
+    batch: { id: batchId, accountId: "facc_chequing" },
+  });
+
+let harness: FinanceBulkHarness;
 beforeEach(() => {
-  vi.clearAllMocks();
-  bulkPut.mockImplementation(landsEverything);
+  harness = installFinanceBulkHarness();
 });
 
 describe("importFinanceTransactions", () => {
-  it("writes the rows through the adapter's batched path and records the batch", async () => {
-    const s = mk();
-    const outcome = await s.getState().importFinanceTransactions({
-      transactions: rows(3),
-      merchants: [{ id: "fmer_market", pattern: "GREEN MARKET", timesSeen: 5 }],
-      batch: { id: "fbat_1", accountId: "facc_chequing", rowsParsed: 4, rowsSkipped: 1 },
-    });
+  it("writes the rows through the batched seam and records the batch", async () => {
+    const outcome = await importStatement(3, "fbat_1", [
+      { id: "fmer_market", pattern: "GREEN MARKET", timesSeen: 5 },
+    ]);
 
     expect(outcome).toEqual({ writtenRows: 3, writtenChunks: 1, failedChunk: null });
-    expect(bulkPut).toHaveBeenCalledWith("financeMerchants", [
-      expect.objectContaining({ id: "fmer_market", timesSeen: 5 }),
+    expect(harness.callsFor("bulkPut", "financeMerchants")).toEqual([
+      { op: "bulkPut", collection: "financeMerchants", rowCount: 1 },
     ]);
-    expect(bulkPut).toHaveBeenCalledWith("financeTransactions", expect.arrayContaining([]));
-    expect(s.getState().financeTransactions).toHaveLength(3);
-    expect(s.getState().financeImportBatches[0]).toMatchObject({
+    expect(harness.callsFor("bulkPut", "financeTransactions")).toEqual([
+      { op: "bulkPut", collection: "financeTransactions", rowCount: 3 },
+    ]);
+    expect(harness.read("financeTransactions")).toHaveLength(3);
+    expect(harness.read("financeImportBatches")[0]).toMatchObject({
       id: "fbat_1",
       status: "committed",
       rowsInserted: 3,
-      rowsSkipped: 1,
       writtenChunks: 1,
     });
   });
 
-  it("hands a large import to the backend in one call and reports its chunk count", async () => {
-    const s = mk();
-    bulkPut.mockImplementation(async (_col, items) => ({
-      inserted: items.length,
-      skipped: 0,
-      writtenChunks: 3,
-    }));
-
-    const outcome = await s.getState().importFinanceTransactions({
-      transactions: rows(901),
-      merchants: [],
-      batch: { id: "fbat_2" },
-    });
+  it("hands a 1,000-row statement to the backend in one call and reports its chunk count", async () => {
+    const outcome = await importStatement(1000, "fbat_2");
 
     expect(outcome.writtenChunks).toBe(3);
-    expect(bulkPut).toHaveBeenCalledTimes(1);
-    expect(s.getState().financeTransactions).toHaveLength(901);
+    expect(harness.callsFor("bulkPut", "financeTransactions")).toHaveLength(1);
+    expect(harness.read("financeTransactions")).toHaveLength(1000);
   });
 
   it("reports a partial commit from the backend's own count and keeps only what landed", async () => {
-    const s = mk();
-    bulkPut.mockImplementation(async () => {
-      throw new PartialWriteError({ writtenRows: 450, writtenChunks: 1, failedChunk: 1 });
-    });
+    harness.answerWith(
+      rejectsWith(new PartialWriteError({ writtenRows: 450, writtenChunks: 1, failedChunk: 1 })),
+    );
 
-    const outcome = await s.getState().importFinanceTransactions({
-      transactions: rows(500),
-      merchants: [],
-      batch: { id: "fbat_3" },
-    });
+    const outcome = await importStatement(500, "fbat_3");
 
     expect(outcome).toEqual({ writtenRows: 450, writtenChunks: 1, failedChunk: 1 });
-    expect(s.getState().financeTransactions).toHaveLength(450);
-    expect(s.getState().financeImportBatches[0]).toMatchObject({
+    expect(harness.read("financeTransactions")).toHaveLength(450);
+    expect(harness.read("financeImportBatches")[0]).toMatchObject({
       status: "partial-commit",
       committedAt: null,
       writtenChunks: 1,
@@ -109,27 +83,59 @@ describe("importFinanceTransactions", () => {
   });
 
   it("keeps nothing when the whole call fails", async () => {
-    const s = mk();
-    bulkPut.mockImplementation(async () => {
-      throw new Error("offline");
-    });
+    harness.answerWith(rejectsWith(new Error("offline")));
 
-    const outcome = await s.getState().importFinanceTransactions({
-      transactions: rows(3),
-      merchants: [],
-      batch: { id: "fbat_5" },
-    });
+    const outcome = await importStatement(3, "fbat_5");
 
     expect(outcome).toEqual({ writtenRows: 0, writtenChunks: 0, failedChunk: 0 });
-    expect(s.getState().financeTransactions).toHaveLength(0);
+    expect(harness.read("financeTransactions")).toHaveLength(0);
+  });
+
+  it("skips the transactions when the merchant sightings are rejected", async () => {
+    harness.answerWith(rejectsWith(new Error("offline")));
+
+    const outcome = await importStatement(3, "fbat_6", [{ id: "fmer_a", pattern: "A" }]);
+
+    expect(outcome.writtenRows).toBe(0);
+    expect(harness.callsFor("bulkPut", "financeTransactions")).toHaveLength(0);
+    expect(harness.read("financeMerchants")).toHaveLength(0);
   });
 
   it("re-importing the same rows upserts on the built id instead of duplicating", async () => {
-    const s = mk();
-    const input = { transactions: rows(2), merchants: [], batch: { id: "fbat_4" } };
-    await s.getState().importFinanceTransactions(input);
-    await s.getState().importFinanceTransactions(input);
+    await importStatement(2, "fbat_4");
+    await importStatement(2, "fbat_4");
 
-    expect(s.getState().financeTransactions).toHaveLength(2);
+    expect(harness.read("financeTransactions")).toHaveLength(2);
+  });
+});
+
+describe("an import in flight is protected from a refetch", () => {
+  it("reports financeTransactions as pending until the import settles", async () => {
+    const release = harness.holdCalls();
+    const importing = importStatement(1000, "fbat_race");
+
+    expect(pendingWriteCollections().has("financeTransactions")).toBe(true);
+
+    release();
+    await importing;
+
+    expect(pendingWriteCollections().has("financeTransactions")).toBe(false);
+    expect(harness.read("financeTransactions")).toHaveLength(1000);
+  });
+
+  it("a refetch mid-import cannot overwrite the rows it can't see yet", async () => {
+    harness.serveOnRefetch({ financeTransactions: [] });
+    const release = harness.holdCalls();
+    const importing = importStatement(3, "fbat_race2");
+
+    await useStore.getState().refetchCollection("financeTransactions");
+    release();
+    await importing;
+
+    expect(harness.read("financeTransactions")).toHaveLength(3);
+
+    // Once the write has settled the same refetch is free to reconcile.
+    await useStore.getState().refetchCollection("financeTransactions");
+    expect(harness.read("financeTransactions")).toHaveLength(0);
   });
 });

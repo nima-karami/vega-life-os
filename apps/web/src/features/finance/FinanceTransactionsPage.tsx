@@ -54,7 +54,7 @@ export function FinanceTransactionsPage() {
   const financeImportBatches = useStore((s) => s.financeImportBatches);
   const fileTransaction = useStore((s) => s.fileTransaction);
   const fileTransactions = useStore((s) => s.fileTransactions);
-  const removeFinanceTransaction = useStore((s) => s.removeFinanceTransaction);
+  const removeFinanceTransactions = useStore((s) => s.removeFinanceTransactions);
 
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
   const [sort, setSort] = useState(DEFAULT_TRANSACTION_SORT);
@@ -101,9 +101,8 @@ export function FinanceTransactionsPage() {
   const patchSelection = (patch: Partial<FinanceTransaction>) => {
     void fileTransactions(editableIds, patch);
   };
-  // Row-at-a-time: there is no bulk delete seam behind `persistence`.
   const confirmDelete = () => {
-    for (const id of pendingDeleteIds ?? []) removeFinanceTransaction(id);
+    void removeFinanceTransactions(pendingDeleteIds ?? []);
     setPendingDeleteIds(null);
     selection.clear();
   };

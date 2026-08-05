@@ -1,101 +1,69 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PartialWriteError } from "@/core/persistence";
+import { useStore } from "@/core/store";
+import { setPersistAuth } from "@/core/store/persist";
+import { buildTransaction } from "../row-builders";
+import {
+  type FinanceBulkHarness,
+  installFinanceBulkHarness,
+  landsEverything,
+  rejectsWith,
+} from "./bulk-harness";
 
-const { savePut, saveRemove, bulkPut, landsEverything, setSandboxDirty } = vi.hoisted(() => {
-  const landsEverything = async (_col: string, items: unknown[]) => ({
-    inserted: items.length,
-    skipped: 0,
-    writtenChunks: 1,
-  });
-  return {
-    savePut: vi.fn(),
-    saveRemove: vi.fn(),
-    bulkPut: vi.fn(landsEverything),
-    landsEverything,
-    setSandboxDirty: vi.fn(async () => {}),
-  };
-});
-vi.mock("@/core/store/persist", () => ({ savePut, saveRemove }));
-vi.mock("@/core/persistence/sandbox-meta", () => ({ setSandboxDirty }));
-vi.mock("@/core/persistence", async () => ({
-  persistence: { bulkPut },
-  ...(await vi.importActual<typeof import("@/core/persistence/partial-write")>(
-    "@/core/persistence/partial-write",
-  )),
+const { setSandboxDirty } = vi.hoisted(() => ({ setSandboxDirty: vi.fn(async () => {}) }));
+vi.mock("@/core/persistence/sandbox-meta", () => ({
+  setSandboxDirty,
+  getSandboxDirty: vi.fn(async () => false),
+  isSandboxDirty: () => false,
 }));
 
-import { create } from "zustand";
-import { PartialWriteError } from "@/core/persistence/partial-write";
-import { createFinanceSlice, type FinanceSlice } from "../store";
-
-interface RetryToast {
-  message: string;
-  retry: () => void;
-}
-
-/** The finance slice plus the root-store members its bulk path reaches across for. */
-type TestStore = FinanceSlice & {
-  authUid: string | null;
-  refetchCollection: (col: string) => Promise<void>;
-  pushRetryToast: (message: string, onRetry: () => void) => void;
-};
-
-function mk() {
-  const toasts: RetryToast[] = [];
-  const refetched: string[] = [];
-  const store = create<TestStore>((set, get, api) => ({
-    ...createFinanceSlice(set as never, get as never, api as never),
-    authUid: "uid_owner",
-    refetchCollection: async (col) => {
-      refetched.push(col);
-    },
-    pushRetryToast: (message, retry) => {
-      toasts.push({ message, retry });
-    },
-  }));
-  return { store, toasts, refetched };
-}
-
-const putCalls = (collection: string) =>
-  bulkPut.mock.calls.filter(([col]) => col === collection).map(([, rows]) => rows);
-
+let harness: FinanceBulkHarness;
 beforeEach(() => {
-  vi.clearAllMocks();
-  bulkPut.mockImplementation(landsEverything);
+  harness = installFinanceBulkHarness();
 });
+
+const store = () => useStore.getState();
+
+const seedTransactions = (count: number, patch: (index: number) => object = () => ({})) => {
+  const rows = Array.from({ length: count }, (_, index) =>
+    buildTransaction({ id: `ftxn_${index}`, description: `MERCHANT ${index}`, ...patch(index) }),
+  );
+  harness.seed({ financeTransactions: rows });
+  return rows.map((row) => row.id);
+};
 
 describe("fileTransaction", () => {
   it("writes the category back to the merchant, born at this moment when it is unknown", () => {
-    const { store } = mk();
-    const groceries = store.getState().addFinanceCategory({ name: "Groceries" });
-    const txn = store
-      .getState()
-      .addFinanceTransaction({ description: "GREEN MARKET #114", txnDate: "2026-07-03" });
+    const groceries = store().addFinanceCategory({ name: "Groceries" });
+    const txn = store().addFinanceTransaction({
+      description: "GREEN MARKET #114",
+      txnDate: "2026-07-03",
+    });
 
-    store.getState().fileTransaction(txn.id, { categoryId: groceries.id });
+    store().fileTransaction(txn.id, { categoryId: groceries.id });
 
-    const merchant = store.getState().financeMerchants[0];
+    const merchant = harness.read("financeMerchants")[0];
     expect(merchant).toMatchObject({
       pattern: "GREEN MARKET #114",
       defaultCategoryId: groceries.id,
       timesSeen: 1,
       lastSeenAt: "2026-07-03",
     });
-    expect(store.getState().financeTransactions[0]).toMatchObject({
+    expect(harness.read("financeTransactions")[0]).toMatchObject({
       categoryId: groceries.id,
       merchantId: merchant.id,
     });
   });
 
   it("teaches a merchant it already knows rather than making a second one", () => {
-    const { store } = mk();
-    const dining = store.getState().addFinanceCategory({ name: "Dining out" });
-    const known = store.getState().addFinanceMerchant({ pattern: "CORNER BISTRO", timesSeen: 9 });
-    const txn = store.getState().addFinanceTransaction({ description: "Corner Bistro" });
+    const dining = store().addFinanceCategory({ name: "Dining out" });
+    const known = store().addFinanceMerchant({ pattern: "CORNER BISTRO", timesSeen: 9 });
+    const txn = store().addFinanceTransaction({ description: "Corner Bistro" });
 
-    store.getState().fileTransaction(txn.id, { categoryId: dining.id });
+    store().fileTransaction(txn.id, { categoryId: dining.id });
 
-    expect(store.getState().financeMerchants).toHaveLength(1);
-    expect(store.getState().financeMerchants[0]).toMatchObject({
+    expect(harness.read("financeMerchants")).toHaveLength(1);
+    expect(harness.read("financeMerchants")[0]).toMatchObject({
       id: known.id,
       timesSeen: 9,
       defaultCategoryId: dining.id,
@@ -103,145 +71,204 @@ describe("fileTransaction", () => {
   });
 
   it("never writes a share back — the same merchant splits differently within one month", () => {
-    const { store } = mk();
-    const txn = store.getState().addFinanceTransaction({ description: "GREEN MARKET" });
+    const txn = store().addFinanceTransaction({ description: "GREEN MARKET" });
 
-    store.getState().fileTransaction(txn.id, { isHousehold: true, myShareBps: 5000 });
+    store().fileTransaction(txn.id, { isHousehold: true, myShareBps: 5000 });
 
-    expect(store.getState().financeMerchants).toEqual([]);
-    expect(store.getState().financeTransactions[0]).toMatchObject({
+    expect(harness.read("financeMerchants")).toEqual([]);
+    expect(harness.read("financeTransactions")[0]).toMatchObject({
       isHousehold: true,
       myShareBps: 5000,
     });
   });
 
   it("teaches nothing when a category is cleared", () => {
-    const { store } = mk();
-    const txn = store.getState().addFinanceTransaction({ description: "GREEN MARKET" });
+    const txn = store().addFinanceTransaction({ description: "GREEN MARKET" });
 
-    store.getState().fileTransaction(txn.id, { categoryId: null });
+    store().fileTransaction(txn.id, { categoryId: null });
 
-    expect(store.getState().financeMerchants).toEqual([]);
-    expect(store.getState().financeTransactions[0].categoryId).toBeNull();
+    expect(harness.read("financeMerchants")).toEqual([]);
+    expect(harness.read("financeTransactions")[0].categoryId).toBeNull();
   });
 });
 
 describe("fileTransactions", () => {
-  const seedSelection = (count: number) => {
-    const { store, toasts, refetched } = mk();
-    const category = store.getState().addFinanceCategory({ name: "Groceries" });
-    const ids = Array.from({ length: count }, (_, index) =>
-      store.getState().addFinanceTransaction({
-        id: `ftxn_${index}`,
-        description: `MERCHANT ${String.fromCharCode(65 + index)}`,
-      }),
-    ).map((txn) => txn.id);
-    vi.clearAllMocks();
-    bulkPut.mockImplementation(landsEverything);
-    return { store, toasts, refetched, ids, category };
-  };
-
   it("sends the whole selection in one call per collection, not one call per row", async () => {
-    const { store, ids, category } = seedSelection(5);
+    const category = store().addFinanceCategory({ name: "Groceries" });
+    const ids = seedTransactions(5);
 
-    await store.getState().fileTransactions(ids, { categoryId: category.id });
+    await store().fileTransactions(ids, { categoryId: category.id });
 
-    expect(putCalls("financeTransactions")).toHaveLength(1);
-    expect(putCalls("financeTransactions")[0]).toHaveLength(5);
-    expect(putCalls("financeMerchants")).toHaveLength(1);
-    expect(putCalls("financeMerchants")[0]).toHaveLength(5);
-    expect(savePut).not.toHaveBeenCalled();
-    for (const txn of store.getState().financeTransactions) {
+    expect(harness.callsFor("bulkPut", "financeTransactions")).toEqual([
+      { op: "bulkPut", collection: "financeTransactions", rowCount: 5 },
+    ]);
+    expect(harness.callsFor("bulkPut", "financeMerchants")).toEqual([
+      { op: "bulkPut", collection: "financeMerchants", rowCount: 5 },
+    ]);
+    expect(harness.callsFor("put", "financeTransactions")).toHaveLength(0);
+    for (const txn of harness.read("financeTransactions")) {
       expect(txn.categoryId).toBe(category.id);
       expect(txn.merchantId).not.toBeNull();
     }
   });
 
   it("skips the merchant write entirely when the patch carries no category", async () => {
-    const { store, ids } = seedSelection(3);
+    const ids = seedTransactions(3);
 
-    await store.getState().fileTransactions(ids, { isInternal: true });
+    await store().fileTransactions(ids, { isInternal: true });
 
-    expect(putCalls("financeMerchants")).toHaveLength(0);
-    expect(putCalls("financeTransactions")).toHaveLength(1);
-    expect(store.getState().financeTransactions.every((txn) => txn.isInternal)).toBe(true);
+    expect(harness.callsFor("bulkPut", "financeMerchants")).toHaveLength(0);
+    expect(harness.callsFor("bulkPut", "financeTransactions")).toHaveLength(1);
+    expect(harness.read("financeTransactions").every((txn) => txn.isInternal)).toBe(true);
   });
 
-  it("reverts the selection and offers a Retry when the call is rejected", async () => {
-    const { store, toasts, refetched, ids } = seedSelection(3);
-    bulkPut.mockImplementation(async () => {
-      throw new Error("offline");
-    });
+  it("reverts the selection and offers a Retry that re-issues the one batched write", async () => {
+    const ids = seedTransactions(3);
+    harness.answerWith(rejectsWith(new Error("offline")));
 
-    await store.getState().fileTransactions(ids, { isHousehold: true });
+    await store().fileTransactions(ids, { isHousehold: true });
 
-    expect(store.getState().financeTransactions.some((txn) => txn.isHousehold)).toBe(false);
-    expect(refetched).toContain("financeTransactions");
-    expect(toasts).toHaveLength(1);
+    expect(harness.read("financeTransactions").some((txn) => txn.isHousehold)).toBe(false);
+    const toast = useStore.getState().toast;
+    expect(toast?.action?.label).toBe("Retry");
 
-    bulkPut.mockImplementation(landsEverything);
-    toasts[0].retry();
+    harness.answerWith(landsEverything);
+    toast?.action?.onClick();
     await vi.waitFor(() =>
-      expect(store.getState().financeTransactions.every((txn) => txn.isHousehold)).toBe(true),
+      expect(harness.callsFor("bulkPut", "financeTransactions")).toHaveLength(2),
     );
+    expect(harness.callsFor("bulkPut", "financeTransactions")[1].rowCount).toBe(3);
   });
 
   it("keeps exactly the prefix a partial commit landed", async () => {
-    const { store, ids } = seedSelection(4);
-    bulkPut.mockImplementation(async () => {
-      throw new PartialWriteError({ writtenRows: 2, writtenChunks: 1, failedChunk: 1 });
-    });
+    const ids = seedTransactions(4);
+    harness.answerWith(
+      rejectsWith(new PartialWriteError({ writtenRows: 2, writtenChunks: 1, failedChunk: 1 })),
+    );
 
-    await store.getState().fileTransactions(ids, { isHousehold: true });
+    await store().fileTransactions(ids, { isHousehold: true });
 
-    const landed = store.getState().financeTransactions.filter((txn) => txn.isHousehold);
+    const landed = harness.read("financeTransactions").filter((txn) => txn.isHousehold);
     expect(landed.map((txn) => txn.id)).toEqual(["ftxn_0", "ftxn_1"]);
+  });
+});
+
+describe("removeFinanceTransactions", () => {
+  it("deletes a 200-row selection in one batched call", async () => {
+    const ids = seedTransactions(200);
+
+    await store().removeFinanceTransactions(ids);
+
+    expect(harness.callsFor("bulkRemove", "financeTransactions")).toEqual([
+      { op: "bulkRemove", collection: "financeTransactions", rowCount: 200 },
+    ]);
+    expect(harness.callsFor("remove", "financeTransactions")).toHaveLength(0);
+    expect(harness.read("financeTransactions")).toEqual([]);
+  });
+
+  it("puts every row back and offers a Retry when the delete is rejected", async () => {
+    const ids = seedTransactions(3);
+    harness.answerWith(rejectsWith(new Error("offline")));
+
+    await store().removeFinanceTransactions(ids);
+
+    expect(
+      harness
+        .read("financeTransactions")
+        .map((txn) => txn.id)
+        .sort(),
+    ).toEqual(ids);
+    expect(useStore.getState().toast?.action?.label).toBe("Retry");
+  });
+
+  it("keeps the landed deletions and restores only the rest on a partial delete", async () => {
+    const ids = seedTransactions(4);
+    harness.answerWith(
+      rejectsWith(new PartialWriteError({ writtenRows: 2, writtenChunks: 1, failedChunk: 1 })),
+    );
+
+    await store().removeFinanceTransactions(ids);
+
+    expect(
+      harness
+        .read("financeTransactions")
+        .map((txn) => txn.id)
+        .sort(),
+    ).toEqual(["ftxn_2", "ftxn_3"]);
+  });
+
+  it("writes nothing when none of the ids are in the book", async () => {
+    seedTransactions(2);
+
+    await store().removeFinanceTransactions(["ftxn_ghost"]);
+
+    expect(harness.callsFor("bulkRemove", "financeTransactions")).toHaveLength(0);
+    expect(harness.read("financeTransactions")).toHaveLength(2);
+  });
+
+  it("flags the sandbox dirty when the batched delete runs signed out", async () => {
+    const ids = seedTransactions(2);
+    setPersistAuth(null);
+    setSandboxDirty.mockClear();
+
+    await store().removeFinanceTransactions(ids);
+
+    expect(setSandboxDirty).toHaveBeenCalledWith(true);
   });
 });
 
 describe("mergeFinanceCategories", () => {
   it("moves rows and merchant defaults in one call each, drops the source's budgets, archives it", async () => {
-    const { store } = mk();
-    const source = store.getState().addFinanceCategory({ name: "Food" });
-    const target = store.getState().addFinanceCategory({ name: "Groceries" });
-    store.getState().addFinanceTransaction({ id: "ftxn_a", categoryId: source.id });
-    store.getState().addFinanceTransaction({ id: "ftxn_b", categoryId: source.id });
-    store.getState().addFinanceTransaction({ id: "ftxn_c", categoryId: target.id });
-    store.getState().addFinanceMerchant({ pattern: "MARKET", defaultCategoryId: source.id });
-    store.getState().addFinanceBudget({ categoryId: source.id, month: "2026-06", cents: 40000 });
-    store.getState().addFinanceBudget({ categoryId: source.id, month: "2026-07", cents: 50000 });
-    store.getState().addFinanceBudget({ categoryId: target.id, month: "2026-07", cents: 57500 });
-    vi.clearAllMocks();
-    bulkPut.mockImplementation(landsEverything);
+    const source = store().addFinanceCategory({ name: "Food" });
+    const target = store().addFinanceCategory({ name: "Groceries" });
+    harness.seed({
+      financeTransactions: [
+        buildTransaction({ id: "ftxn_a", categoryId: source.id }),
+        buildTransaction({ id: "ftxn_b", categoryId: source.id }),
+        buildTransaction({ id: "ftxn_c", categoryId: target.id }),
+      ],
+    });
+    store().addFinanceMerchant({ pattern: "MARKET", defaultCategoryId: source.id });
+    store().addFinanceBudget({ categoryId: source.id, month: "2026-06", cents: 40000 });
+    store().addFinanceBudget({ categoryId: source.id, month: "2026-07", cents: 50000 });
+    store().addFinanceBudget({ categoryId: target.id, month: "2026-07", cents: 57500 });
 
-    await store.getState().mergeFinanceCategories(source.id, target.id);
+    await store().mergeFinanceCategories(source.id, target.id);
 
-    expect(putCalls("financeTransactions")).toHaveLength(1);
-    expect(putCalls("financeTransactions")[0]).toHaveLength(2);
-    expect(putCalls("financeMerchants")).toHaveLength(1);
-    expect(store.getState().financeTransactions.every((txn) => txn.categoryId === target.id)).toBe(
+    expect(harness.callsFor("bulkPut", "financeTransactions")).toEqual([
+      { op: "bulkPut", collection: "financeTransactions", rowCount: 2 },
+    ]);
+    expect(harness.callsFor("bulkPut", "financeMerchants")).toHaveLength(1);
+    expect(harness.callsFor("bulkRemove", "financeBudgets")).toEqual([
+      { op: "bulkRemove", collection: "financeBudgets", rowCount: 2 },
+    ]);
+    expect(harness.callsFor("remove", "financeBudgets")).toHaveLength(0);
+    expect(harness.read("financeTransactions").every((txn) => txn.categoryId === target.id)).toBe(
       true,
     );
-    expect(store.getState().financeMerchants[0].defaultCategoryId).toBe(target.id);
-    expect(store.getState().financeBudgets.map((budget) => budget.categoryId)).toEqual([target.id]);
+    expect(harness.read("financeMerchants")[0].defaultCategoryId).toBe(target.id);
+    expect(harness.read("financeBudgets").map((budget) => budget.categoryId)).toEqual([target.id]);
     expect(
-      store.getState().financeCategories.find((cat) => cat.id === source.id)?.archivedAt,
+      harness.read("financeCategories").find((cat) => cat.id === source.id)?.archivedAt,
     ).not.toBeNull();
   });
 });
 
 describe("rollBackFinanceImport", () => {
-  it("takes the batch's own rows and the batch record, and leaves everything else", () => {
-    const { store } = mk();
-    store.getState().addFinanceImportBatch({ id: "fbat_1" });
-    store.getState().addFinanceTransaction({ id: "ftxn_a", importBatchId: "fbat_1" });
-    store.getState().addFinanceTransaction({ id: "ftxn_b", importBatchId: "fbat_1" });
-    store.getState().addFinanceTransaction({ id: "ftxn_c", importBatchId: "fbat_2" });
+  it("takes a 1,000-row batch out in one call and leaves everything else", async () => {
+    store().addFinanceImportBatch({ id: "fbat_1" });
+    const ids = seedTransactions(1001, (index) => ({
+      importBatchId: index === 1000 ? "fbat_2" : "fbat_1",
+    }));
 
-    store.getState().rollBackFinanceImport("fbat_1");
+    await store().rollBackFinanceImport("fbat_1");
 
-    expect(store.getState().financeTransactions.map((txn) => txn.id)).toEqual(["ftxn_c"]);
-    expect(store.getState().financeImportBatches).toEqual([]);
-    expect(saveRemove).toHaveBeenCalledWith("financeImportBatches", "fbat_1", expect.anything());
+    expect(harness.callsFor("bulkRemove", "financeTransactions")).toEqual([
+      { op: "bulkRemove", collection: "financeTransactions", rowCount: 1000 },
+    ]);
+    expect(harness.callsFor("remove", "financeTransactions")).toHaveLength(0);
+    expect(harness.read("financeTransactions").map((txn) => txn.id)).toEqual([ids[1000]]);
+    expect(harness.read("financeImportBatches")).toEqual([]);
+    expect(harness.callsFor("remove", "financeImportBatches")).toHaveLength(1);
   });
 });
