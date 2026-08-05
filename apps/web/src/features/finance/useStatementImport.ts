@@ -166,7 +166,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     },
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
-      rollBackFinanceImport(staged.batchId);
+      void rollBackFinanceImport(staged.batchId);
       setPhase({ status: "idle" });
     },
     confirmMapping: (mapping) => {

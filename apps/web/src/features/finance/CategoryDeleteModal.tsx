@@ -24,7 +24,7 @@ export function CategoryDeleteModal({
   onClose: () => void;
 }) {
   const removeFinanceCategory = useStore((s) => s.removeFinanceCategory);
-  const removeFinanceBudget = useStore((s) => s.removeFinanceBudget);
+  const removeFinanceBudgets = useStore((s) => s.removeFinanceBudgets);
   const pushToast = useStore((s) => s.pushToast);
 
   if (isCategoryReferenced(references)) {
@@ -55,7 +55,7 @@ export function CategoryDeleteModal({
   }
 
   const handleDelete = () => {
-    for (const budget of references.budgets) removeFinanceBudget(budget.id);
+    void removeFinanceBudgets(references.budgets.map((budget) => budget.id));
     removeFinanceCategory(category.id);
     pushToast(`Deleted ${category.name}`);
     onClose();
