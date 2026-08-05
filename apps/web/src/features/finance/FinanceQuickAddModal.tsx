@@ -54,13 +54,13 @@ function readInitialValues(query: string): QuickAddValues {
   };
 }
 
-const readAmountError = (input: string, cents: number | null) => {
+const describeAmountError = (input: string, cents: number | null) => {
   if (input.trim() === "") return null;
   if (cents === null) return "Enter an amount like 4.50";
   return cents === 0 ? "Amount must be more than zero" : null;
 };
 
-const readShareError = (isHousehold: boolean, bps: number | null) =>
+const describeShareError = (isHousehold: boolean, bps: number | null) =>
   isHousehold && bps === null ? "Enter a share between 0 and 100" : null;
 
 /**
@@ -89,9 +89,9 @@ export function FinanceQuickAddModal({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const openKey = isOpen ? openToken : null;
-  const prevKey = useRef<number | null>(null);
-  if (prevKey.current !== openKey) {
-    prevKey.current = openKey;
+  const previousOpenKey = useRef<number | null>(null);
+  if (previousOpenKey.current !== openKey) {
+    previousOpenKey.current = openKey;
     if (isOpen) {
       setValues(readInitialValues(query));
       setIsExpanded(false);
@@ -126,8 +126,8 @@ export function FinanceQuickAddModal({
 
   const amountCents = parseAmountToCents(values.amountInput);
   const shareBps = parseShareBps(values.sharePercentInput);
-  const amountError = readAmountError(values.amountInput, amountCents);
-  const shareError = readShareError(values.isHousehold, shareBps);
+  const amountError = describeAmountError(values.amountInput, amountCents);
+  const shareError = describeShareError(values.isHousehold, shareBps);
   const canSave =
     amountCents !== null &&
     amountCents > 0 &&

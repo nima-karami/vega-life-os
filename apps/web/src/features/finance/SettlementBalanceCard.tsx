@@ -2,7 +2,8 @@ import { cx, Panel, ProgressBar, SectionHead } from "@/core/ui";
 import { formatCents } from "./money";
 import { describeDirection, type SettlementFigures } from "./settlement";
 
-const signed = (cents: number) => (cents > 0 ? `+${formatCents(cents)}` : formatCents(cents));
+const formatSignedCents = (cents: number) =>
+  cents > 0 ? `+${formatCents(cents)}` : formatCents(cents);
 
 function Line({ label, figure, strong }: { label: string; figure: string; strong?: boolean }) {
   return (
@@ -20,7 +21,7 @@ function Line({ label, figure, strong }: { label: string; figure: string; strong
   );
 }
 
-const RULE = "my-1 border-t border-border";
+const RULE_CLASS = "my-1 border-t border-border";
 
 /**
  * Both sides of the month, in the order the balance is built: what each of them laid out, the
@@ -57,18 +58,18 @@ export function SettlementBalanceCard({ figures }: { figures: SettlementFigures 
           You covered {ownerPercent}% of what the household spent.
         </p>
 
-        <div className={RULE} />
+        <div className={RULE_CLASS} />
         <Line label="Household total" figure={formatCents(householdTotalCents)} strong />
         <Line label="Your share of it" figure={formatCents(-myShareCents)} />
         {carriedDeltaCents !== 0 && (
           <Line
             label={carriedDeltaCents > 0 ? "Carried in" : "Carried forward"}
-            figure={signed(carriedDeltaCents)}
+            figure={formatSignedCents(carriedDeltaCents)}
           />
         )}
         {paymentCents !== 0 && <Line label="Already paid" figure={formatCents(-paymentCents)} />}
 
-        <div className={RULE} />
+        <div className={RULE_CLASS} />
         <Line
           label={describeDirection(outstandingCents, phase === "open" ? "now" : "still")}
           figure={formatCents(Math.abs(outstandingCents))}

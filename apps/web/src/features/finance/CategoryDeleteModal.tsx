@@ -7,7 +7,7 @@ import {
   type CategoryReferences,
   describeCategoryReferences,
   isCategoryReferenced,
-} from "./category-refs";
+} from "./category-references";
 
 /** A category with rows is never hard-deleted — the two safe ways out are offered by name. */
 export function CategoryDeleteModal({
@@ -54,7 +54,7 @@ export function CategoryDeleteModal({
     );
   }
 
-  const remove = () => {
+  const handleDelete = () => {
     for (const budget of references.budgets) removeFinanceBudget(budget.id);
     removeFinanceCategory(category.id);
     pushToast(`Deleted ${category.name}`);
@@ -68,7 +68,7 @@ export function CategoryDeleteModal({
       title={`Delete ${category.name}?`}
       body="Nothing is filed under it, so nothing else changes."
       confirmLabel="Delete"
-      onConfirm={remove}
+      onConfirm={handleDelete}
       onClose={onClose}
     />
   );

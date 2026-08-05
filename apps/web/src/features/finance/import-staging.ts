@@ -92,7 +92,7 @@ export interface StageImportInput {
 }
 
 /** Built from the dedupe key, so retrying a partial commit rewrites rows instead of duplicating them. */
-const transactionId = (dedupeKey: string) => `ftxn_${dedupeKey}`;
+const buildTransactionId = (dedupeKey: string) => `ftxn_${dedupeKey}`;
 
 function stageTransaction(
   row: ParsedRow,
@@ -100,7 +100,7 @@ function stageTransaction(
   merchant: FinanceMerchant | undefined,
 ): Partial<FinanceTransaction> {
   return {
-    id: transactionId(row.dedupeKey),
+    id: buildTransactionId(row.dedupeKey),
     dedupeKey: row.dedupeKey,
     accountId: input.accountId,
     txnDate: row.txnDate,
@@ -133,13 +133,13 @@ function stageMerchantSightings(
     });
   }
   return [...sightings].map(([pattern, sighting]) => {
-    const known = byPattern.get(pattern) as FinanceMerchant;
+    const knownMerchant = byPattern.get(pattern) as FinanceMerchant;
     return {
-      ...known,
-      timesSeen: known.timesSeen + sighting.seen,
+      ...knownMerchant,
+      timesSeen: knownMerchant.timesSeen + sighting.seen,
       lastSeenAt:
-        known.lastSeenAt && known.lastSeenAt > sighting.lastSeenAt
-          ? known.lastSeenAt
+        knownMerchant.lastSeenAt && knownMerchant.lastSeenAt > sighting.lastSeenAt
+          ? knownMerchant.lastSeenAt
           : sighting.lastSeenAt,
     };
   });
@@ -150,13 +150,13 @@ function stageMerchantSightings(
  * applied. Pure: nothing here persists, so the preview and the commit read the same figures.
  */
 export function stageImport(input: StageImportInput): StagedImport {
-  const fresh = input.statement.rows.filter((row) => !row.isDuplicate);
+  const freshRows = input.statement.rows.filter((row) => !row.isDuplicate);
   const byPattern = new Map(input.merchants.map((merchant) => [merchant.pattern, merchant]));
   return {
-    transactions: fresh.map((row) =>
+    transactions: freshRows.map((row) =>
       stageTransaction(row, input, byPattern.get(row.merchantPattern)),
     ),
-    merchants: stageMerchantSightings(fresh, byPattern),
-    skipped: input.statement.rows.length - fresh.length,
+    merchants: stageMerchantSightings(freshRows, byPattern),
+    skipped: input.statement.rows.length - freshRows.length,
   };
 }

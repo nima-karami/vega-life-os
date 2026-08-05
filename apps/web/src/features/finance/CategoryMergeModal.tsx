@@ -8,7 +8,7 @@ import {
   type CategoryReferences,
   describeCategoryReferences,
   describeDroppedBudgets,
-} from "./category-refs";
+} from "./category-references";
 
 /** Merge is how the imported categories collapse to a handful — so it says exactly what it moves. */
 export function CategoryMergeModal({
@@ -29,7 +29,7 @@ export function CategoryMergeModal({
   const target = targets.find((category) => category.id === targetId) ?? null;
   const droppedBudgets = describeDroppedBudgets(references);
 
-  const merge = () => {
+  const handleMerge = () => {
     if (!target) return;
     void mergeFinanceCategories(source.id, target.id);
     pushToast(`Merged ${source.name} into ${target.name}`);
@@ -45,7 +45,7 @@ export function CategoryMergeModal({
           <Button size="sm" variant="ghost" onPress={onClose}>
             Cancel
           </Button>
-          <Button size="sm" variant="danger" isDisabled={target === null} onPress={merge}>
+          <Button size="sm" variant="danger" isDisabled={target === null} onPress={handleMerge}>
             Merge
           </Button>
         </>

@@ -4,7 +4,7 @@ import { uid } from "@/core/lib/id";
 import { useStore } from "@/core/store";
 import { parseDelimitedTable } from "./import/delimited";
 import { parseStatement } from "./import/parse";
-import type { ParsedStatement, ParseFailedError, TableData } from "./import/types";
+import type { ParsedStatement, ParseFailure, TableData } from "./import/types";
 import {
   computeFileHash,
   findLimitBreach,
@@ -32,7 +32,7 @@ type ImportPhase =
   | { status: "parsing"; fileName: string }
   | { status: "mapping-required"; fileName: string; source: SourceFile; retryReason?: string }
   | { status: "limit-reached"; fileName: string; breach: ImportLimitBreach }
-  | { status: "parse-failed"; error: ParseFailedError }
+  | { status: "parse-failed"; error: ParseFailure }
   | { status: "preview"; staged: StagedFile }
   | { status: "committing"; staged: StagedFile }
   | { status: "committed"; inserted: number; skipped: number }

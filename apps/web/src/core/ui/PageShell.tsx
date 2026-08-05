@@ -66,7 +66,7 @@ export function PageShell({
   children,
 }: PageShellProps) {
   const hasFilterBar = !isEmpty && (search !== undefined || chips !== undefined || filters);
-  const blank = isEmpty ? empty : hasNoMatches ? noMatches : undefined;
+  const emptyCopy = isEmpty ? empty : hasNoMatches ? noMatches : undefined;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -117,8 +117,8 @@ export function PageShell({
         </div>
       )}
 
-      {blank ? (
-        <EmptyState title={blank.title} body={blank.body} cta={blank.cta ?? null} />
+      {emptyCopy ? (
+        <EmptyState title={emptyCopy.title} body={emptyCopy.body} cta={emptyCopy.cta ?? null} />
       ) : (
         children
       )}

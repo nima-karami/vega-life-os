@@ -70,7 +70,7 @@ export function FinanceDashboardPage() {
   };
   const clearDeepLink = () => setParams(new URLSearchParams(), { replace: true });
 
-  const shell = (children: ReactNode, blank?: EmptyCopy) => (
+  const renderShell = (children: ReactNode, emptyCopy?: EmptyCopy) => (
     <PageShell
       title="Finance"
       subtitle={SUBTITLE}
@@ -92,19 +92,19 @@ export function FinanceDashboardPage() {
           </ButtonGroup>
         </div>
       }
-      isEmpty={blank !== undefined}
-      empty={blank ?? NO_COPY}
+      isEmpty={emptyCopy !== undefined}
+      empty={emptyCopy ?? NO_COPY}
     >
       {children}
     </PageShell>
   );
 
   if (loadFailed)
-    return shell(
+    return renderShell(
       null,
       buildRecoveryCopy(authUid, () => void bootstrap()),
     );
-  if (!ready) return shell(<FinanceDashboardSkeleton />);
+  if (!ready) return renderShell(<FinanceDashboardSkeleton />);
 
   const focusCategory =
     categoryParam === null
@@ -115,7 +115,7 @@ export function FinanceDashboardPage() {
     (monthParam !== null && !isMonthKey(monthParam)) ||
     (categoryParam !== null && !focusCategory)
   )
-    return shell(null, {
+    return renderShell(null, {
       title: "Nothing here to show",
       body: "That link points at a month or a category this book doesn't have.",
       cta: (
@@ -126,7 +126,7 @@ export function FinanceDashboardPage() {
     });
 
   if (book.financeTransactions.length === 0)
-    return shell(null, {
+    return renderShell(null, {
       title: "Nothing imported yet",
       body: "Import a bank statement to start the weekly loop: import, categorise and split, then settle.",
       cta: (
@@ -136,7 +136,7 @@ export function FinanceDashboardPage() {
       ),
     });
 
-  return shell(
+  return renderShell(
     <FinanceDashboardBody
       book={book}
       month={month}

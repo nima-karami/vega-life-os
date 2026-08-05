@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { detectSeparator, parseDelimitedTable } from "../import/delimited";
-import { viewTable } from "../import/table";
+import { buildTableView } from "../import/table";
 
 const BOM = "﻿";
 
-const read = (text: string) => viewTable(parseDelimitedTable(text));
+const read = (text: string) => buildTableView(parseDelimitedTable(text));
 
 describe("parseDelimitedTable — dialect", () => {
   it("reads CRLF rows and keeps a quoted field's embedded comma", () => {

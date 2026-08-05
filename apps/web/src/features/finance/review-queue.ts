@@ -14,11 +14,11 @@ export interface ReviewGroup {
 
 /** A row stands under every flag it still carries, so clearing one leaves the others in place. */
 export function groupForReview(transactions: readonly FinanceTransaction[]): ReviewGroup[] {
-  const pending = transactions.map((txn) => ({ txn, flags: unresolvedFlags(txn) }));
+  const pendingRows = transactions.map((txn) => ({ txn, flags: unresolvedFlags(txn) }));
   return REVIEW_FLAGS.map((flag) => ({
     flag,
     label: describeFlag(flag),
-    rows: pending.filter((row) => row.flags.includes(flag)).map((row) => row.txn),
+    rows: pendingRows.filter((row) => row.flags.includes(flag)).map((row) => row.txn),
   })).filter((group) => group.rows.length > 0);
 }
 

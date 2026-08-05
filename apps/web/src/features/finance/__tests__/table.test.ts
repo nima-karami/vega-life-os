@@ -2,7 +2,7 @@ import type { FinanceColumnMapping } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import { parseDelimitedTable } from "../import/delimited";
 import { resolveStatementView } from "../import/resolve";
-import { detectHasHeaderRow, viewTable } from "../import/table";
+import { buildTableView, hasHeaderRow } from "../import/table";
 
 const HEADERED = "Date,Description,Amount\n07/10/2026,PANTRYCO,-38.40\n08/03/2026,LANTERN,-7.25\n";
 const HEADERLESS = "07/10/2026,PANTRYCO,-38.40\n08/03/2026,LANTERN,-7.25\n";
@@ -18,7 +18,7 @@ const positional: FinanceColumnMapping = {
   hasHeaderRow: false,
 };
 
-describe("detectHasHeaderRow", () => {
+describe("hasHeaderRow", () => {
   it("treats a first record carrying both a date and an amount as data", () => {
     expect(parseDelimitedTable(HEADERLESS).hasHeaderRow).toBe(false);
   });
@@ -33,26 +33,26 @@ describe("detectHasHeaderRow", () => {
   });
 
   it("assumes a header row for an empty file", () => {
-    expect(detectHasHeaderRow([])).toBe(true);
+    expect(hasHeaderRow([])).toBe(true);
   });
 });
 
-describe("viewTable", () => {
+describe("buildTableView", () => {
   it("splits headers off a headered table", () => {
-    const view = viewTable(parseDelimitedTable(HEADERED));
+    const view = buildTableView(parseDelimitedTable(HEADERED));
     expect(view.headers).toEqual(["Date", "Description", "Amount"]);
     expect(view.rows).toHaveLength(2);
   });
 
   it("keeps every record and labels the columns positionally when headerless", () => {
-    const view = viewTable(parseDelimitedTable(HEADERLESS));
+    const view = buildTableView(parseDelimitedTable(HEADERLESS));
     expect(view.headers).toEqual(["Column 1", "Column 2", "Column 3"]);
     expect(view.rows).toHaveLength(2);
     expect(view.rows[0].line).toBe(1);
   });
 
   it("lets a remembered mapping override the heuristic", () => {
-    const view = viewTable(parseDelimitedTable(HEADERED), false);
+    const view = buildTableView(parseDelimitedTable(HEADERED), false);
     expect(view.headers).toEqual(["Column 1", "Column 2", "Column 3"]);
     expect(view.rows).toHaveLength(3);
   });

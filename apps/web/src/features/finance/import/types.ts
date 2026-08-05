@@ -30,14 +30,14 @@ export interface TableView {
   hasHeaderRow: boolean;
 }
 
-export interface ParseFailedError {
+export interface ParseFailure {
   code: "PARSE_FAILED";
   file: string;
   line: number;
   reason: string;
 }
 
-interface MappingRequiredError {
+interface MappingRequirement {
   code: "MAPPING_REQUIRED";
   file: string;
   headers: string[];
@@ -92,8 +92,8 @@ export interface ParsedStatement {
 
 export type ParseOutcome =
   | { status: "parsed"; statement: ParsedStatement }
-  | { status: "mapping-required"; error: MappingRequiredError }
-  | { status: "parse-failed"; error: ParseFailedError };
+  | { status: "mapping-required"; error: MappingRequirement }
+  | { status: "parse-failed"; error: ParseFailure };
 
 export interface NearDuplicateSubject {
   id: string;

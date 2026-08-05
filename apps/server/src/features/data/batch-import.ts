@@ -23,18 +23,18 @@ export async function importRecords<C extends CollectionName>(
   records: Record<string, unknown>[],
   now: string,
 ): Promise<ImportResult> {
-  const validated = dedupeById(records.map((raw) => parseRecord(collection, raw)));
-  const col = firestore.collection(`users/${uid}/${collection}`);
+  const validatedRecords = dedupeById(records.map((raw) => parseRecord(collection, raw)));
+  const collectionRef = firestore.collection(`users/${uid}/${collection}`);
   let inserted = 0;
   let writtenChunks = 0;
 
-  for (let start = 0; start < validated.length; start += CHUNK_SIZE) {
-    const chunk = validated.slice(start, start + CHUNK_SIZE);
-    const pending = await selectChangedWrites(firestore, col, chunk, now);
-    if (pending.length === 0) continue;
+  for (let start = 0; start < validatedRecords.length; start += CHUNK_SIZE) {
+    const chunk = validatedRecords.slice(start, start + CHUNK_SIZE);
+    const pendingWrites = await selectChangedWrites(firestore, collectionRef, chunk, now);
+    if (pendingWrites.length === 0) continue;
 
     const batch = firestore.batch();
-    for (const write of pending) batch.set(write.ref, write.record);
+    for (const write of pendingWrites) batch.set(write.ref, write.record);
     try {
       await batch.commit();
     } catch (error) {
@@ -48,18 +48,18 @@ export async function importRecords<C extends CollectionName>(
         reason: error instanceof Error ? error.message : String(error),
       });
     }
-    inserted += pending.length;
+    inserted += pendingWrites.length;
     writtenChunks += 1;
   }
 
   if (inserted > 0) await bumpSyncVersion(firestore, uid);
-  return { inserted, skipped: validated.length - inserted, writtenChunks };
+  return { inserted, skipped: validatedRecords.length - inserted, writtenChunks };
 }
 
 /** Same id twice in one payload would collide inside a chunk; last wins, as a serial upsert loop would leave it. */
 function dedupeById<T>(records: T[]): T[] {
   const byId = new Map<string, T>();
-  for (const record of records) byId.set(recordId(record), record);
+  for (const record of records) byId.set(readRecordId(record), record);
   return [...byId.values()];
 }
 
@@ -69,22 +69,22 @@ function dedupeById<T>(records: T[]): T[] {
  */
 async function selectChangedWrites<T>(
   firestore: Firestore,
-  col: CollectionReference,
+  collectionRef: CollectionReference,
   chunk: T[],
   now: string,
 ): Promise<PendingWrite[]> {
-  const refs = chunk.map((record) => col.doc(recordId(record)));
-  const priorSnaps = await firestore.getAll(...refs);
+  const refs = chunk.map((record) => collectionRef.doc(readRecordId(record)));
+  const priorSnapshots = await firestore.getAll(...refs);
   const priorById = new Map(
-    priorSnaps
-      .filter((snap) => snap.exists)
-      .map((snap) => [snap.id, snap.data() as StoredRecord] as const),
+    priorSnapshots
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => [snapshot.id, snapshot.data() as StoredRecord] as const),
   );
 
   const writes: PendingWrite[] = [];
   chunk.forEach((record, index) => {
     const { merged, fieldUpdatedAt, changed } = mergeWithFieldLww(
-      priorById.get(recordId(record)) ?? null,
+      priorById.get(readRecordId(record)) ?? null,
       record as Record<string, unknown>,
       now,
     );
@@ -93,6 +93,6 @@ async function selectChangedWrites<T>(
   return writes;
 }
 
-function recordId(record: unknown): string {
+function readRecordId(record: unknown): string {
   return (record as { id: string }).id;
 }

@@ -2,10 +2,10 @@ import { Button } from "@heroui/react";
 import { FIELD_CLASS } from "@/core/ui";
 import {
   computeShareFraction,
+  createCentsFraction,
   formatCents,
   MAX_SPREAD_MONTHS,
   MIN_SPREAD_MONTHS,
-  makeCentsFraction,
   roundToCents,
 } from "./money";
 
@@ -18,7 +18,7 @@ export interface QuickAddOptionValues {
 }
 
 const instalmentOfAmount = (amountCents: number, spreadMonths: number) =>
-  roundToCents(makeCentsFraction(BigInt(amountCents), BigInt(spreadMonths)));
+  roundToCents(createCentsFraction(BigInt(amountCents), BigInt(spreadMonths)));
 
 export function FinanceQuickAddOptions({
   values,

@@ -8,12 +8,12 @@ const MONEY = /^([+-]?)(\d*)(?:\.(\d{1,2}))?$/;
 export const isFinanceDateFormat = (value: string): value is FinanceDateFormat =>
   (FINANCE_DATE_FORMATS as readonly string[]).includes(value);
 
-const daysInMonth = (year: number, month: number) =>
+const countDaysInMonth = (year: number, month: number) =>
   new Date(Date.UTC(year, month, 0)).getUTCDate();
 
 const toISODate = (year: number, month: number, day: number): string | null => {
   if (month < 1 || month > 12) return null;
-  if (day < 1 || day > daysInMonth(year, month)) return null;
+  if (day < 1 || day > countDaysInMonth(year, month)) return null;
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 };
 
@@ -45,12 +45,12 @@ export const isBlankCell = (raw: string | undefined) => raw === undefined || raw
 export function parseAmountCents(raw: string): number | null {
   const bracketed = /^\((.*)\)$/.exec(raw.trim());
   const body = (bracketed ? bracketed[1] : raw).replace(/[$\s, ]/g, "").replace(/−/g, "-");
-  const money = MONEY.exec(body);
-  if (!money) return null;
-  const whole = money[2];
-  const fraction = money[3] ?? "";
+  const moneyMatch = MONEY.exec(body);
+  if (!moneyMatch) return null;
+  const whole = moneyMatch[2];
+  const fraction = moneyMatch[3] ?? "";
   if (whole === "" && fraction === "") return null;
   const cents = Number(whole || "0") * 100 + Number(fraction.padEnd(2, "0") || "0");
-  const isNegative = money[1] === "-" || bracketed !== null;
+  const isNegative = moneyMatch[1] === "-" || bracketed !== null;
   return isNegative ? -cents : cents;
 }

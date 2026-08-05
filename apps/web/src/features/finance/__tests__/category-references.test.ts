@@ -8,7 +8,7 @@ import {
   isCategoryReferenced,
   NO_CATEGORY_REFERENCES,
   selectCategoryReferences,
-} from "../category-refs";
+} from "../category-references";
 
 const txn = (id: string, categoryId: string | null) =>
   ({ id, categoryId }) as unknown as FinanceTransaction;

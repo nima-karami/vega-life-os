@@ -13,9 +13,9 @@ import { FULL_SHARE_BPS, MIN_SPREAD_MONTHS } from "./money";
 import { toMonthKey } from "./month-cursor";
 
 /** Server-owned meta, fresh per row so two rows never share a `fieldUpdatedAt` map. */
-const newMeta = () => ({ updatedAt: "", fieldUpdatedAt: {} });
+const createRowMeta = () => ({ updatedAt: "", fieldUpdatedAt: {} });
 
-const currentMonth = () => toMonthKey(new Date());
+const getCurrentMonth = () => toMonthKey(new Date());
 
 export const buildAccount = (patch: Partial<FinanceAccount>): FinanceAccount => ({
   id: patch.id ?? uid("facc_"),
@@ -25,7 +25,7 @@ export const buildAccount = (patch: Partial<FinanceAccount>): FinanceAccount => 
   isBusiness: patch.isBusiness ?? false,
   columnMapping: patch.columnMapping ?? null,
   archivedAt: patch.archivedAt ?? null,
-  ...newMeta(),
+  ...createRowMeta(),
 });
 
 export const buildCategory = (
@@ -37,18 +37,18 @@ export const buildCategory = (
   kind: patch.kind ?? "spend",
   order: patch.order ?? rows.length,
   archivedAt: patch.archivedAt ?? null,
-  ...newMeta(),
+  ...createRowMeta(),
 });
 
 export const buildBudget = (patch: Partial<FinanceBudget>): FinanceBudget => {
   const categoryId = patch.categoryId ?? "";
-  const month = patch.month ?? currentMonth();
+  const month = patch.month ?? getCurrentMonth();
   return {
     id: patch.id ?? `${categoryId}:${month}`,
     categoryId,
     month,
     cents: patch.cents ?? 0,
-    ...newMeta(),
+    ...createRowMeta(),
   };
 };
 
@@ -61,7 +61,7 @@ export const buildMerchant = (patch: Partial<FinanceMerchant>): FinanceMerchant 
   timesSeen: patch.timesSeen ?? 0,
   timesShared: patch.timesShared ?? 0,
   lastSeenAt: patch.lastSeenAt ?? null,
-  ...newMeta(),
+  ...createRowMeta(),
 });
 
 export const buildImportBatch = (patch: Partial<FinanceImportBatch>): FinanceImportBatch => ({
@@ -77,7 +77,7 @@ export const buildImportBatch = (patch: Partial<FinanceImportBatch>): FinanceImp
   startedAt: patch.startedAt ?? new Date().toISOString(),
   committedAt: patch.committedAt ?? null,
   writtenChunks: patch.writtenChunks ?? 0,
-  ...newMeta(),
+  ...createRowMeta(),
 });
 
 /** An absent key falls through to the default, exactly as a per-field `??` would. */
@@ -119,12 +119,12 @@ export const buildTransaction = (patch: Partial<FinanceTransaction>): FinanceTra
     refundOfTransactionId: null,
     createdAt: txnDate,
     ...definedFields(patch),
-    ...newMeta(),
+    ...createRowMeta(),
   };
 };
 
 export const buildSettlement = (patch: Partial<FinanceSettlement>): FinanceSettlement => {
-  const month = patch.month ?? currentMonth();
+  const month = patch.month ?? getCurrentMonth();
   return {
     id: patch.id ?? month,
     month,
@@ -136,6 +136,6 @@ export const buildSettlement = (patch: Partial<FinanceSettlement>): FinanceSettl
     paymentTransactionId: patch.paymentTransactionId ?? null,
     carriedDeltaCents: patch.carriedDeltaCents ?? 0,
     note: patch.note ?? "",
-    ...newMeta(),
+    ...createRowMeta(),
   };
 };
