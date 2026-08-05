@@ -85,11 +85,11 @@ describe("data router (real server vs emulator)", () => {
   });
 
   it("imports many records then wipes every collection with deleteAll", async () => {
-    const { count } = await server.asUid(owner).data.importCollection.mutate({
+    const imported = await server.asUid(owner).data.importCollection.mutate({
       collection: "calendarEvents",
       records: [livedEvent("ce_i1"), livedEvent("ce_i2")],
     });
-    expect(count).toBe(2);
+    expect(imported).toEqual({ inserted: 2, skipped: 0, writtenChunks: 1 });
 
     await server.asUid(owner).tasks.upsert.mutate({
       id: "t_wipe",

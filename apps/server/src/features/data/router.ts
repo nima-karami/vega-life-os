@@ -6,6 +6,7 @@ import { bumpSyncVersion, readSyncVersion } from "../../core/sync-version";
 import { writeTombstone } from "../../core/tombstone";
 import { protectedProcedure, router } from "../../trpc/trpc";
 import { shouldTriggerCalendarSync } from "../calendar/schedule-reconcile";
+import { importRecords } from "./batch-import";
 
 const unknownRecord = z.record(z.string(), z.unknown());
 
@@ -56,10 +57,15 @@ export const dataRouter = router({
   importCollection: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, records: z.array(unknownRecord) }))
     .mutation(async ({ ctx, input }) => {
-      const repo = createRepository(ctx.firestore, ctx.uid, input.collection);
-      for (const raw of input.records) await repo.upsert(parseRecord(input.collection, raw));
+      const result = await importRecords(
+        ctx.firestore,
+        ctx.uid,
+        input.collection,
+        input.records,
+        ctx.calendar.now(),
+      );
       if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);
-      return { count: input.records.length };
+      return result;
     }),
 
   deleteAll: protectedProcedure.mutation(async ({ ctx }) => {

@@ -40,6 +40,8 @@ export type BootOptions = {
   webhookUrl?: string;
   now?: () => string;
   configOverride?: Partial<Pick<ServerConfig, "nodeEnv" | "dbName">>;
+  /** Swap in a wrapped Firestore to drive a write failure the emulator will not produce on its own. */
+  firestore?: Firestore;
 };
 
 /** The test stub trusts the bearer string as the uid, so `asUid("u1")` resolves to uid "u1". */
@@ -56,7 +58,8 @@ export async function bootTestServer(options: BootOptions = {}): Promise<TestSer
     },
   };
   assertDbMatchesEnv(config);
-  const { firestore, auth } = initAdmin(config);
+  const { firestore: adminFirestore, auth } = initAdmin(config);
+  const firestore = options.firestore ?? adminFirestore;
   const google = options.google ?? new GoogleMock();
   const now = options.now ?? (() => new Date().toISOString());
   const webhookUrl = options.webhookUrl ?? "https://vega.example/webhooks/gcal";
