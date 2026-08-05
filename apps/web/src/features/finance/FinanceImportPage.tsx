@@ -8,7 +8,7 @@ import { FinancePageShell } from "./FinancePageShell";
 import { FinanceReviewQueue } from "./FinanceReviewQueue";
 import { FinanceRowList } from "./FinanceRowList";
 import { normalizeMerchant } from "./import";
-import { findAccountMismatch } from "./import-staging";
+import { findAccountMismatch, findPriorImport } from "./import-staging";
 import { useStatementImport } from "./useStatementImport";
 
 function useOnlineStatus() {
@@ -31,9 +31,13 @@ export function FinanceImportPage() {
   const accounts = useStore((s) => s.financeAccounts);
   const transactions = useStore((s) => s.financeTransactions);
   const batches = useStore((s) => s.financeImportBatches);
+  const authUid = useStore((s) => s.authUid);
 
   const [chosenAccountId, setChosenAccountId] = useState("");
   const isOnline = useOnlineStatus();
+  // Signed-out is the local Dexie sandbox, where an offline write genuinely succeeds; only a
+  // signed-in session has nowhere to put the rows.
+  const isBlockedOffline = !isOnline && authUid !== null;
 
   const openAccounts = useMemo(
     () => accounts.filter((account) => account.archivedAt === null),
@@ -57,7 +61,7 @@ export function FinanceImportPage() {
     [transactions, account],
   );
 
-  const previewRows = phase.status === "preview" ? phase.staged.statement.rows : [];
+  const staged = phase.status === "preview" ? phase.staged : null;
   const batchRows = batches.map((batch) => ({
     id: batch.id,
     label: batch.fileNames.join(", ") || "(no file)",
@@ -90,22 +94,29 @@ export function FinanceImportPage() {
             flow.reset();
           }}
           onFiles={flow.openFiles}
-          isDisabled={!isOnline || phase.status === "parsing" || phase.status === "committing"}
-          blockedReason={isOnline ? undefined : "You’re offline — an import can’t be written yet."}
+          isDisabled={
+            isBlockedOffline || phase.status === "parsing" || phase.status === "committing"
+          }
+          blockedReason={
+            isBlockedOffline
+              ? "You’re offline — a signed-in import has nowhere to land until you’re back."
+              : undefined
+          }
         />
       )}
 
       <FinanceImportPhasePanel
         flow={flow}
         accountName={account?.displayName ?? ""}
-        mismatch={findAccountMismatch(previewRows, accountPatterns)}
+        mismatch={findAccountMismatch(staged?.statement.rows ?? [], accountPatterns)}
+        priorImport={staged ? findPriorImport(staged.fileHash, staged.batchId, batches) : null}
       />
 
       {phase.status === "mapping-required" && account && (
         <FinanceImportMapper
           isOpen
           fileName={phase.fileName}
-          table={phase.table}
+          table={phase.source.table}
           initial={account.columnMapping}
           retryReason={phase.retryReason}
           onCancel={flow.reset}

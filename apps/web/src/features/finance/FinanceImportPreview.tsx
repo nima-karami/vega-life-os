@@ -1,4 +1,6 @@
 import { Button } from "@heroui/react";
+import type { FinanceImportBatch } from "@vega/shared";
+import { format, parseISO } from "date-fns";
 import { Icon } from "@/core/ui";
 import { FinanceWorkedExample } from "./FinanceWorkedExample";
 import type { ParsedStatement } from "./import";
@@ -6,6 +8,12 @@ import type { AccountMismatch } from "./import-staging";
 import { formatCents } from "./money";
 
 const ROW_LIMIT = 200;
+
+const describePriorImport = (batch: FinanceImportBatch) => {
+  const when = batch.committedAt ?? batch.startedAt;
+  const on = when ? ` on ${format(parseISO(when), "d MMMM yyyy")}` : "";
+  return `You already imported this exact file${on} — ${batch.rowsInserted} rows landed then.`;
+};
 
 const COUNT_LABELS: { key: keyof ParsedStatement["counts"]; label: string }[] = [
   { key: "newRows", label: "New" },
@@ -18,6 +26,8 @@ const COUNT_LABELS: { key: keyof ParsedStatement["counts"]; label: string }[] = 
 export interface FinanceImportPreviewProps {
   statement: ParsedStatement;
   mismatch: AccountMismatch | null;
+  /** an earlier batch with the same file hash — why nothing new is landing */
+  priorImport: FinanceImportBatch | null;
   accountName: string;
   isConfirmed: boolean;
   onConfirmedChange: (isConfirmed: boolean) => void;
@@ -30,6 +40,7 @@ export interface FinanceImportPreviewProps {
 export function FinanceImportPreview({
   statement,
   mismatch,
+  priorImport,
   accountName,
   isConfirmed,
   onConfirmedChange,
@@ -48,6 +59,11 @@ export function FinanceImportPreview({
         <p className="mt-1 text-xs text-muted">
           {counts.parsed} rows read. Nothing is written until you press Import.
         </p>
+        {priorImport && (
+          <p data-testid="import-prior-file" className="mt-1.5 text-xs text-warning">
+            {describePriorImport(priorImport)}
+          </p>
+        )}
       </div>
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">

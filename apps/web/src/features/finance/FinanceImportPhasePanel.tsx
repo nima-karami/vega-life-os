@@ -1,4 +1,5 @@
 import { Button } from "@heroui/react";
+import type { FinanceImportBatch } from "@vega/shared";
 import { FinanceImportPreview } from "./FinanceImportPreview";
 import { FinanceImportStatus } from "./FinanceImportStatus";
 import { type AccountMismatch, describeLimitBreach } from "./import-staging";
@@ -14,6 +15,8 @@ export interface FinanceImportPhasePanelProps {
   flow: StatementImport;
   accountName: string;
   mismatch: AccountMismatch | null;
+  /** an earlier batch carrying the same file hash */
+  priorImport: FinanceImportBatch | null;
 }
 
 /** Whatever the import is doing right now, said once — the mapper is the page's own concern. */
@@ -21,6 +24,7 @@ export function FinanceImportPhasePanel({
   flow,
   accountName,
   mismatch,
+  priorImport,
 }: FinanceImportPhasePanelProps) {
   const { phase } = flow;
 
@@ -63,6 +67,7 @@ export function FinanceImportPhasePanel({
         <FinanceImportPreview
           statement={phase.staged.statement}
           mismatch={mismatch}
+          priorImport={priorImport}
           accountName={accountName}
           isConfirmed={flow.isConfirmed}
           onConfirmedChange={flow.setIsConfirmed}

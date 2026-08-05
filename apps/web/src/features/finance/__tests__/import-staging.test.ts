@@ -1,10 +1,12 @@
-import type { FinanceMerchant } from "@vega/shared";
+import type { FinanceImportBatch, FinanceMerchant } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, type ParsedRow, type ParsedStatement } from "../import";
 import {
+  computeFileHash,
   describeLimitBreach,
   findAccountMismatch,
   findLimitBreach,
+  findPriorImport,
   stageImport,
 } from "../import-staging";
 
@@ -79,6 +81,46 @@ describe("import limits", () => {
 
   it("passes a file inside both ceilings", () => {
     expect(findLimitBreach({ bytes: MAX_IMPORT_BYTES, rows: MAX_IMPORT_ROWS })).toBeNull();
+  });
+});
+
+describe("file provenance", () => {
+  const batch = (id: string, fileHashes: string[]): FinanceImportBatch => ({
+    id,
+    status: "committed",
+    fileNames: [`${id}.csv`],
+    fileHashes,
+    accountId: "facc_chequing",
+    detectedFormat: null,
+    rowsParsed: 3,
+    rowsInserted: 3,
+    rowsSkipped: 0,
+    startedAt: "2026-08-02T10:00:00.000Z",
+    committedAt: "2026-08-02T10:00:01.000Z",
+    writtenChunks: 1,
+    updatedAt: "",
+    fieldUpdatedAt: {},
+  });
+
+  it("hashes the raw text, stably and distinctly", async () => {
+    const [first, again, other] = await Promise.all([
+      computeFileHash("a,b\n1,2\n"),
+      computeFileHash("a,b\n1,2\n"),
+      computeFileHash("a,b\n1,3\n"),
+    ]);
+    expect(first).toHaveLength(64);
+    expect(again).toBe(first);
+    expect(other).not.toBe(first);
+  });
+
+  it("finds the earlier batch that carried the same file", () => {
+    const batches = [batch("fbat_1", ["hash-a"]), batch("fbat_2", ["hash-b"])];
+    expect(findPriorImport("hash-b", "fbat_new", batches)?.id).toBe("fbat_2");
+    expect(findPriorImport("hash-c", "fbat_new", batches)).toBeNull();
+  });
+
+  it("never reports the batch being previewed as its own prior import", () => {
+    expect(findPriorImport("hash-a", "fbat_1", [batch("fbat_1", ["hash-a"])])).toBeNull();
   });
 });
 

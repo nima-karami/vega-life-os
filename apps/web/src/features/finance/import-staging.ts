@@ -1,5 +1,23 @@
-import type { FinanceMerchant, FinanceTransaction } from "@vega/shared";
+import type { FinanceImportBatch, FinanceMerchant, FinanceTransaction } from "@vega/shared";
 import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, type ParsedRow, type ParsedStatement } from "./import";
+
+/**
+ * Provenance for the whole file, not a row. Row-level dedupe already stops a double-count;
+ * this is what lets the preview say *why* nothing new landed — "you imported this exact
+ * file on 1 March" — instead of leaving the owner wondering whether the importer works.
+ */
+export async function computeFileHash(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export const findPriorImport = (
+  fileHash: string,
+  currentBatchId: string,
+  batches: readonly FinanceImportBatch[],
+): FinanceImportBatch | null =>
+  batches.find((batch) => batch.id !== currentBatchId && batch.fileHashes.includes(fileHash)) ??
+  null;
 
 export interface ImportLimitBreach {
   kind: "bytes" | "rows";

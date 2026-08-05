@@ -9,20 +9,32 @@ import {
   parseStatement,
   type TableData,
 } from "./import";
-import { findLimitBreach, type ImportLimitBreach, stageImport } from "./import-staging";
+import {
+  computeFileHash,
+  findLimitBreach,
+  type ImportLimitBreach,
+  stageImport,
+} from "./import-staging";
 import type { FinanceImportOutcome } from "./store";
 
 export interface StagedFile {
   fileName: string;
+  fileHash: string;
   batchId: string;
   startedAt: string;
   statement: ParsedStatement;
 }
 
+interface SourceFile {
+  name: string;
+  hash: string;
+  table: TableData;
+}
+
 export type ImportPhase =
   | { status: "idle" }
   | { status: "parsing"; fileName: string }
-  | { status: "mapping-required"; fileName: string; table: TableData; retryReason?: string }
+  | { status: "mapping-required"; fileName: string; source: SourceFile; retryReason?: string }
   | { status: "limit-reached"; fileName: string; breach: ImportLimitBreach }
   | { status: "parse-failed"; error: ParseFailedError }
   | { status: "preview"; staged: StagedFile }
@@ -59,16 +71,12 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const [phase, setPhase] = useState<ImportPhase>({ status: "idle" });
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  const runParse = async (
-    fileName: string,
-    table: TableData,
-    mapping: FinanceColumnMapping | null,
-  ) => {
+  const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
-    setPhase({ status: "parsing", fileName });
+    setPhase({ status: "parsing", fileName: source.name });
     const outcome = await parseStatement({
-      fileName,
-      table,
+      fileName: source.name,
+      table: source.table,
       accountId: account.id,
       accountSlug: account.slug,
       accountMapping: mapping,
@@ -82,8 +90,8 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     if (outcome.status === "mapping-required") {
       setPhase({
         status: "mapping-required",
-        fileName,
-        table,
+        fileName: source.name,
+        source,
         retryReason: mapping ? REMAP_HINT : undefined,
       });
       return;
@@ -96,7 +104,8 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     setPhase({
       status: "preview",
       staged: {
-        fileName,
+        fileName: source.name,
+        fileHash: source.hash,
         batchId: uid("fbat_"),
         startedAt: new Date().toISOString(),
         statement: outcome.statement,
@@ -110,13 +119,15 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
       setPhase({ status: "limit-reached", fileName: file.name, breach: sizeBreach });
       return;
     }
-    const table = parseDelimitedTable(await file.text());
+    const text = await file.text();
+    const table = parseDelimitedTable(text);
     const rowBreach = findLimitBreach({ rows: table.records.length });
     if (rowBreach) {
       setPhase({ status: "limit-reached", fileName: file.name, breach: rowBreach });
       return;
     }
-    await runParse(file.name, table, account?.columnMapping ?? null);
+    const source = { name: file.name, hash: await computeFileHash(text), table };
+    await runParse(source, account?.columnMapping ?? null);
   };
 
   const runCommit = async (staged: StagedFile) => {
@@ -135,6 +146,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
         id: staged.batchId,
         accountId: account.id,
         fileNames: [staged.fileName],
+        fileHashes: [staged.fileHash],
         detectedFormat: staged.statement.layoutId,
         rowsParsed: staged.statement.counts.parsed,
         rowsSkipped: plan.skipped,
@@ -168,7 +180,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     confirmMapping: (mapping) => {
       if (phase.status !== "mapping-required" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(phase.fileName, phase.table, mapping);
+      void runParse(phase.source, mapping);
     },
   };
 }

@@ -106,6 +106,10 @@ test("re-importing the same file adds nothing", async ({ page }) => {
   await expect(countOf(page, "duplicate")).toHaveText("3");
   await expect(countOf(page, "newRows")).toHaveText("0");
   await expect(page.getByRole("button", { name: "Import 0 rows" })).toBeDisabled();
+  // Why nothing is landing, not just that nothing is landing.
+  await expect(page.getByTestId("import-prior-file")).toContainText(
+    "You already imported this exact file",
+  );
 
   await searchLedger(page, "E2E BOOK STORE");
   await expect(page.getByText("E2E BOOK STORE")).toHaveCount(1);
