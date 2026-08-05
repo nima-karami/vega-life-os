@@ -2,9 +2,9 @@ import type { FinanceColumnMapping } from "@vega/shared";
 import { assignDedupeKeys } from "./dedupe";
 import { formatDateLabel, isFinanceDateFormat } from "./fields";
 import { detectInternalTransfer } from "./internal-transfer";
-import { resolveMapping } from "./layouts";
 import { normalizeMerchant } from "./merchant";
 import { findNearDuplicates } from "./near-duplicate";
+import { resolveStatementView } from "./resolve";
 import { buildDrafts, type RowDraft, resolveColumns } from "./rows";
 import type {
   FinanceDateFormat,
@@ -81,11 +81,11 @@ const countRows = (
  * Flags are raised, never applied — nothing here deletes or merges a row.
  */
 export async function parseStatement(input: ParseStatementInput): Promise<ParseOutcome> {
-  const resolved = resolveMapping(input.table.headers, input.accountMapping);
+  const { view, resolved } = resolveStatementView(input.table, input.accountMapping);
   if (!resolved) {
     return {
       status: "mapping-required",
-      error: { code: "MAPPING_REQUIRED", file: input.fileName, headers: [...input.table.headers] },
+      error: { code: "MAPPING_REQUIRED", file: input.fileName, headers: view.headers },
     };
   }
   const { mapping, layoutId } = resolved;
@@ -93,10 +93,10 @@ export async function parseStatement(input: ParseStatementInput): Promise<ParseO
     return failed(input.fileName, 1, `unsupported date format "${mapping.dateFormat}"`);
   }
 
-  const columns = resolveColumns(input.table.headers, mapping);
+  const columns = resolveColumns(view.headers, mapping);
   if ("reason" in columns) return failed(input.fileName, columns.line, columns.reason);
 
-  const drafts = buildDrafts(input.table.rows, columns, mapping, mapping.dateFormat);
+  const drafts = buildDrafts(view.rows, columns, mapping, mapping.dateFormat);
   if (!Array.isArray(drafts)) return failed(input.fileName, drafts.line, drafts.reason);
 
   const assignments = await assignDedupeKeys(

@@ -12,6 +12,8 @@ export const financeColumnMappingSchema = z.object({
   creditColumn: nullableString,
   dateFormat: z.string(),
   debitsArePositive: z.boolean(),
+  // CIBC and TD export headerless CSVs — reading row 1 as headers eats a real transaction
+  hasHeaderRow: z.boolean().default(true),
 });
 
 const { schema, createSchema } = defineEntity({

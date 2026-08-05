@@ -17,9 +17,17 @@ export interface TableRow {
   line: number;
 }
 
+/** Every non-blank record in source order, header row included when there is one. */
 export interface TableData {
+  records: TableRow[];
+  /** heuristic default; a remembered account mapping's `hasHeaderRow` overrides it */
+  hasHeaderRow: boolean;
+}
+
+export interface TableView {
   headers: string[];
   rows: TableRow[];
+  hasHeaderRow: boolean;
 }
 
 export interface ParseFailedError {

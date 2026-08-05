@@ -44,6 +44,7 @@ const RBC_MAPPING = {
   amountColumn: "CAD$",
   dateFormat: "MM/DD/YYYY",
   debitsArePositive: false,
+  hasHeaderRow: true,
 };
 
 /**
@@ -82,16 +83,4 @@ export function isMappingApplicable(
 export interface ResolvedMapping {
   mapping: FinanceColumnMapping;
   layoutId: string | null;
-}
-
-/** The account's remembered mapping wins; the registry is the fallback; otherwise null. */
-export function resolveMapping(
-  headers: readonly string[],
-  accountMapping: FinanceColumnMapping | null,
-): ResolvedMapping | null {
-  if (accountMapping && isMappingApplicable(accountMapping, headers)) {
-    return { mapping: accountMapping, layoutId: null };
-  }
-  const layout = detectLayout(headers);
-  return layout ? { mapping: layout.mapping, layoutId: layout.id } : null;
 }

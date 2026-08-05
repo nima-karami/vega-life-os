@@ -25,7 +25,6 @@ export {
   headerSignature,
   isMappingApplicable,
   type ResolvedMapping,
-  resolveMapping,
   STATEMENT_LAYOUTS,
   type StatementLayout,
 } from "./layouts";
@@ -36,6 +35,8 @@ export {
   type NearDuplicateRow,
 } from "./near-duplicate";
 export { type ParseStatementInput, parseStatement } from "./parse";
+export { resolveStatementView, type StatementView } from "./resolve";
+export { detectHasHeaderRow, viewTable } from "./table";
 export type {
   FinanceDateFormat,
   ImportReviewFlag,
@@ -50,6 +51,7 @@ export type {
   ParseOutcome,
   TableData,
   TableRow,
+  TableView,
 } from "./types";
 export { FINANCE_DATE_FORMATS, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS } from "./types";
 export { isWorkbookFileName, readWorkbookTable } from "./workbook";

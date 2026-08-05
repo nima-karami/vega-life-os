@@ -1,4 +1,5 @@
-const PROCESSOR_REFERENCE = /\*[A-Z0-9]{5,}/g;
+/** A processor reference always carries a digit; `SQ *COFFEESHOP` is a merchant name. */
+const PROCESSOR_REFERENCE = /\*(?=[A-Z0-9]*\d)[A-Z0-9]{5,}/g;
 const LONG_DIGIT_RUN = /\d{4,}/g;
 const EDGE_NOISE = /^[\s\-*#,.]+|[\s\-*#,.]+$/g;
 

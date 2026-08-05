@@ -8,10 +8,17 @@ describe("normalizeMerchant", () => {
 
   it("strips a processor reference glued on with an asterisk", () => {
     expect(normalizeMerchant("Amzn Mktp CA*REF123")).toBe("AMZN MKTP CA");
+    expect(normalizeMerchant("AMZN MKTP CA*REF456")).toBe("AMZN MKTP CA");
   });
 
   it("keeps a short asterisked token, which is a merchant name and not a reference", () => {
     expect(normalizeMerchant("SQ *THE COFFEE BAR ANYTOWN ON")).toBe("SQ *THE COFFEE BAR");
+  });
+
+  it("keeps a long asterisked token with no digit — Square puts merchant names there", () => {
+    expect(normalizeMerchant("SQ *COFFEESHOP")).toBe("SQ *COFFEESHOP");
+    expect(normalizeMerchant("SQ *BAKERY")).toBe("SQ *BAKERY");
+    expect(normalizeMerchant("SQ *COFFEESHOP")).not.toBe(normalizeMerchant("SQ *BAKERY"));
   });
 
   it("strips runs of four or more digits", () => {

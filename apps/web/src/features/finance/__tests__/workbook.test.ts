@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
+import { viewTable } from "../import/table";
 import { isWorkbookFileName, readWorkbookTable } from "../import/workbook";
 
 async function buildWorkbook(rows: unknown[][]): Promise<ArrayBuffer> {
@@ -23,7 +24,7 @@ describe("readWorkbookTable", () => {
       ["2026-07-10", "PANTRYCO", -38.40],
       ["2026-07-11", "LANTERN", -7.25],
     ]);
-    const table = await readWorkbookTable(data);
+    const table = viewTable(await readWorkbookTable(data));
     expect(table.headers).toEqual(["Date", "Description", "Amount"]);
     expect(table.rows).toEqual([
       { cells: ["2026-07-10", "PANTRYCO", "-38.40"], line: 2 },
@@ -36,19 +37,19 @@ describe("readWorkbookTable", () => {
       ["Date", "Amount"],
       [new Date(Date.UTC(2026, 6, 3)), -1],
     ]);
-    const table = await readWorkbookTable(data);
+    const table = viewTable(await readWorkbookTable(data));
     expect(table.rows[0].cells).toEqual(["2026-07-10", "-1"]);
   });
 
   it("keeps a float artefact out of the money parser", async () => {
     const data = await buildWorkbook([["Amount"], [0.1 + 0.2]]);
-    const table = await readWorkbookTable(data);
+    const table = viewTable(await readWorkbookTable(data));
     expect(table.rows[0].cells[0]).toBe("0.30");
   });
 
   it("returns an empty table for a workbook with no sheets", async () => {
     const workbook = new ExcelJS.Workbook();
     const data = (await workbook.xlsx.writeBuffer()) as ArrayBuffer;
-    expect(await readWorkbookTable(data)).toEqual({ headers: [], rows: [] });
+    expect(await readWorkbookTable(data)).toEqual({ records: [], hasHeaderRow: true });
   });
 });

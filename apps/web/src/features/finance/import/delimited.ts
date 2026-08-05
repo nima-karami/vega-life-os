@@ -1,3 +1,4 @@
+import { detectHasHeaderRow } from "./table";
 import type { TableData, TableRow } from "./types";
 
 export type DelimitedSeparator = "," | "\t";
@@ -84,9 +85,8 @@ function readRecords(text: string, separator: DelimitedSeparator): TableRow[] {
   return scan.records;
 }
 
-/** CSV or TSV text to a header row plus data rows; UTF-8 BOM, CRLF and LF all accepted. */
+/** CSV or TSV text to source records; UTF-8 BOM, CRLF and LF all accepted. */
 export function parseDelimitedTable(text: string, separator?: DelimitedSeparator): TableData {
   const records = readRecords(text, separator ?? detectSeparator(text));
-  const [header, ...rows] = records;
-  return { headers: header ? header.cells : [], rows };
+  return { records, hasHeaderRow: detectHasHeaderRow(records) };
 }

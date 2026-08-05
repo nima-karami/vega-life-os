@@ -12,6 +12,7 @@ const signedMapping: FinanceColumnMapping = {
   creditColumn: null,
   dateFormat: "DD/MM/YYYY",
   debitsArePositive: false,
+  hasHeaderRow: true,
 };
 
 const SIGNED_CSV = [
@@ -150,6 +151,49 @@ describe("parseStatement — flags and counts", () => {
   it("records the source line of every row", async () => {
     const statement = await expectParsed();
     expect(statement.rows.map((row) => row.sourceRowNumber)).toEqual([2, 3]);
+  });
+});
+
+describe("parseStatement — headerless files", () => {
+  const DATA_ROWS = [
+    '07/10/2026,"LANTERN, ANYTOWN ON",-38.40',
+    "08/03/2026,PAYMENT - THANK YOU,120.00",
+  ];
+  const headerless: FinanceColumnMapping = {
+    ...signedMapping,
+    dateColumn: "Column 1",
+    descriptionColumn: "Column 2",
+    amountColumn: "Column 3",
+    hasHeaderRow: false,
+  };
+
+  it("keeps the first transaction that a headered read would have eaten", async () => {
+    const headered = await expectParsed();
+    const bare = await expectParsed({
+      table: parseDelimitedTable(`${DATA_ROWS.join("\r\n")}\r\n`),
+      accountMapping: headerless,
+    });
+    expect(headered.rows).toHaveLength(DATA_ROWS.length);
+    expect(bare.rows).toHaveLength(DATA_ROWS.length);
+    expect(bare.rows[0].description).toBe("LANTERN, ANYTOWN ON");
+    expect(bare.rows[0].sourceRowNumber).toBe(1);
+  });
+
+  it("parses a headered file identically whether or not the mapping is remembered", async () => {
+    const remembered = await expectParsed();
+    const detected = await expectParsed({ accountMapping: { ...signedMapping } });
+    expect(detected.rows).toEqual(remembered.rows);
+  });
+
+  it("offers positional labels so an unmapped headerless file can still be mapped", async () => {
+    const outcome = await run({
+      table: parseDelimitedTable(`${DATA_ROWS.join("\r\n")}\r\n`),
+      accountMapping: null,
+    });
+    expect(outcome).toMatchObject({
+      status: "mapping-required",
+      error: { headers: ["Column 1", "Column 2", "Column 3"] },
+    });
   });
 });
 

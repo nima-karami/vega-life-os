@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import type { CellValue, Workbook } from "exceljs";
+import { detectHasHeaderRow } from "./table";
 import type { TableData, TableRow } from "./types";
 
 type WorkbookInput = Parameters<Workbook["xlsx"]["load"]>[0];
@@ -34,7 +35,7 @@ export async function readWorkbookTable(data: ArrayBuffer | Uint8Array): Promise
   const workbook = new WorkbookCtor();
   await workbook.xlsx.load(data as unknown as WorkbookInput);
   const sheet = workbook.worksheets[0];
-  if (!sheet) return { headers: [], rows: [] };
+  if (!sheet) return { records: [], hasHeaderRow: true };
 
   const columnCount = sheet.columnCount;
   const records: TableRow[] = [];
@@ -45,6 +46,5 @@ export async function readWorkbookTable(data: ArrayBuffer | Uint8Array): Promise
     if (cells.some((cell) => cell !== "")) records.push({ cells, line: rowNumber });
   });
 
-  const [header, ...rows] = records;
-  return { headers: header ? header.cells : [], rows };
+  return { records, hasHeaderRow: detectHasHeaderRow(records) };
 }
