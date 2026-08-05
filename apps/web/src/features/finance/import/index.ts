@@ -54,4 +54,3 @@ export type {
   TableView,
 } from "./types";
 export { FINANCE_DATE_FORMATS, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS } from "./types";
-export { isWorkbookFileName, readWorkbookTable } from "./workbook";
