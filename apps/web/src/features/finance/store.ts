@@ -10,9 +10,23 @@ import type {
 import { format } from "date-fns";
 import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
-import type { Dataset } from "@/core/persistence";
+import { type Dataset, persistence } from "@/core/persistence";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+
+/** What a statement import hands the store: the rows, the merchant sightings, and its batch record. */
+export interface FinanceImportInput {
+  transactions: Partial<FinanceTransaction>[];
+  merchants: Partial<FinanceMerchant>[];
+  batch: Partial<FinanceImportBatch>;
+}
+
+export interface FinanceImportOutcome {
+  writtenRows: number;
+  writtenChunks: number;
+  /** the chunk that rejected, or null when the whole import landed */
+  failedChunk: number | null;
+}
 
 /** One slice for all seven finance collections — seven parallel CRUD stacks would breach the jscpd gate. */
 export interface FinanceSlice {
@@ -51,6 +65,8 @@ export interface FinanceSlice {
   addFinanceSettlement: (patch?: Partial<FinanceSettlement>) => FinanceSettlement;
   updateFinanceSettlement: (id: string, patch: Partial<FinanceSettlement>) => void;
   removeFinanceSettlement: (id: string) => void;
+
+  importFinanceTransactions: (input: FinanceImportInput) => Promise<FinanceImportOutcome>;
 }
 
 type FinanceCollection =
@@ -283,6 +299,26 @@ const buildSettlement = (patch: Partial<FinanceSettlement>): FinanceSettlement =
   };
 };
 
+/** Firestore caps a batch at 500 writes; the server chunks at 450, so a rejected chunk is reportable. */
+const IMPORT_CHUNK_ROWS = 450;
+
+function chunkRows<T>(rows: readonly T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let start = 0; start < rows.length; start += size) {
+    chunks.push(rows.slice(start, start + size));
+  }
+  return chunks;
+}
+
+function mergeById<T extends { id: string }>(existing: T[], incoming: T[]): T[] {
+  const incomingById = new Map(incoming.map((row) => [row.id, row]));
+  const existingIds = new Set(existing.map((row) => row.id));
+  return [
+    ...existing.map((row) => incomingById.get(row.id) ?? row),
+    ...incoming.filter((row) => !existingIds.has(row.id)),
+  ];
+}
+
 export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
   const accounts = createFinanceCrud("financeAccounts", buildAccount, set, get);
   const categories = createFinanceCrud("financeCategories", buildCategory, set, get);
@@ -291,6 +327,50 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
   const batches = createFinanceCrud("financeImportBatches", buildImportBatch, set, get);
   const transactions = createFinanceCrud("financeTransactions", buildTransaction, set, get);
   const settlements = createFinanceCrud("financeSettlements", buildSettlement, set, get);
+
+  /**
+   * The one bulk write path: rows go through the adapter's `bulkPut`, which routes to the
+   * batched `data.importCollection`, so a statement costs a handful of sync-counter bumps
+   * instead of one per row. State is set from what actually landed — never optimistically —
+   * so a partial commit can't leave phantom rows on screen.
+   */
+  const importFinanceTransactions = async (
+    input: FinanceImportInput,
+  ): Promise<FinanceImportOutcome> => {
+    const merchants = input.merchants.map((patch) => buildMerchant(patch));
+    const transactions = input.transactions.map((patch) => buildTransaction(patch));
+
+    let didWriteMerchants = false;
+    let writtenChunks = 0;
+    let failedChunk: number | null = null;
+    try {
+      if (merchants.length > 0) await persistence.bulkPut("financeMerchants", merchants);
+      didWriteMerchants = true;
+      for (const chunk of chunkRows(transactions, IMPORT_CHUNK_ROWS)) {
+        await persistence.bulkPut("financeTransactions", chunk);
+        writtenChunks += 1;
+      }
+    } catch {
+      failedChunk = writtenChunks;
+    }
+
+    const landed = transactions.slice(0, writtenChunks * IMPORT_CHUNK_ROWS);
+    const next: Partial<FinanceSlice> = {
+      financeTransactions: mergeById(get().financeTransactions, landed),
+    };
+    if (didWriteMerchants) next.financeMerchants = mergeById(get().financeMerchants, merchants);
+    set(next);
+
+    batches.add({
+      ...input.batch,
+      status: failedChunk === null ? "committed" : "partial-commit",
+      rowsInserted: landed.length,
+      writtenChunks,
+      committedAt: failedChunk === null ? new Date().toISOString() : null,
+    });
+
+    return { writtenRows: landed.length, writtenChunks, failedChunk };
+  };
 
   return {
     financeAccounts: [],
@@ -328,5 +408,7 @@ export const createFinanceSlice: Slice<FinanceSlice> = (set, get) => {
     addFinanceSettlement: settlements.add,
     updateFinanceSettlement: settlements.update,
     removeFinanceSettlement: settlements.remove,
+
+    importFinanceTransactions,
   };
 };
