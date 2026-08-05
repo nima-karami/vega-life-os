@@ -110,6 +110,47 @@ export const NAV_COMMANDS: NavCommand[] = [
     to: "/vocab",
     keywords: "vocab words dictionary language vocabulary terms",
   },
+  // Finance is reachable from here only — no bottom-nav icon, no desktop nav entry.
+  {
+    id: "nav-finance",
+    label: "Finance",
+    sublabel: "Money · month overview",
+    icon: "wallet",
+    to: "/finance",
+    keywords: "finance money spending budget dashboard overview",
+  },
+  {
+    id: "nav-finance-transactions",
+    label: "Transactions",
+    sublabel: "Finance · ledger",
+    icon: "receipt",
+    to: "/finance/transactions",
+    keywords: "transactions ledger finance expenses rows spending",
+  },
+  {
+    id: "nav-finance-import",
+    label: "Import statements",
+    sublabel: "Finance · CSV · XLSX",
+    icon: "upload",
+    to: "/finance/import",
+    keywords: "import statements bank csv xlsx excel finance upload",
+  },
+  {
+    id: "nav-finance-categories",
+    label: "Categories & budgets",
+    sublabel: "Finance · budgets",
+    icon: "tag",
+    to: "/finance/categories",
+    keywords: "categories budgets finance spending limits",
+  },
+  {
+    id: "nav-finance-settlement",
+    label: "Settlement",
+    sublabel: "Finance · split with partner",
+    icon: "handshake",
+    to: "/finance/settlement",
+    keywords: "settlement split share partner owed household finance",
+  },
 ];
 
 export const ACTION_COMMANDS: ActionCommand[] = [
@@ -165,6 +206,19 @@ export const ACTION_COMMANDS: ActionCommand[] = [
     run: ({ store, query, navigate, close }) => {
       store.getState().setPendingVocabTerm(query.trim());
       navigate("/vocab");
+      close();
+    },
+  },
+  {
+    id: "action-add-expense",
+    label: "Add expense",
+    icon: "coins",
+    keywords: "add expense spend transaction finance quick money",
+    // A single free-text query can't carry amount + date + category + payer + share, so the
+    // draft is stashed and the ledger's host opens the quick-add on it.
+    run: ({ store, query, navigate, close }) => {
+      store.getState().setPendingFinanceEntry(query.trim());
+      navigate("/finance/transactions");
       close();
     },
   },
