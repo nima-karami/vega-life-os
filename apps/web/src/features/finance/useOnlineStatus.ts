@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-function subscribe(onChange: () => void) {
+function subscribe(onChange: () => void): () => void {
   window.addEventListener("online", onChange);
   window.addEventListener("offline", onChange);
   return () => {
@@ -10,7 +10,7 @@ function subscribe(onChange: () => void) {
 }
 
 /** Signed-in data is cloud-only, so offline the money screens are read-only — say so, don't imply a queue. */
-export const useOnlineStatus = () =>
+export const useOnlineStatus = (): boolean =>
   useSyncExternalStore(
     subscribe,
     () => navigator.onLine,
