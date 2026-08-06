@@ -14,7 +14,7 @@ export { getValueStripeStyle, Lineage } from "./lineage";
 export type { MenuItem } from "./menu";
 export { Menu } from "./menu";
 export { draftSafeBackdrop } from "./modal";
-export type { EmptyCopy } from "./PageShell";
+export type { EmptyCopy, PageShellProps } from "./PageShell";
 export { PageShell } from "./PageShell";
 export { Popover } from "./popover";
 export {

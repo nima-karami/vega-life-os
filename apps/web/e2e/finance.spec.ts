@@ -1,8 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 
 /**
- * The finance spine: the five routes exist, each renders its own page, and the ⌘K search bar
- * is the only way in — finance takes no nav slot by design.
+ * The finance spine: the ⌘K search bar offers one finance destination — finance takes no nav
+ * slot by design — and the in-page view strip reaches the other four routes from there.
  */
 
 const COMMAND_PLACEHOLDER = "Search, navigate, or ask…";
@@ -34,36 +34,77 @@ async function openCommandBar(page: Page, query: string) {
   return dialog;
 }
 
-const FINANCE_ROUTES = [
-  { sublabel: /Money · month overview/, url: /\/finance$/, heading: "Finance" },
-  { sublabel: /Finance · ledger/, url: /\/finance\/transactions$/, heading: "Transactions" },
-  { sublabel: /Finance · CSV/, url: /\/finance\/import$/, heading: "Import statements" },
-  { sublabel: /Finance · budgets/, url: /\/finance\/categories$/, heading: "Categories" },
-  {
-    sublabel: /Finance · split with partner/,
-    url: /\/finance\/settlement$/,
-    heading: "Settlement",
-  },
+const FINANCE_VIEWS = [
+  { tab: "Overview", url: /\/finance$/, heading: "Finance" },
+  { tab: "Transactions", url: /\/finance\/transactions$/, heading: "Transactions" },
+  { tab: "Import", url: /\/finance\/import$/, heading: "Import statements" },
+  { tab: "Categories & budgets", url: /\/finance\/categories$/, heading: "Categories" },
+  { tab: "Settlement", url: /\/finance\/settlement$/, heading: "Settlement" },
 ];
 
-for (const { sublabel, url, heading } of FINANCE_ROUTES) {
-  test(`command bar reaches ${heading} and the page renders`, async ({ page }) => {
+/** Typing the concepts that used to be their own commands must still land on the one door. */
+const FINANCE_QUERIES = ["finance", "settlement", "import statements", "budgets", "transactions"];
+
+for (const query of FINANCE_QUERIES) {
+  test(`the command bar offers one finance destination for "${query}"`, async ({ page }) => {
+    await enterApp(page);
+    const dialog = await openCommandBar(page, query);
+
+    const financeOptions = dialog.getByRole("option", { name: /Money · month overview/ });
+    await expect(financeOptions).toHaveCount(1);
+    await expect(dialog.getByRole("option", { name: /Finance · / })).toHaveCount(0);
+
+    await financeOptions.click();
+    await expect(page).toHaveURL(/\/finance$/);
+  });
+}
+
+for (const { tab, url, heading } of FINANCE_VIEWS) {
+  test(`the view strip reaches ${heading} and the page renders`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
 
     await enterApp(page);
     const dialog = await openCommandBar(page, "finance");
-    await dialog.getByRole("option", { name: sublabel }).first().click();
+    await dialog.getByRole("option", { name: /Money · month overview/ }).click();
+    await expect(page).toHaveURL(/\/finance$/);
+
+    const viewNav = page.getByRole("navigation", { name: "Finance views" });
+    await expect(viewNav).toBeVisible({ timeout: 10_000 });
+    await viewNav.getByRole("button", { name: tab }).click();
 
     await expect(page).toHaveURL(url);
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible({
       timeout: 10_000,
     });
+    // The strip travels with the page and marks where you are.
+    await expect(
+      page.getByRole("navigation", { name: "Finance views" }).getByRole("button", { name: tab }),
+    ).toHaveAttribute("aria-pressed", "true");
     // Wide layout, and a body that actually rendered rows from the sample data.
     await expect(page.locator("main .max-w-6xl").first()).toBeVisible();
     expect(errors, `runtime errors on ${heading}:\n${errors.join("\n")}`).toEqual([]);
   });
 }
+
+test("the view strip does not overflow the page at 320px", async ({ page }) => {
+  await enterApp(page);
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("/finance/settlement", { waitUntil: "networkidle" });
+  await expect(page.getByRole("navigation", { name: "Finance views" })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ),
+      { message: "finance page overflows horizontally at 320px", timeout: 5_000 },
+    )
+    .toBeLessThanOrEqual(1);
+});
 
 test("the ledger filters on a search and offers a way back", async ({ page }) => {
   await enterApp(page);

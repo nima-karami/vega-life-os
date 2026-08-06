@@ -3,10 +3,11 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
-import { type EmptyCopy, PageShell, SegmentButton } from "@/core/ui";
+import { type EmptyCopy, SegmentButton } from "@/core/ui";
 import { FinanceDashboardBody } from "./FinanceDashboardBody";
 import { FinanceDashboardSkeleton } from "./FinanceDashboardSkeleton";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
+import { FinancePageShell } from "./FinancePageShell";
 import { isMonthKey, toMonthKey } from "./month-cursor";
 import { useFinanceBook } from "./useFinanceBook";
 import { useOnlineStatus } from "./useOnlineStatus";
@@ -71,7 +72,7 @@ export function FinanceDashboardPage() {
   const clearDeepLink = () => setParams(new URLSearchParams(), { replace: true });
 
   const renderShell = (children: ReactNode, emptyCopy?: EmptyCopy) => (
-    <PageShell
+    <FinancePageShell
       title="Finance"
       subtitle={SUBTITLE}
       action={
@@ -96,7 +97,7 @@ export function FinanceDashboardPage() {
       empty={emptyCopy ?? NO_COPY}
     >
       {children}
-    </PageShell>
+    </FinancePageShell>
   );
 
   if (loadFailed)

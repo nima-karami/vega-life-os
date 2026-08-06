@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/core/store";
-import { PageShell } from "@/core/ui";
 import { FinanceImportDropZone } from "./FinanceImportDropZone";
 import { FinanceImportMapper } from "./FinanceImportMapper";
 import { FinanceImportPhasePanel } from "./FinanceImportPhasePanel";
 import { FinanceNotice } from "./FinanceNotice";
+import { FinancePageShell } from "./FinancePageShell";
 import { FinanceReviewQueue } from "./FinanceReviewQueue";
 import { FinanceRowList } from "./FinanceRowList";
 import { normalizeMerchant } from "./import/merchant";
@@ -59,7 +59,7 @@ export function FinanceImportPage() {
   }));
 
   return (
-    <PageShell
+    <FinancePageShell
       title="Import statements"
       subtitle="Pick the account, drop a CSV, confirm how it reads — nothing is written until you do."
       summary={`${batchRows.length} imports on record`}
@@ -122,6 +122,6 @@ export function FinanceImportPage() {
           <FinanceRowList rows={batchRows} />
         </section>
       )}
-    </PageShell>
+    </FinancePageShell>
   );
 }
