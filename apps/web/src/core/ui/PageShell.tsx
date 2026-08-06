@@ -38,6 +38,8 @@ export interface PageShellProps {
   summary?: string;
   /** the single primary action for the page */
   action?: ReactNode;
+  /** sub-navigation between sibling views of the same area — shown in every state */
+  nav?: ReactNode;
   search?: SearchBox;
   chips?: ChipGroup;
   /** further filter controls (month selector, account picker) beside the search and chips */
@@ -56,6 +58,7 @@ export function PageShell({
   subtitle,
   summary,
   action,
+  nav,
   search,
   chips,
   filters,
@@ -78,6 +81,8 @@ export function PageShell({
         </div>
         {action}
       </header>
+
+      {nav}
 
       {hasFilterBar && (
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">

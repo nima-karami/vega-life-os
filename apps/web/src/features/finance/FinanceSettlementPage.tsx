@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { Button, ConfirmDialog, PageShell, Select } from "@/core/ui";
+import { Button, ConfirmDialog, Select } from "@/core/ui";
+import { FinancePageShell } from "./FinancePageShell";
 import { formatCents } from "./money";
 import {
   formatMonthLabel,
@@ -148,7 +149,7 @@ export function FinanceSettlementPage() {
   const hasAnyData = book.financeSettlements.length > 0 || figures.householdRowCount > 0;
 
   return (
-    <PageShell
+    <FinancePageShell
       title="Settlement"
       subtitle="What the household cost, whose card it landed on, and who owes whom this month."
       summary={`${formatMonthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now")}`}
@@ -206,6 +207,6 @@ export function FinanceSettlementPage() {
           onSave={recordPayment}
         />
       )}
-    </PageShell>
+    </FinancePageShell>
   );
 }

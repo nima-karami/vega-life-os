@@ -2,7 +2,8 @@ import { Button, Checkbox } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
 import { useMemo, useState } from "react";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, cx, Icon, PageShell, SortHeader, toggleColumnSort } from "@/core/ui";
+import { ConfirmDialog, cx, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
+import { FinancePageShell } from "./FinancePageShell";
 import { FinanceQuickAddHost } from "./FinanceQuickAddHost";
 import { formatCents } from "./money";
 import { computeHouseholdTotal, computeMyTrueShare, type FinanceBook } from "./queries";
@@ -116,7 +117,7 @@ export function FinanceTransactionsPage() {
 
   return (
     <>
-      <PageShell
+      <FinancePageShell
         title="Transactions"
         subtitle="Every row from every statement — the ledger you work in."
         summary={summary}
@@ -241,7 +242,7 @@ export function FinanceTransactionsPage() {
             </div>
           )}
         </div>
-      </PageShell>
+      </FinancePageShell>
 
       <ConfirmDialog
         open={pendingDeleteIds !== null}

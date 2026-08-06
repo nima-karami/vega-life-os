@@ -2,13 +2,14 @@ import type { FinanceCategory } from "@vega/shared";
 import { useMemo, useState } from "react";
 import { pluralize } from "@/core/lib/plural";
 import { useStore } from "@/core/store";
-import { Button, Disclosure, Icon, Menu, type MenuItem, PageShell, Tag } from "@/core/ui";
+import { Button, Disclosure, Icon, Menu, type MenuItem, Tag } from "@/core/ui";
 import { CategoryBudgetMeter } from "./CategoryBudgetMeter";
 import { CategoryDeleteModal } from "./CategoryDeleteModal";
 import { CategoryEditorModal } from "./CategoryEditorModal";
 import { CategoryMergeModal } from "./CategoryMergeModal";
 import { indexCategoryReferences, NO_CATEGORY_REFERENCES } from "./category-references";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
+import { FinancePageShell } from "./FinancePageShell";
 import { type FinanceRowItem, FinanceRowList } from "./FinanceRowList";
 import { formatCents } from "./money";
 import { formatMonthLabel, toMonthKey } from "./month-cursor";
@@ -139,7 +140,7 @@ export function FinanceCategoriesPage() {
 
   return (
     <>
-      <PageShell
+      <FinancePageShell
         title="Categories"
         subtitle="Your own categories, each with a budget you can set month by month."
         summary={`${financeCategories.length} categories · ${formatCents(totalSpend)} of ${formatCents(totalBudget)} budgeted`}
@@ -168,7 +169,7 @@ export function FinanceCategoriesPage() {
         <Disclosure label="archived" count={retiredCategories.length} onToggle={setIsArchivedOpen}>
           {isArchivedOpen && <FinanceRowList rows={retiredCategories.map(buildRow)} />}
         </Disclosure>
-      </PageShell>
+      </FinancePageShell>
 
       {editing && (
         <CategoryEditorModal

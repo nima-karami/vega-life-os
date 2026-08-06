@@ -110,46 +110,16 @@ export const NAV_COMMANDS: NavCommand[] = [
     to: "/vocab",
     keywords: "vocab words dictionary language vocabulary terms",
   },
-  // Finance is reachable from here only — no bottom-nav icon, no desktop nav entry.
+  // Finance is one door: reachable from here only (no nav slot), and its five views are
+  // reached from the strip inside the page — so the sub-routes get keywords, not entries.
   {
     id: "nav-finance",
     label: "Finance",
     sublabel: "Money · month overview",
     icon: "wallet",
     to: "/finance",
-    keywords: "finance money spending budget dashboard overview",
-  },
-  {
-    id: "nav-finance-transactions",
-    label: "Transactions",
-    sublabel: "Finance · ledger",
-    icon: "receipt",
-    to: "/finance/transactions",
-    keywords: "transactions ledger finance expenses rows spending",
-  },
-  {
-    id: "nav-finance-import",
-    label: "Import statements",
-    sublabel: "Finance · CSV · TSV",
-    icon: "upload",
-    to: "/finance/import",
-    keywords: "import statements bank csv tsv finance upload",
-  },
-  {
-    id: "nav-finance-categories",
-    label: "Categories & budgets",
-    sublabel: "Finance · budgets",
-    icon: "tag",
-    to: "/finance/categories",
-    keywords: "categories budgets finance spending limits",
-  },
-  {
-    id: "nav-finance-settlement",
-    label: "Settlement",
-    sublabel: "Finance · split with partner",
-    icon: "handshake",
-    to: "/finance/settlement",
-    keywords: "settlement split share partner owed household finance",
+    keywords:
+      "finance money spending dashboard overview transactions ledger expenses rows import statements bank csv tsv upload categories budgets limits settlement split share partner owed household",
   },
 ];
 
