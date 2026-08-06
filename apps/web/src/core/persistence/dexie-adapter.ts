@@ -1,5 +1,7 @@
 import type { Table } from "dexie";
 import {
+  type BulkPutResult,
+  type BulkRemoveResult,
   COLLECTIONS,
   type CollectionName,
   createEmptyDataset,
@@ -43,12 +45,23 @@ export class DexieAdapter implements PersistenceAdapter {
     await tableFor(col).put(item);
   }
 
-  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void> {
+  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult> {
     await tableFor(col).bulkPut(items);
+    return { inserted: items.length, skipped: 0, writtenChunks: 1 };
   }
 
   async remove(col: CollectionName, id: string): Promise<void> {
     await db[col].delete(id);
+  }
+
+  /** Dexie deletes a missing key silently, so the count has to be read before the delete. */
+  async bulkRemove<C extends CollectionName>(col: C, ids: string[]): Promise<BulkRemoveResult> {
+    const table = tableFor(col);
+    const uniqueIds = [...new Set(ids)];
+    const present = await table.bulkGet(uniqueIds);
+    const removed = present.filter((row) => row !== undefined).length;
+    await table.bulkDelete(uniqueIds);
+    return { removed, missing: uniqueIds.length - removed, writtenChunks: 1 };
   }
 
   async clearAll(): Promise<void> {

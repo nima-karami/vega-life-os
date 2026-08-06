@@ -17,6 +17,12 @@ const { fakeDb } = vi.hoisted(() => {
     async bulkPut(items: Row[]) {
       for (const item of items) this.rows.set(item.id, item);
     }
+    async bulkGet(ids: string[]) {
+      return ids.map((id) => this.rows.get(id));
+    }
+    async bulkDelete(ids: string[]) {
+      for (const id of ids) this.rows.delete(id);
+    }
     async delete(id: string) {
       this.rows.delete(id);
     }
@@ -37,6 +43,13 @@ const { fakeDb } = vi.hoisted(() => {
     "calendarEvents",
     "mindCards",
     "mindMeta",
+    "financeAccounts",
+    "financeCategories",
+    "financeBudgets",
+    "financeMerchants",
+    "financeImportBatches",
+    "financeTransactions",
+    "financeSettlements",
   ];
   return { fakeDb: Object.fromEntries(columns.map((col) => [col, new FakeTable()])) };
 });
@@ -68,5 +81,45 @@ describe("DexieAdapter iterates every collection", () => {
   it("loadAll returns a key for every registered collection", async () => {
     const loaded = await new DexieAdapter().loadAll();
     for (const col of COLLECTIONS) expect(loaded).toHaveProperty(col);
+  });
+
+  it("bulkRemove drops every id in one pass and reports what was there", async () => {
+    const adapter = new DexieAdapter();
+    await adapter.bulkPut("mindCards", [{ id: "c1" }, { id: "c2" }, { id: "c3" }] as never);
+
+    expect(await adapter.bulkRemove("mindCards", ["c1", "c3"])).toEqual({
+      removed: 2,
+      missing: 0,
+      writtenChunks: 1,
+    });
+    expect((await adapter.load("mindCards")).map((card) => card.id)).toEqual(["c2"]);
+  });
+
+  it("bulkRemove counts ids that were already gone as missing", async () => {
+    const adapter = new DexieAdapter();
+    await adapter.bulkPut("mindCards", [{ id: "c1" }] as never);
+
+    expect(await adapter.bulkRemove("mindCards", ["c1", "ghost"])).toEqual({
+      removed: 1,
+      missing: 1,
+      writtenChunks: 1,
+    });
+    // Replaying the same removal is a no-op, exactly as it is server-side.
+    expect(await adapter.bulkRemove("mindCards", ["c1", "ghost"])).toEqual({
+      removed: 0,
+      missing: 2,
+      writtenChunks: 1,
+    });
+  });
+
+  it("bulkRemove collapses a duplicated id so it is not counted twice", async () => {
+    const adapter = new DexieAdapter();
+    await adapter.bulkPut("mindCards", [{ id: "c1" }] as never);
+
+    expect(await adapter.bulkRemove("mindCards", ["c1", "c1"])).toEqual({
+      removed: 1,
+      missing: 0,
+      writtenChunks: 1,
+    });
   });
 });

@@ -3,10 +3,10 @@ import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { cx, draftSafeBackdrop, Icon, IconField, useCompactModal } from "@/core/ui";
+import { cx, draftSafeBackdrop, EditorField, Icon, IconField, useCompactModal } from "@/core/ui";
 import { getValueColor, VALUE_HUES, VALUE_PALETTE } from "../color";
 import type { Value } from "../model";
-import { EditorField, HuePicker } from "./editor-bits";
+import { HuePicker } from "./editor-bits";
 
 interface ValueDraft {
   name: string;

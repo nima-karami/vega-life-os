@@ -15,6 +15,7 @@ import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persist
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
 import { loadShowGoogleEvents } from "@/features/calendar-sync/config";
 import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
+import { createFinanceSlice } from "@/features/finance/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
 import { createHabitsSlice } from "@/features/habits/store";
@@ -109,6 +110,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createCalendarEventsSlice(set, get, api),
   ...createScrollSlice(set, get, api),
   ...createStreaksSlice(set, get, api),
+  ...createFinanceSlice(set, get, api),
   ...createUiSlice(set, get, api),
 
   ready: false,
@@ -158,6 +160,13 @@ export const useStore = create<RootState>((set, get, api) => ({
       journal: seed.journal,
       mindCards: seed.mindCards,
       mindMeta: [],
+      financeAccounts: seed.financeAccounts,
+      financeCategories: seed.financeCategories,
+      financeBudgets: seed.financeBudgets,
+      financeMerchants: seed.financeMerchants,
+      financeImportBatches: seed.financeImportBatches,
+      financeTransactions: seed.financeTransactions,
+      financeSettlements: seed.financeSettlements,
     });
     void setSandboxDirty(false);
   },
@@ -190,6 +199,13 @@ export const useStore = create<RootState>((set, get, api) => ({
       journal: state.journal,
       mindCards: state.mindCards,
       mindMeta: state.mindMeta,
+      financeAccounts: state.financeAccounts,
+      financeCategories: state.financeCategories,
+      financeBudgets: state.financeBudgets,
+      financeMerchants: state.financeMerchants,
+      financeImportBatches: state.financeImportBatches,
+      financeTransactions: state.financeTransactions,
+      financeSettlements: state.financeSettlements,
     };
     return JSON.stringify(
       { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data: dataset },

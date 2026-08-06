@@ -2,15 +2,6 @@
 import { Slider } from "@heroui/react";
 import { cx, Icon } from "@/core/ui";
 
-export function EditorField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2.5">
-      <span className="text-xs text-muted">{label}</span>
-      {children}
-    </div>
-  );
-}
-
 // Selected swatch is named by its hex, so colour is never the only signal.
 export function HuePicker({
   value,

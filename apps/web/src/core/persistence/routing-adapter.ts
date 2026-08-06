@@ -38,6 +38,9 @@ export class RoutingAdapter implements PersistenceAdapter {
   remove(col: CollectionName, id: string) {
     return this.current.remove(col, id);
   }
+  bulkRemove<C extends CollectionName>(col: C, ids: string[]) {
+    return this.current.bulkRemove(col, ids);
+  }
   clearAll() {
     return this.current.clearAll();
   }

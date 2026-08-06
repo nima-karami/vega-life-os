@@ -1,4 +1,5 @@
 import { Button } from "@heroui/react";
+import type { ReactNode } from "react";
 
 /** A segmented-control cell: a HeroUI toggle Button (aria-pressed); selected = primary fill. */
 export function SegmentButton({
@@ -10,7 +11,7 @@ export function SegmentButton({
   isSelected: boolean;
   onClick: () => void;
   isDisabled?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <Button

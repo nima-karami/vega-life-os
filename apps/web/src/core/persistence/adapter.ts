@@ -1,4 +1,15 @@
-import type { CalendarEvent, MindCard, MindMetaRecord } from "@vega/shared";
+import type {
+  CalendarEvent,
+  FinanceAccount,
+  FinanceBudget,
+  FinanceCategory,
+  FinanceImportBatch,
+  FinanceMerchant,
+  FinanceSettlement,
+  FinanceTransaction,
+  MindCard,
+  MindMetaRecord,
+} from "@vega/shared";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { DayEntry } from "@/features/journal/model";
@@ -21,6 +32,13 @@ export interface Dataset {
   calendarEvents: CalendarEvent[];
   mindCards: MindCard[];
   mindMeta: MindMetaRecord[];
+  financeAccounts: FinanceAccount[];
+  financeCategories: FinanceCategory[];
+  financeBudgets: FinanceBudget[];
+  financeMerchants: FinanceMerchant[];
+  financeImportBatches: FinanceImportBatch[];
+  financeTransactions: FinanceTransaction[];
+  financeSettlements: FinanceSettlement[];
 }
 
 export type CollectionName = keyof Dataset;
@@ -39,6 +57,13 @@ export const COLLECTIONS: CollectionName[] = [
   "calendarEvents",
   "mindCards",
   "mindMeta",
+  "financeAccounts",
+  "financeCategories",
+  "financeBudgets",
+  "financeMerchants",
+  "financeImportBatches",
+  "financeTransactions",
+  "financeSettlements",
 ];
 
 export function createEmptyDataset(): Dataset {
@@ -55,7 +80,31 @@ export function createEmptyDataset(): Dataset {
     calendarEvents: [],
     mindCards: [],
     mindMeta: [],
+    financeAccounts: [],
+    financeCategories: [],
+    financeBudgets: [],
+    financeMerchants: [],
+    financeImportBatches: [],
+    financeTransactions: [],
+    financeSettlements: [],
   };
+}
+
+/**
+ * What a bulk write landed. The backend chunks the payload itself and reports its own
+ * counts, so no caller has to know the chunk size; Dexie writes the array as one chunk.
+ */
+export interface BulkPutResult {
+  inserted: number;
+  skipped: number;
+  writtenChunks: number;
+}
+
+/** What a bulk delete landed. `missing` ids were already gone — they cost no write and no counter bump. */
+export interface BulkRemoveResult {
+  removed: number;
+  missing: number;
+  writtenChunks: number;
 }
 
 /**
@@ -71,7 +120,8 @@ export interface PersistenceAdapter {
   readSyncVersion(): Promise<number>;
   load<C extends CollectionName>(col: C): Promise<Dataset[C]>;
   put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void>;
-  bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void>;
+  bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult>;
   remove(col: CollectionName, id: string): Promise<void>;
+  bulkRemove<C extends CollectionName>(col: C, ids: string[]): Promise<BulkRemoveResult>;
   clearAll(): Promise<void>;
 }

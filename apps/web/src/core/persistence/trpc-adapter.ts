@@ -1,9 +1,26 @@
-import type { CollectionName, Dataset, PersistenceAdapter } from "./adapter";
+import type {
+  BulkPutResult,
+  BulkRemoveResult,
+  CollectionName,
+  Dataset,
+  PersistenceAdapter,
+} from "./adapter";
+import { rethrowPartialWrites } from "./partial-write";
 import { createTrpcClient, type TrpcClient } from "./trpc-client";
 
-/** The `calendarEvents` mirror has no domain router — it goes through the generic `data` router. */
-// Collections without a dedicated domain router go through the generic `data` router.
-const DATA_COLLECTIONS = new Set<CollectionName>(["calendarEvents", "mindCards", "mindMeta"]);
+/** Collections without a dedicated domain router go through the generic `data` router. */
+const DATA_COLLECTIONS = new Set<CollectionName>([
+  "calendarEvents",
+  "mindCards",
+  "mindMeta",
+  "financeAccounts",
+  "financeCategories",
+  "financeBudgets",
+  "financeMerchants",
+  "financeImportBatches",
+  "financeTransactions",
+  "financeSettlements",
+]);
 const isDataCollection = (col: CollectionName): boolean => DATA_COLLECTIONS.has(col);
 
 type DomainProcedures = {
@@ -14,8 +31,8 @@ type DomainProcedures = {
 
 /**
  * Backend-backed persistence for signed-in users. Every method maps to a tRPC
- * procedure — the 9 app-data domains to their routers, `calendarEvents` to the
- * generic `data` router. No `subscribe`: realtime is off; the store refetches on
+ * procedure — the 9 app-data domains to their routers, the rest to the generic
+ * `data` router. No `subscribe`: realtime is off; the store refetches on
  * focus + interval instead. Writes are online-first — a rejection propagates so
  * the persist layer can revert the optimistic store update.
  */
@@ -64,11 +81,14 @@ export class TrpcAdapter implements PersistenceAdapter {
     await this.domain(col).upsert.mutate(item);
   }
 
-  async bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<void> {
-    await this.client.data.importCollection.mutate({
-      collection: col,
-      records: items as unknown as Record<string, unknown>[],
-    });
+  /** The server chunks the payload and reports what landed — including on the partial-commit throw. */
+  bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult> {
+    return rethrowPartialWrites(() =>
+      this.client.data.importCollection.mutate({
+        collection: col,
+        records: items as unknown as Record<string, unknown>[],
+      }),
+    );
   }
 
   async remove(col: CollectionName, id: string): Promise<void> {
@@ -77,6 +97,11 @@ export class TrpcAdapter implements PersistenceAdapter {
       return;
     }
     await this.domain(col).delete.mutate({ id });
+  }
+
+  /** One chunked call for every collection — the domain routers have no batched delete. */
+  bulkRemove<C extends CollectionName>(col: C, ids: string[]): Promise<BulkRemoveResult> {
+    return rethrowPartialWrites(() => this.client.data.bulkRemove.mutate({ collection: col, ids }));
   }
 
   async clearAll(): Promise<void> {
