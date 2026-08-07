@@ -27,6 +27,7 @@ export {
   Stars,
   Tag,
 } from "./primitives";
+export { ROW_META_CLASS } from "./row-styles";
 export { SegmentButton } from "./SegmentButton";
 export { SortableList } from "./SortableList";
 export { type ColumnSort, SortHeader, toggleColumnSort } from "./SortHeader";

@@ -4,6 +4,8 @@ import { useNavigate } from "react-router";
 import { formatLongDate, formatRelativeDay, shiftISO, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { CalendarPopover, Icon, IconButton, UndoBar } from "@/core/ui";
+import { EventEditor } from "@/features/calendar/EventEditor";
+import type { CalendarEvent } from "@/features/calendar-sync";
 import {
   BackfillNudge,
   GratitudeStep,
@@ -22,7 +24,8 @@ import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
 import { AllDoneMarker } from "./components/AllDoneMarker";
 import { DailyHabits } from "./components/DailyHabits";
 import { RemainingTasks } from "./components/RemainingTasks";
-import { partitionToday, reorderTasksInDay, toggleDone } from "./today-logic";
+import { describeDay, partitionToday, reorderTasksInDay, toggleDone } from "./today-logic";
+import { useDayLayout } from "./useDayLayout";
 
 /**
  * Today — the calm focus surface.
@@ -52,6 +55,7 @@ export function TodayPage() {
   const viewEntry = journal.find((e) => e.date === viewDate);
 
   const [editing, setEditing] = useState<Task | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [announce, setAnnounce] = useState("");
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
   const [reflectSkipped, setReflectSkipped] = useState(false);
@@ -70,7 +74,11 @@ export function TodayPage() {
     () => partitionToday(tasks, viewDate),
     [tasks, viewDate],
   );
+
+  const { layout, eventCount } = useDayLayout(remaining, viewDate);
+
   // Anytime habits live in their own strip and don't count toward the day's task progress.
+  // Events never count either — attendance is not completion.
   const counts = useMemo(
     () =>
       computeDayCounts(
@@ -80,11 +88,13 @@ export function TodayPage() {
     [tasks, viewDate],
   );
 
-  const isEmpty = counts.total === 0;
+  const isEmpty = counts.total === 0 && eventCount === 0;
   const allDone = counts.total > 0 && remaining.length === 0;
 
-  // Keep the drawer in sync with the store (handles remote edits / deletes).
+  // Keep the open editors in sync with the store (handles remote edits / deletes).
+  const calendarEvents = useStore((s) => s.calendarEvents);
   const editingTask = editing ? (tasks.find((t) => t.id === editing.id) ?? null) : null;
+  const liveEvent = calendarEvents.find((e) => e.id === editingEvent?.id) ?? null;
 
   // Auto-dismiss the undo bar after a few seconds.
   useEffect(() => {
@@ -203,9 +213,7 @@ export function TodayPage() {
           {formatRelativeDay(viewDate, today)}
         </h1>
         <div className="flex items-center gap-2">
-          <p className="text-sm text-muted">
-            {isEmpty ? "Nothing scheduled" : `${counts.done} of ${counts.total} done`}
-          </p>
+          <p className="text-sm text-muted">{describeDay(counts.done, counts.total, eventCount)}</p>
           {!isToday && (
             <button
               type="button"
@@ -238,8 +246,10 @@ export function TodayPage() {
             </p>
           ) : (
             <RemainingTasks
-              remaining={remaining}
+              layout={layout}
+              isToday={isToday}
               onOpen={setEditing}
+              onOpenEvent={setEditingEvent}
               onToggleDone={handleToggleDone}
               onSkip={handleSkip}
               onUnskip={handleUnskip}
@@ -282,6 +292,8 @@ export function TodayPage() {
       {pendingUndo && <UndoBar message="Task deleted" onUndo={undoDelete} />}
 
       <TaskDrawer task={editingTask} onClose={() => setEditing(null)} />
+
+      <EventEditor event={liveEvent} onClose={() => setEditingEvent(null)} />
     </div>
   );
 }

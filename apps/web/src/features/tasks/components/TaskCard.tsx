@@ -8,6 +8,7 @@ import {
   Lineage,
   Menu,
   type MenuItem,
+  ROW_META_CLASS,
   StreakBadge,
 } from "@/core/ui";
 import { getStreakState } from "@/features/habits";
@@ -111,7 +112,7 @@ export function TaskCard({
           )}
         </span>
 
-        <span className="flex w-full flex-wrap items-center gap-x-2 gap-y-1">
+        <span className={ROW_META_CLASS}>
           {lineage && <Lineage lineage={lineage} variant="card" />}
           {task.time && (
             <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted">

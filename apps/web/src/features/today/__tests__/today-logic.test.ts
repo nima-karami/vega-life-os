@@ -1,3 +1,4 @@
+import type { CalendarEvent } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
@@ -5,6 +6,8 @@ import {
   buildTaskPatch,
   formatStreakLabel,
   getGoalsForValue,
+  hasEventEnded,
+  layoutDay,
   partitionToday,
   reorderTasksInDay,
   sortDailyHabits,
@@ -45,6 +48,34 @@ function goal(id: string, valueId: string, order = 0): Goal {
     progress: 0,
     subgoals: [],
     order,
+  };
+}
+
+function event(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
+  return {
+    id: "e1",
+    googleId: "g1",
+    iCalUID: "ical1",
+    calendarId: "primary",
+    title: "Event",
+    date: "2026-06-21",
+    endDate: null,
+    time: "10:00",
+    durationMin: 60,
+    allDay: false,
+    recurringEventId: null,
+    googleUpdated: null,
+    status: "confirmed",
+    responseStatus: "accepted",
+    valueId: null,
+    goalId: null,
+    note: "",
+    vegaEditedAt: null,
+    pendingDelete: false,
+    removedAt: null,
+    updatedAt: "2026-06-21T00:00:00.000Z",
+    fieldUpdatedAt: {},
+    ...overrides,
   };
 }
 
@@ -358,5 +389,82 @@ describe("formatStreakLabel()", () => {
     expect(formatStreakLabel(0)).toBe("0-day streak");
     expect(formatStreakLabel(2)).toBe("2-day streak");
     expect(formatStreakLabel(12)).toBe("12-day streak");
+  });
+});
+
+// ─── layoutDay ─────────────────────────────────────────────────────────────────
+
+describe("layoutDay()", () => {
+  const remaining = [
+    task({ id: "t9", time: "09:00" }),
+    task({ id: "t13", time: "13:00" }),
+    task({ id: "u1", time: null, order: 0 }),
+  ];
+
+  it("interleaves timed events with timed tasks in clock order", () => {
+    const events = [event({ id: "e1030", time: "10:30" }), event({ id: "e15", time: "15:00" })];
+    const { timedRows } = layoutDay(remaining, events, TODAY);
+    expect(timedRows.map((r) => r.id)).toEqual(["t9", "e1030", "t13", "e15"]);
+  });
+
+  it("puts the task first when a task and an event share a time", () => {
+    const { timedRows } = layoutDay(remaining, [event({ id: "e9", time: "09:00" })], TODAY);
+    expect(timedRows.map((r) => r.id)).toEqual(["t9", "e9", "t13"]);
+  });
+
+  it("collects all-day and multi-day events separately from the clock", () => {
+    const events = [
+      event({ id: "allday", time: null, allDay: true }),
+      event({ id: "span", time: null, allDay: true, endDate: "2026-06-23" }),
+      event({ id: "timed", time: "11:00" }),
+    ];
+    const { allDay, timedRows } = layoutDay(remaining, events, TODAY);
+    expect(allDay.map((e) => e.id)).toEqual(["allday", "span"]);
+    expect(timedRows.filter((r) => r.kind === "event").map((r) => r.id)).toEqual(["timed"]);
+  });
+
+  it("never lets an event into the draggable untimed list", () => {
+    const { untimed } = layoutDay(remaining, [event({ id: "allday", time: null })], TODAY);
+    expect(untimed.map((t) => t.id)).toEqual(["u1"]);
+  });
+
+  it("ignores events on another day", () => {
+    const events = [event({ id: "tomorrow", date: "2026-06-22", endDate: "2026-06-22" })];
+    const { allDay, timedRows } = layoutDay(remaining, events, TODAY);
+    expect(allDay).toEqual([]);
+    expect(timedRows.map((r) => r.id)).toEqual(["t9", "t13"]);
+  });
+
+  it("is the untouched task layout when there are no events", () => {
+    const { allDay, timedRows, untimed } = layoutDay(remaining, [], TODAY);
+    expect(allDay).toEqual([]);
+    expect(timedRows.map((r) => r.id)).toEqual(["t9", "t13"]);
+    expect(untimed.map((t) => t.id)).toEqual(["u1"]);
+  });
+});
+
+// ─── hasEventEnded ─────────────────────────────────────────────────────────────
+
+describe("hasEventEnded()", () => {
+  const at = (time: string) => new Date(`${TODAY}T${time}`).getTime();
+
+  it("is over once start + duration has passed", () => {
+    const meeting = event({ time: "10:00", durationMin: 60 });
+    expect(hasEventEnded(meeting, at("11:01"))).toBe(true);
+  });
+
+  it("is not over while it is still running", () => {
+    const meeting = event({ time: "10:00", durationMin: 60 });
+    expect(hasEventEnded(meeting, at("10:30"))).toBe(false);
+  });
+
+  it("ends exactly on its end time", () => {
+    const meeting = event({ time: "10:00", durationMin: 60 });
+    expect(hasEventEnded(meeting, at("11:00"))).toBe(true);
+  });
+
+  it("never ends an all-day event inside its own day", () => {
+    const allDay = event({ time: null, allDay: true });
+    expect(hasEventEnded(allDay, at("23:59"))).toBe(false);
   });
 });

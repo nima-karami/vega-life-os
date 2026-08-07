@@ -3,7 +3,9 @@
  * Kept separate from the React components so it can be unit-tested in the
  * node vitest environment (no DOM). Components import these helpers.
  */
+import type { CalendarEvent } from "@vega/shared";
 import { reorderByIds } from "@/core/lib/reorder";
+import { getAllDayLivedForDay, getTimedLivedForDay } from "@/features/calendar/grid-data";
 import type { Goal } from "@/features/goals/model";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import { getDayQueue, isAnytimeHabit, isResolved } from "@/features/tasks/selectors";
@@ -115,6 +117,67 @@ export function splitRemaining(remaining: Task[]): { timed: Task[]; untimed: Tas
   const untimed: Task[] = [];
   for (const t of remaining) (t.time !== null ? timed : untimed).push(t);
   return { timed, untimed };
+}
+
+/** A clock-ordered row on Today: something you decided, or something that arrived. */
+export type DayRow =
+  | { kind: "task"; id: string; task: Task }
+  | { kind: "event"; id: string; event: CalendarEvent };
+
+const rowTime = (row: DayRow) => (row.kind === "task" ? row.task.time : row.event.time) ?? "";
+const kindRank = (row: DayRow) => (row.kind === "task" ? 0 : 1);
+
+/**
+ * Timed tasks and timed lived events in one sequence. A tie puts the task first —
+ * what you decided reads before what landed on you.
+ */
+function mergeTimedRows(timed: Task[], events: CalendarEvent[]): DayRow[] {
+  const rows: DayRow[] = [
+    ...timed.map((task): DayRow => ({ kind: "task", id: task.id, task })),
+    ...events.map((event): DayRow => ({ kind: "event", id: event.id, event })),
+  ];
+  return rows.sort(
+    (a, b) =>
+      rowTime(a).localeCompare(rowTime(b)) || kindRank(a) - kindRank(b) || a.id.localeCompare(b.id),
+  );
+}
+
+export interface DayLayout {
+  /** all-day and multi-day events — they frame the day the rest of it happens inside */
+  allDay: CalendarEvent[];
+  /** timed tasks and timed events interleaved by the clock */
+  timedRows: DayRow[];
+  /** untimed tasks, the only rows whose position you own */
+  untimed: Task[];
+}
+
+/**
+ * The Remaining section's three zones. Events never reach `untimed`: their place is
+ * the clock, not your `order`, so the drag list stays purely yours.
+ */
+export function layoutDay(remaining: Task[], events: CalendarEvent[], date: string): DayLayout {
+  const { timed, untimed } = splitRemaining(remaining);
+  return {
+    allDay: getAllDayLivedForDay(events, date),
+    timedRows: mergeTimedRows(timed, getTimedLivedForDay(events, date)),
+    untimed,
+  };
+}
+
+/**
+ * The one-line read under the date. Tasks are the only thing that completes, so a
+ * day of pure meetings counts them rather than claiming nothing is scheduled.
+ */
+export function describeDay(done: number, total: number, eventCount: number): string {
+  if (total > 0) return `${done} of ${total} done`;
+  if (eventCount > 0) return `${eventCount} event${eventCount === 1 ? "" : "s"}, no tasks`;
+  return "Nothing scheduled";
+}
+
+/** Whether an event is over. An all-day event has no end until the day itself does. */
+export function hasEventEnded(event: CalendarEvent, nowMs: number): boolean {
+  if (event.date == null || event.time == null) return false;
+  return new Date(`${event.date}T${event.time}`).getTime() + event.durationMin * 60_000 <= nowMs;
 }
 
 /**

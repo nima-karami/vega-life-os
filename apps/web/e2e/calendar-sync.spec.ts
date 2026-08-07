@@ -131,3 +131,46 @@ test("clicking an untagged lived event opens the editor", async ({ page }) => {
     "Concert with friends",
   );
 });
+
+test("lived events land on Today in clock order and never touch the day's count", async ({
+  page,
+}) => {
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  const summaryBefore = await page.locator("header p").nth(1).textContent();
+
+  await seedEvent(page, livedEvent({ id: "ce_late", time: "20:00", title: "Late event" }));
+  await seedEvent(
+    page,
+    livedEvent({
+      id: "ce_early",
+      googleId: "g_early",
+      iCalUID: "u_early",
+      time: "06:00",
+      title: "Early event",
+    }),
+  );
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+
+  const rows = page.locator("[data-event-id]");
+  await expect(rows).toHaveCount(2, { timeout: 15_000 });
+  await expect(rows.first()).toHaveAttribute("data-event-id", "ce_early");
+  await expect(rows.last()).toHaveAttribute("data-event-id", "ce_late");
+  // Attendance is not completion: "X of Y done" is unmoved by two new events.
+  await expect(page.locator("header p").nth(1)).toHaveText(summaryBefore ?? "");
+});
+
+test("clicking a lived event on Today opens the event editor", async ({ page }) => {
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  await seedEvent(page, livedEvent({ valueId: null }));
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+
+  await page.locator('[data-event-id="ce_e2e"]').click({ timeout: 15_000 });
+  await expect(page.getByText("From Google Calendar")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Event title" })).toHaveValue(
+    "Concert with friends",
+  );
+});

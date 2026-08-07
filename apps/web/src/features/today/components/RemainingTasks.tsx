@@ -1,33 +1,36 @@
 import { SortableList } from "@/core/ui";
+import type { CalendarEvent } from "@/features/calendar-sync";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import type { Task } from "@/features/tasks/model";
-import { splitRemaining } from "../today-logic";
+import type { DayLayout } from "../today-logic";
+import { EventCard } from "./EventCard";
 
 /**
- * Remaining tasks in the single time→order sequence. Timed tasks (forced into
- * their slot by the time sort) render as plain, non-draggable cards; only untimed
- * tasks — whose relative position is genuinely governed by `order` — get a drag
- * handle via SortableList. `byTime` puts all timed before all untimed, so the
- * timed prefix then the untimed list reproduces the existing visual order.
+ * The day still ahead, in three zones: all-day events, then timed tasks and timed
+ * events interleaved by the clock, then the untimed tasks. Only the last zone is
+ * draggable — everything above it is placed by its time, not by `order`.
  */
 export function RemainingTasks({
-  remaining,
+  layout,
+  isToday,
   onOpen,
+  onOpenEvent,
   onToggleDone,
   onSkip,
   onUnskip,
   onDelete,
   onReorder,
 }: {
-  remaining: Task[];
+  layout: DayLayout;
+  isToday: boolean;
   onOpen: (t: Task) => void;
+  onOpenEvent: (e: CalendarEvent) => void;
   onToggleDone: (t: Task) => void;
   onSkip: (t: Task) => void;
   onUnskip: (t: Task) => void;
   onDelete: (t: Task) => void;
   onReorder: (activeId: string, overId: string) => void;
 }) {
-  const { timed, untimed } = splitRemaining(remaining);
   const card = (task: Task) => (
     <TaskCard
       task={task}
@@ -41,12 +44,19 @@ export function RemainingTasks({
 
   return (
     <div className="flex flex-col gap-3">
-      {timed.map((task) => (
-        <div key={task.id}>{card(task)}</div>
+      {layout.allDay.map((event) => (
+        <EventCard key={event.id} event={event} dimWhenPast={false} onOpen={onOpenEvent} />
       ))}
-      {untimed.length > 0 && (
+      {layout.timedRows.map((row) =>
+        row.kind === "task" ? (
+          <div key={row.id}>{card(row.task)}</div>
+        ) : (
+          <EventCard key={row.id} event={row.event} dimWhenPast={isToday} onOpen={onOpenEvent} />
+        ),
+      )}
+      {layout.untimed.length > 0 && (
         <SortableList
-          items={untimed}
+          items={layout.untimed}
           getId={(t) => t.id}
           getLabel={(t) => t.title}
           onReorder={onReorder}
