@@ -1,8 +1,10 @@
-// Shared editor building blocks, reused by the goal editor to avoid duplicated picker markup.
+// Shared editor building blocks, reused across the value and goal pages.
 import { Slider } from "@heroui/react";
 import { cx, Icon } from "@/core/ui";
+import { getValueCardFill } from "../color";
 
-// Selected swatch is named by its hex, so colour is never the only signal.
+/** The swatches show the fill a card is flooded with, not the picked hex — you choose
+ *  what you will see. Selection is named by its hex, so colour is never the only signal. */
 export function HuePicker({
   value,
   options,
@@ -13,7 +15,7 @@ export function HuePicker({
   onSelect: (hue: string) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="Marker hue" className="flex flex-wrap gap-2">
+    <div role="radiogroup" aria-label="Card colour" className="flex flex-wrap gap-2">
       {options.map((h) => {
         const isSelected = value.toLowerCase() === h.toLowerCase();
         return (
@@ -26,10 +28,10 @@ export function HuePicker({
             aria-label={`Hue ${h}`}
             onClick={() => onSelect(h)}
             className={cx(
-              "grid h-8 w-8 place-items-center rounded-full border-2 transition-transform hover:scale-110",
-              isSelected ? "border-foreground" : "border-border",
+              "grid h-[34px] w-[34px] place-items-center rounded-full transition-transform hover:scale-110",
+              isSelected && "ring-2 ring-accent ring-offset-2 ring-offset-canvas",
             )}
-            style={{ background: h }}
+            style={{ background: getValueCardFill({ hue: h }) }}
           >
             {isSelected && <Icon name="check" size={14} className="text-white drop-shadow" />}
           </button>

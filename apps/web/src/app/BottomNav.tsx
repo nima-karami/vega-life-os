@@ -14,22 +14,27 @@ const TABS: { label: string; to: string; icon: IconName; match: (p: string) => b
 ];
 
 const CELL =
-  "grid h-11 flex-1 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "flex h-11 flex-1 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
-/** Phone-only primary navigation — a floating frosted-glass pill. Carries the five
- *  destinations plus the search (⌘K) and account controls that live in the desktop
- *  header, so phones need no top chrome. Lives in-flow at the base of the app shell
- *  (a reserved band) so content always clears it. Hidden at sm+. */
+// AccountMenu owns its Avatar, so the nav's 22px ring is dialled in from the trigger.
+const AVATAR_CELL = cx(
+  CELL,
+  "[&>span]:size-[22px] [&>span]:rounded-full [&>span]:border [&>span]:border-ink/28 [&>span]:bg-transparent",
+  "[&_[data-slot=avatar-fallback]]:bg-transparent [&_[data-slot=avatar-fallback]]:text-[9px] [&_[data-slot=avatar-fallback]]:font-semibold [&_[data-slot=avatar-fallback]]:text-ink/55",
+);
+
+/** Phone-only primary navigation — the dissolved nav: bare glyphs sitting on the canvas
+ *  with no pill, container or background, the glyph itself carrying state (accent at
+ *  stroke 2.5 when current). Carries the six destinations plus the search (⌘K) and
+ *  account controls that live in the desktop header, so phones need no top chrome. Lives
+ *  in-flow at the base of the app shell so content always clears it. Hidden at sm+. */
 export function BottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const openCommand = useStore((s) => s.openCommand);
   return (
-    <div className="flex shrink-0 justify-center px-3 pt-6 pb-[calc(env(safe-area-inset-bottom)_+_0.625rem)] sm:hidden">
-      <nav
-        aria-label="Primary"
-        className="flex w-full max-w-md items-center gap-0.5 rounded-full border border-border bg-surface/85 p-1.5 shadow-[0_6px_24px_rgba(0,0,0,0.10)] backdrop-blur-xl"
-      >
+    <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden">
+      <nav aria-label="Primary" className="flex w-full items-center">
         {TABS.map((t) => {
           const active = t.match(pathname);
           return (
@@ -41,14 +46,12 @@ export function BottomNav() {
               aria-current={active ? "page" : undefined}
               className={CELL}
             >
-              <span
-                className={cx(
-                  "grid h-9 w-9 place-items-center rounded-full transition-colors",
-                  active ? "bg-accent text-accent-foreground" : "text-muted",
-                )}
-              >
-                <Icon name={t.icon} size={20} />
-              </span>
+              <Icon
+                name={t.icon}
+                size={18}
+                strokeWidth={active ? 2.5 : undefined}
+                className={active ? "text-accent" : "text-ink/45"}
+              />
             </button>
           );
         })}
@@ -57,11 +60,11 @@ export function BottomNav() {
           onClick={openCommand}
           aria-label="Search"
           aria-haspopup="dialog"
-          className={cx(CELL, "text-muted")}
+          className={cx(CELL, "text-ink/45")}
         >
-          <Icon name="search" size={20} />
+          <Icon name="search" size={18} />
         </button>
-        <AccountMenu placement="top end" avatarSize="sm" triggerClassName={CELL} />
+        <AccountMenu placement="top end" avatarSize="sm" triggerClassName={AVATAR_CELL} />
       </nav>
     </div>
   );

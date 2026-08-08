@@ -170,6 +170,35 @@ export function computeHabitWindowRate(
   return { rate: due ? done / due : 0, due, done, missed };
 }
 
+/** A day on the habit's record: kept, genuinely missed, or never due (skips and
+ *  still-pending slots read as "off" — neither is a miss). */
+export type HabitDayState = "kept" | "missed" | "off";
+
+export interface HabitDay {
+  date: string;
+  state: HabitDayState;
+}
+
+/** The last `windowDays` calendar days, oldest first — the habit page's record strip. */
+export function buildHabitDayRecord(
+  tasks: Task[],
+  habit: Habit,
+  windowDays = 30,
+  today: string = todayISO(),
+  rules: StreakRules = DEFAULT_RULES,
+): HabitDay[] {
+  const kindByDate = new Map(
+    deriveSlotKinds(tasks, habit, today, rules.graceDays).map((k) => [k.date, k.kind]),
+  );
+  return Array.from({ length: windowDays }, (_, i) => {
+    const date = shiftISO(today, i - windowDays + 1);
+    const kind = kindByDate.get(date);
+    const state: HabitDayState =
+      kind === "done" || kind === "late" ? "kept" : kind === "miss" ? "missed" : "off";
+    return { date, state };
+  });
+}
+
 /**
  * Streak "on the line" today: today's scheduled slot is unresolved and a streak
  * worth protecting (>= threshold) is at stake. Returns the streak length, else 0.

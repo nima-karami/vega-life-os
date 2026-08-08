@@ -758,38 +758,40 @@ test("settings: delete all (this device) empties the sandbox", async ({ page }) 
   await expect(page.locator("main")).toBeVisible();
 });
 
-// ─── Deferred create: cancelling "Add" persists nothing ──────────────────────
+// ─── Add creates the entity and opens its page ───────────────────────────────
+// A detail view is a route, not a dialog, so there is no Cancel and nothing is
+// deferred: Add persists immediately and navigates.
 
-test("habits: cancelling Add creates no habit", async ({ page }) => {
+test("habits: Add creates the habit and opens its page", async ({ page }) => {
   await passGratitudeGate(page);
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  const cards = page.getByRole("button", { name: /^Edit / });
+  const cards = page.locator('main a[href^="/habits/"]');
   const before = await cards.count();
 
   await page.getByRole("button", { name: "Add habit" }).click();
-  await expect(page.getByRole("button", { name: "Create habit" })).toBeVisible();
-  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("textbox", { name: "Habit name" })).toBeVisible({ timeout: 15_000 });
+  expect(page.url()).toMatch(/\/habits\/[^/]+$/);
 
-  await expect(page.getByRole("button", { name: "Create habit" })).toBeHidden();
-  await expect(cards).toHaveCount(before);
+  await page.getByRole("link", { name: "Habits", exact: true }).click();
+  await expect(cards).toHaveCount(before + 1);
 });
 
-test("values: cancelling Add creates no value", async ({ page }) => {
+test("values: Add creates the value and opens its page", async ({ page }) => {
   await passGratitudeGate(page);
   await page.goto("/values", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  const cards = page.getByRole("button", { name: /^Edit / });
+  const cards = page.locator('main a[href^="/values/"]');
   const before = await cards.count();
 
   await page.getByRole("button", { name: "Add value" }).click();
-  await expect(page.getByRole("button", { name: "Create value" })).toBeVisible();
-  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("textbox", { name: "Value name" })).toBeVisible({ timeout: 15_000 });
+  expect(page.url()).toMatch(/\/values\/[^/]+$/);
 
-  await expect(page.getByRole("button", { name: "Create value" })).toBeHidden();
-  await expect(cards).toHaveCount(before);
+  await page.getByRole("link", { name: "Values", exact: true }).click();
+  await expect(cards).toHaveCount(before + 1);
 });
 
 // Reorder is not covered here: driving dnd-kit's keyboard path failed ~1 run in 3, and keyboard
@@ -800,29 +802,28 @@ test("goal steps: inline rename", async ({ page }) => {
   await page.goto("/values", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  // Create a fresh goal — opens the goal editor on an empty step list.
+  // Create a fresh goal — opens the goal page on an empty step list.
   await page.getByRole("button", { name: "Add goal" }).first().click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Goal name" })).toBeVisible({ timeout: 15_000 });
 
   // Add three steps.
-  const stepInput = dialog.getByRole("textbox", { name: "Add a step" });
+  const stepInput = page.getByRole("textbox", { name: "Add a step" });
   for (const name of ["Alpha", "Bravo", "Charlie"]) {
     await stepInput.fill(name);
     await stepInput.press("Enter");
-    await expect(dialog.getByRole("button", { name: `Reorder ${name}` })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Reorder ${name}` })).toBeVisible();
   }
 
   // Inline rename: click the step name, edit, commit with Enter.
-  await dialog.getByRole("button", { name: "Alpha", exact: true }).click();
-  const edit = dialog.getByRole("textbox", { name: "Edit Alpha" });
+  await page.getByRole("button", { name: "Alpha", exact: true }).click();
+  const edit = page.getByRole("textbox", { name: "Edit Alpha" });
   await edit.fill("Alpha renamed");
   await edit.press("Enter");
-  await expect(dialog.getByRole("button", { name: "Reorder Alpha renamed" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reorder Alpha renamed" })).toBeVisible();
 
   const stepOrder = () =>
-    dialog
-      .locator('[aria-label^="Reorder "]')
+    page
+      .locator('main [aria-label^="Reorder "]')
       .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")?.replace("Reorder ", "")));
 
   expect(await stepOrder()).toEqual(["Alpha renamed", "Bravo", "Charlie"]);
@@ -856,24 +857,23 @@ test("anytime habit: shows in the Daily habits strip, not the task list or calen
   await expect(page.getByText("Drink water")).toHaveCount(0);
 });
 
-test("habit editor: the Anytime toggle creates an untimed habit", async ({ page }) => {
+test("habit page: the Anytime toggle makes the habit untimed", async ({ page }) => {
   await passGratitudeGate(page);
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole("button", { name: "Add habit" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByPlaceholder("What do you want to repeat?").fill("Stretch");
+  const name = page.getByRole("textbox", { name: "Habit name" });
+  await expect(name).toBeVisible({ timeout: 15_000 });
+  await name.fill("Stretch");
 
-  // Switch to Anytime — time + duration disappear.
-  await dialog.getByRole("button", { name: "Anytime" }).click();
-  await expect(dialog.getByText("No set time", { exact: false })).toBeVisible();
+  // Switch to Anytime — the time picker disappears.
+  await page.getByRole("button", { name: "Anytime", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Time/ })).toHaveCount(0);
 
-  await dialog.getByRole("button", { name: "Create habit" }).click();
-  await expect(dialog).toBeHidden();
-
-  // The new habit shows as "Anytime" on the Habits page (time saved as null, not 09:00).
-  const card = page.getByRole("button", { name: "Edit Stretch" });
+  // The habit reads "Anytime" on the index (time saved as null, not 09:00).
+  await page.getByRole("link", { name: "Habits", exact: true }).click();
+  const card = page.getByRole("link", { name: "Stretch", exact: true });
   await expect(card).toBeVisible();
-  await expect(card.getByText("Anytime")).toBeVisible();
+  await expect(page.locator("li", { has: card }).getByText("Anytime")).toBeVisible();
 });

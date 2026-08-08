@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Runtime proof for the expanded icon picker. Drives the real habit editor:
+ * Runtime proof for the expanded icon picker. Drives the real habit page:
  * open the popover (search auto-focused), filter by keyword, keyboard-pick an
  * icon (applied + popover closed + focus back on trigger), and confirm chrome
- * glyphs are never offered. The picker is a Notion-style popover portaled
- * outside the dialog, so its search/grid are queried at page level.
+ * glyphs are never offered. The picker is a Notion-style popover portaled to the
+ * page root, so its search/grid are queried at page level.
  */
 
 async function passGratitudeGate(page: import("@playwright/test").Page) {
@@ -31,12 +31,13 @@ test.beforeEach(async ({ page }) => {
   await passGratitudeGate(page);
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(main).toBeVisible({ timeout: 15_000 });
+  // Add creates the habit and routes to its page, where the icon field lives.
   await page.getByRole("button", { name: "Add habit" }).click();
-  await expect(page.getByRole("button", { name: "Create habit" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Habit name" })).toBeVisible({ timeout: 15_000 });
 });
 
 const iconTrigger = (page: import("@playwright/test").Page) =>
-  page.getByRole("dialog").getByRole("button", { name: /^Icon:/ });
+  page.getByRole("button", { name: /^Icon:/ });
 
 test("icon popover: search auto-focuses, filters, keyboard-picks, closes, restores focus", async ({
   page,

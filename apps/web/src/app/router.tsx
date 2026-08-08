@@ -7,6 +7,8 @@ import { FinanceDashboardPage } from "@/features/finance/FinanceDashboardPage";
 import { FinanceImportPage } from "@/features/finance/FinanceImportPage";
 import { FinanceSettlementPage } from "@/features/finance/FinanceSettlementPage";
 import { FinanceTransactionsPage } from "@/features/finance/FinanceTransactionsPage";
+import { GoalPage } from "@/features/goals/GoalPage";
+import { HabitPage } from "@/features/habits/HabitPage";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { EntriesPage, JournalPage } from "@/features/journal";
 import { VocabPage } from "@/features/library/VocabPage";
@@ -15,6 +17,7 @@ import { ScrollPage } from "@/features/scroll/ScrollPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { TodayPage } from "@/features/today/TodayPage";
 import { ValuesView } from "@/features/values";
+import { ValuePage } from "@/features/values/ValuePage";
 import { AppShell } from "./AppShell";
 import { NotFound } from "./NotFound";
 import { RootBoot } from "./RootBoot";
@@ -31,7 +34,10 @@ export const router = createBrowserRouter([
           { index: true, element: <TodayPage /> },
           { path: "today", element: <TodayPage /> },
           { path: "values", element: <ValuesView /> },
+          { path: "values/:valueId", element: <ValuePage /> },
+          { path: "goals/:goalId", element: <GoalPage /> },
           { path: "habits", element: <HabitsPage /> },
+          { path: "habits/:habitId", element: <HabitPage /> },
           { path: "calendar", element: <CalendarPage /> },
           { path: "calendar/callback", element: <CalendarCallbackPage /> },
           { path: "journal/:date", element: <JournalPage /> },

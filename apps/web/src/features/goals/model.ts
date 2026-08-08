@@ -18,6 +18,15 @@ export const GOAL_STATUS_LABEL: Record<GoalStatus, string> = {
   abandoned: "Abandoned",
 };
 
+/** Status reads by glyph as well as label — semantic colour cannot survive on a card fill. */
+export const GOAL_STATUS_ICON: Record<GoalStatus, IconName> = {
+  backlog: "clock",
+  active: "sparkles",
+  paused: "pause",
+  done: "check",
+  abandoned: "archive",
+};
+
 /** done & abandoned are "closed" — no longer being actively worked */
 export const isGoalClosed = (s: GoalStatus) => s === "done" || s === "abandoned";
 

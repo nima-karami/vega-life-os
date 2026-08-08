@@ -15,9 +15,6 @@ const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 const listFmt = new Intl.ListFormat(undefined, { style: "long", type: "conjunction" });
 
-/** Shown wherever a habit's time would appear when the habit has no time (untimed). */
-export const ANYTIME_LABEL = "Anytime";
-
 /**
  * Returns the goal id that should remain selected when the chosen value
  * changes. Keeps the goal only if it still exists AND belongs to `valueId`;
@@ -31,21 +28,6 @@ export function resetGoalForValue(
   if (!goalId || !valueId) return null;
   const goal = goals.find((g) => g.id === goalId);
   return goal && goal.valueId === valueId ? goalId : null;
-}
-
-export interface DraftValidation {
-  name?: string;
-  durationMin?: string;
-}
-
-/** Validate the user-editable fields. Empty object = valid. */
-export function validateDraft(draft: { name: string; durationMin: number }): DraftValidation {
-  const errors: DraftValidation = {};
-  if (!draft.name.trim()) errors.name = "Name is required";
-  if (!Number.isFinite(draft.durationMin) || draft.durationMin < 15) {
-    errors.durationMin = "Duration must be at least 15 minutes";
-  }
-  return errors;
 }
 
 /**

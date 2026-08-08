@@ -7,6 +7,8 @@ export { Disclosure } from "./Disclosure";
 export { CalendarPopover, DatePicker, DurationStepper, TimePicker, TimeRange } from "./datetime";
 export { EditorField } from "./EditorField";
 export { EmptyState } from "./EmptyState";
+export type { CardMeasure, CardMeta, CardTone, CardWeekDay } from "./EntityCard";
+export { EntityCard } from "./EntityCard";
 export { FIELD_CLASS } from "./field-styles";
 export { IconField } from "./IconField";
 export { Ic, Icon } from "./icons";

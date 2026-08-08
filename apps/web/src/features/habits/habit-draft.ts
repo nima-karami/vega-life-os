@@ -39,23 +39,6 @@ export function buildDraftFromHabit(habit: Habit): Draft {
   };
 }
 
-export function createBlankDraft(valueId: string): Draft {
-  return {
-    name: "",
-    valueId,
-    goalId: null,
-    icon: "repeat",
-    time: "09:00",
-    days: [1, 1, 1, 1, 1, 1, 1],
-    durationMin: 30,
-    repeat: "weekly",
-    interval: 2,
-    anchor: todayISO(),
-    daysOfMonth: [new Date().getDate()],
-    lastDay: false,
-  };
-}
-
 export function buildSchedule(d: Draft): HabitSchedule {
   if (d.repeat === "monthly") {
     return { type: "monthly", daysOfMonth: d.daysOfMonth, lastDay: d.lastDay };

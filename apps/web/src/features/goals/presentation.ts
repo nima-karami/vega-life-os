@@ -13,6 +13,13 @@ export function computeGoalProgressPercent(goal: Goal): number {
   return Math.round(goal.progress * 100);
 }
 
+/** The goal's figures as one clause — "42% · 2 of 4 steps"; the steps drop when it has none. */
+export function formatGoalFigures(goal: Goal): string {
+  const percent = `${computeGoalProgressPercent(goal)}%`;
+  if (goal.subgoals.length === 0) return percent;
+  return `${percent} · ${goal.subgoals.filter((s) => s.done).length} of ${goal.subgoals.length} steps`;
+}
+
 /** When subgoals exist, progress is derived and the manual control is read-only. */
 export function isGoalProgressDerived(goal: Goal): boolean {
   return goal.subgoals.length > 0;

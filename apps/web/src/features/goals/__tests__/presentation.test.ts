@@ -5,6 +5,7 @@ import {
   canActivate,
   coerceStatus,
   computeGoalProgressPercent,
+  formatGoalFigures,
   getGoalPaceBadge,
   getGoalScheduleBadge,
   isGoalProgressDerived,
@@ -30,6 +31,25 @@ describe("computeGoalProgressPercent", () => {
     expect(computeGoalProgressPercent(baseGoal({ progress: 0.555 }))).toBe(56);
     expect(computeGoalProgressPercent(baseGoal({ progress: 0 }))).toBe(0);
     expect(computeGoalProgressPercent(baseGoal({ progress: 1 }))).toBe(100);
+  });
+});
+
+describe("formatGoalFigures", () => {
+  it("drops the steps clause when the goal has none", () => {
+    expect(formatGoalFigures(baseGoal({ progress: 0.42 }))).toBe("42%");
+  });
+
+  it("counts done steps against the total", () => {
+    const goal = baseGoal({
+      progress: 0.5,
+      subgoals: [
+        { id: "s1", name: "a", done: true },
+        { id: "s2", name: "b", done: true },
+        { id: "s3", name: "c", done: false },
+        { id: "s4", name: "d", done: false },
+      ],
+    });
+    expect(formatGoalFigures(goal)).toBe("50% · 2 of 4 steps");
   });
 });
 

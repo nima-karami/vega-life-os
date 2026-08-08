@@ -13,12 +13,15 @@ export function Disclosure({
   count,
   children,
   onToggle,
+  onCard,
 }: {
   /** the noun being revealed, e.g. "archived" or "closed" */
   label: string;
   count: number;
   children: ReactNode;
   onToggle?: (open: boolean) => void;
+  /** Sitting on a colour-filled card, where muted ink has no contrast. */
+  onCard?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   if (count === 0) return null;
@@ -33,7 +36,10 @@ export function Disclosure({
         type="button"
         aria-expanded={open}
         onClick={toggle}
-        className="flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
+        className={cx(
+          "flex items-center gap-1 text-sm transition-colors",
+          onCard ? "text-white/[.86] hover:text-white" : "text-muted hover:text-foreground",
+        )}
       >
         {open ? `Hide ${label}` : `Show ${label} (${count})`}
         <Icon

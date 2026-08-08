@@ -102,7 +102,7 @@ test("phone bottom nav exposes search and account controls (360px)", async ({ pa
   await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
 });
 
-test("habit editor opens as a sheet, scrolls, keeps title + actions visible, and closes (360px)", async ({
+test("habit page opens from a card, fits the column, and the back link returns (360px)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 720 });
@@ -110,29 +110,24 @@ test("habit editor opens as a sheet, scrolls, keeps title + actions visible, and
   await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  await page.getByRole("button", { name: "Add habit" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
+  await page.locator('main a[href^="/habits/"]').first().click();
+  const name = page.getByRole("textbox", { name: "Habit name" });
+  await expect(name).toBeVisible({ timeout: 15_000 });
 
-  // Fits within the viewport (full-screen sheet — no part hangs off-screen).
-  const box = await dialog.boundingBox();
-  if (!box) throw new Error("dialog has no bounds");
+  // Nothing hangs off the side of a 360px column.
+  const box = await page.locator("main").boundingBox();
+  if (!box) throw new Error("main has no bounds");
   expect(box.x).toBeGreaterThanOrEqual(-1);
   expect(box.width).toBeLessThanOrEqual(361);
 
-  // Title (sticky header) and primary action (sticky footer) are both visible.
-  await expect(dialog.getByPlaceholder("What do you want to repeat?")).toBeVisible();
-  const create = dialog.getByRole("button", { name: "Create habit" });
-  await expect(create).toBeVisible();
+  // The schedule controls sit far down the page and scroll into reach.
+  const anytime = page.getByRole("button", { name: "Anytime", exact: true });
+  await anytime.scrollIntoViewIfNeeded();
+  await expect(anytime).toBeVisible();
 
-  // Body scrolls independently — the schedule controls are far down the form.
-  await dialog.getByRole("button", { name: "Anytime" }).scrollIntoViewIfNeeded();
-  // Footer action remains visible after scrolling the body.
-  await expect(create).toBeVisible();
-
-  // Closes.
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // The back link returns to the index.
+  await page.getByRole("link", { name: "Habits", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Habits", exact: true })).toBeVisible();
 });
 
 test("phone bottom nav shows the primary tabs and navigates between routes (390px)", async ({

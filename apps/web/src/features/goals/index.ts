@@ -1,10 +1,9 @@
-export { GoalCard } from "./components/GoalCard";
-export { GoalEditor } from "./components/GoalEditor";
 export type { Goal, GoalStatus, Subgoal } from "./model";
-export { GOAL_STATUS_LABEL, GOAL_STATUSES, isGoalClosed } from "./model";
+export { GOAL_STATUS_ICON, GOAL_STATUS_LABEL, GOAL_STATUSES, isGoalClosed } from "./model";
 export {
   buildStatusChangePatch,
   computeGoalProgressPercent,
+  formatGoalFigures,
   getGoalPaceBadge,
   isGoalProgressDerived,
   type PaceBadge,

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { getValueColor, VALUE_COLOR_FALLBACK, VALUE_HUES, VALUE_PALETTE } from "../color";
+import {
+  getValueCardFill,
+  getValueColor,
+  RETIRED_HUE_REPLACEMENT,
+  VALUE_COLOR_FALLBACK,
+  VALUE_HUES,
+  VALUE_PALETTE,
+} from "../color";
 
 describe("getValueColor", () => {
   it("returns a color from the palette for order 0", () => {
@@ -61,4 +68,52 @@ describe("getValueColor", () => {
       expect(hex).toMatch(/^#[0-9A-Fa-f]{6}$/);
     }
   });
+
+  it("resolves a retired hue to its replacement rather than the order color", () => {
+    for (const [retired, replacement] of Object.entries(RETIRED_HUE_REPLACEMENT)) {
+      expect(getValueColor({ hue: retired, order: 3 })).toBe(replacement);
+    }
+  });
+
+  it("offers no retired hue in the picker", () => {
+    for (const retired of Object.keys(RETIRED_HUE_REPLACEMENT)) {
+      expect(VALUE_HUES).not.toContain(retired);
+    }
+  });
 });
+
+describe("getValueCardFill", () => {
+  it("returns a distinct, darker fill for every pickable hue", () => {
+    const fills = VALUE_HUES.map((hue) => getValueCardFill({ hue }));
+    expect(new Set(fills).size).toBe(VALUE_HUES.length);
+    for (const [i, fill] of fills.entries()) {
+      expect(fill).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(luminance(fill)).toBeLessThan(luminance(VALUE_HUES[i]));
+    }
+  });
+
+  it("clears 7:1 against the white type it carries", () => {
+    for (const hue of VALUE_HUES) {
+      const ratio = 1.05 / (luminance(getValueCardFill({ hue })) + 0.05);
+      expect(ratio).toBeGreaterThan(7);
+    }
+  });
+
+  it("fills a retired hue with its replacement's fill", () => {
+    for (const [retired, replacement] of Object.entries(RETIRED_HUE_REPLACEMENT)) {
+      expect(getValueCardFill({ hue: retired })).toBe(getValueCardFill({ hue: replacement }));
+    }
+  });
+
+  it("falls back to the swatch when there is no mapped fill", () => {
+    expect(getValueCardFill(null)).toBe(VALUE_COLOR_FALLBACK);
+  });
+});
+
+function luminance(hex: string): number {
+  const channel = (i: number) => {
+    const c = Number.parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
+}

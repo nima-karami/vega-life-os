@@ -77,16 +77,22 @@ test("desktop: confirm modal is centered, on-screen, and its buttons are clickab
   await expect(dialog).toBeHidden();
 });
 
-test("desktop: editor modal stays on-screen even when the page behind is tall", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await passGratitudeGate(page);
-  // Habits is a tall, scrollable page — the bug pushed the dialog below the fold here.
+/** Opens the first habit's page — a tall, scrollable surface — and summons its
+ *  delete confirm, the modal that still sits on a long page after the editors
+ *  became routes. */
+async function openHabitDeleteDialog(page: import("@playwright/test").Page) {
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  await page.locator('main a[href^="/habits/"]').first().click();
+  await expect(page.getByRole("textbox", { name: "Habit name" })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Delete habit" }).click();
+}
 
-  await page.getByRole("button", { name: "Add habit" }).click();
+test("desktop: a modal stays on-screen even when the page behind is tall", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await passGratitudeGate(page);
+  // The habit page is tall and scrollable — the bug pushed the dialog below the fold here.
+  await openHabitDeleteDialog(page);
 
   await assertOverlayIsFixed(page);
   await assertDialogOnScreen(page);
@@ -99,10 +105,7 @@ test("desktop: editor modal stays on-screen even when the page behind is tall", 
 test("mobile: modal renders as an on-screen sheet with a clickable action", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 850 });
   await passGratitudeGate(page);
-  await page.goto("/habits", { waitUntil: "networkidle" });
-  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
-
-  await page.getByRole("button", { name: "Add habit" }).click();
+  await openHabitDeleteDialog(page);
 
   await assertOverlayIsFixed(page);
   const { box, vp } = await assertDialogOnScreen(page);

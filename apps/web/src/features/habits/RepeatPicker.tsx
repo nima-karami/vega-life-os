@@ -41,7 +41,7 @@ export function RepeatPicker({
     <div className="space-y-3">
       <div>
         <span className="mb-2.5 block text-xs text-muted">Repeat</span>
-        <ButtonGroup fullWidth>
+        <ButtonGroup>
           {(["weekly", "nweekly", "monthly"] as const).map((m) => (
             <Button
               key={m}
@@ -82,11 +82,9 @@ export function RepeatPicker({
         />
       )}
 
-      {mode !== "weekly" && (
-        <p className="text-xs text-muted">
-          {nextDate ? `Next: ${format(parseISO(nextDate), "EEE, MMM d")}` : "No upcoming dates"}
-        </p>
-      )}
+      <p className="text-xs text-muted">
+        {nextDate ? `Next on ${format(parseISO(nextDate), "EEE d MMM")}` : "No upcoming dates"}
+      </p>
     </div>
   );
 }

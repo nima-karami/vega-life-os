@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Habit } from "@/features/habits/model";
 import type { Task } from "@/features/tasks/model";
+import { RETIRED_HUE_REPLACEMENT } from "@/features/values/color";
+import type { Value } from "@/features/values/model";
 import { DATA_VERSION, migrateData, runDataMigrations } from "../migrations";
 
 vi.mock("@/core/store/persist", () => ({ savePut: vi.fn(), saveRemove: vi.fn() }));
@@ -42,10 +44,13 @@ const task = (over: Partial<Task>): Task =>
     ...over,
   }) as Task;
 
-function harness(authUid: string | null, habits: Habit[], tasks: Task[]) {
-  let state = { authUid, habits, tasks };
+const value = (over: Partial<Value> = {}): Value =>
+  ({ id: "v1", name: "Stability", icon: "shield", order: 0, archivedAt: null, ...over }) as Value;
+
+function harness(authUid: string | null, habits: Habit[], tasks: Task[], values: Value[] = []) {
+  let state = { authUid, habits, tasks, values };
   const get = () => state;
-  const set = (patch: { habits: Habit[]; tasks?: Task[] }) => {
+  const set = (patch: { habits: Habit[]; tasks?: Task[]; values?: Value[] }) => {
     state = { ...state, ...patch };
   };
   return { get, set, state: () => state };
@@ -54,6 +59,7 @@ function harness(authUid: string | null, habits: Habit[], tasks: Task[]) {
 describe("migrateData (pure)", () => {
   it("strips legacy fields and prunes only future-undone-non-detached mismatches", () => {
     const { habits, prunedTaskIds } = migrateData({
+      values: [],
       habits: [legacyHabit()],
       tasks: [
         task({ id: "stale", status: "todo", detached: false, date: "2999-01-02" }),
@@ -70,6 +76,7 @@ describe("migrateData (pure)", () => {
 
   it("backfills slotDate and completedAt (existing dones treated as on-time)", () => {
     const { tasks } = migrateData({
+      values: [],
       habits: [legacyHabit()],
       tasks: [
         task({ id: "open", status: "todo", date: "2999-01-15" }),
@@ -85,6 +92,7 @@ describe("migrateData (pure)", () => {
 
   it("dedupes duplicate habitId@slotDate, keeping the resolved instance", () => {
     const { prunedTaskIds } = migrateData({
+      values: [],
       habits: [legacyHabit()],
       tasks: [
         task({ id: "dup-todo", status: "todo", date: "2999-01-15" }),
@@ -92,6 +100,21 @@ describe("migrateData (pure)", () => {
       ],
     });
     expect(prunedTaskIds).toEqual(["dup-todo"]);
+  });
+
+  it("moves values off retired hues and reports only the ones it touched", () => {
+    const [retired, replacement] = Object.entries(RETIRED_HUE_REPLACEMENT)[0];
+    const { values, rehuedValueIds } = migrateData({
+      values: [
+        value({ id: "keep", hue: "#3B82C4" }),
+        value({ id: "retired", hue: retired }),
+        value({ id: "unset", hue: undefined }),
+      ],
+      habits: [legacyHabit()],
+      tasks: [],
+    });
+    expect(rehuedValueIds).toEqual(["retired"]);
+    expect(values.map((v) => v.hue)).toEqual(["#3B82C4", replacement, undefined]);
   });
 });
 
@@ -129,6 +152,19 @@ describe("runDataMigrations (gated + idempotent)", () => {
     runDataMigrations(h.get, h.set);
     expect(savePut).not.toHaveBeenCalled();
     expect(saveRemove).not.toHaveBeenCalled();
-    expect(DATA_VERSION).toBe(2);
+    expect(DATA_VERSION).toBe(3);
+  });
+
+  it("persists only the values whose retired hue it rewrote", () => {
+    vi.mocked(savePut).mockClear();
+    const [retired, replacement] = Object.entries(RETIRED_HUE_REPLACEMENT)[0];
+    const h = harness("u-mig-2", [], [], [value({ id: "a", hue: retired }), value({ id: "b" })]);
+
+    runDataMigrations(h.get, h.set);
+
+    const saved = vi.mocked(savePut).mock.calls.filter((c) => c[0] === "values");
+    expect(saved).toHaveLength(1);
+    expect((saved[0][1] as Value).id).toBe("a");
+    expect(h.state().values.map((v) => v.hue)).toEqual([replacement, undefined]);
   });
 });

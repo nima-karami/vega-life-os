@@ -1,6 +1,6 @@
 import { Checkbox } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
-import { cx, FIELD_CLASS, Icon } from "@/core/ui";
+import { cx, Icon } from "@/core/ui";
 import type { Subgoal } from "../model";
 
 /** A goal step: done toggle, click-to-rename name, remove. (Reorder handle is owned by SortableList.) */
@@ -30,7 +30,7 @@ export function StepRow({
   };
 
   return (
-    <div className="group flex items-center gap-1.5">
+    <div className="group flex items-center gap-2.5 rounded-[12px] border border-border bg-surface px-3 py-2">
       <Checkbox isSelected={sub.done} onChange={onToggle} aria-label={sub.name}>
         <Checkbox.Content>
           <Checkbox.Control>
@@ -61,7 +61,7 @@ export function StepRow({
             }
           }}
           aria-label={`Edit ${sub.name}`}
-          className={cx(FIELD_CLASS, "flex-1")}
+          className="flex-1 bg-transparent text-sm text-foreground outline-none"
         />
       ) : (
         <button

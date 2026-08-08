@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
-import { countDetached, formatConflictNote, resetGoalForValue, validateDraft } from "../editor";
+import { countDetached, formatConflictNote, resetGoalForValue } from "../editor";
 import type { Habit } from "../model";
 import { formatWeekdayLabel } from "../recurrence";
 
@@ -61,24 +61,6 @@ describe("resetGoalForValue", () => {
 
   it("resets to null when the goal no longer exists", () => {
     expect(resetGoalForValue("gone", "v1", goals)).toBeNull();
-  });
-});
-
-describe("validateDraft", () => {
-  const base = { name: "Stretch", durationMin: 30 };
-
-  it("accepts a valid draft", () => {
-    expect(validateDraft(base)).toEqual({});
-  });
-
-  it("rejects an empty name after trim", () => {
-    expect(validateDraft({ ...base, name: "   " }).name).toBeTruthy();
-  });
-
-  it("rejects a duration below 15 minutes", () => {
-    expect(validateDraft({ ...base, durationMin: 0 }).durationMin).toBeTruthy();
-    expect(validateDraft({ ...base, durationMin: 10 }).durationMin).toBeTruthy();
-    expect(validateDraft({ ...base, durationMin: 15 }).durationMin).toBeUndefined();
   });
 });
 
