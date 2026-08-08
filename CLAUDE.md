@@ -69,7 +69,20 @@ It runs on every commit (pre-commit hook via husky/lint-staged) and in CI.
 - **Exactly two page widths** — pick one, no others:
   - regular `max-w-3xl` → Today, Habits, Values
   - wide `max-w-6xl` → Calendar, Settings, Analytics
-- **Centered modals, never side panels/drawers** for primary flows.
+- **Centered modals, never side panels/drawers** for primary flows. **Exception
+  (2026-08-07):** a value, a goal and a habit are each a **routed page**
+  (`/values/:id`, `/goals/:id`, `/habits/:id`), not a dialog — they carry a full screen
+  of content a sheet would have to scroll. Everything else stays a centered modal.
+- **Entity cards are the value's colour** (2026-08-07). Values, goals and habits render
+  through one builder, `EntityCard` in `core/ui` — the value's deepened hue floods the
+  whole card and everything on it is white or white-alpha. The measure zone is fixed at
+  26px (goal → progress track, habit → the week, value → empty) so a mixed list keeps one
+  rhythm. Status separates by **glyph and weight**, never by a semantic colour: nothing
+  reads at contrast on a saturated fill.
+- **Value palette is 8 hues** — blue, green, rust, violet, teal, magenta, amber, olive.
+  Each has a swatch (text/dots) and a deepened card fill (`getValueCardFill`). Slate and
+  ink were retired when the card became the colour; `RETIRED_HUE_REPLACEMENT` + data
+  migration v3 move stored values off them. Don't re-add a neutral to the picker.
 - **Custom pickers only** — never native `<select>`, native date/time inputs, or
   `window.confirm`/`alert`. Build confirmations and pickers from HeroUI.
 - **Segmented / either-or choice = `Button`/`ButtonGroup` with `aria-pressed`.**
