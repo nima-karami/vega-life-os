@@ -90,31 +90,35 @@ export function ValueIndexCard({
             />
           )}
 
-          <Disclosure
-            onCard
-            label="closed"
-            count={closed.length}
-            onToggle={(shown) =>
-              onAnnounce(shown ? `${closed.length} closed goals shown` : "Closed goals hidden")
-            }
-          >
-            {closed.map((g) => (
-              <ValueGoalRow key={g.id} goal={g} />
-            ))}
-          </Disclosure>
-
           {!archived && (
             <button
               type="button"
               onClick={onAddGoal}
               className={cx(
                 "flex w-full items-center gap-2 pb-0.5 pt-3 text-[13px] text-white/[.86] transition-colors hover:text-white",
-                valueGoals.length > 0 && "border-t border-white/20",
+                open.length > 0 && "border-t border-white/20",
               )}
             >
               <Icon name="plus" size={14} />
               Add goal
             </button>
+          )}
+
+          {closed.length > 0 && (
+            <div className="mt-3.5">
+              <Disclosure
+                onCard
+                label="closed"
+                count={closed.length}
+                onToggle={(shown) =>
+                  onAnnounce(shown ? `${closed.length} closed goals shown` : "Closed goals hidden")
+                }
+              >
+                {closed.map((g) => (
+                  <ValueGoalRow key={g.id} goal={g} />
+                ))}
+              </Disclosure>
+            </div>
           )}
         </div>
       </div>
