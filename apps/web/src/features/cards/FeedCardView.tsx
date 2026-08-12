@@ -1,15 +1,14 @@
+import { type Card, hasReveal } from "@vega/shared";
 import { AnimatePresence, motion, type PanInfo, useReducedMotion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ContextMenu, cx, Icon, type MenuItem } from "@/core/ui";
-import { CardBack, CardFront, ReversedBack, ReversedFront, SingleFaceCard } from "./CardFaces";
-import { type FeedCard, resolveBodyVariant } from "./feed-cards";
+import { CardTurn } from "./face/CardTurn";
+import { composeFace } from "./face/compose";
 
 export interface FeedCardViewProps {
-  card: FeedCard;
-  reversed: boolean;
-  variant: number;
-  flipped: boolean;
-  onFlip: () => void;
+  card: Card;
+  turned: boolean;
+  onTurn: () => void;
   onToggleLike: () => void;
   onToggleLearning: () => void;
   onHide: () => void;
@@ -23,7 +22,6 @@ const GRADE_VELOCITY = 500;
 const EDGE_DEAD_ZONE_PX = 24;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const FACE = "absolute inset-0 [backface-visibility:hidden]";
 const RAIL_BUTTON =
   "grid h-11 w-11 place-items-center rounded-full border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent";
 
@@ -73,6 +71,8 @@ function RightRail({
   canGrade: boolean;
   shouldReduceMotion: boolean | null;
 }) {
+  const isLiked = card.likedAt !== null;
+  const isLearning = card.box !== null;
   return (
     <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-3">
       <AnimatePresence>
@@ -81,26 +81,26 @@ function RightRail({
       <button
         type="button"
         aria-label="Like card"
-        aria-pressed={card.liked}
+        aria-pressed={isLiked}
         onClick={onToggleLike}
         className={cx(
           RAIL_BUTTON,
-          card.liked
+          isLiked
             ? "border-accent bg-accent text-accent-foreground"
             : "border-border bg-surface/80 text-muted hover:text-foreground",
         )}
       >
         <Icon name="heart" size={20} />
       </button>
-      {card.hasReveal && (
+      {hasReveal(card) && (
         <button
           type="button"
           aria-label="Learning mode"
-          aria-pressed={card.learning}
+          aria-pressed={isLearning}
           onClick={onToggleLearning}
           className={cx(
             RAIL_BUTTON,
-            card.learning
+            isLearning
               ? "border-accent bg-accent text-accent-foreground"
               : "border-border bg-surface/80 text-muted hover:text-foreground",
           )}
@@ -114,10 +114,8 @@ function RightRail({
 
 export function FeedCardView({
   card,
-  reversed,
-  variant,
-  flipped,
-  onFlip,
+  turned,
+  onTurn,
   onToggleLike,
   onToggleLearning,
   onHide,
@@ -126,13 +124,14 @@ export function FeedCardView({
   onGrade,
 }: FeedCardViewProps) {
   const shouldReduceMotion = useReducedMotion();
-  const backBody = resolveBodyVariant(card, variant);
   const [isPressPending, setIsPressPending] = useState(false);
-  const canFlip = card.hasReveal && card.body !== "";
-  const canGrade = flipped && card.learning;
+  const face = useMemo(() => composeFace(card, "face"), [card]);
+  const reveal = useMemo(() => (hasReveal(card) ? composeFace(card, "reveal") : null), [card]);
+  const canTurn = reveal !== null;
+  const canGrade = turned && card.box !== null;
   const faceRef = useRef<HTMLDivElement>(null);
   const voidedDragRef = useRef(false);
-  const ariaLabel = card.title || "Card";
+  const ariaLabel = card.title.trim() === "" ? "Card" : card.title;
 
   const menuItems: MenuItem[] = [
     { label: "Not interested", icon: "eye-off", onSelect: onHide },
@@ -170,41 +169,19 @@ export function FeedCardView({
           )}
           style={{ transform: isPressPending ? "scale(0.98)" : undefined }}
         >
-          {card.hasReveal ? (
-            <motion.div
-              ref={faceRef}
-              className="h-full w-full"
-              style={{ touchAction: "pan-y" }}
-              drag={canGrade ? "x" : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={shouldReduceMotion ? 0 : 0.6}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="h-full w-full [perspective:1200px]">
-                <motion.div
-                  className={cx("relative h-full w-full", canFlip && "cursor-pointer")}
-                  style={{ transformStyle: "preserve-3d" }}
-                  animate={{ rotateY: flipped ? 180 : 0 }}
-                  transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.5, ease: EASE }}
-                  onClick={canFlip ? onFlip : undefined}
-                >
-                  <div className={FACE}>
-                    {reversed ? <ReversedFront card={card} /> : <CardFront card={card} />}
-                  </div>
-                  <div className={cx(FACE, "[transform:rotateY(180deg)]")}>
-                    {reversed ? (
-                      <ReversedBack card={card} body={backBody} />
-                    ) : (
-                      <CardBack body={backBody} />
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-            </motion.div>
-          ) : (
-            <SingleFaceCard card={card} />
-          )}
+          <motion.div
+            ref={faceRef}
+            className={cx("h-full w-full", canTurn && "cursor-pointer")}
+            style={{ touchAction: "pan-y" }}
+            drag={canGrade ? "x" : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={shouldReduceMotion ? 0 : 0.6}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onClick={canTurn ? onTurn : undefined}
+          >
+            <CardTurn face={face} reveal={reveal} turned={turned} scale={1} fullBleed />
+          </motion.div>
         </div>
 
         <RightRail

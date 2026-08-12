@@ -1,4 +1,5 @@
 import { Button } from "@heroui/react";
+import { type Card, hasReveal } from "@vega/shared";
 import { useReducedMotion } from "framer-motion";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -70,12 +71,13 @@ export function ScrollPage() {
     [cards, cardPrefs, today],
   );
   const poolById = useMemo(() => new Map(pool.map((card) => [card.id, card])), [pool]);
+  const cardById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
   const learningCount = useMemo(() => pool.filter((card) => card.learning).length, [pool]);
 
   const [baseSeed] = useState(() => Date.now() & 0xffff);
   const [queueEntries, setQueueEntries] = useState<QueueEntry[]>([]);
   const [currentIndex, setCurrentIndexState] = useState(0);
-  const [flippedId, setFlippedId] = useState<string | null>(null);
+  const [turnedId, setTurnedId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [editorCardId, setEditorCardId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -109,12 +111,12 @@ export function ScrollPage() {
     return next;
   };
 
-  // Advancing to a new entry also drops any flip — re-shown cards start front-side.
+  // Advancing to a new entry also drops any turn — re-shown cards start face up.
   const setCurrentIndex = useCallback((index: number) => {
     if (currentIndexRef.current === index) return;
     currentIndexRef.current = index;
     setCurrentIndexState(index);
-    setFlippedId(null);
+    setTurnedId(null);
   }, []);
 
   const openEditor = (cardId: string | null) => {
@@ -208,42 +210,42 @@ export function ScrollPage() {
     });
   };
 
-  const handleHide = (card: FeedCard) => {
+  const handleHide = (card: Card) => {
     hideCard(card.id);
     announce("Hidden");
     pushToast("Hidden");
-    setFlippedId(null);
+    setTurnedId(null);
     advance();
   };
 
-  const handleToggleLearning = (card: FeedCard) => {
-    const next = !card.learning;
+  const handleToggleLearning = (card: Card) => {
+    const next = card.box === null;
     setCardLearning(card.id, next);
     // Recruiting sets nextDue=today, so the rebuild would due-inject it this session — defer it.
     if (next) deferredDueRef.current.add(card.id);
     announce(next ? "Learning on" : "Learning off");
   };
 
-  const handleToggleLike = (card: FeedCard) => {
+  const handleToggleLike = (card: Card) => {
     toggleCardLike(card.id);
-    announce(card.liked ? "Like removed" : "Liked");
+    announce(card.likedAt !== null ? "Like removed" : "Liked");
   };
 
   const handleFeedKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key !== "Enter") return;
     const entry = queueEntries[currentIndexRef.current];
     if (!entry || isRecapId(entry.cardId)) return;
-    const card = poolById.get(entry.cardId);
-    if (!card?.hasReveal || card.body === "") return;
-    setFlippedId((current) => (current === card.id ? null : card.id));
+    const card = cardById.get(entry.cardId);
+    if (card === undefined || !hasReveal(card)) return;
+    setTurnedId((current) => (current === card.id ? null : card.id));
   };
 
-  const handleGrade = (card: FeedCard, correct: boolean) => {
+  const handleGrade = (card: Card, correct: boolean) => {
     if (card.box === null) return;
     const nextBox = stepLeitner(card.box, correct, today).box;
     gradeCard(card.id, correct);
     announce(correct ? `Got it — box ${nextBox}` : "Again — back to box 1");
-    setFlippedId(null);
+    setTurnedId(null);
     advance();
   };
 
@@ -259,15 +261,13 @@ export function ScrollPage() {
         />
       );
     }
-    const card = poolById.get(entry.cardId);
-    if (!card) return null;
+    const card = cardById.get(entry.cardId);
+    if (card === undefined) return null;
     return (
       <FeedCardView
         card={card}
-        reversed={entry.reversed}
-        variant={entry.variant}
-        flipped={flippedId === card.id}
-        onFlip={() => setFlippedId((current) => (current === card.id ? null : card.id))}
+        turned={turnedId === card.id}
+        onTurn={() => setTurnedId((current) => (current === card.id ? null : card.id))}
         onToggleLike={() => handleToggleLike(card)}
         onToggleLearning={() => handleToggleLearning(card)}
         onHide={() => handleHide(card)}
