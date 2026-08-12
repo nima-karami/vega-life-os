@@ -73,7 +73,6 @@ function RightRail({
   canGrade: boolean;
   shouldReduceMotion: boolean | null;
 }) {
-  const isVocab = card.kind === "vocab";
   return (
     <div className="absolute right-3 bottom-24 z-10 flex flex-col items-center gap-3">
       <AnimatePresence>
@@ -93,21 +92,17 @@ function RightRail({
       >
         <Icon name="heart" size={20} />
       </button>
-      {card.flippable && (
+      {card.hasReveal && (
         <button
           type="button"
           aria-label="Learning mode"
           aria-pressed={card.learning}
-          aria-disabled={isVocab || undefined}
-          disabled={isVocab}
-          title={isVocab ? "Vocabulary is always in learning mode" : undefined}
-          onClick={isVocab ? undefined : onToggleLearning}
+          onClick={onToggleLearning}
           className={cx(
             RAIL_BUTTON,
             card.learning
               ? "border-accent bg-accent text-accent-foreground"
               : "border-border bg-surface/80 text-muted hover:text-foreground",
-            isVocab && "opacity-60",
           )}
         >
           <Icon name="brain" size={20} />
@@ -133,17 +128,15 @@ export function FeedCardView({
   const shouldReduceMotion = useReducedMotion();
   const backBody = resolveBodyVariant(card, variant);
   const [isPressPending, setIsPressPending] = useState(false);
-  const canFlip = card.flippable && card.body !== "";
+  const canFlip = card.hasReveal && card.body !== "";
   const canGrade = flipped && card.learning;
   const faceRef = useRef<HTMLDivElement>(null);
   const voidedDragRef = useRef(false);
-  const ariaLabel = card.kind === "vocab" ? `Vocabulary card: ${card.title}` : card.title || "Card";
+  const ariaLabel = card.title || "Card";
 
   const menuItems: MenuItem[] = [
     { label: "Not interested", icon: "eye-off", onSelect: onHide },
-    ...(card.kind === "authored"
-      ? [{ label: "Edit", icon: "edit", onSelect: onEdit } satisfies MenuItem]
-      : []),
+    { label: "Edit", icon: "edit", onSelect: onEdit },
     { label: "Manage cards", icon: "sliders", onSelect: onManage },
   ];
 
@@ -177,7 +170,7 @@ export function FeedCardView({
           )}
           style={{ transform: isPressPending ? "scale(0.98)" : undefined }}
         >
-          {card.flippable ? (
+          {card.hasReveal ? (
             <motion.div
               ref={faceRef}
               className="h-full w-full"

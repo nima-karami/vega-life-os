@@ -1,23 +1,28 @@
 import { Button } from "@heroui/react";
+import {
+  CARD_TYPE_IDS,
+  CARD_TYPES,
+  type Card,
+  isCardCategoryIncluded,
+  isCardTypeIncluded,
+} from "@vega/shared";
 import { useMemo, useState } from "react";
 import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, EmptyState, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
-import { BulkImportModal } from "./BulkImportModal";
 import { CardEditorModal } from "./CardEditorModal";
 import { CardPreview } from "./CardPreview";
-import { toAuthoredFeedCard } from "./feed-cards";
-import { isSameCategory, MIND_CARD_TYPE_LABELS, type MindCard } from "./model";
+import { toFeedCard } from "./feed-cards";
+import { isSameCategory } from "./model";
 import {
   type CardFilter,
   type CardSort,
   type CardSortColumn,
   computeStats,
   DEFAULT_CARD_SORT,
-  listCategories,
-  queryMindCards,
+  listCardCategories,
+  queryCards,
 } from "./queries";
-import { isScrollKeyEnabled } from "./store";
 
 const FIELD =
   "w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
@@ -45,13 +50,11 @@ const SORT_COLUMNS: { column: CardSortColumn; label: string }[] = [
 ];
 
 export function ScrollManagePage() {
-  const mindCards = useStore((s) => s.mindCards);
-  const mindMeta = useStore((s) => s.mindMeta);
-  const vocabCount = useStore((s) => s.vocab.length);
-  const setScrollToggle = useStore((s) => s.setScrollToggle);
-  const renameMindCategory = useStore((s) => s.renameMindCategory);
-  const hideMindCard = useStore((s) => s.hideMindCard);
-  const restoreMindCard = useStore((s) => s.restoreMindCard);
+  const cards = useStore((s) => s.cards);
+  const cardPrefs = useStore((s) => s.cardPrefs);
+  const setCardPrefs = useStore((s) => s.setCardPrefs);
+  const hideCard = useStore((s) => s.hideCard);
+  const updateCard = useStore((s) => s.updateCard);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CardFilter>("all");
@@ -60,16 +63,28 @@ export function ScrollManagePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editorCardId, setEditorCardId] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const rows = useMemo(
-    () => queryMindCards(mindCards, { query, filter, sort, category }),
-    [mindCards, query, filter, sort, category],
+    () => queryCards(cards, { query, filter, sort, category }),
+    [cards, query, filter, sort, category],
   );
-  const categories = useMemo(() => listCategories(mindCards), [mindCards]);
-  const stats = useMemo(() => computeStats(mindCards, todayISO()), [mindCards]);
+  const categories = useMemo(() => listCardCategories(cards), [cards]);
+  const stats = useMemo(() => computeStats(cards, todayISO()), [cards]);
+  const vocabCount = useMemo(() => cards.filter((c) => c.type === "vocabulary").length, [cards]);
 
-  const isEmpty = mindCards.length === 0;
+  const isCategoryOn = (label: string) => isCardCategoryIncluded(cardPrefs, label);
+  const toggleCategory = (label: string, enabled: boolean) => {
+    const included = categories.filter((c) =>
+      isSameCategory(c, label) ? enabled : isCategoryOn(c),
+    );
+    setCardPrefs({ categories: included.length === categories.length ? [] : included });
+  };
+  const renameCategory = (from: string, to: string) => {
+    for (const card of cards.filter((c) => isSameCategory(c.category, from)))
+      updateCard(card.id, { category: to.trim() });
+  };
+
+  const isEmpty = cards.length === 0;
   const isHiddenView = filter === "hidden";
 
   const openEditor = (cardId: string | null) => {
@@ -98,10 +113,6 @@ export function ScrollManagePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onPress={() => setIsImportOpen(true)}>
-            <Icon name="upload" size={15} />
-            Import
-          </Button>
           <Button variant="primary" onPress={() => openEditor(null)}>
             <Icon name="plus" size={15} />
             New card
@@ -149,14 +160,14 @@ export function ScrollManagePage() {
                   key={label}
                   label={label}
                   isActive={category !== null && isSameCategory(category, label)}
-                  isEnabled={isScrollKeyEnabled(mindMeta, "category", label)}
+                  isEnabled={isCategoryOn(label)}
                   onFilter={() =>
                     setCategory((current) =>
                       current !== null && isSameCategory(current, label) ? null : label,
                     )
                   }
-                  onToggle={(enabled) => setScrollToggle("category", label, enabled)}
-                  onRename={(to) => renameMindCategory(label, to)}
+                  onToggle={(enabled) => toggleCategory(label, enabled)}
+                  onRename={(to) => renameCategory(label, to)}
                 />
               ))}
             </fieldset>
@@ -202,8 +213,8 @@ export function ScrollManagePage() {
                   onToggleExpand={() =>
                     setExpandedId((current) => (current === card.id ? null : card.id))
                   }
-                  onHide={() => hideMindCard(card.id)}
-                  onRestore={() => restoreMindCard(card.id)}
+                  onHide={() => hideCard(card.id)}
+                  onRestore={() => updateCard(card.id, { hiddenAt: null })}
                 />
               </li>
             ))}
@@ -213,8 +224,10 @@ export function ScrollManagePage() {
 
       <SourcesSection
         vocabCount={vocabCount}
-        isEnabled={isScrollKeyEnabled(mindMeta, "source", "vocab")}
-        onToggle={(enabled) => setScrollToggle("source", "vocab", enabled)}
+        isEnabled={isCardTypeIncluded(cardPrefs, "vocabulary")}
+        onToggle={(enabled) =>
+          setCardPrefs({ types: enabled ? [] : CARD_TYPE_IDS.filter((id) => id !== "vocabulary") })
+        }
       />
 
       <CardEditorModal
@@ -222,7 +235,6 @@ export function ScrollManagePage() {
         isOpen={isEditorOpen}
         onClose={() => setIsEditorOpen(false)}
       />
-      <BulkImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />
     </div>
   );
 }
@@ -311,18 +323,6 @@ function CategoryChip({
   );
 }
 
-const EXCERPT_MAX = 60;
-
-const buildCardLabel = (card: MindCard): string => {
-  if (card.title.trim() !== "") return card.title;
-  const excerpt = card.body
-    .replace(/[*_`#>]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (excerpt === "") return "Untitled";
-  return excerpt.length > EXCERPT_MAX ? `${excerpt.slice(0, EXCERPT_MAX).trimEnd()}…` : excerpt;
-};
-
 function CardRow({
   card,
   isExpanded,
@@ -332,7 +332,7 @@ function CardRow({
   onHide,
   onRestore,
 }: {
-  card: MindCard;
+  card: Card;
   isExpanded: boolean;
   isHiddenView: boolean;
   onOpen: () => void;
@@ -341,7 +341,7 @@ function CardRow({
   onRestore: () => void;
 }) {
   const mode = card.box !== null ? `learning · box ${card.box}` : "regular";
-  const label = buildCardLabel(card);
+  const label = card.title;
   return (
     <div>
       <div className={cx("grid items-center gap-3 px-2 py-1.5", GRID_COLS)}>
@@ -362,7 +362,7 @@ function CardRow({
         >
           {label}
         </button>
-        <span className="truncate text-sm text-muted">{MIND_CARD_TYPE_LABELS[card.type]}</span>
+        <span className="truncate text-sm text-muted">{CARD_TYPES[card.type].label}</span>
         <span className="truncate text-sm text-muted">{card.category || "—"}</span>
         <span
           className={cx(
@@ -384,10 +384,7 @@ function CardRow({
       </div>
       {isExpanded && (
         <div className="border-t border-border bg-surface-secondary px-4 py-4">
-          <CardPreview
-            card={toAuthoredFeedCard(card, todayISO())}
-            className="mx-auto max-w-[240px]"
-          />
+          <CardPreview card={toFeedCard(card, todayISO())} className="mx-auto max-w-[240px]" />
         </div>
       )}
     </div>

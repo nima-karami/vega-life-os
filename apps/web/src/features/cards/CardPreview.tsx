@@ -15,7 +15,7 @@ export function CardPreview({ card, className }: { card: FeedCard; className?: s
   const frameRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const canFlip = card.flippable && card.body !== "";
+  const canFlip = card.hasReveal && card.body !== "";
   const showBack = canFlip && isFlipped;
 
   useLayoutEffect(() => {
@@ -34,8 +34,8 @@ export function CardPreview({ card, className }: { card: FeedCard; className?: s
       className="pointer-events-none absolute left-0 top-0 origin-top-left"
       style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT, transform: `scale(${scale})` }}
     >
-      {!card.flippable && <SingleFaceCard card={card} />}
-      {card.flippable && (showBack ? <CardBack body={card.body} /> : <CardFront card={card} />)}
+      {!card.hasReveal && <SingleFaceCard card={card} />}
+      {card.hasReveal && (showBack ? <CardBack body={card.body} /> : <CardFront card={card} />)}
     </div>
   );
 

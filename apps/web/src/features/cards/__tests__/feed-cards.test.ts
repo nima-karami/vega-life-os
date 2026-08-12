@@ -1,415 +1,86 @@
-import type { MindCard, MindMetaRecord } from "@vega/shared";
+import { type Card, DEFAULT_CARD_PREFS } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import type { VocabEntry } from "@/features/library/model";
-import {
-  buildAuthoredFeedCards,
-  buildDraftFeedCard,
-  buildFeedPool,
-  buildVocabFeedCards,
-  resolveBodyVariant,
-  toAuthoredFeedCard,
-} from "../feed-cards";
-import { buildMetaId, buildVocabCardId } from "../model";
+import { buildLegacyFeedPool, resolveBodyVariant, toFeedCard } from "../feed-cards";
+import { buildCard } from "./fixtures";
 
-const TODAY = "2026-07-22";
+const TODAY = "2026-08-11";
 
-const card = (over: Partial<MindCard> = {}): MindCard => ({
-  id: over.id ?? "mc_1",
-  title: "",
-  body: "",
-  type: "note",
-  origin: "manual",
-  category: "",
-  source: null,
-  addedAt: "2026-07-01",
-  hiddenAt: null,
-  likedAt: null,
-  flippable: true,
-  box: null,
-  lastReviewed: null,
-  nextDue: null,
-  updatedAt: "",
-  fieldUpdatedAt: {},
-  ...over,
-});
+const card = (over: Partial<Card> = {}): Card => buildCard(over);
 
-const entry = (over: Partial<VocabEntry> = {}): VocabEntry => ({
-  id: over.id ?? "v1",
-  term: "hola",
-  definition: "hello",
-  example: "hola amigo",
-  phonetic: "",
-  examples: [],
-  synonyms: [],
-  language: "es",
-  box: 1,
-  lastReviewed: null,
-  nextDue: null,
-  addedAt: "2026-07-01",
-  ...over,
-});
-
-const meta = (over: Partial<MindMetaRecord> & { id: string }): MindMetaRecord => ({
-  kind: "category",
-  key: "",
-  value: true,
-  setAt: "",
-  updatedAt: "",
-  fieldUpdatedAt: {},
-  ...over,
-});
-
-const disableCategory = (key: string): MindMetaRecord =>
-  meta({ id: buildMetaId("category", key), kind: "category", key, value: false });
-
-describe("buildAuthoredFeedCards", () => {
-  it("excludes hidden cards", () => {
-    const cards = [card({ id: "a" }), card({ id: "b", hiddenAt: "2026-07-02" })];
-    expect(buildAuthoredFeedCards(cards, [], TODAY).map((c) => c.id)).toEqual(["a"]);
-  });
-
-  it("excludes cards in a disabled category", () => {
-    const cards = [
-      card({ id: "a", category: "Negotiation" }),
-      card({ id: "b", category: "mental models" }),
-    ];
-    const ids = buildAuthoredFeedCards(cards, [disableCategory("negotiation")], TODAY).map(
-      (c) => c.id,
-    );
-    expect(ids).toEqual(["b"]);
-  });
-
-  it("derives learning from box and due from nextDue <= today", () => {
-    const cards = [
-      card({ id: "regular" }),
-      card({ id: "future", box: 2, nextDue: "2026-08-01" }),
-      card({ id: "due", box: 3, nextDue: TODAY }),
-      card({ id: "overdue", box: 1, nextDue: "2026-07-01" }),
-    ];
-    const built = buildAuthoredFeedCards(cards, [], TODAY);
-    const byId = Object.fromEntries(built.map((c) => [c.id, c]));
-
-    expect(byId.regular.learning).toBe(false);
-    expect(byId.regular.box).toBe(null);
-    expect(byId.regular.due).toBe(false);
-
-    expect(byId.future.learning).toBe(true);
-    expect(byId.future.box).toBe(2);
-    expect(byId.future.due).toBe(false);
-
-    expect(byId.due.due).toBe(true);
-    expect(byId.overdue.due).toBe(true);
-  });
-
-  it("keeps an empty body as an empty string (no flip downstream)", () => {
-    const built = buildAuthoredFeedCards([card({ id: "a", body: "" })], [], TODAY);
-    expect(built[0].body).toBe("");
-  });
-
-  it("maps every field and leaves maskedBody null", () => {
-    const built = buildAuthoredFeedCards(
-      [card({ id: "a", title: "Inversion", body: "avoid", category: "Focus", source: "Munger" })],
-      [],
-      TODAY,
-    );
-    expect(built[0]).toEqual({
-      id: "a",
-      kind: "authored",
+describe("toFeedCard", () => {
+  it("carries a note straight through", () => {
+    expect(toFeedCard(card(), TODAY)).toMatchObject({
+      id: "c_1",
       type: "note",
-      category: "Focus",
       title: "Inversion",
-      subtitle: null,
-      body: "avoid",
-      bodyVariants: null,
-      source: "Munger",
+      body: "Solve it backward.",
+      hasReveal: true,
       learning: false,
-      box: null,
       due: false,
+      liked: false,
+      bodyVariants: null,
       maskedBody: null,
-      flippable: true,
-      liked: false,
-    });
-  });
-
-  it("carries flippable and liked from the card record", () => {
-    const cards = buildAuthoredFeedCards(
-      [
-        card({ id: "mc_a", flippable: false, type: "note" }),
-        card({ id: "mc_b", likedAt: "2026-07-23T00:00:00.000Z" }),
-      ],
-      [],
-      TODAY,
-    );
-    expect(cards[0]).toMatchObject({ flippable: false, liked: false });
-    expect(cards[1]).toMatchObject({ flippable: true, liked: true });
-  });
-});
-
-describe("buildVocabFeedCards", () => {
-  it("returns nothing when the vocab source toggle is off", () => {
-    const disabled = meta({
-      id: buildMetaId("source", "vocab"),
-      kind: "source",
-      key: "vocab",
-      value: false,
-    });
-    expect(buildVocabFeedCards([entry({ id: "v1" })], [disabled], TODAY)).toEqual([]);
-  });
-
-  it("respects a per-entry hide meta", () => {
-    const hide = meta({
-      id: buildMetaId("hide", "d:vocab:v1"),
-      kind: "hide",
-      key: "d:vocab:v1",
-      value: true,
-    });
-    const vocab = [entry({ id: "v1" }), entry({ id: "v2" })];
-    expect(buildVocabFeedCards(vocab, [hide], TODAY).map((c) => c.id)).toEqual(["d:vocab:v2"]);
-  });
-
-  it("shapes a vocab card with definition and example", () => {
-    const built = buildVocabFeedCards(
-      [entry({ id: "v1", term: "hola", definition: "hello", example: "hola amigo", box: 4 })],
-      [],
-      TODAY,
-    );
-    expect(built[0]).toEqual({
-      id: "d:vocab:v1",
-      kind: "vocab",
-      type: null,
-      category: "vocabulary",
-      title: "hola",
       subtitle: null,
-      body: "**hello**\n\nhola amigo",
-      bodyVariants: ["**hello**\n\nhola amigo"],
-      source: null,
-      learning: true,
-      box: 4,
-      due: false,
-      maskedBody: "**hello**",
-      flippable: true,
-      liked: false,
     });
   });
 
-  it("is always flippable and reads liked from mindMeta", () => {
-    const likeRecord = meta({
-      id: buildMetaId("like", buildVocabCardId("v1")),
-      kind: "like",
-      key: buildVocabCardId("v1"),
-      value: true,
-    });
-    const cards = buildVocabFeedCards([entry({ id: "v1" })], [likeRecord], TODAY);
-    expect(cards[0]).toMatchObject({ flippable: true, liked: true });
+  it("reads the attribution off author, then work", () => {
+    expect(toFeedCard(card({ type: "quote", author: "Seneca" }), TODAY).source).toBe("Seneca");
+    expect(toFeedCard(card({ type: "fact", work: "Nature" }), TODAY).source).toBe("Nature");
   });
 
-  it("omits the example paragraph when the example is empty", () => {
-    const built = buildVocabFeedCards(
-      [entry({ id: "v1", definition: "hello", example: "" })],
-      [],
-      TODAY,
-    );
-    expect(built[0].body).toBe("**hello**");
+  it("gives a quote no reveal until it is promoted", () => {
+    expect(toFeedCard(card({ type: "quote" }), TODAY).hasReveal).toBe(false);
+    expect(toFeedCard(card({ type: "quote", hasRecall: true }), TODAY).hasReveal).toBe(true);
   });
 
-  it("fills maskedBody with the definition only (example redacted)", () => {
-    const withExample = buildVocabFeedCards(
-      [entry({ id: "v1", definition: "hello", example: "hola amigo" })],
-      [],
-      TODAY,
-    )[0];
-    expect(withExample.maskedBody).toBe("**hello**");
-    expect(withExample.maskedBody).not.toContain("hola amigo");
-
-    const noExample = buildVocabFeedCards(
-      [entry({ id: "v2", definition: "hello", example: "" })],
-      [],
-      TODAY,
-    )[0];
-    expect(noExample.maskedBody).toBe(noExample.body);
-  });
-
-  it("derives due from the entry's own nextDue", () => {
-    const vocab = [
-      entry({ id: "due", nextDue: TODAY }),
-      entry({ id: "overdue", nextDue: "2026-07-01" }),
-      entry({ id: "future", nextDue: "2026-08-01" }),
-      entry({ id: "unscheduled", nextDue: null }),
-    ];
-    const byId = Object.fromEntries(buildVocabFeedCards(vocab, [], TODAY).map((c) => [c.id, c]));
-    expect(byId["d:vocab:due"].due).toBe(true);
-    expect(byId["d:vocab:overdue"].due).toBe(true);
-    expect(byId["d:vocab:future"].due).toBe(false);
-    expect(byId["d:vocab:unscheduled"].due).toBe(false);
-  });
-
-  it("composes one back variant per example with the synonyms line", () => {
-    const built = buildVocabFeedCards(
-      [
-        entry({
-          id: "v1",
-          term: "digression",
-          definition: "a turn away from the main subject",
-          phonetic: "/daɪˈɡrɛʃ(ə)n/",
-          examples: ["A digression in the data.", "A moral digression.", "One digression aside."],
-          synonyms: ["tangent", "detour"],
-          example: "",
-        }),
-      ],
-      [],
-      TODAY,
-    );
-    expect(built[0].subtitle).toBe("/daɪˈɡrɛʃ(ə)n/");
-    expect(built[0].bodyVariants).toEqual([
-      "**a turn away from the main subject**\n\nA digression in the data.\n\n_Synonyms: tangent, detour_",
-      "**a turn away from the main subject**\n\nA moral digression.\n\n_Synonyms: tangent, detour_",
-      "**a turn away from the main subject**\n\nOne digression aside.\n\n_Synonyms: tangent, detour_",
-    ]);
-    expect(built[0].body).toBe(built[0].bodyVariants?.[0]);
-  });
-
-  it("lifts a legacy single example into one variant", () => {
-    const built = buildVocabFeedCards(
-      [entry({ id: "v1", definition: "hello", example: "hola amigo", examples: [] })],
-      [],
-      TODAY,
-    );
-    expect(built[0].bodyVariants).toEqual(["**hello**\n\nhola amigo"]);
-  });
-
-  it("builds a single definition-only variant when there are no effective examples", () => {
-    const built = buildVocabFeedCards(
-      [entry({ id: "v1", definition: "hello", example: "", synonyms: ["hi"] })],
-      [],
-      TODAY,
-    );
-    expect(built[0].bodyVariants).toEqual(["**hello**\n\n_Synonyms: hi_"]);
-    expect(built[0].subtitle).toBeNull();
-  });
-
-  it("keeps maskedBody free of phonetic, examples, and synonyms", () => {
-    const built = buildVocabFeedCards(
-      [
-        entry({
-          id: "v1",
-          definition: "hello",
-          phonetic: "/oʊˈlɑ/",
-          examples: ["secret example"],
-          synonyms: ["secret synonym"],
-          example: "",
-        }),
-      ],
-      [],
-      TODAY,
-    );
-    expect(built[0].maskedBody).toBe("**hello**");
-    expect(built[0].maskedBody).not.toContain("secret example");
-    expect(built[0].maskedBody).not.toContain("secret synonym");
-    expect(built[0].maskedBody).not.toContain("/oʊˈlɑ/");
-  });
-});
-
-describe("resolveBodyVariant", () => {
-  const vocabCard = buildVocabFeedCards(
-    [
-      entry({
-        id: "v1",
-        definition: "hello",
-        examples: ["first", "second", "third"],
-        example: "",
+  it("builds one reveal per example for a vocabulary card", () => {
+    const feed = toFeedCard(
+      card({
+        type: "vocabulary",
+        category: "Language",
+        title: "petrichor",
+        body: "The smell after rain.",
+        phonetic: "/ˈpɛtrɪˌkɔr/",
+        examples: ["First sentence.", "Second sentence."],
+        synonyms: ["scent"],
       }),
-    ],
-    [],
-    TODAY,
-  )[0];
-
-  it("selects the stamped variant", () => {
-    expect(resolveBodyVariant(vocabCard, 1)).toBe("**hello**\n\nsecond");
+      TODAY,
+    );
+    expect(feed.subtitle).toBe("/ˈpɛtrɪˌkɔr/");
+    expect(feed.maskedBody).toBe("**The smell after rain.**");
+    expect(feed.bodyVariants).toHaveLength(2);
+    expect(feed.bodyVariants?.[1]).toContain("Second sentence.");
+    expect(feed.bodyVariants?.[0]).toContain("_Synonyms: scent_");
+    expect(resolveBodyVariant(feed, 3)).toBe(feed.bodyVariants?.[1]);
   });
 
-  it("clamps an out-of-range variant via modulo", () => {
-    expect(resolveBodyVariant(vocabCard, 7)).toBe(resolveBodyVariant(vocabCard, 1));
-  });
-
-  it("returns body for cards without variants", () => {
-    const authored = buildAuthoredFeedCards([card({ id: "a", body: "note" })], [], TODAY)[0];
-    expect(resolveBodyVariant(authored, 2)).toBe("note");
+  it("is due when the next due date has arrived", () => {
+    expect(toFeedCard(card({ box: 1, nextDue: TODAY }), TODAY).due).toBe(true);
+    expect(toFeedCard(card({ box: 1, nextDue: "2026-08-12" }), TODAY).due).toBe(false);
   });
 });
 
-describe("buildFeedPool", () => {
-  it("concatenates authored then vocab in stable order", () => {
-    const mindCards = [card({ id: "a" }), card({ id: "b" })];
-    const vocab = [entry({ id: "v1" }), entry({ id: "v2" })];
-    const pool = buildFeedPool({ mindCards, mindMeta: [], vocab }, TODAY);
-    expect(pool.map((c) => c.id)).toEqual(["a", "b", "d:vocab:v1", "d:vocab:v2"]);
-    expect(pool.map((c) => c.kind)).toEqual(["authored", "authored", "vocab", "vocab"]);
+describe("buildLegacyFeedPool", () => {
+  const cards = [
+    card({ id: "a", category: "focus" }),
+    card({ id: "b", category: "Language", type: "vocabulary", title: "sonder", body: "A word." }),
+    card({ id: "hidden", hiddenAt: "2026-08-01T00:00:00.000Z" }),
+  ];
+
+  it("drops hidden cards and keeps everything else by default", () => {
+    expect(
+      buildLegacyFeedPool({ cards, cardPrefs: DEFAULT_CARD_PREFS }, TODAY).map((c) => c.id),
+    ).toEqual(["a", "b"]);
   });
 
-  it("applies both sources' exclusion rules", () => {
-    const mindCards = [
-      card({ id: "a", category: "Focus" }),
-      card({ id: "hidden", hiddenAt: "2026-07-02" }),
-    ];
-    const vocab = [entry({ id: "v1" })];
-    const mindMeta = [
-      meta({ id: buildMetaId("source", "vocab"), kind: "source", key: "vocab", value: false }),
-    ];
-    const pool = buildFeedPool({ mindCards, mindMeta, vocab }, TODAY);
-    expect(pool.map((c) => c.id)).toEqual(["a"]);
+  it("honours the type include list", () => {
+    const prefs = { ...DEFAULT_CARD_PREFS, types: ["note" as const] };
+    expect(buildLegacyFeedPool({ cards, cardPrefs: prefs }, TODAY).map((c) => c.id)).toEqual(["a"]);
   });
 
-  it("carries the mind-card type onto authored cards and null for vocab", () => {
-    const mindCards = [card({ id: "mc_q", type: "quote", flippable: false, source: "Seneca" })];
-    const pool = buildFeedPool({ mindCards, mindMeta: [], vocab: [entry({ id: "v1" })] }, TODAY);
-    expect(pool.find((c) => c.id === "mc_q")?.type).toBe("quote");
-    expect(pool.find((c) => c.kind === "vocab")?.type).toBeNull();
-  });
-});
-
-describe("toAuthoredFeedCard", () => {
-  it("renders a hidden card — the manager previews cards the feed filters out", () => {
-    const hidden = card({ id: "h", title: "Hidden", hiddenAt: "2026-07-02" });
-    expect(toAuthoredFeedCard(hidden, TODAY).title).toBe("Hidden");
-  });
-
-  it("derives learning from the box and due from nextDue", () => {
-    const learning = card({ box: 2, nextDue: "2026-07-20" });
-    expect(toAuthoredFeedCard(learning, TODAY)).toMatchObject({ learning: true, due: true });
-    expect(toAuthoredFeedCard(card(), TODAY)).toMatchObject({ learning: false, due: false });
-  });
-});
-
-describe("buildDraftFeedCard", () => {
-  const draft = {
-    type: "note" as const,
-    title: "  Second-order thinking  ",
-    body: "Ask **and then what?**",
-    category: "  mental models ",
-    source: "  ",
-    flippable: true,
-    learning: false,
-  };
-
-  it("trims the text the face renders", () => {
-    expect(buildDraftFeedCard(draft)).toMatchObject({
-      title: "Second-order thinking",
-      category: "mental models",
-      body: "Ask **and then what?**",
-    });
-  });
-
-  it("treats a blank source as absent so the face omits it", () => {
-    expect(buildDraftFeedCard(draft).source).toBeNull();
-    expect(buildDraftFeedCard({ ...draft, source: " Munger " }).source).toBe("Munger");
-  });
-
-  it("carries the behavior toggles the preview switches on", () => {
-    expect(buildDraftFeedCard({ ...draft, flippable: false })).toMatchObject({
-      flippable: false,
-      box: null,
-      due: false,
-      liked: false,
-    });
+  it("honours the category include list, case-insensitively", () => {
+    const prefs = { ...DEFAULT_CARD_PREFS, categories: ["language"] };
+    expect(buildLegacyFeedPool({ cards, cardPrefs: prefs }, TODAY).map((c) => c.id)).toEqual(["b"]);
   });
 });

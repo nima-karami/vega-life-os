@@ -1,7 +1,8 @@
 import { Button } from "@heroui/react";
+import type { Card } from "@vega/shared";
 import { useMemo } from "react";
-import { isSameCategory, type MindCard } from "./model";
-import { listCategories } from "./queries";
+import { isSameCategory } from "./model";
+import { listCardCategories } from "./queries";
 
 export const FIELD_CLASS =
   "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
@@ -13,9 +14,9 @@ export function CategoryField({
 }: {
   value: string;
   onChange: (next: string) => void;
-  cards: MindCard[];
+  cards: Card[];
 }) {
-  const allCategories = useMemo(() => listCategories(cards), [cards]);
+  const allCategories = useMemo(() => listCardCategories(cards), [cards]);
   const suggestions = useMemo(() => {
     const query = value.trim().toLowerCase();
     return allCategories

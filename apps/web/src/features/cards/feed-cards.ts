@@ -1,12 +1,15 @@
-import type { MindCard, MindMetaRecord } from "@vega/shared";
-import { listVocabExamples, type VocabEntry } from "@/features/library/model";
-import { buildMetaId, buildVocabCardId, type MindCardType } from "./model";
-import { isScrollKeyEnabled } from "./store";
+import {
+  type Card,
+  type CardPrefs,
+  type CardTypeId,
+  hasReveal,
+  isCardCategoryIncluded,
+  isCardTypeIncluded,
+} from "@vega/shared";
 
 export type FeedCard = {
   id: string;
-  kind: "authored" | "vocab" | "recap";
-  type: MindCardType | null;
+  type: CardTypeId;
   category: string;
   title: string;
   subtitle: string | null;
@@ -17,7 +20,7 @@ export type FeedCard = {
   box: number | null;
   due: boolean;
   maskedBody: string | null;
-  flippable: boolean;
+  hasReveal: boolean;
   liked: boolean;
 };
 
@@ -29,132 +32,49 @@ export const resolveBodyVariant = (card: FeedCard, variant: number): string => {
 const isDue = (nextDue: string | null, today: string): boolean =>
   nextDue !== null && nextDue <= today;
 
-const buildVocabDefinition = (definition: string): string => `**${definition}**`;
+const emphasise = (text: string): string => `**${text}**`;
 
-const buildVocabBack = (definition: string, example: string, synonyms: string[]): string => {
-  const parts = [buildVocabDefinition(definition)];
-  if (example) parts.push(example);
-  if (synonyms.length > 0) parts.push(`_Synonyms: ${synonyms.join(", ")}_`);
-  return parts.join("\n\n");
-};
-
-const buildVocabBackVariants = (entry: VocabEntry): string[] => {
-  const examples = listVocabExamples(entry);
-  const synonyms = entry.synonyms ?? [];
-  return (examples.length > 0 ? examples : [""]).map((example) =>
-    buildVocabBack(entry.definition, example, synonyms),
+/** One reveal per example, so a word comes back in a different sentence each pass. */
+function buildVocabBacks(card: Card): string[] {
+  const synonyms = card.synonyms.length > 0 ? `_Synonyms: ${card.synonyms.join(", ")}_` : "";
+  const examples = card.examples.length > 0 ? card.examples : [""];
+  return examples.map((example) =>
+    [emphasise(card.body), example, synonyms].filter((part) => part !== "").join("\n\n"),
   );
-};
+}
 
-type AuthoredFields = Pick<
-  FeedCard,
-  "id" | "type" | "category" | "title" | "body" | "source" | "flippable" | "learning" | "box"
-> & { due: boolean; liked: boolean };
-
-const buildAuthoredCard = (fields: AuthoredFields): FeedCard => ({
-  ...fields,
-  kind: "authored",
-  subtitle: null,
-  bodyVariants: null,
-  maskedBody: null,
-});
-
-export const toAuthoredFeedCard = (card: MindCard, today: string): FeedCard =>
-  buildAuthoredCard({
+export function toFeedCard(card: Card, today: string): FeedCard {
+  const isVocabulary = card.type === "vocabulary";
+  const bodyVariants = isVocabulary ? buildVocabBacks(card) : null;
+  return {
     id: card.id,
     type: card.type,
     category: card.category,
     title: card.title,
-    body: card.body,
-    source: card.source,
-    flippable: card.flippable,
+    subtitle: card.phonetic,
+    body: bodyVariants ? bodyVariants[0] : card.body,
+    bodyVariants,
+    source: card.author ?? card.work,
     learning: card.box !== null,
     box: card.box,
     due: isDue(card.nextDue, today),
+    maskedBody: isVocabulary ? emphasise(card.body) : null,
+    hasReveal: hasReveal(card),
     liked: card.likedAt !== null,
-  });
+  };
+}
 
-/** An unsaved editor draft rendered as the feed would render it. */
-export const buildDraftFeedCard = (draft: {
-  type: MindCardType;
-  title: string;
-  body: string;
-  category: string;
-  source: string;
-  flippable: boolean;
-  learning: boolean;
-}): FeedCard =>
-  buildAuthoredCard({
-    id: "draft",
-    type: draft.type,
-    category: draft.category.trim(),
-    title: draft.title.trim(),
-    body: draft.body,
-    source: draft.source.trim() || null,
-    flippable: draft.flippable,
-    learning: draft.learning,
-    box: null,
-    due: false,
-    liked: false,
-  });
-
-export function buildAuthoredFeedCards(
-  cards: MindCard[],
-  meta: MindMetaRecord[],
+/** Interim: keeps the existing feed running on `cards`. Slice 5's feed-pool.ts replaces it. */
+export function buildLegacyFeedPool(
+  state: { cards: Card[]; cardPrefs: CardPrefs },
   today: string,
 ): FeedCard[] {
-  const disabledCategoryIds = new Set(
-    meta.filter((m) => m.kind === "category" && m.value === false).map((m) => m.id),
-  );
-  return cards
+  return state.cards
     .filter(
-      (c) => c.hiddenAt === null && !disabledCategoryIds.has(buildMetaId("category", c.category)),
+      (card) =>
+        card.hiddenAt === null &&
+        isCardTypeIncluded(state.cardPrefs, card.type) &&
+        isCardCategoryIncluded(state.cardPrefs, card.category),
     )
-    .map((c) => toAuthoredFeedCard(c, today));
-}
-
-export function buildVocabFeedCards(
-  vocab: VocabEntry[],
-  meta: MindMetaRecord[],
-  today: string,
-): FeedCard[] {
-  if (!isScrollKeyEnabled(meta, "source", "vocab")) return [];
-  const hiddenDerivedIds = new Set(
-    meta.filter((m) => m.kind === "hide" && m.value === true).map((m) => m.id),
-  );
-  const likedDerivedIds = new Set(
-    meta.filter((m) => m.kind === "like" && m.value === true).map((m) => m.id),
-  );
-  return vocab
-    .filter((entry) => !hiddenDerivedIds.has(buildMetaId("hide", buildVocabCardId(entry.id))))
-    .map((entry) => {
-      const bodyVariants = buildVocabBackVariants(entry);
-      return {
-        id: buildVocabCardId(entry.id),
-        kind: "vocab" as const,
-        type: null,
-        category: "vocabulary",
-        title: entry.term,
-        subtitle: entry.phonetic || null,
-        body: bodyVariants[0],
-        bodyVariants,
-        source: null,
-        learning: true,
-        box: entry.box,
-        due: isDue(entry.nextDue, today),
-        maskedBody: buildVocabDefinition(entry.definition),
-        flippable: true,
-        liked: likedDerivedIds.has(buildMetaId("like", buildVocabCardId(entry.id))),
-      };
-    });
-}
-
-export function buildFeedPool(
-  state: { mindCards: MindCard[]; mindMeta: MindMetaRecord[]; vocab: VocabEntry[] },
-  today: string,
-): FeedCard[] {
-  return [
-    ...buildAuthoredFeedCards(state.mindCards, state.mindMeta, today),
-    ...buildVocabFeedCards(state.vocab, state.mindMeta, today),
-  ];
+    .map((card) => toFeedCard(card, today));
 }

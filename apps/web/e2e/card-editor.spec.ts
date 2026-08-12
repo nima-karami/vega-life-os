@@ -92,8 +92,7 @@ test("preview renders the card's real face and flips to its back", async ({ page
 
   const dialog = page.getByRole("dialog");
   await page.getByRole("textbox", { name: "Card title" }).fill("Second-order thinking");
-  await page.getByRole("textbox", { name: "Card body" }).click();
-  await page.keyboard.type("Ask and then what?");
+  await page.getByRole("textbox", { name: "Card body" }).fill("Ask and then what?");
 
   await dialog.getByRole("button", { name: "Preview", exact: true }).click();
 
@@ -107,7 +106,7 @@ test("preview renders the card's real face and flips to its back", async ({ page
 
   // Returning to the form keeps everything the draft had.
   await dialog.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(dialog.getByRole("textbox", { name: "Card body" })).toContainText(
+  await expect(dialog.getByRole("textbox", { name: "Card body" })).toHaveValue(
     "Ask and then what?",
   );
 });

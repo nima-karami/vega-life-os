@@ -1,5 +1,7 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { useEffect, useRef, useState } from "react";
+import { CARD_TYPE_IDS, CARD_TYPES, type CardTypeId, listTypeSlots } from "@vega/shared";
+import { useState } from "react";
+import { todayISO } from "@/core/lib/date";
 import {
   ConfirmDialog,
   cx,
@@ -9,25 +11,16 @@ import {
   type SelectOption,
   useCompactModal,
 } from "@/core/ui";
-import { CardBodyField } from "./CardBodyField";
 import { CardPreview } from "./CardPreview";
-import { CategoryField, FIELD_CLASS } from "./CategoryField";
-import { CharCounter } from "./CharCounter";
-import { buildDraftFeedCard } from "./feed-cards";
-import { MIND_CARD_TYPE_LABELS, type MindCardType } from "./model";
-import { useCardEditorForm } from "./useCardEditorForm";
+import { CardSlotField } from "./CardSlotField";
+import { CategoryField } from "./CategoryField";
+import { toFeedCard } from "./feed-cards";
+import { toCardFields, useCardEditorForm } from "./useCardEditorForm";
 
-const TITLE_MAX = 160;
-
-const TYPE_OPTIONS: SelectOption[] = Object.entries(MIND_CARD_TYPE_LABELS).map(
-  ([value, label]) => ({ value, label }),
-);
-
-const TYPE_FIELDS: Record<MindCardType, { title: boolean; source: boolean; behavior: boolean }> = {
-  note: { title: true, source: true, behavior: true },
-  quote: { title: false, source: true, behavior: false },
-  prompt: { title: false, source: false, behavior: false },
-};
+const TYPE_OPTIONS: SelectOption[] = CARD_TYPE_IDS.map((value) => ({
+  value,
+  label: CARD_TYPES[value].label,
+}));
 
 export function CardEditorModal({
   cardId,
@@ -43,12 +36,13 @@ export function CardEditorModal({
     isCreate,
     openKey,
     values,
-    setField,
+    setSlot,
+    setCategory,
     handleTypeChange,
-    handleFlippableToggle,
-    wasLearning,
-    bodyCappedLength,
-    setBodyLengths,
+    handleRecallToggle,
+    canPromoteDraft,
+    isLearnableDraft,
+    setLearning,
     canSave,
     handleSave,
     handleDelete,
@@ -57,16 +51,6 @@ export function CardEditorModal({
   } = useCardEditorForm({ cardId, isOpen, onClose });
 
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const previewedKey = useRef<string | null>(null);
-  if (previewedKey.current !== openKey) {
-    previewedKey.current = openKey;
-    if (isPreviewing) setIsPreviewing(false);
-  }
-
-  const titleRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (isOpen && isCreate && !isPreviewing) titleRef.current?.focus();
-  }, [isOpen, isCreate, isPreviewing]);
 
   const responsive = useCompactModal();
   const state = useOverlayState({
@@ -76,11 +60,18 @@ export function CardEditorModal({
     },
   });
 
-  const visibleFields = TYPE_FIELDS[values.type];
-  const isQuote = values.type === "quote";
-  const sourceLabel = isQuote ? "Attribution" : "Source";
-  const sourcePlaceholder = isQuote ? "Who said it (optional)" : "Where it came from (optional)";
   const heading = isCreate ? "New card" : "Edit card";
+  const previewCard = toFeedCard(
+    {
+      ...toCardFields(values),
+      id: "draft",
+      addedAt: todayISO(),
+      reviewCount: 0,
+      updatedAt: "",
+      fieldUpdatedAt: {},
+    },
+    todayISO(),
+  );
 
   return (
     <>
@@ -115,109 +106,61 @@ export function CardEditorModal({
 
               <Modal.Body>
                 {isPreviewing && (
-                  <CardPreview
-                    card={buildDraftFeedCard(values)}
-                    className="mx-auto max-w-[300px]"
-                  />
+                  <CardPreview card={previewCard} className="mx-auto max-w-[300px]" />
                 )}
 
-                {/* Kept mounted while previewing so the body editor doesn't lose its instance. */}
                 <div className={cx("space-y-5", isPreviewing && "hidden")}>
                   <div className="space-y-2.5">
                     <span className="text-xs text-muted">Type</span>
                     <Select
                       ariaLabel="Card type"
                       value={values.type}
-                      onValueChange={(type) => handleTypeChange(type as MindCardType)}
+                      onValueChange={(type) => handleTypeChange(type as CardTypeId)}
                       options={TYPE_OPTIONS}
                     />
                   </div>
 
-                  {visibleFields.behavior && (
+                  {(canPromoteDraft || values.hasRecall) && (
                     <div className="space-y-2.5">
-                      <span className="text-xs text-muted">Behavior</span>
+                      <span className="text-xs text-muted">Review</span>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          aria-pressed={values.flippable}
-                          variant={values.flippable ? "primary" : "outline"}
-                          onPress={handleFlippableToggle}
+                          aria-pressed={values.hasRecall}
+                          variant={values.hasRecall ? "primary" : "outline"}
+                          onPress={handleRecallToggle}
                         >
                           <Icon name="repeat" size={14} />
-                          Flippable
+                          Hide part of this to review it
                         </Button>
                         <Button
                           size="sm"
                           aria-pressed={values.learning}
-                          isDisabled={!values.flippable}
+                          isDisabled={!isLearnableDraft}
                           variant={values.learning ? "primary" : "outline"}
-                          onPress={() => setField("learning", !values.learning)}
+                          onPress={() => setLearning(!values.learning)}
                         >
                           <Icon name="brain" size={14} />
                           Learning mode
                         </Button>
                       </div>
-                      {!values.flippable && (
-                        <p className="text-xs text-muted">
-                          {wasLearning
-                            ? "Saving ends this card's learning — reviews need a hidden back."
-                            : "Learning needs a flippable card."}
-                        </p>
-                      )}
                     </div>
                   )}
 
                   <div className="space-y-2.5">
                     <span className="text-xs text-muted">Category</span>
-                    <CategoryField
-                      value={values.category}
-                      onChange={(category) => setField("category", category)}
-                      cards={cards}
-                    />
+                    <CategoryField value={values.category} onChange={setCategory} cards={cards} />
                   </div>
 
-                  {visibleFields.title && (
-                    <label className="block space-y-2.5">
-                      <span className="flex items-center gap-2">
-                        <span className="text-xs text-muted">Title</span>
-                        <CharCounter length={values.title.length} max={TITLE_MAX} />
-                      </span>
-                      <input
-                        ref={titleRef}
-                        type="text"
-                        aria-label="Card title"
-                        placeholder="Name the idea"
-                        value={values.title}
-                        maxLength={TITLE_MAX}
-                        onChange={(event) => setField("title", event.target.value)}
-                        className={FIELD_CLASS}
-                      />
-                    </label>
-                  )}
-
-                  <CardBodyField
-                    key={`${openKey}:${values.type}`}
-                    type={values.type}
-                    value={values.body}
-                    cappedLength={bodyCappedLength}
-                    onChange={(body) => setField("body", body)}
-                    onLengthChange={setBodyLengths}
-                    onSubmit={handleSave}
-                  />
-
-                  {visibleFields.source && (
-                    <label className="block space-y-2.5">
-                      <span className="text-xs text-muted">{sourceLabel}</span>
-                      <input
-                        type="text"
-                        aria-label={sourceLabel}
-                        placeholder={sourcePlaceholder}
-                        value={values.source}
-                        onChange={(event) => setField("source", event.target.value)}
-                        className={FIELD_CLASS}
-                      />
-                    </label>
-                  )}
+                  {listTypeSlots(values.type).map(([slot, def]) => (
+                    <CardSlotField
+                      key={`${openKey}:${slot}`}
+                      slot={slot}
+                      def={def}
+                      value={values.slots[slot]}
+                      onChange={(next) => setSlot(slot, next)}
+                    />
+                  ))}
                 </div>
               </Modal.Body>
 

@@ -14,9 +14,8 @@ import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { CardEditorModal } from "./CardEditorModal";
 import { FeedCardView } from "./FeedCardView";
-import { buildFeedPool, type FeedCard } from "./feed-cards";
+import { buildLegacyFeedPool, type FeedCard } from "./feed-cards";
 import { stepLeitner } from "./leitner";
-import { parseVocabCardId } from "./model";
 import {
   buildFeedQueue,
   computePassSeed,
@@ -56,21 +55,19 @@ function findPreviousRecapIndex(entries: QueueEntry[], before: number): number {
 
 export function ScrollPage() {
   const navigate = useNavigate();
-  const mindCards = useStore((s) => s.mindCards);
-  const mindMeta = useStore((s) => s.mindMeta);
-  const vocab = useStore((s) => s.vocab);
-  const hideMindCard = useStore((s) => s.hideMindCard);
-  const setMindCardLearning = useStore((s) => s.setMindCardLearning);
-  const toggleMindCardLike = useStore((s) => s.toggleMindCardLike);
-  const gradeMindCard = useStore((s) => s.gradeMindCard);
-  const reviewVocab = useStore((s) => s.reviewVocab);
+  const cards = useStore((s) => s.cards);
+  const cardPrefs = useStore((s) => s.cardPrefs);
+  const hideCard = useStore((s) => s.hideCard);
+  const setCardLearning = useStore((s) => s.setCardLearning);
+  const toggleCardLike = useStore((s) => s.toggleCardLike);
+  const gradeCard = useStore((s) => s.gradeCard);
   const pushToast = useStore((s) => s.pushToast);
   const shouldReduceMotion = useReducedMotion();
 
   const today = todayISO();
   const pool = useMemo(
-    () => buildFeedPool({ mindCards, mindMeta, vocab }, today),
-    [mindCards, mindMeta, vocab, today],
+    () => buildLegacyFeedPool({ cards, cardPrefs }, today),
+    [cards, cardPrefs, today],
   );
   const poolById = useMemo(() => new Map(pool.map((card) => [card.id, card])), [pool]);
   const learningCount = useMemo(() => pool.filter((card) => card.learning).length, [pool]);
@@ -212,7 +209,7 @@ export function ScrollPage() {
   };
 
   const handleHide = (card: FeedCard) => {
-    hideMindCard(card.id);
+    hideCard(card.id);
     announce("Hidden");
     pushToast("Hidden");
     setFlippedId(null);
@@ -221,14 +218,14 @@ export function ScrollPage() {
 
   const handleToggleLearning = (card: FeedCard) => {
     const next = !card.learning;
-    setMindCardLearning(card.id, next);
+    setCardLearning(card.id, next);
     // Recruiting sets nextDue=today, so the rebuild would due-inject it this session — defer it.
     if (next) deferredDueRef.current.add(card.id);
     announce(next ? "Learning on" : "Learning off");
   };
 
   const handleToggleLike = (card: FeedCard) => {
-    toggleMindCardLike(card.id);
+    toggleCardLike(card.id);
     announce(card.liked ? "Like removed" : "Liked");
   };
 
@@ -237,15 +234,14 @@ export function ScrollPage() {
     const entry = queueEntries[currentIndexRef.current];
     if (!entry || isRecapId(entry.cardId)) return;
     const card = poolById.get(entry.cardId);
-    if (!card || !card.flippable || card.body === "") return;
+    if (!card?.hasReveal || card.body === "") return;
     setFlippedId((current) => (current === card.id ? null : card.id));
   };
 
   const handleGrade = (card: FeedCard, correct: boolean) => {
     if (card.box === null) return;
     const nextBox = stepLeitner(card.box, correct, today).box;
-    if (card.kind === "vocab") reviewVocab(parseVocabCardId(card.id), correct);
-    else gradeMindCard(card.id, correct);
+    gradeCard(card.id, correct);
     announce(correct ? `Got it — box ${nextBox}` : "Again — back to box 1");
     setFlippedId(null);
     advance();

@@ -4,7 +4,6 @@ import { buildFeedQueue, computePassSeed, createSeededRng, type QueueEntry } fro
 
 const feedCard = (id: string, category: string): FeedCard => ({
   id,
-  kind: "authored",
   type: "note",
   category,
   title: id,
@@ -16,7 +15,7 @@ const feedCard = (id: string, category: string): FeedCard => ({
   box: null,
   due: false,
   maskedBody: null,
-  flippable: true,
+  hasReveal: true,
   liked: false,
 });
 
@@ -138,7 +137,6 @@ const restCategories = ["alpha", "beta", "gamma", "delta"];
 
 const dueVocabCard = (id: string): FeedCard => ({
   ...feedCard(id, "vocabulary"),
-  kind: "vocab",
   learning: true,
   box: 3,
   due: true,
@@ -146,7 +144,6 @@ const dueVocabCard = (id: string): FeedCard => ({
 
 const learningCard = (id: string, box: number): FeedCard => ({
   ...feedCard(id, "vocabulary"),
-  kind: "vocab",
   learning: true,
   box,
   due: false,
@@ -243,7 +240,6 @@ describe("reversed recall decisions", () => {
 describe("example-variant stamping", () => {
   const vocabWithVariants = (id: string, variantCount: number): FeedCard => ({
     ...feedCard(id, "vocabulary"),
-    kind: "vocab",
     bodyVariants: range(variantCount).map((index) => `body ${index}`),
   });
 

@@ -1,5 +1,5 @@
 import type { CalendarEventsSlice } from "@/features/calendar-sync/store";
-import type { CardsSlice, ScrollSlice } from "@/features/cards/store";
+import type { CardsSlice, RetiredMindState } from "@/features/cards/store";
 import type { FinanceSlice } from "@/features/finance/store";
 import type { GoalsSlice } from "@/features/goals/store";
 import type { HabitsSlice } from "@/features/habits/store";
@@ -20,8 +20,8 @@ export interface RootState
     ReviewSlice,
     JournalSlice,
     CalendarEventsSlice,
-    ScrollSlice,
     CardsSlice,
+    RetiredMindState,
     StreaksSlice,
     FinanceSlice,
     UiSlice {

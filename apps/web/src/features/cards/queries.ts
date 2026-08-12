@@ -1,5 +1,5 @@
-import type { Card } from "@vega/shared";
-import { isSameCategory, type MindCard, matchKey } from "./model";
+import { CARD_TYPES, type Card } from "@vega/shared";
+import { isSameCategory, matchKey } from "./model";
 
 export type CardFilter = "all" | "learning" | "regular" | "hidden";
 export type CardSortColumn = "title" | "type" | "category" | "status" | "addedAt";
@@ -9,10 +9,7 @@ export const DEFAULT_CARD_SORT: CardSort = { column: "addedAt", direction: "desc
 
 const collator = new Intl.Collator();
 
-const MAX_TITLE = 200;
-const MAX_BODY = 2000;
-
-const matchesFilter = (card: MindCard, filter: CardFilter): boolean => {
+const matchesFilter = (card: Card, filter: CardFilter): boolean => {
   switch (filter) {
     case "learning":
       return card.box !== null;
@@ -25,21 +22,21 @@ const matchesFilter = (card: MindCard, filter: CardFilter): boolean => {
   }
 };
 
-const compareNewest = (a: MindCard, b: MindCard): number =>
+const compareNewest = (a: Card, b: Card): number =>
   b.addedAt.localeCompare(a.addedAt) || b.id.localeCompare(a.id);
 
-const compareStatus = (a: MindCard, b: MindCard): number => {
+const compareStatus = (a: Card, b: Card): number => {
   if ((a.box === null) !== (b.box === null)) return a.box === null ? 1 : -1;
   if (a.box !== null && b.box !== null && a.box !== b.box) return b.box - a.box;
   return 0;
 };
 
-const compareByColumn = (column: CardSortColumn, a: MindCard, b: MindCard): number => {
+const compareByColumn = (column: CardSortColumn, a: Card, b: Card): number => {
   switch (column) {
     case "title":
       return collator.compare(a.title, b.title);
     case "type":
-      return collator.compare(a.type, b.type);
+      return collator.compare(CARD_TYPES[a.type].label, CARD_TYPES[b.type].label);
     case "category":
       return collator.compare(a.category, b.category);
     case "status":
@@ -49,10 +46,10 @@ const compareByColumn = (column: CardSortColumn, a: MindCard, b: MindCard): numb
   }
 };
 
-export function queryMindCards(
-  cards: MindCard[],
+export function queryCards(
+  cards: Card[],
   options: { query: string; filter: CardFilter; sort: CardSort; category: string | null },
-): MindCard[] {
+): Card[] {
   const normalizedQuery = options.query.trim().toLowerCase();
 
   const rows = cards.filter((card) => {
@@ -72,7 +69,7 @@ export function queryMindCards(
 }
 
 export function computeStats(
-  cards: MindCard[],
+  cards: Card[],
   today: string,
 ): { cards: number; learning: number; dueToday: number } {
   let learning = 0;
@@ -82,49 +79,6 @@ export function computeStats(
     if (card.nextDue !== null && card.nextDue <= today) dueToday++;
   }
   return { cards: cards.length, learning, dueToday };
-}
-
-export function listCategories(cards: MindCard[]): string[] {
-  const firstCasingByKey = new Map<string, string>();
-  for (const card of cards) {
-    const label = card.category.trim();
-    if (!label) continue;
-    const key = label.toLowerCase();
-    if (!firstCasingByKey.has(key)) firstCasingByKey.set(key, label);
-  }
-  return [...firstCasingByKey.values()].sort((a, b) => collator.compare(a, b));
-}
-
-export function parseBulkImport(text: string): {
-  cards: { title: string; body: string }[];
-  skipped: number;
-  overLength: number;
-} {
-  const cards: { title: string; body: string }[] = [];
-  const seenLines = new Set<string>();
-  let skipped = 0;
-  let overLength = 0;
-
-  for (const rawLine of text.split("\n")) {
-    const line = rawLine.trim();
-    if (!line || seenLines.has(line)) {
-      skipped++;
-      continue;
-    }
-    seenLines.add(line);
-
-    const separator = line.indexOf("::");
-    const title = separator === -1 ? line : line.slice(0, separator).trim();
-    const body = separator === -1 ? "" : line.slice(separator + 2).trim();
-
-    if (title.length > MAX_TITLE || body.length > MAX_BODY) {
-      overLength++;
-      continue;
-    }
-    cards.push({ title, body });
-  }
-
-  return { cards, skipped, overLength };
 }
 
 const CARD_TEXT_SLOTS = (card: Card): string[] => [

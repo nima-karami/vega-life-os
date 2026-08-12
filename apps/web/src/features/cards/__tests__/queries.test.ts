@@ -1,35 +1,13 @@
+import type { Card } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import type { MindCard } from "../model";
-import {
-  type CardFilter,
-  computeStats,
-  listCategories,
-  parseBulkImport,
-  queryMindCards,
-} from "../queries";
+import { type CardFilter, computeStats, queryCards } from "../queries";
+import { buildCard } from "./fixtures";
 
-const card = (over: Partial<MindCard> = {}): MindCard => ({
-  id: over.id ?? "mc_1",
-  title: "",
-  body: "",
-  type: "note",
-  origin: "manual",
-  category: "",
-  source: null,
-  addedAt: "2026-07-01",
-  hiddenAt: null,
-  likedAt: null,
-  flippable: true,
-  box: null,
-  lastReviewed: null,
-  nextDue: null,
-  updatedAt: "",
-  fieldUpdatedAt: {},
-  ...over,
-});
+const card = (over: Partial<Card> = {}): Card =>
+  buildCard({ title: "", body: "", category: "", ...over });
 
-const query = (cards: MindCard[], over: Partial<Parameters<typeof queryMindCards>[1]> = {}) =>
-  queryMindCards(cards, {
+const query = (cards: Card[], over: Partial<Parameters<typeof queryCards>[1]> = {}) =>
+  queryCards(cards, {
     query: "",
     filter: "all",
     sort: { column: "addedAt", direction: "desc" },
@@ -37,7 +15,7 @@ const query = (cards: MindCard[], over: Partial<Parameters<typeof queryMindCards
     ...over,
   });
 
-describe("queryMindCards", () => {
+describe("queryCards", () => {
   it("searches title AND body case-insensitively", () => {
     const cards = [
       card({ id: "a", title: "Inversion", body: "avoid stupidity" }),
@@ -147,23 +125,6 @@ describe("queryMindCards", () => {
   });
 });
 
-describe("listCategories", () => {
-  it("collapses case-insensitively keeping first-authored casing, sorted A→Z", () => {
-    const cards = [
-      card({ id: "a", category: "Topic M" }),
-      card({ id: "b", category: "topic g" }),
-      card({ id: "c", category: "topic m" }),
-      card({ id: "d", category: "Topic G" }),
-    ];
-    expect(listCategories(cards)).toEqual(["topic g", "Topic M"]);
-  });
-
-  it("ignores blank categories", () => {
-    const cards = [card({ id: "a", category: "" }), card({ id: "b", category: "Focus" })];
-    expect(listCategories(cards)).toEqual(["Focus"]);
-  });
-});
-
 describe("computeStats", () => {
   it("counts total, learning (box set), and due (nextDue <= today)", () => {
     const cards = [
@@ -177,31 +138,5 @@ describe("computeStats", () => {
 
   it("is empty for no cards", () => {
     expect(computeStats([], "2026-07-23")).toEqual({ cards: 0, learning: 0, dueToday: 0 });
-  });
-});
-
-describe("parseBulkImport", () => {
-  it("parses lines, skips blank + duplicate, defaults missing body", () => {
-    const result = parseBulkImport("a :: b\n\n a :: b\nc");
-    expect(result.cards).toEqual([
-      { title: "a", body: "b" },
-      { title: "c", body: "" },
-    ]);
-    expect(result.skipped).toBe(2);
-    expect(result.overLength).toBe(0);
-  });
-
-  it("flags and excludes over-length titles and bodies", () => {
-    const longTitle = "t".repeat(201);
-    const longBody = "b".repeat(2001);
-    const result = parseBulkImport(`${longTitle}\nok :: ${longBody}\nfine :: short`);
-    expect(result.cards).toEqual([{ title: "fine", body: "short" }]);
-    expect(result.overLength).toBe(2);
-    expect(result.skipped).toBe(0);
-  });
-
-  it("keeps only the body after the first :: separator", () => {
-    const result = parseBulkImport("title :: body :: with colons");
-    expect(result.cards).toEqual([{ title: "title", body: "body :: with colons" }]);
   });
 });
