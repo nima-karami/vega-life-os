@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { CARD_TYPES, type Card, type SignatureId } from "@vega/shared";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { composeFace, splitLead } from "../face/compose";
 import { buildCard } from "./fixtures";
 
@@ -168,5 +169,207 @@ describe("composeFace — title & body", () => {
 
   it("carries an empty category through untouched", () => {
     expect(composeFace(buildCard({ ...note, category: "  " }), "face").category).toBe("");
+  });
+});
+
+const quote = buildCard({
+  id: "q1",
+  type: "quote",
+  category: "Stoicism",
+  title: "Suffering in imagination",
+  body: "We suffer more often in imagination than in reality.",
+  author: "Seneca",
+  work: "Letters to Lucilius, 13",
+});
+
+const excerpt = buildCard({
+  id: "e1",
+  type: "excerpt",
+  category: "Attention",
+  title: "On attending",
+  body: "When you attend to something fully you are not simply observing it. You are giving it a portion of your life, which is the one currency that cannot be earned back.",
+  work: "Gravity and Grace",
+  locator: "p. 92",
+});
+
+const fact = buildCard({
+  id: "f1",
+  type: "fact",
+  category: "Biology",
+  title: "Bee face recognition",
+  body: "Honeybees can recognise individual human faces. They use the same configural processing that people do.",
+  work: "Journal of Experimental Biology",
+});
+
+describe("composeFace — body & author", () => {
+  it("earns the quotation mark from a named author", () => {
+    const spec = composeFace(quote, "face");
+    expect(spec.signature).toBe("body-author");
+    expect(spec.blocks).toEqual([
+      { kind: "quoteMark" },
+      { kind: "lead", text: "We suffer more often in imagination than in reality." },
+      { kind: "rule" },
+      { kind: "caps", text: "Seneca" },
+      { kind: "body", text: "Letters to Lucilius, 13" },
+    ]);
+  });
+
+  it("prints UNATTRIBUTED and keeps the rule, without the mark, when no one is named", () => {
+    const spec = composeFace(buildCard({ ...quote, author: null }), "face");
+    expect(spec.blocks).toEqual([
+      { kind: "lead", text: "We suffer more often in imagination than in reality." },
+      { kind: "rule" },
+      { kind: "caps", text: "UNATTRIBUTED" },
+      { kind: "body", text: "Letters to Lucilius, 13" },
+    ]);
+  });
+
+  it("drops the work line when there is no work", () => {
+    const spec = composeFace(buildCard({ ...quote, work: null }), "face");
+    expect(spec.blocks.at(-1)).toEqual({ kind: "caps", text: "Seneca" });
+  });
+
+  it("prints the quote whole — the lead split does not apply", () => {
+    const spec = composeFace(buildCard({ ...quote, body: "One. Two." }), "face");
+    expect(spec.blocks[1]).toEqual({ kind: "lead", text: "One. Two." });
+  });
+});
+
+describe("composeFace — body & source", () => {
+  it("splits the lead and joins work with locator in one caps line", () => {
+    const spec = composeFace(excerpt, "face");
+    expect(spec.signature).toBe("body-source");
+    expect(spec.blocks).toEqual([
+      {
+        kind: "lead",
+        text: "When you attend to something fully you are not simply observing it.",
+      },
+      {
+        kind: "body",
+        text: "You are giving it a portion of your life, which is the one currency that cannot be earned back.",
+      },
+      { kind: "rule" },
+      { kind: "caps", text: "Gravity and Grace · p. 92" },
+    ]);
+  });
+
+  it("drops the remainder when the body is one sentence", () => {
+    const spec = composeFace(
+      buildCard({ ...excerpt, body: "The mind is a fire to be kindled." }),
+      "face",
+    );
+    expect(spec.blocks).toEqual([
+      { kind: "lead", text: "The mind is a fire to be kindled." },
+      { kind: "rule" },
+      { kind: "caps", text: "Gravity and Grace · p. 92" },
+    ]);
+  });
+
+  it("drops both the rule and the citation when there is no work and no locator", () => {
+    const spec = composeFace(buildCard({ ...excerpt, work: null, locator: null }), "face");
+    expect(spec.blocks.map((block) => block.kind)).toEqual(["lead", "body"]);
+  });
+});
+
+describe("composeFace — body alone", () => {
+  it("prints lead, remainder, rule and source", () => {
+    const spec = composeFace(fact, "face");
+    expect(spec.signature).toBe("body-alone");
+    expect(spec.blocks).toEqual([
+      { kind: "lead", text: "Honeybees can recognise individual human faces." },
+      { kind: "body", text: "They use the same configural processing that people do." },
+      { kind: "rule" },
+      { kind: "caps", text: "Journal of Experimental Biology" },
+    ]);
+  });
+
+  it("is a lead and a remainder when there is no source", () => {
+    const spec = composeFace(buildCard({ ...fact, work: null }), "face");
+    expect(spec.blocks).toEqual([
+      { kind: "lead", text: "Honeybees can recognise individual human faces." },
+      { kind: "body", text: "They use the same configural processing that people do." },
+    ]);
+  });
+
+  it("never puts the title on the face", () => {
+    const spec = composeFace(fact, "face");
+    expect(JSON.stringify(spec.blocks)).not.toContain("Bee face recognition");
+  });
+});
+
+describe("composeFace — promotion", () => {
+  it("gives a promoted card the title alone, in the title-body treatment", () => {
+    const spec = composeFace(buildCard({ ...quote, hasRecall: true }), "face");
+    expect(spec.signature).toBe("title-body");
+    expect(spec.blocks).toEqual([{ kind: "title", text: "Suffering in imagination" }]);
+  });
+
+  it("gives the promoted reveal that signature's normal face content", () => {
+    const spec = composeFace(buildCard({ ...quote, hasRecall: true }), "reveal");
+    expect(spec.signature).toBe("body-author");
+    expect(spec.side).toBe("reveal");
+    expect(spec.blocks).toEqual([
+      { kind: "quoteMark" },
+      { kind: "lead", text: "We suffer more often in imagination than in reality." },
+      { kind: "rule" },
+      { kind: "caps", text: "Seneca" },
+      { kind: "body", text: "Letters to Lucilius, 13" },
+    ]);
+  });
+
+  it("falls back to the face composition when a signature has no reveal of its own", () => {
+    expect(composeFace(fact, "reveal").blocks).toEqual(composeFace(fact, "face").blocks);
+  });
+});
+
+const FIXTURE_TYPE = "recipe";
+
+// Registering a type IS writing this entry — the criterion is that nothing else has to change.
+const registry = CARD_TYPES as unknown as Record<
+  string,
+  { label: string; signature: SignatureId; slots: Record<string, unknown> }
+>;
+
+describe("composeFace — a type the shipped registry has never heard of", () => {
+  beforeAll(() => {
+    registry[FIXTURE_TYPE] = {
+      label: "Recipe",
+      signature: "title-body",
+      slots: {
+        title: { label: "Dish", required: true, max: 160 },
+        body: { label: "Method", required: true, lines: "tall", max: 600 },
+      },
+    };
+  });
+
+  afterAll(() => {
+    Reflect.deleteProperty(registry, FIXTURE_TYPE);
+  });
+
+  const recipe = () =>
+    buildCard({
+      type: FIXTURE_TYPE as Card["type"],
+      category: "Mental models",
+      title: "Cacio e pepe",
+      body: "Salt the water lightly. The cheese brings the rest.",
+    });
+
+  it("composes its face from the signature and its label from the entry", () => {
+    expect(composeFace(recipe(), "face")).toEqual({
+      signature: "title-body",
+      side: "face",
+      typeLabel: "Recipe",
+      category: "Mental models",
+      blocks: [{ kind: "title", text: "Cacio e pepe" }],
+    });
+  });
+
+  it("composes its reveal exactly as any other title-body card", () => {
+    expect(composeFace(recipe(), "reveal").blocks).toEqual([
+      { kind: "caps", text: "Cacio e pepe" },
+      { kind: "lead", text: "Salt the water lightly." },
+      { kind: "rule" },
+      { kind: "body", text: "The cheese brings the rest." },
+    ]);
   });
 });

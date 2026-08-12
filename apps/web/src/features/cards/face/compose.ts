@@ -81,9 +81,41 @@ function composeTitleBodyReveal(card: Card): FaceBlock[] {
   return blocks;
 }
 
+function composeBodyAuthorFace(card: Card): FaceBlock[] {
+  const author = (card.author ?? "").trim();
+  const work = (card.work ?? "").trim();
+  const blocks: FaceBlock[] = [];
+  if (author !== "") blocks.push({ kind: "quoteMark" });
+  blocks.push(
+    { kind: "lead", text: card.body.trim() },
+    { kind: "rule" },
+    { kind: "caps", text: author === "" ? "UNATTRIBUTED" : author },
+  );
+  if (work !== "") blocks.push({ kind: "body", text: work });
+  return blocks;
+}
+
+function composeLeadAndCitation(body: string, citation: string): FaceBlock[] {
+  const { lead, remainder } = splitLead(body);
+  const blocks: FaceBlock[] = [{ kind: "lead", text: lead }];
+  if (remainder !== "") blocks.push({ kind: "body", text: remainder });
+  if (citation !== "") blocks.push({ kind: "rule" }, { kind: "caps", text: citation });
+  return blocks;
+}
+
 function composeSignatureFace(card: Card, signature: SignatureId): FaceBlock[] {
-  if (signature === "term-gloss") return composeTermGlossFace(card);
-  return composeTitleBodyFace(card);
+  switch (signature) {
+    case "term-gloss":
+      return composeTermGlossFace(card);
+    case "title-body":
+      return composeTitleBodyFace(card);
+    case "body-author":
+      return composeBodyAuthorFace(card);
+    case "body-source":
+      return composeLeadAndCitation(card.body, joinCaps([card.work, card.locator]));
+    case "body-alone":
+      return composeLeadAndCitation(card.body, joinCaps([card.work]));
+  }
 }
 
 function composeSignatureReveal(card: Card, signature: SignatureId): FaceBlock[] {
