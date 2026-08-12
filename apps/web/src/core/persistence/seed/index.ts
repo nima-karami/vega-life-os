@@ -29,7 +29,10 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   ds.reviews = buildReviews(weekStart);
   ds.mindCards = buildMindCards();
   ds.cards = buildCards(ref, weekStart);
-  ds.cardPrefs = [DEFAULT_CARD_PREFS];
+  // The seed IS the migrated shape — buildCards runs the migration's own mappers — so it
+  // records the conversion as done. Without the stamp every sandbox boot re-runs the pass
+  // and writes state after first paint.
+  ds.cardPrefs = [{ ...DEFAULT_CARD_PREFS, migratedAt: ref.toISOString() }];
 
   return { ...ds, ...buildFinance(ref) };
 }
