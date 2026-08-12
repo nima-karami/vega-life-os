@@ -11,7 +11,7 @@ import {
   persistence,
   type RoutingAdapter,
 } from "@/core/persistence";
-import { runDataMigrations } from "@/core/persistence/migrations";
+import { hasMigrationSources, runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
 import { loadShowGoogleEvents } from "@/features/calendar-sync/config";
@@ -61,7 +61,7 @@ async function loadAccount(
     syncedVersion = await cloud.readSyncVersion().catch(() => null);
     const loaded = await cloud.loadAll(); // hydrating → hydrated
     set({ ...toStatePatch(loaded), loadFailed: false });
-    runDataMigrations(get, set);
+    await runDataMigrations(get, set, hasMigrationSources(loaded));
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
     set({ ready: true }); // name known — safe to render the app / ProfileStep
@@ -135,7 +135,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     set({ ...toStatePatch(loaded), ready: true });
     get().hydrateGcalStatus(null); // signed-out sandbox: no Google Calendar connection
     get().hydrateStreakRules(readLocalStreakRules());
-    runDataMigrations(get, set);
+    await runDataMigrations(get, set, hasMigrationSources(loaded));
     get().ensureUpcoming(14);
   },
 
