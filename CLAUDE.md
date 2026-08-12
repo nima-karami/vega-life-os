@@ -44,8 +44,16 @@ It runs on every commit (pre-commit hook via husky/lint-staged) and in CI.
   typecheck is **`tsc -b`** (or `tsc -b --force` to bust the stale `.tsbuildinfo`
   cache). `npm run typecheck` / `verify` already use `tsc -b`.
 - Dev server runs on **port 5180** (`npm run dev`), not Vite's default 5173.
-- Stack: React 18 + Vite 8 + Tailwind v4 + HeroUI v2 + Zustand 5 + Dexie/Firestore.
-  date-fns for all date math. Lucide for icons. dnd-kit for drag-reorder.
+- Stack: **React 19 + Vite 8 + Tailwind v4 + HeroUI v3 + react-router 8 + Zustand 5 +
+  Dexie/Firestore**. date-fns for all date math. Lucide for icons. dnd-kit for drag-reorder.
+  (Corrected 2026-08-11 — this line said React 18 / HeroUI v2 long after the v3 migration
+  landed, and agents were writing v2-shaped code against a v3 install. Check
+  `apps/web/package.json` before trusting any version written down anywhere.)
+- **HeroUI v3 idioms differ from v2**, which is the usual source of code that will not
+  compile: `onPress` not `onClick` on HeroUI controls; `Checkbox` composes
+  `Checkbox.Content > Checkbox.Control > Checkbox.Indicator`; `ListBox` is react-aria-components'
+  ListBox (`selectionMode` / `selectedKeys` / `disabledKeys` / `onSelectionChange`);
+  `Popover.Trigger` **is** the button, so its content must never be a nested `<button>`.
 
 ## 3. Architecture — feature slices
 
