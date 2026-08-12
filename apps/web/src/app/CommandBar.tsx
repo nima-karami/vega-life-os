@@ -101,10 +101,7 @@ export function CommandBar() {
   };
 
   const addAsWord = () => {
-    const term = query.trim();
-    if (!term) return;
-    useStore.getState().setPendingVocabTerm(term);
-    navigate("/vocab");
+    navigate("/cards");
     setQuery("");
     close();
   };

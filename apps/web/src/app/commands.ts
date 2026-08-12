@@ -99,7 +99,7 @@ export const NAV_COMMANDS: NavCommand[] = [
     label: "Cards",
     sublabel: "Mind scroll · deck",
     icon: "layers",
-    to: "/scroll/manage",
+    to: "/cards",
     keywords: "cards scroll mind deck flashcards manage",
   },
   {
@@ -107,7 +107,7 @@ export const NAV_COMMANDS: NavCommand[] = [
     label: "Vocabulary",
     sublabel: "Words · manager",
     icon: "book",
-    to: "/vocab",
+    to: "/cards",
     keywords: "vocab words dictionary language vocabulary terms",
   },
   // Finance is one door: reachable from here only (no nav slot), and its five views are
@@ -173,9 +173,8 @@ export const ACTION_COMMANDS: ActionCommand[] = [
     label: "Add word",
     icon: "languages",
     keywords: "add word new vocab vocabulary term",
-    run: ({ store, query, navigate, close }) => {
-      store.getState().setPendingVocabTerm(query.trim());
-      navigate("/vocab");
+    run: ({ navigate, close }) => {
+      navigate("/cards");
       close();
     },
   },

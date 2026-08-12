@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { CalendarCallbackPage } from "@/features/calendar-sync";
@@ -13,7 +13,6 @@ import { GoalPage } from "@/features/goals/GoalPage";
 import { HabitPage } from "@/features/habits/HabitPage";
 import { HabitsPage } from "@/features/habits/HabitsPage";
 import { EntriesPage, JournalPage } from "@/features/journal";
-import { VocabPage } from "@/features/library/VocabPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { TodayPage } from "@/features/today/TodayPage";
 import { ValuesView } from "@/features/values";
@@ -43,8 +42,9 @@ export const router = createBrowserRouter([
           { path: "journal/:date", element: <JournalPage /> },
           { path: "entries", element: <EntriesPage /> },
           { path: "scroll", element: <ScrollPage /> },
-          { path: "scroll/manage", element: <ScrollManagePage /> },
-          { path: "vocab", element: <VocabPage /> },
+          { path: "cards", element: <ScrollManagePage /> },
+          { path: "scroll/manage", element: <Navigate to="/cards" replace /> },
+          { path: "vocab", element: <Navigate to="/cards" replace /> },
           { path: "finance", element: <FinanceDashboardPage /> },
           { path: "finance/transactions", element: <FinanceTransactionsPage /> },
           { path: "finance/import", element: <FinanceImportPage /> },

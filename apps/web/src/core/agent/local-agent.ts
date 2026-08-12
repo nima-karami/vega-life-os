@@ -109,18 +109,6 @@ export class LocalIntentAgent implements Agent {
           state.pushToast(`Added "${watch[1]}" to watchlist`);
         },
       });
-    const learn = trimmedQuery.match(/^(?:learn|word|vocab)\s+(.+)/i);
-    if (learn)
-      out.push({
-        id: "learn",
-        icon: "languages",
-        label: `Add word: "${learn[1]}"`,
-        run: () => {
-          state.addVocab({ term: learn[1] });
-          state.pushToast(`Added "${learn[1]}"`);
-        },
-      });
-
     // ---- planning ----
     if (/\b(plan|generate|fill).*(week)\b/i.test(lower) || lower === "plan week") {
       out.push({
