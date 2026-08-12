@@ -66,9 +66,12 @@ describe("scope-aware data actions", () => {
     await useStore.getState().resetDemo();
     const seed = buildSeed();
     const state = useStore.getState() as unknown as Record<string, unknown[]>;
-    for (const col of COLLECTIONS.filter((name) => seed[name].length > 0)) {
+    // cardPrefs is one record in state, not an array — asserted below.
+    for (const col of COLLECTIONS.filter((name) => name !== "cardPrefs" && seed[name].length > 0)) {
       expect(state[col].length, col).toBeGreaterThan(0);
     }
+    expect(useStore.getState().cards.length).toBeGreaterThan(0);
+    expect(useStore.getState().cardPrefs.id).toBe("feed");
   });
 
   it("exportJSON carries every registered collection", () => {

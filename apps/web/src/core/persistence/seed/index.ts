@@ -1,5 +1,7 @@
+import { DEFAULT_CARD_PREFS } from "@vega/shared";
 import { startOfWeek } from "date-fns";
 import { createEmptyDataset, type Dataset } from "../adapter";
+import { buildCards } from "./cards";
 import { buildFinance } from "./finance";
 import { buildGoals } from "./goals";
 import { buildHabits } from "./habits";
@@ -26,6 +28,8 @@ export function buildSeed(ref: Date = new Date()): Dataset {
   ds.vocab = buildVocab(ref, weekStart);
   ds.reviews = buildReviews(weekStart);
   ds.mindCards = buildMindCards();
+  ds.cards = buildCards(ref, weekStart);
+  ds.cardPrefs = [DEFAULT_CARD_PREFS];
 
   return { ...ds, ...buildFinance(ref) };
 }
