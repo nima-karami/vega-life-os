@@ -115,9 +115,13 @@ const cashStrip = (page: Page) => page.getByRole("region", { name: "Cash on your
 const budgetSection = (page: Page) => page.getByRole("region", { name: "Budget vs actual" });
 const untrackedSection = (page: Page) => page.getByRole("region", { name: "Untracked categories" });
 
+// Each step waits for its own month to land — clicking twice in a row races the cursor's
+// state under worker contention and silently leaves the dashboard a month short.
 async function stepBack(page: Page, months: number) {
-  for (let step = 0; step < months; step += 1) {
+  for (let step = 1; step <= months; step += 1) {
+    const landing = format(startOfMonth(subMonths(new Date(), step)), "MMMM yyyy");
     await page.getByRole("button", { name: "Previous month" }).click();
+    await expect(page.getByText(landing, { exact: true })).toBeVisible();
   }
 }
 

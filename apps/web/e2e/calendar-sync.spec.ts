@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { format } from "date-fns";
 
 /**
  * Lived-event (Google Calendar) tagging proof. The OAuth/connect flow needs a real
@@ -25,8 +26,10 @@ async function passGratitudeGate(page: import("@playwright/test").Page) {
   }
 }
 
+// Local date, matching the app's own `todayISO()` (core/lib/date.ts) — a UTC slice
+// drifts a day off local "today" for half the clock, in either direction by tz.
 function livedEvent(over: Record<string, unknown>) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = format(new Date(), "yyyy-MM-dd");
   return {
     id: "ce_e2e",
     googleId: "g_e2e",
