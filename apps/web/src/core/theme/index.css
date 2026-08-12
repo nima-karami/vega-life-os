@@ -67,6 +67,8 @@
   --color-line: rgba(0, 0, 0, 0.08);
   --color-line-soft: rgba(0, 0, 0, 0.05);
   --color-line-strong: rgba(0, 0, 0, 0.18);
+  --color-line-card: rgba(0, 0, 0, 0.12);
+  --color-ink-secondary: #3f3f3a;
 
   /* Accent — calm desaturated slate-blue (matches HeroUI primary) */
   --color-accent: #4e6e8e;
