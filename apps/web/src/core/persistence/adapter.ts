@@ -1,5 +1,7 @@
 import type {
   CalendarEvent,
+  Card,
+  CardPrefs,
   FinanceAccount,
   FinanceBudget,
   FinanceCategory,
@@ -39,6 +41,8 @@ export interface Dataset {
   financeImportBatches: FinanceImportBatch[];
   financeTransactions: FinanceTransaction[];
   financeSettlements: FinanceSettlement[];
+  cards: Card[];
+  cardPrefs: CardPrefs[];
 }
 
 export type CollectionName = keyof Dataset;
@@ -64,6 +68,8 @@ export const COLLECTIONS: CollectionName[] = [
   "financeImportBatches",
   "financeTransactions",
   "financeSettlements",
+  "cards",
+  "cardPrefs",
 ];
 
 export function createEmptyDataset(): Dataset {
@@ -87,6 +93,8 @@ export function createEmptyDataset(): Dataset {
     financeImportBatches: [],
     financeTransactions: [],
     financeSettlements: [],
+    cards: [],
+    cardPrefs: [],
   };
 }
 

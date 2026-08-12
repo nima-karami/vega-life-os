@@ -1,5 +1,7 @@
 import type {
   CalendarEvent,
+  Card,
+  CardPrefs,
   FinanceAccount,
   FinanceBudget,
   FinanceCategory,
@@ -32,6 +34,8 @@ export class VegaDB extends Dexie {
   calendarEvents!: Table<CalendarEvent, string>;
   mindCards!: Table<MindCard, string>;
   mindMeta!: Table<MindMetaRecord, string>;
+  cards!: Table<Card, string>;
+  cardPrefs!: Table<CardPrefs, string>;
   financeAccounts!: Table<FinanceAccount, string>;
   financeCategories!: Table<FinanceCategory, string>;
   financeBudgets!: Table<FinanceBudget, string>;
@@ -79,7 +83,7 @@ export class VegaDB extends Dexie {
       mindMeta: "id, kind",
     };
     this.version(6).stores(storesV6);
-    this.version(7).stores({
+    const storesV7 = {
       ...storesV6,
       financeAccounts: "id, slug",
       financeCategories: "id, order",
@@ -89,6 +93,12 @@ export class VegaDB extends Dexie {
       financeTransactions:
         "id, txnDate, accountId, categoryId, merchantId, dedupeKey, importBatchId",
       financeSettlements: "id",
+    };
+    this.version(7).stores(storesV7);
+    this.version(8).stores({
+      ...storesV7,
+      cards: "id, type, category, box, nextDue, addedAt",
+      cardPrefs: "id",
     });
   }
 }

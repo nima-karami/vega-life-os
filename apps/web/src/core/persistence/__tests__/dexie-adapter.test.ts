@@ -50,6 +50,8 @@ const { fakeDb } = vi.hoisted(() => {
     "financeImportBatches",
     "financeTransactions",
     "financeSettlements",
+    "cards",
+    "cardPrefs",
   ];
   return { fakeDb: Object.fromEntries(columns.map((col) => [col, new FakeTable()])) };
 });

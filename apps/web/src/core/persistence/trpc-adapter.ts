@@ -20,6 +20,8 @@ const DATA_COLLECTIONS = new Set<CollectionName>([
   "financeImportBatches",
   "financeTransactions",
   "financeSettlements",
+  "cards",
+  "cardPrefs",
 ]);
 const isDataCollection = (col: CollectionName): boolean => DATA_COLLECTIONS.has(col);
 

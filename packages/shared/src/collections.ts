@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { bookCreateSchema, bookSchema } from "./entities/book";
 import { calendarEventCreateSchema, calendarEventSchema } from "./entities/calendar-event";
+import { cardCreateSchema, cardSchema } from "./entities/card";
+import { cardPrefsCreateSchema, cardPrefsSchema } from "./entities/card-prefs";
 import { financeAccountCreateSchema, financeAccountSchema } from "./entities/finance-account";
 import { financeBudgetCreateSchema, financeBudgetSchema } from "./entities/finance-budget";
 import { financeCategoryCreateSchema, financeCategorySchema } from "./entities/finance-category";
@@ -49,6 +51,8 @@ export const schemasByCollection = {
   financeImportBatches: financeImportBatchSchema,
   financeTransactions: financeTransactionSchema,
   financeSettlements: financeSettlementSchema,
+  cards: cardSchema,
+  cardPrefs: cardPrefsSchema,
 } as const;
 
 /** Client-settable input schema per collection — server-owned meta + unknown keys stripped, not rejected. */
@@ -72,6 +76,8 @@ export const createSchemasByCollection = {
   financeImportBatches: financeImportBatchCreateSchema,
   financeTransactions: financeTransactionCreateSchema,
   financeSettlements: financeSettlementCreateSchema,
+  cards: cardCreateSchema,
+  cardPrefs: cardPrefsCreateSchema,
 } as const;
 
 export const COLLECTIONS = [
@@ -94,6 +100,8 @@ export const COLLECTIONS = [
   "financeImportBatches",
   "financeTransactions",
   "financeSettlements",
+  "cards",
+  "cardPrefs",
 ] as const;
 
 export const collectionNameSchema = z.enum(COLLECTIONS);
