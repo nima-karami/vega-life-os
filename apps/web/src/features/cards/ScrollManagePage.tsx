@@ -12,7 +12,6 @@ import { useStore } from "@/core/store";
 import { cx, EmptyState, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
 import { CardEditorModal } from "./CardEditorModal";
 import { CardPreview } from "./CardPreview";
-import { toFeedCard } from "./feed-cards";
 import { isSameCategory } from "./model";
 import {
   type CardFilter,
@@ -384,7 +383,7 @@ function CardRow({
       </div>
       {isExpanded && (
         <div className="border-t border-border bg-surface-secondary px-4 py-4">
-          <CardPreview card={toFeedCard(card, todayISO())} className="mx-auto max-w-[240px]" />
+          <CardPreview card={card} className="mx-auto max-w-[240px]" />
         </div>
       )}
     </div>

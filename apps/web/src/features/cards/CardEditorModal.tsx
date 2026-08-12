@@ -1,5 +1,5 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { CARD_TYPE_IDS, CARD_TYPES, type CardTypeId, listTypeSlots } from "@vega/shared";
+import { CARD_TYPE_IDS, CARD_TYPES, type Card, type CardTypeId, listTypeSlots } from "@vega/shared";
 import { useState } from "react";
 import { todayISO } from "@/core/lib/date";
 import {
@@ -14,7 +14,6 @@ import {
 import { CardPreview } from "./CardPreview";
 import { CardSlotField } from "./CardSlotField";
 import { CategoryField } from "./CategoryField";
-import { toFeedCard } from "./feed-cards";
 import { toCardFields, useCardEditorForm } from "./useCardEditorForm";
 
 const TYPE_OPTIONS: SelectOption[] = CARD_TYPE_IDS.map((value) => ({
@@ -61,17 +60,14 @@ export function CardEditorModal({
   });
 
   const heading = isCreate ? "New card" : "Edit card";
-  const previewCard = toFeedCard(
-    {
-      ...toCardFields(values),
-      id: "draft",
-      addedAt: todayISO(),
-      reviewCount: 0,
-      updatedAt: "",
-      fieldUpdatedAt: {},
-    },
-    todayISO(),
-  );
+  const previewCard: Card = {
+    ...toCardFields(values),
+    id: "draft",
+    addedAt: todayISO(),
+    reviewCount: 0,
+    updatedAt: "",
+    fieldUpdatedAt: {},
+  };
 
   return (
     <>
