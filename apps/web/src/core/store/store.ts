@@ -1,3 +1,4 @@
+import { DEFAULT_CARD_PREFS } from "@vega/shared";
 import { create } from "zustand";
 import { auth, db } from "@/core/firebase/app";
 import { getCloudProfile } from "@/core/firebase/profile";
@@ -15,7 +16,7 @@ import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persist
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
 import { loadShowGoogleEvents } from "@/features/calendar-sync/config";
 import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
-import { createScrollSlice } from "@/features/cards/store";
+import { createCardsSlice, createScrollSlice, resolveCardPrefs } from "@/features/cards/store";
 import { createFinanceSlice } from "@/features/finance/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
@@ -59,7 +60,7 @@ async function loadAccount(
     // that landed mid-load, leaving the client silently stale.
     syncedVersion = await cloud.readSyncVersion().catch(() => null);
     const loaded = await cloud.loadAll(); // hydrating → hydrated
-    set({ ...(sortDataset(loaded) as Partial<RootState>), loadFailed: false });
+    set({ ...toStatePatch(loaded), loadFailed: false });
     runDataMigrations(get, set);
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
@@ -99,6 +100,14 @@ function sortDataset(dataset: Partial<Dataset>): Partial<Dataset> {
   return out;
 }
 
+/** `cardPrefs` is one record in state but a collection on the wire, so the patch resolves it here. */
+function toStatePatch(dataset: Partial<Dataset>): Partial<RootState> {
+  const { cardPrefs, ...rest } = sortDataset(dataset);
+  const patch = rest as Partial<RootState>;
+  if (cardPrefs) patch.cardPrefs = resolveCardPrefs(cardPrefs);
+  return patch;
+}
+
 export const useStore = create<RootState>((set, get, api) => ({
   ...createValuesSlice(set, get, api),
   ...createGoalsSlice(set, get, api),
@@ -109,6 +118,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createJournalSlice(set, get, api),
   ...createCalendarEventsSlice(set, get, api),
   ...createScrollSlice(set, get, api),
+  ...createCardsSlice(set, get, api),
   ...createStreaksSlice(set, get, api),
   ...createFinanceSlice(set, get, api),
   ...createUiSlice(set, get, api),
@@ -122,7 +132,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   bootstrap: async () => {
     await persistence.init();
     const loaded = await persistence.loadAll();
-    set({ ...(sortDataset(loaded) as Partial<RootState>), ready: true });
+    set({ ...toStatePatch(loaded), ready: true });
     get().hydrateGcalStatus(null); // signed-out sandbox: no Google Calendar connection
     get().hydrateStreakRules(readLocalStreakRules());
     runDataMigrations(get, set);
@@ -160,6 +170,8 @@ export const useStore = create<RootState>((set, get, api) => ({
       journal: seed.journal,
       mindCards: seed.mindCards,
       mindMeta: [],
+      cards: seed.cards,
+      cardPrefs: resolveCardPrefs(seed.cardPrefs),
       financeAccounts: seed.financeAccounts,
       financeCategories: seed.financeCategories,
       financeBudgets: seed.financeBudgets,
@@ -173,7 +185,7 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   deleteAllData: async () => {
     await persistence.clearAll();
-    set({ ...createEmptyDataset() });
+    set({ ...createEmptyDataset(), cardPrefs: DEFAULT_CARD_PREFS });
   },
 
   confirmPendingSignIn: async () => {
@@ -207,7 +219,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       financeTransactions: state.financeTransactions,
       financeSettlements: state.financeSettlements,
       cards: state.cards,
-      cardPrefs: state.cardPrefs,
+      cardPrefs: [state.cardPrefs],
     };
     return JSON.stringify(
       { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data: dataset },
@@ -234,7 +246,7 @@ export const useStore = create<RootState>((set, get, api) => ({
         (next as Record<string, unknown>)[col] = rows;
       }
     }
-    set(next as Partial<RootState>);
+    set(toStatePatch(next));
     return true;
   },
 
@@ -247,9 +259,9 @@ export const useStore = create<RootState>((set, get, api) => ({
     try {
       const loaded = await persistence.loadAll();
       for (const col of pendingWriteCollections()) guarded.add(col);
-      const next = sortDataset(loaded);
+      const next = toStatePatch(loaded);
       for (const col of guarded) delete next[col];
-      set(next as Partial<RootState>);
+      set(next);
     } catch {
       /* keep current state; next focus/interval retries */
     }
@@ -274,7 +286,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     if (!get().authUid || pendingWriteCollections().has(col)) return;
     try {
       const rows = await persistence.load(col);
-      set(sortDataset({ [col]: rows }) as Partial<RootState>);
+      set(toStatePatch({ [col]: rows } as Partial<Dataset>));
     } catch {
       /* best-effort reconcile */
     }
@@ -329,7 +341,13 @@ export const useStore = create<RootState>((set, get, api) => ({
         avatar: "",
         workspace: "Personal workspace",
       });
-      set({ ...createEmptyDataset(), pendingSignIn: null, loadFailed: false, ready: true });
+      set({
+        ...createEmptyDataset(),
+        cardPrefs: DEFAULT_CARD_PREFS,
+        pendingSignIn: null,
+        loadFailed: false,
+        ready: true,
+      });
     }
   },
 }));

@@ -23,6 +23,7 @@ vi.mock("@/core/persistence", async (orig) => {
 });
 vi.mock("@/core/persistence/sandbox-meta", () => ({ setSandboxDirty: vi.fn(async () => {}) }));
 
+import { DEFAULT_CARD_PREFS } from "@vega/shared";
 import { buildSeed, COLLECTIONS, createEmptyDataset } from "@/core/persistence";
 import { useStore } from "./store";
 
@@ -72,13 +73,18 @@ describe("scope-aware data actions", () => {
 
   it("exportJSON carries every registered collection", () => {
     // calendarEvents is the Google mirror and is absent from the export literal today.
-    const exported = new Set(COLLECTIONS.filter((col) => col !== "calendarEvents"));
+    // cardPrefs is one record in state and one row on the wire, so it is asserted separately.
+    const exported = new Set(
+      COLLECTIONS.filter((col) => col !== "calendarEvents" && col !== "cardPrefs"),
+    );
     useStore.setState(
       Object.fromEntries(COLLECTIONS.map((col) => [col, [{ id: `${col}-1` }]])) as never,
     );
+    useStore.setState({ cardPrefs: { ...DEFAULT_CARD_PREFS } });
     const backup = JSON.parse(useStore.getState().exportJSON()) as {
       data: Record<string, { id: string }[]>;
     };
     for (const col of exported) expect(backup.data[col], col).toEqual([{ id: `${col}-1` }]);
+    expect(backup.data.cardPrefs).toEqual([DEFAULT_CARD_PREFS]);
   });
 });
