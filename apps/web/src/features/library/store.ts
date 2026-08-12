@@ -2,7 +2,7 @@ import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import { stepLeitner } from "@/features/scroll/leitner";
+import { stepLeitner } from "@/features/cards/leitner";
 import type { Book, Movie, VocabEntry } from "./model";
 
 export interface LibrarySlice {

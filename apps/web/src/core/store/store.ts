@@ -15,6 +15,7 @@ import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persist
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
 import { loadShowGoogleEvents } from "@/features/calendar-sync/config";
 import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
+import { createScrollSlice } from "@/features/cards/store";
 import { createFinanceSlice } from "@/features/finance/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
@@ -22,7 +23,6 @@ import { createHabitsSlice } from "@/features/habits/store";
 import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
 import { createReviewSlice } from "@/features/review/store";
-import { createScrollSlice } from "@/features/scroll/store";
 import { loadStreakRules, readLocalStreakRules } from "@/features/streaks/config";
 import { createStreaksSlice } from "@/features/streaks/store";
 import { createTasksSlice } from "@/features/tasks/store";
@@ -206,6 +206,8 @@ export const useStore = create<RootState>((set, get, api) => ({
       financeImportBatches: state.financeImportBatches,
       financeTransactions: state.financeTransactions,
       financeSettlements: state.financeSettlements,
+      cards: state.cards,
+      cardPrefs: state.cardPrefs,
     };
     return JSON.stringify(
       { app: "vega-life-os", version: 1, exportedAt: new Date().toISOString(), data: dataset },

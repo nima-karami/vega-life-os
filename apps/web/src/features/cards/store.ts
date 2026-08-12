@@ -1,3 +1,4 @@
+import type { Card, CardPrefs } from "@vega/shared";
 import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
@@ -16,6 +17,8 @@ import {
 export interface ScrollSlice {
   mindCards: MindCard[];
   mindMeta: MindMetaRecord[];
+  cards: Card[];
+  cardPrefs: CardPrefs[];
   addMindCard: (patch?: Partial<MindCard>) => MindCard;
   bulkAddMindCards: (cards: { title: string; body: string; category: string }[]) => void;
   updateMindCard: (id: string, patch: Partial<MindCard>) => void;
@@ -81,6 +84,8 @@ export const createScrollSlice: Slice<ScrollSlice> = (set, get) => {
   return {
     mindCards: [],
     mindMeta: [],
+    cards: [],
+    cardPrefs: [],
 
     addMindCard: (patch = {}) => {
       const card = buildMindCard(patch);
