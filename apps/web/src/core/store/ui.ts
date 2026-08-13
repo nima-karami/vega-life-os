@@ -69,10 +69,6 @@ export interface UiSlice {
   copyTask: (t: Task) => void;
   clearClipboard: () => void;
 
-  /** one-shot ⌘K → /vocab handoff; the vocab page consumes and clears it */
-  pendingVocabTerm: string | null;
-  setPendingVocabTerm: (term: string | null) => void;
-
   /** one-shot ⌘K → finance quick-add handoff; the finance host consumes and clears it */
   pendingFinanceEntry: string | null;
   setPendingFinanceEntry: (entry: string | null) => void;
@@ -224,9 +220,6 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
       },
     }),
   clearClipboard: () => set({ clipboardTask: null }),
-
-  pendingVocabTerm: null,
-  setPendingVocabTerm: (pendingVocabTerm) => set({ pendingVocabTerm }),
 
   pendingFinanceEntry: null,
   setPendingFinanceEntry: (pendingFinanceEntry) => set({ pendingFinanceEntry }),

@@ -1,7 +1,8 @@
 import type { CardTypeId, SlotId } from "@vega/shared";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
+import { readDraftPrefill } from "../draft-prefill";
 import { listCardCategories } from "../queries";
 import { CardFieldStack } from "./CardFieldStack";
 import { CardPageFrame } from "./CardPageFrame";
@@ -20,7 +21,13 @@ export function NewCardPage() {
   const cards = useStore((s) => s.cards);
   const addCard = useStore((s) => s.addCard);
   const navigate = useNavigate();
-  const [draft, setDraft] = useState<CardDraft>(createEmptyDraft);
+  const [searchParams] = useSearchParams();
+  const [draft, setDraft] = useState<CardDraft>(() => {
+    const prefill = readDraftPrefill(`?${searchParams.toString()}`);
+    const empty = createEmptyDraft();
+    if (prefill === null) return empty;
+    return { ...changeDraftType(empty, prefill.type), title: prefill.title };
+  });
   const categories = useMemo(() => listCardCategories(cards), [cards]);
 
   // Nothing is persisted until the type's required slots are satisfied; then the
