@@ -20,6 +20,7 @@ export function CardsTable({
   sort,
   widths,
   onResize,
+  onResizeCommit,
   onSort,
   onToggleVisible,
   actions,
@@ -31,6 +32,7 @@ export function CardsTable({
   sort: CardSort;
   widths: ColumnWidths;
   onResize: (column: ResizableColumn, next: number) => void;
+  onResizeCommit: (column: ResizableColumn) => void;
   onSort: (column: CardSortColumn) => void;
   onToggleVisible: () => void;
   actions: CardRowActions;
@@ -68,7 +70,12 @@ export function CardsTable({
                   <Icon name={sort.direction === "asc" ? "chevU" : "chevD"} size={12} />
                 )}
               </button>
-              <ColumnResizer column={column} widths={widths} onResize={onResize} />
+              <ColumnResizer
+                column={column}
+                widths={widths}
+                onResize={onResize}
+                onResizeCommit={onResizeCommit}
+              />
             </span>
           ))}
 

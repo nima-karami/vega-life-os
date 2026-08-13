@@ -12,10 +12,12 @@ export function ColumnResizer({
   column,
   widths,
   onResize,
+  onResizeCommit,
 }: {
   column: ResizableColumn;
   widths: ColumnWidths;
   onResize: (column: ResizableColumn, next: number) => void;
+  onResizeCommit: (column: ResizableColumn) => void;
 }) {
   const originRef = useRef<{ x: number; width: number } | null>(null);
 
@@ -31,7 +33,13 @@ export function ColumnResizer({
       onPointerDown={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        originRef.current = { x: event.clientX, width: widths[column] };
+        // The title column's track is flexible, so its rendered width usually differs
+        // from its stored width — the drag origin has to be what's on screen, not state.
+        const originWidth =
+          column === "title"
+            ? (event.currentTarget.parentElement?.getBoundingClientRect().width ?? widths[column])
+            : widths[column];
+        originRef.current = { x: event.clientX, width: originWidth };
         event.currentTarget.setPointerCapture(event.pointerId);
         document.body.classList.add(RESIZING_BODY_CLASS);
       }}
@@ -44,16 +52,19 @@ export function ColumnResizer({
         originRef.current = null;
         event.currentTarget.releasePointerCapture(event.pointerId);
         document.body.classList.remove(RESIZING_BODY_CLASS);
+        onResizeCommit(column);
       }}
       onPointerCancel={() => {
         originRef.current = null;
         document.body.classList.remove(RESIZING_BODY_CLASS);
+        onResizeCommit(column);
       }}
       onKeyDown={(event) => {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
         event.preventDefault();
         const delta = event.key === "ArrowLeft" ? -KEYBOARD_STEP_PX : KEYBOARD_STEP_PX;
         onResize(column, widths[column] + delta);
+        onResizeCommit(column);
       }}
     />
   );

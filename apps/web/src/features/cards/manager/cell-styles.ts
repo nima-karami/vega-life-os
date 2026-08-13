@@ -1,5 +1,6 @@
-export const CARDS_GRID = "grid-cols-[44px_minmax(0,1fr)_148px_152px_160px_92px_44px]";
-export const CARDS_TABLE_MIN_WIDTH = "min-w-[880px]";
+// Tailwind needs a literal arbitrary-value class to scan, so this tracks
+// tableWidth(DEFAULT_COLUMN_WIDTHS) by hand rather than being computed.
+export const CARDS_TABLE_MIN_WIDTH = "min-w-[864px]";
 
 export const CELL_CLASS =
   "flex h-full min-w-0 items-center gap-1.5 border-black/[0.06] border-r px-3 last:border-r-0";

@@ -37,7 +37,7 @@ export function CardsResults({
   onNewCard,
   onClearFilters,
 }: CardsResultsProps) {
-  const { widths, resize } = useColumnWidths();
+  const { widths, resize, commit } = useColumnWidths();
   if (!isReady) return <CardsTableSkeleton />;
 
   if (isDeckEmpty) {
@@ -77,6 +77,7 @@ export function CardsResults({
           sort={sort}
           widths={widths}
           onResize={resize}
+          onResizeCommit={commit}
           onSort={(column: CardSortColumn) =>
             onSortChange((current) => toggleColumnSort(current, column, ["addedAt"]))
           }
