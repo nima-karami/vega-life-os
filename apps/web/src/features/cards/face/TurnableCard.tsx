@@ -6,7 +6,16 @@ import { CardFlip } from "./CardFlip";
 import { composeFace } from "./compose";
 
 /** Clicking turns the card over and back — the same gesture and the same motion as the feed. */
-export function TurnableCard({ card, scale }: { card: Card; scale: number }) {
+export function TurnableCard({
+  card,
+  scale,
+  faceClass,
+}: {
+  card: Card;
+  scale: number;
+  /** the card chrome, carried onto both faces so the card itself is what rotates */
+  faceClass?: string;
+}) {
   const [isTurned, setIsTurned] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const canTurn = hasReveal(card);
@@ -19,6 +28,7 @@ export function TurnableCard({ card, scale }: { card: Card; scale: number }) {
     <CardFlip
       turned={isTurned}
       reduceMotion={shouldReduceMotion === true}
+      faceClass={faceClass}
       front={<CardFace spec={composeFace(card, "face")} scale={scale} />}
       back={canTurn ? <CardFace spec={composeFace(card, "reveal")} scale={scale} /> : null}
     />

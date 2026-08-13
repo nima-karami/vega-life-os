@@ -10,14 +10,19 @@ export const DISSOLVE_MS = 220;
 const SIDE = "absolute inset-0 [backface-visibility:hidden] overflow-hidden";
 
 /**
- * Two faces on one stage, rotated about Y. Both sides carry the *same* surface, so a turn
- * reads as the same object seen from behind rather than a swap of two different cards.
+ * Two faces on one stage, rotated about Y.
+ *
+ * `faceClass` carries the card's own chrome — border, radius, shadow — onto *each* face, so
+ * the card itself turns inside a container that holds its place. Putting the chrome on the
+ * container instead leaves a static frame with its contents swapping, which does not read as
+ * an object turning over. Both sides take the same surface, so front and back match.
  */
 export function CardFlip({
   front,
   back,
   turned,
   surfaceClass = "bg-surface",
+  faceClass,
   reduceMotion = false,
   overlay = null,
 }: {
@@ -25,6 +30,8 @@ export function CardFlip({
   back: ReactNode;
   turned: boolean;
   surfaceClass?: string;
+  /** chrome applied to both faces — the thing that visibly rotates */
+  faceClass?: string;
   reduceMotion?: boolean;
   /** Drawn over both faces, unrotated — the recall step lives here. */
   overlay?: ReactNode;
@@ -33,7 +40,7 @@ export function CardFlip({
   const isTurned = hasBack && turned;
 
   return (
-    <div className={cx("relative h-full w-full [perspective:1600px]", surfaceClass)}>
+    <div className="relative h-full w-full [perspective:1600px]">
       <div
         className="relative h-full w-full [transform-style:preserve-3d]"
         style={{
@@ -41,12 +48,12 @@ export function CardFlip({
           transition: reduceMotion ? "none" : `transform ${FLIP_MS}ms cubic-bezier(.2,.7,.2,1)`,
         }}
       >
-        <div className={cx(SIDE, surfaceClass)} aria-hidden={isTurned || undefined}>
+        <div className={cx(SIDE, surfaceClass, faceClass)} aria-hidden={isTurned || undefined}>
           {front}
         </div>
         {hasBack && (
           <div
-            className={cx(SIDE, surfaceClass, "[transform:rotateY(180deg)]")}
+            className={cx(SIDE, surfaceClass, faceClass, "[transform:rotateY(180deg)]")}
             aria-hidden={isTurned ? undefined : true}
           >
             {back}

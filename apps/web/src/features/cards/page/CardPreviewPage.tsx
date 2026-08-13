@@ -28,11 +28,12 @@ export function CardPreviewPage() {
         </Link>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center px-4 pt-2">
-        <div
-          data-testid="preview-card"
-          className="relative h-[552px] w-[358px] overflow-hidden rounded-[24px] border border-border bg-surface shadow-soft"
-        >
-          <TurnableCard card={card} scale={PREVIEW_SCALE} />
+        <div data-testid="preview-card" className="relative h-[552px] w-[358px]">
+          <TurnableCard
+            card={card}
+            scale={PREVIEW_SCALE}
+            faceClass="rounded-[24px] border border-border shadow-soft"
+          />
         </div>
       </div>
     </div>

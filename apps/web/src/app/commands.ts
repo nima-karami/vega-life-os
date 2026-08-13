@@ -6,9 +6,11 @@
  * - ACTION_COMMANDS: core shell actions (add task, reset demo, keyboard shortcuts)
  * - registerCommands / useRegisterCommands: API for views to add per-view commands
  */
+
 import { useEffect } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import type { useStore } from "@/core/store";
+import { buildNewCardPath } from "@/features/cards/draft-prefill";
 
 /** What a command's run() callback receives. */
 export interface CommandApi {
@@ -100,15 +102,9 @@ export const NAV_COMMANDS: NavCommand[] = [
     sublabel: "Mind scroll · deck",
     icon: "layers",
     to: "/cards",
-    keywords: "cards scroll mind deck flashcards manage",
-  },
-  {
-    id: "nav-vocab",
-    label: "Vocabulary",
-    sublabel: "Words · manager",
-    icon: "book",
-    to: "/cards",
-    keywords: "vocab words dictionary language vocabulary terms",
+    // Vocabulary folded into the deck, so its words are found from this one entry.
+    keywords:
+      "cards scroll mind deck flashcards manage vocab words dictionary language vocabulary terms",
   },
   // Finance is one door: reachable from here only (no nav slot), and its five views are
   // reached from the strip inside the page — so the sub-routes get keywords, not entries.
@@ -174,7 +170,7 @@ export const ACTION_COMMANDS: ActionCommand[] = [
     icon: "languages",
     keywords: "add word new vocab vocabulary term",
     run: ({ navigate, close }) => {
-      navigate("/cards");
+      navigate(buildNewCardPath("vocabulary", ""));
       close();
     },
   },
