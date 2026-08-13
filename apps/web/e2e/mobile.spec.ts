@@ -41,7 +41,7 @@ async function horizontalOverflow(page: import("@playwright/test").Page): Promis
   });
 }
 
-const ROUTES = ["/today", "/values", "/habits", "/calendar", "/analytics", "/settings"];
+const ROUTES = ["/today", "/values", "/habits", "/calendar", "/analytics", "/settings", "/cards"];
 
 test.beforeEach(async ({ page }) => {
   await bootSandbox(page);
@@ -239,4 +239,36 @@ test("calendar: long-press an all-day chip → 'Move to day…' moves it to anot
   await expect(
     page.getByRole("button", { name: /^Pick up dry cleaning, \d{2}:\d{2}/ }),
   ).toHaveCount(0);
+});
+
+test("a long press starts selection while a tap still opens the card (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/cards", { waitUntil: "domcontentloaded" });
+  await passGratitudeGate(page);
+
+  const row = page.locator("[data-card-row]:visible").first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const box = await row.boundingBox();
+  if (!box) throw new Error("row has no box");
+
+  await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+
+  await row.dispatchEvent("pointerdown", {
+    pointerType: "touch",
+    clientX: box.x + box.width / 2,
+    clientY: box.y + 10,
+  });
+  await page.waitForTimeout(650);
+  await row.dispatchEvent("pointerup", { pointerType: "touch" });
+
+  await expect(page.getByText("1 selected")).toBeVisible();
+});
+
+test("the cards filter opens as a centred modal on a phone (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/cards", { waitUntil: "domcontentloaded" });
+  await passGratitudeGate(page);
+
+  await page.getByRole("button", { name: "Filter cards" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Filter cards");
 });

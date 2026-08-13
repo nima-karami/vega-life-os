@@ -36,6 +36,7 @@ function MobileRow({
 
   return (
     <div
+      data-card-row={card.id}
       className={cx(
         "flex items-start gap-2 px-2.5 py-2",
         !isFirst && "border-border border-t",

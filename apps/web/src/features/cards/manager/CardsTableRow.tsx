@@ -31,6 +31,7 @@ export function CardsTableRow({
 
   return (
     <div
+      data-card-row={card.id}
       className={cx(
         "grid h-11",
         CARDS_GRID,

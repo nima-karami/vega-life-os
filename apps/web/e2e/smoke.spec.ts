@@ -877,3 +877,11 @@ test("habit page: the Anytime toggle makes the habit untimed", async ({ page }) 
   await expect(card).toBeVisible();
   await expect(page.locator("li", { has: card }).getByText("Anytime")).toBeVisible();
 });
+
+test("the retired card routes redirect rather than 404", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/scroll/manage", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/cards$/);
+  await page.goto("/vocab", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/cards$/);
+});
