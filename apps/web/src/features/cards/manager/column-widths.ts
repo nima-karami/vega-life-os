@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 /** The five draggable columns, in table order. The checkbox and eye rails are fixed. */
 export const RESIZABLE_COLUMNS = ["title", "type", "category", "learning", "addedAt"] as const;
@@ -11,9 +11,9 @@ const STORAGE_KEY = "vega.cardsColumnWidths";
 
 export const DEFAULT_COLUMN_WIDTHS: Record<ResizableColumn, number> = {
   title: 260,
-  type: 120,
+  type: 136,
   category: 150,
-  learning: 150,
+  learning: 164,
   addedAt: 96,
 };
 
@@ -60,17 +60,14 @@ export const tableWidth = (widths: ColumnWidths): number =>
 
 export function useColumnWidths() {
   const [widths, setWidths] = useState<ColumnWidths>(readStoredColumnWidths);
+  const latestWidths = useRef(widths);
+  latestWidths.current = widths;
 
   const resize = useCallback((column: ResizableColumn, next: number) => {
     setWidths((current) => ({ ...current, [column]: Math.max(MIN_COLUMN_PX, Math.round(next)) }));
   }, []);
 
-  const commit = useCallback((_column: ResizableColumn) => {
-    setWidths((current) => {
-      writeStoredColumnWidths(current);
-      return current;
-    });
-  }, []);
+  const commit = useCallback(() => writeStoredColumnWidths(latestWidths.current), []);
 
   return { widths, resize, commit };
 }

@@ -17,7 +17,7 @@ export function ColumnResizer({
   column: ResizableColumn;
   widths: ColumnWidths;
   onResize: (column: ResizableColumn, next: number) => void;
-  onResizeCommit: (column: ResizableColumn) => void;
+  onResizeCommit: () => void;
 }) {
   const originRef = useRef<{ x: number; width: number } | null>(null);
 
@@ -52,19 +52,19 @@ export function ColumnResizer({
         originRef.current = null;
         event.currentTarget.releasePointerCapture(event.pointerId);
         document.body.classList.remove(RESIZING_BODY_CLASS);
-        onResizeCommit(column);
+        onResizeCommit();
       }}
       onPointerCancel={() => {
         originRef.current = null;
         document.body.classList.remove(RESIZING_BODY_CLASS);
-        onResizeCommit(column);
+        onResizeCommit();
       }}
       onKeyDown={(event) => {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
         event.preventDefault();
         const delta = event.key === "ArrowLeft" ? -KEYBOARD_STEP_PX : KEYBOARD_STEP_PX;
         onResize(column, widths[column] + delta);
-        onResizeCommit(column);
+        onResizeCommit();
       }}
     />
   );

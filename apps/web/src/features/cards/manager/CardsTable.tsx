@@ -32,7 +32,7 @@ export function CardsTable({
   sort: CardSort;
   widths: ColumnWidths;
   onResize: (column: ResizableColumn, next: number) => void;
-  onResizeCommit: (column: ResizableColumn) => void;
+  onResizeCommit: () => void;
   onSort: (column: CardSortColumn) => void;
   onToggleVisible: () => void;
   actions: CardRowActions;
