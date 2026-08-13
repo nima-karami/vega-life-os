@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router";
 import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
+import { RouteUndoBar } from "@/features/cards/RouteUndoBar";
 import { isGratitudeRequired } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
 import { BottomNav } from "./BottomNav";
@@ -43,6 +44,7 @@ export function AppShell() {
       )}
       <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <PageTransition />
+        <RouteUndoBar />
       </main>
       {!gated && <BottomNav />}
     </div>

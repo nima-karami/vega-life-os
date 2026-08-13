@@ -3,6 +3,8 @@ import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { CalendarCallbackPage } from "@/features/calendar-sync";
 import { CardsPage } from "@/features/cards/manager/CardsPage";
+import { CardPage } from "@/features/cards/page/CardPage";
+import { CardPreviewPage } from "@/features/cards/page/CardPreviewPage";
 import { ScrollPage } from "@/features/cards/ScrollPage";
 import { FinanceCategoriesPage } from "@/features/finance/FinanceCategoriesPage";
 import { FinanceDashboardPage } from "@/features/finance/FinanceDashboardPage";
@@ -43,6 +45,9 @@ export const router = createBrowserRouter([
           { path: "entries", element: <EntriesPage /> },
           { path: "scroll", element: <ScrollPage /> },
           { path: "cards", element: <CardsPage /> },
+          { path: "cards/new", element: <CardPage /> },
+          { path: "cards/:cardId", element: <CardPage /> },
+          { path: "cards/:cardId/preview", element: <CardPreviewPage /> },
           { path: "scroll/manage", element: <Navigate to="/cards" replace /> },
           { path: "vocab", element: <Navigate to="/cards" replace /> },
           { path: "finance", element: <FinanceDashboardPage /> },

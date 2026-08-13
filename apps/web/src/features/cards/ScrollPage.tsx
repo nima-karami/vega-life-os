@@ -1,5 +1,4 @@
-import { Button } from "@heroui/react";
-import { type Card, hasReveal } from "@vega/shared";
+import { type Card, feedStep } from "@vega/shared";
 import { useReducedMotion } from "framer-motion";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -12,11 +11,13 @@ import {
 import { useNavigate } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { Icon } from "@/core/ui";
-import { CardEditorModal } from "./CardEditorModal";
+import { FeedCardSheet } from "./FeedCardSheet";
 import { FeedCardView } from "./FeedCardView";
-import { buildLegacyFeedPool, type FeedCard } from "./feed-cards";
-import { stepLeitner } from "./leitner";
+import { type FeedControlDraft, FeedControlPage } from "./FeedControlPage";
+import { FeedFirstRunHero, FeedNothingDue, FeedNothingMatches, FeedRecovery } from "./FeedNotices";
+import { hasSeenFeedHint, markFeedHintSeen } from "./feed-hint";
+import { buildFeedPool, describeFeedGlyphs } from "./feed-pool";
+import { describeRecallInterval, type FeedStepName, nextFeedStep } from "./feed-steps";
 import {
   buildFeedQueue,
   computePassSeed,
@@ -29,15 +30,16 @@ import { RecapCard } from "./RecapCard";
 const NO_REPEAT_WINDOW = 20;
 const RENDER_RADIUS = 2;
 const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
+const EVERYTHING: FeedControlDraft = { mode: "mix", types: [], categories: [] };
 // The feed is a deliberately focusable scroll region so ArrowUp/Down page it (WCAG 2.1.1);
 // a computed tabindex is jsx-a11y's sanctioned "developer-asserted focusable container" path.
 const SCROLL_TABINDEX = 0;
 
-// A due card shown or graded (or a card recruited into learning) this session must not be
+// A due card shown or graded (or a card recruited into review) this session must not be
 // re-injected by later passes — it re-enters next visit via nextDue. exclude alone can't do
 // this: the queue's due lane bypasses excludeSet, so drop such still-due cards from the pool.
-function excludeDeferredDue(pool: FeedCard[], deferred: Set<string>): FeedCard[] {
-  return pool.filter((card) => !(isDueLearning(card) && deferred.has(card.id)));
+function excludeDeferredDue(pool: Card[], deferred: Set<string>, today: string): Card[] {
+  return pool.filter((card) => !(isDueLearning(card, today) && deferred.has(card.id)));
 }
 
 function getRecentCardIds(entries: QueueEntry[], limit: number): string[] {
@@ -58,29 +60,31 @@ export function ScrollPage() {
   const navigate = useNavigate();
   const cards = useStore((s) => s.cards);
   const cardPrefs = useStore((s) => s.cardPrefs);
+  const loadFailed = useStore((s) => s.loadFailed);
+  const bootstrap = useStore((s) => s.bootstrap);
   const hideCard = useStore((s) => s.hideCard);
-  const setCardLearning = useStore((s) => s.setCardLearning);
   const toggleCardLike = useStore((s) => s.toggleCardLike);
+  const setCardLearning = useStore((s) => s.setCardLearning);
+  const promoteCard = useStore((s) => s.promoteCard);
   const gradeCard = useStore((s) => s.gradeCard);
+  const setCardPrefs = useStore((s) => s.setCardPrefs);
   const pushToast = useStore((s) => s.pushToast);
   const shouldReduceMotion = useReducedMotion();
 
   const today = todayISO();
-  const pool = useMemo(
-    () => buildLegacyFeedPool({ cards, cardPrefs }, today),
-    [cards, cardPrefs, today],
-  );
+  const pool = useMemo(() => buildFeedPool(cards, cardPrefs, today), [cards, cardPrefs, today]);
   const poolById = useMemo(() => new Map(pool.map((card) => [card.id, card])), [pool]);
-  const cardById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
-  const learningCount = useMemo(() => pool.filter((card) => card.learning).length, [pool]);
+  const learningCount = useMemo(() => pool.filter((card) => card.box !== null).length, [pool]);
+  const glyphs = useMemo(() => describeFeedGlyphs(cards, cardPrefs), [cards, cardPrefs]);
 
   const [baseSeed] = useState(() => Date.now() & 0xffff);
   const [queueEntries, setQueueEntries] = useState<QueueEntry[]>([]);
   const [currentIndex, setCurrentIndexState] = useState(0);
-  const [turnedId, setTurnedId] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ cardId: string; step: FeedStepName } | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const [editorCardId, setEditorCardId] = useState<string | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [sheetCardId, setSheetCardId] = useState<string | null>(null);
+  const [isControlOpen, setIsControlOpen] = useState(false);
+  const [showsHint, setShowsHint] = useState(() => !hasSeenFeedHint());
 
   const scrollRef = useRef<HTMLElement>(null);
   const currentIndexRef = useRef(0);
@@ -111,23 +115,18 @@ export function ScrollPage() {
     return next;
   };
 
-  // Advancing to a new entry also drops any turn — re-shown cards start face up.
+  // Advancing to a new entry drops any progress — a re-shown card starts on its face.
   const setCurrentIndex = useCallback((index: number) => {
     if (currentIndexRef.current === index) return;
     currentIndexRef.current = index;
     setCurrentIndexState(index);
-    setTurnedId(null);
+    setProgress(null);
   }, []);
-
-  const openEditor = (cardId: string | null) => {
-    setEditorCardId(cardId);
-    setIsEditorOpen(true);
-  };
 
   // Build the next pass off the frozen prefix (exclude its last-20) and append it.
   const appendPass = useCallback(
     (prefix: QueueEntry[]) => {
-      const tail = buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current), {
+      const tail = buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current, today), {
         seed: computePassSeed(baseSeed, passCountRef.current),
         today,
         exclude: getRecentCardIds(prefix, NO_REPEAT_WINDOW),
@@ -139,8 +138,8 @@ export function ScrollPage() {
   );
 
   // Build the first pass, and on any pool change rebuild only the unplayed tail —
-  // the seen prefix + current entry stay frozen (spec §2.3 lifecycle). All impurity
-  // (ref reads/writes, queue build) stays in the effect body; setState gets a value.
+  // the seen prefix + current entry stay frozen. All impurity (ref reads/writes, queue
+  // build) stays in the effect body; setState gets a value.
   useEffect(() => {
     if (pool.length === 0) {
       initializedRef.current = false;
@@ -153,7 +152,7 @@ export function ScrollPage() {
       initializedRef.current = true;
       passCountRef.current = 1;
       setQueueEntries(
-        buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current), {
+        buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current, today), {
           seed: computePassSeed(baseSeed, 0),
           today,
         }),
@@ -193,13 +192,13 @@ export function ScrollPage() {
   }, [queueEntries, setCurrentIndex]);
 
   // A due card that reaches the viewport is spent for this session (graded or scrolled past);
-  // record it so later passes defer it (excludeDeferredDue).
+  // record it so later passes defer it.
   useEffect(() => {
     const entry = queueEntries[currentIndex];
     if (!entry || isRecapId(entry.cardId)) return;
     const card = poolById.get(entry.cardId);
-    if (card && isDueLearning(card)) deferredDueRef.current.add(card.id);
-  }, [currentIndex, queueEntries, poolById]);
+    if (card && isDueLearning(card, today)) deferredDueRef.current.add(card.id);
+  }, [currentIndex, queueEntries, poolById, today]);
 
   const advance = () => {
     const scroller = scrollRef.current;
@@ -210,11 +209,26 @@ export function ScrollPage() {
     });
   };
 
+  const stepOf = (card: Card): FeedStepName =>
+    progress !== null && progress.cardId === card.id ? progress.step : "face";
+
+  const advanceStep = (card: Card) => {
+    const next = nextFeedStep(feedStep(card), stepOf(card));
+    if (next === null) return;
+    setProgress({ cardId: card.id, step: next });
+    announce(next === "reveal" ? "Revealed" : "Did that come back to you?");
+  };
+
+  const dismissHint = () => {
+    markFeedHintSeen();
+    setShowsHint(false);
+  };
+
   const handleHide = (card: Card) => {
     hideCard(card.id);
     announce("Hidden");
     pushToast("Hidden");
-    setTurnedId(null);
+    setProgress(null);
     advance();
   };
 
@@ -223,30 +237,36 @@ export function ScrollPage() {
     setCardLearning(card.id, next);
     // Recruiting sets nextDue=today, so the rebuild would due-inject it this session — defer it.
     if (next) deferredDueRef.current.add(card.id);
-    announce(next ? "Learning on" : "Learning off");
+    announce(next ? "On review" : "Off review");
   };
 
   const handleToggleLike = (card: Card) => {
     toggleCardLike(card.id);
-    announce(card.likedAt !== null ? "Like removed" : "Liked");
-  };
-
-  const handleFeedKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Enter") return;
-    const entry = queueEntries[currentIndexRef.current];
-    if (!entry || isRecapId(entry.cardId)) return;
-    const card = cardById.get(entry.cardId);
-    if (card === undefined || !hasReveal(card)) return;
-    setTurnedId((current) => (current === card.id ? null : card.id));
+    announce(card.likedAt === null ? "Kept" : "No longer kept");
   };
 
   const handleGrade = (card: Card, correct: boolean) => {
     if (card.box === null) return;
-    const nextBox = stepLeitner(card.box, correct, today).box;
     gradeCard(card.id, correct);
-    announce(correct ? `Got it — box ${nextBox}` : "Again — back to box 1");
-    setTurnedId(null);
+    announce(
+      `${correct ? "Yes" : "Not quite"} — ${describeRecallInterval(card.box, correct, today)}`,
+    );
+    setProgress(null);
     advance();
+  };
+
+  const handleFeedKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    const entry = queueEntries[currentIndexRef.current];
+    if (!entry || isRecapId(entry.cardId)) return;
+    const card = poolById.get(entry.cardId);
+    if (!card) return;
+    if (event.key === "Enter") {
+      advanceStep(card);
+      return;
+    }
+    if (stepOf(card) !== "recall") return;
+    if (event.key === "1") handleGrade(card, true);
+    else if (event.key === "2") handleGrade(card, false);
   };
 
   const renderEntry = (entry: QueueEntry, index: number) => {
@@ -257,130 +277,88 @@ export function ScrollPage() {
           seenThisPass={index - prevRecap - 1}
           totalInRotation={pool.length}
           learningCount={learningCount}
-          onNewCard={() => openEditor(null)}
+          onNewCard={() => navigate("/cards/new")}
         />
       );
     }
-    const card = cardById.get(entry.cardId);
-    if (card === undefined) return null;
+    const card = poolById.get(entry.cardId);
+    if (!card) return null;
     return (
       <FeedCardView
         card={card}
-        turned={turnedId === card.id}
-        onTurn={() => setTurnedId((current) => (current === card.id ? null : card.id))}
+        step={stepOf(card)}
+        glyphs={glyphs}
+        showsHint={showsHint && index === 0}
+        today={today}
+        onAdvance={() => advanceStep(card)}
+        onOpenControl={() => setIsControlOpen(true)}
+        onOpenSheet={() => setSheetCardId(card.id)}
+        onDismissHint={dismissHint}
         onToggleLike={() => handleToggleLike(card)}
         onToggleLearning={() => handleToggleLearning(card)}
-        onHide={() => handleHide(card)}
-        onEdit={() => openEditor(card.id)}
-        onManage={() => navigate("/scroll/manage")}
         onGrade={(correct) => handleGrade(card, correct)}
       />
     );
   };
 
+  const sheetCard = sheetCardId === null ? null : (poolById.get(sheetCardId) ?? null);
+
+  if (loadFailed) return <FeedRecovery onRetry={() => void bootstrap()} />;
+  if (pool.length === 0) {
+    if (cards.length === 0)
+      return (
+        <FeedFirstRunHero
+          onAddCard={() => navigate("/cards/new")}
+          onOpenManager={() => navigate("/cards")}
+        />
+      );
+    if (cardPrefs.mode === "due")
+      return <FeedNothingDue onSwitchToMix={() => setCardPrefs({ mode: "mix" })} />;
+    return <FeedNothingMatches onReset={() => setCardPrefs(EVERYTHING)} />;
+  }
+
   return (
     <div className="relative h-full w-full overflow-hidden">
-      {pool.length === 0 ? (
-        <FirstRunHero
-          onAddCard={() => openEditor(null)}
-          onOpenManager={() => navigate("/scroll/manage")}
-        />
-      ) : (
-        <>
-          <section
-            ref={scrollRef}
-            aria-label="Card feed"
-            tabIndex={SCROLL_TABINDEX}
-            onKeyDown={handleFeedKeyDown}
-            className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain pb-2 outline-none"
-          >
-            {queueEntries.map((entry, index) => (
-              <div
-                key={keyFor(entry)}
-                data-index={index}
-                className="h-full w-full shrink-0 snap-start"
-              >
-                {Math.abs(index - currentIndex) <= RENDER_RADIUS ? renderEntry(entry, index) : null}
-              </div>
-            ))}
-          </section>
-
-          <div className="absolute right-3 top-3 z-20 flex gap-2">
-            <ChromeButton label="Add card" icon="plus" onClick={() => openEditor(null)} />
-            <ChromeButton
-              label="Manage cards"
-              icon="sliders"
-              onClick={() => navigate("/scroll/manage")}
-            />
+      <section
+        ref={scrollRef}
+        aria-label="Card feed"
+        tabIndex={SCROLL_TABINDEX}
+        onKeyDown={handleFeedKeyDown}
+        className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain pb-2 outline-none"
+      >
+        {queueEntries.map((entry, index) => (
+          <div key={keyFor(entry)} data-index={index} className="h-full w-full shrink-0 snap-start">
+            {Math.abs(index - currentIndex) <= RENDER_RADIUS ? renderEntry(entry, index) : null}
           </div>
-        </>
-      )}
+        ))}
+      </section>
 
-      <span className="sr-only" role="status" aria-live="polite">
+      <span data-feed-announcer className="sr-only" role="status" aria-live="polite">
         {announcement}
       </span>
 
-      <CardEditorModal
-        cardId={editorCardId}
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-      />
-    </div>
-  );
-}
+      {sheetCard !== null && (
+        <FeedCardSheet
+          card={sheetCard}
+          onClose={() => setSheetCardId(null)}
+          onPromote={() => promoteCard(sheetCard.id)}
+          onToggleLike={() => handleToggleLike(sheetCard)}
+          onHide={() => handleHide(sheetCard)}
+        />
+      )}
 
-function ChromeButton({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string;
-  icon: "plus" | "sliders";
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="grid h-11 w-11 place-items-center rounded-full border border-border bg-surface/80 text-muted outline-none backdrop-blur transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
-    >
-      <Icon name={icon} size={18} />
-    </button>
-  );
-}
-
-function FirstRunHero({
-  onAddCard,
-  onOpenManager,
-}: {
-  onAddCard: () => void;
-  onOpenManager: () => void;
-}) {
-  return (
-    <div className="flex h-full w-full items-center justify-center px-6">
-      <div className="mx-auto max-w-md text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Program your own scroll
-        </h1>
-        <p className="mt-3 text-sm text-muted">
-          Build a feed of ideas worth revisiting — heuristics, facts, tactics, vocabulary. Scroll
-          that instead of the algorithm.
-        </p>
-        <div className="mt-6 flex flex-col items-center gap-3">
-          <Button variant="primary" onPress={onAddCard}>
-            <Icon name="plus" size={15} />
-            Add your first card
-          </Button>
-          <button
-            type="button"
-            onClick={onOpenManager}
-            className="text-sm text-muted underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            Open the manager
-          </button>
-        </div>
-      </div>
+      {isControlOpen && (
+        <FeedControlPage
+          cards={cards}
+          prefs={cardPrefs}
+          today={today}
+          onApply={(draft) => {
+            setCardPrefs(draft);
+            setIsControlOpen(false);
+          }}
+          onClose={() => setIsControlOpen(false)}
+        />
+      )}
     </div>
   );
 }

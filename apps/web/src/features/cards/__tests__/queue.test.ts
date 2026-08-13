@@ -1,30 +1,28 @@
+import type { Card } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import type { FeedCard } from "../feed-cards";
-import { buildFeedQueue, computePassSeed, createSeededRng, type QueueEntry } from "../queue";
+import { buildFeedQueue, computePassSeed, createSeededRng, isDueLearning } from "../queue";
+import { buildCard } from "./fixtures";
 
-const feedCard = (id: string, category: string): FeedCard => ({
-  id,
-  type: "note",
-  category,
-  title: id,
-  subtitle: null,
-  body: "",
-  bodyVariants: null,
-  source: null,
-  learning: false,
-  box: null,
-  due: false,
-  maskedBody: null,
-  hasReveal: true,
-  liked: false,
-});
+const TODAY = "2026-07-23";
+
+const feedCard = (id: string, category: string): Card =>
+  buildCard({ id, category, title: id, body: `body ${id}` });
+
+const dueCard = (id: string): Card =>
+  buildCard({
+    id,
+    category: "vocabulary",
+    title: id,
+    body: `body ${id}`,
+    box: 3,
+    nextDue: TODAY,
+    lastReviewed: "2026-07-15",
+  });
 
 const range = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
 const contentIds = (queue: { cardId: string }[]): string[] =>
   queue.filter((e) => !e.cardId.startsWith("recap:")).map((e) => e.cardId);
-
-const TODAY = "2026-07-23";
 
 describe("createSeededRng", () => {
   it("is deterministic and stays in [0, 1)", () => {
@@ -40,6 +38,15 @@ describe("createSeededRng", () => {
   });
 });
 
+describe("isDueLearning", () => {
+  it("is true only for a learning card whose next due date has arrived", () => {
+    expect(isDueLearning(dueCard("d"), TODAY)).toBe(true);
+    expect(isDueLearning(buildCard({ box: 2, nextDue: "2026-08-30" }), TODAY)).toBe(false);
+    expect(isDueLearning(buildCard({ box: null, nextDue: TODAY }), TODAY)).toBe(false);
+    expect(isDueLearning(buildCard({ box: 2, nextDue: null }), TODAY)).toBe(false);
+  });
+});
+
 describe("buildFeedQueue", () => {
   it("is deterministic under a seed", () => {
     const pool = [
@@ -50,8 +57,7 @@ describe("buildFeedQueue", () => {
     const first = buildFeedQueue(pool, { seed: 42, today: TODAY });
     const second = buildFeedQueue(pool, { seed: 42, today: TODAY });
     expect(first).toEqual(second);
-    const other = buildFeedQueue(pool, { seed: 43, today: TODAY });
-    expect(other).not.toEqual(first);
+    expect(buildFeedQueue(pool, { seed: 43, today: TODAY })).not.toEqual(first);
   });
 
   it("normalizes category share (cap high categories, floor small ones)", () => {
@@ -63,7 +69,7 @@ describe("buildFeedQueue", () => {
     ];
     const categoryOf = new Map(pool.map((c) => [c.id, c.category]));
     const queue = buildFeedQueue(pool, { seed: 7, today: TODAY });
-    const cap = Math.ceil(0.3 * pool.length); // passLength = pool length = 55 -> 17
+    const cap = Math.ceil(0.3 * pool.length);
     const counts = new Map<string, number>();
     for (const id of contentIds(queue)) {
       const cat = categoryOf.get(id) as string;
@@ -95,32 +101,62 @@ describe("buildFeedQueue", () => {
     for (let i = 1; i < ids.length; i++) expect(ids[i]).not.toBe(ids[i - 1]);
   });
 
-  it("never shows 3 consecutive same-category cards", () => {
+  it("shrinks the window to a single-card pool instead of deadlocking", () => {
+    const pool = [feedCard("only", "alpha")];
+    for (const seed of range(5)) {
+      const queue = buildFeedQueue(pool, { seed, today: TODAY, exclude: ["only"] });
+      expect(contentIds(queue)).toEqual(["only"]);
+      expect(queue.at(-1)).toEqual({ cardId: `recap:${seed}` });
+    }
+  });
+
+  // The guard is shaping, not an invariant that may cost a card: 24 of one category against
+  // 6 of another cannot be ordered without a run of three, and dropping the remainder from
+  // the user's own feed is the worse failure. So it holds while an alternative exists.
+  it("never shows 3 consecutive same-category cards while another category has cards left", () => {
     const pool = [
       ...range(24).map((i) => feedCard(`x${i}`, "vocabulary")),
       ...range(6).map((i) => feedCard(`y${i}`, "history")),
     ];
     const categoryOf = new Map(pool.map((c) => [c.id, c.category]));
-    const cats = contentIds(buildFeedQueue(pool, { seed: 5, today: TODAY })).map(
-      (id) => categoryOf.get(id) as string,
-    );
-    for (let i = 2; i < cats.length; i++)
-      expect(cats[i] === cats[i - 1] && cats[i - 1] === cats[i - 2]).toBe(false);
+    const ids = contentIds(buildFeedQueue(pool, { seed: 5, today: TODAY }));
+    expect(new Set(ids), "every card is placed").toEqual(new Set(pool.map((c) => c.id)));
+
+    const cats = ids.map((id) => categoryOf.get(id) as string);
+    const remaining = new Map<string, number>();
+    for (const cat of cats) remaining.set(cat, (remaining.get(cat) ?? 0) + 1);
+
+    for (let i = 0; i < cats.length; i++) {
+      const cat = cats[i];
+      remaining.set(cat, (remaining.get(cat) ?? 0) - 1);
+      if (i < 2) continue;
+      const hasAlternative = [...remaining].some(([key, left]) => key !== cat && left > 0);
+      if (cats[i] === cats[i - 1] && cats[i - 1] === cats[i - 2]) {
+        expect(hasAlternative, `run of three at ${i} while another category had cards`).toBe(false);
+      }
+    }
   });
 
   it("allows consecutive cards when only one category exists", () => {
     const pool = range(4).map((i) => feedCard(`v${i}`, "vocabulary"));
-    const ids = contentIds(buildFeedQueue(pool, { seed: 1, today: TODAY }));
-    expect(ids.length).toBe(4);
+    expect(contentIds(buildFeedQueue(pool, { seed: 1, today: TODAY })).length).toBe(4);
+  });
+
+  it("groups categories case-insensitively on the trimmed string", () => {
+    const pool = [
+      feedCard("a", "Mental models"),
+      feedCard("b", " mental models "),
+      feedCard("c", "MENTAL MODELS"),
+      feedCard("d", "History"),
+    ];
+    const ids = contentIds(buildFeedQueue(pool, { seed: 4, today: TODAY }));
+    expect(new Set(ids)).toEqual(new Set(["a", "b", "c", "d"]));
   });
 
   it("ends the pass with the recap sentinel derived from the seed", () => {
     const pool = range(4).map((i) => feedCard(`v${i}`, "vocabulary"));
-    const zero = buildFeedQueue(pool, { seed: 0, today: TODAY });
-    expect(zero.at(-1)).toEqual({ cardId: "recap:0", reversed: false, variant: 0 });
-    const five = buildFeedQueue(pool, { seed: 5, today: TODAY });
-    expect(five.at(-1)).toEqual({ cardId: "recap:5", reversed: false, variant: 0 });
-    expect(zero.every((e) => e.reversed === false)).toBe(true);
+    expect(buildFeedQueue(pool, { seed: 0, today: TODAY }).at(-1)).toEqual({ cardId: "recap:0" });
+    expect(buildFeedQueue(pool, { seed: 5, today: TODAY }).at(-1)).toEqual({ cardId: "recap:5" });
   });
 
   it("a continuation pass respects the previous pass's tail via exclude", () => {
@@ -135,65 +171,48 @@ describe("buildFeedQueue", () => {
 
 const restCategories = ["alpha", "beta", "gamma", "delta"];
 
-const dueVocabCard = (id: string): FeedCard => ({
-  ...feedCard(id, "vocabulary"),
-  learning: true,
-  box: 3,
-  due: true,
-});
-
-const learningCard = (id: string, box: number): FeedCard => ({
-  ...feedCard(id, "vocabulary"),
-  learning: true,
-  box,
-  due: false,
-});
-
 describe("SRS due-injection lane", () => {
   it("injects due cards at most every 4th position and exhausts leftovers gracefully", () => {
     const pool = [
-      ...range(40).map((i) => dueVocabCard(`due${i}`)),
+      ...range(40).map((i) => dueCard(`due${i}`)),
       ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
     ];
-    const dueIds = new Set(pool.filter((c) => c.due && c.learning).map((c) => c.id));
+    const dueIds = new Set(pool.filter((c) => isDueLearning(c, TODAY)).map((c) => c.id));
     const ids = contentIds(buildFeedQueue(pool, { seed: 7, today: TODAY }));
 
     expect(new Set(ids)).toEqual(new Set(pool.map((c) => c.id)));
     expect(ids.length).toBe(pool.length);
 
     const first20 = ids.slice(0, 20);
-    const dueInFirst20 = first20.filter((id) => dueIds.has(id)).length;
-    expect(dueInFirst20).toBeLessThanOrEqual(5);
-
-    const restInFirst20 = first20.filter((id) => !dueIds.has(id));
-    expect(restInFirst20.length).toBeGreaterThanOrEqual(15);
+    expect(first20.filter((id) => dueIds.has(id)).length).toBeLessThanOrEqual(5);
+    expect(first20.filter((id) => !dueIds.has(id)).length).toBeGreaterThanOrEqual(15);
   });
 
   it("falls back to shuffle when nothing is due", () => {
     const pool = range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length]));
     const first = buildFeedQueue(pool, { seed: 5, today: TODAY });
-    const second = buildFeedQueue(pool, { seed: 5, today: TODAY });
-    expect(first).toEqual(second);
+    expect(first).toEqual(buildFeedQueue(pool, { seed: 5, today: TODAY }));
     expect(new Set(contentIds(first))).toEqual(new Set(pool.map((c) => c.id)));
-    expect(first.every((e) => e.reversed === false)).toBe(true);
   });
 
-  it("keeps determinism with the lane active", () => {
-    const pool = [
-      ...range(40).map((i) => dueVocabCard(`due${i}`)),
-      ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
-    ];
-    const first = buildFeedQueue(pool, { seed: 13, today: TODAY });
-    const second = buildFeedQueue(pool, { seed: 13, today: TODAY });
-    expect(first).toEqual(second);
-    expect(buildFeedQueue(pool, { seed: 14, today: TODAY })).not.toEqual(first);
+  it("treats a card as due only against the day it is asked about", () => {
+    const pool = [dueCard("d0"), ...range(8).map((i) => feedCard(`r${i}`, "alpha"))];
+    const before = buildFeedQueue(pool, { seed: 2, today: "2026-07-01" });
+    const after = buildFeedQueue(pool, { seed: 2, today: TODAY });
+    expect(new Set(contentIds(before))).toEqual(new Set(contentIds(after)));
+    expect(before).not.toEqual(after);
   });
 });
 
 describe("liked-card weight boost", () => {
   it("boosts liked cards in the shuffle without letting them dominate", () => {
     const pool = [
-      { ...feedCard("liked", "thinking"), liked: true },
+      buildCard({
+        id: "liked",
+        title: "liked",
+        category: "thinking",
+        likedAt: "2026-07-01T00:00:00.000Z",
+      }),
       feedCard("plain", "decisions"),
     ];
     let likedFirst = 0;
@@ -206,78 +225,8 @@ describe("liked-card weight boost", () => {
   });
 });
 
-describe("reversed recall decisions", () => {
-  it("marks ~1/3 of box>=2 learning appearances reversed, seeded", () => {
-    const pool = [
-      ...range(20).map((i) => learningCard(`hi${i}`, 3)),
-      ...range(10).map((i) => learningCard(`lo${i}`, 1)),
-      ...range(10).map((i) => feedCard(`reg${i}`, "history")),
-    ];
-    const byId = new Map(pool.map((c) => [c.id, c]));
-    const isReversible = (entry: QueueEntry): boolean => {
-      const card = byId.get(entry.cardId);
-      if (card === undefined) return false;
-      return card.learning && card.box !== null && card.box >= 2;
-    };
-    const entries = range(200).flatMap((seed) => buildFeedQueue(pool, { seed, today: TODAY }));
-    const eligible = entries.filter(isReversible);
-    const never = entries.filter((entry) => !isReversible(entry));
-
-    expect(never.every((entry) => entry.reversed === false)).toBe(true);
-    const rate = eligible.filter((entry) => entry.reversed).length / eligible.length;
-    expect(rate).toBeGreaterThanOrEqual(0.2);
-    expect(rate).toBeLessThanOrEqual(0.45);
-  });
-
-  it("is deterministic per seed", () => {
-    const pool = range(20).map((i) => learningCard(`hi${i}`, 4));
-    const first = buildFeedQueue(pool, { seed: 77, today: TODAY });
-    const second = buildFeedQueue(pool, { seed: 77, today: TODAY });
-    expect(first).toEqual(second);
-  });
-});
-
-describe("example-variant stamping", () => {
-  const vocabWithVariants = (id: string, variantCount: number): FeedCard => ({
-    ...feedCard(id, "vocabulary"),
-    bodyVariants: range(variantCount).map((index) => `body ${index}`),
-  });
-
-  it("stamps variant = seed % variant count, and 0 for cards without variants", () => {
-    const pool = [vocabWithVariants("w", 3), feedCard("a", "history")];
-    const queue = buildFeedQueue(pool, { seed: 7, today: TODAY });
-    expect(queue.find((e) => e.cardId === "w")?.variant).toBe(7 % 3);
-    expect(queue.find((e) => e.cardId === "a")?.variant).toBe(0);
-  });
-
-  it("cycles through all variants across consecutive pass seeds with no repeat", () => {
-    const pool = [vocabWithVariants("w", 3), feedCard("a", "history")];
-    const variants = [21, 22, 23].map(
-      (seed) => buildFeedQueue(pool, { seed, today: TODAY }).find((e) => e.cardId === "w")?.variant,
-    );
-    expect(new Set(variants)).toEqual(new Set([0, 1, 2]));
-  });
-
-  it("is deterministic: the same seed stamps the same variants", () => {
-    const pool = [vocabWithVariants("w", 3), vocabWithVariants("x", 4), feedCard("a", "history")];
-    expect(buildFeedQueue(pool, { seed: 9, today: TODAY })).toEqual(
-      buildFeedQueue(pool, { seed: 9, today: TODAY }),
-    );
-  });
-
-  it("never consumes rng for variants — placement and reversal are unchanged by variant counts", () => {
-    const base = [learningCard("hi", 3), ...range(10).map((i) => feedCard(`r${i}`, "history"))];
-    const withVariants = base.map((card) =>
-      card.id === "hi" ? { ...card, bodyVariants: ["a", "b", "c"] } : card,
-    );
-    const plain = buildFeedQueue(base, { seed: 9, today: TODAY });
-    const varied = buildFeedQueue(withVariants, { seed: 9, today: TODAY });
-    expect(varied.map((e) => ({ cardId: e.cardId, reversed: e.reversed }))).toEqual(
-      plain.map((e) => ({ cardId: e.cardId, reversed: e.reversed })),
-    );
-  });
-
-  it("pass seeds increment by exactly 1 — the no-repeat rotation depends on it", () => {
+describe("pass seeds", () => {
+  it("increment by exactly 1 — the no-repeat rotation depends on it", () => {
     expect(computePassSeed(100, 0)).toBe(100);
     for (const passIndex of range(5))
       expect(computePassSeed(100, passIndex + 1)).toBe(computePassSeed(100, passIndex) + 1);

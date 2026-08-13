@@ -33,6 +33,8 @@ export const CHROME_ICON_NAMES = [
   "pause",
   "play",
   "layers",
+  "filter",
+  "arrow-right",
   "rows",
   "grid",
   "scroll",
