@@ -169,3 +169,149 @@ test("the gallery shows real faces and a tile turns", async ({ page }) => {
   ).toBeVisible();
   await expect(page).toHaveURL(/\/cards$/);
 });
+
+test("a table row's context menu lists the five actions in order and Select/Deselect toggles just that row", async ({
+  page,
+}) => {
+  await openDeck(page);
+  const row = rows(page).first();
+
+  await row.click({ button: "right" });
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  const items = menu.getByRole("menuitem");
+  await expect(items).toHaveCount(5);
+  await expect(items.nth(0)).toHaveText("Open");
+  await expect(items.nth(1)).toHaveText("Select");
+  await expect(items.nth(2)).toHaveText(/^(Start|Stop) learning$/);
+  await expect(items.nth(3)).toHaveText(/^(Hide|Restore)$/);
+  await expect(items.nth(4)).toHaveText("Delete");
+
+  await items.nth(1).click();
+  await expect(menu).toBeHidden();
+  await expect(page.getByText("1 selected")).toBeVisible();
+  await expect(row.getByRole("checkbox")).toBeChecked();
+
+  const secondRow = rows(page).nth(1);
+  await expect(secondRow.getByRole("checkbox")).not.toBeChecked();
+
+  await row.click({ button: "right" });
+  await expect(menu.getByRole("menuitem", { name: "Deselect" })).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Deselect" }).click();
+  await expect(page.getByText("1 selected")).toHaveCount(0);
+  await expect(row.getByRole("checkbox")).not.toBeChecked();
+});
+
+test("Open, and Hide/Restore, from a row's context menu behave exactly like their inline controls", async ({
+  page,
+}) => {
+  await openDeck(page);
+  const row = rows(page).first();
+  const title = (await row.getByRole("button").first().innerText()).trim();
+
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Hide" }).click();
+  await expect(row.getByRole("button", { name: `Restore ${title}` })).toBeVisible();
+
+  await row.click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Restore" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Restore" }).click();
+  await expect(row.getByRole("button", { name: `Hide ${title}` })).toBeVisible();
+
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Open" }).click();
+  await expect(page).toHaveURL(/\/cards\/[^/]+$/);
+});
+
+test("a row's context menu never opens the native menu or flips selection by itself, and empty space still gets it", async ({
+  page,
+}) => {
+  await openDeck(page);
+  const row = rows(page).first();
+
+  await row.click({ button: "right" });
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(row.getByRole("checkbox")).not.toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toBeHidden();
+
+  await page.mouse.click(6, 6, { button: "right" });
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
+
+test("a menu delete needs a confirm naming the card, offers undo, and Cancel is a no-op", async ({
+  page,
+}) => {
+  await openDeck(page);
+  const before = await rows(page).count();
+  const row = rows(page).first();
+  const title = (await row.getByRole("button").first().innerText()).trim();
+
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete card?" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(title);
+
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(rows(page)).toHaveCount(before);
+  await expect(rows(page).filter({ hasText: title })).toHaveCount(1);
+
+  await row.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await page
+    .getByRole("dialog", { name: "Delete card?" })
+    .getByRole("button", { name: "Delete" })
+    .click();
+
+  await expect(rows(page)).toHaveCount(before - 1);
+  const undo = page.getByRole("status").filter({ hasText: "1 card deleted" });
+  await expect(undo).toBeVisible();
+
+  await undo.getByRole("button", { name: "Undo" }).click();
+  await expect(rows(page)).toHaveCount(before);
+});
+
+test("a confirmed menu delete drops the card from an existing multi-selection", async ({
+  page,
+}) => {
+  await openDeck(page);
+  await rows(page).nth(0).getByRole("checkbox").click({ force: true });
+  const target = rows(page).nth(1);
+  await target.getByRole("checkbox").click({ force: true });
+  await expect(page.getByText("2 selected")).toBeVisible();
+
+  await target.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await page
+    .getByRole("dialog", { name: "Delete card?" })
+    .getByRole("button", { name: "Delete" })
+    .click();
+
+  await expect(page.getByText("1 selected")).toBeVisible();
+});
+
+test("a gallery tile's context menu opens without flipping the card, on both a flippable and a plain tile", async ({
+  page,
+}) => {
+  await openDeck(page);
+  await page.getByRole("button", { name: "Gallery view" }).click();
+
+  const flippable = page.getByRole("button", { name: /— face$/ }).first();
+  await expect(flippable).toBeVisible();
+  const faceLabel = (await flippable.getAttribute("aria-label")) ?? "";
+
+  await flippable.click({ button: "right" });
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem")).toHaveCount(5);
+  // Still showing its face — the right-click did not flip it.
+  await expect(page.getByRole("button", { name: faceLabel })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+
+  const plain = page.getByRole("figure", { name: /— face$/ }).first();
+  await expect(plain).toBeVisible();
+  await plain.click({ button: "right" });
+  await expect(menu.getByRole("menuitem")).toHaveCount(5);
+});

@@ -23,7 +23,7 @@ import { useUndoBar } from "../useUndoBar";
 import { CardsBulkBar } from "./CardsBulkBar";
 import { CardsResults } from "./CardsResults";
 import { CardsToolbar } from "./CardsToolbar";
-import type { CardRowActions } from "./card-row-actions";
+import { buildDeleteConfirmBody, type CardRowActions } from "./card-row-actions";
 import { DeleteSelectionDialog } from "./DeleteSelectionDialog";
 import { useCardsBulk } from "./useCardsBulk";
 
@@ -46,6 +46,7 @@ export function CardsPage() {
     card: Card;
     nextType: CardTypeId;
   } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Card | null>(null);
 
   const today = todayISO();
   const rows = useMemo(
@@ -62,6 +63,17 @@ export function CardsPage() {
   const clearSelection = selection.clear;
   const onBulkDone = useCallback(() => clearSelection(), [clearSelection]);
   const bulk = useCardsBulk(selectedIds, today, undoBar, onBulkDone);
+
+  const deselectCard = selection.deselect;
+  const menuDeleteIds = useMemo(
+    () => (pendingDelete === null ? [] : [pendingDelete.id]),
+    [pendingDelete],
+  );
+  const onMenuDeleteDone = useCallback(() => {
+    if (pendingDelete !== null) deselectCard(pendingDelete.id);
+  }, [pendingDelete, deselectCard]);
+  const menuDelete = useCardsBulk(menuDeleteIds, today, undoBar, onMenuDeleteDone);
+
   const isDeckEmpty = cards.length === 0;
 
   const applyTypeChange = (card: Card, nextType: CardTypeId) =>
@@ -78,6 +90,7 @@ export function CardsPage() {
       card.hiddenAt === null ? hideCard(card.id) : updateCard(card.id, { hiddenAt: null }),
     onToggleSelect: selection.toggleOne,
     onOpen: (card) => navigate(`/cards/${card.id}`),
+    onRequestDelete: (card) => setPendingDelete(card),
   };
 
   const header = (
@@ -200,6 +213,19 @@ export function CardsPage() {
           setPendingTypeChange(null);
         }}
         onClose={() => setPendingTypeChange(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete card?"
+        body={pendingDelete === null ? "" : buildDeleteConfirmBody(pendingDelete)}
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => {
+          menuDelete.remove();
+          setPendingDelete(null);
+        }}
+        onClose={() => setPendingDelete(null)}
       />
 
       {undoBar.pending !== null && (

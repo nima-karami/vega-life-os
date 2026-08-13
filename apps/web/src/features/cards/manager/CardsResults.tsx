@@ -64,7 +64,8 @@ export function CardsResults({
     );
   }
 
-  if (view === "gallery") return <CardsGallery rows={rows} selectedIds={selection.selectedIds} />;
+  if (view === "gallery")
+    return <CardsGallery rows={rows} selectedIds={selection.selectedIds} actions={actions} />;
 
   return (
     <>
