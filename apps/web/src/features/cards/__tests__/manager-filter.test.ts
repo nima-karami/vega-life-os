@@ -3,6 +3,7 @@ import {
   type CardFilterState,
   countCheckedFilters,
   EMPTY_CARD_FILTER,
+  filterCategoryMatches,
   matchesCardFilter,
   toCategoryKey,
   toggleFilterValue,
@@ -91,5 +92,19 @@ describe("toggleFilterValue", () => {
 describe("toCategoryKey", () => {
   it("trims and lowercases", () => {
     expect(toCategoryKey("  Deep Work ")).toBe("deep work");
+  });
+});
+
+describe("filterCategoryMatches", () => {
+  it("returns everything for an empty query", () => {
+    expect(filterCategoryMatches(["Language", "Life"], "")).toEqual(["Language", "Life"]);
+  });
+
+  it("matches case-insensitively on a substring", () => {
+    expect(filterCategoryMatches(["Deep work", "Language"], "deep")).toEqual(["Deep work"]);
+  });
+
+  it("does not offer to create what already exists in another casing", () => {
+    expect(filterCategoryMatches(["Deep work"], "DEEP WORK")).toEqual(["Deep work"]);
   });
 });

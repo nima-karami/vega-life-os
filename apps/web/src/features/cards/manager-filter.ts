@@ -59,3 +59,9 @@ export function matchesCardFilter(card: Card, filter: CardFilterState, today: st
   }
   return true;
 }
+
+export function filterCategoryMatches(categories: readonly string[], query: string): string[] {
+  const key = toCategoryKey(query);
+  if (key === "") return [...categories];
+  return categories.filter((category) => toCategoryKey(category).includes(key));
+}
