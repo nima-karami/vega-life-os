@@ -80,3 +80,9 @@ export function queryCards(
     return (options.sort.direction === "asc" ? ordered : -ordered) || compareNewest(a, b);
   });
 }
+
+export function describeBulkLearning(applied: number, skipped: number): string {
+  if (applied === 0) return `${pluralize(skipped, "card")} skipped — nothing to recall yet`;
+  const head = `${pluralize(applied, "card")} in review`;
+  return skipped === 0 ? head : `${head} · ${skipped} skipped, nothing to recall`;
+}

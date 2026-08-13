@@ -16,6 +16,7 @@ import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persist
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
 import { loadShowGoogleEvents } from "@/features/calendar-sync/config";
 import { createCalendarEventsSlice } from "@/features/calendar-sync/store";
+import { createCardsBulkSlice } from "@/features/cards/bulk-store";
 import { createCardsSlice, resolveCardPrefs } from "@/features/cards/store";
 import { createFinanceSlice } from "@/features/finance/store";
 import { createGoalsSlice } from "@/features/goals/store";
@@ -118,6 +119,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createJournalSlice(set, get, api),
   ...createCalendarEventsSlice(set, get, api),
   ...createCardsSlice(set, get, api),
+  ...createCardsBulkSlice(set, get, api),
   ...createStreaksSlice(set, get, api),
   ...createFinanceSlice(set, get, api),
   ...createUiSlice(set, get, api),

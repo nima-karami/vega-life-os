@@ -3,6 +3,7 @@ import { EMPTY_CARD_FILTER } from "../manager-filter";
 import {
   computeCardStats,
   DEFAULT_CARD_SORT,
+  describeBulkLearning,
   describeCardLearning,
   describeCardStats,
   queryCards,
@@ -100,5 +101,19 @@ describe("describeCardLearning", () => {
   it("carries the box number inside the one label", () => {
     expect(describeCardLearning(buildCard({ box: 3 }))).toBe("Learning · box 3");
     expect(describeCardLearning(buildCard({ box: null }))).toBe("Not learning");
+  });
+});
+
+describe("describeBulkLearning", () => {
+  it("names the count that landed", () => {
+    expect(describeBulkLearning(3, 0)).toBe("3 cards in review");
+  });
+
+  it("names the skipped count and why", () => {
+    expect(describeBulkLearning(2, 1)).toBe("2 cards in review · 1 skipped, nothing to recall");
+  });
+
+  it("reads as a skip when nothing could be put in review", () => {
+    expect(describeBulkLearning(0, 2)).toBe("2 cards skipped — nothing to recall yet");
   });
 });
