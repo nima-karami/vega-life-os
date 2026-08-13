@@ -6,14 +6,15 @@ export type FeedStepName = "face" | "reveal" | "recall";
 
 const TOP_BOX = 5;
 
+/** Tapping cycles: a card always turns back to its face rather than dead-ending on the last step. */
 export function nextFeedStep(
   shape: "open" | "folded" | "graded",
   current: FeedStepName,
 ): FeedStepName | null {
   if (shape === "open") return null;
   if (current === "face") return "reveal";
-  if (current === "reveal" && shape === "graded") return "recall";
-  return null;
+  if (current === "reveal") return shape === "graded" ? "recall" : "face";
+  return "face";
 }
 
 // Deliberately not canPromote: the title clause is left out so an untitled card still

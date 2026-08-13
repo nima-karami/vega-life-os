@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
-import { Icon, IconField, Menu, SortableList } from "@/core/ui";
+import { CreateNameDialog, Icon, IconField, Menu, SortableList } from "@/core/ui";
 import { GoalEntityCard } from "@/features/goals/components/GoalEntityCard";
 import { getValueColor, VALUE_HUES } from "./color";
 import { DeleteValueDialog } from "./components/DeleteValueDialog";
@@ -47,6 +47,8 @@ function ValueDetail({ value }: { value: Value }) {
   const pushToast = useStore((s) => s.pushToast);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Naming it is the save — a stray tap must not leave a nameless goal or habit behind.
+  const [pendingCreate, setPendingCreate] = useState<"goal" | "habit" | null>(null);
 
   const valueGoals = goals.filter((g) => g.valueId === value.id).sort((a, b) => a.order - b.order);
   const valueHabits = habits.filter((h) => h.valueId === value.id);
@@ -137,19 +139,11 @@ function ValueDetail({ value }: { value: Value }) {
             renderItem={(g) => <GoalEntityCard goal={g} value={value} />}
           />
           <div className="mt-1">
-            <DetailAction
-              icon="plus"
-              label="Add goal"
-              onPress={() => navigate(`/goals/${addGoal({ valueId: value.id }).id}`)}
-            />
+            <DetailAction icon="plus" label="Add goal" onPress={() => setPendingCreate("goal")} />
           </div>
         </DetailSection>
 
-        <HabitSection
-          habits={valueHabits}
-          value={value}
-          onAdd={() => navigate(`/habits/${addHabit({ valueId: value.id }).id}`)}
-        />
+        <HabitSection habits={valueHabits} value={value} onAdd={() => setPendingCreate("habit")} />
       </div>
 
       <DetailFooter>
@@ -165,6 +159,23 @@ function ValueDetail({ value }: { value: Value }) {
           onPress={() => setConfirmDelete(true)}
         />
       </DetailFooter>
+
+      <CreateNameDialog
+        open={pendingCreate !== null}
+        title={pendingCreate === "habit" ? "New habit" : "New goal"}
+        label={pendingCreate === "habit" ? "Habit name" : "Goal name"}
+        placeholder={pendingCreate === "habit" ? "Read for 20 minutes" : "Run a half marathon"}
+        confirmLabel="Create"
+        onClose={() => setPendingCreate(null)}
+        onCreate={(name) => {
+          const created =
+            pendingCreate === "habit"
+              ? `/habits/${addHabit({ valueId: value.id, name }).id}`
+              : `/goals/${addGoal({ valueId: value.id, name }).id}`;
+          setPendingCreate(null);
+          navigate(created);
+        }}
+      />
 
       <DeleteValueDialog
         value={confirmDelete ? value : null}

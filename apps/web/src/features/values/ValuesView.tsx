@@ -10,7 +10,7 @@ import { useNavigate } from "react-router";
 import { useRegisterCommands } from "@/app/commands";
 import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
-import { AddButton, Disclosure, SortableList } from "@/core/ui";
+import { AddButton, CreateNameDialog, Disclosure, SortableList } from "@/core/ui";
 import { DeleteValueDialog } from "./components/DeleteValueDialog";
 import { ValueIndexCard } from "./components/ValueIndexCard";
 import type { Value } from "./model";
@@ -37,17 +37,31 @@ export function ValuesView() {
   const active = useMemo(() => getActiveValues(values), [values]);
   const archived = useMemo(() => getArchivedValues(values), [values]);
 
-  const createValue = useCallback(() => {
-    const value = addValue({});
-    navigate(`/values/${value.id}`);
-  }, [addValue, navigate]);
+  // Naming it is the save: a mis-tapped button must not leave a nameless row behind.
+  const [pendingCreate, setPendingCreate] = useState<{
+    kind: "value" | "goal";
+    valueId?: string;
+  } | null>(null);
+
+  const createValue = useCallback(() => setPendingCreate({ kind: "value" }), []);
 
   const createGoal = useCallback(
-    (valueId?: string) => {
-      const goal = addGoal(valueId ? { valueId } : {});
-      navigate(`/goals/${goal.id}`);
+    (valueId?: string) => setPendingCreate({ kind: "goal", valueId }),
+    [],
+  );
+
+  const commitCreate = useCallback(
+    (name: string) => {
+      if (pendingCreate === null) return;
+      if (pendingCreate.kind === "value") {
+        navigate(`/values/${addValue({ name }).id}`);
+      } else {
+        const patch = pendingCreate.valueId ? { valueId: pendingCreate.valueId, name } : { name };
+        navigate(`/goals/${addGoal(patch).id}`);
+      }
+      setPendingCreate(null);
     },
-    [addGoal, navigate],
+    [pendingCreate, addValue, addGoal, navigate],
   );
 
   useRegisterCommands([
@@ -178,6 +192,16 @@ export function ValuesView() {
           announce("Value deleted");
           addBtnRef.current?.focus();
         }}
+      />
+
+      <CreateNameDialog
+        open={pendingCreate !== null}
+        title={pendingCreate?.kind === "goal" ? "New goal" : "New value"}
+        label={pendingCreate?.kind === "goal" ? "Goal name" : "Value name"}
+        placeholder={pendingCreate?.kind === "goal" ? "Run a half marathon" : "Health"}
+        confirmLabel="Create"
+        onCreate={commitCreate}
+        onClose={() => setPendingCreate(null)}
       />
     </div>
   );

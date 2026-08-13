@@ -7,7 +7,7 @@ import { FeedFirstRunHint } from "./FeedFirstRunHint";
 import { FeedHeaderControl } from "./FeedHeaderControl";
 import { FeedRecallStep } from "./FeedRecallStep";
 import { CardFace } from "./face/CardFace";
-import { TURN_MS, TurnLayer } from "./face/CardTurn";
+import { CardFlip, DissolveLayer } from "./face/CardFlip";
 import { composeFace } from "./face/compose";
 import { FULL_BLEED_PADDING } from "./face/face-metrics";
 import type { FeedHeaderGlyph } from "./feed-pool";
@@ -87,11 +87,10 @@ export function FeedCardView({
         ref={stageRef}
         data-feed-step={step}
         className={cx(
-          "relative h-full w-full overflow-hidden transition-colors ease-out motion-reduce:transition-none",
-          step === "face" ? "bg-background" : "bg-surface-secondary",
+          "relative h-full w-full overflow-hidden",
           shape !== "open" && "cursor-pointer",
         )}
-        style={{ transitionDuration: `${TURN_MS}ms`, touchAction: "pan-y" }}
+        style={{ touchAction: "pan-y" }}
         drag={canGrade ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={shouldReduceMotion ? 0 : 0.6}
@@ -99,25 +98,26 @@ export function FeedCardView({
         onDragEnd={handleDragEnd}
         onClick={onAdvance}
       >
-        <TurnLayer shown={step === "face"}>
-          <CardFace spec={face} scale={1} fullBleed omitHeader />
-        </TurnLayer>
-        {reveal !== null && (
-          <TurnLayer shown={step === "reveal"}>
-            <CardFace spec={reveal} scale={1} fullBleed omitHeader />
-          </TurnLayer>
-        )}
-        {shape === "graded" && (
-          <TurnLayer shown={step === "recall"}>
-            <FeedRecallStep
-              card={card}
-              typeLabel={face.typeLabel}
-              category={face.category}
-              today={today}
-              onGrade={onGrade}
-            />
-          </TurnLayer>
-        )}
+        <CardFlip
+          surfaceClass="bg-background"
+          reduceMotion={shouldReduceMotion === true}
+          turned={step !== "face"}
+          front={<CardFace spec={face} scale={1} fullBleed omitHeader />}
+          back={reveal === null ? null : <CardFace spec={reveal} scale={1} fullBleed omitHeader />}
+          overlay={
+            shape === "graded" ? (
+              <DissolveLayer shown={step === "recall"}>
+                <FeedRecallStep
+                  card={card}
+                  typeLabel={face.typeLabel}
+                  category={face.category}
+                  today={today}
+                  onGrade={onGrade}
+                />
+              </DissolveLayer>
+            ) : null
+          }
+        />
       </motion.div>
 
       <div

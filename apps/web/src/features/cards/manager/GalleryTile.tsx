@@ -1,21 +1,27 @@
 import { type Card, hasReveal } from "@vega/shared";
+import { useReducedMotion } from "framer-motion";
 import { useState } from "react";
 import { cx } from "@/core/ui";
 import { CardFace } from "../face/CardFace";
-import { composeFace, type FaceSide } from "../face/compose";
+import { CardFlip } from "../face/CardFlip";
+import { composeFace } from "../face/compose";
 import { GALLERY_SCALE } from "./CardsGallery";
 
 export function GalleryTile({ card, isSelected }: { card: Card; isSelected: boolean }) {
-  const [side, setSide] = useState<FaceSide>("face");
+  const [isTurned, setIsTurned] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
   const canTurn = hasReveal(card);
   const shell = cx(
-    "relative aspect-[390/600] overflow-hidden rounded-[13px] border bg-surface shadow-soft",
+    "relative aspect-[390/600] overflow-hidden rounded-[13px] border shadow-soft",
     isSelected ? "border-accent" : "border-border",
   );
   const face = (
-    <span className="absolute inset-0 block">
-      <CardFace spec={composeFace(card, side)} scale={GALLERY_SCALE} />
-    </span>
+    <CardFlip
+      turned={isTurned}
+      reduceMotion={shouldReduceMotion === true}
+      front={<CardFace spec={composeFace(card, "face")} scale={GALLERY_SCALE} />}
+      back={canTurn ? <CardFace spec={composeFace(card, "reveal")} scale={GALLERY_SCALE} /> : null}
+    />
   );
 
   if (!canTurn) {
@@ -30,8 +36,8 @@ export function GalleryTile({ card, isSelected }: { card: Card; isSelected: bool
     <button
       type="button"
       className={cx(shell, "outline-none focus-visible:ring-2 focus-visible:ring-accent")}
-      aria-label={`${card.title} — ${side === "face" ? "face" : "reveal"}`}
-      onClick={() => setSide((current) => (current === "face" ? "reveal" : "face"))}
+      aria-label={`${card.title} — ${isTurned ? "reveal" : "face"}`}
+      onClick={() => setIsTurned((current) => !current)}
     >
       {face}
     </button>

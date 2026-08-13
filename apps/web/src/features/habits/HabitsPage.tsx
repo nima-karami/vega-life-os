@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useRegisterCommands } from "@/app/commands";
 import { useStore } from "@/core/store";
-import { AddButton, Disclosure } from "@/core/ui";
+import { AddButton, CreateNameDialog, Disclosure } from "@/core/ui";
 import { getValueCardFill } from "@/features/values/color";
 import { HabitEntityCard } from "./HabitEntityCard";
 import { type Habit, habitLifecycle } from "./model";
@@ -40,9 +40,16 @@ export function HabitsPage() {
   );
   const archivedList = useMemo(() => sortArchived(archived), [archived]);
 
-  const createHabit = useCallback(() => {
-    navigate(`/habits/${addHabit().id}`);
-  }, [addHabit, navigate]);
+  // Naming it is the save: a mis-tapped button must not leave a nameless habit behind.
+  const [isCreating, setIsCreating] = useState(false);
+  const createHabit = useCallback(() => setIsCreating(true), []);
+  const commitHabit = useCallback(
+    (name: string) => {
+      setIsCreating(false);
+      navigate(`/habits/${addHabit({ name }).id}`);
+    },
+    [addHabit, navigate],
+  );
 
   const renderCard = useCallback(
     (habit: Habit) => (
@@ -66,8 +73,8 @@ export function HabitsPage() {
           label: "New habit",
           icon: "repeat" as const,
           keywords: "new habit create recurring routine",
-          run: ({ navigate: go, store, close }) => {
-            go(`/habits/${store.getState().addHabit().id}`);
+          run: ({ close }) => {
+            setIsCreating(true);
             close();
           },
         },
@@ -120,6 +127,16 @@ export function HabitsPage() {
           <ul className="flex flex-col gap-3">{archivedList.map(renderCard)}</ul>
         </Disclosure>
       </div>
+
+      <CreateNameDialog
+        open={isCreating}
+        title="New habit"
+        label="Habit name"
+        placeholder="Read for 20 minutes"
+        confirmLabel="Create"
+        onCreate={commitHabit}
+        onClose={() => setIsCreating(false)}
+      />
     </div>
   );
 }

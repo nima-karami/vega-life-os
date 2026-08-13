@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, cx, Icon, IconField, SegmentButton, Select } from "@/core/ui";
+import {
+  ConfirmDialog,
+  CreateNameDialog,
+  cx,
+  Icon,
+  IconField,
+  SegmentButton,
+  Select,
+} from "@/core/ui";
 import { getValueColor } from "@/features/values/color";
 import { TitleField } from "@/features/values/components/DetailFields";
 import {
@@ -52,6 +60,8 @@ function GoalDetail({ goal }: { goal: Goal }) {
   const pushToast = useStore((s) => s.pushToast);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Naming it is the save — a stray tap must not leave a nameless habit behind.
+  const [isCreatingHabit, setIsCreatingHabit] = useState(false);
 
   const value = values.find((v) => v.id === goal.valueId);
   const goalHabits = habits.filter((h) => h.goalId === goal.id);
@@ -140,13 +150,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
 
         <GoalTimeframeField goal={goal} />
 
-        <HabitSection
-          habits={goalHabits}
-          value={value}
-          onAdd={() =>
-            navigate(`/habits/${addHabit({ valueId: goal.valueId, goalId: goal.id }).id}`)
-          }
-        />
+        <HabitSection habits={goalHabits} value={value} onAdd={() => setIsCreatingHabit(true)} />
 
         {!isGoalProgressDerived(goal) && (
           <FractionSlider
@@ -167,6 +171,19 @@ function GoalDetail({ goal }: { goal: Goal }) {
           onPress={() => setConfirmDelete(true)}
         />
       </DetailFooter>
+
+      <CreateNameDialog
+        open={isCreatingHabit}
+        title="New habit"
+        label="Habit name"
+        placeholder="Read for 20 minutes"
+        confirmLabel="Create"
+        onClose={() => setIsCreatingHabit(false)}
+        onCreate={(name) => {
+          setIsCreatingHabit(false);
+          navigate(`/habits/${addHabit({ valueId: goal.valueId, goalId: goal.id, name }).id}`);
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDelete}

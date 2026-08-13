@@ -1,40 +1,36 @@
 import { type Card, hasReveal } from "@vega/shared";
+import { useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { cx } from "@/core/ui";
 import { CardFace } from "./CardFace";
-import { TURN_MS } from "./CardTurn";
-import { composeFace, type FaceSide } from "./compose";
+import { CardFlip } from "./CardFlip";
+import { composeFace } from "./compose";
 
-/** Two pinned layers cross-fading with a blur — the drawn turn is never a flip. */
+/** Clicking turns the card over and back — the same gesture and the same motion as the feed. */
 export function TurnableCard({ card, scale }: { card: Card; scale: number }) {
-  const [side, setSide] = useState<FaceSide>("face");
+  const [isTurned, setIsTurned] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
   const canTurn = hasReveal(card);
 
   useEffect(() => {
-    if (!canTurn) setSide("face");
+    if (!canTurn) setIsTurned(false);
   }, [canTurn]);
 
-  const body = (["face", "reveal"] as const).map((layer) => (
-    <span
-      key={layer}
-      aria-hidden={layer !== side}
-      className={cx(
-        "absolute inset-0 block transition-[opacity,filter] motion-reduce:transition-none",
-        layer === "reveal" ? "bg-surface-secondary" : "bg-surface",
-        layer === side ? "opacity-100 blur-0" : "pointer-events-none opacity-0 blur-[3px]",
-      )}
-      style={{ transitionDuration: `${TURN_MS}ms` }}
-    >
-      <CardFace spec={composeFace(card, layer)} scale={scale} />
-    </span>
-  ));
+  const body = (
+    <CardFlip
+      turned={isTurned}
+      reduceMotion={shouldReduceMotion === true}
+      front={<CardFace spec={composeFace(card, "face")} scale={scale} />}
+      back={canTurn ? <CardFace spec={composeFace(card, "reveal")} scale={scale} /> : null}
+    />
+  );
 
-  if (!canTurn) return <span className="absolute inset-0 block bg-surface">{body}</span>;
+  if (!canTurn) return <span className="absolute inset-0 block">{body}</span>;
+
   return (
     <button
       type="button"
-      aria-label={side === "face" ? "Card, showing the front" : "Card, showing the reveal"}
-      onClick={() => setSide(side === "face" ? "reveal" : "face")}
+      aria-label={isTurned ? "Card, showing the reveal" : "Card, showing the front"}
+      onClick={() => setIsTurned((current) => !current)}
       className="absolute inset-0 block text-left"
     >
       {body}

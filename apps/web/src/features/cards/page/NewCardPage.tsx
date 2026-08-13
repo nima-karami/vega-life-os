@@ -1,3 +1,4 @@
+import { Button } from "@heroui/react";
 import type { CardTypeId, SlotId } from "@vega/shared";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -17,6 +18,11 @@ import {
 } from "./card-draft";
 import { LiveCardPane } from "./LiveCardPane";
 
+/**
+ * A draft is held in memory until Save. Writing on the first valid keystroke meant a
+ * mis-tapped "New card" left a real row behind, which is not a thing a user can undo by
+ * changing their mind.
+ */
 export function NewCardPage() {
   const cards = useStore((s) => s.cards);
   const addCard = useStore((s) => s.addCard);
@@ -29,30 +35,35 @@ export function NewCardPage() {
     return { ...changeDraftType(empty, prefill.type), title: prefill.title };
   });
   const categories = useMemo(() => listCardCategories(cards), [cards]);
+  const canSave = isDraftComplete(draft);
 
-  // Nothing is persisted until the type's required slots are satisfied; then the
-  // route replaces to the written card and every later edit goes through updateCard.
-  const advance = (next: CardDraft) => {
-    if (!isDraftComplete(next)) {
-      setDraft(next);
-      return;
-    }
-    const created = addCard(toCardCreate(next));
+  const handleSave = () => {
+    if (!canSave) return;
+    const created = addCard(toCardCreate(draft));
     navigate(`/cards/${created.id}`, { replace: true });
   };
 
   return (
     <CardPageFrame
       previewTo={null}
-      footer={null}
       aside={<LiveCardPane card={toPreviewCard(draft)} />}
+      footer={
+        <footer className="mt-3 flex items-center justify-end gap-2 border-border border-t pt-3.5 sm:mt-9 sm:pt-5">
+          <Button size="sm" variant="ghost" onPress={() => navigate("/cards")}>
+            Cancel
+          </Button>
+          <Button size="sm" variant="primary" isDisabled={!canSave} onPress={handleSave}>
+            Save card
+          </Button>
+        </footer>
+      }
     >
       <CardFieldStack
         values={draft}
         categories={categories}
         review={null}
         onTypeChange={(next: CardTypeId) => setDraft(changeDraftType(draft, next))}
-        onSlotChange={(slot: SlotId, value) => advance(setDraftSlot(draft, slot, value))}
+        onSlotChange={(slot: SlotId, value) => setDraft(setDraftSlot(draft, slot, value))}
         onCategoryChange={(category) => setDraft({ ...draft, category })}
       />
     </CardPageFrame>

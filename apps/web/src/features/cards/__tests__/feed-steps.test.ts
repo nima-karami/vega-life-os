@@ -14,15 +14,15 @@ describe("nextFeedStep", () => {
     expect(nextFeedStep("open", "face")).toBeNull();
   });
 
-  it("takes a folded card to the reveal and ends there", () => {
+  it("cycles a folded card between its face and its reveal", () => {
     expect(nextFeedStep("folded", "face")).toBe("reveal");
-    expect(nextFeedStep("folded", "reveal")).toBeNull();
+    expect(nextFeedStep("folded", "reveal")).toBe("face");
   });
 
-  it("takes a graded card face, reveal, recall, and stops", () => {
+  it("cycles a graded card face, reveal, recall, and back to the face", () => {
     expect(nextFeedStep("graded", "face")).toBe("reveal");
     expect(nextFeedStep("graded", "reveal")).toBe("recall");
-    expect(nextFeedStep("graded", "recall")).toBeNull();
+    expect(nextFeedStep("graded", "recall")).toBe("face");
   });
 });
 
