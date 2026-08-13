@@ -86,3 +86,6 @@ export function describeBulkLearning(applied: number, skipped: number): string {
   const head = `${pluralize(applied, "card")} in review`;
   return skipped === 0 ? head : `${head} · ${skipped} skipped, nothing to recall`;
 }
+
+export const describeFilterFooter = (visible: number, total: number): string =>
+  `${visible} of ${pluralize(total, "card")}`;

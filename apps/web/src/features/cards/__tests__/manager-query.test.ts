@@ -6,6 +6,7 @@ import {
   describeBulkLearning,
   describeCardLearning,
   describeCardStats,
+  describeFilterFooter,
   queryCards,
 } from "../manager-query";
 import { buildCard } from "./fixtures";
@@ -115,5 +116,15 @@ describe("describeBulkLearning", () => {
 
   it("reads as a skip when nothing could be put in review", () => {
     expect(describeBulkLearning(0, 2)).toBe("2 cards skipped — nothing to recall yet");
+  });
+});
+
+describe("describeFilterFooter", () => {
+  it("states the visible count against the total", () => {
+    expect(describeFilterFooter(2, 48)).toBe("2 of 48 cards");
+  });
+
+  it("agrees in the singular", () => {
+    expect(describeFilterFooter(1, 1)).toBe("1 of 1 card");
   });
 });
