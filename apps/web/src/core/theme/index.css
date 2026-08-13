@@ -146,6 +146,25 @@
     color: var(--color-accent-foreground);
   }
 
+  /* Preflight sets `cursor: default` on <button>; hand-rolled interactive
+     elements need it back. The utilities layer is declared after base (see
+     @heroui/styles' `@layer theme, base, components, utilities;`), so an
+     explicit cursor-* utility still wins over this without !important. */
+  button:not(:disabled):not([aria-disabled="true"]):not([data-disabled]),
+  [role="button"]:not(:disabled):not([aria-disabled="true"]):not([data-disabled]),
+  [role="menuitem"]:not(:disabled):not([aria-disabled="true"]):not([data-disabled]),
+  [role="option"]:not(:disabled):not([aria-disabled="true"]):not([data-disabled]),
+  summary:not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+    cursor: pointer;
+  }
+
+  /* Set on document.body for the duration of a column-resize drag, so the
+     cursor reads col-resize even once the pointer outruns the 9px handle. */
+  body.is-resizing-column {
+    cursor: col-resize;
+    user-select: none;
+  }
+
   /* Focus ring — indigo, passes forced-colors */
   :focus-visible {
     outline: 2px solid var(--color-accent);

@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { ColumnWidths, ResizableColumn } from "./column-widths";
 
 const KEYBOARD_STEP_PX = 16;
+const RESIZING_BODY_CLASS = "is-resizing-column";
 
 /**
  * The divider is the handle. It captures the pointer so a drag keeps tracking when it
@@ -18,6 +19,10 @@ export function ColumnResizer({
 }) {
   const originRef = useRef<{ x: number; width: number } | null>(null);
 
+  useEffect(() => {
+    return () => document.body.classList.remove(RESIZING_BODY_CLASS);
+  }, []);
+
   return (
     <button
       type="button"
@@ -28,6 +33,7 @@ export function ColumnResizer({
         event.stopPropagation();
         originRef.current = { x: event.clientX, width: widths[column] };
         event.currentTarget.setPointerCapture(event.pointerId);
+        document.body.classList.add(RESIZING_BODY_CLASS);
       }}
       onPointerMove={(event) => {
         const origin = originRef.current;
@@ -37,9 +43,11 @@ export function ColumnResizer({
       onPointerUp={(event) => {
         originRef.current = null;
         event.currentTarget.releasePointerCapture(event.pointerId);
+        document.body.classList.remove(RESIZING_BODY_CLASS);
       }}
       onPointerCancel={() => {
         originRef.current = null;
+        document.body.classList.remove(RESIZING_BODY_CLASS);
       }}
       onKeyDown={(event) => {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
