@@ -771,8 +771,14 @@ test("habits: Add creates the habit and opens its page", async ({ page }) => {
   const before = await cards.count();
 
   await page.getByRole("button", { name: "Add habit" }).click();
-  await expect(page.getByRole("textbox", { name: "Habit name" })).toBeVisible({ timeout: 15_000 });
-  expect(page.url()).toMatch(/\/habits\/[^/]+$/);
+  const name = page.getByRole("textbox", { name: "Habit name" });
+  await expect(name).toBeVisible({ timeout: 15_000 });
+  expect(page.url(), "nothing is written until it is named").toMatch(/\/habits$/);
+  expect(await cards.count()).toBe(before);
+
+  await name.fill("E2E habit");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/habits\/[^/]+$/);
 
   await page.getByRole("link", { name: "Habits", exact: true }).click();
   await expect(cards).toHaveCount(before + 1);
@@ -787,8 +793,14 @@ test("values: Add creates the value and opens its page", async ({ page }) => {
   const before = await cards.count();
 
   await page.getByRole("button", { name: "Add value" }).click();
-  await expect(page.getByRole("textbox", { name: "Value name" })).toBeVisible({ timeout: 15_000 });
-  expect(page.url()).toMatch(/\/values\/[^/]+$/);
+  const name = page.getByRole("textbox", { name: "Value name" });
+  await expect(name).toBeVisible({ timeout: 15_000 });
+  expect(page.url(), "nothing is written until it is named").toMatch(/\/values$/);
+  expect(await cards.count()).toBe(before);
+
+  await name.fill("E2E value");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/values\/[^/]+$/);
 
   await page.getByRole("link", { name: "Values", exact: true }).click();
   await expect(cards).toHaveCount(before + 1);
@@ -804,7 +816,11 @@ test("goal steps: inline rename", async ({ page }) => {
 
   // Create a fresh goal — opens the goal page on an empty step list.
   await page.getByRole("button", { name: "Add goal" }).first().click();
-  await expect(page.getByRole("textbox", { name: "Goal name" })).toBeVisible({ timeout: 15_000 });
+  const goalName = page.getByRole("textbox", { name: "Goal name" });
+  await expect(goalName).toBeVisible({ timeout: 15_000 });
+  await goalName.fill("E2E goal");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/goals\/[^/]+$/);
 
   // Add three steps.
   const stepInput = page.getByRole("textbox", { name: "Add a step" });
@@ -866,6 +882,8 @@ test("habit page: the Anytime toggle makes the habit untimed", async ({ page }) 
   const name = page.getByRole("textbox", { name: "Habit name" });
   await expect(name).toBeVisible({ timeout: 15_000 });
   await name.fill("Stretch");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/habits\/[^/]+$/);
 
   // Switch to Anytime — the time picker disappears.
   await page.getByRole("button", { name: "Anytime", exact: true }).click();

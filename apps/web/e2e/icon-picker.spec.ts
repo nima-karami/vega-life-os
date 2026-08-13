@@ -31,9 +31,13 @@ test.beforeEach(async ({ page }) => {
   await passGratitudeGate(page);
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(main).toBeVisible({ timeout: 15_000 });
-  // Add creates the habit and routes to its page, where the icon field lives.
+  // Add asks for a name first; creating routes to the habit page, where the icon field lives.
   await page.getByRole("button", { name: "Add habit" }).click();
-  await expect(page.getByRole("textbox", { name: "Habit name" })).toBeVisible({ timeout: 15_000 });
+  const habitName = page.getByRole("textbox", { name: "Habit name" });
+  await expect(habitName).toBeVisible({ timeout: 15_000 });
+  await habitName.fill("Icon picker habit");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/habits\/[^/]+$/);
 });
 
 const iconTrigger = (page: import("@playwright/test").Page) =>

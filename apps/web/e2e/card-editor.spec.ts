@@ -8,10 +8,17 @@ test("a new card is written only once its required slots are filled", async ({ p
   await page.getByRole("button", { name: "New card" }).click();
   await expect(page).toHaveURL(/\/cards\/new$/);
 
+  const save = page.getByRole("button", { name: "Save card" });
+  await expect(save, "an empty draft cannot be saved").toBeDisabled();
+
   await page.getByRole("textbox", { name: "Title" }).fill("Second-order thinking");
-  await expect(page, "a title alone does not write the card").toHaveURL(/\/cards\/new$/);
+  await expect(save, "a title alone is not a complete card").toBeDisabled();
 
   await page.getByRole("textbox", { name: "Body" }).fill("Ask: and then what?");
+  await expect(save).toBeEnabled();
+  await expect(page, "filling the fields writes nothing on its own").toHaveURL(/\/cards\/new$/);
+
+  await save.click();
   await expect(page).toHaveURL(/\/cards\/[^/]+$/);
   await expect(page).not.toHaveURL(/\/cards\/new$/);
 });
