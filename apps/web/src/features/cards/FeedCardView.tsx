@@ -139,12 +139,20 @@ export function FeedCardView({
         {showsHint && <FeedFirstRunHint onDismiss={onDismissHint} />}
       </div>
 
-      <FeedActionRail
-        card={card}
-        onToggleLike={onToggleLike}
-        onToggleLearning={onToggleLearning}
-        onOpenSheet={onOpenSheet}
-      />
+      {/* The recall question owns the card while it is up; the rail would sit on its rows. */}
+      <div
+        className={cx(
+          "transition-opacity duration-200 motion-reduce:transition-none",
+          step === "recall" && "pointer-events-none opacity-0",
+        )}
+      >
+        <FeedActionRail
+          card={card}
+          onToggleLike={onToggleLike}
+          onToggleLearning={onToggleLearning}
+          onOpenSheet={onOpenSheet}
+        />
+      </div>
     </article>
   );
 }
