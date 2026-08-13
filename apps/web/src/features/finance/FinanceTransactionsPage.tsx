@@ -194,6 +194,7 @@ export function FinanceTransactionsPage() {
             <SortHeader
               columns={SORT_COLUMNS}
               sort={sort}
+              buttonClassName="font-medium"
               onSort={(column) =>
                 setSort((current) => toggleColumnSort(current, column, DESC_FIRST_COLUMNS))
               }

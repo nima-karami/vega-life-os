@@ -72,3 +72,16 @@ describe("icon catalog drift guard", () => {
     }
   });
 });
+
+describe("chrome vocabulary", () => {
+  it("carries the cards manager's view-toggle glyphs", () => {
+    expect(CHROME_ICON_NAMES).toContain("rows");
+    expect(CHROME_ICON_NAMES).toContain("grid");
+  });
+
+  it("maps every chrome name to a glyph", () => {
+    for (const name of CHROME_ICON_NAMES) {
+      expect(Ic[name], `no glyph mapped for chrome "${name}"`).toBeDefined();
+    }
+  });
+});

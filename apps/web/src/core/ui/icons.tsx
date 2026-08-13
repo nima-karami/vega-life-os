@@ -99,6 +99,7 @@ import {
   Languages,
   Laptop,
   Layers,
+  LayoutGrid,
   Leaf,
   Library,
   Lightbulb,
@@ -147,6 +148,7 @@ import {
   RefreshCw,
   Repeat,
   Rocket,
+  Rows3,
   Rss,
   Salad,
   Scale,
@@ -237,6 +239,8 @@ export const Ic: Record<IconName, LucideIcon> = {
   pause: Pause,
   play: Play,
   layers: Layers,
+  rows: Rows3,
+  grid: LayoutGrid,
   scroll: GalleryVertical,
 
   // Focus & goals

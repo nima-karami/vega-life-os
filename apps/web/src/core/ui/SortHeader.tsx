@@ -1,3 +1,4 @@
+import { cx } from "./cx";
 import { Icon } from "./icons";
 
 export interface ColumnSort<Column extends string> {
@@ -19,10 +20,12 @@ export function SortHeader<Column extends string>({
   columns,
   sort,
   onSort,
+  buttonClassName,
 }: {
   columns: readonly { column: Column; label: string }[];
   sort: ColumnSort<Column>;
   onSort: (column: Column) => void;
+  buttonClassName?: string;
 }) {
   return (
     <>
@@ -32,7 +35,10 @@ export function SortHeader<Column extends string>({
           type="button"
           onClick={() => onSort(column)}
           aria-pressed={sort.column === column}
-          className="flex items-center gap-1 justify-self-start text-xs font-medium text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+          className={cx(
+            "flex items-center gap-1 justify-self-start text-muted text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent",
+            buttonClassName,
+          )}
         >
           {label}
           {sort.column === column && (
