@@ -48,12 +48,12 @@ export const buildCardMenuItems = (
     {
       label: isLearning ? "Stop learning" : "Start learning",
       icon: "book",
-      disabled: !isLearnable(card),
+      disabled: !isLearning && !isLearnable(card),
       onSelect: () => actions.onPatch(card.id, buildLearningPatch(!isLearning)),
     },
     {
       label: isHidden ? "Restore" : "Hide",
-      icon: isHidden ? "eye-off" : "eye",
+      icon: isHidden ? "eye" : "eye-off",
       onSelect: () => actions.onToggleHidden(card),
     },
     {

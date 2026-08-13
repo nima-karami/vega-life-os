@@ -82,7 +82,7 @@ describe("buildCardMenuItems", () => {
       "arrow-right",
       "check",
       "book",
-      "eye",
+      "eye-off",
       "trash",
     ]);
     expect(items.at(-1)?.danger).toBe(true);
@@ -98,7 +98,7 @@ describe("buildCardMenuItems", () => {
     const items = buildCardMenuItems(card, buildActions(), { isSelected: false });
     expect(items[2]?.label).toBe("Stop learning");
     expect(items[3]?.label).toBe("Restore");
-    expect(items[3]?.icon).toBe("eye-off");
+    expect(items[3]?.icon).toBe("eye");
   });
 
   it("disables Start learning exactly when the card isn't learnable", () => {
