@@ -1,7 +1,6 @@
-import { Checkbox } from "@heroui/react";
 import { CARD_TYPES, type Card } from "@vega/shared";
 import { formatShortDate } from "@/core/lib/date";
-import { cx, Icon } from "@/core/ui";
+import { CheckField, cx, Icon } from "@/core/ui";
 import { CategoryCombobox } from "../CategoryCombobox";
 import { describeCardLearning } from "../manager-query";
 import { AttributeChip } from "./AttributeChip";
@@ -11,17 +10,19 @@ import {
   buildTypeOptions,
   type CardRowActions,
 } from "./card-row-actions";
-import { CARDS_GRID, CELL_CLASS, CENTER_CELL_CLASS } from "./cell-styles";
+import { CELL_CLASS, CENTER_CELL_CLASS } from "./cell-styles";
 import { FixedListPicker } from "./FixedListPicker";
 
 export function CardsTableRow({
   card,
+  template,
   categories,
   isSelected,
   isFirst,
   actions,
 }: {
   card: Card;
+  template: string;
   categories: string[];
   isSelected: boolean;
   isFirst: boolean;
@@ -32,28 +33,20 @@ export function CardsTableRow({
   return (
     <div
       data-card-row={card.id}
+      style={{ gridTemplateColumns: template }}
       className={cx(
         "grid h-11",
-        CARDS_GRID,
         !isFirst && "border-border border-t",
         isSelected && "bg-accent/[0.06]",
         isHidden && "opacity-50",
       )}
     >
       <span className={CENTER_CELL_CLASS}>
-        <Checkbox
+        <CheckField
           isSelected={isSelected}
           onChange={() => actions.onToggleSelect(card.id)}
-          aria-label={`Select ${card.title}`}
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator>
-                <Icon name="check" size={12} />
-              </Checkbox.Indicator>
-            </Checkbox.Control>
-          </Checkbox.Content>
-        </Checkbox>
+          label={`Select ${card.title}`}
+        />
       </span>
 
       <span className={CELL_CLASS}>

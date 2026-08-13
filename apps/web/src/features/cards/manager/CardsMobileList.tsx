@@ -1,7 +1,6 @@
-import { Checkbox } from "@heroui/react";
 import { CARD_TYPES, type Card } from "@vega/shared";
 import { formatShortDate } from "@/core/lib/date";
-import { cx, Icon } from "@/core/ui";
+import { CheckField, cx, Icon } from "@/core/ui";
 import { CategoryCombobox } from "../CategoryCombobox";
 import { describeCardLearning } from "../manager-query";
 import { useLongPress } from "../useLongPress";
@@ -45,19 +44,11 @@ function MobileRow({
       {...handlers}
     >
       <span className="grid h-11 w-11 shrink-0 place-items-center">
-        <Checkbox
+        <CheckField
           isSelected={isSelected}
           onChange={() => actions.onToggleSelect(card.id)}
-          aria-label={`Select ${card.title}`}
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator>
-                <Icon name="check" size={12} />
-              </Checkbox.Indicator>
-            </Checkbox.Control>
-          </Checkbox.Content>
-        </Checkbox>
+          label={`Select ${card.title}`}
+        />
       </span>
 
       <span className="flex min-w-0 flex-1 flex-col">

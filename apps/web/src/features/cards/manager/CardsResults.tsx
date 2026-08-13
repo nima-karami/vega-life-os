@@ -7,6 +7,7 @@ import { CardsMobileList } from "./CardsMobileList";
 import { CardsTable } from "./CardsTable";
 import { CardsTableSkeleton } from "./CardsTableSkeleton";
 import type { CardRowActions } from "./card-row-actions";
+import { useColumnWidths } from "./column-widths";
 
 export interface CardsResultsProps {
   rows: Card[];
@@ -36,6 +37,7 @@ export function CardsResults({
   onNewCard,
   onClearFilters,
 }: CardsResultsProps) {
+  const { widths, resize } = useColumnWidths();
   if (!isReady) return <CardsTableSkeleton />;
 
   if (isDeckEmpty) {
@@ -73,6 +75,8 @@ export function CardsResults({
           selectedIds={selection.selectedIds}
           isAllVisibleSelected={selection.isAllVisibleSelected}
           sort={sort}
+          widths={widths}
+          onResize={resize}
           onSort={(column: CardSortColumn) =>
             onSortChange((current) => toggleColumnSort(current, column, ["addedAt"]))
           }

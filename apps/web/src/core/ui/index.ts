@@ -1,4 +1,5 @@
 export { AddButton } from "./AddButton";
+export { CheckField } from "./CheckField";
 export { CreateNameDialog } from "./CreateNameDialog";
 export { DotMeter, Gauge, ProgressBar, Radar, Sparkline } from "./charts";
 export { ConfirmDialog } from "./confirm";
