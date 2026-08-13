@@ -5,8 +5,8 @@ import { ContextMenu, cx } from "@/core/ui";
 import { CardFace } from "../face/CardFace";
 import { CardFlip } from "../face/CardFlip";
 import { composeFace } from "../face/compose";
-import { buildCardMenuItems, type CardRowActions } from "./card-row-actions";
 import { GALLERY_SCALE } from "./CardsGallery";
+import { buildCardMenuItems, type CardRowActions } from "./card-row-actions";
 
 /** The container holds the tile's place in the grid; the card inside it is what turns. */
 const SLOT = "relative aspect-[390/600]";

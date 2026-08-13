@@ -4,8 +4,8 @@ import {
   buildCardMenuItems,
   buildDeleteConfirmBody,
   buildLearningOptions,
-  type CardRowActions,
   buildTypeOptions,
+  type CardRowActions,
 } from "../manager/card-row-actions";
 import { buildCard } from "./fixtures";
 
