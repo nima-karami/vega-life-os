@@ -24,22 +24,22 @@ export function Toast() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 20, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className={`safe-mb fixed bottom-5 left-1/2 z-50 -translate-x-1/2 ${
+          className={`safe-mb fixed inset-x-4 bottom-5 z-50 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 ${
             toast.action ? "pointer-events-auto" : "pointer-events-none"
           }`}
         >
           <div
             role="status"
             aria-live="polite"
-            className="flex items-center gap-3 rounded-[12px] border border-border bg-surface px-4 py-2.5 text-sm text-foreground shadow-md"
+            className="flex w-full items-center gap-3 rounded-[12px] border border-border bg-surface px-4 py-2.5 text-sm text-foreground shadow-md sm:w-auto"
           >
             {toast.icon && <toast.icon className="size-4 shrink-0 text-muted" />}
-            <span>{toast.message}</span>
+            <span className="flex-1">{toast.message}</span>
             {toast.action && (
               <button
                 type="button"
                 onClick={toast.action.onClick}
-                className="font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-2"
+                className="shrink-0 font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-2"
               >
                 {toast.action.label}
               </button>
@@ -49,7 +49,7 @@ export function Toast() {
                 type="button"
                 aria-label="Dismiss"
                 onClick={dismissToast}
-                className="text-muted hover:text-foreground"
+                className="shrink-0 text-muted hover:text-foreground"
               >
                 <X className="size-4" />
               </button>

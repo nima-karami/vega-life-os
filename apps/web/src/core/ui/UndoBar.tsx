@@ -18,18 +18,18 @@ export function UndoBar({
       <Card
         role="status"
         className={cx(
-          "pointer-events-auto rounded-[12px] border",
+          "w-full pointer-events-auto rounded-[12px] border sm:w-auto",
           isInk ? "border-transparent bg-foreground" : "border-border bg-surface",
         )}
       >
         <Card.Content className="flex flex-row items-center gap-3 px-4 py-2.5">
-          <span className={cx("text-sm", isInk ? "text-background" : "text-foreground")}>
+          <span className={cx("flex-1 text-sm", isInk ? "text-background" : "text-foreground")}>
             {message}
           </span>
           <Button
             size="sm"
             variant="ghost"
-            className={isInk ? "text-background" : undefined}
+            className={cx("shrink-0", isInk ? "text-background" : undefined)}
             onPress={onUndo}
           >
             Undo
