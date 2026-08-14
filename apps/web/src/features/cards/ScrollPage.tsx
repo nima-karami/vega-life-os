@@ -1,5 +1,5 @@
 import { type Card, feedStep } from "@vega/shared";
-import { useReducedMotion } from "framer-motion";
+import { AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -349,15 +349,18 @@ export function ScrollPage() {
         {announcement}
       </span>
 
-      {sheetCard !== null && (
-        <FeedCardSheet
-          card={sheetCard}
-          onClose={() => setSheetCardId(null)}
-          onPromote={() => promoteCard(sheetCard.id)}
-          onToggleLike={() => handleToggleLike(sheetCard)}
-          onHide={() => handleHide(sheetCard)}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {sheetCard !== null && (
+          <FeedCardSheet
+            card={sheetCard}
+            onClose={() => setSheetCardId(null)}
+            onPromote={() => promoteCard(sheetCard.id)}
+            onToggleLike={() => handleToggleLike(sheetCard)}
+            onHide={() => handleHide(sheetCard)}
+            onOpenControl={() => setIsControlOpen(true)}
+          />
+        )}
+      </AnimatePresence>
 
       {isControlOpen && (
         <FeedControlPage
