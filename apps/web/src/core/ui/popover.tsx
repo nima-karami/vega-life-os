@@ -42,7 +42,7 @@ export function Popover({
       <HPopover.Content
         placement={placement}
         offset={6}
-        className={cx("rounded-[10px] p-0", className)}
+        className={cx("rounded-[var(--radius-floating)] p-0", className)}
       >
         {children}
       </HPopover.Content>

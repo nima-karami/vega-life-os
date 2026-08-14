@@ -48,16 +48,25 @@ export function TimePicker({
           <HSelect.Value />
           <Icon name="clock" size={13} className="shrink-0 text-[var(--color-muted)]" />
         </HSelect.Trigger>
-        <HSelect.Popover className="w-[var(--trigger-width)] rounded-[10px]">
+        <HSelect.Popover className="w-[var(--trigger-width)] rounded-[var(--radius-floating)]">
           <ListBox>
             {clearable ? (
-              <ListBox.Item id={NONE} textValue="No time">
+              <ListBox.Item
+                id={NONE}
+                textValue="No time"
+                className="rounded-[var(--radius-floating-row)]"
+              >
                 No time
                 <ListBox.Item.Indicator />
               </ListBox.Item>
             ) : null}
             {slots.map((t) => (
-              <ListBox.Item id={t} key={t} textValue={t}>
+              <ListBox.Item
+                id={t}
+                key={t}
+                textValue={t}
+                className="rounded-[var(--radius-floating-row)]"
+              >
                 {t}
                 <ListBox.Item.Indicator />
               </ListBox.Item>

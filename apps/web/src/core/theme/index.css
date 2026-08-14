@@ -95,6 +95,11 @@
   --radius-lg: 16px;
   --radius-hud: 4px;
 
+  /* Floating surfaces (popover/dropdown/context-menu/select) — kept apart from
+     --radius-sm so out-of-scope controls sharing that token don't drift with it. */
+  --radius-floating: 8px;
+  --radius-floating-row: 6px;
+
   /* Typography — one family: Inter. --font-display aliases Inter so any
      remaining `font-display` usage renders in Inter (no Space Grotesk).
      JetBrains Mono is kept only for the ⌘K kbd chip. */

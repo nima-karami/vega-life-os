@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { firebaseEnabled, onAuth, signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
-import { Icon } from "@/core/ui";
+import { cx, Icon } from "@/core/ui";
 
 function initials(name: string) {
   return (
@@ -63,12 +63,22 @@ export function AccountMenu({
   };
 
   const authItem: ReactNode = !firebaseEnabled ? null : authEmail ? (
-    <Dropdown.Item id="signout" textValue="Sign out" onAction={() => void signOut()}>
+    <Dropdown.Item
+      id="signout"
+      textValue="Sign out"
+      onAction={() => void signOut()}
+      className="rounded-[var(--radius-floating-row)]"
+    >
       <Icon name="repeat" size={14} />
       Sign out
     </Dropdown.Item>
   ) : (
-    <Dropdown.Item id="signin" textValue="Sign in & sync" onAction={() => navigate("/settings")}>
+    <Dropdown.Item
+      id="signin"
+      textValue="Sign in & sync"
+      onAction={() => navigate("/settings")}
+      className="rounded-[var(--radius-floating-row)]"
+    >
       <Icon name="user" size={14} />
       Sign in & sync
     </Dropdown.Item>
@@ -80,13 +90,17 @@ export function AccountMenu({
         <AccountAvatar src={avatar || undefined} label={initials(name)} size={avatarSize} />
       </Dropdown.Trigger>
 
-      <Dropdown.Popover placement={placement} offset={8}>
+      <Dropdown.Popover
+        placement={placement}
+        offset={8}
+        className="rounded-[var(--radius-floating)]"
+      >
         <Dropdown.Menu aria-label="Account" className="min-w-[224px]">
           <Dropdown.Item
             id="profile"
             isDisabled
             textValue="Profile"
-            className="cursor-default opacity-100"
+            className={cx("rounded-[var(--radius-floating-row)]", "cursor-default opacity-100")}
           >
             <div className="flex items-center gap-2.5">
               <AccountAvatar src={avatar || undefined} label={initials(name)} />
@@ -96,7 +110,12 @@ export function AccountMenu({
               </div>
             </div>
           </Dropdown.Item>
-          <Dropdown.Item id="settings" textValue="Settings" onAction={() => navigate("/settings")}>
+          <Dropdown.Item
+            id="settings"
+            textValue="Settings"
+            onAction={() => navigate("/settings")}
+            className="rounded-[var(--radius-floating-row)]"
+          >
             <Icon name="sliders" size={14} />
             Settings
           </Dropdown.Item>

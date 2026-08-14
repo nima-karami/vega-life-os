@@ -91,7 +91,7 @@ export function FloatingMenu({
       ref={menuRef}
       role="menu"
       aria-label={label}
-      className="fixed z-[80] min-w-[180px] overflow-hidden rounded-[12px] border border-border bg-surface p-1 shadow-md"
+      className="fixed z-[80] min-w-[180px] overflow-hidden rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md"
       style={{ left: coords.x, top: coords.y }}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -106,7 +106,7 @@ export function FloatingMenu({
             it.onSelect();
           }}
           className={cx(
-            "flex w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left text-sm outline-none transition-colors duration-150 disabled:cursor-default disabled:opacity-50",
+            "flex w-full cursor-pointer items-center gap-2.5 rounded-[var(--radius-floating-row)] px-2.5 py-2 text-left text-sm outline-none transition-colors duration-150 disabled:cursor-default disabled:opacity-50",
             it.danger ? "text-danger hover:bg-danger/10" : "text-foreground hover:bg-default/40",
           )}
         >

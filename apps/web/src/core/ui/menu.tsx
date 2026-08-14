@@ -51,7 +51,11 @@ export function Menu({
       >
         {triggerContent}
       </Dropdown.Trigger>
-      <Dropdown.Popover placement={placement} offset={6}>
+      <Dropdown.Popover
+        placement={placement}
+        offset={6}
+        className="rounded-[var(--radius-floating)]"
+      >
         <Dropdown.Menu aria-label="Actions">
           {items.map((it) => (
             <Dropdown.Item
@@ -60,7 +64,7 @@ export function Menu({
               textValue={it.label}
               isDisabled={it.disabled}
               onAction={it.onSelect}
-              className={it.danger ? "text-danger" : undefined}
+              className={cx("rounded-[var(--radius-floating-row)]", it.danger && "text-danger")}
             >
               {it.icon ? <Icon name={it.icon} size={14} /> : null}
               {it.label}

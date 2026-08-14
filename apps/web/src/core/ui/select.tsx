@@ -55,12 +55,13 @@ export function Select({
         <HSelect.Value />
         <HSelect.Indicator />
       </HSelect.Trigger>
-      <HSelect.Popover className="w-[var(--trigger-width)] rounded-[10px]">
+      <HSelect.Popover className="w-[var(--trigger-width)] rounded-[var(--radius-floating)]">
         <ListBox items={options}>
           {(option: SelectOption) => (
             <ListBox.Item
               id={option.value}
               key={option.value}
+              className="rounded-[var(--radius-floating-row)]"
               textValue={typeof option.label === "string" ? option.label : String(option.value)}
             >
               {/* flex row so the hue dot keeps its size in the trigger too (Select.Value renders this node) */}

@@ -11,4 +11,4 @@ export const CHIP_CLASS =
 export const CHIP_OPEN_CLASS = "border-accent bg-surface text-foreground";
 
 export const POPOVER_ROW_CLASS =
-  "flex items-center gap-2 rounded-[7px] px-[9px] py-[7px] text-[13.5px] text-foreground outline-none";
+  "flex items-center gap-2 rounded-[var(--radius-floating-row)] px-[9px] py-[7px] text-[13.5px] text-foreground outline-none";
