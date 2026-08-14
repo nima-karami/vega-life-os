@@ -5,7 +5,9 @@ vi.mock("@/core/store/persist", () => ({ savePut, saveRemove }));
 
 import type { Card, CardCreate } from "@vega/shared";
 import { create } from "zustand";
-import { todayISO } from "@/core/lib/date";
+import { shiftISO, todayISO } from "@/core/lib/date";
+import { LEITNER_DAYS } from "../leitner";
+import { selectReviewSet } from "../queue";
 import { type CardsSlice, createCardsSlice } from "../store";
 import { buildCardCreate } from "./fixtures";
 
@@ -128,12 +130,24 @@ describe("gradeCard", () => {
     });
   });
 
-  it("ignores a second grade on the same day", () => {
+  it("blocks a duplicate correct grade the same day, but a wrong grade stays clearable", () => {
     const s = mk();
-    const card = s.getState().addCard(input({ box: 1, nextDue: todayISO() }));
-    s.getState().gradeCard(card.id, true);
-    s.getState().gradeCard(card.id, true);
-    expect(s.getState().cards[0]).toMatchObject({ box: 2, reviewCount: 1 });
+    const cleared = s.getState().addCard(input({ box: 1, nextDue: todayISO() }));
+    s.getState().gradeCard(cleared.id, true);
+    s.getState().gradeCard(cleared.id, true);
+    expect(s.getState().cards.find((c) => c.id === cleared.id)).toMatchObject({
+      box: 2,
+      reviewCount: 1,
+    });
+
+    const failed = s.getState().addCard(input({ box: 3, nextDue: todayISO() }));
+    s.getState().gradeCard(failed.id, false);
+    s.getState().gradeCard(failed.id, true);
+    expect(s.getState().cards.find((c) => c.id === failed.id)).toMatchObject({
+      box: 2,
+      reviewCount: 2,
+      nextDue: shiftISO(todayISO(), LEITNER_DAYS[2]),
+    });
   });
 
   it("does nothing to a card that is not learning", () => {
@@ -141,6 +155,19 @@ describe("gradeCard", () => {
     const card = s.getState().addCard(input());
     s.getState().gradeCard(card.id, false);
     expect(s.getState().cards[0]).toMatchObject({ box: null, reviewCount: 0 });
+  });
+
+  it("a failed card stays in the due set until it's actually cleared", () => {
+    const s = mk();
+    const today = todayISO();
+    const card = s.getState().addCard(input({ box: 1, nextDue: today }));
+
+    s.getState().gradeCard(card.id, false);
+    expect(selectReviewSet(s.getState().cards, today).map((c) => c.id)).toContain(card.id);
+
+    s.getState().gradeCard(card.id, true);
+    expect(s.getState().cards.find((c) => c.id === card.id)).toMatchObject({ box: 2 });
+    expect(selectReviewSet(s.getState().cards, today).map((c) => c.id)).not.toContain(card.id);
   });
 });
 

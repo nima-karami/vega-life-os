@@ -51,6 +51,13 @@ const EMPTY_SLOT: Record<SlotId, "" | null | string[]> = {
 
 const NO_SCHEDULE = { box: null, nextDue: null, lastReviewed: null } as const;
 
+// A correct grade pushes nextDue past today, so this is true once — a duplicate same-day
+// fire is blocked. A wrong grade leaves nextDue at today, so the card stays gradeable and
+// can still be cleared this session (the whole point of forced reinsertion).
+function hasClearedToday(card: Card, today: string): boolean {
+  return card.lastReviewed === today && card.nextDue !== null && card.nextDue > today;
+}
+
 /** Rule 2 and rule 4 of the schema, applied on the way in so no write can violate them. */
 function conformCard(card: Card): Card {
   const declared = CARD_TYPES[card.type].slots;
@@ -147,8 +154,7 @@ export const createCardsSlice: Slice<CardsSlice & RetiredMindState> = (set, get)
     gradeCard: (id, correct) => {
       const card = get().cards.find((c) => c.id === id);
       const today = todayISO();
-      // Idempotent per day: a released drag that fires twice must not advance two boxes.
-      if (!card || card.box === null || card.lastReviewed === today) return;
+      if (!card || card.box === null || hasClearedToday(card, today)) return;
       get().updateCard(id, {
         ...stepLeitner(card.box, correct, today),
         reviewCount: card.reviewCount + 1,
