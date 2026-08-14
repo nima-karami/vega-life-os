@@ -1,6 +1,6 @@
 import { Button, ButtonGroup, Modal, useOverlayState } from "@heroui/react";
 import { useState } from "react";
-import { cx, Icon, Popover, useCompact, useCompactModal } from "@/core/ui";
+import { cx, getIconStateStyle, Icon, Popover, useCompact, useCompactModal } from "@/core/ui";
 import { type CardFilterState, countCheckedFilters } from "../manager-filter";
 import { CardsFilterPanel } from "./CardsFilterPanel";
 
@@ -52,7 +52,7 @@ export function CardsToolbar({
       <Icon
         name="sliders"
         size={isCompact ? 16 : 15}
-        className={isFiltered ? "text-accent" : "text-muted"}
+        {...getIconStateStyle(isFiltered ? "active" : "inactive")}
       />
       {!isCompact && "Filter"}
       {!isCompact && isFiltered && (

@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
-import { cx, Icon } from "@/core/ui";
+import { cx, getIconStateStyle, Icon } from "@/core/ui";
 import { describeSyncFailure } from "@/features/calendar-sync/sync-feedback";
 import { deriveSyncPhase, formatLastSynced, type SyncPhase } from "./sync-status";
 
@@ -136,9 +136,9 @@ function IconToggle({
       aria-pressed={pressed}
       aria-label={label}
       title={label}
-      className="rounded-[8px] p-1.5 text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+      className="rounded-[8px] p-1.5 transition-colors hover:bg-surface-secondary"
     >
-      <Icon name={icon} size={15} />
+      <Icon name={icon} size={15} {...getIconStateStyle(pressed ? "active" : "inactive")} />
     </button>
   );
 }

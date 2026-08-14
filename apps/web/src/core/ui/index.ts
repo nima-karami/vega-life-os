@@ -13,7 +13,8 @@ export type { CardMeasure, CardMeta, CardTone, CardWeekDay } from "./EntityCard"
 export { EntityCard } from "./EntityCard";
 export { FIELD_CLASS } from "./field-styles";
 export { IconField } from "./IconField";
-export { Ic, Icon } from "./icons";
+export type { IconState } from "./icons";
+export { getIconStateStyle, Ic, Icon } from "./icons";
 export { getValueStripeStyle, Lineage } from "./lineage";
 export type { MenuItem } from "./menu";
 export { Menu } from "./menu";

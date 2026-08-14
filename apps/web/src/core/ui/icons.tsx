@@ -447,6 +447,18 @@ export const Ic: Record<IconName, LucideIcon> = {
   alert: TriangleAlert,
 };
 
+export type IconState = "active" | "inactive" | "disabled";
+
+const ICON_STATE_STYLE: Record<IconState, { className: string; strokeWidth: number }> = {
+  active: { className: "text-accent", strokeWidth: 2.25 },
+  inactive: { className: "text-muted", strokeWidth: 1.75 },
+  disabled: { className: "text-ink/30", strokeWidth: 1.75 },
+};
+
+export function getIconStateStyle(state: IconState): { className: string; strokeWidth: number } {
+  return ICON_STATE_STYLE[state];
+}
+
 export function Icon({
   name,
   size = 18,

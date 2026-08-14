@@ -1,20 +1,18 @@
 import { Button } from "@heroui/react";
 import { type Card, feedStep } from "@vega/shared";
-import { Icon } from "@/core/ui";
+import { getIconStateStyle, Icon, type IconState } from "@/core/ui";
 import { FULL_BLEED_PADDING } from "./face/face-metrics";
 
 const RAIL_TARGET =
   "grid h-11 w-11 place-items-center rounded-none bg-transparent p-0 shadow-none data-[hovered=true]:bg-transparent focus-visible:ring-2 focus-visible:ring-accent";
 const RAIL_GLYPH_PX = 20;
-const ACTIVE_BRAIN_STROKE = 2.5;
 
-// Three values, and never the rail's muted default — that colour on the brain reads as
-// "learnable, off", which is untrue of a card with nothing withheld.
-const BRAIN_TONE: Record<"open" | "folded" | "graded", string> = {
-  open: "text-ink/18",
-  folded: "text-ink/45",
-  graded: "text-accent",
-};
+// "open" has nothing withheld to review, so it reads disabled rather than the rail's
+// muted "off" tone, which would falsely imply the card is reviewable.
+export function deriveBrainIconState(shape: ReturnType<typeof feedStep>): IconState {
+  if (shape === "open") return "disabled";
+  return shape === "graded" ? "active" : "inactive";
+}
 
 export function FeedActionRail({
   card,
@@ -46,7 +44,7 @@ export function FeedActionRail({
         <Icon
           name="heart"
           size={RAIL_GLYPH_PX}
-          className={isLiked ? "text-accent" : "text-muted"}
+          {...getIconStateStyle(isLiked ? "active" : "inactive")}
         />
       </Button>
       <Button
@@ -62,8 +60,7 @@ export function FeedActionRail({
         <Icon
           name="brain"
           size={RAIL_GLYPH_PX}
-          strokeWidth={shape === "graded" ? ACTIVE_BRAIN_STROKE : undefined}
-          className={BRAIN_TONE[shape]}
+          {...getIconStateStyle(deriveBrainIconState(shape))}
         />
       </Button>
       <Button
