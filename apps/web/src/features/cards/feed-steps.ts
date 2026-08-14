@@ -26,7 +26,7 @@ export function offersPromotion(card: Pick<Card, "type" | "hasRecall">): boolean
 export function describeRecallInterval(box: number, correct: boolean, today: string): string {
   const { nextDue } = stepLeitner(box, correct, today);
   const days = daysBetween(nextDue, today);
-  return days === 1 ? "tomorrow" : `in ${days} days`;
+  return days <= 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
 }
 
 export function buildRecallMeta(

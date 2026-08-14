@@ -9,5 +9,7 @@ export function stepLeitner(
   today: string,
 ): { box: number; lastReviewed: string; nextDue: string } {
   const next = correct ? Math.min(5, box + 1) : 1;
-  return { box: next, lastReviewed: today, nextDue: shiftISO(today, LEITNER_DAYS[next]) };
+  // A wrong answer stays due today, not tomorrow — it comes back this session, not just tomorrow.
+  const nextDue = correct ? shiftISO(today, LEITNER_DAYS[next]) : today;
+  return { box: next, lastReviewed: today, nextDue };
 }

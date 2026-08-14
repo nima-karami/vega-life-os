@@ -1,6 +1,13 @@
 import type { Card } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { buildFeedQueue, computePassSeed, createSeededRng, isDueLearning } from "../queue";
+import {
+  buildFeedQueue,
+  computePassSeed,
+  createSeededRng,
+  isDueLearning,
+  REVIEW_SET_LIMIT,
+  selectReviewSet,
+} from "../queue";
 import { buildCard } from "./fixtures";
 
 const TODAY = "2026-07-23";
@@ -171,21 +178,68 @@ describe("buildFeedQueue", () => {
 
 const restCategories = ["alpha", "beta", "gamma", "delta"];
 
+describe("selectReviewSet", () => {
+  it("returns the same bounded set on repeated calls — a stable rotation, not a fresh sample", () => {
+    const pool = range(100).map((i) => dueCard(`due${i}`));
+    const first = selectReviewSet(pool, TODAY).map((c) => c.id);
+    const second = selectReviewSet(pool, TODAY).map((c) => c.id);
+    expect(first).toEqual(second);
+    expect(first.length).toBe(REVIEW_SET_LIMIT);
+    expect(first).toEqual(pool.slice(0, REVIEW_SET_LIMIT).map((c) => c.id));
+  });
+
+  it("orders box-descending, tie-broken by oldest nextDue, then incoming pool order", () => {
+    const pool = [
+      buildCard({ id: "b1-new", category: "vocabulary", box: 1, nextDue: "2026-07-22" }),
+      buildCard({ id: "b5", category: "vocabulary", box: 5, nextDue: TODAY }),
+      buildCard({ id: "b1-old-a", category: "vocabulary", box: 1, nextDue: "2026-07-20" }),
+      buildCard({ id: "b3", category: "vocabulary", box: 3, nextDue: TODAY }),
+      buildCard({ id: "b1-old-b", category: "vocabulary", box: 1, nextDue: "2026-07-20" }),
+    ];
+    expect(selectReviewSet(pool, TODAY).map((c) => c.id)).toEqual([
+      "b5",
+      "b3",
+      "b1-old-a",
+      "b1-old-b",
+      "b1-new",
+    ]);
+  });
+
+  it("is a ceiling, not a floor — returns everything when fewer than the limit are due", () => {
+    const pool = range(5).map((i) => dueCard(`due${i}`));
+    expect(selectReviewSet(pool, TODAY).length).toBe(5);
+  });
+});
+
 describe("SRS due-injection lane", () => {
-  it("injects due cards at most every 4th position and exhausts leftovers gracefully", () => {
+  it("fills 2 of every 3 slots with due cards while the review set has any left, then falls back to rest alone", () => {
     const pool = [
       ...range(40).map((i) => dueCard(`due${i}`)),
       ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
     ];
-    const dueIds = new Set(pool.filter((c) => isDueLearning(c, TODAY)).map((c) => c.id));
+    const dueIds = new Set(range(40).map((i) => `due${i}`));
     const ids = contentIds(buildFeedQueue(pool, { seed: 7, today: TODAY }));
 
-    expect(new Set(ids)).toEqual(new Set(pool.map((c) => c.id)));
-    expect(ids.length).toBe(pool.length);
+    // REVIEW_SET_LIMIT=20 due cards fill 2-of-3 slots across the first 30 positions
+    // (20 due + 10 rest), then the due lane is spent and every slot falls back to rest.
+    for (let i = 0; i < 30; i++) {
+      expect(dueIds.has(ids[i]), `position ${i}`).toBe(i % 3 !== 2);
+    }
+    for (let i = 30; i < ids.length; i++) {
+      expect(dueIds.has(ids[i]), `position ${i} once the review set is exhausted`).toBe(false);
+    }
+  });
 
-    const first20 = ids.slice(0, 20);
-    expect(first20.filter((id) => dueIds.has(id)).length).toBeLessThanOrEqual(5);
-    expect(first20.filter((id) => !dueIds.has(id)).length).toBeGreaterThanOrEqual(15);
+  it("caps the due lane at REVIEW_SET_LIMIT — the other due cards never enter this pass", () => {
+    const pool = [
+      ...range(40).map((i) => dueCard(`due${i}`)),
+      ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
+    ];
+    const ids = contentIds(buildFeedQueue(pool, { seed: 7, today: TODAY }));
+    const dueShown = new Set(ids.filter((id) => id.startsWith("due")));
+    expect(dueShown.size).toBe(REVIEW_SET_LIMIT);
+    // 20 due (the cap) + all 20 rest cards — the other 20 due cards are entirely absent.
+    expect(ids.length).toBe(40);
   });
 
   it("falls back to shuffle when nothing is due", () => {
@@ -201,6 +255,41 @@ describe("SRS due-injection lane", () => {
     const after = buildFeedQueue(pool, { seed: 2, today: TODAY });
     expect(new Set(contentIds(before))).toEqual(new Set(contentIds(after)));
     expect(before).not.toEqual(after);
+  });
+});
+
+describe("buildFeedQueue reinsert", () => {
+  it("splices the named card back in at the given offset, ahead of normal shaping", () => {
+    const pool = [
+      ...range(10).map((i) => feedCard(`v${i}`, "vocabulary")),
+      feedCard("target", "vocabulary"),
+    ];
+    const ids = contentIds(
+      buildFeedQueue(pool, { seed: 3, today: TODAY, reinsert: { cardId: "target", offset: 5 } }),
+    );
+    expect(ids.length).toBe(pool.length);
+    expect(ids.indexOf("target")).toBe(5);
+  });
+
+  it("clamps the offset to the end of the pass instead of overrunning it", () => {
+    const pool = [
+      ...range(3).map((i) => feedCard(`v${i}`, "vocabulary")),
+      feedCard("target", "vocabulary"),
+    ];
+    const ids = contentIds(
+      buildFeedQueue(pool, { seed: 3, today: TODAY, reinsert: { cardId: "target", offset: 99 } }),
+    );
+    expect(ids.indexOf("target")).toBe(pool.length - 1);
+  });
+
+  it("is a no-op when the named card is absent from the pool", () => {
+    const pool = range(10).map((i) => feedCard(`v${i}`, "vocabulary"));
+    const withReinsert = buildFeedQueue(pool, {
+      seed: 3,
+      today: TODAY,
+      reinsert: { cardId: "missing", offset: 5 },
+    });
+    expect(withReinsert).toEqual(buildFeedQueue(pool, { seed: 3, today: TODAY }));
   });
 });
 

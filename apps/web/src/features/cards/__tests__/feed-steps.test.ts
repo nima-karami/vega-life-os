@@ -63,9 +63,9 @@ describe("describeRecallInterval", () => {
     expect(describeRecallInterval(5, true, TODAY)).toBe("in 16 days");
   });
 
-  it("sends a wrong answer to tomorrow from any box", () => {
+  it("keeps a wrong answer due today, from any box", () => {
     for (const box of [1, 2, 3, 4, 5])
-      expect(describeRecallInterval(box, false, TODAY)).toBe("tomorrow");
+      expect(describeRecallInterval(box, false, TODAY)).toBe("today");
   });
 });
 

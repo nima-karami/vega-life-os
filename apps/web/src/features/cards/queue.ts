@@ -7,13 +7,17 @@ export type QueueOptions = {
   seed: number;
   today: string;
   exclude?: string[];
+  reinsert?: { cardId: string; offset: number } | null;
 };
 
 const NO_REPEAT_WINDOW = 20;
 const CATEGORY_SHARE_CAP = 0.3;
-const DUE_EVERY = 4;
+const REST_EVERY = 3;
 const LIKED_BOOST = 1.5;
 const RECAP_PREFIX = "recap:";
+export const REVIEW_SET_LIMIT = 20;
+export const FAILED_REAPPEAR_OFFSET = 5;
+export const FAILED_REAPPEAR_LIMIT = 3;
 
 export const isRecapId = (cardId: string): boolean => cardId.startsWith(RECAP_PREFIX);
 
@@ -112,13 +116,14 @@ function selectCandidates(remaining: Card[], position: number, ctx: PassContext)
 export const isDueLearning = (card: Card, today: string): boolean =>
   card.box !== null && card.nextDue !== null && card.nextDue <= today;
 
-function shuffleWithRng<T>(items: T[], rng: () => number): T[] {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
+// Solidify what's nearly known before drilling something new: rank the due backlog
+// highest box first, cap it to a bounded working set so a large backlog gets worked in a
+// stable rotation instead of a fresh random sample every pass.
+export function selectReviewSet(pool: Card[], today: string): Card[] {
+  return pool
+    .filter((card) => isDueLearning(card, today))
+    .sort((a, b) => (b.box ?? 0) - (a.box ?? 0) || (a.nextDue ?? "").localeCompare(b.nextDue ?? ""))
+    .slice(0, REVIEW_SET_LIMIT);
 }
 
 function placeCard(card: Card, ctx: PassContext): void {
@@ -143,24 +148,28 @@ function sampleRest(
   return chosen;
 }
 
-// Due cards land only on every `dueEvery`-th slot; a slot with no due card left (or a
-// non-due slot the shuffle can't fill) falls back to the other pool, draining both.
+// Rest lands only on every `restEvery`-th slot; due cards take the other slots while any
+// remain, falling back to rest once the due lane is drained. Due cards bypass the shaping
+// guards below (share cap, interleave) — they're not subject to those constraints.
 function chooseNextCard(
   pools: PassPools,
   position: number,
-  dueEvery: number,
+  restEvery: number,
   ctx: PassContext,
   weightOf: (card: Card) => number,
   rng: () => number,
 ): Card | null {
-  const isDueSlot = (position + 1) % dueEvery === 0;
-  if (isDueSlot && pools.dueQueue.length > 0) return pools.dueQueue.shift() ?? null;
-  return sampleRest(pools, position, ctx, weightOf, rng) ?? pools.dueQueue.shift() ?? null;
+  const isRestSlot = (position + 1) % restEvery === 0;
+  if (isRestSlot)
+    return sampleRest(pools, position, ctx, weightOf, rng) ?? pools.dueQueue.shift() ?? null;
+  return pools.dueQueue.shift() ?? sampleRest(pools, position, ctx, weightOf, rng) ?? null;
 }
 
 export function buildFeedQueue(pool: Card[], options: QueueOptions): QueueEntry[] {
-  const { seed, exclude = [] } = options;
+  const { seed, exclude = [], reinsert = null } = options;
   const rng = createSeededRng(seed);
+  const withheldId =
+    reinsert && pool.some((card) => card.id === reinsert.cardId) ? reinsert.cardId : null;
   const groups = groupByCategory(pool);
   const counts = new Map([...groups].map(([key, cards]) => [key, cards.length]));
   const ctx: PassContext = {
@@ -175,20 +184,22 @@ export function buildFeedQueue(pool: Card[], options: QueueOptions): QueueEntry[
   const weightOf = (card: Card): number =>
     (card.likedAt !== null ? LIKED_BOOST : 1) / (counts.get(matchKey(card.category)) ?? 1);
   const pools: PassPools = {
-    dueQueue: shuffleWithRng(
-      pool.filter((card) => isDueLearning(card, options.today)),
-      rng,
+    dueQueue: selectReviewSet(pool, options.today).filter((card) => card.id !== withheldId),
+    restRemaining: pool.filter(
+      (card) => !isDueLearning(card, options.today) && card.id !== withheldId,
     ),
-    restRemaining: pool.filter((card) => !isDueLearning(card, options.today)),
   };
 
   while (pools.dueQueue.length > 0 || pools.restRemaining.length > 0) {
-    const chosen = chooseNextCard(pools, ctx.placed.length, DUE_EVERY, ctx, weightOf, rng);
+    const chosen = chooseNextCard(pools, ctx.placed.length, REST_EVERY, ctx, weightOf, rng);
     if (!chosen) break;
     placeCard(chosen, ctx);
   }
 
   const entries: QueueEntry[] = ctx.placed.map((card) => ({ cardId: card.id }));
+  if (withheldId !== null && reinsert) {
+    entries.splice(Math.min(reinsert.offset, entries.length), 0, { cardId: withheldId });
+  }
   entries.push({ cardId: `${RECAP_PREFIX}${seed}` });
   return entries;
 }

@@ -11,12 +11,14 @@ describe("stepLeitner", () => {
     expect(stepLeitner(5, true, "2026-07-22").box).toBe(5);
   });
 
-  it("resets to box 1 on wrong", () => {
-    expect(stepLeitner(4, false, "2026-07-22")).toEqual({
-      box: 1,
-      lastReviewed: "2026-07-22",
-      nextDue: "2026-07-23", // +LEITNER_DAYS[1] = 1
-    });
+  it("resets to box 1 and stays due today on wrong, from any starting box", () => {
+    for (const box of [1, 2, 3, 4, 5]) {
+      expect(stepLeitner(box, false, "2026-07-22")).toEqual({
+        box: 1,
+        lastReviewed: "2026-07-22",
+        nextDue: "2026-07-22", // unchanged — comes back this session, not tomorrow
+      });
+    }
   });
 
   it("box 1 correct advances to box 2 with a one-day interval", () => {

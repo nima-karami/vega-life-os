@@ -21,6 +21,8 @@ import { describeRecallInterval, type FeedStepName, nextFeedStep } from "./feed-
 import {
   buildFeedQueue,
   computePassSeed,
+  FAILED_REAPPEAR_LIMIT,
+  FAILED_REAPPEAR_OFFSET,
   isDueLearning,
   isRecapId,
   type QueueEntry,
@@ -93,6 +95,8 @@ export function ScrollPage() {
   const queueEntriesRef = useRef<QueueEntry[]>([]);
   const announceNonceRef = useRef(0);
   const deferredDueRef = useRef(new Set<string>());
+  const reappearCountRef = useRef(new Map<string, number>());
+  const pendingReinsertRef = useRef<{ cardId: string; offset: number } | null>(null);
 
   useEffect(() => {
     queueEntriesRef.current = queueEntries;
@@ -123,13 +127,18 @@ export function ScrollPage() {
     setProgress(null);
   }, []);
 
-  // Build the next pass off the frozen prefix (exclude its last-20) and append it.
+  // Build the next pass off the frozen prefix (exclude its last-20) and append it. Any
+  // wrong-graded card queued for forced reappearance rides along on this same rebuild —
+  // it's the tail rebuild that already fires immediately after every grade.
   const appendPass = useCallback(
     (prefix: QueueEntry[]) => {
+      const reinsert = pendingReinsertRef.current;
+      pendingReinsertRef.current = null;
       const tail = buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current, today), {
         seed: computePassSeed(baseSeed, passCountRef.current),
         today,
         exclude: getRecentCardIds(prefix, NO_REPEAT_WINDOW),
+        reinsert,
       });
       passCountRef.current += 1;
       setQueueEntries([...prefix, ...tail]);
@@ -144,6 +153,7 @@ export function ScrollPage() {
     if (pool.length === 0) {
       initializedRef.current = false;
       passCountRef.current = 0;
+      reappearCountRef.current.clear();
       setQueueEntries([]);
       return;
     }
@@ -151,6 +161,7 @@ export function ScrollPage() {
     if (!initializedRef.current || prev.length === 0) {
       initializedRef.current = true;
       passCountRef.current = 1;
+      reappearCountRef.current.clear();
       setQueueEntries(
         buildFeedQueue(excludeDeferredDue(pool, deferredDueRef.current, today), {
           seed: computePassSeed(baseSeed, 0),
@@ -164,10 +175,13 @@ export function ScrollPage() {
   }, [pool, baseSeed, today, appendPass]);
 
   // Scrolling onto the trailing recap chains the next pass, excluding the last-20 shown.
+  // Crossing into a new pass resets each card's reappearance count — the 3-per-pass cap
+  // applies to the pass just finished, not the whole session.
   useEffect(() => {
     const entry = queueEntries[currentIndex];
     if (!entry || pool.length === 0) return;
     if (isRecapId(entry.cardId) && currentIndex === queueEntries.length - 1) {
+      reappearCountRef.current.clear();
       appendPass(queueEntries);
     }
   }, [currentIndex, queueEntries, pool, appendPass]);
@@ -190,15 +204,6 @@ export function ScrollPage() {
     for (const section of scroller.querySelectorAll("[data-index]")) observer.observe(section);
     return () => observer.disconnect();
   }, [queueEntries, setCurrentIndex]);
-
-  // A due card that reaches the viewport is spent for this session (graded or scrolled past);
-  // record it so later passes defer it.
-  useEffect(() => {
-    const entry = queueEntries[currentIndex];
-    if (!entry || isRecapId(entry.cardId)) return;
-    const card = poolById.get(entry.cardId);
-    if (card && isDueLearning(card, today)) deferredDueRef.current.add(card.id);
-  }, [currentIndex, queueEntries, poolById, today]);
 
   const advance = () => {
     const scroller = scrollRef.current;
@@ -248,6 +253,13 @@ export function ScrollPage() {
   const handleGrade = (card: Card, correct: boolean) => {
     if (card.box === null) return;
     gradeCard(card.id, correct);
+    if (!correct) {
+      const reappearCount = reappearCountRef.current.get(card.id) ?? 0;
+      if (reappearCount < FAILED_REAPPEAR_LIMIT) {
+        reappearCountRef.current.set(card.id, reappearCount + 1);
+        pendingReinsertRef.current = { cardId: card.id, offset: FAILED_REAPPEAR_OFFSET };
+      }
+    }
     announce(
       `${correct ? "Yes" : "Not quite"} — ${describeRecallInterval(card.box, correct, today)}`,
     );
