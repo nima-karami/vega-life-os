@@ -40,7 +40,7 @@ export interface CategoryBreakdown {
 /** A card either carries its figures or failed to derive them, and says so where it sits. */
 export type FinanceSection<T> = { status: "ok"; figures: T } | { status: "failed" };
 
-function deriveSection<T>(derive: () => T): FinanceSection<T> {
+export function deriveSection<T>(derive: () => T): FinanceSection<T> {
   try {
     return { status: "ok", figures: derive() };
   } catch {

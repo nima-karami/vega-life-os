@@ -6,7 +6,9 @@ import {
   computeMyTrueShare,
   computeSettlementBalance,
   type FinanceBook,
+  selectHouseholdRows,
 } from "./queries";
+import { hasUnresolvedFlags } from "./review-flags";
 
 /** What the screen shows. A settled month whose rows later moved is `amended` the moment they move. */
 type SettlementPhase = "open" | "settled" | "amended";
@@ -33,6 +35,9 @@ export interface SettlementFigures {
   householdRowCount: number;
   settledAt: string | null;
   paidAt: string | null;
+  /** Household rows this month still waiting on a category or a split — shown, never folded in. */
+  excludedCount: number;
+  excludedCents: number;
 }
 
 export interface SettlementWrite {
@@ -73,6 +78,10 @@ export function computeSettlementFigures(book: FinanceBook, month: string): Sett
   const isFrozen = record !== undefined && record.status !== "open" && frozenBalanceCents !== null;
   const differenceCents = isFrozen ? currentBalanceCents - frozenBalanceCents : 0;
 
+  const unresolvedRows = selectHouseholdRows(book, month).filter(hasUnresolvedFlags);
+  const excludedCount = unresolvedRows.length;
+  const excludedCents = unresolvedRows.reduce((sum, txn) => sum + Math.abs(txn.amountCents), 0);
+
   return {
     month,
     phase: derivePhase(isFrozen, differenceCents, outstandingCents),
@@ -92,6 +101,36 @@ export function computeSettlementFigures(book: FinanceBook, month: string): Sett
     ).length,
     settledAt: record?.settledAt ?? null,
     paidAt: record?.paidAt ?? null,
+    excludedCount,
+    excludedCents,
+  };
+}
+
+export interface ReconciliationSegments {
+  ownerPaidPercent: number;
+  partnerPaidPercent: number;
+  trueShareMarkerPercent: number;
+}
+
+const clampPercent = (value: number): number => Math.min(100, Math.max(0, value));
+
+/**
+ * Fill and marker as fractions of the household total, 0–100. A month with nothing in it (or a
+ * net-negative one) reads as an empty bar rather than a division by zero or a negative width.
+ */
+export function buildReconciliationSegments(figures: SettlementFigures): ReconciliationSegments {
+  if (figures.householdTotalCents <= 0) {
+    return { ownerPaidPercent: 0, partnerPaidPercent: 0, trueShareMarkerPercent: 0 };
+  }
+  const ownerPaidPercent = clampPercent(
+    (figures.ownerPaidCents / figures.householdTotalCents) * 100,
+  );
+  return {
+    ownerPaidPercent,
+    partnerPaidPercent: 100 - ownerPaidPercent,
+    trueShareMarkerPercent: clampPercent(
+      (figures.myShareCents / figures.householdTotalCents) * 100,
+    ),
   };
 }
 
