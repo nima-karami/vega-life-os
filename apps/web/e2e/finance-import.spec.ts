@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { enterApp } from "./helpers/app";
 
 /**
  * The weekly loop's write path: a statement previews without touching storage, the same file
@@ -22,25 +23,6 @@ const NEXT_WEEK = rbcStatement(["Chequing,1234,07/10/2026,,E2E COFFEE HOUSE,,-9.
 
 /** Headers no registry entry knows, so this file can only be read through the mapper. */
 const UNKNOWN_LAYOUT = ["Posted,Merchant,Value", "2026-07-06,E2E CORNER SHOP,-8.25"].join("\n");
-
-async function enterApp(page: Page) {
-  await page.goto("/", { waitUntil: "networkidle" });
-  const explore = page.getByRole("button", { name: /explore with sample data/i });
-  const main = page.locator("main");
-  await expect(explore.or(main)).toBeVisible({ timeout: 20_000 });
-  if (await explore.isVisible().catch(() => false)) {
-    await explore.click();
-    await expect(main).toBeVisible({ timeout: 15_000 });
-  }
-
-  // The morning gratitude gate hard-redirects every route but /today and /journal/*.
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-    await expect(gate).toBeHidden();
-  }
-}
 
 async function dropStatement(page: Page, csv = STATEMENT) {
   await page.goto("/finance/import", { waitUntil: "networkidle" });

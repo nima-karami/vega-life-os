@@ -1,28 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
+import { enterApp } from "./helpers/app";
 
 /**
  * A long ledger: search and filters narrow its rows, a selection is worked in
  * one action, and a settled month's rows say why they can't be touched.
  */
-
-async function enterApp(page: Page) {
-  await page.goto("/", { waitUntil: "networkidle" });
-  const explore = page.getByRole("button", { name: /explore with sample data/i });
-  const main = page.locator("main");
-  await expect(explore.or(main)).toBeVisible({ timeout: 20_000 });
-  if (await explore.isVisible().catch(() => false)) {
-    await explore.click();
-    await expect(main).toBeVisible({ timeout: 15_000 });
-  }
-
-  // The morning gratitude gate hard-redirects every route but /today and /journal/*.
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-    await expect(gate).toBeHidden();
-  }
-}
 
 async function openLedger(page: Page) {
   await enterApp(page);
@@ -73,17 +55,20 @@ test("search and the review filter narrow the ledger", async ({ page }) => {
 test("a bulk category change lands on every selected row", async ({ page }) => {
   await openLedger(page);
 
+  // Search now reads a row's title alongside its description, so the transfer titled
+  // "Card payment" joins the two rows whose description carries the word.
   await searchBox(page).fill("pay");
-  await expect(anyRow(page)).toHaveCount(2);
+  await expect(anyRow(page)).toHaveCount(3);
 
   await check(page, "Select all transactions");
-  await expect(page.getByText("2 selected")).toBeVisible();
+  await expect(page.getByText("3 selected")).toBeVisible();
 
   await page.getByRole("button").filter({ hasText: "Choose…" }).first().click();
   await page.getByRole("option", { name: "Dining out", exact: true }).click();
 
   await expect(rowCategory(page, "PAYROLL DEPOSIT")).toHaveText("Dining out");
   await expect(rowCategory(page, "PAYMENT RECEIVED")).toHaveText("Dining out");
+  await expect(rowCategory(page, "TRANSFER TO REWARDS CARD")).toHaveText("Dining out");
 });
 
 test("a row's own category picker files it in one click", async ({ page }) => {

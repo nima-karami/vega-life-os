@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { format, startOfMonth, subMonths } from "date-fns";
+import { enterApp, passGratitudeGate } from "./helpers/app";
 
 /**
  * The finance dashboard against the synthetic sandbox seed. The seed anchors its settled month
@@ -13,27 +14,6 @@ const TODAY = format(new Date(), "yyyy-MM-dd");
 const UNBUDGETED = { id: "fcat_e2e_unbudgeted", name: "E2E unbudgeted", order: 90 };
 const QUIET = { id: "fcat_e2e_quiet", name: "E2E quiet", order: 91 };
 
-async function bootSandbox(page: Page) {
-  await page.goto("/", { waitUntil: "networkidle" });
-  const explore = page.getByRole("button", { name: /explore with sample data/i });
-  const main = page.locator("main");
-  await expect(explore.or(main)).toBeVisible({ timeout: 20_000 });
-  if (await explore.isVisible().catch(() => false)) {
-    await explore.click();
-    await expect(main).toBeVisible({ timeout: 15_000 });
-  }
-}
-
-// The morning gratitude gate hard-redirects every route but /today and /journal/*.
-async function passGratitudeGate(page: Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-    await expect(gate).toBeHidden();
-  }
-}
-
 async function gotoDashboard(page: Page) {
   await page.goto("/finance", { waitUntil: "networkidle" });
   await passGratitudeGate(page);
@@ -44,8 +24,7 @@ async function gotoDashboard(page: Page) {
 }
 
 async function openDashboard(page: Page) {
-  await bootSandbox(page);
-  await passGratitudeGate(page);
+  await enterApp(page);
   await gotoDashboard(page);
 }
 

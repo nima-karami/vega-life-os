@@ -132,7 +132,10 @@ describe("the review prompt", () => {
 
   it("names the day of the newest import the flagged rows came from", () => {
     const rows = [flagged("fib_mon"), flagged("fib_wed")];
-    const batches = [batch("fib_mon", "2026-08-10T09:00:00.000Z"), batch("fib_wed", "2026-08-12T09:00:00.000Z")];
+    const batches = [
+      batch("fib_mon", "2026-08-10T09:00:00.000Z"),
+      batch("fib_wed", "2026-08-12T09:00:00.000Z"),
+    ];
     expect(describeReviewPrompt(rows, batches)).toBe(
       "2 rows from Wednesday's import need a category or a split",
     );

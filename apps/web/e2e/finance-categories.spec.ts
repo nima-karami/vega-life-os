@@ -1,30 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
+import { enterApp, passGratitudeGate } from "./helpers/app";
 
 /**
  * Category management: the owner names their own categories, budgets them month by month,
  * and can never hard-delete one the ledger still points at.
  */
 
-async function passGratitudeGate(page: Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 test.beforeEach(async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  const explore = page.getByRole("button", { name: /explore with sample data/i });
-  const main = page.locator("main");
-  await expect(explore.or(main)).toBeVisible({ timeout: 20_000 });
-  if (await explore.isVisible().catch(() => false)) {
-    await explore.click();
-    await expect(main).toBeVisible({ timeout: 15_000 });
-  }
-  // The morning gratitude gate hard-redirects every route but /today and /journal/*.
-  await passGratitudeGate(page);
-
+  await enterApp(page);
   await page.goto("/finance/categories", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
   await expect(page.getByRole("heading", { name: "Categories", exact: true })).toBeVisible({

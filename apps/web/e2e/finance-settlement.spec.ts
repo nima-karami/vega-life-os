@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { enterApp } from "./helpers/app";
 
 /**
  * The settlement screen's two load-bearing promises: a settled month shows the figure it was
@@ -20,25 +21,6 @@ function partnerHeavyMonth(): string {
   const date = new Date();
   date.setDate(date.getDate() - 3);
   return monthKey(date);
-}
-
-async function enterApp(page: Page) {
-  await page.goto("/", { waitUntil: "networkidle" });
-  const explore = page.getByRole("button", { name: /explore with sample data/i });
-  const main = page.locator("main");
-  await expect(explore.or(main)).toBeVisible({ timeout: 20_000 });
-  if (await explore.isVisible().catch(() => false)) {
-    await explore.click();
-    await expect(main).toBeVisible({ timeout: 15_000 });
-  }
-
-  // The morning gratitude gate hard-redirects every route but /today and /journal/*.
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-    await expect(gate).toBeHidden();
-  }
 }
 
 async function openSettlement(page: Page, month: string) {

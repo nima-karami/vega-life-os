@@ -21,7 +21,13 @@ export interface CategoryChipProps {
  * One chip for the three things a row's category can be: named, guessed by the merchant table,
  * or missing. A guess stays muted and ends in a `?` — it is a suggestion until accepted.
  */
-export function CategoryChip({ label, tone = "assigned", color, onPress, className }: CategoryChipProps) {
+export function CategoryChip({
+  label,
+  tone = "assigned",
+  color,
+  onPress,
+  className,
+}: CategoryChipProps) {
   const chipClass = cx(
     "inline-flex h-[26px] items-center gap-[7px] rounded-[10px] border px-2.5 text-[12.5px]",
     TONE_CLASS[tone],
@@ -30,11 +36,7 @@ export function CategoryChip({ label, tone = "assigned", color, onPress, classNa
   const content = (
     <>
       {color !== undefined && tone !== "missing" && (
-        <span
-          aria-hidden
-          className="size-2 shrink-0 rounded-[2px]"
-          style={{ background: color }}
-        />
+        <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: color }} />
       )}
       {tone === "guess" ? `${label}?` : label}
       {tone === "guess" && <Icon name="sparkles" size={12} aria-hidden />}
