@@ -1,6 +1,7 @@
 import type {
   FinanceCategory,
   FinanceImportBatch,
+  FinanceMerchant,
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
@@ -67,7 +68,18 @@ export function listTransactionMonths(transactions: FinanceTransaction[]): strin
 const matchesQuery = (txn: FinanceTransaction, needle: string): boolean =>
   needle === "" ||
   txn.description.toLowerCase().includes(needle) ||
+  txn.title.toLowerCase().includes(needle) ||
   txn.note.toLowerCase().includes(needle);
+
+/** The label a row shows: its own title, else the merchant's name, else the raw bank description. */
+export function resolveTransactionTitle(
+  txn: FinanceTransaction,
+  merchant?: FinanceMerchant | null,
+): string {
+  if (txn.title !== "") return txn.title;
+  if (merchant && merchant.displayName !== "") return merchant.displayName;
+  return txn.description;
+}
 
 const matchesCategory = (txn: FinanceTransaction, categoryId: string): boolean => {
   if (categoryId === ANY) return true;

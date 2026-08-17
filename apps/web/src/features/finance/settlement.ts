@@ -95,16 +95,31 @@ export function computeSettlementFigures(book: FinanceBook, month: string): Sett
   };
 }
 
-/** Direction is always in words — a bare minus sign is easy to misread. */
-export function describeDirection(cents: number, tense: "now" | "still"): string {
+/**
+ * Direction is always in words — a bare minus sign is easy to misread. An
+ * empty `partnerName` falls back to the generic "your partner" copy verbatim; a set name swaps
+ * into the exact same sentence shape rather than a reworded one.
+ */
+export function describeDirection(
+  cents: number,
+  tense: "now" | "still",
+  partnerName: string,
+): string {
   const qualifier = tense === "still" ? "still " : "";
-  if (cents > 0) return `Your partner ${qualifier}owes you`;
-  if (cents < 0) return `You ${qualifier}owe your partner`;
+  const trimmedName = partnerName.trim();
+  const partner = trimmedName === "" ? "your partner" : trimmedName;
+  const partnerCapitalized = trimmedName === "" ? "Your partner" : trimmedName;
+  if (cents > 0) return `${partnerCapitalized} ${qualifier}owes you`;
+  if (cents < 0) return `You ${qualifier}owe ${partner}`;
   return tense === "still" ? "Nothing left to settle" : "Square — nothing owed either way";
 }
 
-export function describeBalance(cents: number, tense: "now" | "still"): string {
-  const direction = describeDirection(cents, tense);
+export function describeBalance(
+  cents: number,
+  tense: "now" | "still",
+  partnerName: string,
+): string {
+  const direction = describeDirection(cents, tense, partnerName);
   return cents === 0 ? direction : `${direction} ${formatCents(Math.abs(cents))}`;
 }
 

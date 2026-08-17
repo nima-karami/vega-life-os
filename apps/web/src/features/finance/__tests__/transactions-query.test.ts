@@ -1,6 +1,7 @@
 import type {
   FinanceCategory,
   FinanceImportBatch,
+  FinanceMerchant,
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
@@ -15,6 +16,7 @@ import {
   listTransactionMonths,
   NO_CATEGORY,
   queryFinanceTransactions,
+  resolveTransactionTitle,
   selectIdRange,
   type TransactionFilters,
 } from "../transactions-query";
@@ -26,6 +28,7 @@ const txn = (patch: Partial<FinanceTransaction> & { id: string }): FinanceTransa
   accountId: "acct_a",
   txnDate: "2026-03-04",
   spreadMonths: 1,
+  title: "",
   description: "",
   amountCents: -1000,
   currency: "CAD",
@@ -55,6 +58,7 @@ const category = (id: string, name: string): FinanceCategory => ({
   name,
   kind: "spend",
   order: 0,
+  colorIndex: null,
   archivedAt: null,
   ...meta,
 });
@@ -120,6 +124,11 @@ describe("ledger filtering", () => {
     expect(runQuery({ query: "bistro" })).toEqual(["t2"]);
     expect(runQuery({ query: "her card" })).toEqual(["t2"]);
     expect(runQuery({ query: "no-such-row" })).toEqual([]);
+  });
+
+  it("also searches title", () => {
+    const titled = [txn({ id: "t5", title: "Dinner with Robin" })];
+    expect(runQuery({ query: "dinner with robin" }, titled)).toEqual(["t5"]);
   });
 
   it("narrows on account, month, payer and category independently", () => {
@@ -247,5 +256,35 @@ describe("provenance", () => {
   it("distinguishes a row typed from the partner's message", () => {
     const manual = txn({ id: "t10", source: "manual", enteredBy: "partner-reported" });
     expect(describeProvenance(manual, [batch])).toBe("Added by hand · partner-reported");
+  });
+});
+
+describe("resolveTransactionTitle", () => {
+  const merchant: FinanceMerchant = {
+    id: "fmer_market",
+    pattern: "GREEN MARKET",
+    displayName: "Green Market",
+    defaultCategoryId: null,
+    defaultSpreadMonths: 1,
+    timesSeen: 1,
+    timesShared: 0,
+    lastSeenAt: null,
+    ...meta,
+  };
+
+  it("prefers the row's own title", () => {
+    const row = txn({ id: "t20", title: "Weekly groceries", description: "GREEN MARKET #114" });
+    expect(resolveTransactionTitle(row, merchant)).toBe("Weekly groceries");
+  });
+
+  it("falls back to the merchant's display name when the row has no title", () => {
+    const row = txn({ id: "t21", description: "GREEN MARKET #114" });
+    expect(resolveTransactionTitle(row, merchant)).toBe("Green Market");
+  });
+
+  it("falls back to the raw description when neither title nor merchant is available", () => {
+    const row = txn({ id: "t22", description: "SQ *8231 VENDOR 4417" });
+    expect(resolveTransactionTitle(row)).toBe("SQ *8231 VENDOR 4417");
+    expect(resolveTransactionTitle(row, null)).toBe("SQ *8231 VENDOR 4417");
   });
 });

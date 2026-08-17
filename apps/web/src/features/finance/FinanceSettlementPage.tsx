@@ -63,6 +63,7 @@ function describeFinalAction(
   action: FinalAction,
   figures: SettlementFigures,
   nextOpenMonth: string,
+  partnerName: string,
 ) {
   if (action === "carry") {
     return {
@@ -81,7 +82,7 @@ function describeFinalAction(
   return {
     title: "Freeze this month's figure?",
     confirmLabel: action === "resettle" ? "Re-settle" : "Settle",
-    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now").toLowerCase()}. Later edits to these rows amend the month; they never rewrite this figure.`,
+    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now", partnerName).toLowerCase()}. Later edits to these rows amend the month; they never rewrite this figure.`,
   };
 }
 
@@ -91,6 +92,7 @@ export function FinanceSettlementPage() {
   const updateSettlement = useStore((s) => s.updateFinanceSettlement);
   const loadFailed = useStore((s) => s.loadFailed);
   const refetchAll = useStore((s) => s.refetchAll);
+  const partnerName = useStore((s) => s.partnerName);
 
   const [params, setParams] = useSearchParams();
   const [pendingAction, setPendingAction] = useState<FinalAction | null>(null);
@@ -145,14 +147,19 @@ export function FinanceSettlementPage() {
     setIsPaying(false);
   };
 
-  const confirmCopy = describeFinalAction(pendingAction ?? "settle", figures, nextOpenMonth);
+  const confirmCopy = describeFinalAction(
+    pendingAction ?? "settle",
+    figures,
+    nextOpenMonth,
+    partnerName,
+  );
   const hasAnyData = book.financeSettlements.length > 0 || figures.householdRowCount > 0;
 
   return (
     <FinancePageShell
       title="Settlement"
       subLine="What the household cost, whose card it landed on, and who owes whom this month."
-      summary={`${formatMonthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now")}`}
+      summary={`${formatMonthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now", partnerName)}`}
       headerAction={
         <SettlementActions
           figures={figures}
@@ -186,8 +193,8 @@ export function FinanceSettlementPage() {
       }}
     >
       <SettlementNotices hasLoadFailed={loadFailed} onRetry={() => void refetchAll()} />
-      <SettlementBalanceCard figures={figures} />
-      <SettlementStatusCard figures={figures} />
+      <SettlementBalanceCard figures={figures} partnerName={partnerName} />
+      <SettlementStatusCard figures={figures} partnerName={partnerName} />
 
       <ConfirmDialog
         open={pendingAction !== null}

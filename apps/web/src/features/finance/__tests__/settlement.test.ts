@@ -86,7 +86,7 @@ describe("a month the partner carried", () => {
     const half = makeBook({ financeTransactions: [partnerPaid("2026-03-08", -11200)] });
     const figures = expectStripReconciles(half, MONTH);
     expect(figures.outstandingCents).toBe(-5600);
-    expect(describeBalance(figures.outstandingCents, "now")).toBe(
+    expect(describeBalance(figures.outstandingCents, "now", "")).toBe(
       `You owe your partner ${formatCents(5600)}`,
     );
   });
@@ -240,10 +240,21 @@ describe("the months on offer", () => {
 
 describe("direction copy", () => {
   it("never leaves the direction to a sign", () => {
-    expect(describeDirection(500, "now")).toBe("Your partner owes you");
-    expect(describeDirection(-500, "now")).toBe("You owe your partner");
-    expect(describeDirection(-500, "still")).toBe("You still owe your partner");
-    expect(describeDirection(0, "now")).toBe("Square — nothing owed either way");
-    expect(describeDirection(0, "still")).toBe("Nothing left to settle");
+    expect(describeDirection(500, "now", "")).toBe("Your partner owes you");
+    expect(describeDirection(-500, "now", "")).toBe("You owe your partner");
+    expect(describeDirection(-500, "still", "")).toBe("You still owe your partner");
+    expect(describeDirection(0, "now", "")).toBe("Square — nothing owed either way");
+    expect(describeDirection(0, "still", "")).toBe("Nothing left to settle");
+  });
+
+  it("falls back to the generic 'your partner' copy verbatim when no name is set", () => {
+    expect(describeDirection(500, "now", "   ")).toBe("Your partner owes you");
+    expect(describeBalance(-500, "now", "")).toBe(`You owe your partner ${formatCents(500)}`);
+  });
+
+  it("swaps the stored partner name into the same sentence shape", () => {
+    expect(describeDirection(500, "now", "Robin")).toBe("Robin owes you");
+    expect(describeDirection(-500, "still", "Robin")).toBe("You still owe Robin");
+    expect(describeBalance(500, "now", "Robin")).toBe(`Robin owes you ${formatCents(500)}`);
   });
 });

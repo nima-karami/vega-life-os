@@ -1,11 +1,11 @@
 export type { CategoryChipProps, CategoryChipTone } from "./CategoryChip";
 export { CategoryChip } from "./CategoryChip";
 export {
-  FINANCE_CATEGORY_COLOR_COUNT,
-  FINANCE_CATEGORY_COLORS,
+  FINANCE_CATEGORY_PALETTE,
   getCategoryColor,
+  nextCategoryColorIndex,
   resolveCategoryColorIndex,
-} from "./category-palette";
+} from "../category-palette";
 export { FadeEdge } from "./FadeEdge";
 export { CHARGE_MONEY_CLASS, SHARE_MONEY_CLASS } from "./money-text";
 export type { PaceBarShape } from "./pace-bar";

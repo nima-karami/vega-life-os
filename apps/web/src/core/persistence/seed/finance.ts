@@ -62,6 +62,7 @@ const buildCategory = (
   name,
   kind,
   order,
+  colorIndex: order % 6,
   archivedAt: null,
   updatedAt: "",
   fieldUpdatedAt: {},
@@ -131,6 +132,7 @@ const buildTransaction = (
   accountId: CHEQUING_ID,
   txnDate,
   spreadMonths: 1,
+  title: "",
   description,
   amountCents,
   currency: "CAD",
@@ -193,6 +195,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
   const transactions = [
     buildTransaction("ftxn_rent", iso(addDays(settledStart, 1)), "PROPERTY MGMT — RENT", -200000, {
       dedupeKey: "7f3a1c02d4e59b60:0",
+      title: "Rent",
       categoryId: HOME_ID,
       isHousehold: true,
       myShareBps: 5000,
@@ -205,6 +208,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       -14250,
       {
         dedupeKey: "b18e57ac902f4d31:0",
+        title: "Groceries run",
         categoryId: GROCERIES_ID,
         merchantId: MARKET_ID,
         isHousehold: true,
@@ -219,6 +223,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       -8600,
       {
         accountId: null,
+        title: "Dinner out",
         categoryId: DINING_ID,
         merchantId: BISTRO_ID,
         payer: "partner",
@@ -237,6 +242,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       480000,
       {
         dedupeKey: "2c4419fd6a03e785:0",
+        title: "Paycheque",
         categoryId: INCOME_ID,
         sourceRowNumber: 3,
       },
@@ -248,6 +254,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       -36000,
       {
         dedupeKey: "9ab6035ec71d4820:0",
+        title: "Toolworks licence",
         accountId: CARD_ID,
         spreadMonths: 12,
         categoryId: SOFTWARE_ID,
@@ -263,6 +270,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       -50000,
       {
         dedupeKey: "5d720ea4cb18f396:0",
+        title: "Card payment",
         isInternal: true,
         reviewFlags: ["auto-internal"],
         resolvedFlags: ["auto-internal"],
@@ -276,6 +284,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       50000,
       {
         dedupeKey: "e60c8b1379af245d:0",
+        title: "Card payment received",
         accountId: CARD_ID,
         isInternal: true,
         importBatchId: CARD_BATCH_ID,
@@ -291,6 +300,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       -9875,
       {
         dedupeKey: "3f812d0b6e5a97c4:0",
+        title: "Groceries run",
         categoryId: GROCERIES_ID,
         merchantId: MARKET_ID,
         isHousehold: true,
@@ -299,6 +309,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       },
     ),
     // No stored no-category flag: it derives from `categoryId === null && !isInternal`.
+    // Title deliberately blank — an unreviewed charge has no clean label yet.
     buildTransaction(
       "ftxn_unknown",
       iso(addDays(referenceDate, -5)),
@@ -318,6 +329,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
       -11200,
       {
         accountId: null,
+        title: "Groceries (her run)",
         categoryId: GROCERIES_ID,
         merchantId: MARKET_ID,
         payer: "partner",

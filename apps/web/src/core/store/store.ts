@@ -341,6 +341,7 @@ export const useStore = create<RootState>((set, get, api) => ({
         email: "",
         avatar: "",
         workspace: "Personal workspace",
+        partnerName: "",
       });
       set({
         ...createEmptyDataset(),

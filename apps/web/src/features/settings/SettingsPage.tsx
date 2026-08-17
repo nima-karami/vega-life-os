@@ -158,6 +158,16 @@ export function SettingsPage() {
                   className={FIELD}
                 />
               </label>
+              <label className="flex flex-col gap-1.5 sm:col-span-2">
+                <span className="text-sm font-medium text-foreground">Partner name</span>
+                <input
+                  value={state.partnerName}
+                  onChange={(e) => state.setPartnerName(e.target.value)}
+                  placeholder="Their name"
+                  className={FIELD}
+                />
+                <span className="text-xs text-muted">Used on Finance's settlement screens.</span>
+              </label>
             </div>
           </div>
         </SettingsCard>

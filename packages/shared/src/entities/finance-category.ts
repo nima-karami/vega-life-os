@@ -8,6 +8,7 @@ const { schema, createSchema } = defineEntity({
   name: z.string(),
   kind: financeCategoryKindSchema,
   order: z.number(),
+  colorIndex: z.number().int().min(0).max(5).nullable().default(null),
   archivedAt: nullableString,
 });
 
