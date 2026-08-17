@@ -28,7 +28,13 @@ const RULE_CLASS = "my-1 border-t border-border";
  * household total, the owner's share, then whatever has already moved. Every line comes from the
  * query module, so the column adds up to the balance exactly rather than nearly.
  */
-export function SettlementBalanceCard({ figures }: { figures: SettlementFigures }) {
+export function SettlementBalanceCard({
+  figures,
+  partnerName,
+}: {
+  figures: SettlementFigures;
+  partnerName: string;
+}) {
   const {
     householdTotalCents,
     myShareCents,
@@ -71,7 +77,11 @@ export function SettlementBalanceCard({ figures }: { figures: SettlementFigures 
 
         <div className={RULE_CLASS} />
         <Line
-          label={describeDirection(outstandingCents, phase === "open" ? "now" : "still")}
+          label={describeDirection(
+            outstandingCents,
+            phase === "open" ? "now" : "still",
+            partnerName,
+          )}
           figure={formatCents(Math.abs(outstandingCents))}
           strong
         />

@@ -9,6 +9,7 @@ import type {
 } from "@vega/shared";
 import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
+import { nextCategoryColorIndex } from "./category-palette";
 import { FULL_SHARE_BPS, MIN_SPREAD_MONTHS } from "./money";
 import { toMonthKey } from "./month-cursor";
 
@@ -36,6 +37,7 @@ export const buildCategory = (
   name: patch.name ?? "",
   kind: patch.kind ?? "spend",
   order: patch.order ?? rows.length,
+  colorIndex: patch.colorIndex ?? nextCategoryColorIndex(rows),
   archivedAt: patch.archivedAt ?? null,
   ...createRowMeta(),
 });
@@ -96,6 +98,7 @@ export const buildTransaction = (patch: Partial<FinanceTransaction>): FinanceTra
     id: uid("ftxn_"),
     txnDate,
     spreadMonths: MIN_SPREAD_MONTHS,
+    title: "",
     description: "",
     amountCents: 0,
     currency: "CAD",

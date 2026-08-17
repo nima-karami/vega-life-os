@@ -4,7 +4,7 @@ import { isProfileIncomplete, resolveProfile } from "./profile";
 describe("resolveProfile", () => {
   it("prefers a non-empty cloud value over the auth account", () => {
     const r = resolveProfile(
-      { name: "Custom Name", workspace: "Studio", avatar: "data:cloud" },
+      { name: "Custom Name", workspace: "Studio", avatar: "data:cloud", partnerName: "Robin" },
       { displayName: "Google Name", email: "me@x.com", photoURL: "https://photo" },
     );
     expect(r).toEqual({
@@ -12,6 +12,7 @@ describe("resolveProfile", () => {
       email: "me@x.com",
       avatar: "data:cloud",
       workspace: "Studio",
+      partnerName: "Robin",
     });
   });
 
@@ -26,6 +27,7 @@ describe("resolveProfile", () => {
       email: "me@x.com",
       avatar: "https://photo",
       workspace: "Personal workspace",
+      partnerName: "",
     });
   });
 
@@ -35,6 +37,7 @@ describe("resolveProfile", () => {
     expect(r.email).toBe("me@x.com");
     expect(r.avatar).toBe("");
     expect(r.workspace).toBe("Personal workspace");
+    expect(r.partnerName).toBe("");
   });
 
   it("email always comes from auth, never from the cloud profile", () => {
@@ -47,11 +50,12 @@ describe("resolveProfile", () => {
 
   it("treats whitespace-only cloud values as empty", () => {
     const r = resolveProfile(
-      { name: "   ", workspace: "  " },
+      { name: "   ", workspace: "  ", partnerName: "   " },
       { displayName: "Fallback", email: null, photoURL: null },
     );
     expect(r.name).toBe("Fallback");
     expect(r.workspace).toBe("Personal workspace");
+    expect(r.partnerName).toBe("");
   });
 
   it("returns safe defaults when both inputs are null", () => {
@@ -60,6 +64,7 @@ describe("resolveProfile", () => {
       email: "",
       avatar: "",
       workspace: "Personal workspace",
+      partnerName: "",
     });
   });
 });

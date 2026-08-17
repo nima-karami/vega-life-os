@@ -5,6 +5,7 @@ export interface ResolvedProfile {
   email: string;
   avatar: string;
   workspace: string;
+  partnerName: string;
 }
 
 interface AuthLike {
@@ -20,6 +21,7 @@ export function resolveProfile(cloud: CloudProfile | null, user: AuthLike | null
     email: user?.email ?? "",
     avatar: cloud?.avatar?.trim() || user?.photoURL?.trim() || "",
     workspace: cloud?.workspace?.trim() || "Personal workspace",
+    partnerName: cloud?.partnerName?.trim() || "",
   };
 }
 

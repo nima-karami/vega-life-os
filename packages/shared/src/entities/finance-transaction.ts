@@ -12,6 +12,8 @@ const { schema, createSchema } = defineEntity({
   // the single period key: cash basis, so budgets, cash flow and settlement all read this
   txnDate: z.string(),
   spreadMonths: z.number().int().min(1).max(36).default(1),
+  // the user-facing label; `description` stays the raw bank string, untouched
+  title: z.string().default(""),
   description: z.string(),
   amountCents: z.number(),
   currency: z.string().default("CAD"),

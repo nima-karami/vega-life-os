@@ -46,8 +46,19 @@ export interface UiSlice {
   setOperatorWorkspace: (v: string) => void;
   setOperatorEmail: (v: string) => void;
   setOperatorAvatar: (v: string) => void;
+
+  /** the household partner's display name, shown on Finance's settlement screens */
+  partnerName: string;
+  setPartnerName: (v: string) => void;
+
   /** Populate the profile from resolved auth+cloud values without writing back to the cloud. */
-  hydrateProfile: (p: { name: string; email: string; avatar: string; workspace: string }) => void;
+  hydrateProfile: (p: {
+    name: string;
+    email: string;
+    avatar: string;
+    workspace: string;
+    partnerName: string;
+  }) => void;
 
   /** custom accent — tints signal/needs-you/now-line; "" = theme default */
   accent: string;
@@ -107,6 +118,7 @@ interface StoredSettings {
   operatorWorkspace: string;
   operatorEmail: string;
   operatorAvatar: string;
+  partnerName: string;
   accent: string;
 }
 function readSettings(): StoredSettings {
@@ -115,6 +127,7 @@ function readSettings(): StoredSettings {
     operatorWorkspace: "Personal workspace",
     operatorEmail: "",
     operatorAvatar: "",
+    partnerName: "",
     accent: "",
   };
   if (typeof localStorage === "undefined") return def;
@@ -172,18 +185,25 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
     set({ operatorAvatar });
     if (get().authUid) void setCloudProfile({ avatar: operatorAvatar });
   },
+  setPartnerName: (partnerName) => {
+    writeSettings({ partnerName });
+    set({ partnerName });
+    if (get().authUid) void setCloudProfile({ partnerName });
+  },
   hydrateProfile: (p) => {
     writeSettings({
       operatorName: p.name,
       operatorEmail: p.email,
       operatorAvatar: p.avatar,
       operatorWorkspace: p.workspace,
+      partnerName: p.partnerName,
     });
     set({
       operatorName: p.name,
       operatorEmail: p.email,
       operatorAvatar: p.avatar,
       operatorWorkspace: p.workspace,
+      partnerName: p.partnerName,
     });
   },
   setAccent: (accent) => {

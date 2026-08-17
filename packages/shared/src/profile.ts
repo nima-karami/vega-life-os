@@ -11,6 +11,7 @@ export const profilePatchSchema = z
     name: z.string(),
     workspace: z.string(),
     avatar: z.string(),
+    partnerName: z.string(),
     gcalConfigured: z.boolean(),
     gcalEnabled: z.boolean(),
     gcalWriteCalendarId: z.string().nullable(),

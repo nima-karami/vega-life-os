@@ -9,7 +9,13 @@ const PHASE_LABEL = { open: "Open", settled: "Settled", amended: "Amended" } as 
  * The frozen side of the month. A settled month leads with `settledBalanceCents` and never the live
  * query, so a figure the owner has already been paid is never quietly rewritten under them.
  */
-export function SettlementStatusCard({ figures }: { figures: SettlementFigures }) {
+export function SettlementStatusCard({
+  figures,
+  partnerName,
+}: {
+  figures: SettlementFigures;
+  partnerName: string;
+}) {
   const { phase, frozenBalanceCents, differenceCents, currentBalanceCents, paymentCents } = figures;
   const settledAt = figures.settledAt;
 
@@ -31,7 +37,7 @@ export function SettlementStatusCard({ figures }: { figures: SettlementFigures }
             Settled at{" "}
             <span className="tabular-nums">{formatCents(Math.abs(frozenBalanceCents ?? 0))}</span>
             {settledAt ? ` on ${formatLongDate(settledAt)}` : ""} —{" "}
-            {describeBalance(frozenBalanceCents ?? 0, "now").toLowerCase()}.
+            {describeBalance(frozenBalanceCents ?? 0, "now", partnerName).toLowerCase()}.
           </p>
         )}
 
