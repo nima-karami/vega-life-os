@@ -17,7 +17,7 @@ import {
   subtractCentsFractions,
   ZERO_CENTS,
 } from "./money";
-import { monthOfISO } from "./month-cursor";
+import { monthOfISO, shiftMonthKey } from "./month-cursor";
 
 /**
  * The finance collections a derived figure needs, named as the store holds them so a caller
@@ -53,7 +53,10 @@ const computeBorneCents = (txn: FinanceTransaction) => -txn.amountCents;
  * Non-internal rows on accounts that count towards the owner's personal figures. Partner-paid
  * rows carry no account, so they are always in.
  */
-function selectPersonalRows(book: FinanceBook, options: FinanceQueryOptions): FinanceTransaction[] {
+export function selectPersonalRows(
+  book: FinanceBook,
+  options: FinanceQueryOptions,
+): FinanceTransaction[] {
   const businessAccountIds = new Set(
     book.financeAccounts.filter((account) => account.isBusiness).map((account) => account.id),
   );
@@ -65,7 +68,10 @@ function selectPersonalRows(book: FinanceBook, options: FinanceQueryOptions): Fi
 }
 
 /** Looked up once per figure, not once per row — a `find` per row is a scan per row. */
-const selectCategoryIdsOfKind = (book: FinanceBook, kind: FinanceCategory["kind"]): Set<string> =>
+export const selectCategoryIdsOfKind = (
+  book: FinanceBook,
+  kind: FinanceCategory["kind"],
+): Set<string> =>
   new Set(
     book.financeCategories
       .filter((category) => category.kind === kind)
@@ -74,15 +80,6 @@ const selectCategoryIdsOfKind = (book: FinanceBook, kind: FinanceCategory["kind"
 
 /** Cash basis: one period key, and it is always `txnDate`. */
 const isInMonth = (txn: FinanceTransaction, month: string) => monthOfISO(txn.txnDate) === month;
-
-/** How many months after its own a row is recognised in; -1 once it is out of the schedule. */
-function computeRecognitionOffset(txn: FinanceTransaction, month: string): number {
-  const offset = differenceInCalendarMonths(
-    computeMonthStart(month),
-    computeMonthStart(monthOfISO(txn.txnDate)),
-  );
-  return offset >= 0 && offset < getSpreadMonths(txn) ? offset : -1;
-}
 
 /**
  * One instalment of an amortized row. The instalments sum to the full borne amount — the
@@ -97,23 +94,66 @@ function recogniseInstalment(txn: FinanceTransaction, offset: number): CentsFrac
   return subtractCentsFractions(borne, scaleCentsFraction(instalment, BigInt(spread - 1), 1n));
 }
 
-/** One pass over the ledger for every category at once — a pass per category is what a page does. */
+export interface RecognizedInstalment {
+  month: string;
+  offset: number;
+  cents: CentsFraction;
+}
+
+/**
+ * Every month a row is recognised in, spread or not — the one place that walks a row's own
+ * schedule forward from its own date, so a caller asking for one month or twelve months walks
+ * the same rows once instead of asking this schedule over and over per target month.
+ */
+export function listRecognizedInstalments(txn: FinanceTransaction): RecognizedInstalment[] {
+  const startMonth = monthOfISO(txn.txnDate);
+  const spread = getSpreadMonths(txn);
+  const instalments: RecognizedInstalment[] = [];
+  for (let offset = 0; offset < spread; offset += 1) {
+    instalments.push({
+      month: shiftMonthKey(startMonth, offset),
+      offset,
+      cents: recogniseInstalment(txn, offset),
+    });
+  }
+  return instalments;
+}
+
+/**
+ * A category×month matrix in one pass over the ledger — every row visits its own (bounded)
+ * schedule once, rather than the ledger being scanned once per requested month.
+ */
+export function sumBorneSpendAcrossMonths(
+  book: FinanceBook,
+  months: string[],
+  options: FinanceQueryOptions,
+): Map<string, Map<string, CentsFraction>> {
+  const spendCategoryIds = selectCategoryIdsOfKind(book, "spend");
+  const wantedMonths = new Set(months);
+  const matrix = new Map<string, Map<string, CentsFraction>>();
+  for (const txn of selectPersonalRows(book, options)) {
+    const categoryId = txn.categoryId;
+    if (categoryId === null || !spendCategoryIds.has(categoryId)) continue;
+    for (const instalment of listRecognizedInstalments(txn)) {
+      if (!wantedMonths.has(instalment.month)) continue;
+      const monthTotals = matrix.get(instalment.month) ?? new Map<string, CentsFraction>();
+      monthTotals.set(
+        categoryId,
+        addCentsFractions(monthTotals.get(categoryId) ?? ZERO_CENTS, instalment.cents),
+      );
+      matrix.set(instalment.month, monthTotals);
+    }
+  }
+  return matrix;
+}
+
+/** One month of the matrix above — the shape every single-month reader here wants. */
 function sumBorneSpendByCategory(
   book: FinanceBook,
   month: string,
   options: FinanceQueryOptions,
 ): Map<string, CentsFraction> {
-  const spendCategoryIds = selectCategoryIdsOfKind(book, "spend");
-  const totals = new Map<string, CentsFraction>();
-  for (const txn of selectPersonalRows(book, options)) {
-    const categoryId = txn.categoryId;
-    if (categoryId === null || !spendCategoryIds.has(categoryId)) continue;
-    const offset = computeRecognitionOffset(txn, month);
-    if (offset < 0) continue;
-    const total = totals.get(categoryId) ?? ZERO_CENTS;
-    totals.set(categoryId, addCentsFractions(total, recogniseInstalment(txn, offset)));
-  }
-  return totals;
+  return sumBorneSpendAcrossMonths(book, [month], options).get(month) ?? new Map();
 }
 
 /**
@@ -182,7 +222,7 @@ export function computeCashIn(
 }
 
 /** Every household row of the month, whatever the account — a debt is never a personal figure. */
-const selectHouseholdRows = (book: FinanceBook, month: string) =>
+export const selectHouseholdRows = (book: FinanceBook, month: string) =>
   book.financeTransactions.filter(
     (txn) => !txn.isInternal && txn.isHousehold && isInMonth(txn, month),
   );
@@ -225,7 +265,7 @@ export function computeSettlementBalance(book: FinanceBook, month: string): numb
   return ownerPaid - roundToCents(sumTrueShare(rows)) + carried - paid;
 }
 
-function countElapsedDays(month: string, asOf: Date, daysInMonth: number): number {
+export function countElapsedDays(month: string, asOf: Date, daysInMonth: number): number {
   const offset = differenceInCalendarMonths(asOf, computeMonthStart(month));
   if (offset !== 0) return daysInMonth;
   return Math.min(Math.max(getDate(asOf), 1), daysInMonth);
