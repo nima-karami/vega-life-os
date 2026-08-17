@@ -1,7 +1,10 @@
+import type { FinanceImportBatch } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import {
   buildResolvedFlags,
+  countRowsNeedingReview,
   describeFlag,
+  describeReviewPrompt,
   hasUnresolvedFlags,
   NO_CATEGORY_FLAG,
   REVIEW_FLAGS,
@@ -94,5 +97,48 @@ describe("flag labels", () => {
 
   it("falls back to the raw flag rather than rendering nothing", () => {
     expect(describeFlag("something-from-the-future")).toBe("something-from-the-future");
+  });
+});
+
+const batch = (id: string, committedAt: string | null): FinanceImportBatch => ({
+  id,
+  status: "committed",
+  fileNames: [`${id}.csv`],
+  fileHashes: [],
+  accountId: "acc_chequing",
+  detectedFormat: null,
+  rowsParsed: 0,
+  rowsInserted: 0,
+  rowsSkipped: 0,
+  startedAt: committedAt ?? "",
+  committedAt,
+  writtenChunks: 0,
+  updatedAt: "",
+  fieldUpdatedAt: {},
+});
+
+describe("the review prompt", () => {
+  const flagged = (importBatchId: string | null) =>
+    row("2026-08-07", -3840, { categoryId: null, importBatchId });
+
+  it("counts only the rows that still need the owner", () => {
+    const rows = [flagged(null), row("2026-08-07", -1200), flagged(null)];
+    expect(countRowsNeedingReview(rows)).toBe(2);
+  });
+
+  it("says nothing at all when nothing is flagged", () => {
+    expect(describeReviewPrompt([row("2026-08-07", -1200)], [])).toBe("");
+  });
+
+  it("names the day of the newest import the flagged rows came from", () => {
+    const rows = [flagged("fib_mon"), flagged("fib_wed")];
+    const batches = [batch("fib_mon", "2026-08-10T09:00:00.000Z"), batch("fib_wed", "2026-08-12T09:00:00.000Z")];
+    expect(describeReviewPrompt(rows, batches)).toBe(
+      "2 rows from Wednesday's import need a category or a split",
+    );
+  });
+
+  it("drops the import clause rather than inventing a day for hand-typed rows", () => {
+    expect(describeReviewPrompt([flagged(null)], [])).toBe("1 row needs a category or a split");
   });
 });

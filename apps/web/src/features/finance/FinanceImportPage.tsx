@@ -61,7 +61,7 @@ export function FinanceImportPage() {
   return (
     <FinancePageShell
       title="Import statements"
-      subtitle="Pick the account, drop a CSV, confirm how it reads — nothing is written until you do."
+      subLine="Pick the account, drop a CSV, confirm how it reads — nothing is written until you do."
       summary={`${batchRows.length} imports on record`}
       isEmpty={false}
       empty={{ title: "No imports yet", body: "Drop a statement to get started." }}

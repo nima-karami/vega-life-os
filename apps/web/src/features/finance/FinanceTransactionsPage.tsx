@@ -1,6 +1,7 @@
 import { Button, Checkbox } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, cx, Icon, SortHeader, toggleColumnSort } from "@/core/ui";
 import { FinancePageShell } from "./FinancePageShell";
@@ -21,6 +22,8 @@ import {
   listSettledMonths,
   listTransactionMonths,
   queryFinanceTransactions,
+  readReviewFilter,
+  REVIEW_PARAM,
   type ReviewFilter,
   type TransactionFilters,
   type TransactionSortColumn,
@@ -57,16 +60,20 @@ export function FinanceTransactionsPage() {
   const fileTransactions = useStore((s) => s.fileTransactions);
   const removeFinanceTransactions = useStore((s) => s.removeFinanceTransactions);
 
+  const [params, setParams] = useSearchParams();
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
   const [sort, setSort] = useState(DEFAULT_TRANSACTION_SORT);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
 
+  const review = readReviewFilter(params.get(REVIEW_PARAM));
+  const activeFilters = useMemo(() => ({ ...filters, review }), [filters, review]);
+
   const categoryNames = useMemo(() => buildCategoryNames(financeCategories), [financeCategories]);
   const rows = useMemo(
-    () => queryFinanceTransactions(financeTransactions, categoryNames, filters, sort),
-    [financeTransactions, categoryNames, filters, sort],
+    () => queryFinanceTransactions(financeTransactions, categoryNames, activeFilters, sort),
+    [financeTransactions, categoryNames, activeFilters, sort],
   );
   const orderedIds = useMemo(() => rows.map((row) => row.id), [rows]);
   const selection = useTransactionSelection(orderedIds);
@@ -91,9 +98,16 @@ export function FinanceTransactionsPage() {
 
   const visibleRows = rows.slice(0, visibleCount);
 
+  const setReview = (next: ReviewFilter) => {
+    const nextParams = new URLSearchParams(params);
+    if (next === "all") nextParams.delete(REVIEW_PARAM);
+    else nextParams.set(REVIEW_PARAM, next);
+    setParams(nextParams, { replace: true });
+    setVisibleCount(PAGE_SIZE);
+  };
   const clearFilters = () => {
     setFilters(DEFAULT_TRANSACTION_FILTERS);
-    setVisibleCount(PAGE_SIZE);
+    setReview("all");
   };
   const changeFilters = (patch: Partial<TransactionFilters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -119,7 +133,7 @@ export function FinanceTransactionsPage() {
     <>
       <FinancePageShell
         title="Transactions"
-        subtitle="Every row from every statement — the ledger you work in."
+        subLine="Every row from every statement — the ledger you work in."
         summary={summary}
         search={{
           value: filters.query,
@@ -130,8 +144,8 @@ export function FinanceTransactionsPage() {
         chips={{
           label: "Review state",
           options: REVIEW_CHIPS.map((chip) => ({ id: chip.id, label: chip.label })),
-          activeId: filters.review,
-          onSelect: (id) => changeFilters({ review: id as ReviewFilter }),
+          activeId: review,
+          onSelect: (id) => setReview(id as ReviewFilter),
         }}
         filters={
           <TransactionFilterBar

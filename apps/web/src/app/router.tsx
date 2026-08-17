@@ -7,9 +7,12 @@ import { CardPage } from "@/features/cards/page/CardPage";
 import { CardPreviewPage } from "@/features/cards/page/CardPreviewPage";
 import { ScrollPage } from "@/features/cards/ScrollPage";
 import { FinanceCategoriesPage } from "@/features/finance/FinanceCategoriesPage";
+import { FinanceCategoryPage } from "@/features/finance/FinanceCategoryPage";
 import { FinanceDashboardPage } from "@/features/finance/FinanceDashboardPage";
 import { FinanceImportPage } from "@/features/finance/FinanceImportPage";
+import { FinanceNewTransactionPage } from "@/features/finance/FinanceNewTransactionPage";
 import { FinanceSettlementPage } from "@/features/finance/FinanceSettlementPage";
+import { FinanceTransactionPage } from "@/features/finance/FinanceTransactionPage";
 import { FinanceTransactionsPage } from "@/features/finance/FinanceTransactionsPage";
 import { GoalPage } from "@/features/goals/GoalPage";
 import { HabitPage } from "@/features/habits/HabitPage";
@@ -52,8 +55,11 @@ export const router = createBrowserRouter([
           { path: "vocab", element: <Navigate to="/cards" replace /> },
           { path: "finance", element: <FinanceDashboardPage /> },
           { path: "finance/transactions", element: <FinanceTransactionsPage /> },
+          { path: "finance/transactions/new", element: <FinanceNewTransactionPage /> },
+          { path: "finance/transactions/:transactionId", element: <FinanceTransactionPage /> },
           { path: "finance/import", element: <FinanceImportPage /> },
           { path: "finance/categories", element: <FinanceCategoriesPage /> },
+          { path: "finance/categories/:categoryId", element: <FinanceCategoryPage /> },
           { path: "finance/settlement", element: <FinanceSettlementPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "settings", element: <SettingsPage /> },

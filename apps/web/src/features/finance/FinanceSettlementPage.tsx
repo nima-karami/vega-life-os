@@ -151,9 +151,9 @@ export function FinanceSettlementPage() {
   return (
     <FinancePageShell
       title="Settlement"
-      subtitle="What the household cost, whose card it landed on, and who owes whom this month."
+      subLine="What the household cost, whose card it landed on, and who owes whom this month."
       summary={`${formatMonthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now")}`}
-      action={
+      headerAction={
         <SettlementActions
           figures={figures}
           nextOpenMonth={nextOpenMonth}

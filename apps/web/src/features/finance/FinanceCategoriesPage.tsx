@@ -142,9 +142,9 @@ export function FinanceCategoriesPage() {
     <>
       <FinancePageShell
         title="Categories"
-        subtitle="Your own categories, each with a budget you can set month by month."
+        subLine="Your own categories, each with a budget you can set month by month."
         summary={`${financeCategories.length} categories · ${formatCents(totalSpend)} of ${formatCents(totalBudget)} budgeted`}
-        action={newCategoryButton}
+        headerAction={newCategoryButton}
         chips={{
           label: "Filter categories",
           options: KIND_FILTERS,

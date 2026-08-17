@@ -12,6 +12,8 @@ export { EmptyState } from "./EmptyState";
 export type { CardMeasure, CardMeta, CardTone, CardWeekDay } from "./EntityCard";
 export { EntityCard } from "./EntityCard";
 export { FIELD_CLASS } from "./field-styles";
+export type { ChipGroup, SearchBox } from "./FilterBar";
+export { FilterBar } from "./FilterBar";
 export { IconField } from "./IconField";
 export type { IconState } from "./icons";
 export { getIconStateStyle, Ic, Icon } from "./icons";

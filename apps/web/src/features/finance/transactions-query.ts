@@ -22,6 +22,12 @@ export const NO_CATEGORY = "∅nocategory";
 
 export type ReviewFilter = "all" | "flagged" | "clear";
 
+/** The badge deep-links into the ledger, so the review filter has to survive a URL. */
+export const REVIEW_PARAM = "review";
+
+export const readReviewFilter = (value: string | null): ReviewFilter =>
+  value === "flagged" || value === "clear" ? value : "all";
+
 export interface TransactionFilters {
   query: string;
   accountId: string;

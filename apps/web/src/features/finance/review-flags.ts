@@ -1,4 +1,5 @@
-import type { FinanceTransaction } from "@vega/shared";
+import type { FinanceImportBatch, FinanceTransaction } from "@vega/shared";
+import { format, parseISO } from "date-fns";
 
 export const REVIEW_FLAGS = [
   "no-category",
@@ -46,3 +47,40 @@ export const hasUnresolvedFlags = (txn: FinanceTransaction): boolean =>
 
 export const buildResolvedFlags = (txn: FinanceTransaction, flag: FinanceReviewFlag): string[] =>
   txn.resolvedFlags.includes(flag) ? txn.resolvedFlags : [...txn.resolvedFlags, flag];
+
+/** One number behind the badge, the filter chip, the explainer and the settlement's caveat. */
+export const countRowsNeedingReview = (transactions: FinanceTransaction[]): number =>
+  transactions.filter(hasUnresolvedFlags).length;
+
+/** Which day's import left the work, so the prompt names it rather than saying "some rows". */
+function findLatestImportDay(
+  transactions: FinanceTransaction[],
+  batches: FinanceImportBatch[],
+): string | null {
+  const batchIds = new Set(
+    transactions.filter(hasUnresolvedFlags).map((txn) => txn.importBatchId ?? ""),
+  );
+  const committed = batches
+    .filter((batch) => batchIds.has(batch.id))
+    .flatMap((batch) => (batch.committedAt === null ? [] : [batch.committedAt]))
+    .sort();
+  const latest = committed.at(-1);
+  return latest === undefined ? null : format(parseISO(latest), "EEEE");
+}
+
+/**
+ * The one review sentence. It drops the import clause rather than inventing a day when the
+ * flagged rows were typed in by hand, and says nothing at all when there is nothing to review.
+ */
+export function describeReviewPrompt(
+  transactions: FinanceTransaction[],
+  batches: FinanceImportBatch[],
+): string {
+  const count = countRowsNeedingReview(transactions);
+  if (count === 0) return "";
+  const rows = count === 1 ? "1 row" : `${count} rows`;
+  const day = findLatestImportDay(transactions, batches);
+  const origin = day === null ? "" : ` from ${day}'s import`;
+  const needs = count === 1 ? "needs" : "need";
+  return `${rows}${origin} ${needs} a category or a split`;
+}

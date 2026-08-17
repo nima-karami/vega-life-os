@@ -74,24 +74,24 @@ export function FinanceDashboardPage() {
   const renderShell = (children: ReactNode, emptyCopy?: EmptyCopy) => (
     <FinancePageShell
       title="Finance"
-      subtitle={SUBTITLE}
-      action={
+      subLine={SUBTITLE}
+      monthCursor={
+        <FinanceMonthCursor month={month} currentMonth={currentMonth} onChange={setMonth} />
+      }
+      headerAction={
         <Button variant="primary" onPress={() => navigate("/finance/import")}>
           Import statements
         </Button>
       }
       filters={
-        <div className="flex flex-wrap items-center gap-3">
-          <FinanceMonthCursor month={month} currentMonth={currentMonth} onChange={setMonth} />
-          <ButtonGroup aria-label="Business accounts">
-            <SegmentButton isSelected={!includeBusiness} onClick={() => setIncludeBusiness(false)}>
-              Personal only
-            </SegmentButton>
-            <SegmentButton isSelected={includeBusiness} onClick={() => setIncludeBusiness(true)}>
-              With business
-            </SegmentButton>
-          </ButtonGroup>
-        </div>
+        <ButtonGroup aria-label="Business accounts">
+          <SegmentButton isSelected={!includeBusiness} onClick={() => setIncludeBusiness(false)}>
+            Personal only
+          </SegmentButton>
+          <SegmentButton isSelected={includeBusiness} onClick={() => setIncludeBusiness(true)}>
+            With business
+          </SegmentButton>
+        </ButtonGroup>
       }
       isEmpty={emptyCopy !== undefined}
       empty={emptyCopy ?? NO_COPY}
