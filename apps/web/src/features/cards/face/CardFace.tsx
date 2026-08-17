@@ -38,7 +38,6 @@ export function FaceHeaderRow({
   tracking,
   gap,
   leading = null,
-  pressable = false,
 }: {
   typeLabel: string;
   category: string;
@@ -46,7 +45,6 @@ export function FaceHeaderRow({
   tracking: string;
   gap: number;
   leading?: ReactNode;
-  pressable?: boolean;
 }) {
   return (
     <div className="flex items-center" style={{ gap }}>
@@ -55,21 +53,15 @@ export function FaceHeaderRow({
         text={typeLabel}
         fontSize={fontSize}
         tracking={tracking}
-        className={cx("font-semibold text-foreground", pressable && "group-active:text-accent")}
+        className="font-semibold text-foreground"
       />
-      <span
-        className={cx("flex-1 bg-line-card", pressable && "group-active:bg-accent/35")}
-        style={{ height: HAIRLINE_PX }}
-      />
+      <span className="flex-1 bg-line-card" style={{ height: HAIRLINE_PX }} />
       {category !== "" && (
         <HeaderLabel
           text={category}
           fontSize={fontSize}
           tracking={tracking}
-          className={cx(
-            "whitespace-nowrap font-medium text-muted",
-            pressable && "group-active:text-accent",
-          )}
+          className="whitespace-nowrap font-medium text-muted"
         />
       )}
     </div>
@@ -137,12 +129,12 @@ export function CardFace({
   spec,
   scale,
   fullBleed = false,
-  omitHeader = false,
+  headerLeading = null,
 }: {
   spec: FaceSpec;
   scale: number;
   fullBleed?: boolean;
-  omitHeader?: boolean;
+  headerLeading?: ReactNode;
 }) {
   const plan = planFace(spec, scale, fullBleed);
   return (
@@ -155,15 +147,14 @@ export function CardFace({
         paddingRight: plan.padding.sides,
       }}
     >
-      <div className={cx(omitHeader && "invisible")} aria-hidden={omitHeader || undefined}>
-        <FaceHeaderRow
-          typeLabel={spec.typeLabel}
-          category={spec.category}
-          fontSize={plan.header.fontSize}
-          tracking={plan.header.tracking}
-          gap={plan.header.gap}
-        />
-      </div>
+      <FaceHeaderRow
+        typeLabel={spec.typeLabel}
+        category={spec.category}
+        leading={headerLeading}
+        fontSize={plan.header.fontSize}
+        tracking={plan.header.tracking}
+        gap={plan.header.gap}
+      />
       <div className="flex flex-1 flex-col justify-center">
         {plan.items.map((item) => (
           <FaceItem key={item.key} item={item} />

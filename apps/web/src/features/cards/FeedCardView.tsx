@@ -5,6 +5,7 @@ import { cx } from "@/core/ui";
 import { FeedActionRail } from "./FeedActionRail";
 import { FeedFirstRunHint } from "./FeedFirstRunHint";
 import { FeedHeaderControl } from "./FeedHeaderControl";
+import { FeedHeaderGlyphs } from "./FeedHeaderGlyphs";
 import { FeedRecallStep } from "./FeedRecallStep";
 import { CardFace } from "./face/CardFace";
 import { CardFlip, DissolveLayer } from "./face/CardFlip";
@@ -52,6 +53,7 @@ export function FeedCardView({
   const face = useMemo(() => composeFace(card, "face"), [card]);
   const reveal = useMemo(() => (hasReveal(card) ? composeFace(card, "reveal") : null), [card]);
   const canGrade = step === "recall" && card.box !== null;
+  const headerGlyphs = <FeedHeaderGlyphs glyphs={glyphs} />;
   const stageRef = useRef<HTMLDivElement>(null);
   const voidedDragRef = useRef(false);
   const { handlers } = useLongPress(onOpenSheet);
@@ -102,8 +104,12 @@ export function FeedCardView({
           surfaceClass="bg-background"
           reduceMotion={shouldReduceMotion === true}
           turned={step !== "face"}
-          front={<CardFace spec={face} scale={1} fullBleed omitHeader />}
-          back={reveal === null ? null : <CardFace spec={reveal} scale={1} fullBleed omitHeader />}
+          front={<CardFace spec={face} scale={1} fullBleed headerLeading={headerGlyphs} />}
+          back={
+            reveal === null ? null : (
+              <CardFace spec={reveal} scale={1} fullBleed headerLeading={headerGlyphs} />
+            )
+          }
           overlay={
             shape === "graded" ? (
               <DissolveLayer shown={step === "recall"}>

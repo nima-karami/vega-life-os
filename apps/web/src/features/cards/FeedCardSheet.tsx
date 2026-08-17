@@ -1,14 +1,7 @@
 import { Button } from "@heroui/react";
 import type { Card } from "@vega/shared";
-import {
-  animate,
-  motion,
-  type PanInfo,
-  useDragControls,
-  useMotionValue,
-  useReducedMotion,
-} from "framer-motion";
-import { useCallback, useEffect, useRef } from "react";
+import { animate, motion, type PanInfo, useMotionValue, useReducedMotion } from "framer-motion";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import type { IconName } from "@/core/lib/icon-names";
@@ -16,16 +9,17 @@ import { cx, Icon } from "@/core/ui";
 import { BARE_CONTROL, BARE_ROW } from "./feed-chrome";
 import { offersPromotion } from "./feed-steps";
 import type { CardPageLocationState } from "./page/card-page-nav";
-import { decideSheetDrag } from "./sheet-drag";
+import { decideSheetDrag, nextSheetDetent, type SheetDetent } from "./sheet-drag";
 
 const PROMOTE_LABEL = "Hide part of this to review it";
 const PROMOTE_SUB =
   "Choose what you want to be able to recall. The card becomes two-sided, and review turns on.";
 const ROW_GLYPH_PX = 16;
 const DRAGGING_BODY_CLASS = "is-dragging-sheet";
+const EXPANDED_VIEWPORT_RATIO = 0.9;
 const EASE_IN = [0.4, 0, 1, 1] as const;
-const SPRING_BACK_TRANSITION = { type: "spring", stiffness: 380, damping: 34 } as const;
-const SPRING_BACK_TRANSITION_REDUCED = { duration: 0.15, ease: EASE_IN } as const;
+const PANEL_SPRING = { type: "spring", stiffness: 380, damping: 34 } as const;
+const PANEL_SPRING_REDUCED = { duration: 0.15, ease: EASE_IN } as const;
 
 export function FeedCardSheet({
   card,
@@ -45,9 +39,12 @@ export function FeedCardSheet({
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
   const y = useMotionValue(0);
-  const dragControls = useDragControls();
+  const height = useMotionValue(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef(false);
+  const defaultHeightRef = useRef(0);
+  const [detent, setDetent] = useState<SheetDetent>("default");
+  const [isMeasured, setIsMeasured] = useState(false);
 
   const close = useCallback(() => {
     closingRef.current = true;
@@ -68,20 +65,55 @@ export function FeedCardSheet({
     return () => document.body.classList.remove(DRAGGING_BODY_CLASS);
   }, []);
 
-  const handleDragStart = () => {
+  // The content sizes the default detent, so the sheet only takes an explicit height once
+  // it has been measured — before that it is auto, exactly as it renders on the way in.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (panel === null) return;
+    defaultHeightRef.current = Math.ceil(panel.getBoundingClientRect().height);
+    height.set(defaultHeightRef.current);
+    setIsMeasured(true);
+  }, [height]);
+
+  const getDetentHeight = (target: SheetDetent): number =>
+    target === "expanded"
+      ? Math.max(defaultHeightRef.current, window.innerHeight * EXPANDED_VIEWPORT_RATIO)
+      : defaultHeightRef.current;
+
+  const handlePanStart = () => {
     document.body.classList.add(DRAGGING_BODY_CLASS);
   };
 
-  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+  const handlePan = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const base = getDetentHeight(detent);
+    if (info.offset.y > 0 && detent === "default") {
+      height.set(base);
+      y.set(info.offset.y);
+      return;
+    }
+    y.set(0);
+    const pulled = base - info.offset.y;
+    height.set(Math.min(Math.max(pulled, defaultHeightRef.current), getDetentHeight("expanded")));
+  };
+
+  const handlePanEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     document.body.classList.remove(DRAGGING_BODY_CLASS);
     if (closingRef.current) return;
-    const panelHeight = panelRef.current?.offsetHeight ?? 0;
-    const decision = decideSheetDrag(info.offset.y, info.velocity.y, panelHeight);
-    if (decision === "dismiss") {
+    const outcome = decideSheetDrag(
+      detent,
+      info.offset.y,
+      info.velocity.y,
+      getDetentHeight(detent),
+    );
+    if (outcome === "dismiss") {
       close();
       return;
     }
-    animate(y, 0, shouldReduceMotion ? SPRING_BACK_TRANSITION_REDUCED : SPRING_BACK_TRANSITION);
+    const target = nextSheetDetent(detent, outcome);
+    setDetent(target);
+    const transition = shouldReduceMotion ? PANEL_SPRING_REDUCED : PANEL_SPRING;
+    animate(y, 0, transition);
+    animate(height, getDetentHeight(target), transition);
   };
 
   const handlePromote = () => {
@@ -138,7 +170,7 @@ export function FeedCardSheet({
       }
     : {
         initial: { y: "100%" },
-        animate: { y: 0, transition: SPRING_BACK_TRANSITION },
+        animate: { y: 0, transition: PANEL_SPRING },
         exit: { y: "100%", transition: { duration: 0.28, ease: EASE_IN } },
       };
 
@@ -159,34 +191,30 @@ export function FeedCardSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Card actions"
+        data-sheet-detent={detent}
         variants={panelVariants}
         initial="initial"
         animate="animate"
         exit="exit"
-        style={{ y }}
-        drag="y"
-        dragListener={false}
-        dragControls={dragControls}
-        dragConstraints={{ top: 0, bottom: window.innerHeight }}
-        dragElastic={{ top: 0, bottom: 0.5 }}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        style={{ y, height: isMeasured ? height : undefined }}
         className="absolute inset-x-0 bottom-0 flex flex-col rounded-t-[26px] rounded-b-[44px] border-border border-t bg-surface px-6 pt-[18px] pb-[30px]"
       >
-        <span
+        <motion.span
           aria-hidden
-          onPointerDown={(event) => dragControls.start(event)}
+          onPanStart={handlePanStart}
+          onPan={handlePan}
+          onPanEnd={handlePanEnd}
           style={{ touchAction: "none" }}
-          className="mx-auto h-[3px] w-[34px] cursor-grab rounded-[2px] bg-ink/14 [-webkit-touch-callout:none]"
+          className="mx-auto h-[3px] w-[34px] shrink-0 cursor-grab rounded-[2px] bg-ink/14 [-webkit-touch-callout:none]"
         />
-        <div className="mt-4 flex flex-col">
+        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           {offersPromotion(card) && (
             <Button
               variant="ghost"
               onPress={handlePromote}
               className={cx(
                 BARE_CONTROL,
-                "flex w-full flex-col items-start gap-[5px] pt-3 pb-4 focus-visible:ring-2 focus-visible:ring-accent",
+                "flex w-full shrink-0 flex-col items-start gap-[5px] pt-3 pb-4 focus-visible:ring-2 focus-visible:ring-accent",
               )}
             >
               <span className="flex w-full items-center gap-3">
@@ -203,7 +231,7 @@ export function FeedCardSheet({
               key={row.label}
               variant="ghost"
               onPress={row.onSelect}
-              className={cx(BARE_ROW, "focus-visible:ring-2 focus-visible:ring-accent")}
+              className={cx(BARE_ROW, "shrink-0 focus-visible:ring-2 focus-visible:ring-accent")}
             >
               <Icon name={row.icon} size={ROW_GLYPH_PX} className="text-muted" />
               <span className="flex-1 text-[16px] text-ink-secondary">{row.label}</span>
