@@ -1,9 +1,10 @@
+import { Button as HeroButton } from "@heroui/react";
 import type { FinanceSettlement, FinanceTransaction } from "@vega/shared";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { Button, ConfirmDialog, Select } from "@/core/ui";
+import { Button, ConfirmDialog, Icon } from "@/core/ui";
 import { FinancePageShell } from "./FinancePageShell";
 import { formatCents } from "./money";
 import {
@@ -14,11 +15,12 @@ import {
   toMonthKey,
 } from "./month-cursor";
 import type { FinanceBook } from "./queries";
-import { type SettlementAction, SettlementActions } from "./SettlementActions";
-import { SettlementBalanceCard } from "./SettlementBalanceCard";
+import { SettlementHistoryCard } from "./SettlementHistoryCard";
 import { SettlementNotices } from "./SettlementNotices";
 import { type SettlementPayment, SettlementPaymentEditor } from "./SettlementPaymentEditor";
-import { SettlementStatusCard } from "./SettlementStatusCard";
+import { type SettlementAction, SettlementPeriodActions } from "./SettlementPeriodActions";
+import { SettlementPeriodCard } from "./SettlementPeriodCard";
+import { SettlementRowsCard } from "./SettlementRowsCard";
 import {
   buildCarryForwardWrites,
   buildSettlePatch,
@@ -28,15 +30,17 @@ import {
   listSettlementMonths,
   type SettlementFigures,
 } from "./settlement";
+import { describeSettlementSubLine, resolvePartnerName } from "./settlement-copy";
+import {
+  buildSettlementHistory,
+  buildSettlementRowViews,
+  partitionSettlementSplits,
+  type SettlementRowFilter,
+} from "./settlement-rows";
 import { useFinanceBook } from "./useFinanceBook";
 
-type FinalAction = Exclude<SettlementAction, "pay">;
-
-const PHASE_SUMMARY = {
-  open: "Open",
-  settled: "Settled",
-  amended: "Amended — the figure moved after it was settled",
-} as const;
+type FreezeAction = "settle" | "resettle";
+type ConfirmAction = SettlementAction | FreezeAction;
 
 /** Rows the payment could have landed as: the owner's own, moving the right way, within three months. */
 function selectPaymentCandidates(
@@ -56,11 +60,23 @@ function selectPaymentCandidates(
     .slice(0, 20);
 }
 
-/** Reopening unlocks the month's rows for editing; the figure it was settled at is kept, not erased. */
+/** Reopening unlocks the period's rows for editing; the figure it was settled at is kept, not erased. */
 const REOPEN_PATCH = { status: "open" } as const;
 
-function describeFinalAction(
-  action: FinalAction,
+const isPeriodOpen = (book: FinanceBook, month: string): boolean => {
+  const record = book.financeSettlements.find((entry) => entry.month === month);
+  return record === undefined || record.status === "open";
+};
+
+/** An amended period re-freezes at the new figure; an open one freezes for the first time. */
+function selectFreezeAction(figures: SettlementFigures): FreezeAction | null {
+  if (figures.phase === "amended") return "resettle";
+  if (figures.phase === "open" && figures.householdRowCount > 0) return "settle";
+  return null;
+}
+
+function describeConfirmAction(
+  action: ConfirmAction,
   figures: SettlementFigures,
   nextOpenMonth: string,
   partnerName: string,
@@ -74,15 +90,15 @@ function describeFinalAction(
   }
   if (action === "reopen") {
     return {
-      title: "Reopen this month for editing?",
+      title: "Reopen this period for editing?",
       confirmLabel: "Reopen",
       body: `${formatMonthLabel(figures.month)} unlocks so its rows can be edited again. The ${formatCents(Math.abs(figures.frozenBalanceCents ?? 0))} it was settled at is kept on record — settle again when you're done.`,
     };
   }
   return {
-    title: "Freeze this month's figure?",
-    confirmLabel: action === "resettle" ? "Re-settle" : "Settle",
-    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now", partnerName).toLowerCase()}. Later edits to these rows amend the month; they never rewrite this figure.`,
+    title: "Freeze this period's figure?",
+    confirmLabel: action === "resettle" ? "Re-settle" : "Record settlement",
+    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now", partnerName).toLowerCase()}. Later edits to these rows amend the period; they never rewrite this figure.`,
   };
 }
 
@@ -95,21 +111,30 @@ export function FinanceSettlementPage() {
   const partnerName = useStore((s) => s.partnerName);
 
   const [params, setParams] = useSearchParams();
-  const [pendingAction, setPendingAction] = useState<FinalAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
   const [isPaying, setIsPaying] = useState(false);
+  const [rowFilter, setRowFilter] = useState<SettlementRowFilter>("all");
 
   const thisMonth = toMonthKey(new Date());
   const months = useMemo(() => listSettlementMonths(book, thisMonth), [book, thisMonth]);
+  const openMonths = useMemo(
+    () => months.filter((entry) => isPeriodOpen(book, entry)),
+    [book, months],
+  );
   const requestedMonth = params.get("month");
   const month =
     requestedMonth !== null && isMonthKey(requestedMonth)
       ? requestedMonth
-      : (months[0] ?? thisMonth);
-  // A deep-linked month the book has never heard of still has to name itself in the picker.
-  const monthOptions = months.includes(month) ? months : [month, ...months];
+      : (openMonths[0] ?? months[0] ?? thisMonth);
+
   const figures = useMemo(() => computeSettlementFigures(book, month), [book, month]);
+  const rowViews = useMemo(() => buildSettlementRowViews(book, month), [book, month]);
+  const partition = useMemo(() => partitionSettlementSplits(rowViews), [rowViews]);
+  const history = useMemo(() => buildSettlementHistory(book, partnerName), [book, partnerName]);
   const settlementRecord = book.financeSettlements.find((entry) => entry.month === month);
   const nextOpenMonth = findNextOpenMonth(book, month);
+  const freezeAction = selectFreezeAction(figures);
+  const partnerLabel = resolvePartnerName(partnerName);
 
   const selectMonth = (next: string) => {
     const query = new URLSearchParams(params);
@@ -125,7 +150,7 @@ export function FinanceSettlementPage() {
     addSettlement({ month: target, ...patch });
   };
 
-  const handleSettlementAction = (action: SettlementAction) => {
+  const handlePeriodAction = (action: SettlementAction) => {
     if (action === "pay") setIsPaying(true);
     else setPendingAction(action);
   };
@@ -147,7 +172,7 @@ export function FinanceSettlementPage() {
     setIsPaying(false);
   };
 
-  const confirmCopy = describeFinalAction(
+  const confirmCopy = describeConfirmAction(
     pendingAction ?? "settle",
     figures,
     nextOpenMonth,
@@ -158,33 +183,24 @@ export function FinanceSettlementPage() {
   return (
     <FinancePageShell
       title="Settlement"
-      subLine="What the household cost, whose card it landed on, and who owes whom this month."
-      summary={`${formatMonthLabel(month)} · ${PHASE_SUMMARY[figures.phase]} · ${describeBalance(figures.headlineBalanceCents, "now", partnerName)}`}
+      subLine={describeSettlementSubLine(openMonths.length, figures.householdRowCount, month)}
       headerAction={
-        <SettlementActions
-          figures={figures}
-          nextOpenMonth={nextOpenMonth}
-          onSelectAction={handleSettlementAction}
-        />
-      }
-      filters={
-        <Select
-          ariaLabel="Settlement month"
-          className="sm:w-56"
-          value={month}
-          onValueChange={selectMonth}
-          options={monthOptions.map((entry) => ({ value: entry, label: formatMonthLabel(entry) }))}
-        />
+        freezeAction !== null && (
+          <HeroButton variant="primary" onPress={() => setPendingAction(freezeAction)}>
+            <Icon name="check" size={16} />
+            {freezeAction === "resettle" ? "Re-settle" : "Record settlement"}
+          </HeroButton>
+        )
       }
       isEmpty={!hasAnyData}
       empty={{
         title: "Nothing to settle yet",
-        body: "Mark expenses as household and give each a share — the month's balance builds from there.",
+        body: "Mark expenses as household and give each a share — the period's balance builds from there.",
       }}
       hasNoMatches={figures.householdRowCount === 0 && settlementRecord === undefined}
       noMatches={{
         title: `No household expenses in ${formatMonthLabel(month)}`,
-        body: "Nothing was shared this month, so there is nothing to split.",
+        body: "Nothing was shared in this period, so there is nothing to split.",
         cta: (
           <Button solid onPress={() => selectMonth(thisMonth)}>
             Back to this month
@@ -193,8 +209,29 @@ export function FinanceSettlementPage() {
       }}
     >
       <SettlementNotices hasLoadFailed={loadFailed} onRetry={() => void refetchAll()} />
-      <SettlementBalanceCard figures={figures} partnerName={partnerName} />
-      <SettlementStatusCard figures={figures} partnerName={partnerName} />
+
+      <SettlementPeriodCard
+        figures={figures}
+        partition={partition}
+        partnerName={partnerName}
+        actions={
+          <SettlementPeriodActions
+            figures={figures}
+            nextOpenMonth={nextOpenMonth}
+            onSelectAction={handlePeriodAction}
+          />
+        }
+      />
+
+      <SettlementRowsCard
+        views={rowViews}
+        figures={figures}
+        filter={rowFilter}
+        partnerName={partnerLabel}
+        onSelectFilter={setRowFilter}
+      />
+
+      {history.length > 0 && <SettlementHistoryCard rows={history} />}
 
       <ConfirmDialog
         open={pendingAction !== null}
@@ -209,6 +246,7 @@ export function FinanceSettlementPage() {
         <SettlementPaymentEditor
           figures={figures}
           candidates={selectPaymentCandidates(book, figures)}
+          partnerName={partnerLabel}
           isOpen={isPaying}
           onClose={() => setIsPaying(false)}
           onSave={recordPayment}

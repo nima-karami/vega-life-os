@@ -32,12 +32,15 @@ const computePaymentDirection = (figures: SettlementFigures) =>
 export function SettlementPaymentEditor({
   figures,
   candidates,
+  partnerName,
   isOpen,
   onClose,
   onSave,
 }: {
   figures: SettlementFigures;
   candidates: FinanceTransaction[];
+  /** Already resolved by the page — Finance holds no name of its own. */
+  partnerName: string;
   isOpen: boolean;
   onClose: () => void;
   onSave: (payment: SettlementPayment) => void;
@@ -82,7 +85,9 @@ export function SettlementPaymentEditor({
 
             <Modal.Body className="space-y-5">
               <EditorField
-                label={direction < 0 ? "Amount you paid your partner" : "Amount your partner paid"}
+                label={
+                  direction < 0 ? `Amount you paid ${partnerName}` : `Amount ${partnerName} paid`
+                }
               >
                 <input
                   type="text"
