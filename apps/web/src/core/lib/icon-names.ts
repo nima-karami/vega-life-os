@@ -36,6 +36,7 @@ export const CHROME_ICON_NAMES = [
   "filter",
   "arrow-right",
   "arrow-left",
+  "arrow-down",
   "calendar-range",
   "rows",
   "grid",

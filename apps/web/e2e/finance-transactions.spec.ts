@@ -2,118 +2,136 @@ import { expect, type Page, test } from "@playwright/test";
 import { enterApp } from "./helpers/app";
 
 /**
- * A long ledger: search and filters narrow its rows, a selection is worked in
- * one action, and a settled month's rows say why they can't be touched.
+ * A long ledger: rows sit under the day they landed on, every day states its two
+ * figures honestly, the review lens triages a row in place, and a settled month says why it can't
+ * be touched. The sandbox seeds its rows relative to today, so every test names the month it wants.
  */
 
-async function openLedger(page: Page) {
+const toMonthKey = (moment: Date) =>
+  `${moment.getFullYear()}-${String(moment.getMonth() + 1).padStart(2, "0")}`;
+
+/** The month a seeded row landed in — the seed dates every row back from today. */
+function monthOfDaysAgo(days: number): string {
+  const moment = new Date();
+  moment.setDate(moment.getDate() - days);
+  return toMonthKey(moment);
+}
+
+function monthShiftedBy(months: number): string {
+  const moment = new Date();
+  moment.setDate(1);
+  moment.setMonth(moment.getMonth() + months);
+  return toMonthKey(moment);
+}
+
+/** The partner-paid grocery run, 3 days back — the seed's most recent row. */
+const RECENT_MONTH = monthOfDaysAgo(3);
+/** The unknown merchant, 5 days back: no category, so it is the one row still needing review. */
+const UNREVIEWED_DESCRIPTION = "SQ *8231 VENDOR 4417";
+
+async function openLedger(page: Page, query = "") {
   await enterApp(page);
-  await page.goto("/finance/transactions", { waitUntil: "networkidle" });
+  await page.goto(`/finance/transactions${query}`, { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeVisible({
     timeout: 15_000,
   });
 }
 
-const searchBox = (page: Page) => page.getByRole("searchbox", { name: "Search transactions" });
-const anyRow = (page: Page) => page.getByRole("button", { name: /^Details for / });
+// "Select all transactions" is the header box; the rest are one per row.
+const rowBoxes = (page: Page) => page.getByRole("checkbox", { name: /^Select (?!all)/ });
 
 // React Aria keeps the real checkbox visually hidden behind its styled control, so the hit-target
 // check lands on the wrapping label. Forcing the click is how this codebase drives one.
 const check = (page: Page, name: string) =>
   page.getByRole("checkbox", { name }).click({ force: true });
 
-// A house Select trigger carries aria-labelledby alongside our aria-label, and labelledby wins: its
-// accessible name is "<current value> <ariaLabel>", so a name anchored on the label never matches.
-// Scoping to the row and taking the trigger sidesteps the naming entirely.
-const rowCategory = (page: Page, description: string) =>
-  page.locator("ul li", { hasText: description }).locator("[aria-haspopup='listbox']");
+const rowCategory = (page: Page, title: string) =>
+  page.getByRole("button", { name: `Category for ${title}` });
 
-test("search and the review filter narrow the ledger", async ({ page }) => {
-  await openLedger(page);
-  const rowCount = await anyRow(page).count();
-  expect(rowCount).toBeGreaterThan(2);
+test("rows sit under their day, and the day states both of its figures", async ({ page }) => {
+  await openLedger(page, `?month=${RECENT_MONTH}`);
 
-  await searchBox(page).fill("toolworks");
-  await expect(anyRow(page)).toHaveCount(1);
-  await expect(page.getByRole("button", { name: /^Details for TOOLWORKS/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Groceries (her run)" })).toBeVisible();
+  // A half-share row: the full charge is context, the owner's share is the headline.
+  await expect(page.getByText("$112.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("$56.00", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^\$112\.00 · your share \$56\.00$/)).toBeVisible();
+  await expect(page.getByText("shared · 50% mine").first()).toBeVisible();
 
-  await searchBox(page).fill("");
-  await expect(anyRow(page)).toHaveCount(rowCount);
+  // The header sub-line names both money figures and labels each.
+  await expect(
+    page.getByText(/rows? in \w+ · \$[\d,.]+ out, \$[\d,.]+ against budgets/),
+  ).toBeVisible();
+});
 
-  // The unknown-merchant row has no category, so it is unreviewed; the salary row is filed.
-  // The internal transfers are exempt — a transfer never earns a category.
-  await page.getByRole("button", { name: "Needs review", exact: true }).click();
-  await expect(page.getByRole("button", { name: /^Details for SQ \*8231/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Details for PAYROLL DEPOSIT/ })).toHaveCount(0);
-  await expect(anyRow(page)).not.toHaveCount(rowCount);
+test("an unreviewed row is shown but left out of its day's figures", async ({ page }) => {
+  await openLedger(page, "?review=flagged");
 
-  await page.getByRole("button", { name: "Reviewed", exact: true }).click();
-  await expect(page.getByRole("button", { name: /^Details for PAYROLL DEPOSIT/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Details for SQ \*8231/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: UNREVIEWED_DESCRIPTION })).toBeVisible();
+  await expect(page.getByText("needs review").first()).toBeVisible();
+  // Nothing in that day can be summed honestly, so the strip states the exclusion instead.
+  await expect(page.getByText(/^\d+ unreviewed$/)).toBeVisible();
+});
+
+test("the review lens triages the row in place and empties the queue", async ({ page }) => {
+  await openLedger(page, "?review=flagged");
+
+  // The queue opens on its first row, triage already expanded — no extra click to start work.
+  const done = page.getByRole("button", { name: "Done — next row" });
+  await expect(done).toBeVisible();
+
+  await page.getByRole("button", { name: `File ${UNREVIEWED_DESCRIPTION} under` }).click();
+  await page.getByRole("option", { name: "Groceries", exact: true }).click();
+  await done.click();
+
+  // `no-category` derives from the row, so filing it empties the queue with no flag bookkeeping.
+  await expect(rowBoxes(page)).toHaveCount(0);
+  await expect(page.getByTestId("finance-review-badge")).toHaveCount(0);
 });
 
 test("a bulk category change lands on every selected row", async ({ page }) => {
-  await openLedger(page);
+  await openLedger(page, `?month=${monthShiftedBy(0)}`);
 
-  // Search now reads a row's title alongside its description, so the transfer titled
-  // "Card payment" joins the two rows whose description carries the word.
-  await searchBox(page).fill("pay");
-  await expect(anyRow(page)).toHaveCount(3);
+  const rowCount = await rowBoxes(page).count();
+  expect(rowCount).toBeGreaterThan(1);
 
   await check(page, "Select all transactions");
-  await expect(page.getByText("3 selected")).toBeVisible();
+  await expect(page.getByText(`${rowCount} selected`)).toBeVisible();
 
-  await page.getByRole("button").filter({ hasText: "Choose…" }).first().click();
-  await page.getByRole("option", { name: "Dining out", exact: true }).click();
+  await page.getByRole("button", { name: "Set category for selection" }).click();
+  await page.getByRole("menuitem", { name: "Dining out", exact: true }).click();
 
-  await expect(rowCategory(page, "PAYROLL DEPOSIT")).toHaveText("Dining out");
-  await expect(rowCategory(page, "PAYMENT RECEIVED")).toHaveText("Dining out");
-  await expect(rowCategory(page, "TRANSFER TO REWARDS CARD")).toHaveText("Dining out");
+  await expect(page.getByText("Dining out", { exact: true })).toHaveCount(rowCount);
 });
 
-test("a row's own category picker files it in one click", async ({ page }) => {
-  await openLedger(page);
-  await searchBox(page).fill("SQ *8231");
-  await expect(anyRow(page)).toHaveCount(1);
+test("a row's own category chip files it in one click", async ({ page }) => {
+  await openLedger(page, `?month=${RECENT_MONTH}`);
 
-  await rowCategory(page, "SQ *8231").click();
-  await page.getByRole("option", { name: "Groceries", exact: true }).click();
-  await expect(rowCategory(page, "SQ *8231")).toHaveText("Groceries");
-
-  // `no-category` derives from the row, so filing it empties the queue with no flag bookkeeping.
-  await searchBox(page).fill("");
-  await page.getByRole("button", { name: "Needs review", exact: true }).click();
-  await expect(anyRow(page)).toHaveCount(0);
+  await rowCategory(page, "Groceries (her run)").click();
+  await page.getByRole("menuitem", { name: "Dining out", exact: true }).click();
+  await expect(rowCategory(page, "Groceries (her run)")).toHaveText("Dining out");
 });
 
-test("shift-click selects the range between two rows", async ({ page }) => {
-  await openLedger(page);
+test("the Shared and Mine chips are one lens, not two filters", async ({ page }) => {
+  await openLedger(page, `?month=${RECENT_MONTH}`);
+  const sharedRow = page.getByRole("link", { name: "Groceries (her run)" });
 
-  const boxes = page.getByRole("checkbox", { name: /^Select / });
-  await boxes.nth(1).click({ force: true });
-  await page.keyboard.down("Shift");
-  await boxes.nth(4).click({ force: true });
-  await page.keyboard.up("Shift");
+  await page.getByRole("button", { name: "Mine", exact: true }).click();
+  await expect(sharedRow).toHaveCount(0);
 
-  await expect(page.getByText("4 selected")).toBeVisible();
+  await page.getByRole("button", { name: "Shared", exact: true }).click();
+  await expect(sharedRow).toBeVisible();
+
+  await page.getByRole("button", { name: "All", exact: true }).click();
+  await expect(sharedRow).toBeVisible();
 });
 
 test("a row in a settled month is read-only and says why", async ({ page }) => {
-  await openLedger(page);
+  await openLedger(page, `?month=${monthShiftedBy(-2)}`);
 
-  await searchBox(page).fill("property");
-  await expect(anyRow(page)).toHaveCount(1);
-
-  await expect(page.getByRole("img", { name: /is settled/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Category for PROPERTY MGMT/ })).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: /^Household split for PROPERTY MGMT/ }),
-  ).toBeDisabled();
-
-  await page.getByRole("button", { name: /^Details for PROPERTY MGMT/ }).click();
-  await expect(page.getByText(/is settled, so its figure is frozen/).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Amend the month" })).toBeVisible();
-  await expect(
-    page.getByRole("spinbutton", { name: /^Your share percent for PROPERTY MGMT/ }),
-  ).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Rent" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /is settled/ }).first()).toBeVisible();
+  // A locked row wears its category as a plain chip — there is no picker to open.
+  await expect(rowCategory(page, "Rent")).toHaveCount(0);
+  await expect(page.getByText("Home & rent").first()).toBeVisible();
 });

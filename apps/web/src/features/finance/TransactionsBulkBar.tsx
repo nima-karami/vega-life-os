@@ -1,109 +1,143 @@
-import { Button } from "@heroui/react";
-import type { FinanceTransaction } from "@vega/shared";
-import { EditorField, Icon, NONE, Select, type SelectOption } from "@/core/ui";
+import { Button, ButtonGroup } from "@heroui/react";
+import type { FinanceCategory, FinanceTransaction } from "@vega/shared";
+import { useState } from "react";
+import { cx, Icon, Menu, type MenuItem, Popover, SegmentButton } from "@/core/ui";
 import { DraftInput } from "./DraftInput";
-import { parseShareBps } from "./money";
+import { FULL_SHARE_BPS, HOUSEHOLD_DEFAULT_BPS, parseShareBps } from "./money";
+
+const BAR_BUTTON =
+  "rounded-[10px] px-2 py-1 font-medium text-[13px] text-background/85 outline-none transition-colors hover:text-background focus-visible:ring-2 focus-visible:ring-accent";
 
 export interface TransactionsBulkBarProps {
   selectedCount: number;
   lockedCount: number;
-  categoryOptions: SelectOption[];
+  categories: FinanceCategory[];
   onPatchSelection: (patch: Partial<FinanceTransaction>) => void;
+  onMarkReviewed: () => void;
   onDeleteSelection: () => void;
   onClear: () => void;
 }
 
-const FLAG_ACTIONS: {
-  label: string;
-  icon: "home" | "layers";
-  patch: Partial<FinanceTransaction>;
-}[] = [
-  { label: "Mark household", icon: "home", patch: { isHousehold: true } },
-  { label: "Unmark household", icon: "home", patch: { isHousehold: false } },
-  { label: "Mark internal", icon: "layers", patch: { isInternal: true } },
-  { label: "Unmark internal", icon: "layers", patch: { isInternal: false } },
-];
+/** The split every selected row takes, set once — a free percentage, not a preset. */
+function SplitPanel({ onApply }: { onApply: (patch: Partial<FinanceTransaction>) => void }) {
+  const [isHousehold, setIsHousehold] = useState(true);
+  const [shareBps, setShareBps] = useState(HOUSEHOLD_DEFAULT_BPS);
+
+  return (
+    <div className="flex w-60 flex-col gap-3 p-3">
+      <ButtonGroup aria-label="Shared">
+        <SegmentButton isSelected={!isHousehold} onClick={() => setIsHousehold(false)}>
+          Just mine
+        </SegmentButton>
+        <SegmentButton isSelected={isHousehold} onClick={() => setIsHousehold(true)}>
+          Shared
+        </SegmentButton>
+      </ButtonGroup>
+      <DraftInput
+        type="number"
+        min={0}
+        max={100}
+        step={0.01}
+        ariaLabel="Share percent for selection"
+        value={String(shareBps / 100)}
+        isDisabled={!isHousehold}
+        onCommit={(raw) => {
+          const bps = parseShareBps(raw);
+          if (bps === null) return false;
+          setShareBps(bps);
+          return true;
+        }}
+      />
+      <Button
+        variant="primary"
+        size="sm"
+        onPress={() =>
+          onApply({ isHousehold, myShareBps: isHousehold ? shareBps : FULL_SHARE_BPS })
+        }
+      >
+        Set split
+      </Button>
+    </div>
+  );
+}
 
 /**
- * The toolbar over a selection. Every action applies to the whole selection at once — with ~1,000
- * rows, anything that has to be done one row at a time is not usable.
+ * The bar over a selection: an ink surface bottom-centre, the same one the undo bar wears. Every
+ * action applies to the whole selection at once — at ledger scale, one row at a time is not usable.
  */
 export function TransactionsBulkBar({
   selectedCount,
   lockedCount,
-  categoryOptions,
+  categories,
   onPatchSelection,
+  onMarkReviewed,
   onDeleteSelection,
   onClear,
 }: TransactionsBulkBarProps) {
-  const editableCount = selectedCount - lockedCount;
+  const isEditable = selectedCount - lockedCount > 0;
+  const categoryItems: MenuItem[] = [
+    ...categories.map((category) => ({
+      label: category.name,
+      onSelect: () => onPatchSelection({ categoryId: category.id }),
+    })),
+    { label: "No category", onSelect: () => onPatchSelection({ categoryId: null }) },
+  ];
 
   return (
-    <div className="sticky top-0 z-10 mt-4 flex flex-wrap items-end gap-3 rounded-[16px] border border-border bg-surface px-4 py-3">
-      <div className="flex flex-col gap-0.5">
-        <span aria-live="polite" className="text-sm font-medium text-foreground tabular-nums">
+    <div className="safe-mb pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
+      <div className="pointer-events-auto flex w-full items-center gap-3 rounded-[12px] bg-foreground px-4 py-2.5 shadow-lg sm:w-auto">
+        <span aria-live="polite" className="font-medium text-[13px] text-background tabular-nums">
           {selectedCount} selected
         </span>
         {lockedCount > 0 && (
-          <span className="text-xs text-danger tabular-nums">
-            {lockedCount} in a settled month — left untouched
+          <span className="text-[12px] text-background/70 tabular-nums">
+            {lockedCount} settled — left untouched
           </span>
         )}
-      </div>
+        <span aria-hidden className="h-[18px] w-px bg-background/20" />
 
-      <EditorField label="Set category" className="w-48">
-        <Select
-          ariaLabel="Set category for selection"
-          value=""
-          placeholder="Choose…"
-          options={categoryOptions}
-          onValueChange={(next) => onPatchSelection({ categoryId: next === NONE ? null : next })}
+        <Menu
+          align="center"
+          triggerLabel="Set category for selection"
+          // The menu trigger carries its own muted colour, so the label wears the bar's instead.
+          triggerContent={<span className="text-background/85">Set category</span>}
+          triggerClassName={cx(BAR_BUTTON, "hover:bg-transparent")}
+          items={categoryItems}
         />
-      </EditorField>
-
-      <EditorField label="Set share %" className="w-28">
-        <DraftInput
-          type="number"
-          min={0}
-          max={100}
-          step={0.01}
-          ariaLabel="Set share percent for selection"
-          value=""
-          placeholder="50"
-          // one-shot: applied to the selection, then the field clears for the next value
-          onCommit={(raw) => {
-            const bps = parseShareBps(raw);
-            if (bps !== null) onPatchSelection({ isHousehold: true, myShareBps: bps });
-            return false;
-          }}
-        />
-      </EditorField>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {FLAG_ACTIONS.map((action) => (
-          <Button
-            key={action.label}
-            size="sm"
-            variant="secondary"
-            isDisabled={editableCount === 0}
-            onPress={() => onPatchSelection(action.patch)}
-          >
-            <Icon name={action.icon} size={14} />
-            {action.label}
-          </Button>
-        ))}
-        <Button
-          size="sm"
-          variant="danger-soft"
-          isDisabled={editableCount === 0}
-          onPress={onDeleteSelection}
+        <Popover
+          side="top"
+          align="center"
+          triggerLabel="Set split for selection"
+          triggerContent="Set split"
+          triggerClassName={BAR_BUTTON}
         >
-          <Icon name="trash" size={14} />
+          <SplitPanel onApply={onPatchSelection} />
+        </Popover>
+        <button
+          type="button"
+          disabled={!isEditable}
+          onClick={onMarkReviewed}
+          className={cx(BAR_BUTTON, "inline-flex items-center gap-1.5 font-semibold")}
+        >
+          <Icon name="check" size={14} aria-hidden />
+          Mark reviewed
+        </button>
+        <button
+          type="button"
+          disabled={!isEditable}
+          onClick={onDeleteSelection}
+          className={cx(BAR_BUTTON, "text-danger hover:text-danger")}
+        >
           Delete
-        </Button>
-        <Button size="sm" variant="ghost" onPress={onClear}>
-          Clear selection
-        </Button>
+        </button>
+        <button
+          type="button"
+          aria-label="Clear selection"
+          onClick={onClear}
+          className={cx(BAR_BUTTON, "ml-auto sm:ml-0")}
+        >
+          <Icon name="close" size={14} aria-hidden />
+        </button>
       </div>
     </div>
   );
