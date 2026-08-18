@@ -333,6 +333,7 @@ export function ScrollPage() {
     <div className="relative h-full w-full overflow-hidden">
       <section
         ref={scrollRef}
+        data-feed-scroll
         aria-label="Card feed"
         tabIndex={SCROLL_TABINDEX}
         onKeyDown={handleFeedKeyDown}

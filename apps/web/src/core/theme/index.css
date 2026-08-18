@@ -366,4 +366,11 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  /* Set on document.body for the card sheet's whole mounted life, so the feed
+     behind the scrim cannot scroll by wheel, touch or Arrow key. It belongs in
+     utilities, not base beside is-dragging-sheet: layer order outranks
+     specificity, so a base rule would lose to the section's own overflow-y-auto. */
+  body.is-sheet-open [data-feed-scroll] {
+    overflow: hidden;
+  }
 }

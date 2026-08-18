@@ -16,6 +16,13 @@ const PROMOTE_SUB =
   "Choose what you want to be able to recall. The card becomes two-sided, and review turns on.";
 const ROW_GLYPH_PX = 16;
 const DRAGGING_BODY_CLASS = "is-dragging-sheet";
+const SHEET_OPEN_BODY_CLASS = "is-sheet-open";
+const HANDLE_BAR_PX = 3;
+const HANDLE_STRIP_PX = 44;
+// Negative block margins let the 44px touch target overhang into the panel's own
+// padding, so the strip grows without moving the 3px bar or the rows below it.
+const HANDLE_STRIP_INSET_PX = (HANDLE_BAR_PX - HANDLE_STRIP_PX) / 2;
+const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
 const EXPANDED_VIEWPORT_RATIO = 0.9;
 const EASE_IN = [0.4, 0, 1, 1] as const;
 const PANEL_SPRING = { type: "spring", stiffness: 380, damping: 34 } as const;
@@ -42,6 +49,7 @@ export function FeedCardSheet({
   const height = useMotionValue(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const closingRef = useRef(false);
+  const hasPannedRef = useRef(false);
   const defaultHeightRef = useRef(0);
   const [detent, setDetent] = useState<SheetDetent>("default");
   const [isMeasured, setIsMeasured] = useState(false);
@@ -53,7 +61,16 @@ export function FeedCardSheet({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      if (event.key === "Escape") {
+        close();
+        return;
+      }
+      // The feed keeps focus behind the scrim, and Chromium still keyboard-scrolls
+      // a focused scroller even once its overflow is hidden.
+      const target = event.target as Element | null;
+      if (SCROLL_KEYS.has(event.key) && target?.closest("[data-feed-scroll]") != null) {
+        event.preventDefault();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -63,6 +80,14 @@ export function FeedCardSheet({
   // whole app unselectable, mirroring ColumnResizer's own unmount cleanup.
   useEffect(() => {
     return () => document.body.classList.remove(DRAGGING_BODY_CLASS);
+  }, []);
+
+  // Locks the feed scroller for the sheet's whole mounted life, exit animation
+  // included; the unconditional cleanup is what survives an interrupted close.
+  // Its CSS rule lives in @layer utilities — see the note in core/theme/index.css.
+  useEffect(() => {
+    document.body.classList.add(SHEET_OPEN_BODY_CLASS);
+    return () => document.body.classList.remove(SHEET_OPEN_BODY_CLASS);
   }, []);
 
   // The content sizes the default detent, so the sheet only takes an explicit height once
@@ -81,7 +106,15 @@ export function FeedCardSheet({
       : defaultHeightRef.current;
 
   const handlePanStart = () => {
+    hasPannedRef.current = true;
     document.body.classList.add(DRAGGING_BODY_CLASS);
+  };
+
+  // A row under the pointer stays pressed through a short drag, so a gesture that
+  // moved the panel must not also fire the row it started on.
+  const selectUnlessPanned = (onSelect: () => void) => () => {
+    if (hasPannedRef.current) return;
+    onSelect();
   };
 
   const handlePan = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -184,7 +217,7 @@ export function FeedCardSheet({
         initial="initial"
         animate="animate"
         exit="exit"
-        className="absolute inset-0 bg-ink/28 outline-none"
+        className="absolute inset-0 touch-none overscroll-contain bg-ink/28 outline-none"
       />
       <motion.div
         ref={panelRef}
@@ -196,22 +229,28 @@ export function FeedCardSheet({
         initial="initial"
         animate="animate"
         exit="exit"
+        onPointerDown={() => {
+          hasPannedRef.current = false;
+        }}
+        onPanStart={handlePanStart}
+        onPan={handlePan}
+        onPanEnd={handlePanEnd}
         style={{ y, height: isMeasured ? height : undefined }}
-        className="absolute inset-x-0 bottom-0 flex flex-col rounded-t-[26px] rounded-b-[44px] border-border border-t bg-surface px-6 pt-[18px] pb-[30px]"
+        className="absolute inset-x-0 bottom-0 flex touch-none flex-col rounded-t-[26px] rounded-b-[44px] border-border border-t bg-surface px-6 pt-[18px] pb-[30px]"
       >
-        <motion.span
+        <span
           aria-hidden
-          onPanStart={handlePanStart}
-          onPan={handlePan}
-          onPanEnd={handlePanEnd}
-          style={{ touchAction: "none" }}
-          className="mx-auto h-[3px] w-[34px] shrink-0 cursor-grab rounded-[2px] bg-ink/14 [-webkit-touch-callout:none]"
-        />
+          data-sheet-handle
+          style={{ height: HANDLE_STRIP_PX, marginBlock: HANDLE_STRIP_INSET_PX }}
+          className="flex shrink-0 cursor-grab items-center justify-center [-webkit-touch-callout:none]"
+        >
+          <span className="h-[3px] w-[34px] rounded-[2px] bg-ink/14" />
+        </span>
         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           {offersPromotion(card) && (
             <Button
               variant="ghost"
-              onPress={handlePromote}
+              onPress={selectUnlessPanned(handlePromote)}
               className={cx(
                 BARE_CONTROL,
                 "flex w-full shrink-0 flex-col items-start gap-[5px] pt-3 pb-4 focus-visible:ring-2 focus-visible:ring-accent",
@@ -230,7 +269,7 @@ export function FeedCardSheet({
             <Button
               key={row.label}
               variant="ghost"
-              onPress={row.onSelect}
+              onPress={selectUnlessPanned(row.onSelect)}
               className={cx(BARE_ROW, "shrink-0 focus-visible:ring-2 focus-visible:ring-accent")}
             >
               <Icon name={row.icon} size={ROW_GLYPH_PX} className="text-muted" />
