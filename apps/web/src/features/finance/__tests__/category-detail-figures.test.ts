@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   computeCategoryCaptionFigures,
   computeCategoryMonthlySeries,
+  computeCategoryMonthRowFigures,
   computeMerchantConcentration,
   computeTrailingCompletedAverage,
+  listCategoryMonths,
+  selectCategoryMonthRows,
 } from "../category-detail-figures";
-import { budget, GROCERIES, makeBook, row } from "./fixtures";
+import { budget, GROCERIES, makeBook, row, SOFTWARE } from "./fixtures";
 
 const MONTH = "2026-03";
 const MID_MONTH = new Date(2026, 2, 15);
@@ -124,6 +127,83 @@ describe("the caption figures", () => {
       MID_MONTH,
     );
     if (section.status === "failed") throw new Error("expected the caption to derive");
-    expect(section.figures).toEqual({ breachedCount: 1, completedCount: 2, averageCents: 12500 });
+    expect(section.figures).toEqual({
+      breachedCount: 1,
+      completedCount: 2,
+      averageCents: 12500,
+      worstMonth: "2026-01",
+      worstCents: 20000,
+    });
+  });
+
+  it("names no worst month while nothing has completed", () => {
+    const section = computeCategoryCaptionFigures(makeBook(), GROCERIES, [MONTH], MID_MONTH);
+    if (section.status === "failed") throw new Error("expected the caption to derive");
+    expect(section.figures).toMatchObject({ completedCount: 0, worstMonth: null, worstCents: 0 });
+  });
+});
+
+describe("the months a range asks for", () => {
+  const book = makeBook({
+    financeBudgets: [budget(GROCERIES, "2025-11", 1000)],
+    financeTransactions: [row("2025-12-05", -1000), row("2026-03-05", -1000)],
+  });
+
+  it("ends at the month on screen and counts back", () => {
+    expect(listCategoryMonths(book, GROCERIES, MONTH, 3)).toEqual([
+      "2026-01",
+      "2026-02",
+      "2026-03",
+    ]);
+  });
+
+  it("reaches back to the category's first row or budget when asked for all of it", () => {
+    expect(listCategoryMonths(book, GROCERIES, MONTH, null)).toEqual([
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+      "2026-03",
+    ]);
+  });
+
+  it("reads a category with no history at all as the month on screen alone", () => {
+    expect(listCategoryMonths(book, SOFTWARE, MONTH, null)).toEqual([MONTH]);
+  });
+});
+
+describe("the month card's row figures", () => {
+  it("counts the month's rows and what comes back from the partner on them", () => {
+    const book = makeBook({
+      financeTransactions: [
+        row("2026-03-04", -10000, { isHousehold: true, myShareBps: 5000 }),
+        row("2026-03-05", -4000, { isHousehold: true, myShareBps: 5000, payer: "partner" }),
+        row("2026-03-06", -2000),
+        row("2026-02-27", -9999),
+      ],
+    });
+
+    const section = computeCategoryMonthRowFigures(book, GROCERIES, MONTH);
+    if (section.status === "failed") throw new Error("expected the figures to derive");
+    // Only the row the owner paid for sends money back: half of $100.
+    expect(section.figures).toEqual({ rowCount: 3, sharedCount: 2, comesBackCents: 5000 });
+  });
+});
+
+describe("the category's own rows", () => {
+  it("lists the scoped month newest first and leaves other months alone", () => {
+    const book = makeBook({
+      financeTransactions: [
+        row("2026-03-02", -100),
+        row("2026-03-09", -200),
+        row("2026-02-28", -300),
+        row("2026-03-05", -400, { categoryId: SOFTWARE }),
+      ],
+    });
+
+    expect(selectCategoryMonthRows(book, GROCERIES, MONTH).map((txn) => txn.txnDate)).toEqual([
+      "2026-03-09",
+      "2026-03-02",
+    ]);
   });
 });
