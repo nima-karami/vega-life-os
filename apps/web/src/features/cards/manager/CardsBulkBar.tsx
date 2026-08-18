@@ -2,6 +2,7 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 import { Icon, Popover, useCompact } from "@/core/ui";
 import { CategoryCombobox } from "../CategoryCombobox";
+import { PICKER_PANEL_CLASS } from "./cell-styles";
 import { FixedListPicker } from "./FixedListPicker";
 
 const LEARNING_OPTIONS = [
@@ -59,15 +60,17 @@ export function CardsBulkBar({
           </>
         }
       >
-        <CategoryCombobox
-          categories={categories}
-          selected=""
-          ariaLabel="Filter categories"
-          onSelect={(category) => {
-            setIsCategoryOpen(false);
-            onSetCategory(category);
-          }}
-        />
+        <div className={PICKER_PANEL_CLASS}>
+          <CategoryCombobox
+            categories={categories}
+            selected=""
+            ariaLabel="Filter categories"
+            onSelect={(category) => {
+              setIsCategoryOpen(false);
+              onSetCategory(category);
+            }}
+          />
+        </div>
       </Popover>
 
       <Popover
@@ -84,15 +87,17 @@ export function CardsBulkBar({
           </>
         }
       >
-        <FixedListPicker
-          options={LEARNING_OPTIONS}
-          selectedId=""
-          ariaLabel="Learning state"
-          onSelect={(id) => {
-            setIsLearningOpen(false);
-            onSetLearning(id === "learning");
-          }}
-        />
+        <div className={PICKER_PANEL_CLASS}>
+          <FixedListPicker
+            options={LEARNING_OPTIONS}
+            selectedId=""
+            ariaLabel="Learning state"
+            onSelect={(id) => {
+              setIsLearningOpen(false);
+              onSetLearning(id === "learning");
+            }}
+          />
+        </div>
       </Popover>
 
       {isCompact ? (

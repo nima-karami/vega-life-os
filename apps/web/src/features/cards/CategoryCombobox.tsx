@@ -29,14 +29,14 @@ export function CategoryCombobox({
     !categories.some((category) => toCategoryKey(category) === toCategoryKey(typed));
 
   return (
-    <div className="flex w-full min-w-[210px] flex-col">
+    <div className="flex w-full flex-col">
       <div className={FIELD_CLASS}>
         <Icon name="search" size={14} className="shrink-0 text-muted" />
         <input
           type="text"
           value={draft}
           aria-label={ariaLabel}
-          placeholder="Filter categories…"
+          placeholder="Filter…"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
