@@ -1,14 +1,8 @@
 import { useEffect, useRef } from "react";
+import { growToFitContent } from "@/core/ui";
 import { GRATITUDE_ITEM_MAX, GRATITUDE_SLOTS } from "../model";
 
 const SLOT_KEYS = Array.from({ length: GRATITUDE_SLOTS }, (_, i) => `gratitude-slot-${i}`);
-
-/** Grow a textarea to fit its content (no clipping, no inner scroll). */
-function grow(el: HTMLTextAreaElement | null) {
-  if (!el) return;
-  el.style.height = "auto";
-  el.style.height = `${el.scrollHeight}px`;
-}
 
 /**
  * GRATITUDE_SLOTS auto-growing text areas bound to a single string[]; pads to
@@ -30,7 +24,7 @@ export function GratitudeFields({
   }, [autoFocus]);
   // Fit existing content on mount and whenever values change externally.
   useEffect(() => {
-    for (const el of refs.current) grow(el);
+    for (const el of refs.current) growToFitContent(el);
   });
 
   const setSlot = (i: number, text: string) => {
@@ -48,7 +42,7 @@ export function GratitudeFields({
           }}
           value={slot}
           onChange={(e) => {
-            grow(e.currentTarget);
+            growToFitContent(e.currentTarget);
             setSlot(i, e.target.value);
           }}
           aria-label={`Grateful for, item ${i + 1}`}
