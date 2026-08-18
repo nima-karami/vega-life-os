@@ -1,28 +1,16 @@
-/** The furniture every entity detail page wears: back link, header, labelled sections, footer. */
+/** The furniture every entity detail page wears: ancestor trail, header, labelled sections, footer. */
 import { Button } from "@heroui/react";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
 import type { IconName } from "@/core/lib/icon-names";
-import { cx, Icon } from "@/core/ui";
+import { type BreadcrumbItem, cx, EntityBreadcrumb, Icon } from "@/core/ui";
 
-export function DetailPage({
-  backTo,
-  backLabel,
-  children,
-}: {
-  backTo: string;
-  backLabel: string;
-  children: ReactNode;
-}) {
+/** Every value- and goal-page trail starts at the values index. */
+export const VALUES_ROOT: BreadcrumbItem = { label: "Values", to: "/values" };
+
+export function DetailPage({ trail, children }: { trail: BreadcrumbItem[]; children: ReactNode }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-      <Link
-        to={backTo}
-        className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-foreground"
-      >
-        <Icon name="chevL" size={14} />
-        {backLabel}
-      </Link>
+      <EntityBreadcrumb trail={trail} />
       {children}
     </div>
   );

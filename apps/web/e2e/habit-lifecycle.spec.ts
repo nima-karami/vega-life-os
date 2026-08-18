@@ -63,7 +63,8 @@ test("pausing moves a habit into the Paused section (not deleted)", async ({ pag
   const name = await openFirstHabit(page);
 
   await page.getByRole("button", { name: "Paused", exact: true }).click();
-  await page.getByRole("link", { name: "Habits", exact: true }).click();
+  // The habit page's trail now climbs to its value, so return to the index directly.
+  await page.goto("/habits", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Habits", exact: true })).toBeVisible();
 
   // A Paused disclosure now exists; expand it and confirm the habit is there.

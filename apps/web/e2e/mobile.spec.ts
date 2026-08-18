@@ -102,7 +102,7 @@ test("phone bottom nav exposes search and account controls (360px)", async ({ pa
   await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
 });
 
-test("habit page opens from a card, fits the column, and the back link returns (360px)", async ({
+test("habit page opens from a card, fits the column, and the trail climbs out (360px)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 720 });
@@ -125,9 +125,11 @@ test("habit page opens from a card, fits the column, and the back link returns (
   await anytime.scrollIntoViewIfNeeded();
   await expect(anytime).toBeVisible();
 
-  // The back link returns to the index.
-  await page.getByRole("link", { name: "Habits", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Habits", exact: true })).toBeVisible();
+  // The trail's first level returns to the values index.
+  const trail = page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link");
+  await expect(trail.first()).toHaveText("Values");
+  await trail.first().click();
+  await expect(page).toHaveURL(/\/values$/);
 });
 
 test("phone bottom nav shows the primary tabs and navigates between routes (390px)", async ({

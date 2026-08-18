@@ -803,7 +803,12 @@ test("habits: Add creates the habit and opens its page", async ({ page }) => {
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/habits\/[^/]+$/);
 
-  await page.getByRole("link", { name: "Habits", exact: true }).click();
+  // The new habit inherits the first value, so its trail is Values · <that value>.
+  const trail = page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link");
+  await expect(trail).toHaveCount(2);
+  await expect(trail.first()).toHaveText("Values");
+
+  await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(cards).toHaveCount(before + 1);
 });
 
@@ -913,7 +918,7 @@ test("habit page: the Anytime toggle makes the habit untimed", async ({ page }) 
   await expect(page.getByRole("button", { name: /^Time/ })).toHaveCount(0);
 
   // The habit reads "Anytime" on the index (time saved as null, not 09:00).
-  await page.getByRole("link", { name: "Habits", exact: true }).click();
+  await page.goto("/habits", { waitUntil: "networkidle" });
   const card = page.getByRole("link", { name: "Stretch", exact: true });
   await expect(card).toBeVisible();
   await expect(page.locator("li", { has: card }).getByText("Anytime")).toBeVisible();

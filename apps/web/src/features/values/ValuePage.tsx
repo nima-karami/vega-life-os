@@ -15,6 +15,7 @@ import {
   DetailHeader,
   DetailPage,
   DetailSection,
+  VALUES_ROOT,
 } from "./components/DetailPage";
 import { HuePicker } from "./components/editor-bits";
 import { HabitSection } from "./components/HabitSection";
@@ -26,7 +27,7 @@ export function ValuePage() {
 
   if (!value)
     return (
-      <DetailPage backTo="/values" backLabel="Values">
+      <DetailPage trail={[VALUES_ROOT]}>
         <p className="mt-8 text-sm text-muted">This value no longer exists.</p>
       </DetailPage>
     );
@@ -66,7 +67,7 @@ function ValueDetail({ value }: { value: Value }) {
   };
 
   return (
-    <DetailPage backTo="/values" backLabel="Values">
+    <DetailPage trail={[VALUES_ROOT]}>
       <DetailHeader
         disc={
           <IconField

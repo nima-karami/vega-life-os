@@ -1,5 +1,5 @@
 /** /goals/:goalId — a goal is a page, not a modal. You arrive through a value, so the
- *  back link names that value; every field autosaves as you touch it. */
+ *  trail names the values index and that value; every field autosaves as you touch it. */
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useStore } from "@/core/store";
@@ -20,6 +20,7 @@ import {
   DetailHeader,
   DetailPage,
   DetailSection,
+  VALUES_ROOT,
 } from "@/features/values/components/DetailPage";
 import { FractionSlider } from "@/features/values/components/editor-bits";
 import { HabitSection } from "@/features/values/components/HabitSection";
@@ -42,7 +43,7 @@ export function GoalPage() {
 
   if (!goal)
     return (
-      <DetailPage backTo="/values" backLabel="Values">
+      <DetailPage trail={[VALUES_ROOT]}>
         <p className="mt-8 text-sm text-muted">This goal no longer exists.</p>
       </DetailPage>
     );
@@ -70,8 +71,9 @@ function GoalDetail({ goal }: { goal: Goal }) {
 
   return (
     <DetailPage
-      backTo={value ? `/values/${value.id}` : "/values"}
-      backLabel={value?.name ?? "Values"}
+      trail={
+        value ? [VALUES_ROOT, { label: value.name, to: `/values/${value.id}` }] : [VALUES_ROOT]
+      }
     >
       <DetailHeader
         disc={

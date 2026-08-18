@@ -1,11 +1,12 @@
 import { Button } from "@heroui/react";
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { Icon, IconField, Menu, type MenuItem } from "@/core/ui";
+import { EntityBreadcrumb, Icon, IconField, Menu, type MenuItem } from "@/core/ui";
 import { getValueCardFill, getValueColor } from "@/features/values/color";
 import { ArchivedBanner } from "./ArchivedBanner";
+import { buildHabitTrail } from "./breadcrumb";
 import { DeleteHabitDialog } from "./DeleteHabitDialog";
 import { HabitDayRecord } from "./HabitDayRecord";
 import { buildHabitMeta } from "./HabitEntityCard";
@@ -29,7 +30,7 @@ export function HabitPage() {
   if (!habit) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-        <BackLink />
+        <EntityBreadcrumb trail={[{ label: "Habits", to: "/habits" }]} />
         <p className="mt-6 text-muted text-sm">This habit no longer exists.</p>
       </div>
     );
@@ -37,20 +38,10 @@ export function HabitPage() {
   return <HabitDetail habit={habit} />;
 }
 
-function BackLink() {
-  return (
-    <Link
-      to="/habits"
-      className="inline-flex items-center gap-1.5 text-muted text-sm transition-colors hover:text-foreground"
-    >
-      <Icon name="chevL" size={14} aria-hidden />
-      Habits
-    </Link>
-  );
-}
-
 function HabitDetail({ habit }: { habit: Habit }) {
-  const value = useStore((s) => s.values.find((v) => v.id === habit.valueId));
+  const values = useStore((s) => s.values);
+  const goals = useStore((s) => s.goals);
+  const value = values.find((v) => v.id === habit.valueId);
   const tasks = useStore((s) => s.tasks);
   const rules = useStore((s) => s.streakRules);
   const updateHabit = useStore((s) => s.updateHabit);
@@ -71,7 +62,7 @@ function HabitDetail({ habit }: { habit: Habit }) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-      <BackLink />
+      <EntityBreadcrumb trail={buildHabitTrail(habit, { values, goals })} />
 
       <header className="mt-3.5 flex items-start gap-3.5">
         <IconField
