@@ -4,7 +4,7 @@ import { enterApp } from "./helpers/app";
 /**
  * The weekly loop's write path: a statement previews without touching storage, the same file
  * imported twice adds nothing, an unknown layout goes through the mapper, and a category
- * correction teaches the merchant so the next import files itself.
+ * correction in the ledger's review lens teaches the merchant so the next import files itself.
  */
 
 const rbcStatement = (rows: string[]) =>
@@ -17,6 +17,7 @@ const STATEMENT = rbcStatement([
   "Chequing,1234,07/03/2026,,E2E COFFEE HOUSE,,-12.50",
   "Chequing,1234,07/04/2026,,E2E BOOK STORE,,-31.00",
   "Chequing,1234,07/05/2026,,E2E TICKET REFUND,,15.00",
+  "Chequing,1234,07/06/2026,,PAYMENT - THANK YOU,,900.00",
 ]);
 
 const NEXT_WEEK = rbcStatement(["Chequing,1234,07/10/2026,,E2E COFFEE HOUSE,,-9.00"]);
@@ -29,7 +30,7 @@ const UNKNOWN_LAYOUT = ["Posted,Merchant,Value", "2026-07-06,E2E CORNER SHOP,-8.
 
 async function dropStatement(page: Page, csv = STATEMENT) {
   await page.goto("/finance/import", { waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "Import statements" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Import", exact: true })).toBeVisible({
     timeout: 15_000,
   });
   await page.locator('input[type="file"]').setInputFiles({
@@ -39,43 +40,39 @@ async function dropStatement(page: Page, csv = STATEMENT) {
   });
 }
 
-const countOf = (page: Page, key: string) => page.getByTestId(`import-count-${key}`);
-
-// A house Select trigger's accessible name is "<current value> <label>", so match the label
-// as a substring rather than exactly.
-async function chooseOption(page: Page, field: string, option: string) {
-  await page.getByRole("button", { name: field }).click();
-  await page.getByRole("option", { name: option, exact: true }).click();
-}
+const lensOf = (page: Page, outcome: string) => page.getByTestId(`import-count-${outcome}`);
 
 async function commitPreview(page: Page, rows: number) {
-  await page.getByRole("button", { name: /that’s how this file reads/ }).click();
   await page.getByRole("button", { name: `Import ${rows} rows` }).click();
   await expect(page.getByRole("status")).toContainText(`Imported ${rows} transactions`);
 }
 
 async function searchLedger(page: Page, needle: string) {
   await page.goto(`/finance/transactions?month=${STATEMENT_MONTH}`, { waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeVisible({
     timeout: 15_000,
   });
   await page.getByRole("searchbox", { name: "Search transactions" }).fill(needle);
 }
 
-test("a preview reports the counts and writes nothing until commit", async ({ page }) => {
+test("a preview reports every outcome and writes nothing until commit", async ({ page }) => {
   await enterApp(page);
   await dropStatement(page);
 
-  await expect(countOf(page, "newRows")).toHaveText("3");
-  await expect(countOf(page, "duplicate")).toHaveText("0");
-  await expect(page.getByText("Nothing is written until you press Import")).toBeVisible();
+  await expect(page.getByText("e2e-statement.csv · 4 rows read, 4 new")).toBeVisible();
+  await expect(lensOf(page, "will-add")).toContainText("4");
+  await expect(lensOf(page, "already-here")).toContainText("0");
+  // A card payment lands, but as internal — it moves money rather than spending it.
+  await expect(lensOf(page, "internal")).toContainText("1");
+  await expect(page.getByText("Nothing is written until you import.")).toBeVisible();
+  await expect(page.getByText("internal transfer")).toBeVisible();
 
   // Leaving the page throws the staged import away — proof that nothing reached storage.
   await searchLedger(page, "E2E COFFEE HOUSE");
   await expect(page.getByText("No transactions match these filters")).toBeVisible();
 
   await dropStatement(page);
-  await commitPreview(page, 3);
+  await commitPreview(page, 4);
 
   await searchLedger(page, "E2E COFFEE HOUSE");
   await expect(page.getByText("No transactions match these filters")).toBeHidden();
@@ -85,16 +82,22 @@ test("a preview reports the counts and writes nothing until commit", async ({ pa
 test("re-importing the same file adds nothing", async ({ page }) => {
   await enterApp(page);
   await dropStatement(page);
-  await commitPreview(page, 3);
+  await commitPreview(page, 4);
 
   await dropStatement(page);
-  await expect(countOf(page, "duplicate")).toHaveText("3");
-  await expect(countOf(page, "newRows")).toHaveText("0");
+  await expect(lensOf(page, "already-here")).toContainText("4");
+  await expect(lensOf(page, "will-add")).toContainText("0");
   await expect(page.getByRole("button", { name: "Import 0 rows" })).toBeDisabled();
   // Why nothing is landing, not just that nothing is landing.
   await expect(page.getByTestId("import-prior-file")).toContainText(
     "You already imported this exact file",
   );
+
+  // The lens narrows the preview to the rows it counts.
+  await lensOf(page, "already-here").click();
+  await expect(page.getByText("E2E BOOK STORE")).toBeVisible();
+  await lensOf(page, "will-add").click();
+  await expect(page.getByText("No rows read this way.")).toBeVisible();
 
   await searchLedger(page, "E2E BOOK STORE");
   await expect(page.getByText("E2E BOOK STORE")).toHaveCount(1);
@@ -107,30 +110,39 @@ test("an unknown layout is mapped once and then previews", async ({ page }) => {
   const mapper = page.getByRole("dialog", { name: "Map statement columns" });
   await expect(mapper).toBeVisible();
 
-  await chooseOption(page, "Date column", "Posted");
-  await chooseOption(page, "Description column", "Merchant");
-  await chooseOption(page, "Amount column", "Value");
-  await chooseOption(page, "Date format", "YYYY-MM-DD");
+  // The Columns card carries the same field names, so every mapper control is scoped to the dialog.
+  const chooseInMapper = async (field: string, option: string) => {
+    await mapper.getByRole("button", { name: field }).click();
+    // The previous select's popover animates out, so wait until only the open one is mounted —
+    // every column list offers the same header names and would otherwise match twice.
+    await expect(page.getByRole("listbox")).toHaveCount(1);
+    await page.getByRole("option", { name: option, exact: true }).click();
+  };
+  await chooseInMapper("Date column", "Posted");
+  await chooseInMapper("Description column", "Merchant");
+  await chooseInMapper("Amount column", "Value");
+  await chooseInMapper("Date format", "YYYY-MM-DD");
   await expect(mapper.getByText("6 July 2026 (YYYY-MM-DD)")).toBeVisible();
 
   await mapper.getByRole("button", { name: "Confirm mapping" }).click();
   await expect(mapper).toBeHidden();
-  await expect(countOf(page, "newRows")).toHaveText("1");
+  await expect(lensOf(page, "will-add")).toContainText("1");
+  // The mapping the preview now reads by is stated in the Columns card, not hidden in the account.
+  await expect(page.getByRole("button", { name: "Date column" })).toContainText("Posted");
 });
 
-test("a category correction teaches the merchant, so the next import files itself", async ({
+test("a category correction in the ledger teaches the merchant, so the next import guesses it", async ({
   page,
 }) => {
   await enterApp(page);
   await dropStatement(page);
-  await commitPreview(page, 3);
+  await commitPreview(page, 4);
 
-  const review = page.getByTestId("finance-review");
-  await expect(review.getByText("E2E COFFEE HOUSE")).toHaveCount(1);
-  await chooseOption(page, "Category for E2E COFFEE HOUSE", "Groceries");
-  await expect(review.getByText("E2E COFFEE HOUSE")).toHaveCount(0);
+  await page.getByRole("link", { name: "Review them" }).click();
+  await expect(page).toHaveURL(/\?review=flagged$/);
+  await page.getByRole("button", { name: "Category for E2E COFFEE HOUSE" }).click();
+  await page.getByRole("menuitem", { name: "Groceries", exact: true }).click();
 
   await dropStatement(page, NEXT_WEEK);
-  await commitPreview(page, 1);
-  await expect(page.getByTestId("finance-review").getByText("E2E COFFEE HOUSE")).toHaveCount(0);
+  await expect(page.getByText("Groceries", { exact: true })).toBeVisible();
 });
