@@ -10,6 +10,7 @@ import { FinanceDashboardSkeleton } from "./FinanceDashboardSkeleton";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
 import { FinancePageShell } from "./FinancePageShell";
 import { isMonthKey, toMonthKey } from "./month-cursor";
+import { FUSED_CELL_CLASS, FUSED_GROUP_CLASS, SECONDARY_BUTTON_CLASS } from "./primitives";
 import { useFinanceBook } from "./useFinanceBook";
 import { useOnlineStatus } from "./useOnlineStatus";
 
@@ -21,7 +22,7 @@ const SCOPES = [
   { label: "Personal only", withBusiness: false },
   { label: "With business", withBusiness: true },
 ];
-const SCOPE_CELL = "h-[34px] shrink-0 rounded-none border-0 px-4 text-[13px]";
+const SCOPE_CELL = `h-[34px] px-4 text-[13px] ${FUSED_CELL_CLASS}`;
 const SCOPE_ON = "bg-paper-2 font-semibold text-foreground";
 const SCOPE_OFF = "bg-transparent font-medium text-muted";
 
@@ -92,9 +93,16 @@ export function FinanceDashboardPage() {
       }
       headerAction={
         <>
-          <Button variant="secondary" onPress={() => navigate("/finance/import")}>
-            Import statements
-          </Button>
+          {/* A phone fits the month and one action; Import is a tap away in the strip below. */}
+          <span className="hidden sm:inline-flex">
+            <Button
+              variant="ghost"
+              className={SECONDARY_BUTTON_CLASS}
+              onPress={() => navigate("/finance/import")}
+            >
+              Import statements
+            </Button>
+          </span>
           <Button variant="primary" onPress={() => navigate("/finance/transactions/new")}>
             <Icon name="plus" size={16} aria-hidden />
             Add transaction
@@ -102,10 +110,7 @@ export function FinanceDashboardPage() {
         </>
       }
       filters={
-        <ButtonGroup
-          aria-label="Business accounts"
-          className="w-max self-start overflow-hidden rounded-[12px] border border-border bg-surface"
-        >
+        <ButtonGroup aria-label="Business accounts" className={cx(FUSED_GROUP_CLASS, "self-start")}>
           {SCOPES.map((scope) => {
             const isCurrent = scope.withBusiness === includeBusiness;
             return (

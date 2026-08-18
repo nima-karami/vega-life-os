@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
+import { FUSED_CELL_CLASS, FUSED_GROUP_CLASS } from "./primitives";
 import { countRowsNeedingReview, describeReviewPrompt } from "./review-flags";
 
 interface FinanceView {
@@ -21,7 +22,7 @@ const FINANCE_VIEWS: FinanceView[] = [
 const TRANSACTIONS_VIEW = "/finance/transactions";
 const NEEDS_REVIEW_LINK = `${TRANSACTIONS_VIEW}?review=flagged`;
 
-const CELL_BASE = "h-[34px] shrink-0 rounded-none border-0 px-4 text-[13px]";
+const CELL_BASE = `h-[34px] px-4 text-[13px] ${FUSED_CELL_CLASS}`;
 const CELL_ON = "bg-paper-2 font-semibold text-foreground";
 const CELL_OFF = "bg-transparent font-medium text-muted";
 
@@ -51,7 +52,7 @@ export function FinanceViewNav() {
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
       <nav aria-label="Finance views" className="-mx-4 max-w-full overflow-x-auto px-4">
-        <ButtonGroup className="w-max overflow-hidden rounded-[12px] border border-border bg-surface">
+        <ButtonGroup className={FUSED_GROUP_CLASS}>
           {FINANCE_VIEWS.map((view) => {
             const isCurrent = view === currentView;
             return (
@@ -81,16 +82,29 @@ export function FinanceViewNav() {
       </nav>
 
       {hasPrompt && (
-        <div className="flex flex-wrap items-center gap-2.5 text-[13px] text-muted">
-          <Icon name="inbox" size={15} className="shrink-0 text-warning" aria-hidden />
-          <span>{prompt}</span>
+        <>
           <Link
             to={NEEDS_REVIEW_LINK}
-            className="inline-flex h-[30px] items-center rounded-[12px] border border-border bg-surface px-3 font-semibold text-[12.5px] text-foreground transition-colors hover:border-muted"
+            className="flex w-full items-center gap-[9px] rounded-[12px] border border-border bg-surface px-[13px] py-[11px] text-[12.5px] text-muted transition-colors hover:border-muted sm:hidden"
           >
-            Review {reviewCount} {reviewCount === 1 ? "row" : "rows"}
+            <Icon name="inbox" size={15} className="shrink-0 text-warning" aria-hidden />
+            <span className="flex-1">
+              {reviewCount} {reviewCount === 1 ? "row needs" : "rows need"} review
+            </span>
+            <Icon name="chevR" size={15} className="shrink-0" aria-hidden />
           </Link>
-        </div>
+
+          <div className="hidden flex-wrap items-center gap-2.5 text-[13px] text-muted sm:flex">
+            <Icon name="inbox" size={15} className="shrink-0 text-warning" aria-hidden />
+            <span>{prompt}</span>
+            <Link
+              to={NEEDS_REVIEW_LINK}
+              className="inline-flex h-[30px] items-center rounded-[12px] border border-border bg-surface px-3 font-semibold text-[12.5px] text-foreground transition-colors hover:border-muted"
+            >
+              Review {reviewCount} {reviewCount === 1 ? "row" : "rows"}
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );

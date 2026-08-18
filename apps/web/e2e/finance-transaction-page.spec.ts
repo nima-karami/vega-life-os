@@ -41,7 +41,7 @@ test("the share sentence derives both halves, and they sum to the charge", async
 
   // The seed dates this row relative to today, so the month it settles in is not a fixed string.
   await expect(
-    page.getByText(/^You bear \$56\.00 · \$56\.00 goes to your partner at the \w+ settle-up\.$/),
+    page.getByText(/^You bear \$56\.00 · \$56\.00 goes to Partner at the \w+ settle-up\.$/),
   ).toBeVisible();
 });
 

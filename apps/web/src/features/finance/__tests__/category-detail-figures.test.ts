@@ -8,7 +8,7 @@ import {
   listCategoryMonths,
   selectCategoryMonthRows,
 } from "../category-detail-figures";
-import { budget, BUSINESS, GROCERIES, makeBook, row, SOFTWARE } from "./fixtures";
+import { BUSINESS, budget, GROCERIES, makeBook, row, SOFTWARE } from "./fixtures";
 
 const MONTH = "2026-03";
 const MID_MONTH = new Date(2026, 2, 15);

@@ -3,12 +3,13 @@ import { cx } from "./cx";
 import { Icon } from "./icons";
 
 const SEARCH_FIELD =
-  "w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
+  "h-9 w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 text-[13.5px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
 
+/** One chip box everywhere, so a chip that opens a menu sits level with one that toggles a lens. */
 const CHIP_BASE =
-  "rounded-[10px] border px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent";
-const CHIP_ON = "border-accent text-foreground";
-const CHIP_OFF = "border-border text-muted hover:border-muted";
+  "inline-flex h-7 items-center gap-1.5 rounded-[10px] border bg-surface px-3 text-[12.5px] outline-none focus-visible:ring-2 focus-visible:ring-accent";
+const CHIP_ON = "border-accent font-medium text-foreground";
+const CHIP_OFF = "border-border font-normal text-muted hover:border-muted";
 
 export interface SearchBox {
   value: string;
@@ -40,7 +41,7 @@ export function FilterBar({ search, chips, filters, className }: FilterBarProps)
         <div className="relative flex-1">
           <Icon
             name="search"
-            size={16}
+            size={15}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
           />
           <input
@@ -54,7 +55,7 @@ export function FilterBar({ search, chips, filters, className }: FilterBarProps)
         </div>
       )}
       {chips && (
-        <fieldset className="flex flex-wrap gap-1.5" aria-label={chips.label}>
+        <fieldset className="flex flex-wrap gap-2" aria-label={chips.label}>
           {chips.options.map((option) => (
             <button
               type="button"

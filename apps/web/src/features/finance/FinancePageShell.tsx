@@ -28,6 +28,8 @@ export interface FinancePageShellProps {
   headerAction?: ReactNode;
   /** The routed transaction pages take the regular measure; every list surface is wide. */
   width?: keyof typeof MEASURE;
+  /** The ledger's longer title drops two more points on a phone, per fin-12's two title sizes. */
+  isTitleCompact?: boolean;
   /** A routed detail page links back instead of carrying the sub-nav. */
   backLink?: FinanceBackLink;
   /** One-line figure read-out under the sub-line. */
@@ -55,6 +57,56 @@ function BackLink({ to, label }: FinanceBackLink) {
   );
 }
 
+interface FinanceHeaderProps
+  extends Pick<
+    FinancePageShellProps,
+    "title" | "subLine" | "summary" | "monthCursor" | "headerAction" | "isTitleCompact"
+  > {
+  /** The routed detail pages hang their actions off the top of the title; list surfaces sit them low. */
+  isActionAlignedTop: boolean;
+  hasBackLink: boolean;
+}
+
+function FinanceHeader({
+  title,
+  subLine,
+  summary,
+  monthCursor,
+  headerAction,
+  isTitleCompact,
+  isActionAlignedTop,
+  hasBackLink,
+}: FinanceHeaderProps) {
+  return (
+    <header
+      className={cx(
+        "flex flex-wrap justify-between gap-3",
+        isActionAlignedTop ? "items-start" : "items-end",
+        hasBackLink && "mt-3.5",
+      )}
+    >
+      <div className="min-w-0">
+        <h1
+          className={cx(
+            "font-semibold text-foreground tracking-[-0.02em] leading-[1.15] sm:text-3xl sm:tracking-[-0.025em]",
+            isTitleCompact ? "text-2xl" : "text-[26px]",
+          )}
+        >
+          {title}
+        </h1>
+        <p className="mt-[3px] text-[13px] text-muted sm:mt-1 sm:text-sm">{subLine}</p>
+        {summary && <p className="mt-2 text-muted text-sm tabular-nums">{summary}</p>}
+      </div>
+      {(monthCursor || headerAction) && (
+        <div className={cx("flex flex-wrap items-center gap-2.5", isActionAlignedTop && "pt-1")}>
+          {monthCursor}
+          {headerAction}
+        </div>
+      )}
+    </header>
+  );
+}
+
 /** Every finance page wears the same frame, so the header, the strip and the badge are the frame. */
 export function FinancePageShell({
   title,
@@ -62,6 +114,7 @@ export function FinancePageShell({
   monthCursor,
   headerAction,
   width = "wide",
+  isTitleCompact = false,
   backLink,
   summary,
   search,
@@ -80,26 +133,16 @@ export function FinancePageShell({
     <div className={cx("mx-auto px-4 py-6", MEASURE[width])}>
       {backLink && <BackLink {...backLink} />}
 
-      <header
-        className={cx(
-          "flex flex-wrap items-end justify-between gap-3",
-          backLink !== undefined && "mt-3.5",
-        )}
-      >
-        <div className="min-w-0">
-          <h1 className="font-semibold text-3xl text-foreground tracking-[-0.025em] leading-[1.15]">
-            {title}
-          </h1>
-          <p className="mt-1 text-muted text-sm">{subLine}</p>
-          {summary && <p className="mt-2 text-muted text-sm tabular-nums">{summary}</p>}
-        </div>
-        {(monthCursor || headerAction) && (
-          <div className="flex flex-wrap items-center gap-2.5">
-            {monthCursor}
-            {headerAction}
-          </div>
-        )}
-      </header>
+      <FinanceHeader
+        title={title}
+        subLine={subLine}
+        summary={summary}
+        monthCursor={monthCursor}
+        headerAction={headerAction}
+        isTitleCompact={isTitleCompact}
+        isActionAlignedTop={width === "regular"}
+        hasBackLink={backLink !== undefined}
+      />
 
       {backLink === undefined && <FinanceViewNav />}
 

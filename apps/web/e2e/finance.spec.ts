@@ -25,7 +25,7 @@ const FINANCE_VIEWS = [
   { tab: "Transactions", url: /\/finance\/transactions$/, heading: "Transactions" },
   { tab: "Categories", url: /\/finance\/categories$/, heading: "Categories" },
   { tab: "Settlement", url: /\/finance\/settlement$/, heading: "Settlement" },
-  { tab: "Import", url: /\/finance\/import$/, heading: "Import statements" },
+  { tab: "Import", url: /\/finance\/import$/, heading: "Import" },
 ];
 
 /** Typing the concepts that used to be their own commands must still land on the one door. */

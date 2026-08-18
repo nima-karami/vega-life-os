@@ -1,6 +1,7 @@
 import { Button, ButtonGroup } from "@heroui/react";
 import type { ReactNode } from "react";
 import { cx, Icon } from "@/core/ui";
+import { FUSED_CELL_CLASS, FUSED_GROUP_CLASS } from "./primitives";
 
 /** Being edited reads the same everywhere: the accent border plus its one-pixel ring. */
 const FOCUS_RING = "focus-within:border-accent focus-within:ring-1 focus-within:ring-accent";
@@ -69,7 +70,7 @@ export function PickerValue({
   );
 }
 
-const CELL_CLASS = "h-9 flex-1 shrink-0 rounded-none border-0 text-[13px]";
+const CELL_CLASS = `h-9 flex-1 text-[13px] ${FUSED_CELL_CLASS}`;
 const CELL_OFF = "bg-transparent font-medium text-muted";
 const CELL_ON = {
   accent: "bg-accent font-semibold text-accent-foreground",
@@ -103,10 +104,7 @@ export function SegmentedChoice<T extends string>({
   return (
     <ButtonGroup
       aria-label={ariaLabel}
-      className={cx(
-        "overflow-hidden rounded-[12px] border border-border bg-surface",
-        isFullWidth ? "w-full" : "w-max self-start",
-      )}
+      className={cx(FUSED_GROUP_CLASS, isFullWidth ? "w-full" : "self-start")}
     >
       {options.map((option) => {
         const isCurrent = option.value === value;

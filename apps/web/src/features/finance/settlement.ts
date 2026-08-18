@@ -159,8 +159,8 @@ export function buildReconciliationSegments(figures: SettlementFigures): Reconci
 
 /**
  * Direction is always in words — a bare minus sign is easy to misread. An
- * empty `partnerName` falls back to the generic "your partner" copy verbatim; a set name swaps
- * into the exact same sentence shape rather than a reworded one.
+ * unset `partnerName` reads as the generic `Partner`, the same stand-in every other finance surface
+ * uses, so the headline and the table beneath it never name the same person two ways.
  */
 export function describeDirection(
   cents: number,
@@ -168,10 +168,8 @@ export function describeDirection(
   partnerName: string,
 ): string {
   const qualifier = tense === "still" ? "still " : "";
-  const trimmedName = partnerName.trim();
-  const partner = trimmedName === "" ? "your partner" : trimmedName;
-  const partnerCapitalized = trimmedName === "" ? "Your partner" : trimmedName;
-  if (cents > 0) return `${partnerCapitalized} ${qualifier}owes you`;
+  const partner = partnerName.trim() === "" ? "Partner" : partnerName.trim();
+  if (cents > 0) return `${partner} ${qualifier}owes you`;
   if (cents < 0) return `You ${qualifier}owe ${partner}`;
   return tense === "still" ? "Nothing left to settle" : "Square — nothing owed either way";
 }

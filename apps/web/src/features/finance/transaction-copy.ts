@@ -6,7 +6,7 @@ import { describeShareSentence, type SpreadRecognitionEntry } from "./transactio
 
 const monthNameOf = (isoDate: string): string => format(parseISO(isoDate), "MMMM");
 
-const namePartner = (partnerName: string): string => partnerName.trim() || "your partner";
+const namePartner = (partnerName: string): string => partnerName.trim() || "Partner";
 
 /**
  * The live sentence, in three pieces so the figure the owner actually bears can carry the weight

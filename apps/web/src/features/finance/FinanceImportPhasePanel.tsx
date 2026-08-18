@@ -2,12 +2,12 @@ import { Button } from "@heroui/react";
 import { Link } from "react-router";
 import { FinanceNotice } from "./FinanceNotice";
 import { describeLimitBreach } from "./import-staging";
+import { SMALL_SECONDARY_BUTTON_CLASS } from "./primitives";
 import type { StatementImport } from "./useStatementImport";
 
 const NEEDS_REVIEW_LINK = "/finance/transactions?review=flagged";
 
-const LINK_CLASS =
-  "inline-flex h-8 items-center rounded-[12px] border border-border bg-surface px-3.5 font-semibold text-[12.5px] text-foreground transition-colors hover:border-muted";
+const LINK_CLASS = SMALL_SECONDARY_BUTTON_CLASS;
 
 export interface FinanceImportPhasePanelProps {
   flow: StatementImport;

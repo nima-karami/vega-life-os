@@ -2,13 +2,11 @@ import { Button } from "@heroui/react";
 import { Link } from "react-router";
 import { cx, Icon } from "@/core/ui";
 import { formatMonthLabel } from "./month-cursor";
+import { SMALL_SECONDARY_BUTTON_CLASS } from "./primitives";
 import type { SettlementFigures } from "./settlement";
 import { describeFixRowsLabel } from "./settlement-copy";
 
 export type SettlementAction = "carry" | "pay" | "reopen";
-
-const SMALL_SECONDARY =
-  "inline-flex h-8 items-center gap-[7px] rounded-[12px] border border-border bg-surface px-3.5 font-semibold text-[12.5px] text-foreground transition-colors hover:border-muted";
 
 /**
  * What the period's phase still allows, sitting under the notes that explain why: the fix for a
@@ -27,14 +25,14 @@ export function SettlementPeriodActions({
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-2">
       {figures.excludedCount > 0 && (
-        <Link to="/finance/transactions?review=flagged" className={SMALL_SECONDARY}>
+        <Link to="/finance/transactions?review=flagged" className={SMALL_SECONDARY_BUTTON_CLASS}>
           {describeFixRowsLabel(figures.excludedCount)}
         </Link>
       )}
       {!isOpen && figures.outstandingCents !== 0 && (
         <Button
           variant="ghost"
-          className={cx(SMALL_SECONDARY, "shrink-0")}
+          className={cx(SMALL_SECONDARY_BUTTON_CLASS, "shrink-0")}
           onPress={() => onSelectAction("carry")}
         >
           <Icon name="send" size={14} aria-hidden />
@@ -44,7 +42,7 @@ export function SettlementPeriodActions({
       {!isOpen && (
         <Button
           variant="ghost"
-          className={cx(SMALL_SECONDARY, "shrink-0")}
+          className={cx(SMALL_SECONDARY_BUTTON_CLASS, "shrink-0")}
           onPress={() => onSelectAction("pay")}
         >
           <Icon name="banknote" size={14} aria-hidden />
@@ -54,7 +52,7 @@ export function SettlementPeriodActions({
       {!isOpen && (
         <Button
           variant="ghost"
-          className={cx(SMALL_SECONDARY, "shrink-0")}
+          className={cx(SMALL_SECONDARY_BUTTON_CLASS, "shrink-0")}
           onPress={() => onSelectAction("reopen")}
         >
           <Icon name="edit" size={14} aria-hidden />

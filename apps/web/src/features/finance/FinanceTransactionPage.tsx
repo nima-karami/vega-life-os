@@ -5,6 +5,7 @@ import { useParams } from "react-router";
 import { useStore } from "@/core/store";
 import { Icon, UndoBar } from "@/core/ui";
 import { FinancePageShell } from "./FinancePageShell";
+import { SECONDARY_BUTTON_CLASS } from "./primitives";
 import { TransactionFormFields } from "./TransactionFormFields";
 import { describeSaveState, describeTransactionProvenance } from "./transaction-copy";
 import {
@@ -197,7 +198,8 @@ function TransactionEditor({
       backLink={BACK_LINK}
       headerAction={
         <Button
-          variant="secondary"
+          variant="ghost"
+          className={SECONDARY_BUTTON_CLASS}
           onPress={() => {
             onArchive(txn);
             removeFinanceTransaction(txn.id);

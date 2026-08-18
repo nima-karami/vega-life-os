@@ -3,12 +3,12 @@ import { cx } from "@/core/ui";
 import { buildCategoryChart, CATEGORY_CHART_VIEWBOX } from "./category-chart-geometry";
 import { describeCategoryCaption, formatShortMonth } from "./category-copy";
 import type { CategoryCaptionFigures, CategoryMonthFigures } from "./category-detail-figures";
-import { formatWholeDollars } from "./primitives";
+import { FUSED_CELL_CLASS, FUSED_GROUP_CLASS, formatWholeDollars } from "./primitives";
 
 const DANGER = "#C2554D";
 const MUTED = "#6b7280";
 
-const CELL_BASE = "h-7 shrink-0 rounded-none border-0 px-3 text-[12px]";
+const CELL_BASE = `h-7 px-3 text-[12px] ${FUSED_CELL_CLASS}`;
 const CELL_ON = "bg-paper-2 font-semibold text-foreground";
 const CELL_OFF = "bg-transparent font-medium text-muted";
 
@@ -49,7 +49,7 @@ export function CategoryMonthsChart({
         <h2 className="font-semibold text-[15px] text-foreground">
           {RANGES.find((option) => option.id === range)?.title ?? RANGES[0].title}
         </h2>
-        <ButtonGroup className="overflow-hidden rounded-[12px] border border-border bg-surface">
+        <ButtonGroup className={FUSED_GROUP_CLASS}>
           {RANGES.map((option) => (
             <Button
               key={option.id}

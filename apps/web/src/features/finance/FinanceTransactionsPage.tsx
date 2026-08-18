@@ -247,6 +247,7 @@ export function FinanceTransactionsPage() {
       <FinancePageShell
         title="Transactions"
         subLine={subLine}
+        isTitleCompact
         monthCursor={
           isReviewMode ? undefined : (
             <FinanceMonthCursor

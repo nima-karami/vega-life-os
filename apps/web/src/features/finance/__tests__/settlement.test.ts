@@ -89,7 +89,7 @@ describe("a month the partner carried", () => {
     const figures = expectStripReconciles(half, MONTH);
     expect(figures.outstandingCents).toBe(-5600);
     expect(describeBalance(figures.outstandingCents, "now", "")).toBe(
-      `You owe your partner ${formatCents(5600)}`,
+      `You owe Partner ${formatCents(5600)}`,
     );
   });
 });
@@ -275,16 +275,16 @@ describe("the payment editor's sign rule", () => {
 
 describe("direction copy", () => {
   it("never leaves the direction to a sign", () => {
-    expect(describeDirection(500, "now", "")).toBe("Your partner owes you");
-    expect(describeDirection(-500, "now", "")).toBe("You owe your partner");
-    expect(describeDirection(-500, "still", "")).toBe("You still owe your partner");
+    expect(describeDirection(500, "now", "")).toBe("Partner owes you");
+    expect(describeDirection(-500, "now", "")).toBe("You owe Partner");
+    expect(describeDirection(-500, "still", "")).toBe("You still owe Partner");
     expect(describeDirection(0, "now", "")).toBe("Square — nothing owed either way");
     expect(describeDirection(0, "still", "")).toBe("Nothing left to settle");
   });
 
-  it("falls back to the generic 'your partner' copy verbatim when no name is set", () => {
-    expect(describeDirection(500, "now", "   ")).toBe("Your partner owes you");
-    expect(describeBalance(-500, "now", "")).toBe(`You owe your partner ${formatCents(500)}`);
+  it("falls back to the same generic 'Partner' every other finance surface uses", () => {
+    expect(describeDirection(500, "now", "   ")).toBe("Partner owes you");
+    expect(describeBalance(-500, "now", "")).toBe(`You owe Partner ${formatCents(500)}`);
   });
 
   it("swaps the stored partner name into the same sentence shape", () => {

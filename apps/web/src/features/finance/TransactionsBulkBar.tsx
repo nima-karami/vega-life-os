@@ -3,7 +3,7 @@ import type { FinanceCategory, FinanceTransaction } from "@vega/shared";
 import { useState } from "react";
 import { cx, Icon, Menu, type MenuItem, Popover, SegmentButton } from "@/core/ui";
 import { DraftInput } from "./DraftInput";
-import { formatShareBps, FULL_SHARE_BPS, HOUSEHOLD_DEFAULT_BPS, parseShareBps } from "./money";
+import { FULL_SHARE_BPS, formatShareBps, HOUSEHOLD_DEFAULT_BPS, parseShareBps } from "./money";
 
 const BAR_BUTTON =
   "rounded-[10px] px-2 py-1 font-medium text-[13px] text-background/85 outline-none transition-colors hover:text-background focus-visible:ring-2 focus-visible:ring-accent";
@@ -122,11 +122,12 @@ export function TransactionsBulkBar({
           <Icon name="check" size={14} aria-hidden />
           Mark reviewed
         </button>
+        {/* Danger red sits at 2.5:1 on the ink bar; the action separates by its own word and its undo. */}
         <button
           type="button"
           disabled={!isEditable}
           onClick={onDeleteSelection}
-          className={cx(BAR_BUTTON, "text-danger hover:text-danger")}
+          className={BAR_BUTTON}
         >
           Delete
         </button>

@@ -43,7 +43,7 @@ describe("the live share sentence", () => {
 
   it("falls back to the generic word when no partner name is set", () => {
     const line = describeShareLine(-12999, 8000, "partner", "2026-08-11", "  ");
-    expect(line.tail).toContain("goes to your partner");
+    expect(line.tail).toContain("goes to Partner");
   });
 
   it("says nothing changes hands rather than printing a zero", () => {

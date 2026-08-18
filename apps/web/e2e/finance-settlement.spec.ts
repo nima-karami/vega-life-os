@@ -38,7 +38,7 @@ test("a settled period shows the figure it was frozen at, not the live one", asy
   await openSettlement(page, settledMonth());
 
   const card = page.getByRole("region", { name: "The period being settled" });
-  await expect(card.getByText("Your partner owes you $1,028.25")).toBeVisible();
+  await expect(card.getByText("Partner owes you $1,028.25")).toBeVisible();
   await expect(card.getByText("$2,228.50 of shared purchases netted across 3 rows.")).toBeVisible();
   await expect(card.getByText("You paid $2,142.50")).toBeVisible();
   await expect(card.getByText("Partner paid $86.00")).toBeVisible();
@@ -73,7 +73,7 @@ test("a period the partner carried says the owner owes, in words", async ({ page
   await enterApp(page);
   await openSettlement(page, partnerHeavyMonth());
 
-  await expect(page.getByText(/You owe your partner/).first()).toBeVisible();
+  await expect(page.getByText(/You owe Partner/).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Record settlement" })).toBeVisible();
 });
 

@@ -1,6 +1,8 @@
 import { Link } from "react-router";
+import { cx } from "@/core/ui";
 import { describeCarryForward, describeUncategorised } from "./category-copy";
 import type { UncategorisedFigures } from "./category-table-figures";
+import { SMALL_SECONDARY_BUTTON_CLASS } from "./primitives";
 
 const REVIEW_LINK = "/finance/transactions?review=flagged";
 
@@ -30,10 +32,7 @@ export function CategoryNotes({
           {describeUncategorised(uncategorised)}
         </p>
         {uncategorised.rowCount > 0 && (
-          <Link
-            to={REVIEW_LINK}
-            className="mt-auto inline-flex h-8 items-center rounded-[12px] border border-border bg-surface px-3.5 font-semibold text-[12.5px] text-foreground transition-colors hover:border-muted"
-          >
+          <Link to={REVIEW_LINK} className={cx(SMALL_SECONDARY_BUTTON_CLASS, "mt-auto")}>
             Review them
           </Link>
         )}

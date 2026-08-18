@@ -1,12 +1,12 @@
 import { Link } from "react-router";
 import { formatCents } from "../money";
+import { SMALL_SECONDARY_BUTTON_CLASS } from "../primitives";
 import { describeBalance, type SettlementFigures } from "../settlement";
+import { resolvePartnerName } from "../settlement-copy";
 import { CardHeadRow, OverviewCard } from "./OverviewCard";
 import { describeExclusions } from "./overview-copy";
 
 const ACCENT = "#4E6E8E";
-const SMALL_SECONDARY =
-  "inline-flex h-8 items-center rounded-[12px] border border-border bg-surface px-3.5 font-semibold text-[12.5px] text-foreground transition-colors hover:border-muted";
 
 export interface HouseholdSplitCardProps {
   figures: SettlementFigures;
@@ -23,7 +23,7 @@ export function HouseholdSplitCard({
   monthLabel,
   partnerName,
 }: HouseholdSplitCardProps) {
-  const partnerLabel = partnerName.trim() === "" ? "Your partner" : partnerName.trim();
+  const partnerLabel = resolvePartnerName(partnerName);
   const exclusions = describeExclusions(figures.excludedCount, figures.excludedCents);
 
   return (
@@ -64,7 +64,7 @@ export function HouseholdSplitCard({
       </div>
 
       <div className="mt-auto pt-3.5">
-        <Link to="/finance/settlement" className={SMALL_SECONDARY}>
+        <Link to="/finance/settlement" className={SMALL_SECONDARY_BUTTON_CLASS}>
           Open settlement
         </Link>
       </div>

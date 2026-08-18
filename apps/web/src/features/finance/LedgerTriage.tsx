@@ -1,7 +1,7 @@
-import { Button, ButtonGroup } from "@heroui/react";
+import { Button } from "@heroui/react";
 import type { FinanceCategory, FinanceTransaction } from "@vega/shared";
 import { useState } from "react";
-import { cx, EditorField, NONE, SegmentButton, Select, type SelectOption } from "@/core/ui";
+import { cx, NONE, Select, type SelectOption } from "@/core/ui";
 import { getCategoryColor } from "./category-palette";
 import { DraftInput } from "./DraftInput";
 import {
@@ -11,7 +11,13 @@ import {
   HOUSEHOLD_DEFAULT_BPS,
   parseShareBps,
 } from "./money";
+import { SegmentedChoice, type SegmentedOption, TransactionField } from "./TransactionField";
 import { describeShareSentence } from "./transaction-detail-figures";
+
+const SHARED_CHOICES: SegmentedOption<"mine" | "shared">[] = [
+  { value: "mine", label: "Just mine" },
+  { value: "shared", label: "Shared" },
+];
 
 export interface LedgerTriageProps {
   txn: FinanceTransaction;
@@ -71,45 +77,48 @@ export function LedgerTriage({
         !isLast && "border-b border-border",
       )}
     >
-      <EditorField label="Category" className="min-w-[12rem]">
+      <TransactionField label="Category" className="min-w-[12rem]">
         <Select
           ariaLabel={`File ${txn.description} under`}
           value={categoryId}
           options={buildCategoryChoices(categories)}
           onValueChange={setCategoryId}
         />
-      </EditorField>
+      </TransactionField>
 
-      <EditorField label="Shared">
-        <div className="flex">
-          <ButtonGroup aria-label="Shared">
-            <SegmentButton isSelected={!isHousehold} onClick={() => setIsHousehold(false)}>
-              Just mine
-            </SegmentButton>
-            <SegmentButton isSelected={isHousehold} onClick={() => setIsHousehold(true)}>
-              Shared
-            </SegmentButton>
-          </ButtonGroup>
-        </div>
-      </EditorField>
-
-      <EditorField label="My share" className="w-24">
-        <DraftInput
-          type="number"
-          min={0}
-          max={100}
-          step={0.01}
-          ariaLabel="My share percent"
-          value={formatShareBps(shareBps)}
-          isDisabled={!isHousehold}
-          onCommit={(raw) => {
-            const bps = parseShareBps(raw);
-            if (bps === null) return false;
-            setShareBps(bps);
-            return true;
-          }}
+      <TransactionField label="Shared">
+        <SegmentedChoice
+          ariaLabel="Shared"
+          options={SHARED_CHOICES}
+          value={isHousehold ? "shared" : "mine"}
+          tone="accent"
+          isFullWidth={false}
+          onChange={(next) => setIsHousehold(next === "shared")}
         />
-      </EditorField>
+      </TransactionField>
+
+      <TransactionField label="My share" className="w-28">
+        <div className="flex items-center gap-1.5">
+          <DraftInput
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            ariaLabel="My share percent"
+            value={formatShareBps(shareBps)}
+            isDisabled={!isHousehold}
+            onCommit={(raw) => {
+              const bps = parseShareBps(raw);
+              if (bps === null) return false;
+              setShareBps(bps);
+              return true;
+            }}
+          />
+          <span aria-hidden className="text-[13px] text-muted">
+            %
+          </span>
+        </div>
+      </TransactionField>
 
       <p className="flex-1 pb-2 text-[12.5px] text-muted tabular-nums">
         You bear {formatCents(youBearCents)} · {provenance}
