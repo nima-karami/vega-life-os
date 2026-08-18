@@ -12,5 +12,7 @@ export type { PaceBarProps } from "./PaceBar";
 export { PaceBar } from "./PaceBar";
 export type { PaceBarShape } from "./pace-bar";
 export { computeMonthElapsedFraction, derivePaceBarShape } from "./pace-bar";
+export type { ReconciliationBarProps } from "./ReconciliationBar";
+export { ReconciliationBar } from "./ReconciliationBar";
 export type { StateChipProps, StateChipTone } from "./StateChip";
 export { StateChip } from "./StateChip";
