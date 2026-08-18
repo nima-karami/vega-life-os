@@ -1071,7 +1071,11 @@ export function CalendarPage() {
                 d.today && i !== activeDay && "ring-1 ring-accent",
               )}
             >
-              <span className="text-xs text-muted">{d.dow}</span>
+              <span
+                className={cx("text-xs", i === activeDay ? "text-accent-foreground" : "text-muted")}
+              >
+                {d.dow}
+              </span>
               <span className="text-sm font-semibold">{String(d.dom).padStart(2, "0")}</span>
             </button>
           ))}
