@@ -124,9 +124,12 @@ test("a routed detail page swaps the strip for a back link", async ({ page }) =>
   await enterApp(page);
   await page.goto("/finance/transactions/new", { waitUntil: "networkidle" });
 
-  await expect(page.getByRole("heading", { name: "New transaction", exact: true })).toBeVisible({
+  // The entry form's h1 *is* the editable title field, so the page announces itself by that field
+  // and its one accent button rather than by a static heading.
+  await expect(page.getByRole("textbox", { name: "Transaction title" })).toBeVisible({
     timeout: 15_000,
   });
+  await expect(page.getByRole("button", { name: "Add transaction" })).toBeVisible();
   await expect(viewNav(page)).toHaveCount(0);
 
   await page.getByRole("link", { name: "Transactions" }).click();
