@@ -264,6 +264,29 @@ test("calendar: right-click a chip → Delete removes it", async ({ page }) => {
   await expect(page.getByText(unique, { exact: true })).toHaveCount(0);
 });
 
+test("calendar: the Filter popover focuses one goal and All clears it", async ({ page }) => {
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  // The focus chip row is gone — nothing narrows the grid until the popover opens.
+  await expect(page.getByRole("button", { name: "All", exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Filter", exact: true }).click();
+  const focusList = page.getByRole("listbox", { name: "Focus" });
+  await expect(focusList).toBeVisible();
+  await expect(focusList.getByRole("option", { name: "All" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+
+  await focusList.getByRole("option").nth(1).click();
+  await expect(page.getByRole("button", { name: /^Filter \(1 active\)$/ })).toBeVisible();
+
+  await focusList.getByRole("option", { name: "All" }).click();
+  await expect(page.getByRole("button", { name: "Filter", exact: true })).toBeVisible();
+});
+
 test("calendar: right-click an empty slot → add / schedule menu", async ({ page }) => {
   await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });

@@ -20,11 +20,10 @@ import { getFocusableGoals } from "@/features/goals";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { BulkActionBar } from "./BulkActionBar";
+import { CalendarFilterButton } from "./CalendarFilterButton";
 import { CalendarSync } from "./CalendarSync";
-import { CalendarsPopover } from "./CalendarsPopover";
 import { AllDayChip } from "./components/AllDayChip";
 import { BacklogItem } from "./components/BacklogItem";
-import { FilterChip } from "./components/FilterChip";
 import { NowLine } from "./components/NowLine";
 import { ScheduleRow } from "./components/ScheduleRow";
 import { TimedChip } from "./components/TimedChip";
@@ -1003,7 +1002,7 @@ export function CalendarPage() {
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
           <CalendarSync />
-          <CalendarsPopover />
+          <CalendarFilterButton focusableGoals={focusableGoals} />
           <div className="flex items-center gap-1.5">
             <Button
               isIconOnly
@@ -1034,25 +1033,6 @@ export function CalendarPage() {
           </div>
         </div>
       </header>
-
-      {/* ── Focus filter ─────────────────────────────────────────── */}
-      {focusableGoals.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted">Focus</span>
-          <FilterChip active={!focusGoalId} onClick={() => setFocusGoal(null)}>
-            All
-          </FilterChip>
-          {focusableGoals.map((g) => (
-            <FilterChip
-              key={g.id}
-              active={focusGoalId === g.id}
-              onClick={() => setFocusGoal(focusGoalId === g.id ? null : g.id)}
-            >
-              {g.name}
-            </FilterChip>
-          ))}
-        </div>
-      )}
 
       {/* ── Mobile day strip ─────────────────────────────────────── */}
       {mobile && (
