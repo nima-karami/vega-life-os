@@ -54,11 +54,19 @@ export function computeUsedPercent(spentCents: number, budgetCents: number): num
   return Math.min(100, Math.max(0, (spentCents / budgetCents) * 100));
 }
 
-export const isOverBudget = (row: BudgetedCategoryFigures): boolean =>
-  row.spentCents > row.budgetCents;
+interface SpendAgainstBudget {
+  spentCents: number;
+  budgetCents: number;
+}
+
+export const isOverBudget = (row: SpendAgainstBudget): boolean => row.spentCents > row.budgetCents;
 
 export const isOverBudgetAtThisPace = (row: BudgetedCategoryFigures): boolean =>
   row.projectedCents !== null && row.projectedCents > row.budgetCents;
+
+/** Same verdict, honest about an absent budget — no budget row in force is never over. */
+export const isSpendOverBudget = (spentCents: number, budgetCents: number | null): boolean =>
+  budgetCents !== null && spentCents > budgetCents;
 
 export function deriveCashFlow(
   book: FinanceBook,

@@ -45,10 +45,19 @@ describe("the categories table", () => {
     expect(groceries).toMatchObject({ rowCount: 2, spreadCount: 1, spentCents: 10500 });
   });
 
-  it("reads a category with spend and no budget as over — nothing was planned for it", () => {
+  it("never reads a category with no budget row in force as over, whatever it spent", () => {
     const book = makeBook({ financeTransactions: [row("2026-03-05", -1000)] });
     const groceries = readRows(book).rows.find((entry) => entry.id === GROCERIES);
-    expect(groceries).toMatchObject({ budgetCents: null, isOverBudget: true });
+    expect(groceries).toMatchObject({ budgetCents: null, isOverBudget: false });
+  });
+
+  it("still reads a category over against a budget row explicitly set to zero", () => {
+    const book = makeBook({
+      financeBudgets: [budget(GROCERIES, "2026-01", 0)],
+      financeTransactions: [row("2026-03-05", -1000)],
+    });
+    const groceries = readRows(book).rows.find((entry) => entry.id === GROCERIES);
+    expect(groceries).toMatchObject({ budgetCents: 0, isOverBudget: true });
   });
 
   it("states the uncategorised rows at their full charge, outside every category figure", () => {

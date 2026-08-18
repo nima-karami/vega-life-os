@@ -76,6 +76,13 @@ describe("describeTrendCaption", () => {
       "No completed month on file yet — nothing to average against.",
     );
   });
+
+  it("rounds a negative half-cent average away from zero, like every other money figure", () => {
+    // -50 + -49 over 2 months = -49.5¢ average — half-up away from zero rounds to -50¢, not -49¢.
+    expect(describeTrendCaption([month(-50, false), month(-49, false)])).toBe(
+      "No month breached its budget · average -$1/mo",
+    );
+  });
 });
 
 describe("describeBurnCaption", () => {

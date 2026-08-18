@@ -10,6 +10,11 @@ export interface ShareSentenceFigures {
   direction: ShareDirection;
 }
 
+/** The owner's rounded share of a magnitude — every share figure, saved or still being typed, is this. */
+export function computeBorneShareCents(magnitudeCents: number, shareBps: number): number {
+  return roundToCents(computeShareFraction(magnitudeCents, shareBps));
+}
+
 /**
  * The two halves of the live sentence. `youBear` rounds once; the counterparty side is the
  * remainder of the full charge, never its own rounded share, so the pair always sums to the
@@ -21,7 +26,7 @@ export function describeShareSentence(
   payer: FinancePayer,
 ): ShareSentenceFigures {
   const magnitude = Math.abs(amountCents);
-  const youBearCents = roundToCents(computeShareFraction(magnitude, myShareBps));
+  const youBearCents = computeBorneShareCents(magnitude, myShareBps);
   return {
     youBearCents,
     counterpartyCents: magnitude - youBearCents,

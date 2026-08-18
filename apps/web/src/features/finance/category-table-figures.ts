@@ -119,7 +119,7 @@ export function buildCategoryTable(
           rowCount: rowCounts.rowCount,
           spreadCount: rowCounts.spreadCount,
           averageCents: averages.figures.get(category.id) ?? 0,
-          isOverBudget: spentCents > (budgetCents ?? 0),
+          isOverBudget: budgetCents !== null && spentCents > budgetCents,
           isArchived: category.archivedAt !== null,
         };
       });

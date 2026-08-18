@@ -1,6 +1,7 @@
 import { cx } from "@/core/ui";
 import { describeCategoryMonthFooter } from "./category-copy";
 import type { CategoryMonthRowFigures } from "./category-detail-figures";
+import { isSpendOverBudget } from "./dashboard-figures";
 import { formatCents } from "./money";
 import { PaceBar } from "./primitives";
 
@@ -22,7 +23,7 @@ export function CategoryMonthCard({
   rowFigures,
   categoryName,
 }: CategoryMonthCardProps) {
-  const isOver = spentCents > (budgetCents ?? 0);
+  const isOver = isSpendOverBudget(spentCents, budgetCents);
 
   return (
     <section className="rounded-[16px] border border-border bg-surface px-[18px] py-4 shadow-soft">

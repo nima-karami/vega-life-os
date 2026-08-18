@@ -8,7 +8,7 @@ import {
   listCategoryMonths,
   selectCategoryMonthRows,
 } from "../category-detail-figures";
-import { budget, GROCERIES, makeBook, row, SOFTWARE } from "./fixtures";
+import { budget, BUSINESS, GROCERIES, makeBook, row, SOFTWARE } from "./fixtures";
 
 const MONTH = "2026-03";
 const MID_MONTH = new Date(2026, 2, 15);
@@ -50,6 +50,27 @@ describe("the category's monthly series", () => {
     expect(computeCategoryMonthlySeries(broken, GROCERIES, [MONTH], MID_MONTH)).toEqual({
       status: "failed",
     });
+  });
+
+  it("never flags a month over when no budget row was ever in force", () => {
+    const noBudget = makeBook({ financeTransactions: [row("2026-01-05", -5000)] });
+    const section = computeCategoryMonthlySeries(noBudget, GROCERIES, ["2026-01"], MID_MONTH);
+    if (section.status === "failed") throw new Error("expected the series to derive");
+    expect(section.figures).toEqual([
+      { month: "2026-01", spentCents: 5000, budgetCents: null, flag: "under" },
+    ]);
+  });
+
+  it("still flags a month over against a budget row explicitly set to zero", () => {
+    const zeroBudget = makeBook({
+      financeBudgets: [budget(GROCERIES, "2026-01", 0)],
+      financeTransactions: [row("2026-01-05", -5000)],
+    });
+    const section = computeCategoryMonthlySeries(zeroBudget, GROCERIES, ["2026-01"], MID_MONTH);
+    if (section.status === "failed") throw new Error("expected the series to derive");
+    expect(section.figures).toEqual([
+      { month: "2026-01", spentCents: 5000, budgetCents: 0, flag: "over" },
+    ]);
   });
 });
 
@@ -103,6 +124,27 @@ describe("merchant concentration", () => {
     expect(total).toBe(19630);
   });
 
+  it("reconciles the shown rows and the tail to the once-rounded category total", () => {
+    const book = makeBook({
+      financeTransactions: [
+        row("2026-03-01", -725, { isHousehold: true, myShareBps: 5000, merchantId: "alpha" }),
+        row("2026-03-02", -725, { isHousehold: true, myShareBps: 5000, merchantId: "bravo" }),
+        row("2026-03-03", -725, { isHousehold: true, myShareBps: 5000, merchantId: "charlie" }),
+      ],
+    });
+    const section = computeMerchantConcentration(book, GROCERIES, MONTH, 2);
+    if (section.status === "failed") throw new Error("expected concentration to derive");
+    const { entries, othersCount, othersCents } = section.figures;
+    expect(entries).toEqual([
+      { key: "alpha", cents: 363 },
+      { key: "bravo", cents: 363 },
+    ]);
+    expect(othersCount).toBe(1);
+    expect(othersCents).toBe(362);
+    const total = entries.reduce((sum, entry) => sum + entry.cents, 0) + othersCents;
+    expect(total).toBe(1088);
+  });
+
   it("reads an empty month as no entries and no tail", () => {
     const section = computeMerchantConcentration(makeBook(), GROCERIES, MONTH, 4);
     if (section.status === "failed") throw new Error("expected concentration to derive");
@@ -134,6 +176,20 @@ describe("the caption figures", () => {
       worstMonth: "2026-01",
       worstCents: 20000,
     });
+  });
+
+  it("never counts a breach in a month with no budget row in force", () => {
+    const book = makeBook({
+      financeTransactions: [row("2026-01-05", -5000), row("2026-02-05", -6000)],
+    });
+    const section = computeCategoryCaptionFigures(
+      book,
+      GROCERIES,
+      ["2026-01", "2026-02"],
+      new Date(2026, 2, 15),
+    );
+    if (section.status === "failed") throw new Error("expected the caption to derive");
+    expect(section.figures.breachedCount).toBe(0);
   });
 
   it("names no worst month while nothing has completed", () => {
@@ -187,6 +243,26 @@ describe("the month card's row figures", () => {
     if (section.status === "failed") throw new Error("expected the figures to derive");
     // Only the row the owner paid for sends money back: half of $100.
     expect(section.figures).toEqual({ rowCount: 3, sharedCount: 2, comesBackCents: 5000 });
+  });
+
+  it("counts a business account's household row in comesBackCents, matching settlement", () => {
+    const book = makeBook({
+      financeTransactions: [
+        row("2026-03-04", -10000, { isHousehold: true, myShareBps: 5000 }),
+        row("2026-03-06", -8000, {
+          accountId: BUSINESS,
+          isHousehold: true,
+          myShareBps: 5000,
+          payer: "me",
+        }),
+      ],
+    });
+
+    const section = computeCategoryMonthRowFigures(book, GROCERIES, MONTH);
+    if (section.status === "failed") throw new Error("expected the figures to derive");
+    // Personal row list stays business-free (rowCount/sharedCount = 1), but settlement takes no
+    // business toggle, so comesBack adds both halves: $50 + $40.
+    expect(section.figures).toEqual({ rowCount: 1, sharedCount: 1, comesBackCents: 9000 });
   });
 });
 

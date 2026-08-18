@@ -3,6 +3,7 @@ import {
   computeBorneSpendSeries,
   computeCumulativeBurn,
   computeStackedMonthlySeries,
+  OTHER_CATEGORY_ID,
 } from "../dashboard-charts";
 import { budget, GROCERIES, makeBook, row, SOFTWARE } from "./fixtures";
 
@@ -124,7 +125,7 @@ describe("the stacked monthly series", () => {
     expect(section.figures[0].segments.map((entry) => entry.categoryId)).toEqual([GROCERIES]);
   });
 
-  it("caps segments at the top N categories by total spend across the window", () => {
+  it("caps shown segments at the top N categories but never understates the true total", () => {
     const book = makeBook({
       financeTransactions: [
         row("2026-03-05", -40000),
@@ -133,7 +134,27 @@ describe("the stacked monthly series", () => {
     });
     const section = computeStackedMonthlySeries(book, [MONTH], 1);
     if (section.status === "failed") throw new Error("expected the series to derive");
-    expect(section.figures[0].segments.map((entry) => entry.categoryId)).toEqual([GROCERIES]);
-    expect(section.figures[0].total).toBe(40000);
+    const [column] = section.figures;
+    expect(column.total).toBe(50000);
+    expect(column.segments.map((entry) => entry.categoryId)).toEqual([
+      GROCERIES,
+      OTHER_CATEGORY_ID,
+    ]);
+    expect(column.segments.reduce((sum, entry) => sum + entry.cents, 0)).toBe(column.total);
+  });
+
+  it("adds no other segment once the top N already covers every category with spend", () => {
+    const book = makeBook({
+      financeTransactions: [
+        row("2026-03-05", -40000),
+        row("2026-03-06", -10000, { categoryId: SOFTWARE }),
+      ],
+    });
+    const section = computeStackedMonthlySeries(book, [MONTH], 6);
+    if (section.status === "failed") throw new Error("expected the series to derive");
+    expect(section.figures[0].segments.map((entry) => entry.categoryId)).toEqual([
+      GROCERIES,
+      SOFTWARE,
+    ]);
   });
 });

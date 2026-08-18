@@ -1,4 +1,5 @@
 import { cx } from "@/core/ui";
+import { isOverBudget } from "../dashboard-figures";
 import { formatCents } from "../money";
 import { PaceBar } from "../primitives";
 import { CardHeadRow, OverviewCard } from "./OverviewCard";
@@ -17,7 +18,7 @@ const ROW_GRID =
   "grid items-center gap-4 sm:grid-cols-[minmax(0,11rem)_1fr_minmax(0,12rem)] grid-cols-1";
 
 function BudgetRow({ row, elapsedFraction }: { row: BudgetListRow; elapsedFraction: number }) {
-  const isOver = row.spentCents > row.budgetCents;
+  const isOver = isOverBudget(row);
   return (
     <li className={ROW_GRID}>
       <div className="min-w-0">

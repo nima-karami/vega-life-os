@@ -1,5 +1,6 @@
 import type { FinanceMerchant } from "@vega/shared";
 import { cx } from "@/core/ui";
+import { computeConcentrationBarFraction } from "./category-chart-geometry";
 import { describeConcentrationTail } from "./category-copy";
 import type { MerchantConcentrationFigures } from "./category-detail-figures";
 import { formatCents } from "./money";
@@ -72,7 +73,7 @@ export function CategoryConcentrationCard({
                 {entry.label}
               </span>
               <MiniBar
-                fraction={leader > 0 ? entry.cents / leader : 0}
+                fraction={computeConcentrationBarFraction(entry.cents, leader)}
                 color={entry.isTail ? TAIL_COLOR : color}
               />
               <span

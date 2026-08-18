@@ -148,6 +148,9 @@ export interface StackedMonthColumn {
   segments: { categoryId: string; cents: number }[];
 }
 
+/** Not a real category — the muted bucket standing in for every category past `topN`. */
+export const OTHER_CATEGORY_ID = "__other__";
+
 function rankCategoriesBySpend(
   series: Map<string, Map<string, number>>,
   categoryOrder: Map<string, number>,
@@ -172,8 +175,9 @@ function rankCategoriesBySpend(
 }
 
 /**
- * Segments are capped to the `topN` categories by total spend over the window and always sum to
- * the column total — there is no hidden "other" slice here, unlike merchant concentration.
+ * Segments are capped to the `topN` categories by total spend over the window, plus one trailing
+ * `OTHER_CATEGORY_ID` segment carrying everything past them — the true month total, never just
+ * what the top categories cover, so the printed figure can never quietly understate the month.
  */
 export function computeStackedMonthlySeries(
   book: FinanceBook,
@@ -190,14 +194,18 @@ export function computeStackedMonthlySeries(
 
     return months.map((month) => {
       const categories = series.get(month) ?? new Map<string, number>();
-      const segments = [...categories.entries()]
+      const total = [...categories.values()].reduce((sum, cents) => sum + cents, 0);
+      const shown = [...categories.entries()]
         .filter(([categoryId, cents]) => cents !== 0 && topCategoryIds.has(categoryId))
         .sort(
           ([leftId], [rightId]) =>
             (categoryOrder.get(leftId) ?? 0) - (categoryOrder.get(rightId) ?? 0),
         )
         .map(([categoryId, cents]) => ({ categoryId, cents }));
-      return { month, total: segments.reduce((sum, entry) => sum + entry.cents, 0), segments };
+      const otherCents = total - shown.reduce((sum, entry) => sum + entry.cents, 0);
+      const segments =
+        otherCents !== 0 ? [...shown, { categoryId: OTHER_CATEGORY_ID, cents: otherCents }] : shown;
+      return { month, total, segments };
     });
   });
 }

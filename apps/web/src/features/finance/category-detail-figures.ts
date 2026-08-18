@@ -64,13 +64,16 @@ export function listCategoryMonths(
 export interface CategoryMonthFigures {
   month: string;
   spentCents: number;
-  budgetCents: number;
+  /** Null when no budget row was ever in force that month — never breached, whatever the spend. */
+  budgetCents: number | null;
   flag: CategoryMonthFlag;
 }
 
 /**
  * A month is judged against the budget row that was in force *then* — budgets carry forward, so
- * an earlier month may have answered to a different figure than the one showing today.
+ * an earlier month may have answered to a different figure than the one showing today. A month
+ * with no budget row in force at all is never "over" — a stored budget of zero still breaches on
+ * any spend, but the absence of a budget is not the same claim as a budget of zero.
  */
 export function computeCategoryMonthlySeries(
   book: FinanceBook,
@@ -84,9 +87,10 @@ export function computeCategoryMonthlySeries(
     const currentMonth = toMonthKey(asOf);
     return months.map((month) => {
       const spentCents = series.get(month)?.get(categoryId) ?? 0;
-      const budgetCents = resolveEffectiveBudgets(book, month).get(categoryId)?.cents ?? 0;
+      const budgetCents = resolveEffectiveBudgets(book, month).get(categoryId)?.cents ?? null;
+      const isOver = budgetCents !== null && spentCents > budgetCents;
       const flag: CategoryMonthFlag =
-        month === currentMonth ? "current-partial" : spentCents > budgetCents ? "over" : "under";
+        month === currentMonth ? "current-partial" : isOver ? "over" : "under";
       return { month, spentCents, budgetCents, flag };
     });
   });
@@ -169,7 +173,9 @@ function sumBorneByMerchant(
 
 /**
  * Descending by borne spend, tied merchants ordered by key for a stable read. The tail beyond
- * `topN` collapses into one rounded figure so the listed rows plus the tail sum to the month.
+ * `topN` is the *remainder* — the category's once-rounded total minus the shown rows' own
+ * rounded figures, never its own independently-rounded sum — so the listed rows plus the tail
+ * always reconcile to the month exactly, whatever the per-merchant rounding drift.
  */
 export function computeMerchantConcentration(
   book: FinanceBook,
@@ -184,12 +190,17 @@ export function computeMerchantConcentration(
       const byCents = roundToCents(rightCents) - roundToCents(leftCents);
       return byCents !== 0 ? byCents : leftKey.localeCompare(rightKey);
     });
-    const tail = ranked.slice(topN);
-    const othersTotal = tail.reduce((sum, [, cents]) => addCentsFractions(sum, cents), ZERO_CENTS);
+    const categoryTotalCents = roundToCents(
+      ranked.reduce((sum, [, cents]) => addCentsFractions(sum, cents), ZERO_CENTS),
+    );
+    const entries = ranked
+      .slice(0, topN)
+      .map(([key, cents]) => ({ key, cents: roundToCents(cents) }));
+    const shownCents = entries.reduce((sum, entry) => sum + entry.cents, 0);
     return {
-      entries: ranked.slice(0, topN).map(([key, cents]) => ({ key, cents: roundToCents(cents) })),
-      othersCount: tail.length,
-      othersCents: roundToCents(othersTotal),
+      entries,
+      othersCount: ranked.length - entries.length,
+      othersCents: categoryTotalCents - shownCents,
     };
   });
 }
@@ -264,9 +275,23 @@ export function selectCategoryMonthRows(
     );
 }
 
+/** Every household row for this category and month, whatever the account — settlement's own scope. */
+function selectCategoryMonthHouseholdRows(
+  book: FinanceBook,
+  categoryId: string,
+  month: string,
+): FinanceTransaction[] {
+  return book.financeTransactions.filter(
+    (txn) =>
+      !txn.isInternal && txn.isHousehold && txn.categoryId === categoryId && isDatedIn(txn, month),
+  );
+}
+
 /**
  * What the month card says under its figure. `comesBackCents` counts only rows the owner paid for
  * — it is the settlement delta in their favour, sliced to this category, never the whole balance.
+ * It reads every household row regardless of account, same as settlement does: a household expense
+ * on the business card still owes the owner their share back.
  */
 export function computeCategoryMonthRowFigures(
   book: FinanceBook,
@@ -277,8 +302,8 @@ export function computeCategoryMonthRowFigures(
   return deriveSection(() => {
     const rows = selectCategoryMonthRows(book, categoryId, month, options);
     let comesBack = ZERO_CENTS;
-    for (const txn of rows) {
-      if (!txn.isHousehold || txn.payer !== "me") continue;
+    for (const txn of selectCategoryMonthHouseholdRows(book, categoryId, month)) {
+      if (txn.payer !== "me") continue;
       comesBack = addCentsFractions(
         comesBack,
         computeShareFraction(-txn.amountCents, FULL_SHARE_BPS - txn.myShareBps),

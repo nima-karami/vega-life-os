@@ -1,14 +1,7 @@
 import { Button } from "@heroui/react";
 import { FIELD_CLASS } from "@/core/ui";
-import {
-  computeShareFraction,
-  FULL_SHARE_BPS,
-  formatCents,
-  MAX_SPREAD_MONTHS,
-  MIN_SPREAD_MONTHS,
-  roundToCents,
-} from "./money";
-import { computeRecognisedInstalment } from "./transaction-detail-figures";
+import { FULL_SHARE_BPS, formatCents, MAX_SPREAD_MONTHS, MIN_SPREAD_MONTHS } from "./money";
+import { computeBorneShareCents, computeRecognisedInstalment } from "./transaction-detail-figures";
 
 /** The fields that stay out of the way until the row is more than a simple expense. */
 export interface QuickAddOptionValues {
@@ -33,8 +26,7 @@ export function FinanceQuickAddOptions({
   shareError: string | null;
 }) {
   const { isHousehold, sharePercentInput, spreadMonths, note } = values;
-  const borne =
-    shareBps === null ? null : roundToCents(computeShareFraction(amountCents, shareBps));
+  const borne = shareBps === null ? null : computeBorneShareCents(amountCents, shareBps);
   // The budget recognises the owner's share, not the whole charge — a shared row spread over a year
   // would otherwise be previewed at twice what any month will show.
   const recognisedShareBps = isHousehold ? shareBps : FULL_SHARE_BPS;

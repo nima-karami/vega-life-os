@@ -42,6 +42,11 @@ export interface CategoryChartGeometry {
  * Twelve (or six, or every) month against the budget line, in viewBox units. A month still running
  * keeps its own colour at reduced opacity — the caller draws that; the geometry only says which.
  */
+/** How far a concentration row's bar fills against the leader — 0 while there is no leader at all. */
+export function computeConcentrationBarFraction(cents: number, leaderCents: number): number {
+  return leaderCents > 0 ? cents / leaderCents : 0;
+}
+
 export function buildCategoryChart(
   series: CategoryMonthFigures[],
   budgetCents: number | null,
@@ -74,7 +79,9 @@ export function buildCategoryChart(
         height: Math.max(BASELINE_Y - y, 0),
         isBreach:
           entry.flag === "over" ||
-          (entry.flag === "current-partial" && entry.spentCents > entry.budgetCents),
+          (entry.flag === "current-partial" &&
+            entry.budgetCents !== null &&
+            entry.spentCents > entry.budgetCents),
         isCurrent: entry.flag === "current-partial",
         centerX: x + width / 2,
       };

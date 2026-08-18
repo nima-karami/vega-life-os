@@ -9,7 +9,9 @@ import {
 import {
   buildCarryForwardWrites,
   buildSettlePatch,
+  computeSettlementDirection,
   computeSettlementFigures,
+  computeSettlementPayment,
   describeBalance,
   describeDirection,
   findNextOpenMonth,
@@ -235,6 +237,39 @@ describe("the months on offer", () => {
       financeSettlements: [settlement("2025-12")],
     });
     expect(listSettlementMonths(book, "2026-04")).toEqual(["2026-04", "2026-01", "2025-12"]);
+  });
+});
+
+describe("the payment editor's sign rule", () => {
+  it("signs a payment toward the balance, and previews what remains", () => {
+    const book = makeBook({ financeTransactions: [shared("2026-03-02", -200000)] });
+    const figures = computeSettlementFigures(book, MONTH);
+    expect(figures.headlineBalanceCents).toBe(100000);
+    expect(computeSettlementDirection(figures)).toBe(1);
+    expect(computeSettlementPayment(figures, 40000)).toEqual({
+      paidCents: 40000,
+      residualCents: 60000,
+    });
+  });
+
+  it("flips the sign when the owner is the one who owes", () => {
+    const book = makeBook({ financeTransactions: [partnerPaid("2026-03-02", -200000)] });
+    const figures = computeSettlementFigures(book, MONTH);
+    expect(figures.headlineBalanceCents).toBe(-100000);
+    expect(computeSettlementDirection(figures)).toBe(-1);
+    expect(computeSettlementPayment(figures, 40000)).toEqual({
+      paidCents: -40000,
+      residualCents: -60000,
+    });
+  });
+
+  it("records nothing and previews the full balance while the amount is unreadable", () => {
+    const book = makeBook({ financeTransactions: [shared("2026-03-02", -200000)] });
+    const figures = computeSettlementFigures(book, MONTH);
+    expect(computeSettlementPayment(figures, null)).toEqual({
+      paidCents: 0,
+      residualCents: figures.headlineBalanceCents,
+    });
   });
 });
 

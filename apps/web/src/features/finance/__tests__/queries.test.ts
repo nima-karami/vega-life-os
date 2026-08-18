@@ -135,6 +135,14 @@ describe("an annual charge spread over twelve months", () => {
     }
   });
 
+  it("never lets the first slice go negative when the residual crosses zero at the half", () => {
+    const recognised = listRecognizedInstalments(
+      row("2026-03-10", -3, { spreadMonths: 3, isHousehold: true, myShareBps: 5000 }),
+    ).map((instalment) => roundToCents(instalment.cents));
+    expect(recognised).toEqual([0, 1, 1]);
+    expect(recognised.reduce((sum, cents) => sum + cents, 0)).toBe(2);
+  });
+
   it("puts the remainder of an uneven split on the first month, losing nothing", () => {
     const uneven = makeBook({
       financeTransactions: [row("2026-03-10", -100000, { categoryId: SOFTWARE, spreadMonths: 12 })],

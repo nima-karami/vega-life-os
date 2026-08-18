@@ -104,6 +104,22 @@ test("a bulk category change lands on every selected row", async ({ page }) => {
   await expect(page.getByText("Dining out", { exact: true })).toHaveCount(rowCount);
 });
 
+test("shift-click selects the range between two rows", async ({ page }) => {
+  // The settled month's three seeded rows are fixed calendar-day offsets from its own start, so
+  // — unlike the recent rows — the count here never drifts with what day "today" happens to be.
+  await openLedger(page, `?month=${monthShiftedBy(-2)}`);
+
+  const boxes = rowBoxes(page);
+  await expect(boxes).toHaveCount(3);
+
+  await boxes.nth(0).click({ force: true });
+  await page.keyboard.down("Shift");
+  await boxes.nth(2).click({ force: true });
+  await page.keyboard.up("Shift");
+
+  await expect(page.getByText("3 selected")).toBeVisible();
+});
+
 test("a row's own category chip files it in one click", async ({ page }) => {
   await openLedger(page, `?month=${RECENT_MONTH}`);
 
