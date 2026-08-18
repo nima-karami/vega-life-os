@@ -8,6 +8,10 @@ import { BottomNav } from "./BottomNav";
 import { OmniTrigger } from "./OmniTrigger";
 import { PageTransition } from "./PageTransition";
 
+/** Content slides under the phone nav rather than being cut off at it — the band overlaps
+ *  the last rows of scrolled content, so it is always on and never scroll-driven. */
+const NAV_FADE_HEIGHT_PX = 32;
+
 export function AppShell() {
   // Subscribing to the live date here re-renders the whole routed subtree at the
   // day rollover, so every todayISO()-derived surface (goal phase, today labels,
@@ -42,10 +46,19 @@ export function AppShell() {
           </div>
         </header>
       )}
-      <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <PageTransition />
-        <RouteUndoBar />
-      </main>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <PageTransition />
+          <RouteUndoBar />
+        </main>
+        {!gated && (
+          <span
+            aria-hidden
+            style={{ height: NAV_FADE_HEIGHT_PX }}
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas to-canvas/0 sm:hidden"
+          />
+        )}
+      </div>
       {!gated && <BottomNav />}
     </div>
   );
