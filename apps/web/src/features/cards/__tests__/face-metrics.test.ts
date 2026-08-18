@@ -140,12 +140,14 @@ describe("planFace — the drawn metrics at scale 1", () => {
   it("pads the card at 44/30/44 and the full-bleed feed at 64/30/78", () => {
     expect(planFace(composeFace(note, "face"), 1, false).padding).toEqual({
       top: 44,
-      sides: 30,
+      left: 30,
+      right: 30,
       bottom: 44,
     });
     expect(planFace(composeFace(note, "face"), 1, true).padding).toEqual({
       top: 64,
-      sides: 30,
+      left: 30,
+      right: 30,
       bottom: 78,
     });
   });
@@ -159,7 +161,8 @@ describe("planFace — scale is per property", () => {
     expect(term.lineHeight).toBe(1);
     expect(term.letterSpacing).toBe("-.045em");
     expect(plan.header.fontSize).toBeCloseTo(8.721, 3);
-    expect(plan.padding.sides).toBeCloseTo(27.54, 2);
+    expect(plan.padding.left).toBeCloseTo(27.54, 2);
+    expect(plan.padding.right).toBeCloseTo(27.54, 2);
   });
 
   it("floors small type at 8px on the gallery tile", () => {

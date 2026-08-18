@@ -1,7 +1,7 @@
 import { type Card, feedStep, hasReveal } from "@vega/shared";
 import { motion, type PanInfo, useReducedMotion } from "framer-motion";
-import { useMemo, useRef } from "react";
-import { cx } from "@/core/ui";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { cx, useCompact } from "@/core/ui";
 import { FeedActionRail } from "./FeedActionRail";
 import { FeedFirstRunHint } from "./FeedFirstRunHint";
 import { FeedHeaderControl } from "./FeedHeaderControl";
@@ -10,7 +10,7 @@ import { FeedRecallStep } from "./FeedRecallStep";
 import { CardFace } from "./face/CardFace";
 import { CardFlip, DissolveLayer } from "./face/CardFlip";
 import { composeFace } from "./face/compose";
-import { FULL_BLEED_PADDING } from "./face/face-metrics";
+import { resolveFullBleedPadding } from "./face/face-metrics";
 import type { FeedHeaderGlyph } from "./feed-pool";
 import type { FeedStepName } from "./feed-steps";
 import { useLongPress } from "./useLongPress";
@@ -57,6 +57,19 @@ export function FeedCardView({
   const stageRef = useRef<HTMLDivElement>(null);
   const voidedDragRef = useRef(false);
   const { handlers } = useLongPress(onOpenSheet);
+  const narrow = useCompact();
+  const [cardWidthPx, setCardWidthPx] = useState(0);
+  const padding = resolveFullBleedPadding(narrow);
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (stage === null) return;
+    const measure = () => setCardWidthPx(stage.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
 
   const handleDragStart = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const pointerX = info.point.x;
@@ -104,10 +117,26 @@ export function FeedCardView({
           surfaceClass="bg-background"
           reduceMotion={shouldReduceMotion === true}
           turned={step !== "face"}
-          front={<CardFace spec={face} scale={1} fullBleed headerLeading={headerGlyphs} />}
+          front={
+            <CardFace
+              spec={face}
+              scale={1}
+              fullBleed
+              narrow={narrow}
+              columnWidthPx={narrow ? cardWidthPx : undefined}
+              headerLeading={headerGlyphs}
+            />
+          }
           back={
             reveal === null ? null : (
-              <CardFace spec={reveal} scale={1} fullBleed headerLeading={headerGlyphs} />
+              <CardFace
+                spec={reveal}
+                scale={1}
+                fullBleed
+                narrow={narrow}
+                columnWidthPx={narrow ? cardWidthPx : undefined}
+                headerLeading={headerGlyphs}
+              />
             )
           }
           overlay={
@@ -117,6 +146,7 @@ export function FeedCardView({
                   card={card}
                   typeLabel={face.typeLabel}
                   category={face.category}
+                  narrow={narrow}
                   today={today}
                   onGrade={onGrade}
                 />
@@ -129,10 +159,10 @@ export function FeedCardView({
       <div
         className="pointer-events-none absolute inset-0 z-10 flex flex-col"
         style={{
-          paddingTop: FULL_BLEED_PADDING.top,
-          paddingBottom: FULL_BLEED_PADDING.bottom,
-          paddingLeft: FULL_BLEED_PADDING.sides,
-          paddingRight: FULL_BLEED_PADDING.sides,
+          paddingTop: padding.top,
+          paddingBottom: padding.bottom,
+          paddingLeft: padding.left,
+          paddingRight: padding.right,
         }}
       >
         <FeedHeaderControl

@@ -25,6 +25,40 @@ const CARD_PADDING = { top: 44, sides: 30, bottom: 44 };
 export const FACE_HEADER = { gap: 10, size: 9.5, tracking: ".06em" };
 export const FULL_BLEED_PADDING = { top: 64, sides: 30, bottom: 78 };
 
+export const RAIL_GEOMETRY = { buttonSize: 44, rightInset: 18 } as const;
+export const RAIL_SAFE_MARGIN = 12;
+export const TERM_FIT_FLOOR_PX = 28;
+
+// Inter 600 / -.045em measured in Chrome: per-word averages ran .44–.55 of the font size, so .52
+// sits above the long-word mean — an estimate that never undershoots a term into overflowing.
+const TERM_AVG_GLYPH_WIDTH_RATIO = 0.52;
+
+export type FacePadding = { top: number; left: number; right: number; bottom: number };
+
+export function resolveFullBleedPadding(narrow: boolean): FacePadding {
+  return {
+    top: FULL_BLEED_PADDING.top,
+    left: FULL_BLEED_PADDING.sides,
+    right: narrow
+      ? RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN
+      : FULL_BLEED_PADDING.sides,
+    bottom: FULL_BLEED_PADDING.bottom,
+  };
+}
+
+export function fitTermFontSize(
+  text: string,
+  columnWidthPx: number,
+  baseFontSizePx: number,
+): { fontSize: number; wraps: boolean } {
+  const glyphCount = [...text].length;
+  const naturalWidth = glyphCount * baseFontSizePx * TERM_AVG_GLYPH_WIDTH_RATIO;
+  if (naturalWidth <= columnWidthPx) return { fontSize: baseFontSizePx, wraps: false };
+  const fitted = columnWidthPx / (glyphCount * TERM_AVG_GLYPH_WIDTH_RATIO);
+  if (fitted >= TERM_FIT_FLOOR_PX) return { fontSize: fitted, wraps: false };
+  return { fontSize: TERM_FIT_FLOOR_PX, wraps: true };
+}
+
 const CAPS_META: BlockMetric = {
   size: 9,
   weight: 500,
@@ -233,6 +267,7 @@ export type FaceTextPlan = {
   tone: FaceTone;
   isMono: boolean;
   isCaps: boolean;
+  wraps: boolean;
   quoteMark: FaceQuoteMarkPlan | null;
 };
 
@@ -241,7 +276,7 @@ export type FaceRulePlan = { key: string; kind: "rule"; width: number; marginY: 
 export type FacePlanItem = FaceTextPlan | FaceRulePlan;
 
 export type FacePlan = {
-  padding: { top: number; sides: number; bottom: number };
+  padding: FacePadding;
   header: { gap: number; fontSize: number; tracking: string };
   items: FacePlanItem[];
 };
@@ -263,10 +298,30 @@ function resolveMetric(
   return side.blocks[kind] ?? FALLBACK_METRIC;
 }
 
-export function planFace(spec: FaceSpec, scale: number, fullBleed: boolean): FacePlan {
+function resolveBasePadding(fullBleed: boolean, narrow: boolean): FacePadding {
+  if (fullBleed) return resolveFullBleedPadding(narrow);
+  return {
+    top: CARD_PADDING.top,
+    left: CARD_PADDING.sides,
+    right: CARD_PADDING.sides,
+    bottom: CARD_PADDING.bottom,
+  };
+}
+
+export function planFace(
+  spec: FaceSpec,
+  scale: number,
+  fullBleed: boolean,
+  narrow = false,
+  columnWidthPx?: number,
+): FacePlan {
   const side = resolveSide(spec.signature, spec.side);
   const isSoloTitle = spec.blocks.length === 1 && spec.blocks[0].kind === "title";
-  const padding = fullBleed ? FULL_BLEED_PADDING : CARD_PADDING;
+  const padding = resolveBasePadding(fullBleed, narrow);
+  const fitWidthPx =
+    fullBleed && narrow && columnWidthPx !== undefined && columnWidthPx > 0
+      ? columnWidthPx - padding.left - padding.right
+      : null;
   const items: FacePlanItem[] = [];
   let isFirstRendered = true;
   let pendingQuoteMark: FaceQuoteMarkPlan | null = null;
@@ -291,11 +346,15 @@ export function planFace(spec: FaceSpec, scale: number, fullBleed: boolean): Fac
       };
       continue;
     }
+    const fit =
+      block.kind === "term" && fitWidthPx !== null
+        ? fitTermFontSize(block.text, fitWidthPx, metric.size)
+        : { fontSize: metric.size, wraps: false };
     items.push({
       key: `${index}-${block.kind}`,
       kind: block.kind,
       text: block.text,
-      fontSize: scaleType(metric.size, scale),
+      fontSize: scaleType(fit.fontSize, scale),
       fontWeight: metric.weight,
       lineHeight: metric.lineHeight,
       letterSpacing: metric.tracking,
@@ -303,6 +362,7 @@ export function planFace(spec: FaceSpec, scale: number, fullBleed: boolean): Fac
       tone: metric.tone,
       isMono: block.kind === "mono",
       isCaps: block.kind === "caps",
+      wraps: fit.wraps,
       quoteMark: pendingQuoteMark,
     });
     pendingQuoteMark = null;
@@ -312,7 +372,8 @@ export function planFace(spec: FaceSpec, scale: number, fullBleed: boolean): Fac
   return {
     padding: {
       top: scaleSpace(padding.top, scale),
-      sides: scaleSpace(padding.sides, scale),
+      left: scaleSpace(padding.left, scale),
+      right: scaleSpace(padding.right, scale),
       bottom: scaleSpace(padding.bottom, scale),
     },
     header: {

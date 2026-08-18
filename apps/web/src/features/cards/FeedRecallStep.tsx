@@ -3,7 +3,7 @@ import type { Card } from "@vega/shared";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx, Icon } from "@/core/ui";
 import { FaceHeaderRow } from "./face/CardFace";
-import { FACE_HEADER, FULL_BLEED_PADDING } from "./face/face-metrics";
+import { FACE_HEADER, resolveFullBleedPadding } from "./face/face-metrics";
 import { BARE_ROW } from "./feed-chrome";
 import { buildRecallMeta, describeRecallInterval } from "./feed-steps";
 
@@ -43,25 +43,28 @@ export function FeedRecallStep({
   card,
   typeLabel,
   category,
+  narrow,
   today,
   onGrade,
 }: {
   card: Card;
   typeLabel: string;
   category: string;
+  narrow: boolean;
   today: string;
   onGrade: (correct: boolean) => void;
 }) {
   const box = card.box ?? 1;
   const meta = buildRecallMeta(card);
+  const padding = resolveFullBleedPadding(narrow);
   return (
     <div
       className="flex h-full w-full flex-col"
       style={{
-        paddingTop: FULL_BLEED_PADDING.top,
-        paddingBottom: FULL_BLEED_PADDING.bottom,
-        paddingLeft: FULL_BLEED_PADDING.sides,
-        paddingRight: FULL_BLEED_PADDING.sides,
+        paddingTop: padding.top,
+        paddingBottom: padding.bottom,
+        paddingLeft: padding.left,
+        paddingRight: padding.right,
       }}
     >
       <div className="invisible" aria-hidden>

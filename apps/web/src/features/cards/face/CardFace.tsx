@@ -90,6 +90,7 @@ function FaceItem({ item }: { item: FacePlanItem }) {
         TONE_CLASS[item.tone],
         item.isMono && "font-mono",
         item.isCaps && "uppercase",
+        item.wraps && "break-words",
       )}
       style={{
         fontSize: item.fontSize,
@@ -129,22 +130,26 @@ export function CardFace({
   spec,
   scale,
   fullBleed = false,
+  narrow = false,
+  columnWidthPx,
   headerLeading = null,
 }: {
   spec: FaceSpec;
   scale: number;
   fullBleed?: boolean;
+  narrow?: boolean;
+  columnWidthPx?: number;
   headerLeading?: ReactNode;
 }) {
-  const plan = planFace(spec, scale, fullBleed);
+  const plan = planFace(spec, scale, fullBleed, narrow, columnWidthPx);
   return (
     <div
       className="flex h-full w-full flex-col"
       style={{
         paddingTop: plan.padding.top,
         paddingBottom: plan.padding.bottom,
-        paddingLeft: plan.padding.sides,
-        paddingRight: plan.padding.sides,
+        paddingLeft: plan.padding.left,
+        paddingRight: plan.padding.right,
       }}
     >
       <FaceHeaderRow
