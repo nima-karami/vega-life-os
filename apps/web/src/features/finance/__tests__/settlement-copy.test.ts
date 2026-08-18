@@ -5,6 +5,7 @@ import {
   describeFixRowsLabel,
   describePeriodStatus,
   describeRowsFooter,
+  describeSettlementConfirmCopy,
   describeSettlementOutcome,
   describeSettlementScope,
   describeSettlementSubLine,
@@ -164,6 +165,43 @@ describe("the notes beside the action", () => {
     expect(blocker.isBlocking).toBe(true);
     expect(blocker.text).toContain("moved to $500.00");
     expect(blocker.text).toContain("difference of $100.00");
+  });
+});
+
+describe("the confirm-dialog copy", () => {
+  const figures = figuresOf([shared("2026-03-02", -100000)]);
+
+  it("states the carried amount and where it lands", () => {
+    const copy = describeSettlementConfirmCopy("carry", figures, "2026-04", "Robin");
+    expect(copy.title).toBe("Carry the difference forward?");
+    expect(copy.body).toContain("$500.00 moves into April 2026");
+  });
+
+  it("names the frozen figure being reopened", () => {
+    const settled = figuresOf(
+      [shared("2026-03-02", -100000)],
+      [
+        settlement(MONTH, {
+          status: "settled",
+          settledBalanceCents: 50000,
+          settledAt: "2026-04-01",
+        }),
+      ],
+    );
+    const copy = describeSettlementConfirmCopy("reopen", settled, "2026-04", "Robin");
+    expect(copy.body).toContain("The $500.00 it was settled at is kept on record");
+  });
+
+  it("previews what settling now would freeze, in the direction sentence", () => {
+    const copy = describeSettlementConfirmCopy("settle", figures, "2026-04", "Robin");
+    expect(copy.confirmLabel).toBe("Record settlement");
+    expect(copy.body).toContain("settles at $500.00 — robin owes you $500.00");
+  });
+
+  it("labels a re-settle differently from a first settlement", () => {
+    expect(
+      describeSettlementConfirmCopy("resettle", figures, "2026-04", "Robin").confirmLabel,
+    ).toBe("Re-settle");
   });
 });
 

@@ -3,7 +3,7 @@ import type { FinanceCategory, FinanceTransaction } from "@vega/shared";
 import { useState } from "react";
 import { cx, Icon, Menu, type MenuItem, Popover, SegmentButton } from "@/core/ui";
 import { DraftInput } from "./DraftInput";
-import { FULL_SHARE_BPS, HOUSEHOLD_DEFAULT_BPS, parseShareBps } from "./money";
+import { formatShareBps, FULL_SHARE_BPS, HOUSEHOLD_DEFAULT_BPS, parseShareBps } from "./money";
 
 const BAR_BUTTON =
   "rounded-[10px] px-2 py-1 font-medium text-[13px] text-background/85 outline-none transition-colors hover:text-background focus-visible:ring-2 focus-visible:ring-accent";
@@ -39,7 +39,7 @@ function SplitPanel({ onApply }: { onApply: (patch: Partial<FinanceTransaction>)
         max={100}
         step={0.01}
         ariaLabel="Share percent for selection"
-        value={String(shareBps / 100)}
+        value={formatShareBps(shareBps)}
         isDisabled={!isHousehold}
         onCommit={(raw) => {
           const bps = parseShareBps(raw);

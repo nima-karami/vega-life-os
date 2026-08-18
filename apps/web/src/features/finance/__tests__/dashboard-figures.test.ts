@@ -5,6 +5,7 @@ import {
   deriveCategoryBreakdown,
   isOverBudget,
   isOverBudgetAtThisPace,
+  isSpendOverBudget,
 } from "../dashboard-figures";
 import { BUSINESS, budget, GROCERIES, makeBook, row, SALARY, SOFTWARE } from "./fixtures";
 
@@ -170,5 +171,12 @@ describe("the over-budget verdicts", () => {
     expect(isOverBudgetAtThisPace(figures({ spentCents: 30000, projectedCents: 57500 }))).toBe(
       false,
     );
+  });
+
+  it("never calls a category with no budget row in force over, whatever it spent", () => {
+    expect(isSpendOverBudget(50000, null)).toBe(false);
+    expect(isSpendOverBudget(50000, 0)).toBe(true);
+    expect(isSpendOverBudget(50000, 57500)).toBe(false);
+    expect(isSpendOverBudget(57501, 57500)).toBe(true);
   });
 });

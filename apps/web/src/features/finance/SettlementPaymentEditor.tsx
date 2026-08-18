@@ -13,17 +13,17 @@ import {
 } from "@/core/ui";
 import { parseAmountCents } from "./import/fields";
 import { formatCents, formatCentsPlain } from "./money";
-import type { SettlementFigures } from "./settlement";
+import {
+  computeSettlementDirection,
+  computeSettlementPayment,
+  type SettlementFigures,
+} from "./settlement";
 
 export interface SettlementPayment {
   paidCents: number;
   paidAt: string;
   paymentTransactionId: string | null;
 }
-
-/** Signed toward the balance, so discharging a debt the owner owes records a negative payment. */
-const computePaymentDirection = (figures: SettlementFigures) =>
-  figures.headlineBalanceCents < 0 ? -1 : 1;
 
 /**
  * Records what actually moved, not what was owed — real payments arrive short, rounded, or in two
@@ -45,7 +45,7 @@ export function SettlementPaymentEditor({
   onClose: () => void;
   onSave: (payment: SettlementPayment) => void;
 }) {
-  const direction = computePaymentDirection(figures);
+  const direction = computeSettlementDirection(figures);
   // A settled month with nothing outstanding is being corrected, so offer the figure it settled at.
   const suggestedCents =
     figures.outstandingCents !== 0 ? figures.outstandingCents : figures.headlineBalanceCents;
@@ -56,8 +56,7 @@ export function SettlementPaymentEditor({
 
   const magnitudeCents = parseAmountCents(amountInput);
   const isValid = magnitudeCents !== null && magnitudeCents > 0 && paidAt !== null;
-  const paidCents = magnitudeCents === null ? 0 : direction * Math.abs(magnitudeCents);
-  const residualCents = figures.headlineBalanceCents - paidCents;
+  const { paidCents, residualCents } = computeSettlementPayment(figures, magnitudeCents);
 
   const responsive = useCompactModal();
   const state = useOverlayState({

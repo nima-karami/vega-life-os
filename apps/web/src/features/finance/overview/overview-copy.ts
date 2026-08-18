@@ -1,4 +1,4 @@
-import { formatCents } from "../money";
+import { createCentsFraction, formatCents, roundToCents } from "../money";
 import { formatWholeDollars } from "../primitives";
 
 export interface BudgetStatusLine {
@@ -60,7 +60,8 @@ export function describeTrendCaption(samples: TrendCaptionSample[]): string {
   if (completed.length === 0) return "No completed month on file yet — nothing to average against.";
 
   const total = completed.reduce((sum, sample) => sum + sample.cents, 0);
-  const average = `average ${formatWholeDollars(Math.round(total / completed.length))}/mo`;
+  const averageCents = roundToCents(createCentsFraction(BigInt(total), BigInt(completed.length)));
+  const average = `average ${formatWholeDollars(averageCents)}/mo`;
   const breaches = completed.filter((sample) => sample.isBreach).length;
   if (breaches === 0) return `No month breached its budget · ${average}`;
   return `Red dots are breaches — ${breaches} in ${pluralizeMonths(completed.length)} · ${average}`;

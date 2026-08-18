@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeBorneShareCents,
   computeRecognisedInstalment,
   describeShareSentence,
   describeSpreadRecognition,
 } from "../transaction-detail-figures";
 import { row } from "./fixtures";
+
+describe("the owner's borne share of a magnitude", () => {
+  it("rounds the share once, matching the share sentence's own half", () => {
+    expect(computeBorneShareCents(12999, 8000)).toBe(10399);
+    expect(computeBorneShareCents(12999, 8000)).toBe(
+      describeShareSentence(-12999, 8000, "me").youBearCents,
+    );
+  });
+});
 
 describe("the share sentence", () => {
   it("bears the owner's share and sends the rest back, when the owner paid", () => {

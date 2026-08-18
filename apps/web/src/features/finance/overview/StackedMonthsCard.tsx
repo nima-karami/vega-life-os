@@ -1,12 +1,13 @@
 import { format, parseISO } from "date-fns";
 import { useMemo } from "react";
-import type { StackedMonthColumn } from "../dashboard-charts";
+import { OTHER_CATEGORY_ID, type StackedMonthColumn } from "../dashboard-charts";
 import { formatWholeDollars } from "../primitives";
 import type { TrendCategory } from "./CategoryTrendCard";
 import { buildStackedBars } from "./chart-geometry";
 import { CardHeadRow, OverviewCard } from "./OverviewCard";
 
 const MAX_BAR_HEIGHT = 150;
+const OTHER_SEGMENT_COLOR = "#C8C8C4";
 
 export interface StackedMonthsCardProps {
   columns: StackedMonthColumn[];
@@ -24,6 +25,9 @@ export function StackedMonthsCard({ columns, categories, openMonth }: StackedMon
   );
   const legend = categories.filter((category) =>
     columns.some((column) => column.segments.some((entry) => entry.categoryId === category.id)),
+  );
+  const hasOtherSegment = columns.some((column) =>
+    column.segments.some((entry) => entry.categoryId === OTHER_CATEGORY_ID),
   );
 
   return (
@@ -52,7 +56,10 @@ export function StackedMonthsCard({ columns, categories, openMonth }: StackedMon
                     key={segment.categoryId}
                     style={{
                       height: segment.heightPx,
-                      background: colors.get(segment.categoryId)?.color ?? "#EBEBEA",
+                      background:
+                        segment.categoryId === OTHER_CATEGORY_ID
+                          ? OTHER_SEGMENT_COLOR
+                          : (colors.get(segment.categoryId)?.color ?? "#EBEBEA"),
                     }}
                   />
                 ))}
@@ -76,6 +83,16 @@ export function StackedMonthsCard({ columns, categories, openMonth }: StackedMon
             {category.name}
           </span>
         ))}
+        {hasOtherSegment && (
+          <span className="inline-flex items-center gap-[5px]">
+            <span
+              aria-hidden
+              className="size-2 rounded-[2px]"
+              style={{ background: OTHER_SEGMENT_COLOR }}
+            />
+            Other
+          </span>
+        )}
       </div>
     </OverviewCard>
   );

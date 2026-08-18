@@ -45,6 +45,29 @@ export interface SettlementWrite {
   patch: Partial<FinanceSettlement>;
 }
 
+/** Signed toward the balance, so discharging a debt the owner owes records a negative payment. */
+export const computeSettlementDirection = (figures: SettlementFigures): 1 | -1 =>
+  figures.headlineBalanceCents < 0 ? -1 : 1;
+
+export interface SettlementPaymentFigures {
+  paidCents: number;
+  /** What would still change hands after this payment lands. */
+  residualCents: number;
+}
+
+/**
+ * A typed magnitude, signed toward the balance and set against it — what a payment editor needs to
+ * both persist and preview, off one figure rather than two copies of the sign rule.
+ */
+export function computeSettlementPayment(
+  figures: SettlementFigures,
+  magnitudeCents: number | null,
+): SettlementPaymentFigures {
+  const paidCents =
+    magnitudeCents === null ? 0 : computeSettlementDirection(figures) * Math.abs(magnitudeCents);
+  return { paidCents, residualCents: figures.headlineBalanceCents - paidCents };
+}
+
 function derivePhase(
   isFrozen: boolean,
   differenceCents: number,

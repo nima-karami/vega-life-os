@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { cx } from "@/core/ui";
 import type { CumulativeBurnFigures } from "../dashboard-charts";
+import { isOverBudget } from "../dashboard-figures";
 import { formatCents } from "../money";
 import { formatWholeDollars, PaceBar } from "../primitives";
 import { describeBalance, type SettlementFigures } from "../settlement";
@@ -76,7 +77,7 @@ function BudgetsCard({
             <span
               className={cx(
                 "shrink-0 font-normal tabular-nums",
-                row.spentCents > row.budgetCents ? "text-danger" : "text-muted",
+                isOverBudget(row) ? "text-danger" : "text-muted",
               )}
             >
               {formatWholeDollars(row.spentCents)} / {formatWholeDollars(row.budgetCents)}

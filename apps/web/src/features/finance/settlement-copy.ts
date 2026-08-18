@@ -2,7 +2,7 @@ import { format, lastDayOfMonth, parseISO } from "date-fns";
 import type { IconName } from "@/core/lib/icon-names";
 import { formatCents } from "./money";
 import { formatMonthLabel } from "./month-cursor";
-import type { SettlementFigures } from "./settlement";
+import { describeBalance, type SettlementFigures } from "./settlement";
 
 const DEFAULT_PARTNER_NAME = "Partner";
 
@@ -129,6 +129,42 @@ export interface SettlementOutcome {
   /** The sentence up to the figure, so the history row can bold the figure alone. */
   lead: string;
   amount: string;
+}
+
+export type SettlementConfirmAction = "carry" | "reopen" | "settle" | "resettle";
+
+export interface SettlementConfirmCopy {
+  title: string;
+  confirmLabel: string;
+  body: string;
+}
+
+/** The confirm dialog's copy for whichever period action the owner picked — the one place these read. */
+export function describeSettlementConfirmCopy(
+  action: SettlementConfirmAction,
+  figures: SettlementFigures,
+  nextOpenMonth: string,
+  partnerName: string,
+): SettlementConfirmCopy {
+  if (action === "carry") {
+    return {
+      title: "Carry the difference forward?",
+      confirmLabel: "Carry forward",
+      body: `${formatCents(Math.abs(figures.outstandingCents))} moves into ${formatMonthLabel(nextOpenMonth)}. ${formatMonthLabel(figures.month)} keeps the figure it was settled at and closes out.`,
+    };
+  }
+  if (action === "reopen") {
+    return {
+      title: "Reopen this period for editing?",
+      confirmLabel: "Reopen",
+      body: `${formatMonthLabel(figures.month)} unlocks so its rows can be edited again. The ${formatCents(Math.abs(figures.frozenBalanceCents ?? 0))} it was settled at is kept on record — settle again when you're done.`,
+    };
+  }
+  return {
+    title: "Freeze this period's figure?",
+    confirmLabel: action === "resettle" ? "Re-settle" : "Record settlement",
+    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now", partnerName).toLowerCase()}. Later edits to these rows amend the period; they never rewrite this figure.`,
+  };
 }
 
 /** A closed period's outcome, in words — a bare minus sign is easy to misread. */

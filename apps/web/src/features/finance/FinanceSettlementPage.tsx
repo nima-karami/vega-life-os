@@ -6,7 +6,6 @@ import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Button, ConfirmDialog, Icon } from "@/core/ui";
 import { FinancePageShell } from "./FinancePageShell";
-import { formatCents } from "./money";
 import {
   formatMonthLabel,
   isMonthKey,
@@ -24,13 +23,18 @@ import { SettlementRowsCard } from "./SettlementRowsCard";
 import {
   buildCarryForwardWrites,
   buildSettlePatch,
+  computeSettlementDirection,
   computeSettlementFigures,
-  describeBalance,
   findNextOpenMonth,
   listSettlementMonths,
   type SettlementFigures,
 } from "./settlement";
-import { describeSettlementSubLine, resolvePartnerName } from "./settlement-copy";
+import {
+  describeSettlementConfirmCopy,
+  describeSettlementSubLine,
+  resolvePartnerName,
+  type SettlementConfirmAction,
+} from "./settlement-copy";
 import {
   buildSettlementHistory,
   buildSettlementRowViews,
@@ -40,14 +44,13 @@ import {
 import { useFinanceBook } from "./useFinanceBook";
 
 type FreezeAction = "settle" | "resettle";
-type ConfirmAction = SettlementAction | FreezeAction;
 
 /** Rows the payment could have landed as: the owner's own, moving the right way, within three months. */
 function selectPaymentCandidates(
   book: FinanceBook,
   figures: SettlementFigures,
 ): FinanceTransaction[] {
-  const direction = figures.headlineBalanceCents < 0 ? -1 : 1;
+  const direction = computeSettlementDirection(figures);
   const until = shiftMonthKey(figures.month, 2);
   return book.financeTransactions
     .filter((txn) => {
@@ -75,33 +78,6 @@ function selectFreezeAction(figures: SettlementFigures): FreezeAction | null {
   return null;
 }
 
-function describeConfirmAction(
-  action: ConfirmAction,
-  figures: SettlementFigures,
-  nextOpenMonth: string,
-  partnerName: string,
-) {
-  if (action === "carry") {
-    return {
-      title: "Carry the difference forward?",
-      confirmLabel: "Carry forward",
-      body: `${formatCents(Math.abs(figures.outstandingCents))} moves into ${formatMonthLabel(nextOpenMonth)}. ${formatMonthLabel(figures.month)} keeps the figure it was settled at and closes out.`,
-    };
-  }
-  if (action === "reopen") {
-    return {
-      title: "Reopen this period for editing?",
-      confirmLabel: "Reopen",
-      body: `${formatMonthLabel(figures.month)} unlocks so its rows can be edited again. The ${formatCents(Math.abs(figures.frozenBalanceCents ?? 0))} it was settled at is kept on record — settle again when you're done.`,
-    };
-  }
-  return {
-    title: "Freeze this period's figure?",
-    confirmLabel: action === "resettle" ? "Re-settle" : "Record settlement",
-    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now", partnerName).toLowerCase()}. Later edits to these rows amend the period; they never rewrite this figure.`,
-  };
-}
-
 export function FinanceSettlementPage() {
   const book = useFinanceBook();
   const addSettlement = useStore((s) => s.addFinanceSettlement);
@@ -111,7 +87,7 @@ export function FinanceSettlementPage() {
   const partnerName = useStore((s) => s.partnerName);
 
   const [params, setParams] = useSearchParams();
-  const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<SettlementConfirmAction | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [rowFilter, setRowFilter] = useState<SettlementRowFilter>("all");
 
@@ -172,7 +148,7 @@ export function FinanceSettlementPage() {
     setIsPaying(false);
   };
 
-  const confirmCopy = describeConfirmAction(
+  const confirmCopy = describeSettlementConfirmCopy(
     pendingAction ?? "settle",
     figures,
     nextOpenMonth,

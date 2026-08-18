@@ -14,7 +14,6 @@ import {
   fromCents,
   roundToCents,
   scaleCentsFraction,
-  subtractCentsFractions,
   ZERO_CENTS,
 } from "./money";
 import { monthOfISO, shiftMonthKey } from "./month-cursor";
@@ -82,16 +81,18 @@ export const selectCategoryIdsOfKind = (
 const isInMonth = (txn: FinanceTransaction, month: string) => monthOfISO(txn.txnDate) === month;
 
 /**
- * One instalment of an amortized row. The instalments sum to the full borne amount — the
- * remainder an even split leaves over lands on the first month rather than going missing.
+ * One instalment of an amortized row. The instalments sum to the *once-rounded* borne amount —
+ * the remainder an even split leaves over lands on the first month, computed off the rounded
+ * total rather than the raw fraction, so a residual that crosses zero at the half never rounds
+ * the first slice negative.
  */
 function recogniseInstalment(txn: FinanceTransaction, offset: number): CentsFraction {
   const borne = computeShareFraction(computeBorneCents(txn), getShareBps(txn));
   const spread = getSpreadMonths(txn);
   if (spread === 1) return borne;
-  const instalment = fromCents(roundToCents(scaleCentsFraction(borne, 1n, BigInt(spread))));
-  if (offset > 0) return instalment;
-  return subtractCentsFractions(borne, scaleCentsFraction(instalment, BigInt(spread - 1), 1n));
+  const instalmentCents = roundToCents(scaleCentsFraction(borne, 1n, BigInt(spread)));
+  if (offset > 0) return fromCents(instalmentCents);
+  return fromCents(roundToCents(borne) - instalmentCents * (spread - 1));
 }
 
 export interface RecognizedInstalment {

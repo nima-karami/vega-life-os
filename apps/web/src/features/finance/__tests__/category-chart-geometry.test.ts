@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildCategoryChart } from "../category-chart-geometry";
+import { buildCategoryChart, computeConcentrationBarFraction } from "../category-chart-geometry";
 import type { CategoryMonthFigures } from "../category-detail-figures";
+
+describe("the concentration bar fraction", () => {
+  it("scales against the leader", () => {
+    expect(computeConcentrationBarFraction(2500, 5000)).toBe(0.5);
+    expect(computeConcentrationBarFraction(5000, 5000)).toBe(1);
+  });
+
+  it("reads as empty rather than dividing by zero when there is no leader", () => {
+    expect(computeConcentrationBarFraction(0, 0)).toBe(0);
+  });
+});
 
 const month = (
   key: string,
