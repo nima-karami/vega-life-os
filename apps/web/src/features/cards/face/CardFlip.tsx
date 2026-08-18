@@ -4,9 +4,6 @@ import { cx } from "@/core/ui";
 /** The card turns over; it does not cross-fade. Half the duration is each side's swing. */
 export const FLIP_MS = 460;
 
-/** The dissolve the recall step arrives on — it sits *over* the card rather than turning it. */
-export const DISSOLVE_MS = 220;
-
 const SIDE = "absolute inset-0 [backface-visibility:hidden] overflow-hidden";
 
 /**
@@ -61,31 +58,6 @@ export function CardFlip({
         )}
       </div>
       {overlay}
-    </div>
-  );
-}
-
-/**
- * The recall question does not turn the card — it dissolves in over it, blurring whichever
- * face is showing. Same treatment at every width; the phone gets no separate sheet.
- */
-export function DissolveLayer({ shown, children }: { shown: boolean; children: ReactNode }) {
-  return (
-    <div
-      aria-hidden={shown ? undefined : true}
-      className={cx(
-        // Above the action rail: the rail is z-20 and its targets would otherwise land on
-        // the answer rows.
-        "absolute inset-0 z-30 flex flex-col justify-end transition-opacity ease-out motion-reduce:transition-none",
-        shown ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-      )}
-      style={{ transitionDuration: `${DISSOLVE_MS}ms` }}
-    >
-      {/* Blur only — a translucent white sheet over a near-white card just washes it out. */}
-      <div className="absolute inset-0 backdrop-blur-[10px]" />
-      <div className="relative bg-gradient-to-t from-background via-background to-transparent pt-24">
-        {children}
-      </div>
     </div>
   );
 }

@@ -8,9 +8,10 @@ import { FeedHeaderControl } from "./FeedHeaderControl";
 import { FeedHeaderGlyphs } from "./FeedHeaderGlyphs";
 import { FeedRecallStep } from "./FeedRecallStep";
 import { CardFace } from "./face/CardFace";
-import { CardFlip, DissolveLayer } from "./face/CardFlip";
+import { CardFlip } from "./face/CardFlip";
 import { composeFace } from "./face/compose";
 import { resolveFullBleedPadding } from "./face/face-metrics";
+import { RecallVeil } from "./face/RecallVeil";
 import type { FeedHeaderGlyph } from "./feed-pool";
 import type { FeedStepName } from "./feed-steps";
 import { useLongPress } from "./useLongPress";
@@ -141,7 +142,7 @@ export function FeedCardView({
           }
           overlay={
             shape === "graded" ? (
-              <DissolveLayer shown={step === "recall"}>
+              <RecallVeil shown={step === "recall"} reduceMotion={shouldReduceMotion === true}>
                 <FeedRecallStep
                   card={card}
                   typeLabel={face.typeLabel}
@@ -150,7 +151,7 @@ export function FeedCardView({
                   today={today}
                   onGrade={onGrade}
                 />
-              </DissolveLayer>
+              </RecallVeil>
             ) : null
           }
         />
