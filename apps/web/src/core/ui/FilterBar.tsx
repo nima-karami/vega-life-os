@@ -3,7 +3,7 @@ import { cx } from "./cx";
 import { Icon } from "./icons";
 
 const SEARCH_FIELD =
-  "h-9 w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 text-[13.5px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
+  "h-9 w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:text-[13.5px]";
 
 /** One chip box everywhere, so a chip that opens a menu sits level with one that toggles a lens. */
 const CHIP_BASE =

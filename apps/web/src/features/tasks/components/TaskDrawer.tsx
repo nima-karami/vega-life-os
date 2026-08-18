@@ -160,7 +160,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                       rows={4}
                       aria-label="Note"
                       placeholder="Context, links, why it moved…"
-                      className="w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
+                      className="w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-[16px] text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus sm:text-sm"
                     />
                   </Section>
                 </Modal.Body>

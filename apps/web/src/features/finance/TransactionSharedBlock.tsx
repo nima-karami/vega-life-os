@@ -106,7 +106,7 @@ export function TransactionSharedBlock({
                 aria-invalid={shareError !== null}
                 value={values.sharePercentInput}
                 onChange={(event) => onChange({ ...values, sharePercentInput: event.target.value })}
-                className="min-w-0 flex-1 bg-transparent font-semibold text-[14px] text-foreground tabular-nums outline-none"
+                className="min-w-0 flex-1 bg-transparent font-semibold text-[16px] text-foreground tabular-nums outline-none sm:text-[14px]"
               />
               <span className="shrink-0 text-[13px] text-muted">%</span>
             </div>

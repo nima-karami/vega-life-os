@@ -49,7 +49,7 @@ export function GratitudeFields({
           placeholder={i === 0 ? "Something you're grateful for…" : "And…"}
           rows={1}
           maxLength={GRATITUDE_ITEM_MAX}
-          className="min-h-10 w-full resize-none overflow-hidden rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent"
+          className="min-h-10 w-full resize-none overflow-hidden rounded-[12px] border border-border bg-surface px-3 py-2 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:text-sm"
         />
       ))}
     </div>

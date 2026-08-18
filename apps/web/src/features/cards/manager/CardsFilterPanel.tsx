@@ -102,7 +102,7 @@ export function CardsFilterPanel({
               aria-label="Filter categories"
               placeholder="Filter categories…"
               onChange={(event) => setCategoryQuery(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted"
+              className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted sm:text-[13px]"
             />
           </div>
           <div>

@@ -9,7 +9,7 @@ import { StreakSettings } from "./components/StreakSettings";
 import { SettingsCard } from "./SettingsCard";
 
 const FIELD =
-  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
+  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:text-sm";
 
 // Curated accents, each ≥4.5:1 (WCAG AA) against its computed on-accent foreground.
 // Default's hex is "" — it clears overrides so the CSS slate default shows through;

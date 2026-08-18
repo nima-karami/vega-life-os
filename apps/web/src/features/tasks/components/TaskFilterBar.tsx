@@ -113,7 +113,7 @@ export function TaskFilterBar({
           onChange={(e) => set({ query: e.target.value })}
           placeholder="Search tasks…"
           aria-label="Search tasks"
-          className="h-9 w-full rounded-[12px] border border-border bg-surface pl-8 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
+          className="h-9 w-full rounded-[12px] border border-border bg-surface pl-8 pr-3 text-[16px] text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus sm:text-sm"
         />
       </div>
 

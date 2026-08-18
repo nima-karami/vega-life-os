@@ -138,7 +138,7 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
             onKeyDown={(e) => e.key === "Escape" && setLinkOpen(false)}
             placeholder="https://…"
             aria-label="Link URL"
-            className="h-8 w-52 rounded-[8px] bg-transparent px-2 text-sm text-foreground outline-none placeholder:text-muted"
+            className="h-8 w-52 rounded-[8px] bg-transparent px-2 text-[16px] text-foreground outline-none placeholder:text-muted sm:text-sm"
           />
           <button
             type="submit"

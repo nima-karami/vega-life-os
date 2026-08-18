@@ -61,7 +61,7 @@ export function StepRow({
             }
           }}
           aria-label={`Edit ${sub.name}`}
-          className="flex-1 bg-transparent text-sm text-foreground outline-none"
+          className="flex-1 bg-transparent text-[16px] text-foreground outline-none sm:text-sm"
         />
       ) : (
         <button

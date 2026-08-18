@@ -43,7 +43,7 @@ export function CategoryCombobox({
             if (canCreate) onSelect(typed);
             else if (matches[0] !== undefined) onSelect(matches[0]);
           }}
-          className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted"
+          className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted sm:text-[13.5px]"
         />
       </div>
 

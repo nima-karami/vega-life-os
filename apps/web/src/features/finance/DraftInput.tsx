@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { cx } from "@/core/ui";
 
 const INPUT_CLASS =
-  "w-full rounded-[10px] border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-[10px] border border-border bg-surface px-2.5 py-1.5 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm";
 
 /**
  * An input the owner edits freely and that only reaches the store on Enter or blur. `onCommit`

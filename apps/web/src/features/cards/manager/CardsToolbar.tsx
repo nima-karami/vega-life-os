@@ -17,7 +17,7 @@ export interface CardsToolbarProps {
 }
 
 const SEARCH_CLASS =
-  "h-11 w-full rounded-[12px] border border-border bg-surface py-2 pr-3 pl-9 text-foreground text-sm outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:h-9";
+  "h-11 w-full rounded-[12px] border border-border bg-surface py-2 pr-3 pl-9 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:h-9 sm:text-sm";
 
 export function CardsToolbar({
   query,

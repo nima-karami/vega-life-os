@@ -156,7 +156,7 @@ export function CommandBar() {
                     value={query}
                     onValueChange={setQuery}
                     placeholder="Search, navigate, or ask…"
-                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+                    className="w-full bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted sm:text-sm"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) quickAdd();
                       if (e.key === "Escape") close();

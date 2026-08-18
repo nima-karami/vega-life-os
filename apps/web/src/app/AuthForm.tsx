@@ -5,7 +5,7 @@ import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 
 const FIELD =
-  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent";
+  "w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:text-sm";
 
 export function AuthForm({ autoFocus = false }: { autoFocus?: boolean }) {
   const pushToast = useStore((s) => s.pushToast);

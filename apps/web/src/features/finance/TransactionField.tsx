@@ -7,7 +7,7 @@ import { FUSED_CELL_CLASS, FUSED_GROUP_CLASS } from "./primitives";
 const FOCUS_RING = "focus-within:border-accent focus-within:ring-1 focus-within:ring-accent";
 
 /** The one form-field box on these pages: 44px, hairline, radius 12, white. */
-export const FORM_FIELD_CLASS = `h-11 w-full rounded-[12px] border border-border bg-surface px-3.5 text-[14px] text-foreground outline-none ${FOCUS_RING}`;
+export const FORM_FIELD_CLASS = `h-11 w-full rounded-[12px] border border-border bg-surface px-3.5 text-[16px] text-foreground outline-none sm:text-[14px] ${FOCUS_RING}`;
 
 /** The same box laid out as a row, for the fields that carry a glyph or a prefix. */
 export const FORM_FIELD_ROW_CLASS = `${FORM_FIELD_CLASS} flex items-center justify-between gap-1.5`;

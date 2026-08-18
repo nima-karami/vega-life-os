@@ -14,7 +14,7 @@ import {
 import { SettingsCard } from "../SettingsCard";
 
 const NUMBER_FIELD =
-  "w-20 rounded-[10px] border border-border bg-surface px-2 py-1.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "w-20 rounded-[10px] border border-border bg-surface px-2 py-1.5 text-[16px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent sm:text-sm";
 
 const PRESET_HINT: Record<PresetName, string> = {
   strict: "No grace, no mending — a single miss breaks the chain.",

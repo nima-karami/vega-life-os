@@ -240,7 +240,7 @@ function BudgetPeriodField({
               aria-invalid={errors.spread !== null}
               value={values.spreadMonthsInput}
               onChange={(event) => onChange({ ...values, spreadMonthsInput: event.target.value })}
-              className="min-w-0 flex-1 bg-transparent font-semibold text-[14px] text-foreground tabular-nums outline-none"
+              className="min-w-0 flex-1 bg-transparent font-semibold text-[16px] text-foreground tabular-nums outline-none sm:text-[14px]"
             />
             <span className="shrink-0 text-[13px] text-muted">of {MAX_SPREAD_MONTHS} months</span>
           </div>

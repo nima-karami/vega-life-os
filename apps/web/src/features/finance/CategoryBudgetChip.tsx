@@ -6,7 +6,7 @@ import { resolveBudgetEdit } from "./budget-edit";
 import { formatCents, formatCentsPlain } from "./money";
 
 const CHIP_BASE =
-  "inline-flex h-[26px] items-center rounded-[10px] border px-2.5 font-medium text-[12.5px] tabular-nums";
+  "inline-flex h-[26px] items-center rounded-[10px] border px-2.5 font-medium text-[16px] tabular-nums sm:text-[12.5px]";
 const CHIP_RESTING = "border-border bg-surface text-foreground hover:border-muted";
 const CHIP_EDITING =
   "border-accent bg-surface text-foreground shadow-[0_0_0_1px_var(--color-accent)]";

@@ -26,7 +26,7 @@ const PAST_PAGE = 50;
 const CHART_PRIMARY = "var(--color-accent)";
 
 const REVIEW_FIELD_CLASS =
-  "w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
+  "w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-[16px] text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm";
 
 export function ReviewSection() {
   const tasks = useStore((s) => s.tasks);

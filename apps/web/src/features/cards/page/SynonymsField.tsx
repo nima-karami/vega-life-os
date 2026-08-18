@@ -57,7 +57,7 @@ export function SynonymsField({
           maxLength={def.max}
           onChange={(event) => setEntry(event.target.value)}
           onKeyDown={handleKeyDown}
-          className="min-w-28 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted"
+          className="min-w-28 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted sm:text-[13px]"
         />
       )}
     </div>
