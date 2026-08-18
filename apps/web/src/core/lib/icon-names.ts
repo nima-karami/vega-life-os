@@ -40,6 +40,8 @@ export const CHROME_ICON_NAMES = [
   "arrow-down",
   "calendar-range",
   "file-input",
+  "shield-check",
+  "minus-circle",
   "rows",
   "grid",
   "scroll",

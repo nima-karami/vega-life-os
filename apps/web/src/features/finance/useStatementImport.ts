@@ -13,12 +13,14 @@ import {
 } from "./import-staging";
 import type { FinanceImportOutcome } from "./store";
 
-interface StagedFile {
+export interface StagedFile {
   fileName: string;
   fileHash: string;
   batchId: string;
   startedAt: string;
   statement: ParsedStatement;
+  /** kept so the columns can be re-pointed from the preview without re-reading the file */
+  source: SourceFile;
 }
 
 interface SourceFile {
@@ -27,7 +29,7 @@ interface SourceFile {
   table: TableData;
 }
 
-type ImportPhase =
+export type ImportPhase =
   | { status: "idle" }
   | { status: "parsing"; fileName: string }
   | { status: "mapping-required"; fileName: string; source: SourceFile; retryReason?: string }
@@ -43,13 +45,13 @@ const REMAP_HINT =
 
 export interface StatementImport {
   phase: ImportPhase;
-  isConfirmed: boolean;
-  setIsConfirmed: (isConfirmed: boolean) => void;
   reset: () => void;
   openFiles: (files: FileList | null) => void;
   commit: (staged: StagedFile) => void;
   rollBack: (staged: StagedFile) => void;
   confirmMapping: (mapping: FinanceColumnMapping) => void;
+  /** re-point a column from the preview; the account remembers the new mapping like any other */
+  remap: (mapping: FinanceColumnMapping) => void;
 }
 
 /**
@@ -64,7 +66,6 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const importFinanceTransactions = useStore((s) => s.importFinanceTransactions);
 
   const [phase, setPhase] = useState<ImportPhase>({ status: "idle" });
-  const [isConfirmed, setIsConfirmed] = useState(false);
 
   const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
@@ -95,7 +96,6 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
       setPhase({ status: "parse-failed", error: outcome.error });
       return;
     }
-    setIsConfirmed(false);
     setPhase({
       status: "preview",
       staged: {
@@ -104,6 +104,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
         batchId: uid("fbat_"),
         startedAt: new Date().toISOString(),
         statement: outcome.statement,
+        source,
       },
     });
   };
@@ -157,8 +158,6 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
 
   return {
     phase,
-    isConfirmed,
-    setIsConfirmed,
     reset: () => setPhase({ status: "idle" }),
     openFiles: (files) => {
       const file = files?.[0];
@@ -173,6 +172,11 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
       if (phase.status !== "mapping-required" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
       void runParse(phase.source, mapping);
+    },
+    remap: (mapping) => {
+      if (phase.status !== "preview" || !account) return;
+      updateFinanceAccount(account.id, { columnMapping: mapping });
+      void runParse(phase.staged.source, mapping);
     },
   };
 }

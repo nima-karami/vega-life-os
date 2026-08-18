@@ -1,31 +1,20 @@
 import { Button } from "@heroui/react";
-import type { FinanceImportBatch } from "@vega/shared";
-import { FinanceImportPreview } from "./FinanceImportPreview";
+import { Link } from "react-router";
 import { FinanceNotice } from "./FinanceNotice";
-import { type AccountMismatch, describeLimitBreach } from "./import-staging";
+import { describeLimitBreach } from "./import-staging";
 import type { StatementImport } from "./useStatementImport";
 
-const focusReviewQueue = () => {
-  const heading = document.getElementById("finance-review-heading");
-  heading?.scrollIntoView({ behavior: "smooth", block: "start" });
-  heading?.focus();
-};
+const NEEDS_REVIEW_LINK = "/finance/transactions?review=flagged";
+
+const LINK_CLASS =
+  "inline-flex h-8 items-center rounded-[12px] border border-border bg-surface px-3.5 font-semibold text-[12.5px] text-foreground transition-colors hover:border-muted";
 
 export interface FinanceImportPhasePanelProps {
   flow: StatementImport;
-  accountName: string;
-  mismatch: AccountMismatch | null;
-  /** an earlier batch carrying the same file hash */
-  priorImport: FinanceImportBatch | null;
 }
 
-/** Whatever the import is doing right now, said once — the mapper is the page's own concern. */
-export function FinanceImportPhasePanel({
-  flow,
-  accountName,
-  mismatch,
-  priorImport,
-}: FinanceImportPhasePanelProps) {
+/** Whatever the import is doing right now, said once — the preview is the page's own concern. */
+export function FinanceImportPhasePanel({ flow }: FinanceImportPhasePanelProps) {
   const { phase } = flow;
 
   switch (phase.status) {
@@ -61,32 +50,16 @@ export function FinanceImportPhasePanel({
         />
       );
 
-    case "preview":
-    case "committing":
-      return (
-        <FinanceImportPreview
-          statement={phase.staged.statement}
-          mismatch={mismatch}
-          priorImport={priorImport}
-          accountName={accountName}
-          isConfirmed={flow.isConfirmed}
-          onConfirmedChange={flow.setIsConfirmed}
-          isCommitting={phase.status === "committing"}
-          onCommit={() => flow.commit(phase.staged)}
-          onCancel={flow.reset}
-        />
-      );
-
     case "committed":
       return (
         <FinanceNotice
           tone="info"
           title={`Imported ${phase.inserted} transactions, ${phase.skipped} skipped as duplicates`}
-          body="Clearing the review queue is what makes the next import cheaper than this one."
+          body="They are waiting in Transactions under needs review — clearing them is what makes the next import cheaper than this one."
           actions={
-            <Button size="sm" variant="primary" onPress={focusReviewQueue}>
-              Review the queue
-            </Button>
+            <Link to={NEEDS_REVIEW_LINK} className={LINK_CLASS}>
+              Review them
+            </Link>
           }
         />
       );

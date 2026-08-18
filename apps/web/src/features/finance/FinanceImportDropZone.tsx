@@ -1,86 +1,86 @@
-import { useRef, useState } from "react";
-import { Icon, Select, type SelectOption } from "@/core/ui";
+import { useState } from "react";
+import { cx, Icon } from "@/core/ui";
 
-const ZONE_BASE =
-  "mt-4 flex w-full flex-col items-center gap-2 rounded-[16px] border border-dashed px-4 py-12 text-center outline-none focus-visible:ring-2 focus-visible:ring-accent";
+const IDLE_LINE = "Drop a statement here, or choose a file.";
+const IDLE_HINT = "CSV or TSV, one file at a time · up to 20 MB and 20,000 rows.";
+const STAGED_HINT = "Drop another file to replace it. Nothing is written until you import.";
 
 export interface FinanceImportDropZoneProps {
-  accounts: SelectOption[];
-  accountId: string;
-  onAccountChange: (accountId: string) => void;
+  /** the staged file's own line — absent until something has been read */
+  fileName: string | null;
+  fileMeta: string;
   onFiles: (files: FileList | null) => void;
   isDisabled: boolean;
   /** why the zone is closed, when it is */
   blockedReason?: string;
+  /** an earlier batch carried this exact file */
+  priorImportNote?: string;
+  /** the file's merchants are strangers to the chosen account */
+  mismatchNote?: string;
 }
 
 /**
- * The account is chosen before a file is ever read: the dedupe key carries the account slug,
- * so a statement dropped on the wrong account duplicates every row invisibly.
+ * The file block: what was read, that nothing has been written, and how to replace it. The input
+ * itself covers the block, so the whole dashed area is one control rather than a decorated div.
  */
 export function FinanceImportDropZone({
-  accounts,
-  accountId,
-  onAccountChange,
+  fileName,
+  fileMeta,
   onFiles,
   isDisabled,
   blockedReason,
+  priorImportNote,
+  mismatchNote,
 }: FinanceImportDropZoneProps) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [isOver, setIsOver] = useState(false);
 
   return (
-    <section className="mt-6">
-      <div className="max-w-sm">
-        <span className="text-xs text-muted">Account this statement belongs to</span>
-        <div className="mt-1.5">
-          <Select
-            ariaLabel="Account"
-            value={accountId}
-            onValueChange={onAccountChange}
-            options={accounts}
-            placeholder="Choose an account…"
-          />
-        </div>
-      </div>
-
-      <button
-        type="button"
-        aria-label="Choose a statement file"
-        disabled={isDisabled}
-        onClick={() => fileInput.current?.click()}
-        onDragOver={(event) => {
-          event.preventDefault();
-          setIsOver(true);
-        }}
-        onDragLeave={() => setIsOver(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setIsOver(false);
-          if (!isDisabled) onFiles(event.dataTransfer.files);
-        }}
-        className={`${ZONE_BASE} ${isOver ? "border-accent" : "border-border"} ${
-          isDisabled ? "opacity-50" : "hover:border-muted"
-        }`}
-      >
-        <Icon name="upload" size={20} className="text-muted" />
-        <span className="text-sm text-foreground">Drop a statement here, or press to browse</span>
-        <span className="text-xs text-muted">
-          CSV or TSV, one file at a time · up to 20 MB and 20,000 rows
-        </span>
-        {blockedReason && <span className="text-xs text-danger">{blockedReason}</span>}
-      </button>
-
+    <div className="relative">
       <input
-        ref={fileInput}
         type="file"
+        aria-label="Choose a statement file"
         accept=".csv,.tsv,text/csv,text/tab-separated-values"
-        className="hidden"
+        disabled={isDisabled}
+        className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
+        onDragOver={() => setIsOver(true)}
+        onDragLeave={() => setIsOver(false)}
+        onDrop={() => setIsOver(false)}
         onChange={(event) => {
           onFiles(event.target.files);
           event.target.value = "";
         }}
       />
-    </section>
+
+      <section
+        className={cx(
+          "flex flex-col items-start gap-3 rounded-[16px] border border-dashed bg-surface p-5 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent sm:flex-row sm:items-center sm:gap-3.5",
+          isOver ? "border-accent bg-canvas" : "border-line-strong",
+          isDisabled && "opacity-60",
+        )}
+      >
+        <Icon name="file-input" size={20} className="shrink-0 text-muted" aria-hidden />
+
+        <div className="min-w-0 w-full flex-1">
+          <p className="truncate font-medium text-[14px] text-foreground">
+            {fileName ?? IDLE_LINE}
+            {fileName !== null && <span className="font-normal text-muted"> · {fileMeta}</span>}
+          </p>
+          <p className="mt-[3px] text-[12.5px] text-muted">
+            {fileName === null ? IDLE_HINT : STAGED_HINT}
+          </p>
+          {priorImportNote && (
+            <p data-testid="import-prior-file" className="mt-[3px] text-[12.5px] text-warning">
+              {priorImportNote}
+            </p>
+          )}
+          {mismatchNote && <p className="mt-[3px] text-[12.5px] text-warning">{mismatchNote}</p>}
+          {blockedReason && <p className="mt-[3px] text-[12.5px] text-danger">{blockedReason}</p>}
+        </div>
+
+        <span className="inline-flex h-8 shrink-0 items-center rounded-[12px] border border-border bg-surface px-3.5 font-semibold text-[12.5px] text-foreground">
+          Choose file
+        </span>
+      </section>
+    </div>
   );
 }
