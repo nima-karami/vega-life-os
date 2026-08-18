@@ -1,12 +1,14 @@
 import type { FinanceSettlement } from "@vega/shared";
 import { addMonths, format } from "date-fns";
 import { describe, expect, it } from "vitest";
+import { computeShareFraction, roundToCents } from "../money";
 import {
   computeCashIn,
   computeHouseholdTotal,
   computeMyTrueShare,
   computePaidOut,
   computeSettlementBalance,
+  listRecognizedInstalments,
 } from "../queries";
 import {
   BUSINESS,
@@ -115,6 +117,22 @@ describe("an annual charge spread over twelve months", () => {
     expect(computeSettlementBalance(book, MONTH)).toBe(60000);
     expect(computeHouseholdTotal(book, NEXT_MONTH)).toBe(0);
     expect(computeSettlementBalance(book, NEXT_MONTH)).toBe(0);
+  });
+
+  it("sums every instalment back to the borne share, whatever the amount, spread and split", () => {
+    for (const amountCents of [-1, -725, -99999, -100000, -1234567, 4501]) {
+      for (const spreadMonths of [1, 2, 3, 7, 12, 36]) {
+        for (const myShareBps of [0, 1, 3333, 5000, 6250, 10000]) {
+          const recognised = listRecognizedInstalments(
+            row("2026-03-10", amountCents, { spreadMonths, isHousehold: true, myShareBps }),
+          ).map((instalment) => roundToCents(instalment.cents));
+          expect(recognised).toHaveLength(spreadMonths);
+          expect(recognised.reduce((sum, cents) => sum + cents, 0)).toBe(
+            roundToCents(computeShareFraction(-amountCents, myShareBps)),
+          );
+        }
+      }
+    }
   });
 
   it("puts the remainder of an uneven split on the first month, losing nothing", () => {

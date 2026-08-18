@@ -42,6 +42,19 @@ describe("the twelve-month bar geometry", () => {
     expect(buildCategoryChart(series, 0).budgetY).toBeNull();
   });
 
+  it("stays finite on an empty series, so an axis can still be drawn", () => {
+    const chart = buildCategoryChart([], null);
+    expect(chart.bars).toEqual([]);
+    expect(chart.axisMaxCents).toBeGreaterThan(0);
+    expect(Number.isFinite(chart.midCents)).toBe(true);
+  });
+
+  it("tops the axis at or above the tallest month, never below it", () => {
+    const chart = buildCategoryChart([month("2026-01", 123456, 0, "over")], null);
+    expect(chart.axisMaxCents).toBeGreaterThanOrEqual(123456);
+    expect(chart.bars[0].y).toBeGreaterThanOrEqual(chart.topY);
+  });
+
   it("keeps the bars inside the plot however many months are asked for", () => {
     const many = Array.from({ length: 36 }, (_, index) =>
       month(`2024-${String((index % 12) + 1).padStart(2, "0")}`, 1000 * index, 18000, "under"),

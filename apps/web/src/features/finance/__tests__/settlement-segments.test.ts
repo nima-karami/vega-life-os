@@ -46,6 +46,19 @@ describe("reconciliation bar segments", () => {
     expect(segments.trueShareMarkerPercent).toBeCloseTo(50, 5);
   });
 
+  it("never draws a negative segment when a partner refund outruns what she paid", () => {
+    const book = makeBook({
+      financeTransactions: [
+        shared("2026-03-02", -10000),
+        shared("2026-03-03", 4000, { payer: "partner", accountId: null }),
+      ],
+    });
+    const segments = buildReconciliationSegments(computeSettlementFigures(book, MONTH));
+    expect(segments.ownerPaidPercent).toBeGreaterThanOrEqual(0);
+    expect(segments.partnerPaidPercent).toBeGreaterThanOrEqual(0);
+    expect(segments.ownerPaidPercent + segments.partnerPaidPercent).toBeCloseTo(100, 5);
+  });
+
   it("is safe on a month with no household rows at all", () => {
     const figures = computeSettlementFigures(makeBook(), MONTH);
     expect(buildReconciliationSegments(figures)).toEqual({

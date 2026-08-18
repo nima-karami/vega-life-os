@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { describeShareSentence, describeSpreadRecognition } from "../transaction-detail-figures";
+import {
+  computeRecognisedInstalment,
+  describeShareSentence,
+  describeSpreadRecognition,
+} from "../transaction-detail-figures";
 import { row } from "./fixtures";
 
 describe("the share sentence", () => {
@@ -26,6 +30,42 @@ describe("the share sentence", () => {
     const figures = describeShareSentence(-5000, 10000, "me");
     expect(figures.youBearCents).toBe(5000);
     expect(figures.counterpartyCents).toBe(0);
+  });
+
+  it("halves a single cent without losing it", () => {
+    const figures = describeShareSentence(-1, 5000, "me");
+    expect(figures.youBearCents).toBe(1);
+    expect(figures.counterpartyCents).toBe(0);
+  });
+
+  it("bears nothing at a zero share, and the whole charge goes the other way", () => {
+    expect(describeShareSentence(-999, 0, "partner")).toMatchObject({
+      youBearCents: 0,
+      counterpartyCents: 999,
+    });
+  });
+
+  it("keeps a money-in row's halves summing to its magnitude", () => {
+    const figures = describeShareSentence(4501, 3333, "me");
+    expect(figures.youBearCents).toBe(1500);
+    expect(figures.youBearCents + figures.counterpartyCents).toBe(4501);
+  });
+});
+
+describe("the instalment a row being typed would be recognised at", () => {
+  it("applies the share before the spread, never the gross charge", () => {
+    // $1,200 shared evenly over twelve months: budgets see $50, not $100.
+    expect(computeRecognisedInstalment(120000, 5000, 12)).toBe(5000);
+  });
+
+  it("agrees with the stored row's own recognition, remainder aside", () => {
+    const txn = row("2026-03-10", -100000, { spreadMonths: 12 });
+    const entries = describeSpreadRecognition(txn);
+    expect(computeRecognisedInstalment(-100000, 10000, 12)).toBe(entries[1].cents);
+  });
+
+  it("reads an unspread row as the whole borne share", () => {
+    expect(computeRecognisedInstalment(-12999, 8000, 1)).toBe(10399);
   });
 });
 

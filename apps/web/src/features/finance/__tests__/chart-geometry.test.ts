@@ -53,6 +53,20 @@ describe("buildTrendGeometry", () => {
     expect(geometry.points.at(-1)?.isOpen).toBe(true);
   });
 
+  it("keeps every point finite when nothing was spent in any month", () => {
+    const geometry = buildTrendGeometry([
+      sample("2026-02", 0, null),
+      sample("2026-03", 0, null, true),
+    ]);
+    expect(geometry.axisMaxCents).toBeGreaterThan(0);
+    expect(geometry.points.every((point) => Number.isFinite(point.y))).toBe(true);
+  });
+
+  it("tops the axis at or above the tallest sample", () => {
+    const geometry = buildTrendGeometry([sample("2026-03", 123456, 200000)]);
+    expect(geometry.axisMaxCents).toBeGreaterThanOrEqual(200000);
+  });
+
   it("draws no budget line when no budget is in force for the scoped month", () => {
     const geometry = buildTrendGeometry([sample("2026-08", 1000, null)]);
     expect(geometry.budgetY).toBeNull();

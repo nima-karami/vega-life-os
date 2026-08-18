@@ -2,12 +2,13 @@ import { Button } from "@heroui/react";
 import { FIELD_CLASS } from "@/core/ui";
 import {
   computeShareFraction,
-  createCentsFraction,
+  FULL_SHARE_BPS,
   formatCents,
   MAX_SPREAD_MONTHS,
   MIN_SPREAD_MONTHS,
   roundToCents,
 } from "./money";
+import { computeRecognisedInstalment } from "./transaction-detail-figures";
 
 /** The fields that stay out of the way until the row is more than a simple expense. */
 export interface QuickAddOptionValues {
@@ -16,9 +17,6 @@ export interface QuickAddOptionValues {
   spreadMonths: number;
   note: string;
 }
-
-const instalmentOfAmount = (amountCents: number, spreadMonths: number) =>
-  roundToCents(createCentsFraction(BigInt(amountCents), BigInt(spreadMonths)));
 
 export function FinanceQuickAddOptions({
   values,
@@ -37,6 +35,9 @@ export function FinanceQuickAddOptions({
   const { isHousehold, sharePercentInput, spreadMonths, note } = values;
   const borne =
     shareBps === null ? null : roundToCents(computeShareFraction(amountCents, shareBps));
+  // The budget recognises the owner's share, not the whole charge — a shared row spread over a year
+  // would otherwise be previewed at twice what any month will show.
+  const recognisedShareBps = isHousehold ? shareBps : FULL_SHARE_BPS;
 
   return (
     <div className="space-y-4 rounded-[12px] border border-border bg-canvas p-3">
@@ -92,10 +93,13 @@ export function FinanceQuickAddOptions({
           onChange={(event) => onChange({ spreadMonths: Math.round(Number(event.target.value)) })}
           className={`${FIELD_CLASS} tabular-nums`}
         />
-        {spreadMonths > 1 && amountCents > 0 && (
+        {spreadMonths > 1 && amountCents > 0 && recognisedShareBps !== null && (
           <span className="block text-xs tabular-nums text-muted">
-            Budgets see {formatCents(instalmentOfAmount(amountCents, spreadMonths))} a month; the
-            cash still leaves on the date above.
+            Budgets see{" "}
+            {formatCents(
+              computeRecognisedInstalment(amountCents, recognisedShareBps, spreadMonths),
+            )}{" "}
+            a month; the cash still leaves on the date above.
           </span>
         )}
       </label>

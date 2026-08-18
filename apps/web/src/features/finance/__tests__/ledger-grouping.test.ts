@@ -69,6 +69,21 @@ describe("grouping the ledger by day", () => {
     expect(group.shareTotalCents).toBe(1089);
   });
 
+  it("accounts for every row given, either in a subtotal or in the unreviewed count", () => {
+    const rows = [
+      row("2026-08-02", -1000),
+      row("2026-08-02", -2000, { categoryId: null }),
+      row("2026-08-03", -3000),
+    ];
+    const groups = groupTransactionsByDay(rows);
+    const summed = groups.reduce((count, group) => count + group.rows.length, 0);
+    const excluded = groups.reduce((count, group) => count + group.unreviewedCount, 0);
+    expect(summed).toBe(rows.length);
+    expect(excluded).toBe(1);
+    // The two counted rows are exactly the ones the subtotals add up.
+    expect(groups.reduce((cents, group) => cents + group.fullTotalCents, 0)).toBe(4000);
+  });
+
   it("reads no rows as no groups", () => {
     expect(groupTransactionsByDay([])).toEqual([]);
   });

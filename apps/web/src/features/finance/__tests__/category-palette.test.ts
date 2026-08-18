@@ -39,6 +39,24 @@ describe("resolveCategoryColorIndex", () => {
   });
 });
 
+describe("the palette index stays in range", () => {
+  it("lands inside the palette for any order the data carries", () => {
+    for (const order of [0, 1, 5, 6, 41, 1000, -7]) {
+      const index = resolveCategoryColorIndex(category(order));
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(index).toBeLessThan(FINANCE_CATEGORY_PALETTE.length);
+    }
+  });
+
+  it("paints a hex from the palette however many categories exist", () => {
+    for (let count = 0; count < 20; count += 1) {
+      const existing = Array.from({ length: count }, (_, index) => category(index));
+      const next = nextCategoryColorIndex(existing);
+      expect(FINANCE_CATEGORY_PALETTE[next]).toBeDefined();
+    }
+  });
+});
+
 describe("nextCategoryColorIndex", () => {
   it("assigns the next slot in the palette by count", () => {
     expect(nextCategoryColorIndex([])).toBe(0);

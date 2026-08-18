@@ -85,6 +85,14 @@ describe("the cumulative burn", () => {
     expect(section.figures.cumulativeCents[0]).toEqual({ day: 1, cents: 1000 });
   });
 
+  it("reads a month with no rows at all as a flat line, never a division by zero", () => {
+    const section = computeCumulativeBurn(makeBook(), MONTH, new Date(2026, 2, 1));
+    if (section.status === "failed") throw new Error("expected the burn to derive");
+    expect(section.figures.cumulativeCents).toEqual([{ day: 1, cents: 0 }]);
+    expect(section.figures.projectedCents).toBe(0);
+    expect(section.figures.todayFraction).toBeCloseTo(1 / 31, 10);
+  });
+
   it("reports a failure instead of throwing when a row's date is unreadable", () => {
     const broken = makeBook({ financeTransactions: [row("not-a-date", -1000)] });
     expect(computeCumulativeBurn(broken, MONTH, new Date(2026, 2, 3))).toEqual({
