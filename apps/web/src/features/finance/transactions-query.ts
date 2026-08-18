@@ -23,6 +23,9 @@ export const NO_CATEGORY = "∅nocategory";
 
 export type ReviewFilter = "all" | "flagged" | "clear";
 
+/** Whether a row is split with the partner at all — the ledger's `Shared` / `Mine` chips. */
+export type SplitFilter = "any" | "shared" | "mine";
+
 /** The badge deep-links into the ledger, so the review filter has to survive a URL. */
 export const REVIEW_PARAM = "review";
 
@@ -36,6 +39,7 @@ export interface TransactionFilters {
   month: string;
   payer: string;
   review: ReviewFilter;
+  split: SplitFilter;
 }
 
 export const DEFAULT_TRANSACTION_FILTERS: TransactionFilters = {
@@ -45,6 +49,7 @@ export const DEFAULT_TRANSACTION_FILTERS: TransactionFilters = {
   month: ANY,
   payer: ANY,
   review: "all",
+  split: "any",
 };
 
 /** Cash basis: the one period key is `txnDate`. */
@@ -93,12 +98,16 @@ const matchesReview = (txn: FinanceTransaction, review: ReviewFilter): boolean =
   return review === "flagged" ? isFlagged : !isFlagged;
 };
 
+const matchesSplit = (txn: FinanceTransaction, split: SplitFilter): boolean =>
+  split === "any" || (split === "shared") === txn.isHousehold;
+
 function matchesFilters(txn: FinanceTransaction, filters: TransactionFilters, needle: string) {
   if (!matchesQuery(txn, needle)) return false;
   if (filters.accountId !== ANY && txn.accountId !== filters.accountId) return false;
   if (!matchesCategory(txn, filters.categoryId)) return false;
   if (filters.month !== ANY && monthOfTransaction(txn) !== filters.month) return false;
   if (filters.payer !== ANY && txn.payer !== filters.payer) return false;
+  if (!matchesSplit(txn, filters.split)) return false;
   return matchesReview(txn, filters.review);
 }
 

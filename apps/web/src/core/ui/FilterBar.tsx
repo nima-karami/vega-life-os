@@ -19,7 +19,7 @@ export interface SearchBox {
 
 export interface ChipGroup {
   label: string;
-  options: { id: string; label: string }[];
+  options: { id: string; label: ReactNode }[];
   activeId: string;
   onSelect: (id: string) => void;
 }

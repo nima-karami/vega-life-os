@@ -21,6 +21,9 @@ const STATEMENT = rbcStatement([
 
 const NEXT_WEEK = rbcStatement(["Chequing,1234,07/10/2026,,E2E COFFEE HOUSE,,-9.00"]);
 
+/** The ledger is month-scoped, so a search for an imported row has to name the month it lands in. */
+const STATEMENT_MONTH = "2026-07";
+
 /** Headers no registry entry knows, so this file can only be read through the mapper. */
 const UNKNOWN_LAYOUT = ["Posted,Merchant,Value", "2026-07-06,E2E CORNER SHOP,-8.25"].join("\n");
 
@@ -52,7 +55,7 @@ async function commitPreview(page: Page, rows: number) {
 }
 
 async function searchLedger(page: Page, needle: string) {
-  await page.goto("/finance/transactions", { waitUntil: "networkidle" });
+  await page.goto(`/finance/transactions?month=${STATEMENT_MONTH}`, { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible({
     timeout: 15_000,
   });

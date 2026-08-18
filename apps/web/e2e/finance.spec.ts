@@ -110,7 +110,8 @@ test("the overview explains the review work and links into the pre-filtered ledg
 
   await page.getByRole("link", { name: "Review 1 row" }).click();
   await expect(page).toHaveURL(/\/finance\/transactions\?review=flagged$/);
-  await expect(page.getByRole("button", { name: "Needs review" })).toHaveAttribute(
+  // The chip carries the same count the badge does, so its name is not the bare label.
+  await expect(page.getByRole("button", { name: /^Needs review/ })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
