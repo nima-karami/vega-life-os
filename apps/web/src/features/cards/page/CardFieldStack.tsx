@@ -2,6 +2,7 @@ import type { CardTypeId, SlotId } from "@vega/shared";
 import { type ReactNode, useState } from "react";
 import { Icon, Popover } from "@/core/ui";
 import { CategoryCombobox } from "../CategoryCombobox";
+import { PICKER_PANEL_CLASS } from "../manager/cell-styles";
 import { CardSlotField } from "./CardSlotField";
 import { type CardDraft, readDraftSlot } from "./card-draft";
 import { listCardPageFields } from "./card-fields";
@@ -39,15 +40,17 @@ function CategoryField({
         </>
       }
     >
-      <CategoryCombobox
-        categories={categories}
-        selected={value}
-        ariaLabel="Filter categories"
-        onSelect={(next) => {
-          setIsOpen(false);
-          onChange(next);
-        }}
-      />
+      <div className={PICKER_PANEL_CLASS}>
+        <CategoryCombobox
+          categories={categories}
+          selected={value}
+          ariaLabel="Filter categories"
+          onSelect={(next) => {
+            setIsOpen(false);
+            onChange(next);
+          }}
+        />
+      </div>
     </Popover>
   );
 }

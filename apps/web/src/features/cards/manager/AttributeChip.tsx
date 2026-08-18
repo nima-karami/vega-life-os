@@ -2,7 +2,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cx, Icon, Popover } from "@/core/ui";
 import { CHIP_CLASS, CHIP_OPEN_CLASS } from "./cell-styles";
 
-// The popover pads itself by 5px a side; subtract it so the drawn width equals the cell.
+// The popover pads itself by 5px a side; subtract it so the panel ends where the cell does.
 const POPOVER_PADDING_PX = 10;
 const MIN_PICKER_PX = 132;
 
@@ -20,25 +20,25 @@ export interface AttributeChipProps {
  */
 export function AttributeChip({ label, ariaLabel, isDisabled, children }: AttributeChipProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const cellRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const [pickerWidth, setPickerWidth] = useState(MIN_PICKER_PX);
 
   useLayoutEffect(() => {
-    // The chip sits inside the padded cell; the column's width is the parent's.
-    const cell = cellRef.current?.parentElement ?? cellRef.current;
-    if (cell === null) return;
+    // The popover hangs off the chip, so measure the chip's own box — the cell's
+    // border box would run the panel past the column by the cell's padding.
+    const triggerBox = triggerRef.current;
+    if (triggerBox === null) return;
     const measure = (width: number) =>
       setPickerWidth(Math.max(MIN_PICKER_PX, Math.round(width) - POPOVER_PADDING_PX));
-    // Border box, not contentRect: the cell pads itself and contentRect would exclude it.
-    measure(cell.getBoundingClientRect().width);
-    const observer = new ResizeObserver(() => measure(cell.getBoundingClientRect().width));
-    observer.observe(cell);
+    measure(triggerBox.getBoundingClientRect().width);
+    const observer = new ResizeObserver(() => measure(triggerBox.getBoundingClientRect().width));
+    observer.observe(triggerBox);
     return () => observer.disconnect();
   }, []);
 
   if (isDisabled) {
     return (
-      <span ref={cellRef} className="flex min-w-0 flex-1">
+      <span ref={triggerRef} className="flex min-w-0 flex-1">
         <span className={cx(CHIP_CLASS, "opacity-60")}>
           <span className="overflow-hidden text-ellipsis">{label}</span>
         </span>
@@ -47,7 +47,7 @@ export function AttributeChip({ label, ariaLabel, isDisabled, children }: Attrib
   }
 
   return (
-    <span ref={cellRef} className="flex min-w-0 flex-1">
+    <span ref={triggerRef} className="flex min-w-0 flex-1">
       <Popover
         open={isOpen}
         onOpenChange={setIsOpen}
