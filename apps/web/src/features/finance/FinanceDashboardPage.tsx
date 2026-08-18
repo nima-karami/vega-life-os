@@ -4,7 +4,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
-import { cx, type EmptyCopy } from "@/core/ui";
+import { cx, type EmptyCopy, Icon } from "@/core/ui";
 import { FinanceDashboardBody } from "./FinanceDashboardBody";
 import { FinanceDashboardSkeleton } from "./FinanceDashboardSkeleton";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
@@ -39,7 +39,7 @@ function buildRecoveryCopy(authUid: string | null, onRetry: () => void): EmptyCo
         : "Nothing was lost. Retry first; if it keeps failing, signing in again is worth a try.",
     cta: (
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <Button variant="primary" onPress={onRetry}>
+        <Button variant="secondary" onPress={onRetry}>
           Retry
         </Button>
         {authUid !== null && (
@@ -91,9 +91,15 @@ export function FinanceDashboardPage() {
         <FinanceMonthCursor month={month} currentMonth={currentMonth} onChange={setMonth} />
       }
       headerAction={
-        <Button variant="primary" onPress={() => navigate("/finance/import")}>
-          Import statements
-        </Button>
+        <>
+          <Button variant="secondary" onPress={() => navigate("/finance/import")}>
+            Import statements
+          </Button>
+          <Button variant="primary" onPress={() => navigate("/finance/transactions/new")}>
+            <Icon name="plus" size={16} aria-hidden />
+            Add transaction
+          </Button>
+        </>
       }
       filters={
         <ButtonGroup
@@ -143,7 +149,7 @@ export function FinanceDashboardPage() {
       title: "Nothing here to show",
       body: "That link points at a month or a category this book doesn't have.",
       cta: (
-        <Button variant="primary" onPress={clearDeepLink}>
+        <Button variant="secondary" onPress={clearDeepLink}>
           Back to this month
         </Button>
       ),
@@ -154,7 +160,7 @@ export function FinanceDashboardPage() {
       title: "Nothing imported yet",
       body: "Import a bank statement to start the weekly loop: import, categorise and split, then settle.",
       cta: (
-        <Button variant="primary" onPress={() => navigate("/finance/import")}>
+        <Button variant="secondary" onPress={() => navigate("/finance/import")}>
           Import statements
         </Button>
       ),
