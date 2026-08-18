@@ -23,6 +23,12 @@ const HANDLE_STRIP_PX = 44;
 // padding, so the strip grows without moving the 3px bar or the rows below it.
 const HANDLE_STRIP_INSET_PX = (HANDLE_BAR_PX - HANDLE_STRIP_PX) / 2;
 const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
+
+// The body class the sheet holds for its whole mounted life is the one source of
+// truth for "something is over the feed" — the feed reads it to stay inert.
+export function isCardSheetMounted(): boolean {
+  return document.body.classList.contains(SHEET_OPEN_BODY_CLASS);
+}
 const EXPANDED_VIEWPORT_RATIO = 0.9;
 const EASE_IN = [0.4, 0, 1, 1] as const;
 const PANEL_SPRING = { type: "spring", stiffness: 380, damping: 34 } as const;

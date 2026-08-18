@@ -11,7 +11,7 @@ import {
 import { useNavigate } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { FeedCardSheet } from "./FeedCardSheet";
+import { FeedCardSheet, isCardSheetMounted } from "./FeedCardSheet";
 import { FeedCardView } from "./FeedCardView";
 import { type FeedControlDraft, FeedControlPage } from "./FeedControlPage";
 import { FeedFirstRunHero, FeedNothingDue, FeedNothingMatches, FeedRecovery } from "./FeedNotices";
@@ -268,6 +268,7 @@ export function ScrollPage() {
   };
 
   const handleFeedKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (isCardSheetMounted()) return;
     const entry = queueEntries[currentIndexRef.current];
     if (!entry || isRecapId(entry.cardId)) return;
     const card = poolById.get(entry.cardId);
