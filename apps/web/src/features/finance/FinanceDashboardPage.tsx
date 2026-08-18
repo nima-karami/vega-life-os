@@ -1,9 +1,10 @@
 import { Button, ButtonGroup } from "@heroui/react";
+import { format, parseISO } from "date-fns";
 import { type ReactNode, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
-import { type EmptyCopy, SegmentButton } from "@/core/ui";
+import { cx, type EmptyCopy } from "@/core/ui";
 import { FinanceDashboardBody } from "./FinanceDashboardBody";
 import { FinanceDashboardSkeleton } from "./FinanceDashboardSkeleton";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
@@ -12,8 +13,17 @@ import { isMonthKey, toMonthKey } from "./month-cursor";
 import { useFinanceBook } from "./useFinanceBook";
 import { useOnlineStatus } from "./useOnlineStatus";
 
-const SUBTITLE = "What came in, what went out, and where the month is drifting.";
 const NO_COPY: EmptyCopy = { title: "", body: "" };
+
+// A scope choice, not a value-bearing one, so the selected cell takes the neutral fill — the
+// page's single accent stays on its one solid button.
+const SCOPES = [
+  { label: "Personal only", withBusiness: false },
+  { label: "With business", withBusiness: true },
+];
+const SCOPE_CELL = "h-[34px] shrink-0 rounded-none border-0 px-4 text-[13px]";
+const SCOPE_ON = "bg-paper-2 font-semibold text-foreground";
+const SCOPE_OFF = "bg-transparent font-medium text-muted";
 
 /**
  * A dead server and an expired session both arrive as the same `loadFailed` flag, so the copy
@@ -71,10 +81,12 @@ export function FinanceDashboardPage() {
   };
   const clearDeepLink = () => setParams(new URLSearchParams(), { replace: true });
 
+  const monthName = isMonthKey(month) ? format(parseISO(`${month}-01`), "MMMM") : "this month";
+
   const renderShell = (children: ReactNode, emptyCopy?: EmptyCopy) => (
     <FinancePageShell
       title="Finance"
-      subLine={SUBTITLE}
+      subLine={`Your share of ${monthName}, against plan.`}
       monthCursor={
         <FinanceMonthCursor month={month} currentMonth={currentMonth} onChange={setMonth} />
       }
@@ -84,13 +96,24 @@ export function FinanceDashboardPage() {
         </Button>
       }
       filters={
-        <ButtonGroup aria-label="Business accounts">
-          <SegmentButton isSelected={!includeBusiness} onClick={() => setIncludeBusiness(false)}>
-            Personal only
-          </SegmentButton>
-          <SegmentButton isSelected={includeBusiness} onClick={() => setIncludeBusiness(true)}>
-            With business
-          </SegmentButton>
+        <ButtonGroup
+          aria-label="Business accounts"
+          className="w-max self-start overflow-hidden rounded-[12px] border border-border bg-surface"
+        >
+          {SCOPES.map((scope) => {
+            const isCurrent = scope.withBusiness === includeBusiness;
+            return (
+              <Button
+                key={scope.label}
+                variant="ghost"
+                aria-pressed={isCurrent}
+                onPress={() => setIncludeBusiness(scope.withBusiness)}
+                className={cx(SCOPE_CELL, isCurrent ? SCOPE_ON : SCOPE_OFF)}
+              >
+                {scope.label}
+              </Button>
+            );
+          })}
         </ButtonGroup>
       }
       isEmpty={emptyCopy !== undefined}

@@ -38,24 +38,66 @@ export function computeBorneSpendSeries(
   return rounded;
 }
 
-function bucketBorneSpendByDay(
+function bucketBorneSpendByCategoryAndDay(
   book: FinanceBook,
   month: string,
   options: FinanceQueryOptions,
-): Map<number, CentsFraction> {
+): Map<string, Map<number, CentsFraction>> {
   const spendCategoryIds = selectCategoryIdsOfKind(book, "spend");
-  const totals = new Map<number, CentsFraction>();
+  const byCategory = new Map<string, Map<number, CentsFraction>>();
   for (const txn of selectPersonalRows(book, options)) {
-    if (txn.categoryId === null || !spendCategoryIds.has(txn.categoryId)) continue;
+    const categoryId = txn.categoryId;
+    if (categoryId === null || !spendCategoryIds.has(categoryId)) continue;
     for (const instalment of listRecognizedInstalments(txn)) {
       if (instalment.month !== month) continue;
       // A row's own month gets its own day; a later month recognised only through spread has
       // no calendar event of its own, so its slice lands on day one of that month.
       const day = instalment.offset === 0 ? getDate(parseISO(txn.txnDate)) : 1;
-      totals.set(day, addCentsFractions(totals.get(day) ?? ZERO_CENTS, instalment.cents));
+      const days = byCategory.get(categoryId) ?? new Map<number, CentsFraction>();
+      days.set(day, addCentsFractions(days.get(day) ?? ZERO_CENTS, instalment.cents));
+      byCategory.set(categoryId, days);
     }
   }
+  return byCategory;
+}
+
+function bucketBorneSpendByDay(
+  book: FinanceBook,
+  month: string,
+  options: FinanceQueryOptions,
+): Map<number, CentsFraction> {
+  const totals = new Map<number, CentsFraction>();
+  for (const days of bucketBorneSpendByCategoryAndDay(book, month, options).values()) {
+    for (const [day, cents] of days)
+      totals.set(day, addCentsFractions(totals.get(day) ?? ZERO_CENTS, cents));
+  }
   return totals;
+}
+
+/**
+ * The day each category's running total first passed its budget — the date a status line can name
+ * instead of saying a month went over at some point. A category that never crossed is absent.
+ */
+export function computeCategoryBreachDays(
+  book: FinanceBook,
+  month: string,
+  budgetCents: Map<string, number>,
+  options: FinanceQueryOptions = {},
+): Map<string, number> {
+  const breachDays = new Map<string, number>();
+  for (const [categoryId, days] of bucketBorneSpendByCategoryAndDay(book, month, options)) {
+    const budget = budgetCents.get(categoryId);
+    if (budget === undefined) continue;
+    let running = ZERO_CENTS;
+    for (const day of [...days.keys()].sort((left, right) => left - right)) {
+      running = addCentsFractions(running, days.get(day) ?? ZERO_CENTS);
+      if (roundToCents(running) > budget) {
+        breachDays.set(categoryId, day);
+        break;
+      }
+    }
+  }
+  return breachDays;
 }
 
 export interface CumulativeBurnFigures {

@@ -7,7 +7,7 @@ export {
 export type { CategoryChipProps, CategoryChipTone } from "./CategoryChip";
 export { CategoryChip } from "./CategoryChip";
 export { FadeEdge } from "./FadeEdge";
-export { CHARGE_MONEY_CLASS, SHARE_MONEY_CLASS } from "./money-text";
+export { CHARGE_MONEY_CLASS, formatWholeDollars, SHARE_MONEY_CLASS } from "./money-text";
 export type { PaceBarProps } from "./PaceBar";
 export { PaceBar } from "./PaceBar";
 export type { PaceBarShape } from "./pace-bar";

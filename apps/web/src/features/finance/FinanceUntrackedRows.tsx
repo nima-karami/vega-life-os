@@ -13,11 +13,11 @@ export function FinanceUntrackedRows({ rows, onSetBudget }: FinanceUntrackedRows
   if (rows.length === 0) return null;
 
   return (
-    <section aria-labelledby="finance-untracked-heading" className="mt-8">
-      <h2 id="finance-untracked-heading" className="text-sm font-medium text-foreground">
+    <section aria-labelledby="finance-untracked-heading">
+      <h2 id="finance-untracked-heading" className="font-semibold text-[15px] text-foreground">
         Untracked categories
       </h2>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-[12px] text-muted">
         No budget in force for this month, so these are spend figures only.
       </p>
       <FinanceRowList
