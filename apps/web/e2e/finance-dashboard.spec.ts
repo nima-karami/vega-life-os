@@ -3,12 +3,13 @@ import { format, startOfMonth, subMonths } from "date-fns";
 import { enterApp, passGratitudeGate } from "./helpers/app";
 
 /**
- * The finance dashboard against the synthetic sandbox seed. The seed anchors its settled month
+ * The finance overview against the synthetic sandbox seed. The seed anchors its settled month
  * to `startOfMonth(now - 2 months)`, so that month's figures are the same whatever day it is —
  * the current month's are not, and are only ever compared, never asserted exactly.
  */
 
 const SETTLED_LABEL = format(startOfMonth(subMonths(new Date(), 2)), "MMMM yyyy");
+const THIS_MONTH_NAME = format(new Date(), "MMMM");
 const TODAY = format(new Date(), "yyyy-MM-dd");
 
 const UNBUDGETED = { id: "fcat_e2e_unbudgeted", name: "E2E unbudgeted", order: 90 };
@@ -40,6 +41,7 @@ async function seedUnbudgetedSpend(page: Page, spentCents: number) {
       const category = (entry: { id: string; name: string; order: number }) => ({
         ...entry,
         kind: "spend",
+        colorIndex: null,
         archivedAt: null,
         ...meta,
       });
@@ -59,6 +61,7 @@ async function seedUnbudgetedSpend(page: Page, spentCents: number) {
           accountId: "facc_chequing",
           txnDate: setup.txnDate,
           spreadMonths: 1,
+          title: "E2E unbudgeted spend",
           description: "E2E UNBUDGETED SPEND",
           amountCents: -setup.spentCents,
           currency: "CAD",
@@ -90,9 +93,10 @@ async function seedUnbudgetedSpend(page: Page, spentCents: number) {
   );
 }
 
-const cashStrip = (page: Page) => page.getByRole("region", { name: "Cash on your accounts" });
-const budgetSection = (page: Page) => page.getByRole("region", { name: "Budget vs actual" });
+const statCards = (page: Page) => page.getByRole("region", { name: "Cash on your accounts" });
+const budgetCard = (page: Page) => page.getByRole("region", { name: "Budgets against plan" });
 const untrackedSection = (page: Page) => page.getByRole("region", { name: "Untracked categories" });
+const paceBar = (page: Page, name: string) => budgetCard(page).getByRole("progressbar", { name });
 
 // Each step waits for its own month to land — clicking twice in a row races the cursor's
 // state under worker contention and silently leaves the dashboard a month short.
@@ -104,42 +108,57 @@ async function stepBack(page: Page, months: number) {
   }
 }
 
-test("the dashboard renders budget vs actual against the seed", async ({ page }) => {
+test("the overview leads with three cash figures and the budget list", async ({ page }) => {
   await openDashboard(page);
   await stepBack(page, 2);
   await expect(page.getByText(SETTLED_LABEL, { exact: true })).toBeVisible();
 
-  await expect(cashStrip(page)).toContainText("$2,142.50");
-  await expect(
-    budgetSection(page).getByRole("progressbar", {
-      name: "Groceries: $71.25 borne of $500.00 budgeted",
-    }),
-  ).toBeVisible();
-  await expect(
-    budgetSection(page).getByRole("progressbar", {
-      name: "Home & rent: $1,000.00 borne of $2,000.00 budgeted",
-    }),
-  ).toBeVisible();
+  await expect(statCards(page)).toContainText("Money in");
+  await expect(statCards(page)).toContainText("Money out");
+  await expect(statCards(page)).toContainText("Net on your accounts");
+  await expect(statCards(page)).toContainText("$2,142.50");
+
+  await expect(budgetCard(page)).toContainText("— your share");
+  await expect(paceBar(page, "Groceries")).toHaveAttribute("aria-valuetext", "$71.25 of $500.00");
+  await expect(paceBar(page, "Home & rent")).toHaveAttribute(
+    "aria-valuetext",
+    "$1,000.00 of $2,000.00",
+  );
   await expect(untrackedSection(page)).toBeHidden();
+});
+
+test("the four charts render beside the budget list", async ({ page }) => {
+  await openDashboard(page);
+
+  await expect(page.getByRole("heading", { name: "Where the months go" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `${THIS_MONTH_NAME} pace` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Household split" })).toBeVisible();
+
+  // Chart 1 switches its series in place rather than routing anywhere.
+  await expect(page.getByRole("heading", { name: "Groceries, month by month" })).toBeVisible();
+  await page.getByRole("button", { name: "Dining out", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Dining out, month by month" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Open settlement" }).click();
+  await expect(page).toHaveURL(/\/finance\/settlement$/);
 });
 
 test("changing the month changes the figures", async ({ page }) => {
   await openDashboard(page);
-  await expect(budgetSection(page)).toContainText("Month-end figures are an estimate");
-  const thisMonthCash = await cashStrip(page).innerText();
+  // A month still running is the only one with a run rate to track against.
+  await expect(budgetCard(page)).toContainText("tracking");
+  const thisMonthCash = await statCards(page).innerText();
 
   await stepBack(page, 2);
   await expect(page.getByText(SETTLED_LABEL, { exact: true })).toBeVisible();
-  const settledCash = await cashStrip(page).innerText();
+  const settledCash = await statCards(page).innerText();
   expect(settledCash).not.toBe(thisMonthCash);
   expect(settledCash).toContain("$2,142.50");
-
-  // A past month has no run rate left to project, so the estimate caveat goes with it.
-  await expect(budgetSection(page)).not.toContainText("Month-end figures are an estimate");
+  await expect(budgetCard(page)).not.toContainText("tracking");
 
   await page.getByRole("button", { name: "This month" }).click();
   await expect(page.getByRole("button", { name: "This month" })).toBeHidden();
-  expect(await cashStrip(page).innerText()).toBe(thisMonthCash);
+  expect(await statCards(page).innerText()).toBe(thisMonthCash);
 });
 
 test("a category spending with no budget shows as untracked with a way to set one", async ({
@@ -150,9 +169,7 @@ test("a category spending with no budget shows as untracked with a way to set on
   await gotoDashboard(page);
 
   // The partial state is budgeted rows AND untracked ones on the same screen.
-  await expect(
-    budgetSection(page).getByRole("progressbar", { name: /^Groceries: / }),
-  ).toBeVisible();
+  await expect(paceBar(page, "Groceries")).toBeVisible();
 
   const untracked = untrackedSection(page);
   await expect(untracked).toBeVisible();

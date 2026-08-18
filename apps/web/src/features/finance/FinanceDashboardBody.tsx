@@ -1,12 +1,13 @@
 import { Button } from "@heroui/react";
 import type { FinanceCategory } from "@vega/shared";
-import { useMemo } from "react";
-import { deriveCashFlow, deriveCategoryBreakdown } from "./dashboard-figures";
-import { FinanceBudgetRows } from "./FinanceBudgetRows";
-import { FinanceCashStrip } from "./FinanceCashStrip";
+import { useStore } from "@/core/store";
+import { useCompact } from "@/core/ui";
 import { FinanceNotice } from "./FinanceNotice";
-import { FinanceUntrackedRows } from "./FinanceUntrackedRows";
+import { FinanceOverviewDesktop } from "./overview/FinanceOverviewDesktop";
+import { FinanceOverviewMobile } from "./overview/FinanceOverviewMobile";
+import { useOverviewFigures } from "./overview/useOverviewFigures";
 import type { FinanceBook } from "./queries";
+import { buildReconciliationSegments } from "./settlement";
 
 export interface FinanceDashboardBodyProps {
   book: FinanceBook;
@@ -18,20 +19,6 @@ export interface FinanceDashboardBodyProps {
   onClearFocus: () => void;
   onRetry: () => void;
   onSetBudget: (categoryId: string) => void;
-}
-
-function SectionFailure({ what, onRetry }: { what: string; onRetry: () => void }) {
-  return (
-    <FinanceNotice
-      tone="danger"
-      title={`${what} couldn't be worked out from the rows on file.`}
-      actions={
-        <Button size="sm" variant="secondary" onPress={onRetry}>
-          Retry
-        </Button>
-      }
-    />
-  );
 }
 
 function OfflineBanner() {
@@ -55,7 +42,7 @@ function FocusNote({ name, onClear }: { name: string; onClear: () => void }) {
   );
 }
 
-/** The populated dashboard: the cash view, then the borne view, each failing on its own. */
+/** The populated overview: one derivation pass, then either the wide layout or the phone's. */
 export function FinanceDashboardBody({
   book,
   month,
@@ -67,38 +54,80 @@ export function FinanceDashboardBody({
   onRetry,
   onSetBudget,
 }: FinanceDashboardBodyProps) {
-  // Every derived figure walks the whole ledger, so a bare call here re-walks it on each keystroke,
-  // toggle and store write.
-  const cash = useMemo(
-    () => deriveCashFlow(book, month, { includeBusiness }),
-    [book, month, includeBusiness],
-  );
-  const breakdown = useMemo(
-    () => deriveCategoryBreakdown(book, month, asOf, { includeBusiness }),
-    [book, month, asOf, includeBusiness],
-  );
-  const keepFocus = <T extends { id: string }>(rows: T[]) =>
-    focusCategory === null ? rows : rows.filter((entry) => entry.id === focusCategory.id);
+  const isCompact = useCompact();
+  const partnerName = useStore((s) => s.partnerName);
+  const figures = useOverviewFigures({ book, month, asOf, includeBusiness, focusCategory });
 
   return (
     <>
       {isOffline && <OfflineBanner />}
       {focusCategory && <FocusNote name={focusCategory.name} onClear={onClearFocus} />}
-      {cash.status === "ok" ? (
-        <FinanceCashStrip figures={cash.figures} />
-      ) : (
-        <SectionFailure what="This month's cash" onRetry={onRetry} />
-      )}
-      {breakdown.status === "ok" ? (
-        <>
-          <FinanceBudgetRows rows={keepFocus(breakdown.figures.budgeted)} />
-          <FinanceUntrackedRows
-            rows={keepFocus(breakdown.figures.untracked)}
-            onSetBudget={onSetBudget}
+      {isCompact ? (
+        figures.burn &&
+        figures.budget && (
+          <FinanceOverviewMobile
+            burn={figures.burn}
+            month={month}
+            monthLabel={figures.monthLabel}
+            daysInMonth={figures.daysInMonth}
+            spentCents={figures.budget.spentCents}
+            rows={figures.budget.rows}
+            elapsedFraction={figures.elapsedFraction}
+            settlement={figures.settlement}
+            partnerName={partnerName}
           />
-        </>
+        )
       ) : (
-        <SectionFailure what="Spend against budget" onRetry={onRetry} />
+        <FinanceOverviewDesktop
+          monthLabel={figures.monthLabel}
+          elapsedFraction={figures.elapsedFraction}
+          cash={figures.cash}
+          budget={figures.budget}
+          untracked={figures.untracked}
+          onSetBudget={onSetBudget}
+          trend={
+            figures.selectedTrendId === null
+              ? null
+              : {
+                  categories: figures.trendCategories,
+                  selectedId: figures.selectedTrendId,
+                  onSelect: figures.selectTrendCategory,
+                  samples: figures.trendSamples,
+                }
+          }
+          stacked={
+            figures.stackedColumns === null
+              ? null
+              : {
+                  columns: figures.stackedColumns,
+                  categories: figures.legendCategories,
+                  openMonth: figures.openMonth,
+                }
+          }
+          burn={
+            figures.burn === null
+              ? null
+              : {
+                  figures: figures.burn,
+                  month,
+                  monthLabel: figures.monthLabel,
+                  daysInMonth: figures.daysInMonth,
+                  driftCategory: figures.driftCategory,
+                }
+          }
+          household={
+            figures.settlement === null
+              ? null
+              : {
+                  figures: figures.settlement,
+                  ownerPaidPercent: buildReconciliationSegments(figures.settlement)
+                    .ownerPaidPercent,
+                  monthLabel: figures.monthLabel,
+                  partnerName,
+                }
+          }
+          onRetry={onRetry}
+        />
       )}
     </>
   );
