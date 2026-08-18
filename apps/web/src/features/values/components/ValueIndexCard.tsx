@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useStore } from "@/core/store";
-import { cx, Disclosure, Icon, Menu, SortableList } from "@/core/ui";
+import { cx, Disclosure, Icon, Menu } from "@/core/ui";
 import { computeHabitStreak } from "@/features/habits";
 import { getValueCardFill } from "../color";
 import type { Value } from "../model";
@@ -11,7 +11,6 @@ export interface ValueCardActions {
   onAddGoal: () => void;
   onArchiveToggle: () => void;
   onDelete: () => void;
-  onReorderGoals: (activeId: string, overId: string) => void;
   onAnnounce: (message: string) => void;
 }
 
@@ -23,7 +22,6 @@ export function ValueIndexCard({
   onAddGoal,
   onArchiveToggle,
   onDelete,
-  onReorderGoals,
   onAnnounce,
 }: { value: Value; archived: boolean } & ValueCardActions) {
   const goals = useStore((s) => s.goals);
@@ -77,18 +75,9 @@ export function ValueIndexCard({
       <div className="mt-[26px] sm:mt-[18px]">
         <CardLabel>Goals</CardLabel>
         <div className="mt-1.5">
-          {archived ? (
-            open.map((g) => <ValueGoalRow key={g.id} goal={g} />)
-          ) : (
-            <SortableList
-              items={open}
-              getId={(g) => g.id}
-              getLabel={(g) => g.name}
-              onReorder={onReorderGoals}
-              nested
-              renderItem={(g) => <ValueGoalRow goal={g} />}
-            />
-          )}
+          {open.map((g) => (
+            <ValueGoalRow key={g.id} goal={g} />
+          ))}
 
           {!archived && (
             <button

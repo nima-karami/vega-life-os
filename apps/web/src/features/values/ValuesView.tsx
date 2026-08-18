@@ -20,11 +20,9 @@ import { useAnnouncer } from "./useAnnouncer";
 export function ValuesView() {
   const navigate = useNavigate();
   const values = useStore((s) => s.values);
-  const goals = useStore((s) => s.goals);
   const addValue = useStore((s) => s.addValue);
   const addGoal = useStore((s) => s.addGoal);
   const updateValue = useStore((s) => s.updateValue);
-  const updateGoal = useStore((s) => s.updateGoal);
   const archiveValue = useStore((s) => s.archiveValue);
   const unarchiveValue = useStore((s) => s.unarchiveValue);
   const pushToast = useStore((s) => s.pushToast);
@@ -95,18 +93,6 @@ export function ValuesView() {
     [active, updateValue, announce],
   );
 
-  const reorderGoals = useCallback(
-    (valueId: string, activeId: string, overId: string) => {
-      const valueGoals = goals
-        .filter((g) => g.valueId === valueId)
-        .sort((a, b) => a.order - b.order);
-      for (const c of reorderByIds(valueGoals, activeId, overId))
-        updateGoal(c.id, { order: c.order });
-      announce("Goals reordered");
-    },
-    [goals, updateGoal, announce],
-  );
-
   const toggleArchive = useCallback(
     (value: Value) => {
       const wasArchived = value.archivedAt !== null;
@@ -149,6 +135,7 @@ export function ValuesView() {
             getLabel={(v) => v.name}
             onReorder={reorderValues}
             className="space-y-5"
+            longPress
             renderItem={(v) => (
               <ValueIndexCard
                 value={v}
@@ -156,7 +143,6 @@ export function ValuesView() {
                 onAddGoal={() => createGoal(v.id)}
                 onArchiveToggle={() => toggleArchive(v)}
                 onDelete={() => setConfirmValue(v)}
-                onReorderGoals={(activeId, overId) => reorderGoals(v.id, activeId, overId)}
                 onAnnounce={announce}
               />
             )}
@@ -177,7 +163,6 @@ export function ValuesView() {
                 onAddGoal={() => {}}
                 onArchiveToggle={() => toggleArchive(v)}
                 onDelete={() => setConfirmValue(v)}
-                onReorderGoals={() => {}}
                 onAnnounce={announce}
               />
             ))}

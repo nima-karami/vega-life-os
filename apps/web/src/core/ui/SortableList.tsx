@@ -28,17 +28,25 @@ const ROW_GROUP = {
   inner: { li: "group/rownest", reveal: "group-hover/rownest:opacity-100" },
 } as const;
 
+const HANDLE_DRAG_DISTANCE_PX = 6;
+const TOUCH_LONG_PRESS_DELAY_MS = 250;
+const TOUCH_LONG_PRESS_TOLERANCE_PX = 8;
+const POINTER_LONG_PRESS_DELAY_MS = 300;
+const POINTER_LONG_PRESS_TOLERANCE_PX = 8;
+
 function SortableRow({
   id,
   label,
   nested,
   wholeRow,
+  longPress,
   children,
 }: {
   id: string;
   label: string;
   nested: boolean;
   wholeRow: boolean;
+  longPress: boolean;
   children: ReactNode;
 }) {
   const {
@@ -58,8 +66,8 @@ function SortableRow({
   };
 
   // Whole-row drag: the row itself is the activator (grab cursor, no handle). For
-  // editors where a left-edge handle would be clipped by a scroll container. A 6px
-  // activation distance keeps clicks on the row's controls working; inline-edit
+  // editors where a left-edge handle would be clipped by a scroll container. The
+  // activation constraint keeps clicks on the row's controls working; inline-edit
   // inputs stop pointer/key propagation so typing never starts a drag.
   if (wholeRow) {
     return (
@@ -68,9 +76,12 @@ function SortableRow({
         {...attributes}
         {...listeners}
         aria-label={label}
-        style={style}
+        // touch-none would trap the page scroll under a full-width row; a held press
+        // is what starts a drag here, so panning stays the browser's.
+        style={longPress ? { ...style, WebkitTouchCallout: "none" } : style}
         className={cx(
-          "relative cursor-grab touch-none active:cursor-grabbing",
+          "relative cursor-grab active:cursor-grabbing",
+          longPress ? "select-none touch-manipulation" : "touch-none",
           isDragging && "opacity-40",
         )}
       >
@@ -126,6 +137,7 @@ export function SortableList<T>({
   className,
   nested = false,
   wholeRowDrag = false,
+  longPress = false,
 }: {
   items: T[];
   getId: (item: T) => string;
@@ -137,11 +149,23 @@ export function SortableList<T>({
   nested?: boolean;
   /** Drag the whole row (grab cursor, no left handle) — for modals/editors where a left-edge handle is clipped. */
   wholeRowDrag?: boolean;
+  /** Hold the whole row to lift it — no handle at all, for rows that are themselves a link. */
+  longPress?: boolean;
 }) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, {
+      // Delaying activation lets a quick click on the row's own link through; only a held press drags.
+      activationConstraint: longPress
+        ? { delay: POINTER_LONG_PRESS_DELAY_MS, tolerance: POINTER_LONG_PRESS_TOLERANCE_PX }
+        : { distance: HANDLE_DRAG_DISTANCE_PX },
+    }),
     // Press-and-hold on touch lets quick swipes scroll rather than drag (WCAG 2.5.7).
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: TOUCH_LONG_PRESS_DELAY_MS,
+        tolerance: TOUCH_LONG_PRESS_TOLERANCE_PX,
+      },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const ids = items.map(getId);
@@ -172,7 +196,8 @@ export function SortableList<T>({
               id={getId(item)}
               label={`Reorder ${getLabel(item)}`}
               nested={nested}
-              wholeRow={wholeRowDrag}
+              wholeRow={wholeRowDrag || longPress}
+              longPress={longPress}
             >
               {renderItem(item)}
             </SortableRow>
