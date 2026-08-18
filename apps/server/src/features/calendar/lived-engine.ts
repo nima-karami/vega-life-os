@@ -97,6 +97,14 @@ function inheritMeaning(row: LivedRow, meaning: MeaningFields): LivedOutcome {
   return { upsert: row, dropId: meaning.sourceRowId };
 }
 
+/** A retired mirror: a tagged row survives as a `removedAt` snapshot, a plain one is dropped. */
+function retireOutcome(prior: CalendarEvent, now: string): LivedOutcome {
+  if (prior.removedAt != null) return {};
+  return hasMeaning(prior)
+    ? { upsert: { ...toWritable<"calendarEvents">(prior), removedAt: now } }
+    : { dropId: prior.id };
+}
+
 function reconcileLivedEvent(
   synced: SyncedFields,
   prior: CalendarEvent | undefined,
@@ -107,9 +115,7 @@ function reconcileLivedEvent(
 ): LivedOutcome {
   if (synced.status === "cancelled") {
     if (!prior) return {};
-    return hasMeaning(prior)
-      ? { upsert: { ...toWritable<"calendarEvents">(prior), removedAt: now } }
-      : { dropId: prior.id };
+    return retireOutcome(prior, now);
   }
   if (!prior) {
     if (tombstonedGoogleIds.has(synced.googleId)) return {};
@@ -135,24 +141,48 @@ export function reconcileLived(
   timeZone: string,
 ): LivedReconcile {
   const byGoogleId = new Map(existing.map((event) => [event.googleId, event]));
+  const bySeriesId = groupInstancesBySeries(existing);
   const upserts: LivedRow[] = [];
   const dropIds: string[] = [];
+
+  const collect = (outcome: LivedOutcome) => {
+    if (outcome.upsert) upserts.push(outcome.upsert);
+    if (outcome.dropId) dropIds.push(outcome.dropId);
+  };
 
   for (const event of incoming) {
     if (event.extendedProperties?.private?.vegaTaskId) continue;
     const synced = gEventToSyncedFields(event, calendarId, timeZone);
-    const outcome = reconcileLivedEvent(
-      synced,
-      byGoogleId.get(synced.googleId),
-      now,
-      tombstonedGoogleIds,
-      meaningByICalUID,
-      isInsertableDate,
+    // Google reports a whole-series deletion as one cancelled item keyed by the series id, which
+    // matches no expanded instance — without the fan-out every instance would outlive its series.
+    if (synced.status === "cancelled" && !byGoogleId.has(synced.googleId)) {
+      for (const instance of bySeriesId.get(synced.googleId) ?? [])
+        collect(retireOutcome(instance, now));
+      continue;
+    }
+    collect(
+      reconcileLivedEvent(
+        synced,
+        byGoogleId.get(synced.googleId),
+        now,
+        tombstonedGoogleIds,
+        meaningByICalUID,
+        isInsertableDate,
+      ),
     );
-    if (outcome.upsert) upserts.push(outcome.upsert);
-    if (outcome.dropId) dropIds.push(outcome.dropId);
   }
   return { upserts, dropIds };
+}
+
+function groupInstancesBySeries(rows: CalendarEvent[]): Map<string, CalendarEvent[]> {
+  const bySeriesId = new Map<string, CalendarEvent[]>();
+  for (const row of rows) {
+    if (row.recurringEventId == null) continue;
+    const instances = bySeriesId.get(row.recurringEventId) ?? [];
+    instances.push(row);
+    bySeriesId.set(row.recurringEventId, instances);
+  }
+  return bySeriesId;
 }
 
 /** A tagged mirror survives as a `removedAt` snapshot (meaning kept); a plain one is dropped outright. */
@@ -161,20 +191,36 @@ async function retireRow(
   row: CalendarEvent,
   now: string,
 ): Promise<void> {
-  if (hasMeaning(row)) await repo.upsert({ ...toWritable<"calendarEvents">(row), removedAt: now });
-  else await repo.remove(row.id);
+  const outcome = retireOutcome(row, now);
+  if (outcome.upsert) await repo.upsert(outcome.upsert);
+  if (outcome.dropId) await repo.remove(outcome.dropId);
+}
+
+async function retireMirrorRows(
+  repo: Repository<"calendarEvents">,
+  now: string,
+  shouldRetire: (row: CalendarEvent) => boolean,
+): Promise<number> {
+  const rows = (await repo.list()).filter(shouldRetire);
+  for (const row of rows) await retireRow(repo, row, now);
+  return rows.length;
 }
 
 /** A tagged mirror survives its calendar vanishing (kept with `removedAt`); a plain one is dropped. */
-export async function retireCalendarMirrors(
+export function retireCalendarMirrors(
   deps: SyncDeps,
   uid: string,
   calendarId: string,
   nowIso: string,
-): Promise<void> {
+): Promise<number> {
   const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
-  const rows = (await repo.list()).filter((event) => event.calendarId === calendarId);
-  for (const row of rows) await retireRow(repo, row, nowIso);
+  return retireMirrorRows(repo, nowIso, (row) => row.calendarId === calendarId);
+}
+
+/** Disconnecting leaves no engine to reconcile the mirror, so nothing may be left behind live. */
+export function retireAllMirrors(deps: SyncDeps, uid: string, nowIso: string): Promise<number> {
+  const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
+  return retireMirrorRows(repo, nowIso, () => true);
 }
 
 /**
@@ -209,6 +255,27 @@ async function dropSupersededRemovedRows(repo: Repository<"calendarEvents">): Pr
   }
 }
 
+type LivedDeleteOutcome = "deleted" | "already-gone" | "refused";
+
+/**
+ * A 404/410 means Google no longer has the event, so the user's delete is already satisfied —
+ * aborting on it would strand the row as invisibly `pendingDelete` and re-attempt the call forever.
+ */
+async function deleteLivedEvent(
+  client: GoogleCalendarClient,
+  row: CalendarEvent,
+): Promise<LivedDeleteOutcome> {
+  try {
+    await client.deleteEvent(row.calendarId, row.googleId);
+    return "deleted";
+  } catch (error) {
+    if (!(error instanceof GoogleHttpError)) throw error;
+    if (error.status === 404 || error.status === 410) return "already-gone";
+    console.error(`gcal push failed: lived delete ${row.googleId} status ${error.status}`);
+    return "refused";
+  }
+}
+
 async function pushLived(
   deps: SyncDeps,
   uid: string,
@@ -221,16 +288,11 @@ async function pushLived(
   const googleWrites: string[] = [];
 
   for (const row of rows.filter((event) => event.pendingDelete)) {
-    try {
-      await client.deleteEvent(row.calendarId, row.googleId);
-      googleWrites.push(`delete:${row.googleId}`);
-      await repo.remove(row.id);
-      await writeTombstone(deps.firestore, uid, "calendarEvents", row.googleId, now);
-    } catch (error) {
-      if (!(error instanceof GoogleHttpError)) throw error;
-      if (!isRateLimit(error.status))
-        console.error(`gcal push failed: lived delete ${row.googleId} status ${error.status}`);
-    }
+    const outcome = await deleteLivedEvent(client, row);
+    if (outcome === "refused") continue;
+    if (outcome === "deleted") googleWrites.push(`delete:${row.googleId}`);
+    await repo.remove(row.id);
+    await writeTombstone(deps.firestore, uid, "calendarEvents", row.googleId, now);
   }
   for (const row of rows.filter((event) => event.vegaEditedAt)) {
     try {
@@ -351,6 +413,21 @@ async function removeAbsentRows(
   return removed;
 }
 
+/**
+ * No pull ever visits a row whose calendar left the selection, so one missed retire (a disconnect,
+ * an interrupted `setReadCalendars`) would strand it on the calendar forever. An empty selection is
+ * "not configured yet", never "sync nothing" — sweeping on it would wipe the whole mirror.
+ */
+function retireUnreachableRows(
+  repo: Repository<"calendarEvents">,
+  readCalendarIds: string[],
+  now: string,
+): Promise<number> {
+  if (readCalendarIds.length === 0) return Promise.resolve(0);
+  const synced = new Set(readCalendarIds);
+  return retireMirrorRows(repo, now, (row) => row.removedAt == null && !synced.has(row.calendarId));
+}
+
 export type LivedLaneResult = {
   lived: number;
   nextSyncTokens: Record<string, string>;
@@ -418,6 +495,7 @@ export async function runLivedLane(
     await retireCalendarMirrors(deps, uid, calendarId, now);
   }
 
+  lived += await retireUnreachableRows(repo, readCalendarIds, now);
   await dropSupersededRemovedRows(repo);
   await pushLived(deps, uid, client, timeZone);
   return { lived, nextSyncTokens, vanishedCalendarIds, rateLimited };

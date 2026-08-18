@@ -9,7 +9,7 @@ import { listChannelsForUid } from "./channel-registry";
 import { registerCalendarChannels, stopCalendarChannels } from "./channel-setup";
 import { clearMirror } from "./gcal-mirror";
 import type { GCalendarInfo } from "./google-client";
-import { retireCalendarMirrors } from "./lived-engine";
+import { retireAllMirrors, retireCalendarMirrors } from "./lived-engine";
 import { SCOPE_VERSION } from "./oauth";
 import { type ReconcileDeps, runReconcile } from "./reconcile";
 import { SyncLockBusyError } from "./sync-lock";
@@ -250,6 +250,7 @@ export const calendarRouter = router({
       client,
       channels.map((channel) => channel.calendarId),
     );
+    await retireAllMirrors(reconcileDepsFrom(ctx), ctx.uid, ctx.calendar.now());
     await clearGcalAccount(ctx.firestore, ctx.uid);
     return { connected: false };
   }),

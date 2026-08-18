@@ -54,6 +54,22 @@ describe("dedupeForDisplay", () => {
     expect(dedupeForDisplay(events).map((row) => row.id)).toEqual(["ce_1"]);
   });
 
+  it("keeps every instance of a recurring series (one iCalUID, different dates)", () => {
+    const events = [
+      event({ id: "ce_1", googleId: "g1_a" }),
+      event({ id: "ce_2", googleId: "g1_b", date: "2026-07-28", endDate: "2026-07-28" }),
+    ];
+    expect(dedupeForDisplay(events).map((row) => row.id)).toEqual(["ce_1", "ce_2"]);
+  });
+
+  it("does not unhide a sibling instance when one instance is deleted", () => {
+    const events = [
+      event({ id: "ce_1", googleId: "g1_a", pendingDelete: true }),
+      event({ id: "ce_2", googleId: "g1_b", date: "2026-07-28", endDate: "2026-07-28" }),
+    ];
+    expect(dedupeForDisplay(events).map((row) => row.id)).toEqual(["ce_2"]);
+  });
+
   it("keeps a declined invite when it carries a value, goal, or note", () => {
     const events = [event({ id: "ce_1", responseStatus: "declined", valueId: "v1" })];
     expect(dedupeForDisplay(events).map((row) => row.id)).toEqual(["ce_1"]);

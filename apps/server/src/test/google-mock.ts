@@ -99,6 +99,7 @@ export class GoogleMock {
   private readonly tokenEpochs = new Map<string, number>();
   private readonly calendarInfos: GCalendarInfo[] = [];
   private listFailures: number[] = [];
+  private deleteFailures: number[] = [];
   private nextExchangeOmitsRefreshToken = false;
 
   setRefreshBehavior(behavior: RefreshBehavior): void {
@@ -128,6 +129,10 @@ export class GoogleMock {
 
   failNextList(status: number): void {
     this.listFailures.push(status);
+  }
+
+  failNextDelete(status: number): void {
+    this.deleteFailures.push(status);
   }
 
   seedEvent(calendarId: string, event: GEvent): void {
@@ -219,6 +224,8 @@ export class GoogleMock {
         this.bumpVersion(calendarId, eventId);
       },
       deleteEvent: async (calendarId, eventId) => {
+        const failStatus = this.deleteFailures.shift();
+        if (failStatus) throw new GoogleHttpError(failStatus);
         const prior = this.calendarOf(calendarId).get(eventId);
         // Real Google stamps the deletion time onto `updated` — LWW on a cancelled delta relies on it.
         if (prior)

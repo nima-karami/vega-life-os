@@ -3,15 +3,19 @@ import type { CalendarEvent } from "@vega/shared";
 const hasMeaning = (event: CalendarEvent) =>
   !!event.valueId || !!event.goalId || event.note.trim() !== "";
 
-/** One visible row per iCalUID; hide declined-untagged and removed events. */
+/** Two synced calendars mirror one shared invite, but a recurring series' instances share an
+ * iCalUID too — so the identity is iCalUID + date, or a whole series collapses to one chip. */
+const instanceKey = (event: CalendarEvent) => `${event.iCalUID}|${event.date ?? ""}`;
+
+/** One visible row per instance; hide declined-untagged and removed events. */
 export function dedupeForDisplay(events: CalendarEvent[]): CalendarEvent[] {
   const seen = new Set<string>();
   const out: CalendarEvent[] = [];
   for (const event of events) {
     if (event.removedAt || event.pendingDelete) continue;
     if (event.responseStatus === "declined" && !hasMeaning(event)) continue;
-    if (seen.has(event.iCalUID)) continue;
-    seen.add(event.iCalUID);
+    if (seen.has(instanceKey(event))) continue;
+    seen.add(instanceKey(event));
     out.push(event);
   }
   return out;
