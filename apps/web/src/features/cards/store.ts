@@ -15,7 +15,7 @@ import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { stepLeitner } from "./leitner";
-import { normalizeCategory } from "./model";
+import { matchKey, normalizeCategory } from "./model";
 
 export interface CardsSlice {
   cards: Card[];
@@ -30,6 +30,8 @@ export interface CardsSlice {
   promoteCard: (id: string) => void;
   gradeCard: (id: string, correct: boolean) => void;
   setCardPrefs: (patch: Partial<CardPrefs>) => void;
+  renameCardCategory: (from: string, to: string) => Promise<void>;
+  deleteCardCategory: (category: string) => Promise<void>;
 }
 
 /** One document, so the loaded collection resolves to the single record the store holds. */
@@ -165,6 +167,41 @@ export const createCardsSlice: Slice<CardsSlice & RetiredMindState> = (set, get)
       const next: CardPrefs = { ...get().cardPrefs, ...patch, id: "feed" };
       set({ cardPrefs: next });
       savePut("cardPrefs", next);
+    },
+
+    renameCardCategory: async (from, to) => {
+      const target = normalizeCategory(to);
+      if (target === "" || target === from) return;
+
+      const fromKey = matchKey(from);
+      const targetKey = matchKey(target);
+      const isRenamed = (label: string) => {
+        const key = matchKey(label);
+        return key === fromKey || key === targetKey;
+      };
+
+      const touchedIds = get()
+        .cards.filter((card) => isRenamed(card.category))
+        .map((card) => card.id);
+      if (touchedIds.length > 0) await get().patchCards(touchedIds, { category: target });
+
+      const held = get().cardPrefs.categories;
+      const nextPrefs = [...new Set(held.map((label) => (isRenamed(label) ? target : label)))];
+      const isPrefsChanged =
+        nextPrefs.length !== held.length || nextPrefs.some((label, i) => label !== held[i]);
+      if (isPrefsChanged) get().setCardPrefs({ categories: nextPrefs });
+    },
+
+    deleteCardCategory: async (category) => {
+      const key = matchKey(category);
+      const touchedIds = get()
+        .cards.filter((card) => matchKey(card.category) === key)
+        .map((card) => card.id);
+      if (touchedIds.length > 0) await get().patchCards(touchedIds, { category: "" });
+
+      const held = get().cardPrefs.categories;
+      const nextPrefs = held.filter((label) => matchKey(label) !== key);
+      if (nextPrefs.length !== held.length) get().setCardPrefs({ categories: nextPrefs });
     },
   };
 };
