@@ -24,7 +24,7 @@ export function MoodWeekPanel({ week }: { week: MoodWeek }) {
   return (
     <Panel className="p-5">
       <SectionHead
-        title="mood"
+        title="Mood"
         meta={week.loggedCount ? `${week.loggedCount} of 7 days` : "empty"}
       />
       <p className="sr-only">{summary}</p>
