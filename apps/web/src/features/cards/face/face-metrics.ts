@@ -25,7 +25,7 @@ const CARD_PADDING = { top: 44, sides: 30, bottom: 44 };
 export const FACE_HEADER = { gap: 10, size: 9.5, tracking: ".06em" };
 export const FULL_BLEED_PADDING = { top: 64, sides: 30, bottom: 78 };
 
-export const RAIL_GEOMETRY = { buttonSize: 44, rightInset: 18 } as const;
+export const RAIL_GEOMETRY = { buttonSize: 44, rightInset: 16 } as const;
 export const RAIL_SAFE_MARGIN = 12;
 export const TERM_FIT_FLOOR_PX = 28;
 
@@ -36,12 +36,12 @@ const TERM_AVG_GLYPH_WIDTH_RATIO = 0.52;
 export type FacePadding = { top: number; left: number; right: number; bottom: number };
 
 export function resolveFullBleedPadding(narrow: boolean): FacePadding {
+  const railClearance = RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN;
+  const sides = narrow ? railClearance : FULL_BLEED_PADDING.sides;
   return {
     top: FULL_BLEED_PADDING.top,
-    left: FULL_BLEED_PADDING.sides,
-    right: narrow
-      ? RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN
-      : FULL_BLEED_PADDING.sides,
+    left: sides,
+    right: sides,
     bottom: FULL_BLEED_PADDING.bottom,
   };
 }

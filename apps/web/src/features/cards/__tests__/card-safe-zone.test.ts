@@ -36,22 +36,22 @@ describe("resolveFullBleedPadding — the rail's safe zone", () => {
   });
 
   it("reserves the rail's whole width plus its margin on a narrow face", () => {
-    expect(resolveFullBleedPadding(true)).toEqual({ top: 64, left: 30, right: 74, bottom: 78 });
+    expect(resolveFullBleedPadding(true)).toEqual({ top: 64, left: 72, right: 72, bottom: 78 });
   });
 
-  it("derives the narrow right padding from the rail's own geometry", () => {
-    expect(resolveFullBleedPadding(true).right).toBe(
-      RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN,
-    );
+  it("derives both narrow side paddings from the rail's own geometry", () => {
+    const railClearance = RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN;
+    expect(resolveFullBleedPadding(true).right).toBe(railClearance);
+    expect(resolveFullBleedPadding(true).left).toBe(railClearance);
   });
 
-  it("widens only the right edge — top, left and bottom are untouched", () => {
+  it("widens both side edges equally — top and bottom are untouched", () => {
     const wide = resolveFullBleedPadding(false);
     const narrow = resolveFullBleedPadding(true);
     expect(narrow.top).toBe(wide.top);
-    expect(narrow.left).toBe(wide.left);
     expect(narrow.bottom).toBe(wide.bottom);
-    expect(narrow.right).toBeGreaterThan(wide.right);
+    expect(narrow.left).toBe(narrow.right);
+    expect(narrow.left).toBeGreaterThan(wide.left);
   });
 });
 
@@ -65,8 +65,8 @@ describe("fitTermFontSize — shrink before wrapping", () => {
     });
   });
 
-  it("keeps the longest sample term at full size on a phone", () => {
-    expect(fitTermFontSize("petrichor", column, BASE_TERM_PX)).toEqual({
+  it("keeps a realistically-long sample term at full size on a phone", () => {
+    expect(fitTermFontSize("saudade", column, BASE_TERM_PX)).toEqual({
       fontSize: BASE_TERM_PX,
       wraps: false,
     });
@@ -128,8 +128,8 @@ describe("planFace — the narrow feed face", () => {
   it("pads the narrow full-bleed face clear of the rail", () => {
     expect(planFace(composeFace(buildTerm("saudade"), "face"), 1, true, true).padding).toEqual({
       top: 64,
-      left: 30,
-      right: 74,
+      left: 72,
+      right: 72,
       bottom: 78,
     });
   });

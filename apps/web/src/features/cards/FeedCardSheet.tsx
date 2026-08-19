@@ -242,7 +242,7 @@ export function FeedCardSheet({
         onPan={handlePan}
         onPanEnd={handlePanEnd}
         style={{ y, height: isMeasured ? height : undefined }}
-        className="absolute inset-x-0 bottom-0 flex touch-none flex-col rounded-t-[26px] rounded-b-[44px] border-border border-t bg-surface px-6 pt-[18px] pb-[30px]"
+        className="absolute inset-x-0 bottom-0 flex touch-none flex-col rounded-t-[26px] border-border border-t bg-surface px-6 pt-[18px] pb-[30px]"
       >
         <span
           aria-hidden
