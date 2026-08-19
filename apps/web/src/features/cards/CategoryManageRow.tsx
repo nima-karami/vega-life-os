@@ -6,6 +6,13 @@ import {
   POPOVER_ROW_LABEL_CLASS,
 } from "./manager/cell-styles";
 
+// The row class already sets text-foreground, so the danger colour has to sit on the children.
+const DELETE_ROW_CLASS = cx(
+  POPOVER_ROW_CLASS,
+  POPOVER_ROW_END_PAD_CLASS,
+  "text-left hover:bg-danger/10",
+);
+
 function CategoryManagePanel({
   category,
   isOpen,
@@ -46,17 +53,9 @@ function CategoryManagePanel({
         }}
         className={FIELD_CLASS}
       />
-      <button
-        type="button"
-        onClick={onDelete}
-        className={cx(
-          POPOVER_ROW_CLASS,
-          POPOVER_ROW_END_PAD_CLASS,
-          "text-left text-danger hover:bg-danger/10",
-        )}
-      >
-        <Icon name="trash" size={14} className="shrink-0" />
-        <span className={POPOVER_ROW_LABEL_CLASS}>Delete</span>
+      <button type="button" onClick={onDelete} className={DELETE_ROW_CLASS}>
+        <Icon name="trash" size={14} className="shrink-0 text-danger" />
+        <span className={cx(POPOVER_ROW_LABEL_CLASS, "text-danger")}>Delete</span>
       </button>
     </div>
   );

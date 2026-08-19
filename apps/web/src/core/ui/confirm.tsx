@@ -31,7 +31,9 @@ export function ConfirmDialog({
 
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur">
+      {/* react-aria pins an open popover at z-index 100000, so a confirm raised from inside
+          one has to outrank it or it renders underneath. */}
+      <Modal.Backdrop variant="blur" className="z-[100001]">
         <Modal.Container {...responsive}>
           <Modal.Dialog>
             <Modal.Header>

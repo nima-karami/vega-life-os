@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon } from "@/core/ui";
 import { CategoryRow } from "./CategoryManageRow";
@@ -33,8 +33,15 @@ export function CategoryCombobox({
   const cards = useStore((s) => s.cards);
   const renameCardCategory = useStore((s) => s.renameCardCategory);
   const deleteCardCategory = useStore((s) => s.deleteCardCategory);
+  const filterRef = useRef<HTMLInputElement>(null);
   const matches = filterCategoryMatches(categories, draft);
   const typed = draft.trim();
+
+  // Renaming or deleting can take the focused row out of the DOM, and the overlay then
+  // drops focus on <body>, so the filter field takes it back once the write lands.
+  const reclaimFocus = () => {
+    requestAnimationFrame(() => filterRef.current?.focus());
+  };
   const canCreate =
     typed !== "" &&
     !categories.some((category) => toCategoryKey(category) === toCategoryKey(typed));
@@ -44,6 +51,7 @@ export function CategoryCombobox({
       <div className={FIELD_CLASS}>
         <Icon name="search" size={14} className="shrink-0 text-muted" />
         <input
+          ref={filterRef}
           type="text"
           value={draft}
           aria-label={ariaLabel}
@@ -64,7 +72,7 @@ export function CategoryCombobox({
           category={category}
           isSelected={toCategoryKey(category) === toCategoryKey(selected)}
           onSelect={onSelect}
-          onRename={(from, to) => void renameCardCategory(from, to)}
+          onRename={(from, to) => void renameCardCategory(from, to).then(reclaimFocus)}
           onRequestDelete={setPendingDelete}
         />
       ))}
@@ -94,7 +102,7 @@ export function CategoryCombobox({
           } card(s) will become uncategorised.`}
           confirmLabel="Delete"
           onConfirm={() => {
-            void deleteCardCategory(pendingDelete);
+            void deleteCardCategory(pendingDelete).then(reclaimFocus);
             setPendingDelete(null);
           }}
           onClose={() => setPendingDelete(null)}
