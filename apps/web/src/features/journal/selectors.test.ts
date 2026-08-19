@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/features/tasks/model";
 import type { DayEntry } from "./model";
-import { getMissedGratitudeDays, isDayReflectable } from "./selectors";
+import { getMissedGratitudeDays, getWeekEntries, isDayReflectable } from "./selectors";
 
 const task = (over: Partial<Task>): Task => ({
   id: "t",
@@ -112,5 +112,55 @@ describe("getMissedGratitudeDays", () => {
     const out = getMissedGratitudeDays(journal, today, 7);
     expect(out).toContain("2026-06-24");
     expect(out.every((d) => d >= "2026-06-18")).toBe(true);
+  });
+});
+
+const WEEK = [
+  "2026-06-08",
+  "2026-06-09",
+  "2026-06-10",
+  "2026-06-11",
+  "2026-06-12",
+  "2026-06-13",
+  "2026-06-14",
+];
+
+describe("getWeekEntries", () => {
+  it("returns only days with content, in weekIsos order regardless of input order", () => {
+    const journal = [
+      day("2026-06-10", { gratitude: ["c"] }),
+      day("2026-06-08", { gratitude: ["a"] }),
+      day("2026-06-01", { gratitude: ["outside the week"] }),
+    ];
+    const result = getWeekEntries(journal, WEEK);
+    expect(result.map((e) => e.date)).toEqual(["2026-06-08", "2026-06-10"]);
+  });
+
+  it("excludes a day with no content even if a DayEntry exists for it", () => {
+    const journal = [day("2026-06-09", { gratitude: [], mood: null, journal: "" })];
+    expect(getWeekEntries(journal, WEEK)).toEqual([]);
+  });
+
+  it("includes a day with only mood set (no gratitude, no journal text)", () => {
+    const journal = [day("2026-06-11", { gratitude: [], mood: 4, journal: "" })];
+    const result = getWeekEntries(journal, WEEK);
+    expect(result.map((e) => e.date)).toEqual(["2026-06-11"]);
+  });
+
+  it("includes a day with only journal text set", () => {
+    const journal = [day("2026-06-12", { gratitude: [], mood: null, journal: "wrote something" })];
+    const result = getWeekEntries(journal, WEEK);
+    expect(result.map((e) => e.date)).toEqual(["2026-06-12"]);
+  });
+
+  it("returns an empty array when nothing in the journal falls inside the week", () => {
+    const journal = [day("2026-05-01", { gratitude: ["old"] })];
+    expect(getWeekEntries(journal, WEEK)).toEqual([]);
+  });
+
+  it("returns all 7 in chronological order when every day has content", () => {
+    const journal = [...WEEK].reverse().map((iso) => day(iso, { gratitude: [`g-${iso}`] }));
+    const result = getWeekEntries(journal, WEEK);
+    expect(result.map((e) => e.date)).toEqual(WEEK);
   });
 });

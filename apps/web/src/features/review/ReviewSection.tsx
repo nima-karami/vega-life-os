@@ -2,28 +2,17 @@ import { addDays, format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { formatShortDate, getWeekDays, todayISO, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import {
-  Button,
-  ConfirmDialog,
-  cx,
-  Gauge,
-  Icon,
-  IconButton,
-  Label,
-  Panel,
-  SectionHead,
-} from "@/core/ui";
+import { Button, ConfirmDialog, cx, Icon, IconButton, Label, Panel, SectionHead } from "@/core/ui";
 import { useValueColor } from "@/features/values/useValueColor";
+import { JournalWeekPanel } from "./JournalWeekPanel";
 import { MoodWeekPanel } from "./MoodWeekPanel";
 import { REVIEW_PROMPTS } from "./model";
 import { computeMoodWeek } from "./mood";
 import { computeWeekRollup } from "./rollup";
+import { WeekSummaryPanel } from "./WeekSummaryPanel";
 
 /** Advisory cap for the past-reviews list (D5) — "show more" reveals the rest. */
 const PAST_PAGE = 50;
-
-/** Calm primary tone for chart strokes/fills (matches HeroUI primary). */
-const CHART_PRIMARY = "var(--color-accent)";
 
 const REVIEW_FIELD_CLASS =
   "w-full resize-y rounded-[12px] border border-border bg-surface px-3 py-2 text-[16px] text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm";
@@ -124,21 +113,13 @@ export function ReviewSection() {
 
       <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="space-y-5">
-          <Panel className="flex items-center justify-center p-6">
-            <Gauge
-              value={rollup.completion}
-              size={76}
-              stroke={7}
-              hue={CHART_PRIMARY}
-              sub="completion"
-            />
-          </Panel>
+          <WeekSummaryPanel rollup={rollup} />
 
           <MoodWeekPanel week={moodWeek} />
 
           {noActivity ? (
             <Panel className="p-6">
-              <SectionHead title="this week" meta="empty" />
+              <SectionHead title="This week" meta="empty" />
               <p className="mt-3 text-sm leading-relaxed text-muted">
                 Nothing logged this week yet — but you can still write a reflection below.
               </p>
@@ -146,7 +127,7 @@ export function ReviewSection() {
           ) : (
             <>
               <Panel className="p-5">
-                <SectionHead title="balance" meta="by value" />
+                <SectionHead title="Balance" meta="by value" />
                 <div className="mt-3 space-y-2">
                   {rollup.byValue.map(({ v, n }) => (
                     <ValueBar key={v.id} valueId={v.id} name={v.name} n={n} max={rollup.maxV} />
@@ -155,7 +136,7 @@ export function ReviewSection() {
               </Panel>
 
               <Panel className="p-5">
-                <SectionHead title="habits" meta="this week" />
+                <SectionHead title="Habits" meta="this week" />
                 <div className="mt-3 space-y-1.5">
                   {rollup.habitRows.map(({ h, rate, done, total }) => (
                     <div key={h.id} className="flex items-center justify-between">
@@ -177,7 +158,7 @@ export function ReviewSection() {
         <div className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <Panel className="p-5">
-              <SectionHead title="wins" meta={String(rollup.wins.length)} />
+              <SectionHead title="Wins" meta={String(rollup.winsTotal)} />
               <ul className="mt-3 space-y-1.5">
                 {rollup.wins.map((t) => (
                   <li key={t.id} className="flex items-start gap-2">
@@ -191,7 +172,7 @@ export function ReviewSection() {
               </ul>
             </Panel>
             <Panel className="p-5">
-              <SectionHead title="slipped" meta={String(rollup.slipped.length)} />
+              <SectionHead title="Slipped" meta={String(rollup.slippedTotal)} />
               <ul className="mt-3 space-y-1.5">
                 {rollup.slipped.map((t) => (
                   <li key={t.id} className="flex items-start gap-2">
@@ -208,13 +189,15 @@ export function ReviewSection() {
             </Panel>
           </div>
 
+          <JournalWeekPanel journal={journal} weekIsos={weekIsos} />
+
           <Panel className="p-6">
             <div className="flex items-center justify-between">
-              <SectionHead title="reflection" className="flex-1" />
+              <SectionHead title="Reflection" className="flex-1" />
               {dirty ? (
-                <Label className="text-danger">unsaved changes</Label>
+                <Label className="text-danger">Unsaved changes</Label>
               ) : (
-                existing && <Label>saved {existing.createdAt.slice(5, 10)}</Label>
+                existing && <Label>Saved {existing.createdAt.slice(5, 10)}</Label>
               )}
             </div>
             <div className="mt-4 space-y-4">
@@ -243,7 +226,7 @@ export function ReviewSection() {
 
           {reviews.length > 0 && (
             <Panel className="p-5">
-              <SectionHead title="past reviews" meta={String(reviews.length)} />
+              <SectionHead title="Past reviews" meta={String(reviews.length)} />
               <div className="mt-3 space-y-1.5">
                 {visibleReviews.map((r) => (
                   <button
@@ -257,7 +240,7 @@ export function ReviewSection() {
                     )}
                   >
                     <span className="text-sm text-foreground">
-                      week of {formatShortDate(r.periodKey)}
+                      Week of {formatShortDate(r.periodKey)}
                     </span>
                     <span className="text-xs text-muted">{Math.round(r.completion * 100)}%</span>
                     <span className="ml-auto truncate text-xs text-muted">

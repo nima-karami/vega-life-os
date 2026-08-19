@@ -1,7 +1,7 @@
 import { shiftISO } from "@/core/lib/date";
 import type { Task } from "@/features/tasks/model";
 import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
-import { type DayEntry, hasGratitude } from "./model";
+import { type DayEntry, hasContent, hasGratitude } from "./model";
 
 /**
  * A day is "reflectable" once it had at least one task and every task is
@@ -46,4 +46,17 @@ export function getMissedGratitudeDays(
     if (!hasGratitude(byDate.get(d))) missed.push(d);
   }
   return missed;
+}
+
+/**
+ * The week's DayEntrys that have content, in date order. Mirrors the `hasContent`
+ * predicate used everywhere else (gratitude and/or reflection) — a day with only
+ * an empty draft never appears.
+ */
+export function getWeekEntries(journal: DayEntry[], weekIsos: string[]): DayEntry[] {
+  const byDate = new Map(journal.map((e) => [e.date, e]));
+  return weekIsos.flatMap((iso) => {
+    const entry = byDate.get(iso);
+    return entry && hasContent(entry) ? [entry] : [];
+  });
 }
