@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Icon } from "@/core/ui";
-import { POPOVER_ROW_CLASS } from "./manager/cell-styles";
+import {
+  POPOVER_ROW_CLASS,
+  POPOVER_ROW_END_PAD_CLASS,
+  POPOVER_ROW_LABEL_CLASS,
+} from "./manager/cell-styles";
 import { filterCategoryMatches, toCategoryKey } from "./manager-filter";
 
 const FIELD_CLASS =
@@ -53,9 +57,9 @@ export function CategoryCombobox({
           type="button"
           onClick={() => onSelect(category)}
           aria-pressed={toCategoryKey(category) === toCategoryKey(selected)}
-          className={`${POPOVER_ROW_CLASS} justify-between text-left hover:bg-surface-secondary aria-pressed:bg-surface-secondary`}
+          className={`${POPOVER_ROW_CLASS} ${POPOVER_ROW_END_PAD_CLASS} text-left hover:bg-surface-secondary aria-pressed:bg-surface-secondary`}
         >
-          {category}
+          <span className={POPOVER_ROW_LABEL_CLASS}>{category}</span>
         </button>
       ))}
 
@@ -65,10 +69,10 @@ export function CategoryCombobox({
           <button
             type="button"
             onClick={() => onSelect(typed)}
-            className={`${POPOVER_ROW_CLASS} text-left hover:bg-surface-secondary`}
+            className={`${POPOVER_ROW_CLASS} ${POPOVER_ROW_END_PAD_CLASS} text-left hover:bg-surface-secondary`}
           >
-            <Icon name="plus" size={14} className="text-accent" />
-            {`Create “${typed}”`}
+            <Icon name="plus" size={14} className="shrink-0 text-accent" />
+            <span className={POPOVER_ROW_LABEL_CLASS}>{`Create “${typed}”`}</span>
           </button>
         </>
       )}
