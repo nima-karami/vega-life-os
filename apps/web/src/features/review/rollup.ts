@@ -12,14 +12,22 @@ export interface HabitRow {
 export interface WeekRollup {
   /** resolved completion rate for the week (0..1), skips excluded */
   completion: number;
+  /** resolved-task count the completion rate is out of (excludes skips) */
+  tasksTotal: number;
+  /** resolved-task count that are done */
+  tasksDone: number;
   /** completed-task count per value, in value order */
   byValue: { v: Value; n: number }[];
   /** largest per-value count, floored at 1 (for bar scaling) */
   maxV: number;
-  /** completed goal-linked tasks, capped */
+  /** completed goal-linked tasks, capped — the Wins panel's list */
   wins: Task[];
-  /** past-due unresolved tasks (not done, not skip, before today), capped */
+  /** true count of completed goal-linked tasks this week — NOT capped (unlike `wins`) */
+  winsTotal: number;
+  /** past-due unresolved tasks (not done, not skip, before today), capped — the Slipped panel's list */
   slipped: Task[];
+  /** true count of past-due unresolved tasks this week — NOT capped (unlike `slipped`) */
+  slippedTotal: number;
   /** per-habit completion for the week */
   habitRows: HabitRow[];
 }
@@ -51,10 +59,12 @@ export function computeWeekRollup(
   }));
   const maxV = Math.max(1, ...byValue.map((x) => x.n));
 
-  const wins = done.filter((t) => t.goalId).slice(0, CAP);
-  const slipped = weekTasks
-    .filter((t) => (t.date ?? "") < today && t.status !== "done" && t.status !== "skip")
-    .slice(0, CAP);
+  const winsAll = done.filter((t) => t.goalId);
+  const wins = winsAll.slice(0, CAP);
+  const slippedAll = weekTasks.filter(
+    (t) => (t.date ?? "") < today && t.status !== "done" && t.status !== "skip",
+  );
+  const slipped = slippedAll.slice(0, CAP);
 
   const habitRows = habits
     .map((h) => {
@@ -71,5 +81,16 @@ export function computeWeekRollup(
     })
     .filter((row) => row.total > 0);
 
-  return { completion, byValue, maxV, wins, slipped, habitRows };
+  return {
+    completion,
+    tasksTotal: counted.length,
+    tasksDone: done.length,
+    byValue,
+    maxV,
+    wins,
+    winsTotal: winsAll.length,
+    slipped,
+    slippedTotal: slippedAll.length,
+    habitRows,
+  };
 }

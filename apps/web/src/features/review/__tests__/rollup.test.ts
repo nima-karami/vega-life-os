@@ -53,11 +53,15 @@ describe("computeWeekRollup", () => {
     const r = computeWeekRollup(tasks, [], [], WEEK, "2026-06-20");
     // 2 done out of 3 counted (skip excluded)
     expect(r.completion).toBeCloseTo(2 / 3);
+    expect(r.tasksTotal).toBe(3);
+    expect(r.tasksDone).toBe(2);
   });
 
   it("returns 0 completion for an empty week without dividing by zero", () => {
     const r = computeWeekRollup([], [], [], WEEK, "2026-06-20");
     expect(r.completion).toBe(0);
+    expect(r.tasksTotal).toBe(0);
+    expect(r.tasksDone).toBe(0);
   });
 
   it("ignores tasks outside the week window", () => {
@@ -97,6 +101,16 @@ describe("computeWeekRollup", () => {
     const r = computeWeekRollup(tasks, [], [], WEEK, "2026-06-20");
     expect(r.wins).toHaveLength(6);
     expect(r.wins.every((t) => t.goalId === "goal1")).toBe(true);
+    expect(r.winsTotal).toBe(8);
+  });
+
+  it("slippedTotal counts every slipped task even past the 6-item list cap", () => {
+    const tasks = Array.from({ length: 9 }, (_, i) =>
+      task({ id: `s${i}`, date: "2026-06-08", status: "todo" }),
+    );
+    const r = computeWeekRollup(tasks, [], [], WEEK, "2026-06-20");
+    expect(r.slipped).toHaveLength(6);
+    expect(r.slippedTotal).toBe(9);
   });
 
   it("slipped are past-due unresolved tasks (not done, not skip, before today)", () => {
@@ -107,6 +121,7 @@ describe("computeWeekRollup", () => {
     ];
     const r = computeWeekRollup(tasks, [], [], WEEK, "2026-06-20");
     expect(r.slipped.map((t) => t.id)).toEqual(["a"]);
+    expect(r.slippedTotal).toBe(1);
   });
 
   it("does not mark today/future tasks as slipped", () => {
