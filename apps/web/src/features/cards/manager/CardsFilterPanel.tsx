@@ -52,7 +52,7 @@ export function CardsFilterPanel({
   const shownCategories = filterCategoryMatches(categories, categoryQuery);
 
   return (
-    <div className="flex max-h-[min(70vh,560px)] w-[242px] flex-col">
+    <div className="flex max-h-[min(70vh,560px)] w-full flex-col sm:w-[242px]">
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="py-1">
           <span className={GROUP_LABEL_CLASS}>Type</span>

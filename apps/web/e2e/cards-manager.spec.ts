@@ -54,6 +54,58 @@ test("a category cell creates the category that was typed", async ({ page }) => 
   await expect(rows(page).filter({ hasText: "Deep work" }).first()).toBeVisible();
 });
 
+test("every picker row stays inside its popover, and a long category ellipsizes", async ({
+  page,
+}) => {
+  await openDeck(page);
+  const row = rows(page).first();
+
+  await row.getByRole("button", { name: /^Type of / }).click();
+  const surface = page.locator(".popover").first();
+  await expect(surface.getByRole("option").first()).toBeVisible();
+  // The popover zooms in, so read every box in one frame or the scale skews the comparison.
+  await expect(surface).not.toHaveAttribute("data-entering", "true");
+  const spill = await surface.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    return [...node.querySelectorAll('[role="option"]')].map((option) => {
+      const optionBox = option.getBoundingClientRect();
+      const indicator = option.querySelector(".list-box-item__indicator");
+      const indicatorRight =
+        indicator === null ? optionBox.right : indicator.getBoundingClientRect().right;
+      return {
+        left: optionBox.left - box.left,
+        right: box.right - optionBox.right,
+        indicator: box.right - indicatorRight,
+      };
+    });
+  });
+  expect(spill.length).toBeGreaterThan(1);
+  for (const edges of spill) {
+    expect(edges.left).toBeGreaterThanOrEqual(-1);
+    expect(edges.right).toBeGreaterThanOrEqual(-1);
+    expect(edges.indicator).toBeGreaterThanOrEqual(-1);
+  }
+  await page.keyboard.press("Escape");
+
+  const longName = "Deliberate practice and spaced repetition";
+  const chip = row.getByRole("button", { name: /^Category of / });
+  await chip.click();
+  await page.getByRole("textbox", { name: "Filter categories" }).fill(longName);
+  await page.getByRole("button", { name: `Create “${longName}”` }).click();
+  await expect(chip).toContainText("Deliberate");
+
+  await chip.click();
+  const label = page.locator(".popover").first().getByText(longName, { exact: true });
+  await expect(label).toBeVisible();
+  const overflow = await label.evaluate((node) => ({
+    scrollWidth: node.scrollWidth,
+    clientWidth: node.clientWidth,
+    textOverflow: getComputedStyle(node).textOverflow,
+  }));
+  expect(overflow.textOverflow).toBe("ellipsis");
+  expect(overflow.scrollWidth).toBeGreaterThan(overflow.clientWidth);
+});
+
 test("the inline Type chip confirms before it ends a review schedule", async ({ page }) => {
   await openDeck(page);
 

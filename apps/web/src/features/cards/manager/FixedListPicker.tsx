@@ -1,6 +1,6 @@
 import { ListBox } from "@heroui/react";
 import type { Key } from "react";
-import { POPOVER_ROW_CLASS } from "./cell-styles";
+import { POPOVER_ROW_CLASS, POPOVER_ROW_LABEL_CLASS } from "./cell-styles";
 
 export interface PickerOption {
   id: string;
@@ -39,9 +39,9 @@ export function FixedListPicker({
           key={option.id}
           id={option.id}
           textValue={option.label}
-          className={`${POPOVER_ROW_CLASS} justify-between data-[selected=true]:bg-surface-secondary`}
+          className={`${POPOVER_ROW_CLASS} data-[selected=true]:bg-surface-secondary`}
         >
-          {option.label}
+          <span className={POPOVER_ROW_LABEL_CLASS}>{option.label}</span>
           {/* Stock indicator: a custom child renders on every row, selected or not. */}
           <ListBox.Item.Indicator />
         </ListBox.Item>
