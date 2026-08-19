@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Icon } from "@/core/ui";
+import { useStore } from "@/core/store";
+import { ConfirmDialog, Icon } from "@/core/ui";
+import { CategoryRow } from "./CategoryManageRow";
 import {
   POPOVER_ROW_CLASS,
   POPOVER_ROW_END_PAD_CLASS,
@@ -12,7 +14,8 @@ const FIELD_CLASS =
 
 /**
  * Categories are the user's own set, so the cell opens a combobox: the field filters what
- * exists and the last row creates what was typed. There is no category management screen.
+ * exists and the last row creates what was typed. Each row's ⋯ opens a small popover to
+ * rename (merges on a spelling collision) or delete the category, matching Notion's option menu.
  */
 export function CategoryCombobox({
   categories,
@@ -26,6 +29,10 @@ export function CategoryCombobox({
   onSelect: (category: string) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const cards = useStore((s) => s.cards);
+  const renameCardCategory = useStore((s) => s.renameCardCategory);
+  const deleteCardCategory = useStore((s) => s.deleteCardCategory);
   const matches = filterCategoryMatches(categories, draft);
   const typed = draft.trim();
   const canCreate =
@@ -52,15 +59,14 @@ export function CategoryCombobox({
       </div>
 
       {matches.map((category) => (
-        <button
+        <CategoryRow
           key={category}
-          type="button"
-          onClick={() => onSelect(category)}
-          aria-pressed={toCategoryKey(category) === toCategoryKey(selected)}
-          className={`${POPOVER_ROW_CLASS} ${POPOVER_ROW_END_PAD_CLASS} text-left hover:bg-surface-secondary aria-pressed:bg-surface-secondary`}
-        >
-          <span className={POPOVER_ROW_LABEL_CLASS}>{category}</span>
-        </button>
+          category={category}
+          isSelected={toCategoryKey(category) === toCategoryKey(selected)}
+          onSelect={onSelect}
+          onRename={(from, to) => void renameCardCategory(from, to)}
+          onRequestDelete={setPendingDelete}
+        />
       ))}
 
       {canCreate && (
@@ -75,6 +81,24 @@ export function CategoryCombobox({
             <span className={POPOVER_ROW_LABEL_CLASS}>{`Create “${typed}”`}</span>
           </button>
         </>
+      )}
+
+      {pendingDelete !== null && (
+        <ConfirmDialog
+          open
+          danger
+          title={`Delete “${pendingDelete}”?`}
+          body={`${
+            cards.filter((card) => toCategoryKey(card.category) === toCategoryKey(pendingDelete))
+              .length
+          } card(s) will become uncategorised.`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            void deleteCardCategory(pendingDelete);
+            setPendingDelete(null);
+          }}
+          onClose={() => setPendingDelete(null)}
+        />
       )}
     </div>
   );
