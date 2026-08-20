@@ -23,15 +23,15 @@ import { CardFlip } from "../face/CardFlip";
 import { composeFace } from "../face/compose";
 import { hasClearedToday } from "../store";
 import { useLongPress } from "../useLongPress";
-import { deriveStudyBadgeState, StudyBadge } from "./StudyBadge";
-import { describeBounceHint, StudyBounceHint } from "./StudyBounceHint";
-import { formatGradeChip, StudyGradeChip } from "./StudyGradeChip";
+import { BrainWriteBadge, deriveBrainWriteBadgeState } from "./BrainWriteBadge";
+import { BrainWriteBounceHint, describeBounceHint } from "./BrainWriteBounceHint";
+import { BrainWriteGradeChip, formatGradeChip } from "./BrainWriteGradeChip";
 import {
   computeDragRotationDeg,
   computeEdgeGlowOpacity,
   EDGE_DEAD_ZONE_PX,
   resolveDragOutcome,
-} from "./study-gestures";
+} from "./brainwrite-gestures";
 
 const FLY_OFF_MS = 260;
 const FLY_OFF_MARGIN_PX = 120;
@@ -76,12 +76,12 @@ function EdgeGlow({
   );
 }
 
-export interface StudyCardViewHandle {
+export interface BrainWriteCardViewHandle {
   flip: () => void;
   commitKeyboardGrade: (correct: boolean) => void;
 }
 
-export interface StudyCardViewProps {
+export interface BrainWriteCardViewProps {
   card: Card;
   today: string;
   onAdvance: () => void;
@@ -90,15 +90,15 @@ export interface StudyCardViewProps {
   onAnnounce: (message: string) => void;
 }
 
-export const StudyCardView = forwardRef<StudyCardViewHandle, StudyCardViewProps>(
-  function StudyCardView({ card, today, onAdvance, onOpenSheet, onGrade, onAnnounce }, ref) {
+export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWriteCardViewProps>(
+  function BrainWriteCardView({ card, today, onAdvance, onOpenSheet, onGrade, onAnnounce }, ref) {
     const shouldReduceMotion = useReducedMotion();
     const face = useMemo(() => composeFace(card, "face"), [card]);
     const reveal = useMemo(() => (hasReveal(card) ? composeFace(card, "reveal") : null), [card]);
     const canFlip = reveal !== null;
     const clearedToday = hasClearedToday(card, today);
     const isGradeable = card.box !== null && !clearedToday;
-    const badge = <StudyBadge state={deriveStudyBadgeState(card, clearedToday)} />;
+    const badge = <BrainWriteBadge state={deriveBrainWriteBadgeState(card, clearedToday)} />;
 
     const [isFlipped, setIsFlipped] = useState(false);
     const [gradeChipLabel, setGradeChipLabel] = useState<string | null>(null);
@@ -250,7 +250,7 @@ export const StudyCardView = forwardRef<StudyCardViewHandle, StudyCardViewProps>
       >
         <motion.div
           ref={stageRef}
-          data-study-flip={isFlipped ? "reveal" : "face"}
+          data-brainwrite-flip={isFlipped ? "reveal" : "face"}
           className={cx("relative h-full w-full overflow-hidden", canFlip && "cursor-pointer")}
           style={{ touchAction: "pan-y", x, rotate }}
           drag="x"
@@ -279,8 +279,8 @@ export const StudyCardView = forwardRef<StudyCardViewHandle, StudyCardViewProps>
         <EdgeGlow side="right" opacity={rightGlowOpacity} isGradeable={isGradeable} />
         <EdgeGlow side="left" opacity={leftGlowOpacity} isGradeable={isGradeable} />
 
-        {gradeChipLabel !== null && <StudyGradeChip label={gradeChipLabel} />}
-        {bounceHint !== null && <StudyBounceHint text={bounceHint} />}
+        {gradeChipLabel !== null && <BrainWriteGradeChip label={gradeChipLabel} />}
+        {bounceHint !== null && <BrainWriteBounceHint text={bounceHint} />}
       </article>
     );
   },

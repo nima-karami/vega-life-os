@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatGradeChip } from "../StudyGradeChip";
+import { formatGradeChip } from "../BrainWriteGradeChip";
 
 const TODAY = "2026-08-20";
 

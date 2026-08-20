@@ -1,15 +1,15 @@
 import type { Card } from "@vega/shared";
 import { Icon } from "@/core/ui";
 
-export type StudyBadgeState =
+export type BrainWriteBadgeState =
   | { kind: "hidden" }
   | { kind: "active"; box: number }
   | { kind: "cleared" };
 
-export function deriveStudyBadgeState(
+export function deriveBrainWriteBadgeState(
   card: Pick<Card, "box">,
   clearedToday: boolean,
-): StudyBadgeState {
+): BrainWriteBadgeState {
   if (card.box === null) return { kind: "hidden" };
   if (clearedToday) return { kind: "cleared" };
   return { kind: "active", box: card.box };
@@ -18,7 +18,7 @@ export function deriveStudyBadgeState(
 // The header row is a fixed 18px, so the glyph matches FeedHeaderGlyphs' own size.
 const BADGE_GLYPH_PX = 13;
 
-export function StudyBadge({ state }: { state: StudyBadgeState }) {
+export function BrainWriteBadge({ state }: { state: BrainWriteBadgeState }) {
   if (state.kind === "hidden") return null;
   if (state.kind === "cleared") {
     return (

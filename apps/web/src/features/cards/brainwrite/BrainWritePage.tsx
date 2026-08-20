@@ -22,8 +22,8 @@ import {
   FAILED_REAPPEAR_OFFSET,
   type QueueEntry,
 } from "../queue";
-import { StudyCardView, type StudyCardViewHandle } from "./StudyCardView";
-import { buildStudyQueue } from "./study-deck";
+import { BrainWriteCardView, type BrainWriteCardViewHandle } from "./BrainWriteCardView";
+import { buildBrainWriteQueue } from "./brainwrite-deck";
 
 const NO_REPEAT_WINDOW = 20;
 const RENDER_RADIUS = 2;
@@ -32,7 +32,7 @@ const PASS_EXTEND_THRESHOLD = 2;
 const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 const SCROLL_TABINDEX = 0;
 
-function StudyNotice({
+function BrainWriteNotice({
   title,
   body,
   cta,
@@ -52,7 +52,7 @@ function StudyNotice({
   );
 }
 
-export function StudyPage() {
+export function BrainWritePage() {
   const navigate = useNavigate();
   const cards = useStore((s) => s.cards);
   const cardPrefs = useStore((s) => s.cardPrefs);
@@ -78,7 +78,7 @@ export function StudyPage() {
   const [isControlOpen, setIsControlOpen] = useState(false);
 
   const scrollRef = useRef<HTMLElement>(null);
-  const activeCardRef = useRef<StudyCardViewHandle>(null);
+  const activeCardRef = useRef<BrainWriteCardViewHandle>(null);
   const currentIndexRef = useRef(0);
   const passCountRef = useRef(0);
   const initializedRef = useRef(false);
@@ -120,7 +120,7 @@ export function StudyPage() {
     (prefix: QueueEntry[]) => {
       const reinsert = pendingReinsertRef.current;
       pendingReinsertRef.current = null;
-      const tail = buildStudyQueue(cards, cardPrefs, today, {
+      const tail = buildBrainWriteQueue(cards, cardPrefs, today, {
         seed: computePassSeed(baseSeed, passCountRef.current),
         exclude: prefix.slice(-NO_REPEAT_WINDOW).map((entry) => entry.cardId),
         reinsert,
@@ -145,7 +145,7 @@ export function StudyPage() {
       passCountRef.current = 1;
       reappearCountRef.current.clear();
       setQueueEntries(
-        buildStudyQueue(cards, cardPrefs, today, { seed: computePassSeed(baseSeed, 0) }),
+        buildBrainWriteQueue(cards, cardPrefs, today, { seed: computePassSeed(baseSeed, 0) }),
       );
       return;
     }
@@ -207,7 +207,7 @@ export function StudyPage() {
   };
 
   // ArrowUp/Down need no handler — the focused snap scroller pages on them natively.
-  const handleStudyKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+  const handleBrainWriteKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (isCardSheetMounted()) return;
     if (event.key === "Enter") activeCardRef.current?.flip();
     else if (event.key === "1") activeCardRef.current?.commitKeyboardGrade(true);
@@ -218,7 +218,7 @@ export function StudyPage() {
     const card = poolById.get(entry.cardId);
     if (!card) return null;
     return (
-      <StudyCardView
+      <BrainWriteCardView
         ref={index === currentIndex ? activeCardRef : undefined}
         card={card}
         today={today}
@@ -236,16 +236,16 @@ export function StudyPage() {
   if (pool.length === 0) {
     if (cards.length === 0) {
       return (
-        <StudyNotice
-          title="Nothing to study yet"
-          body="Add a card and put it into review to start a study session."
+        <BrainWriteNotice
+          title="Nothing to review yet"
+          body="Add a card and put it into review to start a BrainWrite session."
           cta={{ label: "Add a card", onPress: () => navigate("/cards/new") }}
         />
       );
     }
     return (
-      <StudyNotice
-        title="Nothing to study right now"
+      <BrainWriteNotice
+        title="Nothing to review right now"
         body="Your cards are all still here — what you've asked the feed to show is narrowing this deck to nothing."
         cta={{ label: "Open the scroll", onPress: () => navigate("/scroll") }}
       />
@@ -258,11 +258,11 @@ export function StudyPage() {
           arrows would page the deck behind an open sheet. */}
       <section
         ref={scrollRef}
-        data-study-scroll
+        data-brainwrite-scroll
         data-feed-scroll
-        aria-label="Study deck"
+        aria-label="BrainWrite deck"
         tabIndex={SCROLL_TABINDEX}
-        onKeyDown={handleStudyKeyDown}
+        onKeyDown={handleBrainWriteKeyDown}
         className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain outline-none sm:pb-2"
       >
         {queueEntries.map((entry, index) => (
@@ -272,7 +272,7 @@ export function StudyPage() {
         ))}
       </section>
 
-      <span data-study-announcer className="sr-only" role="status" aria-live="polite">
+      <span data-brainwrite-announcer className="sr-only" role="status" aria-live="polite">
         {announcement}
       </span>
 

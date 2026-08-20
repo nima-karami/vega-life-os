@@ -2,8 +2,8 @@ import type { Card, CardPrefs } from "@vega/shared";
 import { buildFeedPool } from "../feed-pool";
 import { buildFeedQueue, isRecapId, type QueueEntry } from "../queue";
 
-/** The feed's own deck, minus the trailing recap entry — study is a card and nothing else. */
-export function buildStudyQueue(
+/** The feed's own deck, minus the trailing recap entry — BrainWrite is a card and nothing else. */
+export function buildBrainWriteQueue(
   cards: Card[],
   prefs: CardPrefs,
   today: string,

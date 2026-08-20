@@ -5,7 +5,7 @@ import {
   EDGE_DEAD_ZONE_PX,
   MAX_DRAG_ROTATE_DEG,
   resolveDragOutcome,
-} from "../study-gestures";
+} from "../brainwrite-gestures";
 
 const CARD_WIDTH = 400;
 

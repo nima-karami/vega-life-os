@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeBounceHint } from "../StudyBounceHint";
+import { describeBounceHint } from "../BrainWriteBounceHint";
 
 describe("describeBounceHint", () => {
   it("explains a card that isn't in spaced repetition", () => {
