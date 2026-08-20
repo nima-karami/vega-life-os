@@ -55,20 +55,23 @@ function EdgeGlow({
   opacity: MotionValue<number>;
   isGradeable: boolean;
 }) {
+  const scale = useTransform(opacity, [0, 1], [0.7, 1]);
   return (
     <motion.div
       aria-hidden
-      style={{ opacity }}
+      style={{ opacity, scale }}
       className={cx(
         "pointer-events-none absolute inset-y-0 z-20 flex items-center",
         GLOW_EDGE[side],
       )}
     >
-      <Icon
-        name={isGradeable ? GLOW_GLYPH[side] : "minus-circle"}
-        size={GLOW_ICON_PX}
-        className={isGradeable ? GLOW_TONE[side] : "text-ink/30"}
-      />
+      <span className="rounded-full border border-border bg-surface p-3 shadow-md">
+        <Icon
+          name={isGradeable ? GLOW_GLYPH[side] : "minus-circle"}
+          size={GLOW_ICON_PX}
+          className={isGradeable ? GLOW_TONE[side] : "text-ink/30"}
+        />
+      </span>
     </motion.div>
   );
 }
@@ -103,6 +106,7 @@ export const StudyCardView = forwardRef<StudyCardViewHandle, StudyCardViewProps>
 
     const stageRef = useRef<HTMLDivElement>(null);
     const voidedDragRef = useRef(false);
+    const draggedRef = useRef(false);
     const timersRef = useRef<number[]>([]);
     const { handlers } = useLongPress(onOpenSheet);
     const narrow = useCompact();
@@ -193,8 +197,16 @@ export const StudyCardView = forwardRef<StudyCardViewHandle, StudyCardViewProps>
 
     const handleDragStart = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
       const pointerX = info.point.x;
+      draggedRef.current = true;
       voidedDragRef.current =
         pointerX <= EDGE_DEAD_ZONE_PX || pointerX >= window.innerWidth - EDGE_DEAD_ZONE_PX;
+    };
+
+    // framer only fires onDragStart once its own movement threshold is crossed, so this
+    // flag separates a swipe from a tap — without it a released drag also flips the card.
+    const handleClick = () => {
+      if (draggedRef.current) return;
+      toggleFlip();
     };
 
     const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -243,10 +255,15 @@ export const StudyCardView = forwardRef<StudyCardViewHandle, StudyCardViewProps>
           style={{ touchAction: "pan-y", x, rotate }}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={shouldReduceMotion ? 0 : 0.6}
+          // 1, not FeedCardView's 0.6: the card tracks the finger exactly, so the rotation
+          // and the edge glow reach their full value precisely at the commit threshold.
+          dragElastic={shouldReduceMotion ? 0 : 1}
+          onPointerDownCapture={() => {
+            draggedRef.current = false;
+          }}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
-          onClick={toggleFlip}
+          onClick={handleClick}
         >
           <CardFlip
             surfaceClass="bg-background"
@@ -255,9 +272,12 @@ export const StudyCardView = forwardRef<StudyCardViewHandle, StudyCardViewProps>
             front={<CardFace spec={face} {...faceProps} />}
             back={reveal === null ? null : <CardFace spec={reveal} {...faceProps} />}
           />
-          <EdgeGlow side="right" opacity={rightGlowOpacity} isGradeable={isGradeable} />
-          <EdgeGlow side="left" opacity={leftGlowOpacity} isGradeable={isGradeable} />
         </motion.div>
+
+        {/* Outside the dragged stage: the feedback marks the screen edge the card is
+            heading for, so they must not travel with the card. */}
+        <EdgeGlow side="right" opacity={rightGlowOpacity} isGradeable={isGradeable} />
+        <EdgeGlow side="left" opacity={leftGlowOpacity} isGradeable={isGradeable} />
 
         {gradeChipLabel !== null && <StudyGradeChip label={gradeChipLabel} />}
         {bounceHint !== null && <StudyBounceHint text={bounceHint} />}
