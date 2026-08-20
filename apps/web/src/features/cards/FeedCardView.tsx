@@ -1,7 +1,7 @@
 import { type Card, feedStep, hasReveal } from "@vega/shared";
 import { motion, type PanInfo, useReducedMotion } from "framer-motion";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { cx, useCompact } from "@/core/ui";
+import { cx, useCompact, useNavClearance } from "@/core/ui";
 import { FeedActionRail } from "./FeedActionRail";
 import { FeedFirstRunHint } from "./FeedFirstRunHint";
 import { FeedHeaderControl } from "./FeedHeaderControl";
@@ -10,7 +10,11 @@ import { FeedRecallStep } from "./FeedRecallStep";
 import { CardFace } from "./face/CardFace";
 import { CardFlip } from "./face/CardFlip";
 import { composeFace } from "./face/compose";
-import { resolveFullBleedPadding } from "./face/face-metrics";
+import {
+  FULL_BLEED_SIDE_PX,
+  HEADER_TOP_INSET_PX,
+  resolveFullBleedPadding,
+} from "./face/face-metrics";
 import { RecallVeil } from "./face/RecallVeil";
 import type { FeedHeaderGlyph } from "./feed-pool";
 import type { FeedStepName } from "./feed-steps";
@@ -59,13 +63,19 @@ export function FeedCardView({
   const voidedDragRef = useRef(false);
   const { handlers } = useLongPress(onOpenSheet);
   const narrow = useCompact();
+  const navClearancePx = useNavClearance();
   const [cardWidthPx, setCardWidthPx] = useState(0);
-  const padding = resolveFullBleedPadding(narrow);
+  const [cardHeightPx, setCardHeightPx] = useState(0);
+  const chromePadding = resolveFullBleedPadding(narrow, navClearancePx, false);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (stage === null) return;
-    const measure = () => setCardWidthPx(stage.getBoundingClientRect().width);
+    const measure = () => {
+      const rect = stage.getBoundingClientRect();
+      setCardWidthPx(rect.width);
+      setCardHeightPx(rect.height);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(stage);
@@ -125,6 +135,8 @@ export function FeedCardView({
               fullBleed
               narrow={narrow}
               columnWidthPx={narrow ? cardWidthPx : undefined}
+              stageHeightPx={narrow ? cardHeightPx : undefined}
+              navClearancePx={narrow ? navClearancePx : undefined}
               headerLeading={headerGlyphs}
             />
           }
@@ -136,6 +148,8 @@ export function FeedCardView({
                 fullBleed
                 narrow={narrow}
                 columnWidthPx={narrow ? cardWidthPx : undefined}
+                stageHeightPx={narrow ? cardHeightPx : undefined}
+                navClearancePx={narrow ? navClearancePx : undefined}
                 headerLeading={headerGlyphs}
               />
             )
@@ -148,6 +162,7 @@ export function FeedCardView({
                   typeLabel={face.typeLabel}
                   category={face.category}
                   narrow={narrow}
+                  navClearancePx={navClearancePx}
                   today={today}
                   onGrade={onGrade}
                 />
@@ -160,10 +175,10 @@ export function FeedCardView({
       <div
         className="pointer-events-none absolute inset-0 z-10 flex flex-col"
         style={{
-          paddingTop: padding.top,
-          paddingBottom: padding.bottom,
-          paddingLeft: padding.left,
-          paddingRight: padding.right,
+          paddingTop: HEADER_TOP_INSET_PX,
+          paddingBottom: chromePadding.bottom,
+          paddingLeft: FULL_BLEED_SIDE_PX,
+          paddingRight: FULL_BLEED_SIDE_PX,
         }}
       >
         <FeedHeaderControl
@@ -185,6 +200,8 @@ export function FeedCardView({
       >
         <FeedActionRail
           card={card}
+          narrow={narrow}
+          navClearancePx={navClearancePx}
           onToggleLike={onToggleLike}
           onToggleLearning={onToggleLearning}
           onOpenSheet={onOpenSheet}
