@@ -6,6 +6,14 @@ import {
   POPOVER_ROW_LABEL_CLASS,
 } from "./manager/cell-styles";
 
+// Notion highlights the whole row, so the background lives here and both children stay
+// transparent — otherwise the label and the ⋯ trigger light up as two separate boxes.
+const ROW_CLASS = cx(
+  "group flex items-center gap-1 rounded-[var(--radius-floating-row)] pe-[9px]",
+  "hover:bg-surface-secondary has-[:focus-visible]:bg-surface-secondary",
+  "data-[managing=true]:bg-surface-secondary data-[selected=true]:bg-surface-secondary",
+);
+
 // The row class already sets text-foreground, so the danger colour has to sit on the children.
 const DELETE_ROW_CLASS = cx(
   POPOVER_ROW_CLASS,
@@ -78,15 +86,12 @@ export function CategoryRow({
   const [isManaging, setIsManaging] = useState(false);
 
   return (
-    <div className="group flex items-center gap-1">
+    <div data-managing={isManaging} data-selected={isSelected} className={ROW_CLASS}>
       <button
         type="button"
         onClick={() => onSelect(category)}
         aria-pressed={isSelected}
-        className={cx(
-          POPOVER_ROW_CLASS,
-          "min-w-0 flex-1 text-left hover:bg-surface-secondary aria-pressed:bg-surface-secondary",
-        )}
+        className={cx(POPOVER_ROW_CLASS, "min-w-0 flex-1 text-left")}
       >
         <span className={POPOVER_ROW_LABEL_CLASS}>{category}</span>
       </button>
@@ -94,10 +99,11 @@ export function CategoryRow({
       <Popover
         open={isManaging}
         onOpenChange={setIsManaging}
-        align="end"
+        side="right"
+        align="start"
         triggerLabel={`Manage "${category}"`}
         triggerClassName={cx(
-          "grid h-6 w-6 shrink-0 place-items-center rounded-[8px] text-muted opacity-60 outline-none hover:bg-surface-secondary hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100",
+          "grid h-6 w-6 shrink-0 place-items-center rounded-[8px] text-muted opacity-60 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-accent sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100",
           isManaging && "opacity-100 sm:opacity-100",
         )}
         triggerContent={<Icon name="dots" size={14} />}

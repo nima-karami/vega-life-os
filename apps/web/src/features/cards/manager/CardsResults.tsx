@@ -1,5 +1,5 @@
 import type { Card } from "@vega/shared";
-import { Button, EmptyState, toggleColumnSort } from "@/core/ui";
+import { Button, EmptyState, toggleColumnSort, useCompact } from "@/core/ui";
 import type { CardSort, CardSortColumn } from "../manager-query";
 import type { CardSelection } from "../useCardSelection";
 import { CardsGallery } from "./CardsGallery";
@@ -38,6 +38,7 @@ export function CardsResults({
   onClearFilters,
 }: CardsResultsProps) {
   const { widths, resize, commit } = useColumnWidths();
+  const isCompact = useCompact();
   if (!isReady) return <CardsTableSkeleton />;
 
   if (isDeckEmpty) {
@@ -67,34 +68,34 @@ export function CardsResults({
   if (view === "gallery")
     return <CardsGallery rows={rows} selectedIds={selection.selectedIds} actions={actions} />;
 
+  // Only the matching layout is mounted: a CSS-hidden twin would double the row count and
+  // every one of its offscreen popover triggers warns at mount (react-aria visibility check).
+  if (isCompact)
+    return (
+      <CardsMobileList
+        rows={rows}
+        categories={categories}
+        selectedIds={selection.selectedIds}
+        actions={actions}
+        onLongPressSelect={selection.select}
+      />
+    );
+
   return (
-    <>
-      <div className="hidden sm:block">
-        <CardsTable
-          rows={rows}
-          categories={categories}
-          selectedIds={selection.selectedIds}
-          isAllVisibleSelected={selection.isAllVisibleSelected}
-          sort={sort}
-          widths={widths}
-          onResize={resize}
-          onResizeCommit={commit}
-          onSort={(column: CardSortColumn) =>
-            onSortChange((current) => toggleColumnSort(current, column, ["addedAt"]))
-          }
-          onToggleVisible={selection.toggleVisible}
-          actions={actions}
-        />
-      </div>
-      <div className="sm:hidden">
-        <CardsMobileList
-          rows={rows}
-          categories={categories}
-          selectedIds={selection.selectedIds}
-          actions={actions}
-          onLongPressSelect={selection.select}
-        />
-      </div>
-    </>
+    <CardsTable
+      rows={rows}
+      categories={categories}
+      selectedIds={selection.selectedIds}
+      isAllVisibleSelected={selection.isAllVisibleSelected}
+      sort={sort}
+      widths={widths}
+      onResize={resize}
+      onResizeCommit={commit}
+      onSort={(column: CardSortColumn) =>
+        onSortChange((current) => toggleColumnSort(current, column, ["addedAt"]))
+      }
+      onToggleVisible={selection.toggleVisible}
+      actions={actions}
+    />
   );
 }
