@@ -36,6 +36,8 @@ const HEADER_MIN_CLEARANCE_PX = HEADER_TOP_INSET_PX + HEADER_ROW_HEIGHT_PX + HEA
 
 export const RAIL_GEOMETRY = { buttonSize: 44, rightInset: 16 } as const;
 export const RAIL_SAFE_MARGIN = 12;
+// Content only needs to clear the buttons, not sit as far off them as the rail's own inset.
+export const RAIL_CLEARANCE_MARGIN_PX = 6;
 export const RAIL_BUTTON_COUNT = 3;
 export const RAIL_STACK_GAP_PX = 2;
 export const TERM_FIT_FLOOR_PX = 28;
@@ -80,7 +82,8 @@ export function resolveFullBleedPadding(
 ): FacePadding {
   if (!narrow) return WIDE_FULL_BLEED_PADDING;
   const vertical = resolveVerticalInset(navClearancePx);
-  const railClearance = RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN;
+  const railClearance =
+    RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_CLEARANCE_MARGIN_PX;
   const sides = needsRailClearance ? railClearance : FULL_BLEED_SIDE_PX;
   return { top: vertical, bottom: vertical, left: sides, right: sides };
 }

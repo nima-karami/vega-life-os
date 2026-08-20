@@ -10,8 +10,8 @@ import {
   intersectsRailBand,
   NAV_CLEARANCE_FALLBACK_PX,
   planFace,
+  RAIL_CLEARANCE_MARGIN_PX,
   RAIL_GEOMETRY,
-  RAIL_SAFE_MARGIN,
   resolveFullBleedPadding,
   resolveVerticalInset,
   TERM_FIT_FLOOR_PX,
@@ -73,14 +73,15 @@ describe("resolveFullBleedPadding — the rail's safe zone", () => {
   it("reserves the rail's whole width plus its margin when clearance is requested", () => {
     expect(resolveFullBleedPadding(true, NAV_CLEARANCE_FALLBACK_PX, true)).toEqual({
       top: 92,
-      left: 72,
-      right: 72,
+      left: 66,
+      right: 66,
       bottom: 92,
     });
   });
 
   it("derives the clearance side padding from the rail's own geometry", () => {
-    const railClearance = RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN;
+    const railClearance =
+      RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_CLEARANCE_MARGIN_PX;
     const padding = resolveFullBleedPadding(true, NAV_CLEARANCE_FALLBACK_PX, true);
     expect(padding.right).toBe(railClearance);
     expect(padding.left).toBe(railClearance);
@@ -249,7 +250,7 @@ describe("planFace — the narrow feed face", () => {
         undefined,
         fullBleedContext,
       ).padding,
-    ).toEqual({ top: 92, left: 72, right: 72, bottom: 92 });
+    ).toEqual({ top: 92, left: 66, right: 66, bottom: 92 });
   });
 
   it("leaves the card (non-full-bleed) padding symmetric even when narrow, ignoring rail context", () => {
