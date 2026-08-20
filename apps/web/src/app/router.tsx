@@ -6,6 +6,7 @@ import { CardsPage } from "@/features/cards/manager/CardsPage";
 import { CardPage } from "@/features/cards/page/CardPage";
 import { CardPreviewPage } from "@/features/cards/page/CardPreviewPage";
 import { ScrollPage } from "@/features/cards/ScrollPage";
+import { StudyPage } from "@/features/cards/study/StudyPage";
 import { FinanceCategoriesPage } from "@/features/finance/FinanceCategoriesPage";
 import { FinanceCategoryPage } from "@/features/finance/FinanceCategoryPage";
 import { FinanceDashboardPage } from "@/features/finance/FinanceDashboardPage";
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
           { path: "journal/:date", element: <JournalPage /> },
           { path: "entries", element: <EntriesPage /> },
           { path: "scroll", element: <ScrollPage /> },
+          { path: "study", element: <StudyPage /> },
           { path: "cards", element: <CardsPage /> },
           { path: "cards/new", element: <CardPage /> },
           { path: "cards/:cardId", element: <CardPage /> },
