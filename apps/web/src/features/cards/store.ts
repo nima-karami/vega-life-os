@@ -56,7 +56,7 @@ const NO_SCHEDULE = { box: null, nextDue: null, lastReviewed: null } as const;
 // A correct grade pushes nextDue past today, so this is true once — a duplicate same-day
 // fire is blocked. A wrong grade leaves nextDue at today, so the card stays gradeable and
 // can still be cleared this session (the whole point of forced reinsertion).
-function hasClearedToday(card: Card, today: string): boolean {
+export function hasClearedToday(card: Card, today: string): boolean {
   return card.lastReviewed === today && card.nextDue !== null && card.nextDue > today;
 }
 

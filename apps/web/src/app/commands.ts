@@ -97,6 +97,14 @@ export const NAV_COMMANDS: NavCommand[] = [
     keywords: "scroll feed cards mind flashcards",
   },
   {
+    id: "nav-study",
+    label: "Flashcards",
+    sublabel: "Study · spaced repetition",
+    icon: "brain",
+    to: "/study",
+    keywords: "study flashcards spaced repetition leitner grade swipe review learn",
+  },
+  {
     id: "nav-scroll-manage",
     label: "Cards",
     sublabel: "Mind scroll · deck",
