@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { composeFace } from "../face/compose";
 import {
+  computeButtonStackHeight,
+  computeRailBandHeight,
+  computeRailBottomInset,
   type FaceTextPlan,
+  type FullBleedContext,
   fitTermFontSize,
+  intersectsRailBand,
+  NAV_CLEARANCE_FALLBACK_PX,
   planFace,
   RAIL_GEOMETRY,
   RAIL_SAFE_MARGIN,
   resolveFullBleedPadding,
+  resolveVerticalInset,
   TERM_FIT_FLOOR_PX,
 } from "../face/face-metrics";
 import { buildCard } from "./fixtures";
@@ -20,9 +27,22 @@ const buildTerm = (title: string) =>
 const textItems = (items: ReturnType<typeof planFace>["items"]): FaceTextPlan[] =>
   items.filter((item): item is FaceTextPlan => item.kind !== "rule");
 
-const termOf = (title: string, scale: number, narrow: boolean, columnWidthPx?: number) =>
+const termOf = (
+  title: string,
+  scale: number,
+  narrow: boolean,
+  columnWidthPx?: number,
+  fullBleedContext?: FullBleedContext,
+) =>
   textItems(
-    planFace(composeFace(buildTerm(title), "face"), scale, true, narrow, columnWidthPx).items,
+    planFace(
+      composeFace(buildTerm(title), "face"),
+      scale,
+      true,
+      narrow,
+      columnWidthPx,
+      fullBleedContext,
+    ).items,
   )[0];
 
 const narrowColumnPx = (stagePx: number): number => {
@@ -30,28 +50,109 @@ const narrowColumnPx = (stagePx: number): number => {
   return stagePx - padding.left - padding.right;
 };
 
+const railClearColumnPx = (stagePx: number): number => {
+  const padding = resolveFullBleedPadding(true, NAV_CLEARANCE_FALLBACK_PX, true);
+  return stagePx - padding.left - padding.right;
+};
+
 describe("resolveFullBleedPadding — the rail's safe zone", () => {
-  it("keeps the wide face symmetric at 30 a side", () => {
+  it("keeps the wide face symmetric at 30 a side, ignoring nav clearance and rail state", () => {
     expect(resolveFullBleedPadding(false)).toEqual({ top: 64, left: 30, right: 30, bottom: 78 });
+    expect(resolveFullBleedPadding(false, 92, true)).toEqual({
+      top: 64,
+      left: 30,
+      right: 30,
+      bottom: 78,
+    });
   });
 
-  it("reserves the rail's whole width plus its margin on a narrow face", () => {
-    expect(resolveFullBleedPadding(true)).toEqual({ top: 64, left: 72, right: 72, bottom: 78 });
+  it("defaults a narrow face to base 30px sides when no rail clearance is requested", () => {
+    expect(resolveFullBleedPadding(true)).toEqual({ top: 92, left: 30, right: 30, bottom: 92 });
   });
 
-  it("derives both narrow side paddings from the rail's own geometry", () => {
+  it("reserves the rail's whole width plus its margin when clearance is requested", () => {
+    expect(resolveFullBleedPadding(true, NAV_CLEARANCE_FALLBACK_PX, true)).toEqual({
+      top: 92,
+      left: 72,
+      right: 72,
+      bottom: 92,
+    });
+  });
+
+  it("derives the clearance side padding from the rail's own geometry", () => {
     const railClearance = RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_SAFE_MARGIN;
-    expect(resolveFullBleedPadding(true).right).toBe(railClearance);
-    expect(resolveFullBleedPadding(true).left).toBe(railClearance);
+    const padding = resolveFullBleedPadding(true, NAV_CLEARANCE_FALLBACK_PX, true);
+    expect(padding.right).toBe(railClearance);
+    expect(padding.left).toBe(railClearance);
   });
 
-  it("widens both side edges equally — top and bottom are untouched", () => {
+  it("keeps narrow's vertical inset symmetric, unlike wide's asymmetric top/bottom", () => {
     const wide = resolveFullBleedPadding(false);
     const narrow = resolveFullBleedPadding(true);
-    expect(narrow.top).toBe(wide.top);
-    expect(narrow.bottom).toBe(wide.bottom);
-    expect(narrow.left).toBe(narrow.right);
-    expect(narrow.left).toBeGreaterThan(wide.left);
+    expect(wide.top).not.toBe(wide.bottom);
+    expect(narrow.top).toBe(narrow.bottom);
+  });
+
+  it("grows the narrow vertical inset with a larger measured nav clearance", () => {
+    const reference = resolveFullBleedPadding(true, NAV_CLEARANCE_FALLBACK_PX);
+    const notched = resolveFullBleedPadding(true, 92);
+    expect(notched.top).toBeGreaterThan(reference.top);
+    expect(notched.top).toBe(104);
+  });
+});
+
+describe("computeButtonStackHeight / computeRailBandHeight / computeRailBottomInset", () => {
+  it("sums the 3 rail buttons and their inter-button gaps", () => {
+    expect(computeButtonStackHeight()).toBe(136);
+  });
+
+  it("adds the button stack and its safe margin above the measured nav clearance", () => {
+    expect(computeRailBandHeight(NAV_CLEARANCE_FALLBACK_PX)).toBe(206);
+  });
+
+  it("adds only the safe margin above the measured nav clearance for the rail's own inset", () => {
+    expect(computeRailBottomInset(NAV_CLEARANCE_FALLBACK_PX)).toBe(70);
+  });
+
+  it("is self-consistent: bottom inset + button stack === band height", () => {
+    expect(computeRailBottomInset(NAV_CLEARANCE_FALLBACK_PX) + computeButtonStackHeight()).toBe(
+      computeRailBandHeight(NAV_CLEARANCE_FALLBACK_PX),
+    );
+  });
+});
+
+describe("intersectsRailBand", () => {
+  const stageHeightPx = 844;
+  const threshold = stageHeightPx - 2 * computeRailBandHeight(NAV_CLEARANCE_FALLBACK_PX);
+
+  it("computes the reference threshold at 432px", () => {
+    expect(threshold).toBe(432);
+  });
+
+  it("does not intersect at exactly the threshold", () => {
+    expect(intersectsRailBand(threshold, stageHeightPx, NAV_CLEARANCE_FALLBACK_PX)).toBe(false);
+  });
+
+  it("intersects one pixel past the threshold", () => {
+    expect(intersectsRailBand(threshold + 1, stageHeightPx, NAV_CLEARANCE_FALLBACK_PX)).toBe(true);
+  });
+
+  it("never intersects for a short content block", () => {
+    expect(intersectsRailBand(100, stageHeightPx, NAV_CLEARANCE_FALLBACK_PX)).toBe(false);
+  });
+
+  it("always intersects for a content block spanning the whole stage", () => {
+    expect(intersectsRailBand(stageHeightPx, stageHeightPx, NAV_CLEARANCE_FALLBACK_PX)).toBe(true);
+  });
+});
+
+describe("resolveVerticalInset", () => {
+  it("floors at the header's minimum clearance on the reference viewport", () => {
+    expect(resolveVerticalInset(NAV_CLEARANCE_FALLBACK_PX)).toBe(92);
+  });
+
+  it("grows past the header floor once the nav clearance demands more", () => {
+    expect(resolveVerticalInset(92)).toBe(104);
   });
 });
 
@@ -125,22 +226,47 @@ describe("fitTermFontSize — shrink before wrapping", () => {
 });
 
 describe("planFace — the narrow feed face", () => {
-  it("pads the narrow full-bleed face clear of the rail", () => {
+  it("defaults the narrow full-bleed face to base padding when no rail-clearance context is given", () => {
     expect(planFace(composeFace(buildTerm("saudade"), "face"), 1, true, true).padding).toEqual({
-      top: 64,
-      left: 72,
-      right: 72,
-      bottom: 78,
+      top: 92,
+      left: 30,
+      right: 30,
+      bottom: 92,
     });
   });
 
-  it("leaves the card (non-full-bleed) padding symmetric even when narrow", () => {
-    expect(planFace(composeFace(buildTerm("saudade"), "face"), 1, false, true).padding).toEqual({
-      top: 44,
-      left: 30,
-      right: 30,
-      bottom: 44,
-    });
+  it("pads the narrow full-bleed face clear of the rail once clearance is requested", () => {
+    const fullBleedContext: FullBleedContext = {
+      navClearancePx: NAV_CLEARANCE_FALLBACK_PX,
+      needsRailClearance: true,
+    };
+    expect(
+      planFace(
+        composeFace(buildTerm("saudade"), "face"),
+        1,
+        true,
+        true,
+        undefined,
+        fullBleedContext,
+      ).padding,
+    ).toEqual({ top: 92, left: 72, right: 72, bottom: 92 });
+  });
+
+  it("leaves the card (non-full-bleed) padding symmetric even when narrow, ignoring rail context", () => {
+    const fullBleedContext: FullBleedContext = {
+      navClearancePx: NAV_CLEARANCE_FALLBACK_PX,
+      needsRailClearance: true,
+    };
+    expect(
+      planFace(
+        composeFace(buildTerm("saudade"), "face"),
+        1,
+        false,
+        true,
+        undefined,
+        fullBleedContext,
+      ).padding,
+    ).toEqual({ top: 44, left: 30, right: 30, bottom: 44 });
   });
 
   it("fits a long term to the narrow column and marks it unwrapped", () => {
@@ -175,6 +301,17 @@ describe("planFace — the narrow feed face", () => {
   it("treats an unmeasured stage as no fit at all", () => {
     expect(termOf("quintessentials", 1, true, 0).fontSize).toBe(BASE_TERM_PX);
     expect(termOf("quintessentials", 1, true).fontSize).toBe(BASE_TERM_PX);
+  });
+
+  it("shrinks a term further once rail clearance narrows its column", () => {
+    const fullBleedContext: FullBleedContext = {
+      navClearancePx: NAV_CLEARANCE_FALLBACK_PX,
+      needsRailClearance: true,
+    };
+    expect(railClearColumnPx(PHONE_STAGE_PX)).toBeLessThan(narrowColumnPx(PHONE_STAGE_PX));
+    const base = termOf("quintessentials", 1, true, PHONE_STAGE_PX);
+    const cleared = termOf("quintessentials", 1, true, PHONE_STAGE_PX, fullBleedContext);
+    expect(cleared.fontSize).toBeLessThan(base.fontSize);
   });
 
   it("leaves non-term blocks unfitted and unwrapped on a narrow face", () => {

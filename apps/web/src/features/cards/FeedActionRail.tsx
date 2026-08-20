@@ -1,7 +1,12 @@
 import { Button } from "@heroui/react";
 import { type Card, feedStep } from "@vega/shared";
 import { getIconStateStyle, Icon, type IconState } from "@/core/ui";
-import { FULL_BLEED_PADDING, RAIL_GEOMETRY } from "./face/face-metrics";
+import {
+  computeRailBottomInset,
+  RAIL_GEOMETRY,
+  RAIL_STACK_GAP_PX,
+  resolveFullBleedPadding,
+} from "./face/face-metrics";
 
 const RAIL_TARGET =
   "grid place-items-center rounded-none bg-transparent p-0 shadow-none data-[hovered=true]:bg-transparent focus-visible:ring-2 focus-visible:ring-accent";
@@ -17,11 +22,15 @@ export function deriveBrainIconState(shape: ReturnType<typeof feedStep>): IconSt
 
 export function FeedActionRail({
   card,
+  narrow,
+  navClearancePx,
   onToggleLike,
   onToggleLearning,
   onOpenSheet,
 }: {
   card: Card;
+  narrow: boolean;
+  navClearancePx: number;
   onToggleLike: () => void;
   onToggleLearning: () => void;
   onOpenSheet: () => void;
@@ -29,10 +38,13 @@ export function FeedActionRail({
   const shape = feedStep(card);
   const isLiked = card.likedAt !== null;
   const isOpenCard = shape === "open";
+  const bottom = narrow
+    ? computeRailBottomInset(navClearancePx)
+    : resolveFullBleedPadding(false).bottom;
   return (
     <div
-      className="absolute z-20 flex flex-col gap-[2px]"
-      style={{ right: RAIL_GEOMETRY.rightInset, bottom: FULL_BLEED_PADDING.bottom }}
+      className="absolute z-20 flex flex-col"
+      style={{ right: RAIL_GEOMETRY.rightInset, bottom, gap: RAIL_STACK_GAP_PX }}
     >
       <Button
         isIconOnly

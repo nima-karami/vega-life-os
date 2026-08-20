@@ -338,7 +338,7 @@ export function ScrollPage() {
         aria-label="Card feed"
         tabIndex={SCROLL_TABINDEX}
         onKeyDown={handleFeedKeyDown}
-        className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain pb-2 outline-none"
+        className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain outline-none sm:pb-2"
       >
         {queueEntries.map((entry, index) => (
           <div key={keyFor(entry)} data-index={index} className="h-full w-full shrink-0 snap-start">

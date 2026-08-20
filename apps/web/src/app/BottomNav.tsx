@@ -33,7 +33,10 @@ export function BottomNav() {
   const navigate = useNavigate();
   const openCommand = useStore((s) => s.openCommand);
   return (
-    <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden">
+    <div
+      data-bottom-nav
+      className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden"
+    >
       <nav aria-label="Primary" className="flex w-full items-center">
         {TABS.map((t) => {
           const active = t.match(pathname);

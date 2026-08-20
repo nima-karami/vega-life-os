@@ -1,7 +1,16 @@
 import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { cx } from "@/core/ui";
 import type { FaceSpec } from "./compose";
-import { type FacePlanItem, type FaceTone, planFace } from "./face-metrics";
+import {
+  type FacePlanItem,
+  type FaceTone,
+  FULL_BLEED_SIDE_PX,
+  HEADER_TOP_INSET_PX,
+  intersectsRailBand,
+  NAV_CLEARANCE_FALLBACK_PX,
+  planFace,
+} from "./face-metrics";
 
 const LEFT_DOUBLE_QUOTE = "“";
 const HAIRLINE_PX = 1;
@@ -132,6 +141,8 @@ export function CardFace({
   fullBleed = false,
   narrow = false,
   columnWidthPx,
+  stageHeightPx,
+  navClearancePx,
   headerLeading = null,
 }: {
   spec: FaceSpec;
@@ -139,31 +150,116 @@ export function CardFace({
   fullBleed?: boolean;
   narrow?: boolean;
   columnWidthPx?: number;
+  stageHeightPx?: number;
+  navClearancePx?: number;
   headerLeading?: ReactNode;
 }) {
-  const plan = planFace(spec, scale, fullBleed, narrow, columnWidthPx);
+  const isNarrowFullBleed = narrow && fullBleed;
+  const resolvedNavClearancePx = navClearancePx ?? NAV_CLEARANCE_FALLBACK_PX;
+  const [contentBlockHeightPx, setContentBlockHeightPx] = useState<number | null>(null);
+  const contentBlockRef = useRef<HTMLDivElement>(null);
+  // Pass 2 is remembered against the geometry that decided it, so a resize or orientation
+  // flip drops the stale decision and re-runs pass 1 instead of carrying it over.
+  const geometryKey = `${stageHeightPx ?? 0}:${resolvedNavClearancePx}`;
+  const [clearedGeometryKey, setClearedGeometryKey] = useState<string | null>(null);
+  const needsRailClearance = isNarrowFullBleed && clearedGeometryKey === geometryKey;
+
+  // Deliberately re-measured after every commit — the rendered block's height only exists
+  // post-layout, and a new card, a flip, a refit and a resize all change it.
+  useLayoutEffect(() => {
+    if (!isNarrowFullBleed) return;
+    const el = contentBlockRef.current;
+    if (el === null) return;
+    const measuredHeightPx = el.getBoundingClientRect().height;
+    setContentBlockHeightPx(measuredHeightPx);
+    if (needsRailClearance) return;
+    if (stageHeightPx === undefined || stageHeightPx <= 0) return;
+    if (intersectsRailBand(measuredHeightPx, stageHeightPx, resolvedNavClearancePx)) {
+      setClearedGeometryKey(geometryKey);
+    }
+  });
+
+  const plan = planFace(
+    spec,
+    scale,
+    fullBleed,
+    narrow,
+    columnWidthPx,
+    isNarrowFullBleed ? { navClearancePx: resolvedNavClearancePx, needsRailClearance } : undefined,
+  );
+
+  const header = (
+    <FaceHeaderRow
+      typeLabel={spec.typeLabel}
+      category={spec.category}
+      leading={headerLeading}
+      fontSize={plan.header.fontSize}
+      tracking={plan.header.tracking}
+      gap={plan.header.gap}
+    />
+  );
+
+  const items = plan.items.map((item) => <FaceItem key={item.key} item={item} />);
+
+  if (!isNarrowFullBleed) {
+    return (
+      <div
+        className="flex h-full w-full flex-col"
+        style={{
+          paddingTop: plan.padding.top,
+          paddingBottom: plan.padding.bottom,
+          paddingLeft: plan.padding.left,
+          paddingRight: plan.padding.right,
+        }}
+      >
+        {header}
+        <div className="flex flex-1 flex-col justify-center">{items}</div>
+      </div>
+    );
+  }
+
+  // A degenerate short viewport (e.g. landscape) could make the vertical inset alone
+  // exceed the stage — clamp each side to half the stage so the box never goes negative.
+  const verticalInsetPx =
+    stageHeightPx !== undefined && stageHeightPx > 0
+      ? Math.min(plan.padding.top, stageHeightPx / 2)
+      : plan.padding.top;
+  const availableBoxHeightPx =
+    stageHeightPx !== undefined && stageHeightPx > 0 ? stageHeightPx - 2 * verticalInsetPx : null;
+  const isOversizedContent =
+    contentBlockHeightPx !== null &&
+    availableBoxHeightPx !== null &&
+    contentBlockHeightPx > availableBoxHeightPx;
+
   return (
-    <div
-      className="flex h-full w-full flex-col"
-      style={{
-        paddingTop: plan.padding.top,
-        paddingBottom: plan.padding.bottom,
-        paddingLeft: plan.padding.left,
-        paddingRight: plan.padding.right,
-      }}
-    >
-      <FaceHeaderRow
-        typeLabel={spec.typeLabel}
-        category={spec.category}
-        leading={headerLeading}
-        fontSize={plan.header.fontSize}
-        tracking={plan.header.tracking}
-        gap={plan.header.gap}
-      />
-      <div className="flex flex-1 flex-col justify-center">
-        {plan.items.map((item) => (
-          <FaceItem key={item.key} item={item} />
-        ))}
+    <div className="relative h-full w-full">
+      <div
+        className="absolute inset-x-0 top-0"
+        style={{
+          paddingTop: HEADER_TOP_INSET_PX,
+          paddingLeft: FULL_BLEED_SIDE_PX,
+          paddingRight: FULL_BLEED_SIDE_PX,
+        }}
+      >
+        {header}
+      </div>
+      <div
+        className="flex h-full w-full flex-col"
+        style={{
+          paddingTop: verticalInsetPx,
+          paddingBottom: verticalInsetPx,
+          paddingLeft: plan.padding.left,
+          paddingRight: plan.padding.right,
+        }}
+      >
+        <div
+          className={cx(
+            "flex flex-1 flex-col",
+            isOversizedContent ? "justify-start" : "justify-center",
+          )}
+        >
+          <div ref={contentBlockRef}>{items}</div>
+        </div>
       </div>
     </div>
   );

@@ -44,6 +44,7 @@ export function FeedRecallStep({
   typeLabel,
   category,
   narrow,
+  navClearancePx,
   today,
   onGrade,
 }: {
@@ -51,12 +52,13 @@ export function FeedRecallStep({
   typeLabel: string;
   category: string;
   narrow: boolean;
+  navClearancePx: number;
   today: string;
   onGrade: (correct: boolean) => void;
 }) {
   const box = card.box ?? 1;
   const meta = buildRecallMeta(card);
-  const padding = resolveFullBleedPadding(narrow);
+  const padding = resolveFullBleedPadding(narrow, navClearancePx, false);
   return (
     <div
       className="flex h-full w-full flex-col"
