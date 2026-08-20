@@ -23,6 +23,9 @@ export function AppShell() {
   // The journal page is allowlisted: gratitude written there satisfies the gate
   // reactively (it reads s.journal), dismissing the overlay with no extra wiring.
   const onJournal = pathname.startsWith("/journal/");
+  // /scroll fills the true viewport and overlays the nav over its bottom edge —
+  // every other route keeps the nav in-flow.
+  const onScroll = pathname === "/scroll";
 
   // Hard morning gate: every other route bounces to /today's gratitude step.
   if (gated && !onToday && !onJournal) return <Navigate to="/today" replace />;
@@ -58,8 +61,13 @@ export function AppShell() {
             className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas to-canvas/0 sm:hidden"
           />
         )}
+        {!gated && onScroll && (
+          <div className="absolute inset-x-0 bottom-0 z-40 sm:hidden">
+            <BottomNav />
+          </div>
+        )}
       </div>
-      {!gated && <BottomNav />}
+      {!gated && !onScroll && <BottomNav />}
     </div>
   );
 }
