@@ -18,8 +18,10 @@ const TABS: { label: string; to: string; icon: IconName; match: (p: string) => b
   },
 ];
 
+// pointer-events-auto against the container's `none`: only real tap targets swallow a
+// touch, so the padding and inter-button gutters stop eating swipes on the full-bleed card.
 const CELL =
-  "flex h-11 flex-1 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "pointer-events-auto flex h-11 flex-1 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 // AccountMenu owns its Avatar, so the nav's 22px ring is dialled in from the trigger.
 const AVATAR_CELL = cx(
@@ -40,7 +42,7 @@ export function BottomNav() {
   return (
     <div
       data-bottom-nav
-      className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden"
+      className="pointer-events-none shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden"
     >
       <nav aria-label="Primary" className="flex w-full items-center">
         {TABS.map((t) => {

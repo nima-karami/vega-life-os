@@ -62,7 +62,7 @@ export function AppShell() {
           />
         )}
         {!gated && isFullStage && (
-          <div className="absolute inset-x-0 bottom-0 z-40 sm:hidden">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 sm:hidden">
             <BottomNav />
           </div>
         )}
