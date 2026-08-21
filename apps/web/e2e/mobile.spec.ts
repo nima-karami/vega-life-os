@@ -263,13 +263,16 @@ test("a long press starts selection while a tap still opens the card (390px)", a
 
   await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
 
+  // A synthetic PointerEvent defaults isPrimary to false, which useLongPress now filters
+  // out — a real first finger always carries it.
+  const touch = { pointerType: "touch", pointerId: 1, isPrimary: true };
   await row.dispatchEvent("pointerdown", {
-    pointerType: "touch",
+    ...touch,
     clientX: box.x + box.width / 2,
     clientY: box.y + 10,
   });
   await page.waitForTimeout(650);
-  await row.dispatchEvent("pointerup", { pointerType: "touch" });
+  await row.dispatchEvent("pointerup", touch);
 
   await expect(page.getByText("1 selected")).toBeVisible();
 });

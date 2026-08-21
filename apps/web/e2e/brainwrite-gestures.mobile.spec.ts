@@ -12,8 +12,8 @@ import {
   startTouch,
   swipe,
   swipeThenHold,
-  tap,
   type TouchFinger,
+  tap,
 } from "./helpers/touch";
 
 /**
@@ -32,6 +32,8 @@ const SEED_BOX = 2;
 /** Long enough for a grade to reach Dexie and for the 260ms fly-off + 700ms recentre. */
 const SETTLE_MS = 1_200;
 const LONG_PRESS_MS = 500;
+/** A nav destination that is neither the current route nor an overlay trigger. */
+const NAV_PROBE_LABEL = "Habits";
 
 interface DeckCardState {
   id: string;
@@ -184,6 +186,25 @@ function crossCardPath(anchors: { centre: TouchFinger; width: number }, directio
   return {
     from: { x: anchors.centre.x - (direction * travel) / 2, y: anchors.centre.y },
     to: { x: anchors.centre.x + (direction * travel) / 2, y: anchors.centre.y },
+  };
+}
+
+/**
+ * The two halves of the nav's box that D2 separates: a real 44px tap target, which still
+ * owns any touch that starts on it, and the container's own bottom padding, which stopped
+ * swallowing touches when the container went `pointer-events-none`.
+ */
+async function measureNavBands(page: Page, buttonLabel: string) {
+  const nav = page.locator("[data-bottom-nav]");
+  const navBox = await nav.boundingBox();
+  const buttonBox = await nav.getByRole("button", { name: buttonLabel, exact: true }).boundingBox();
+  if (navBox === null || buttonBox === null) throw new Error("the bottom nav has no bounding box");
+  const buttonBottomY = buttonBox.y + buttonBox.height;
+  const navBottomY = navBox.y + navBox.height;
+  return {
+    buttonCentre: { x: buttonBox.x + buttonBox.width / 2, y: buttonBox.y + buttonBox.height / 2 },
+    freedBandCentreY: (buttonBottomY + navBottomY) / 2,
+    freedBandHeight: navBottomY - buttonBottomY,
   };
 }
 
@@ -527,20 +548,42 @@ test("reduced motion still shows the commit feedback and still grades", async ({
   );
 });
 
-test("a swipe starting in the bottom-nav band grades nothing and stays put", async ({ page }) => {
+test("a swipe starting on a bottom-nav button grades nothing and stays put", async ({ page }) => {
   await openBrainWrite(page);
   const anchors = await measureCardAnchors(cardAt(page, 0));
-  const nav = await page.locator("[data-bottom-nav]").boundingBox();
-  if (nav === null) throw new Error("the bottom nav has no bounding box");
-  const from = { x: anchors.centre.x, y: nav.y + nav.height / 2 };
+  const nav = await measureNavBands(page, NAV_PROBE_LABEL);
+  const to = { x: nav.buttonCentre.x + anchors.width * 0.5, y: nav.buttonCentre.y };
 
-  await swipe(page, {
-    from,
-    to: { x: from.x + anchors.width * 0.5, y: from.y },
-    durationMs: 250,
-    steps: 10,
-  });
+  // The path would grade comfortably if it reached the card: half the card's width,
+  // dead flat, starting clear of the edge void.
+  await swipe(page, { from: nav.buttonCentre, to, durationMs: 250, steps: 10 });
 
   await expect(page).toHaveURL(/\/brainwrite$/);
-  await expectNoGrade(page, "a swipe from the nav band graded the card");
+  await expectNoGrade(page, "a swipe from a nav button graded the card");
+});
+
+test("a swipe starting in the band below the nav buttons reaches the card", async ({ page }) => {
+  await openBrainWrite(page);
+  const anchors = await measureCardAnchors(cardAt(page, 0));
+  const nav = await measureNavBands(page, NAV_PROBE_LABEL);
+  const path = crossCardPath(anchors, 1);
+  const from = { x: path.from.x, y: nav.freedBandCentreY };
+
+  expect(nav.freedBandHeight, "the nav's button row leaves no band below it").toBeGreaterThan(0);
+
+  await swipe(page, { from, to: { x: path.to.x, y: from.y }, durationMs: 250, steps: 10 });
+
+  await expect(announcerOf(page)).toContainText("Remembered", { timeout: 5_000 });
+  await expect
+    .poll(async () => (await readDeckState(page))[0], { timeout: 5_000 })
+    .toMatchObject({ box: SEED_BOX + 1, reviewCount: 1 });
+});
+
+test("a tap on a bottom-nav button still navigates", async ({ page }) => {
+  await openBrainWrite(page);
+  const nav = await measureNavBands(page, NAV_PROBE_LABEL);
+
+  await tap(page, nav.buttonCentre);
+
+  await expect(page).toHaveURL(/\/habits$/);
 });
