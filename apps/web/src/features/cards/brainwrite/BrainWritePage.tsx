@@ -16,14 +16,9 @@ import { FeedCardSheet, isCardSheetMounted } from "../FeedCardSheet";
 import { type FeedControlDraft, FeedControlPage } from "../FeedControlPage";
 import { FeedRecovery } from "../FeedNotices";
 import { buildFeedPool } from "../feed-pool";
-import {
-  computePassSeed,
-  FAILED_REAPPEAR_LIMIT,
-  FAILED_REAPPEAR_OFFSET,
-  type QueueEntry,
-} from "../queue";
+import { computePassSeed, FAILED_REAPPEAR_LIMIT, FAILED_REAPPEAR_OFFSET } from "../queue";
 import { BrainWriteCardView, type BrainWriteCardViewHandle } from "./BrainWriteCardView";
-import { buildBrainWriteQueue } from "./brainwrite-deck";
+import { buildBrainWriteQueue, type DeckEntry } from "./brainwrite-deck";
 
 const NO_REPEAT_WINDOW = 20;
 const RENDER_RADIUS = 2;
@@ -72,7 +67,7 @@ export function BrainWritePage() {
   const poolById = useMemo(() => new Map(pool.map((card) => [card.id, card])), [pool]);
 
   const [baseSeed] = useState(() => Date.now() & 0xffff);
-  const [queueEntries, setQueueEntries] = useState<QueueEntry[]>([]);
+  const [queueEntries, setQueueEntries] = useState<DeckEntry[]>([]);
   const [currentIndex, setCurrentIndexState] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const [sheetCardId, setSheetCardId] = useState<string | null>(null);
@@ -83,10 +78,15 @@ export function BrainWritePage() {
   const currentIndexRef = useRef(0);
   const passCountRef = useRef(0);
   const initializedRef = useRef(false);
-  const queueEntriesRef = useRef<QueueEntry[]>([]);
+  const queueEntriesRef = useRef<DeckEntry[]>([]);
   const announceNonceRef = useRef(0);
   const reappearCountRef = useRef(new Map<string, number>());
   const pendingReinsertRef = useRef<{ cardId: string; offset: number } | null>(null);
+  const isGestureLiveRef = useRef(false);
+  const pendingRebuildRef = useRef<{ rebuild: (() => void) | null; extend: (() => void) | null }>({
+    rebuild: null,
+    extend: null,
+  });
 
   useEffect(() => {
     queueEntriesRef.current = queueEntries;
@@ -99,15 +99,42 @@ export function BrainWritePage() {
     setAnnouncement(message + ZERO_WIDTH_SPACE.repeat(announceNonceRef.current % 2));
   }, []);
 
-  const keySeqRef = useRef(0);
-  const keyMapRef = useRef(new WeakMap<QueueEntry, string>());
-  const keyFor = (entry: QueueEntry): string => {
-    const existing = keyMapRef.current.get(entry);
-    if (existing) return existing;
-    const next = `s${keySeqRef.current++}`;
-    keyMapRef.current.set(entry, next);
-    return next;
-  };
+  // Keyed by card, pass and occurrence rather than object identity: a rebuilt tail
+  // reuses the same keys, so nothing remounts under a finger that is still down.
+  const entryKeys = useMemo(() => {
+    const seen = new Map<string, number>();
+    return queueEntries.map((entry) => {
+      const base = `${entry.cardId}#p${entry.passIndex}`;
+      const occurrence = seen.get(base) ?? 0;
+      seen.set(base, occurrence + 1);
+      return `${base}#o${occurrence}`;
+    });
+  }, [queueEntries]);
+
+  // "Live" spans the fly-off and the recentre too, not just the drag — the pass-extend
+  // rebuild fires during settling by construction.
+  const handleGestureStart = useCallback(() => {
+    isGestureLiveRef.current = true;
+  }, []);
+
+  // A rebuild subsumes an extend — both append a fresh pass — so a deferred pair collapses
+  // to the stronger one, run against the pool as it stood when the gesture ended.
+  const handleGestureEnd = useCallback(() => {
+    isGestureLiveRef.current = false;
+    const pending = pendingRebuildRef.current;
+    const run = pending.rebuild ?? pending.extend;
+    pending.rebuild = null;
+    pending.extend = null;
+    run?.();
+  }, []);
+
+  const runOrDefer = useCallback((kind: "rebuild" | "extend", run: () => void) => {
+    if (!isGestureLiveRef.current) {
+      run();
+      return;
+    }
+    pendingRebuildRef.current[kind] = run;
+  }, []);
 
   const setCurrentIndex = useCallback((index: number) => {
     if (currentIndexRef.current === index) return;
@@ -115,24 +142,37 @@ export function BrainWritePage() {
     setCurrentIndexState(index);
   }, []);
 
-  // Freeze what's been seen, rebuild only the tail — a wrong-graded card queued for
-  // forced reappearance rides along on the same rebuild.
-  const appendPass = useCallback(
-    (prefix: QueueEntry[]) => {
-      const reinsert = pendingReinsertRef.current;
-      pendingReinsertRef.current = null;
-      const tail = buildBrainWriteQueue(cards, cardPrefs, today, {
-        seed: computePassSeed(baseSeed, passCountRef.current),
-        exclude: prefix.slice(-NO_REPEAT_WINDOW).map((entry) => entry.cardId),
-        reinsert,
-      });
-      passCountRef.current += 1;
-      setQueueEntries([...prefix, ...tail]);
-    },
+  const buildPass = useCallback(
+    (
+      passIndex: number,
+      options: { exclude?: string[]; reinsert?: { cardId: string; offset: number } | null } = {},
+    ): DeckEntry[] =>
+      buildBrainWriteQueue(cards, cardPrefs, today, {
+        seed: computePassSeed(baseSeed, passIndex),
+        exclude: options.exclude,
+        reinsert: options.reinsert,
+      }).map((entry) => ({ ...entry, passIndex })),
     [cards, cardPrefs, today, baseSeed],
   );
 
-  useEffect(() => {
+  // Freeze what's been seen, rebuild only the tail — a wrong-graded card queued for
+  // forced reappearance rides along on the same rebuild.
+  const appendPass = useCallback(
+    (prefix: DeckEntry[]) => {
+      const reinsert = pendingReinsertRef.current;
+      pendingReinsertRef.current = null;
+      const passIndex = passCountRef.current;
+      passCountRef.current = passIndex + 1;
+      const tail = buildPass(passIndex, {
+        exclude: prefix.slice(-NO_REPEAT_WINDOW).map((entry) => entry.cardId),
+        reinsert,
+      });
+      setQueueEntries([...prefix, ...tail]);
+    },
+    [buildPass],
+  );
+
+  const rebuildQueue = useCallback(() => {
     if (pool.length === 0) {
       initializedRef.current = false;
       passCountRef.current = 0;
@@ -145,22 +185,28 @@ export function BrainWritePage() {
       initializedRef.current = true;
       passCountRef.current = 1;
       reappearCountRef.current.clear();
-      setQueueEntries(
-        buildBrainWriteQueue(cards, cardPrefs, today, { seed: computePassSeed(baseSeed, 0) }),
-      );
+      setQueueEntries(buildPass(0));
       return;
     }
     appendPass(prev.slice(0, Math.min(currentIndexRef.current, prev.length - 1) + 1));
-  }, [pool, cards, cardPrefs, today, baseSeed, appendPass]);
+  }, [pool, buildPass, appendPass]);
 
   // Nearing the end chains the next pass. Crossing into it resets each card's reappearance
   // count — the 3-per-pass cap applies to the pass just finished, not the whole session.
-  useEffect(() => {
+  const extendQueue = useCallback(() => {
     if (queueEntries.length === 0 || pool.length === 0) return;
     if (currentIndex < queueEntries.length - PASS_EXTEND_THRESHOLD) return;
     reappearCountRef.current.clear();
     appendPass(queueEntries);
   }, [currentIndex, queueEntries, pool, appendPass]);
+
+  useEffect(() => {
+    runOrDefer("rebuild", rebuildQueue);
+  }, [rebuildQueue, runOrDefer]);
+
+  useEffect(() => {
+    runOrDefer("extend", extendQueue);
+  }, [extendQueue, runOrDefer]);
 
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -215,18 +261,22 @@ export function BrainWritePage() {
     else if (event.key === "2") activeCardRef.current?.commitKeyboardGrade(false);
   };
 
-  const renderEntry = (entry: QueueEntry, index: number) => {
+  const renderEntry = (entry: DeckEntry, index: number) => {
     const card = poolById.get(entry.cardId);
     if (!card) return null;
+    const isActiveCard = index === currentIndex;
     return (
       <BrainWriteCardView
-        ref={index === currentIndex ? activeCardRef : undefined}
+        ref={isActiveCard ? activeCardRef : undefined}
         card={card}
         today={today}
+        isActiveCard={isActiveCard}
         onAdvance={advance}
         onOpenSheet={() => setSheetCardId(card.id)}
         onGrade={(correct) => handleGrade(card, correct)}
         onAnnounce={announce}
+        onGestureStart={handleGestureStart}
+        onGestureEnd={handleGestureEnd}
       />
     );
   };
@@ -267,7 +317,11 @@ export function BrainWritePage() {
         className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain outline-none sm:pb-2"
       >
         {queueEntries.map((entry, index) => (
-          <div key={keyFor(entry)} data-index={index} className="h-full w-full shrink-0 snap-start">
+          <div
+            key={entryKeys[index]}
+            data-index={index}
+            className="h-full w-full shrink-0 snap-start"
+          >
             {Math.abs(index - currentIndex) <= RENDER_RADIUS ? renderEntry(entry, index) : null}
           </div>
         ))}

@@ -2,6 +2,9 @@ import type { Card, CardPrefs } from "@vega/shared";
 import { buildFeedPool } from "../feed-pool";
 import { buildFeedQueue, isRecapId, type QueueEntry } from "../queue";
 
+/** A queue entry stamped with the pass that built it, so a React key survives a tail rebuild. */
+export type DeckEntry = QueueEntry & { passIndex: number };
+
 /** The feed's own deck, minus the trailing recap entry — BrainWrite is a card and nothing else. */
 export function buildBrainWriteQueue(
   cards: Card[],
