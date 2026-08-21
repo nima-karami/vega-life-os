@@ -16,11 +16,18 @@ import { FeedCardSheet, isCardSheetMounted } from "../FeedCardSheet";
 import { type FeedControlDraft, FeedControlPage } from "../FeedControlPage";
 import { FeedRecovery } from "../FeedNotices";
 import { buildFeedPool } from "../feed-pool";
-import { computePassSeed, FAILED_REAPPEAR_LIMIT, FAILED_REAPPEAR_OFFSET } from "../queue";
 import { BrainWriteCardView, type BrainWriteCardViewHandle } from "./BrainWriteCardView";
-import { buildBrainWriteQueue, type DeckEntry } from "./brainwrite-deck";
+import {
+  type DeckEntry,
+  type DeckPlan,
+  type DeckSource,
+  EMPTY_DECK,
+  extendDeck,
+  planDeck,
+  prunePlannedEntries,
+  relocateFailedCard,
+} from "./brainwrite-deck";
 
-const NO_REPEAT_WINDOW = 20;
 const RENDER_RADIUS = 2;
 // The deck has no trailing recap to chain off, so nearing the end is the extend trigger.
 const PASS_EXTEND_THRESHOLD = 2;
@@ -67,30 +74,25 @@ export function BrainWritePage() {
   const poolById = useMemo(() => new Map(pool.map((card) => [card.id, card])), [pool]);
 
   const [baseSeed] = useState(() => Date.now() & 0xffff);
-  const [queueEntries, setQueueEntries] = useState<DeckEntry[]>([]);
+  const [deck, setDeck] = useState<DeckPlan>(EMPTY_DECK);
   const [currentIndex, setCurrentIndexState] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const [sheetCardId, setSheetCardId] = useState<string | null>(null);
   const [isControlOpen, setIsControlOpen] = useState(false);
 
+  const queueEntries = deck.entries;
   const scrollRef = useRef<HTMLElement>(null);
   const activeCardRef = useRef<BrainWriteCardViewHandle>(null);
   const currentIndexRef = useRef(0);
-  const passCountRef = useRef(0);
-  const initializedRef = useRef(false);
-  const queueEntriesRef = useRef<DeckEntry[]>([]);
   const announceNonceRef = useRef(0);
-  const reappearCountRef = useRef(new Map<string, number>());
-  const pendingReinsertRef = useRef<{ cardId: string; offset: number } | null>(null);
   const isGestureLiveRef = useRef(false);
-  const pendingRebuildRef = useRef<{ rebuild: (() => void) | null; extend: (() => void) | null }>({
-    rebuild: null,
-    extend: null,
-  });
+  const isExtendPendingRef = useRef(false);
+  const deckSourceRef = useRef<DeckSource>({ cards, prefs: cardPrefs, today, baseSeed });
+  const plannedKeyRef = useRef("");
 
   useEffect(() => {
-    queueEntriesRef.current = queueEntries;
-  }, [queueEntries]);
+    deckSourceRef.current = { cards, prefs: cardPrefs, today, baseSeed };
+  });
 
   // A trailing zero-width space that flips each call so screen readers re-announce
   // an identical consecutive message (two bounces in a row).
@@ -99,8 +101,8 @@ export function BrainWritePage() {
     setAnnouncement(message + ZERO_WIDTH_SPACE.repeat(announceNonceRef.current % 2));
   }, []);
 
-  // Keyed by card, pass and occurrence rather than object identity: a rebuilt tail
-  // reuses the same keys, so nothing remounts under a finger that is still down.
+  // Keyed by card, pass and occurrence rather than object identity, so appending a pass or
+  // relocating a failed card remounts nothing under a finger that is still down.
   const entryKeys = useMemo(() => {
     const seen = new Map<string, number>();
     return queueEntries.map((entry) => {
@@ -111,102 +113,63 @@ export function BrainWritePage() {
     });
   }, [queueEntries]);
 
-  // "Live" spans the fly-off and the recentre too, not just the drag — the pass-extend
-  // rebuild fires during settling by construction.
-  const handleGestureStart = useCallback(() => {
-    isGestureLiveRef.current = true;
-  }, []);
-
-  // A rebuild subsumes an extend — both append a fresh pass — so a deferred pair collapses
-  // to the stronger one, run against the pool as it stood when the gesture ended.
-  const handleGestureEnd = useCallback(() => {
-    isGestureLiveRef.current = false;
-    const pending = pendingRebuildRef.current;
-    const run = pending.rebuild ?? pending.extend;
-    pending.rebuild = null;
-    pending.extend = null;
-    run?.();
-  }, []);
-
-  const runOrDefer = useCallback((kind: "rebuild" | "extend", run: () => void) => {
-    if (!isGestureLiveRef.current) {
-      run();
-      return;
-    }
-    pendingRebuildRef.current[kind] = run;
-  }, []);
-
   const setCurrentIndex = useCallback((index: number) => {
     if (currentIndexRef.current === index) return;
     currentIndexRef.current = index;
     setCurrentIndexState(index);
   }, []);
 
-  const buildPass = useCallback(
-    (
-      passIndex: number,
-      options: { exclude?: string[]; reinsert?: { cardId: string; offset: number } | null } = {},
-    ): DeckEntry[] =>
-      buildBrainWriteQueue(cards, cardPrefs, today, {
-        seed: computePassSeed(baseSeed, passIndex),
-        exclude: options.exclude,
-        reinsert: options.reinsert,
-      }).map((entry) => ({ ...entry, passIndex })),
-    [cards, cardPrefs, today, baseSeed],
-  );
+  // Nearing the end chains the next pass. Nothing already planned is touched, so a grade
+  // never reaches back into the sequence the user is walking through.
+  const extendIfShort = useCallback(() => {
+    setDeck((plan) => {
+      if (plan.entries.length === 0) return plan;
+      if (currentIndexRef.current < plan.entries.length - PASS_EXTEND_THRESHOLD) return plan;
+      return extendDeck(plan, deckSourceRef.current);
+    });
+  }, []);
 
-  // Freeze what's been seen, rebuild only the tail — a wrong-graded card queued for
-  // forced reappearance rides along on the same rebuild.
-  const appendPass = useCallback(
-    (prefix: DeckEntry[]) => {
-      const reinsert = pendingReinsertRef.current;
-      pendingReinsertRef.current = null;
-      const passIndex = passCountRef.current;
-      passCountRef.current = passIndex + 1;
-      const tail = buildPass(passIndex, {
-        exclude: prefix.slice(-NO_REPEAT_WINDOW).map((entry) => entry.cardId),
-        reinsert,
-      });
-      setQueueEntries([...prefix, ...tail]);
-    },
-    [buildPass],
-  );
+  const handleGestureStart = useCallback(() => {
+    isGestureLiveRef.current = true;
+  }, []);
 
-  const rebuildQueue = useCallback(() => {
-    if (pool.length === 0) {
-      initializedRef.current = false;
-      passCountRef.current = 0;
-      reappearCountRef.current.clear();
-      setQueueEntries([]);
-      return;
-    }
-    const prev = queueEntriesRef.current;
-    if (!initializedRef.current || prev.length === 0) {
-      initializedRef.current = true;
-      passCountRef.current = 1;
-      reappearCountRef.current.clear();
-      setQueueEntries(buildPass(0));
-      return;
-    }
-    appendPass(prev.slice(0, Math.min(currentIndexRef.current, prev.length - 1) + 1));
-  }, [pool, buildPass, appendPass]);
+  // Chaining a pass grows the scroller, so it waits for the finger to leave.
+  const handleGestureEnd = useCallback(() => {
+    isGestureLiveRef.current = false;
+    if (!isExtendPendingRef.current) return;
+    isExtendPendingRef.current = false;
+    extendIfShort();
+  }, [extendIfShort]);
 
-  // Nearing the end chains the next pass. Crossing into it resets each card's reappearance
-  // count — the 3-per-pass cap applies to the pass just finished, not the whole session.
-  const extendQueue = useCallback(() => {
-    if (queueEntries.length === 0 || pool.length === 0) return;
+  // The pool's *shape*, not the cards array: re-planning belongs to a prefs change or a day
+  // rollover. A grade or a background refetch must leave the planned session alone.
+  const planKey = `${today}|${cardPrefs.mode}|${cardPrefs.types.join()}|${cardPrefs.categories.join()}`;
+
+  // The pool arrives a tick after mount on a cold load, so an empty deck over a live pool is
+  // the other thing that means "nothing has been planned yet".
+  useEffect(() => {
+    const isKeyStale = plannedKeyRef.current !== planKey;
+    if (!isKeyStale && (deck.entries.length > 0 || pool.length === 0)) return;
+    plannedKeyRef.current = planKey;
+    setCurrentIndex(0);
+    if (isKeyStale) scrollRef.current?.scrollTo({ top: 0 });
+    setDeck(planDeck(deckSourceRef.current));
+  });
+
+  useEffect(() => {
+    const liveIds = new Set(pool.map((card) => card.id));
+    setDeck((plan) => prunePlannedEntries(plan, liveIds, currentIndexRef.current));
+  }, [pool]);
+
+  useEffect(() => {
+    if (queueEntries.length === 0) return;
     if (currentIndex < queueEntries.length - PASS_EXTEND_THRESHOLD) return;
-    reappearCountRef.current.clear();
-    appendPass(queueEntries);
-  }, [currentIndex, queueEntries, pool, appendPass]);
-
-  useEffect(() => {
-    runOrDefer("rebuild", rebuildQueue);
-  }, [rebuildQueue, runOrDefer]);
-
-  useEffect(() => {
-    runOrDefer("extend", extendQueue);
-  }, [extendQueue, runOrDefer]);
+    if (isGestureLiveRef.current) {
+      isExtendPendingRef.current = true;
+      return;
+    }
+    extendIfShort();
+  }, [currentIndex, queueEntries.length, extendIfShort]);
 
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -244,13 +207,11 @@ export function BrainWritePage() {
     advance();
   };
 
+  // Runs on release, before the advance scroll — so the index is still the graded card's.
   const handleGrade = (card: Card, correct: boolean) => {
     gradeCard(card.id, correct);
     if (correct) return;
-    const reappearCount = reappearCountRef.current.get(card.id) ?? 0;
-    if (reappearCount >= FAILED_REAPPEAR_LIMIT) return;
-    reappearCountRef.current.set(card.id, reappearCount + 1);
-    pendingReinsertRef.current = { cardId: card.id, offset: FAILED_REAPPEAR_OFFSET };
+    setDeck((plan) => relocateFailedCard(plan, card.id, currentIndexRef.current));
   };
 
   // ArrowUp/Down need no handler — the focused snap scroller pages on them natively.

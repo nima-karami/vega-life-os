@@ -211,35 +211,54 @@ describe("selectReviewSet", () => {
   });
 });
 
-describe("SRS due-injection lane", () => {
-  it("fills 2 of every 3 slots with due cards while the review set has any left, then falls back to rest alone", () => {
-    const pool = [
-      ...range(40).map((i) => dueCard(`due${i}`)),
-      ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
-    ];
-    const dueIds = new Set(range(40).map((i) => `due${i}`));
-    const ids = contentIds(buildFeedQueue(pool, { seed: 7, today: TODAY }));
+const backlogPool = (): Card[] => [
+  ...range(40).map((i) => dueCard(`due${i}`)),
+  ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
+];
 
-    // REVIEW_SET_LIMIT=20 due cards fill 2-of-3 slots across the first 30 positions
-    // (20 due + 10 rest), then the due lane is spent and every slot falls back to rest.
+describe("SRS due-injection lane", () => {
+  it("fills 2 of every 3 slots from the review set while it has any left", () => {
+    const reviewIds = new Set(selectReviewSet(backlogPool(), TODAY).map((c) => c.id));
+    const ids = contentIds(buildFeedQueue(backlogPool(), { seed: 7, today: TODAY }));
+
+    // The 20-card review set fills the non-rest slots across the first 30 positions
+    // (20 review + 10 rest), then the lane is spent and every slot falls back to rest.
     for (let i = 0; i < 30; i++) {
-      expect(dueIds.has(ids[i]), `position ${i}`).toBe(i % 3 !== 2);
+      expect(reviewIds.has(ids[i]), `position ${i}`).toBe(i % 3 !== 2);
     }
     for (let i = 30; i < ids.length; i++) {
-      expect(dueIds.has(ids[i]), `position ${i} once the review set is exhausted`).toBe(false);
+      expect(reviewIds.has(ids[i]), `position ${i} once the review set is exhausted`).toBe(false);
     }
   });
 
-  it("caps the due lane at REVIEW_SET_LIMIT — the other due cards never enter this pass", () => {
-    const pool = [
-      ...range(40).map((i) => dueCard(`due${i}`)),
-      ...range(20).map((i) => feedCard(`r${i}`, restCategories[i % restCategories.length])),
-    ];
+  it("paces the due backlog behind REVIEW_SET_LIMIT without stranding it", () => {
+    const pool = backlogPool();
     const ids = contentIds(buildFeedQueue(pool, { seed: 7, today: TODAY }));
-    const dueShown = new Set(ids.filter((id) => id.startsWith("due")));
-    expect(dueShown.size).toBe(REVIEW_SET_LIMIT);
-    // 20 due (the cap) + all 20 rest cards — the other 20 due cards are entirely absent.
-    expect(ids.length).toBe(40);
+    expect(selectReviewSet(pool, TODAY).length).toBe(REVIEW_SET_LIMIT);
+    // Every card in the pool is placed — a due card ranked past the review set rides the
+    // rest lane rather than falling out of the pass entirely.
+    expect(new Set(ids)).toEqual(new Set(pool.map((c) => c.id)));
+    expect(ids.length).toBe(pool.length);
+  });
+
+  it("keeps a due card out of the exclude window instead of shifting it in blind", () => {
+    const pool = backlogPool();
+    const excluded = selectReviewSet(pool, TODAY)
+      .slice(0, 5)
+      .map((c) => c.id);
+    const ids = contentIds(buildFeedQueue(pool, { seed: 7, today: TODAY, exclude: excluded }));
+    const window = ids.slice(0, 20);
+    for (const id of excluded)
+      expect(window, `${id} inside the no-repeat window`).not.toContain(id);
+    expect(new Set(ids)).toEqual(new Set(pool.map((c) => c.id)));
+  });
+
+  it("gives the window up rather than dead-ending when every due card is excluded", () => {
+    const pool = range(3).map((i) => dueCard(`due${i}`));
+    const ids = contentIds(
+      buildFeedQueue(pool, { seed: 1, today: TODAY, exclude: pool.map((c) => c.id) }),
+    );
+    expect(new Set(ids)).toEqual(new Set(pool.map((c) => c.id)));
   });
 
   it("falls back to shuffle when nothing is due", () => {
@@ -255,41 +274,6 @@ describe("SRS due-injection lane", () => {
     const after = buildFeedQueue(pool, { seed: 2, today: TODAY });
     expect(new Set(contentIds(before))).toEqual(new Set(contentIds(after)));
     expect(before).not.toEqual(after);
-  });
-});
-
-describe("buildFeedQueue reinsert", () => {
-  it("splices the named card back in at the given offset, ahead of normal shaping", () => {
-    const pool = [
-      ...range(10).map((i) => feedCard(`v${i}`, "vocabulary")),
-      feedCard("target", "vocabulary"),
-    ];
-    const ids = contentIds(
-      buildFeedQueue(pool, { seed: 3, today: TODAY, reinsert: { cardId: "target", offset: 5 } }),
-    );
-    expect(ids.length).toBe(pool.length);
-    expect(ids.indexOf("target")).toBe(5);
-  });
-
-  it("clamps the offset to the end of the pass instead of overrunning it", () => {
-    const pool = [
-      ...range(3).map((i) => feedCard(`v${i}`, "vocabulary")),
-      feedCard("target", "vocabulary"),
-    ];
-    const ids = contentIds(
-      buildFeedQueue(pool, { seed: 3, today: TODAY, reinsert: { cardId: "target", offset: 99 } }),
-    );
-    expect(ids.indexOf("target")).toBe(pool.length - 1);
-  });
-
-  it("is a no-op when the named card is absent from the pool", () => {
-    const pool = range(10).map((i) => feedCard(`v${i}`, "vocabulary"));
-    const withReinsert = buildFeedQueue(pool, {
-      seed: 3,
-      today: TODAY,
-      reinsert: { cardId: "missing", offset: 5 },
-    });
-    expect(withReinsert).toEqual(buildFeedQueue(pool, { seed: 3, today: TODAY }));
   });
 });
 

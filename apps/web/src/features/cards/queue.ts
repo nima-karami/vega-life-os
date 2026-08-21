@@ -7,10 +7,9 @@ export type QueueOptions = {
   seed: number;
   today: string;
   exclude?: string[];
-  reinsert?: { cardId: string; offset: number } | null;
 };
 
-const NO_REPEAT_WINDOW = 20;
+export const NO_REPEAT_WINDOW = 20;
 const CATEGORY_SHARE_CAP = 0.3;
 const REST_EVERY = 3;
 const LIKED_BOOST = 1.5;
@@ -76,6 +75,7 @@ type PassContext = {
   categoryCap: number;
   excludeSet: Set<string>;
   excludeWindow: number;
+  dueIds: Set<string>;
 };
 
 type Relaxation = "none" | "exclude" | "interleave" | "cap";
@@ -84,7 +84,14 @@ type Relaxation = "none" | "exclude" | "interleave" | "cap";
 // means leaving its tail for the next pass, not printing it anyway.
 const RELAXATIONS: readonly Relaxation[] = ["none", "exclude", "interleave"];
 
+const isExcludedAt = (card: Card, position: number, ctx: PassContext): boolean =>
+  position < ctx.excludeWindow && ctx.excludeSet.has(card.id);
+
 function isPlaceable(card: Card, position: number, relaxed: Relaxation, ctx: PassContext): boolean {
+  if (relaxed === "none" && isExcludedAt(card, position, ctx)) return false;
+  // A due card is a review obligation, not feed shaping — neither guard below may be the
+  // reason one goes unseen for a whole pass.
+  if (ctx.dueIds.has(card.id)) return true;
   const key = matchKey(card.category);
   if (relaxed !== "cap" && (ctx.placedPerCategory.get(key) ?? 0) >= ctx.categoryCap) return false;
   if (
@@ -92,9 +99,6 @@ function isPlaceable(card: Card, position: number, relaxed: Relaxation, ctx: Pas
     relaxed !== "interleave" &&
     violatesInterleave(ctx.placed, card, ctx.categoryCount)
   ) {
-    return false;
-  }
-  if (relaxed === "none" && position < ctx.excludeWindow && ctx.excludeSet.has(card.id)) {
     return false;
   }
   return true;
@@ -148,9 +152,15 @@ function sampleRest(
   return chosen;
 }
 
-// Rest lands only on every `restEvery`-th slot; due cards take the other slots while any
-// remain, falling back to rest once the due lane is drained. Due cards bypass the shaping
-// guards below (share cap, interleave) — they're not subject to those constraints.
+function takeDue(pools: PassPools, position: number, ctx: PassContext): Card | null {
+  const index = pools.dueQueue.findIndex((card) => !isExcludedAt(card, position, ctx));
+  return index === -1 ? null : pools.dueQueue.splice(index, 1)[0];
+}
+
+// Rest lands only on every `restEvery`-th slot; the review set takes the other slots while any
+// remain, falling back to rest once it is drained. Both lanes honour the exclude window; the
+// share cap and the interleave guard shape the rest lane only. The trailing `shift` is the
+// last resort that keeps a pool smaller than its own window from dead-ending.
 function chooseNextCard(
   pools: PassPools,
   position: number,
@@ -159,19 +169,21 @@ function chooseNextCard(
   weightOf: (card: Card) => number,
   rng: () => number,
 ): Card | null {
+  const takeRest = () => sampleRest(pools, position, ctx, weightOf, rng);
   const isRestSlot = (position + 1) % restEvery === 0;
-  if (isRestSlot)
-    return sampleRest(pools, position, ctx, weightOf, rng) ?? pools.dueQueue.shift() ?? null;
-  return pools.dueQueue.shift() ?? sampleRest(pools, position, ctx, weightOf, rng) ?? null;
+  const chosen = isRestSlot
+    ? (takeRest() ?? takeDue(pools, position, ctx))
+    : (takeDue(pools, position, ctx) ?? takeRest());
+  return chosen ?? pools.dueQueue.shift() ?? null;
 }
 
 export function buildFeedQueue(pool: Card[], options: QueueOptions): QueueEntry[] {
-  const { seed, exclude = [], reinsert = null } = options;
+  const { seed, exclude = [] } = options;
   const rng = createSeededRng(seed);
-  const withheldId =
-    reinsert && pool.some((card) => card.id === reinsert.cardId) ? reinsert.cardId : null;
   const groups = groupByCategory(pool);
   const counts = new Map([...groups].map(([key, cards]) => [key, cards.length]));
+  const reviewSet = selectReviewSet(pool, options.today);
+  const reviewIds = new Set(reviewSet.map((card) => card.id));
   const ctx: PassContext = {
     placed: [],
     placedPerCategory: new Map(),
@@ -180,14 +192,17 @@ export function buildFeedQueue(pool: Card[], options: QueueOptions): QueueEntry[
       groups.size >= 4 ? Math.ceil(CATEGORY_SHARE_CAP * pool.length) : Number.POSITIVE_INFINITY,
     excludeSet: new Set(exclude),
     excludeWindow: Math.min(NO_REPEAT_WINDOW, Math.max(1, pool.length - 1)),
+    dueIds: new Set(
+      pool.filter((card) => isDueLearning(card, options.today)).map((card) => card.id),
+    ),
   };
   const weightOf = (card: Card): number =>
     (card.likedAt !== null ? LIKED_BOOST : 1) / (counts.get(matchKey(card.category)) ?? 1);
   const pools: PassPools = {
-    dueQueue: selectReviewSet(pool, options.today).filter((card) => card.id !== withheldId),
-    restRemaining: pool.filter(
-      (card) => !isDueLearning(card, options.today) && card.id !== withheldId,
-    ),
+    // The review-set limit paces the due lane; it must not strand the backlog behind it, so
+    // a due card ranked past the limit stays eligible in the rest lane.
+    dueQueue: reviewSet,
+    restRemaining: pool.filter((card) => !reviewIds.has(card.id)),
   };
 
   while (pools.dueQueue.length > 0 || pools.restRemaining.length > 0) {
@@ -197,9 +212,6 @@ export function buildFeedQueue(pool: Card[], options: QueueOptions): QueueEntry[
   }
 
   const entries: QueueEntry[] = ctx.placed.map((card) => ({ cardId: card.id }));
-  if (withheldId !== null && reinsert) {
-    entries.splice(Math.min(reinsert.offset, entries.length), 0, { cardId: withheldId });
-  }
   entries.push({ cardId: `${RECAP_PREFIX}${seed}` });
   return entries;
 }
