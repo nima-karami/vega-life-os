@@ -1,26 +1,37 @@
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useRef } from "react";
+import {
+  hasEscapedPressTolerance,
+  isPressablePointer,
+  LONG_PRESS_MS,
+  type PressPoint,
+} from "./long-press";
 
-const LONG_PRESS_MS = 500;
-const MOVE_TOLERANCE_PX = 10;
-
-/** A held touch selects the row; the tap that follows is swallowed so it can't also open the card. */
+/** A held touch selects the row; the tap that follows is swallowed so it can't also open the card.
+ *  Tracks a single primary pointer, so a second finger can neither re-arm the hold nor end it. */
 export function useLongPress(onLongPress: () => void) {
   const timerRef = useRef<number | null>(null);
-  const originRef = useRef<{ x: number; y: number } | null>(null);
+  const originRef = useRef<PressPoint | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
 
-  const cancel = useCallback(() => {
+  const disarm = useCallback(() => {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     timerRef.current = null;
     originRef.current = null;
   }, []);
 
+  const cancel = useCallback(() => {
+    disarm();
+    pointerIdRef.current = null;
+  }, [disarm]);
+
   useEffect(() => cancel, [cancel]);
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
-      if (event.pointerType === "mouse") return;
+      if (!isPressablePointer(event) || pointerIdRef.current !== null) return;
+      pointerIdRef.current = event.pointerId;
       originRef.current = { x: event.clientX, y: event.clientY };
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
@@ -34,10 +45,17 @@ export function useLongPress(onLongPress: () => void) {
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       const origin = originRef.current;
-      if (origin === null || timerRef.current === null) return;
-      if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) >= MOVE_TOLERANCE_PX) {
-        cancel();
-      }
+      if (event.pointerId !== pointerIdRef.current || origin === null) return;
+      if (timerRef.current === null) return;
+      if (hasEscapedPressTolerance(origin, { x: event.clientX, y: event.clientY })) disarm();
+    },
+    [disarm],
+  );
+
+  const onPointerRelease = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.pointerId !== pointerIdRef.current) return;
+      cancel();
     },
     [cancel],
   );
@@ -53,9 +71,10 @@ export function useLongPress(onLongPress: () => void) {
     handlers: {
       onPointerDown,
       onPointerMove,
-      onPointerUp: cancel,
-      onPointerCancel: cancel,
+      onPointerUp: onPointerRelease,
+      onPointerCancel: onPointerRelease,
       onClickCapture,
     },
+    cancel,
   };
 }

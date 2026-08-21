@@ -1,3 +1,6 @@
+/** Says what to do next rather than narrating the failure — the swipe itself was fine. */
+export const EDGE_VOID_HINT = "Start the swipe further in";
+
 export function describeBounceHint(isLearnable: boolean, clearedToday: boolean): string | null {
   if (!isLearnable) return "Not in spaced repetition";
   if (clearedToday) return "Reviewed today";

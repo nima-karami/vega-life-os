@@ -10,6 +10,8 @@ import {
 } from "framer-motion";
 import {
   forwardRef,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -24,14 +26,17 @@ import { composeFace } from "../face/compose";
 import { hasClearedToday } from "../store";
 import { useLongPress } from "../useLongPress";
 import { BrainWriteBadge, deriveBrainWriteBadgeState } from "./BrainWriteBadge";
-import { BrainWriteBounceHint, describeBounceHint } from "./BrainWriteBounceHint";
+import { BrainWriteBounceHint, describeBounceHint, EDGE_VOID_HINT } from "./BrainWriteBounceHint";
 import { BrainWriteGradeChip, formatGradeChip } from "./BrainWriteGradeChip";
 import {
+  canDragInPhase,
   computeDragRotationDeg,
   computeEdgeGlowOpacity,
-  EDGE_DEAD_ZONE_PX,
+  computeFeedbackOffset,
+  type DragResolution,
   resolveDragOutcome,
 } from "./brainwrite-gestures";
+import { useGesturePhase } from "./useGesturePhase";
 
 const FLY_OFF_MS = 260;
 const FLY_OFF_MARGIN_PX = 120;
@@ -45,6 +50,13 @@ const GLOW_ICON_PX = 26;
 const GLOW_GLYPH = { right: "check", left: "repeat" } as const;
 const GLOW_TONE = { right: "text-accent", left: "text-muted" } as const;
 const GLOW_EDGE = { right: "right-5", left: "left-5" } as const;
+
+interface PointerSample {
+  clientX: number;
+  clientY: number;
+  viewportWidthPx: number;
+  isGradeable: boolean;
+}
 
 function EdgeGlow({
   side,
@@ -84,14 +96,30 @@ export interface BrainWriteCardViewHandle {
 export interface BrainWriteCardViewProps {
   card: Card;
   today: string;
+  isActiveCard: boolean;
   onAdvance: () => void;
   onOpenSheet: () => void;
   onGrade: (correct: boolean) => void;
   onAnnounce: (message: string) => void;
+  onGestureStart: () => void;
+  onGestureEnd: () => void;
 }
 
 export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWriteCardViewProps>(
-  function BrainWriteCardView({ card, today, onAdvance, onOpenSheet, onGrade, onAnnounce }, ref) {
+  function BrainWriteCardView(
+    {
+      card,
+      today,
+      isActiveCard,
+      onAdvance,
+      onOpenSheet,
+      onGrade,
+      onAnnounce,
+      onGestureStart,
+      onGestureEnd,
+    },
+    ref,
+  ) {
     const shouldReduceMotion = useReducedMotion();
     const face = useMemo(() => composeFace(card, "face"), [card]);
     const reveal = useMemo(() => (hasReveal(card) ? composeFace(card, "reveal") : null), [card]);
@@ -105,25 +133,44 @@ export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWrit
     const [bounceHint, setBounceHint] = useState<string | null>(null);
 
     const stageRef = useRef<HTMLDivElement>(null);
-    const voidedDragRef = useRef(false);
+    const pointerSampleRef = useRef<PointerSample | null>(null);
     const draggedRef = useRef(false);
     const timersRef = useRef<number[]>([]);
-    const { handlers } = useLongPress(onOpenSheet);
     const narrow = useCompact();
     const navClearancePx = useNavClearance();
     const [cardWidthPx, setCardWidthPx] = useState(0);
     const [cardHeightPx, setCardHeightPx] = useState(0);
 
     const x = useMotionValue(0);
-    const rotate = useTransform(x, (latest) =>
+    // Feedback rides the raw pointer offset, not `x`: under reduced motion `dragElastic: 0`
+    // pins `x` at 0, which would leave the commit point with no signal at all.
+    const feedbackX = useMotionValue(0);
+    const rotate = useTransform(feedbackX, (latest) =>
       shouldReduceMotion ? 0 : computeDragRotationDeg(latest, cardWidthPx),
     );
-    const rightGlowOpacity = useTransform(x, (latest) =>
+    const rightGlowOpacity = useTransform(feedbackX, (latest) =>
       latest > 0 ? computeEdgeGlowOpacity(latest, cardWidthPx) : 0,
     );
-    const leftGlowOpacity = useTransform(x, (latest) =>
+    const leftGlowOpacity = useTransform(feedbackX, (latest) =>
       latest < 0 ? computeEdgeGlowOpacity(latest, cardWidthPx) : 0,
     );
+
+    const clearTimers = useCallback(() => {
+      for (const timer of timersRef.current) window.clearTimeout(timer);
+      timersRef.current = [];
+    }, []);
+
+    const handleAbort = useCallback(() => {
+      clearTimers();
+      x.set(0);
+      feedbackX.set(0);
+    }, [clearTimers, x, feedbackX]);
+
+    const gesture = useGesturePhase({ onGestureStart, onGestureEnd, onAbort: handleAbort });
+    const { cancel: cancelLongPress, handlers } = useLongPress(() => {
+      gesture.abort();
+      onOpenSheet();
+    });
 
     useLayoutEffect(() => {
       const stage = stageRef.current;
@@ -139,30 +186,38 @@ export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWrit
       return () => observer.disconnect();
     }, []);
 
-    useEffect(() => {
-      const timers = timersRef.current;
-      return () => {
-        for (const timer of timers) window.clearTimeout(timer);
-      };
-    }, []);
+    useEffect(() => clearTimers, [clearTimers]);
 
     function later(run: () => void, delayMs: number) {
       timersRef.current.push(window.setTimeout(run, delayMs));
     }
 
     function toggleFlip() {
-      if (!canFlip) return;
+      if (!canFlip || gesture.phaseRef.current !== "idle") return;
       const next = !isFlipped;
       setIsFlipped(next);
       onAnnounce(next ? "Revealed" : "Hidden again");
     }
 
-    function bounce() {
-      const hint = describeBounceHint(card.box !== null, clearedToday);
+    function bounce(reason: "edge-void" | "not-gradeable") {
+      const hint =
+        reason === "edge-void"
+          ? EDGE_VOID_HINT
+          : describeBounceHint(card.box !== null, clearedToday);
       if (hint === null) return;
       setBounceHint(hint);
       later(() => setBounceHint(null), BOUNCE_HINT_MS);
       onAnnounce(hint);
+    }
+
+    function settle() {
+      gesture.advance("fly-off-end");
+      onAdvance();
+      later(() => {
+        x.set(0);
+        feedbackX.set(0);
+        gesture.advance("recentre-end");
+      }, RECENTRE_DELAY_MS);
     }
 
     function commit(correct: boolean) {
@@ -174,32 +229,68 @@ export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWrit
       onAnnounce(`${correct ? "Remembered" : "Not remembered"} — ${label}`);
       onGrade(correct);
       if (shouldReduceMotion) {
-        onAdvance();
+        settle();
         return;
       }
       const target = (correct ? 1 : -1) * (cardWidthPx + FLY_OFF_MARGIN_PX);
-      void animate(x, target, { duration: FLY_OFF_MS / 1000, ease: "easeIn" }).then(() => {
-        onAdvance();
-        later(() => x.set(0), RECENTRE_DELAY_MS);
-      });
+      void animate(x, target, { duration: FLY_OFF_MS / 1000, ease: "easeIn" }).then(settle);
+    }
+
+    function applyResolution(resolution: DragResolution) {
+      if (resolution.kind === "grade") {
+        gesture.advance("release-grade");
+        commit(resolution.correct);
+        return;
+      }
+      if (resolution.kind === "bounce") {
+        gesture.advance("release-idle");
+        bounce(resolution.reason);
+        feedbackX.set(0);
+        return;
+      }
+      gesture.advance(resolution.reason === "cancelled" ? "abort" : "release-idle");
+      feedbackX.set(0);
     }
 
     useImperativeHandle(ref, () => ({
       flip: toggleFlip,
       commitKeyboardGrade: (correct: boolean) => {
+        if (gesture.phaseRef.current !== "idle") return;
         if (!isGradeable) {
-          bounce();
+          bounce("not-gradeable");
           return;
         }
+        // The keyboard grade enters the same lifecycle, so the exit window locks it out too.
+        gesture.advance("drag-start");
+        gesture.advance("release-grade");
         commit(correct);
       },
     }));
 
-    const handleDragStart = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      const pointerX = info.point.x;
+    const handlePointerDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!event.isPrimary) return;
+      draggedRef.current = false;
+      gesture.allowDrag();
+      pointerSampleRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        viewportWidthPx: window.visualViewport?.width ?? window.innerWidth,
+        isGradeable,
+      };
+    };
+
+    // framer keeps a pan session alive across a `drag` prop flip, so it still calls this after
+    // an abort has taken the drag away — the guard is what stops a grade landing behind the sheet.
+    const handleDragStart = () => {
       draggedRef.current = true;
-      voidedDragRef.current =
-        pointerX <= EDGE_DEAD_ZONE_PX || pointerX >= window.innerWidth - EDGE_DEAD_ZONE_PX;
+      cancelLongPress();
+      if (!isActiveCard || gesture.isDragSuppressedRef.current) return;
+      gesture.advance("drag-start");
+    };
+
+    const handleDrag = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      if (gesture.phaseRef.current !== "dragging") return;
+      feedbackX.set(computeFeedbackOffset(info.offset.x, info.offset.y));
     };
 
     // framer only fires onDragStart once its own movement threshold is crossed, so this
@@ -209,22 +300,26 @@ export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWrit
       toggleFlip();
     };
 
-    const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-      const outcome = resolveDragOutcome({
-        offsetX: info.offset.x,
-        velocityX: info.velocity.x,
-        cardWidthPx,
-        isVoidedByEdgeZone: voidedDragRef.current,
-        isGradeable,
-      });
-      voidedDragRef.current = false;
-      if (outcome === "none") return;
-      if (outcome === "bounce") {
-        bounce();
-        return;
-      }
-      commit(outcome === "grade-right");
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      const sample = pointerSampleRef.current;
+      applyResolution(
+        resolveDragOutcome({
+          offsetX: info.offset.x,
+          offsetY: info.offset.y,
+          velocityX: info.velocity.x,
+          velocityY: info.velocity.y,
+          cardWidthPx,
+          pointerStartClientX: sample?.clientX ?? 0,
+          pointerStartClientY: sample?.clientY ?? 0,
+          viewportWidthPx: sample?.viewportWidthPx ?? 0,
+          isGradeable: sample?.isGradeable ?? false,
+          phase: gesture.phaseRef.current,
+          isCancelled: event.type === "pointercancel" || sample === null,
+        }),
+      );
     };
+
+    const isDragEnabled = canDragInPhase(gesture.phase, isActiveCard) && !gesture.isDragSuppressed;
 
     const faceProps = {
       scale: 1,
@@ -251,17 +346,20 @@ export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWrit
         <motion.div
           ref={stageRef}
           data-brainwrite-flip={isFlipped ? "reveal" : "face"}
+          data-brainwrite-drag={isDragEnabled ? "x" : "off"}
+          data-brainwrite-phase={gesture.phase}
           className={cx("relative h-full w-full overflow-hidden", canFlip && "cursor-pointer")}
           style={{ touchAction: "pan-y", x, rotate }}
-          drag="x"
+          drag={isDragEnabled ? "x" : false}
+          dragDirectionLock
+          dragMomentum={false}
           dragConstraints={{ left: 0, right: 0 }}
           // 1, not FeedCardView's 0.6: the card tracks the finger exactly, so the rotation
           // and the edge glow reach their full value precisely at the commit threshold.
           dragElastic={shouldReduceMotion ? 0 : 1}
-          onPointerDownCapture={() => {
-            draggedRef.current = false;
-          }}
+          onPointerDownCapture={handlePointerDownCapture}
           onDragStart={handleDragStart}
+          onDrag={handleDrag}
           onDragEnd={handleDragEnd}
           onClick={handleClick}
         >
