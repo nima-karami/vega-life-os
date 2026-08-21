@@ -34,12 +34,7 @@ const HEADER_ROW_HEIGHT_PX = 18;
 const HEADER_CONTENT_GAP_PX = FACE_HEADER.gap;
 const HEADER_MIN_CLEARANCE_PX = HEADER_TOP_INSET_PX + HEADER_ROW_HEIGHT_PX + HEADER_CONTENT_GAP_PX;
 
-export const RAIL_GEOMETRY = { buttonSize: 44, rightInset: 16 } as const;
-export const RAIL_SAFE_MARGIN = 12;
-// Content only needs to clear the buttons, not sit as far off them as the rail's own inset.
-export const RAIL_CLEARANCE_MARGIN_PX = 6;
-export const RAIL_BUTTON_COUNT = 3;
-export const RAIL_STACK_GAP_PX = 2;
+const NAV_SAFE_MARGIN_PX = 12;
 export const TERM_FIT_FLOOR_PX = 28;
 
 export const NAV_CLEARANCE_FALLBACK_PX = 58;
@@ -49,43 +44,23 @@ export const NAV_CLEARANCE_FALLBACK_PX = 58;
 const TERM_AVG_GLYPH_WIDTH_RATIO = 0.52;
 
 export type FacePadding = { top: number; left: number; right: number; bottom: number };
-export type FullBleedContext = { navClearancePx: number; needsRailClearance: boolean };
-
-export function computeButtonStackHeight(): number {
-  return RAIL_BUTTON_COUNT * RAIL_GEOMETRY.buttonSize + (RAIL_BUTTON_COUNT - 1) * RAIL_STACK_GAP_PX;
-}
-
-export function computeRailBandHeight(navClearancePx: number): number {
-  return navClearancePx + computeButtonStackHeight() + RAIL_SAFE_MARGIN;
-}
-
-export function computeRailBottomInset(navClearancePx: number): number {
-  return navClearancePx + RAIL_SAFE_MARGIN;
-}
-
-export function intersectsRailBand(
-  contentBlockHeightPx: number,
-  stageHeightPx: number,
-  navClearancePx: number,
-): boolean {
-  return contentBlockHeightPx > stageHeightPx - 2 * computeRailBandHeight(navClearancePx);
-}
 
 export function resolveVerticalInset(navClearancePx: number): number {
-  return Math.max(HEADER_MIN_CLEARANCE_PX, navClearancePx + RAIL_SAFE_MARGIN);
+  return Math.max(HEADER_MIN_CLEARANCE_PX, navClearancePx + NAV_SAFE_MARGIN_PX);
 }
 
 export function resolveFullBleedPadding(
   narrow: boolean,
   navClearancePx: number = NAV_CLEARANCE_FALLBACK_PX,
-  needsRailClearance = false,
 ): FacePadding {
   if (!narrow) return WIDE_FULL_BLEED_PADDING;
   const vertical = resolveVerticalInset(navClearancePx);
-  const railClearance =
-    RAIL_GEOMETRY.rightInset + RAIL_GEOMETRY.buttonSize + RAIL_CLEARANCE_MARGIN_PX;
-  const sides = needsRailClearance ? railClearance : FULL_BLEED_SIDE_PX;
-  return { top: vertical, bottom: vertical, left: sides, right: sides };
+  return {
+    top: vertical,
+    bottom: vertical,
+    left: FULL_BLEED_SIDE_PX,
+    right: FULL_BLEED_SIDE_PX,
+  };
 }
 
 export function fitTermFontSize(
@@ -343,17 +318,9 @@ function resolveMetric(
 function resolveBasePadding(
   fullBleed: boolean,
   narrow: boolean,
-  fullBleedContext?: FullBleedContext,
+  navClearancePx?: number,
 ): FacePadding {
-  if (fullBleed) {
-    return fullBleedContext
-      ? resolveFullBleedPadding(
-          narrow,
-          fullBleedContext.navClearancePx,
-          fullBleedContext.needsRailClearance,
-        )
-      : resolveFullBleedPadding(narrow);
-  }
+  if (fullBleed) return resolveFullBleedPadding(narrow, navClearancePx);
   return {
     top: CARD_PADDING.top,
     left: CARD_PADDING.sides,
@@ -368,11 +335,11 @@ export function planFace(
   fullBleed: boolean,
   narrow = false,
   columnWidthPx?: number,
-  fullBleedContext?: FullBleedContext,
+  navClearancePx?: number,
 ): FacePlan {
   const side = resolveSide(spec.signature, spec.side);
   const isSoloTitle = spec.blocks.length === 1 && spec.blocks[0].kind === "title";
-  const padding = resolveBasePadding(fullBleed, narrow, fullBleedContext);
+  const padding = resolveBasePadding(fullBleed, narrow, navClearancePx);
   const fitWidthPx =
     fullBleed && narrow && columnWidthPx !== undefined && columnWidthPx > 0
       ? columnWidthPx - padding.left - padding.right

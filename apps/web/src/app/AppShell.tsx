@@ -23,9 +23,9 @@ export function AppShell() {
   // The journal page is allowlisted: gratitude written there satisfies the gate
   // reactively (it reads s.journal), dismissing the overlay with no extra wiring.
   const onJournal = pathname.startsWith("/journal/");
-  // /scroll and /brainwrite fill the true viewport and overlay the nav over their bottom
-  // edge — every other route keeps the nav in-flow.
-  const isFullStage = pathname === "/scroll" || pathname === "/brainwrite";
+  // /brainwrite fills the true viewport and overlays the nav over its bottom edge —
+  // every other route keeps the nav in-flow.
+  const isFullStage = pathname === "/brainwrite";
 
   // Hard morning gate: every other route bounces to /today's gratitude step.
   if (gated && !onToday && !onJournal) return <Navigate to="/today" replace />;

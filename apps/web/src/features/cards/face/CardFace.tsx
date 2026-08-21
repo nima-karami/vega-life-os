@@ -7,7 +7,6 @@ import {
   type FaceTone,
   FULL_BLEED_SIDE_PX,
   HEADER_TOP_INSET_PX,
-  intersectsRailBand,
   NAV_CLEARANCE_FALLBACK_PX,
   planFace,
 } from "./face-metrics";
@@ -158,11 +157,6 @@ export function CardFace({
   const resolvedNavClearancePx = navClearancePx ?? NAV_CLEARANCE_FALLBACK_PX;
   const [contentBlockHeightPx, setContentBlockHeightPx] = useState<number | null>(null);
   const contentBlockRef = useRef<HTMLDivElement>(null);
-  // Pass 2 is remembered against the geometry that decided it, so a resize or orientation
-  // flip drops the stale decision and re-runs pass 1 instead of carrying it over.
-  const geometryKey = `${stageHeightPx ?? 0}:${resolvedNavClearancePx}`;
-  const [clearedGeometryKey, setClearedGeometryKey] = useState<string | null>(null);
-  const needsRailClearance = isNarrowFullBleed && clearedGeometryKey === geometryKey;
 
   // Deliberately re-measured after every commit — the rendered block's height only exists
   // post-layout, and a new card, a flip, a refit and a resize all change it.
@@ -170,13 +164,7 @@ export function CardFace({
     if (!isNarrowFullBleed) return;
     const el = contentBlockRef.current;
     if (el === null) return;
-    const measuredHeightPx = el.getBoundingClientRect().height;
-    setContentBlockHeightPx(measuredHeightPx);
-    if (needsRailClearance) return;
-    if (stageHeightPx === undefined || stageHeightPx <= 0) return;
-    if (intersectsRailBand(measuredHeightPx, stageHeightPx, resolvedNavClearancePx)) {
-      setClearedGeometryKey(geometryKey);
-    }
+    setContentBlockHeightPx(el.getBoundingClientRect().height);
   });
 
   const plan = planFace(
@@ -185,7 +173,7 @@ export function CardFace({
     fullBleed,
     narrow,
     columnWidthPx,
-    isNarrowFullBleed ? { navClearancePx: resolvedNavClearancePx, needsRailClearance } : undefined,
+    isNarrowFullBleed ? resolvedNavClearancePx : undefined,
   );
 
   const header = (

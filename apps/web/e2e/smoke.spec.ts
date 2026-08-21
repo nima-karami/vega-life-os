@@ -930,4 +930,6 @@ test("the retired card routes redirect rather than 404", async ({ page }) => {
   await expect(page).toHaveURL(/\/cards$/);
   await page.goto("/vocab", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/cards$/);
+  await page.goto("/scroll", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/brainwrite$/);
 });

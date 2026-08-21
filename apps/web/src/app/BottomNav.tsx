@@ -10,7 +10,12 @@ const TABS: { label: string; to: string; icon: IconName; match: (p: string) => b
   { label: "Habits", to: "/habits", icon: "repeat", match: (p) => p.startsWith("/habits") },
   { label: "Values", to: "/values", icon: "compass", match: (p) => p.startsWith("/values") },
   { label: "Analytics", to: "/analytics", icon: "chart", match: (p) => p.startsWith("/analytics") },
-  { label: "Scroll", to: "/scroll", icon: "scroll", match: (p) => p === "/scroll" },
+  {
+    label: "BrainWrite",
+    to: "/brainwrite",
+    icon: "brain",
+    match: (p) => p === "/brainwrite",
+  },
 ];
 
 const CELL =

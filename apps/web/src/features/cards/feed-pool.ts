@@ -5,8 +5,6 @@ import {
   isCardTypeIncluded,
 } from "@vega/shared";
 
-export type FeedHeaderGlyph = "mode" | "filter";
-
 const isDue = (card: Card, today: string): boolean =>
   card.box !== null && card.nextDue !== null && card.nextDue <= today;
 
@@ -37,12 +35,4 @@ export function buildFeedPool(cards: Card[], prefs: CardPrefs, today: string): C
 
 export function countFeedDue(cards: Card[], prefs: CardPrefs, today: string): number {
   return buildFeedPool(cards, { ...prefs, mode: "due" }, today).length;
-}
-
-export function describeFeedGlyphs(cards: Card[], prefs: CardPrefs): FeedHeaderGlyph[] {
-  const glyphs: FeedHeaderGlyph[] = [];
-  if (prefs.mode !== "mix") glyphs.push("mode");
-  const isNarrowed = prefs.types.length > 0 || liveCategories(cards, prefs.categories).length > 0;
-  if (isNarrowed) glyphs.push("filter");
-  return glyphs;
 }

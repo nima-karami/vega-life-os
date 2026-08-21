@@ -1,6 +1,6 @@
 import type { CardPrefs } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { buildFeedPool, countFeedDue, describeFeedGlyphs } from "../feed-pool";
+import { buildFeedPool, countFeedDue } from "../feed-pool";
 import { buildCard } from "./fixtures";
 
 const TODAY = "2026-08-11";
@@ -127,32 +127,5 @@ describe("countFeedDue", () => {
 
   it("respects the chips", () => {
     expect(countFeedDue(ALL, prefs({ categories: ["Stoicism"] }), TODAY)).toBe(0);
-  });
-});
-
-describe("describeFeedGlyphs", () => {
-  it("shows nothing on an unnarrowed mix feed", () => {
-    expect(describeFeedGlyphs(ALL, prefs())).toEqual([]);
-  });
-
-  it("shows the book when the mode is not mix", () => {
-    expect(describeFeedGlyphs(ALL, prefs({ mode: "due" }))).toEqual(["mode"]);
-    expect(describeFeedGlyphs(ALL, prefs({ mode: "read" }))).toEqual(["mode"]);
-  });
-
-  it("shows the funnel when a chip is off", () => {
-    expect(describeFeedGlyphs(ALL, prefs({ types: ["note"] }))).toEqual(["filter"]);
-    expect(describeFeedGlyphs(ALL, prefs({ categories: ["Language"] }))).toEqual(["filter"]);
-  });
-
-  it("shows both, in book-then-funnel order", () => {
-    expect(describeFeedGlyphs(ALL, prefs({ mode: "due", types: ["note"] }))).toEqual([
-      "mode",
-      "filter",
-    ]);
-  });
-
-  it("does not raise the funnel for a category nothing uses", () => {
-    expect(describeFeedGlyphs(ALL, prefs({ categories: ["Retired"] }))).toEqual([]);
   });
 });

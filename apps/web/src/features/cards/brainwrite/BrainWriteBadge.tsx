@@ -15,7 +15,7 @@ export function deriveBrainWriteBadgeState(
   return { kind: "active", box: card.box };
 }
 
-// The header row is a fixed 18px, so the glyph matches FeedHeaderGlyphs' own size.
+// The header row is a fixed 18px, so the glyph is sized to sit inside it.
 const BADGE_GLYPH_PX = 13;
 
 export function BrainWriteBadge({ state }: { state: BrainWriteBadgeState }) {

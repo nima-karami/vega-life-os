@@ -89,30 +89,23 @@ export const NAV_COMMANDS: NavCommand[] = [
     keywords: "entries journal gratitude mood log history past",
   },
   {
-    id: "nav-scroll",
-    label: "Scroll",
-    sublabel: "Mind scroll · feed",
-    icon: "scroll",
-    to: "/scroll",
-    keywords: "scroll feed cards mind flashcards",
-  },
-  {
     id: "nav-brainwrite",
     label: "BrainWrite",
     sublabel: "Flashcards · spaced repetition",
     icon: "brain",
     to: "/brainwrite",
-    keywords: "brainwrite study flashcards spaced repetition leitner grade swipe review learn",
+    // The retired scroll's keywords ride along so old muscle memory still lands here.
+    keywords:
+      "brainwrite study flashcards spaced repetition leitner grade swipe review learn scroll feed mind",
   },
   {
-    id: "nav-scroll-manage",
+    id: "nav-cards",
     label: "Cards",
-    sublabel: "Mind scroll · deck",
+    sublabel: "BrainWrite · deck",
     icon: "layers",
     to: "/cards",
     // Vocabulary folded into the deck, so its words are found from this one entry.
-    keywords:
-      "cards scroll mind deck flashcards manage vocab words dictionary language vocabulary terms",
+    keywords: "cards deck flashcards manage vocab words dictionary language vocabulary terms",
   },
   // Finance is one door: reachable from here only (no nav slot), and its five views are
   // reached from the strip inside the page — so the sub-routes get keywords, not entries.

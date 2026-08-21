@@ -142,7 +142,7 @@ test("phone bottom nav shows the primary tabs and navigates between routes (390p
 
   const nav = page.getByRole("navigation", { name: "Primary" });
   await expect(nav).toBeVisible();
-  for (const label of ["Today", "Calendar", "Habits", "Values", "Analytics", "Scroll"]) {
+  for (const label of ["Today", "Calendar", "Habits", "Values", "Analytics", "BrainWrite"]) {
     await expect(nav.getByRole("button", { name: label })).toBeVisible();
   }
 
@@ -154,6 +154,14 @@ test("phone bottom nav shows the primary tabs and navigates between routes (390p
   await nav.getByRole("button", { name: "Calendar" }).click();
   await expect(page).toHaveURL(/\/calendar$/);
   await expect(nav.getByRole("button", { name: "Calendar" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  // The retired Scroll slot now carries BrainWrite.
+  await nav.getByRole("button", { name: "BrainWrite" }).click();
+  await expect(page).toHaveURL(/\/brainwrite$/);
+  await expect(nav.getByRole("button", { name: "BrainWrite" })).toHaveAttribute(
     "aria-current",
     "page",
   );

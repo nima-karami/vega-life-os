@@ -13,7 +13,7 @@ import { useNavigate } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { FeedCardSheet, isCardSheetMounted } from "../FeedCardSheet";
-import { FeedControlPage } from "../FeedControlPage";
+import { type FeedControlDraft, FeedControlPage } from "../FeedControlPage";
 import { FeedRecovery } from "../FeedNotices";
 import { buildFeedPool } from "../feed-pool";
 import {
@@ -31,6 +31,7 @@ const RENDER_RADIUS = 2;
 const PASS_EXTEND_THRESHOLD = 2;
 const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 const SCROLL_TABINDEX = 0;
+const EVERYTHING: FeedControlDraft = { mode: "mix", types: [], categories: [] };
 
 function BrainWriteNotice({
   title,
@@ -246,8 +247,8 @@ export function BrainWritePage() {
     return (
       <BrainWriteNotice
         title="Nothing to review right now"
-        body="Your cards are all still here — what you've asked the feed to show is narrowing this deck to nothing."
-        cta={{ label: "Open the scroll", onPress: () => navigate("/scroll") }}
+        body="Your cards are all still here — what you've asked the deck to show is narrowing it to nothing."
+        cta={{ label: "Show everything", onPress: () => setCardPrefs(EVERYTHING) }}
       />
     );
   }
