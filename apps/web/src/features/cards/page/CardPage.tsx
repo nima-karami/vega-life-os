@@ -16,7 +16,6 @@ import { setDraftSlot, toCardPatch, toDraft } from "./card-draft";
 import type { CardPageLocationState } from "./card-page-nav";
 import { fillSampleSlots } from "./card-sample";
 import { FIELD_GROUP_CLASS } from "./field-classes";
-import { LiveCardPane } from "./LiveCardPane";
 import { NewCardPage } from "./NewCardPage";
 import { ReviewControl } from "./ReviewControl";
 
@@ -88,9 +87,8 @@ function CardEditor({ card }: { card: Card }) {
   return (
     <>
       <CardPageFrame
-        previewTo={`/cards/${card.id}/preview`}
+        preview={preview}
         footer={<CardPageFooter onDelete={() => setIsConfirmingDelete(true)} />}
-        aside={<LiveCardPane preview={preview} />}
       >
         <CardFieldStack
           values={values}

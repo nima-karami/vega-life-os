@@ -5,7 +5,6 @@ import { CalendarCallbackPage } from "@/features/calendar-sync";
 import { BrainWritePage } from "@/features/cards/brainwrite/BrainWritePage";
 import { CardsPage } from "@/features/cards/manager/CardsPage";
 import { CardPage } from "@/features/cards/page/CardPage";
-import { CardPreviewPage } from "@/features/cards/page/CardPreviewPage";
 import { FinanceCategoriesPage } from "@/features/finance/FinanceCategoriesPage";
 import { FinanceCategoryPage } from "@/features/finance/FinanceCategoryPage";
 import { FinanceDashboardPage } from "@/features/finance/FinanceDashboardPage";
@@ -51,7 +50,6 @@ export const router = createBrowserRouter([
           { path: "cards", element: <CardsPage /> },
           { path: "cards/new", element: <CardPage /> },
           { path: "cards/:cardId", element: <CardPage /> },
-          { path: "cards/:cardId/preview", element: <CardPreviewPage /> },
           { path: "scroll/manage", element: <Navigate to="/cards" replace /> },
           { path: "vocab", element: <Navigate to="/cards" replace /> },
           { path: "finance", element: <FinanceDashboardPage /> },

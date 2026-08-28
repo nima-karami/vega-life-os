@@ -17,7 +17,6 @@ import {
   toPreviewCard,
 } from "./card-draft";
 import { DraftReviewControl } from "./DraftReviewControl";
-import { LiveCardPane } from "./LiveCardPane";
 
 /**
  * A draft is held in memory until Save. Writing on the first valid keystroke meant a
@@ -47,8 +46,7 @@ export function NewCardPage() {
 
   return (
     <CardPageFrame
-      previewTo={null}
-      aside={<LiveCardPane preview={preview} />}
+      preview={preview}
       footer={
         <footer className="mt-3 flex items-center justify-end gap-2 border-border border-t pt-3.5 sm:mt-9 sm:pt-5">
           <Button size="sm" variant="ghost" onPress={() => navigate("/cards")}>
