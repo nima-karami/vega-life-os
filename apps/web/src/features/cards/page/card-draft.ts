@@ -7,6 +7,7 @@ import {
   type SlotId,
 } from "@vega/shared";
 import { todayISO } from "@/core/lib/date";
+import { fillSampleSlots, type SampledCard } from "./card-sample";
 
 export interface CardDraft {
   type: CardTypeId;
@@ -126,6 +127,11 @@ export function toCardCreate(draft: CardDraft): CardCreate {
   };
 }
 
-export function toPreviewCard(draft: CardDraft): Card {
-  return { id: "draft", ...toCardCreate(draft), updatedAt: "", fieldUpdatedAt: {} };
+export function toPreviewCard(draft: CardDraft): SampledCard {
+  return fillSampleSlots({
+    id: "draft",
+    ...toCardCreate(draft),
+    updatedAt: "",
+    fieldUpdatedAt: {},
+  });
 }

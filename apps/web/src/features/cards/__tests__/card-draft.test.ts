@@ -171,6 +171,18 @@ describe("toCardCreate", () => {
     expect(created.examples).toEqual([]);
     expect(created.synonyms).toEqual([]);
   });
+
+  it("saves empty slots empty — no sample content ever reaches a write", () => {
+    let draft = changeDraftType(createEmptyDraft(), "quote");
+    draft = setDraftSlot(draft, "title", "Compounding");
+    draft = setDraftSlot(draft, "body", "Interest on interest.");
+    const created = toCardCreate(draft);
+    expect(created.author).toBeNull();
+    expect(created.work).toBeNull();
+    expect(created.title).toBe("Compounding");
+    expect(JSON.stringify(created)).not.toContain("Plutarch");
+    expect(JSON.stringify(created)).not.toContain("The mind is a fire");
+  });
 });
 
 describe("toCardPatch", () => {
@@ -182,16 +194,23 @@ describe("toCardPatch", () => {
 });
 
 describe("toPreviewCard", () => {
-  it("produces a composable card that was never written", () => {
-    const card = toPreviewCard(vocabulary());
+  it("returns a sample-filled card that was never written", () => {
+    const { card, sampleSlots } = toPreviewCard(createEmptyDraft());
     expect(card.id).toBe("draft");
+    expect(card.updatedAt).toBe("");
+    expect(card.title).toBe("Second-order thinking");
+    expect(sampleSlots.has("body")).toBe(true);
+  });
+
+  it("keeps the typed values of a filled draft", () => {
+    const { card, sampleSlots } = toPreviewCard(vocabulary());
     expect(card.type).toBe("vocabulary");
     expect(card.title).toBe("saudade");
-    expect(card.updatedAt).toBe("");
+    expect(sampleSlots.has("title")).toBe(false);
   });
 
   it("carries the draft's learning intent onto the previewed card", () => {
-    expect(toPreviewCard({ ...note(), learning: true }).box).toBe(1);
-    expect(toPreviewCard(note()).box).toBeNull();
+    expect(toPreviewCard({ ...note(), learning: true }).card.box).toBe(1);
+    expect(toPreviewCard(note()).card.box).toBeNull();
   });
 });

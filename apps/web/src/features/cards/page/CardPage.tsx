@@ -14,6 +14,7 @@ import { CardPageFooter } from "./CardPageFooter";
 import { CardPageFrame } from "./CardPageFrame";
 import { setDraftSlot, toCardPatch, toDraft } from "./card-draft";
 import type { CardPageLocationState } from "./card-page-nav";
+import { fillSampleSlots } from "./card-sample";
 import { FIELD_GROUP_CLASS } from "./field-classes";
 import { LiveCardPane } from "./LiveCardPane";
 import { NewCardPage } from "./NewCardPage";
@@ -67,6 +68,7 @@ function CardEditor({ card }: { card: Card }) {
   const navigate = useNavigate();
   const categories = useMemo(() => listCardCategories(cards), [cards]);
   const values = useMemo(() => toDraft(card), [card]);
+  const preview = useMemo(() => fillSampleSlots(card), [card]);
   const [pendingType, setPendingType] = useState<CardTypeId | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -88,7 +90,7 @@ function CardEditor({ card }: { card: Card }) {
       <CardPageFrame
         previewTo={`/cards/${card.id}/preview`}
         footer={<CardPageFooter onDelete={() => setIsConfirmingDelete(true)} />}
-        aside={<LiveCardPane card={card} />}
+        aside={<LiveCardPane preview={preview} />}
       >
         <CardFieldStack
           values={values}

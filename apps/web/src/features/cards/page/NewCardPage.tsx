@@ -37,7 +37,7 @@ export function NewCardPage() {
   });
   const categories = useMemo(() => listCardCategories(cards), [cards]);
   const canSave = isDraftComplete(draft);
-  const previewCard = toPreviewCard(draft);
+  const preview = toPreviewCard(draft);
 
   const handleSave = () => {
     if (!canSave) return;
@@ -48,7 +48,7 @@ export function NewCardPage() {
   return (
     <CardPageFrame
       previewTo={null}
-      aside={<LiveCardPane card={previewCard} />}
+      aside={<LiveCardPane preview={preview} />}
       footer={
         <footer className="mt-3 flex items-center justify-end gap-2 border-border border-t pt-3.5 sm:mt-9 sm:pt-5">
           <Button size="sm" variant="ghost" onPress={() => navigate("/cards")}>
@@ -65,7 +65,7 @@ export function NewCardPage() {
         categories={categories}
         review={
           <DraftReviewControl
-            card={previewCard}
+            card={preview.card}
             onToggle={(learning) => setDraft({ ...draft, learning })}
           />
         }
