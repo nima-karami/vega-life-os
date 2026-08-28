@@ -1,5 +1,6 @@
 // apps/web/src/features/cards/__tests__/card-draft.test.ts
 import { describe, expect, it } from "vitest";
+import { todayISO } from "@/core/lib/date";
 import {
   changeDraftType,
   createEmptyDraft,
@@ -7,8 +8,11 @@ import {
   readDraftSlot,
   setDraftSlot,
   toCardCreate,
+  toCardPatch,
+  toDraft,
   toPreviewCard,
 } from "../page/card-draft";
+import { buildCard } from "./fixtures";
 
 const vocabulary = () => {
   let draft = changeDraftType(createEmptyDraft(), "vocabulary");
@@ -20,6 +24,12 @@ const vocabulary = () => {
   return draft;
 };
 
+const note = () => {
+  let draft = setDraftSlot(createEmptyDraft(), "title", "Inversion");
+  draft = setDraftSlot(draft, "body", "Solve it backward.");
+  return draft;
+};
+
 describe("createEmptyDraft", () => {
   it("starts on note with every slot empty", () => {
     const draft = createEmptyDraft();
@@ -28,6 +38,17 @@ describe("createEmptyDraft", () => {
     expect(draft.body).toBe("");
     expect(draft.author).toBeNull();
     expect(draft.examples).toEqual([]);
+  });
+
+  it("starts out of learning", () => {
+    expect(createEmptyDraft().learning).toBe(false);
+  });
+});
+
+describe("toDraft", () => {
+  it("reads an enrolled card as learning", () => {
+    expect(toDraft(buildCard({ box: 1 })).learning).toBe(true);
+    expect(toDraft(buildCard({ box: null })).learning).toBe(false);
   });
 });
 
@@ -76,6 +97,14 @@ describe("changeDraftType", () => {
     const draft = { ...vocabulary(), category: "Language" };
     expect(changeDraftType(draft, "quote").category).toBe("Language");
   });
+
+  it("clears learning only for a prompt", () => {
+    const learning = { ...note(), learning: true };
+    expect(changeDraftType(learning, "prompt").learning).toBe(false);
+    for (const type of ["quote", "excerpt", "fact", "vocabulary"] as const) {
+      expect(changeDraftType(learning, type).learning).toBe(true);
+    }
+  });
 });
 
 describe("toCardCreate", () => {
@@ -91,6 +120,65 @@ describe("toCardCreate", () => {
     expect(created.hiddenAt).toBeNull();
     expect(created.likedAt).toBeNull();
   });
+
+  it("keeps a card that is not learning out of review", () => {
+    const created = toCardCreate(note());
+    expect(created.box).toBeNull();
+    expect(created.nextDue).toBeNull();
+    expect(created.lastReviewed).toBeNull();
+    expect(created.hasRecall).toBe(false);
+    expect(created.reviewCount).toBe(0);
+  });
+
+  it("enrols a folding type at box 1 without promoting it", () => {
+    const created = toCardCreate({ ...note(), learning: true });
+    expect(created).toMatchObject({
+      hasRecall: false,
+      box: 1,
+      nextDue: todayISO(),
+      lastReviewed: null,
+      reviewCount: 0,
+    });
+  });
+
+  it("promotes and enrols a type that has no reveal until it is promoted", () => {
+    const quote = changeDraftType({ ...note(), learning: true }, "quote");
+    const created = toCardCreate(quote);
+    expect(created.hasRecall).toBe(true);
+    expect(created.box).toBe(1);
+    expect(created.nextDue).toBe(todayISO());
+  });
+
+  it("never carries a slot the current type does not declare back into a saved card", () => {
+    let draft = note();
+    draft = changeDraftType(draft, "excerpt");
+    draft = setDraftSlot(draft, "work", "Poor Charlie's Almanack");
+    draft = setDraftSlot(draft, "locator", "p. 214");
+    draft = changeDraftType(draft, "note");
+
+    const created = toCardCreate(draft);
+    expect(created.work).toBeNull();
+    expect(created.locator).toBeNull();
+    expect(created.title).toBe("Inversion");
+    expect(created.body).toBe("Solve it backward.");
+  });
+
+  it("writes only the slots the author typed, never a placeholder", () => {
+    const created = toCardCreate(changeDraftType(note(), "quote"));
+    expect(created.author).toBeNull();
+    expect(created.work).toBeNull();
+    expect(created.category).toBe("");
+    expect(created.examples).toEqual([]);
+    expect(created.synonyms).toEqual([]);
+  });
+});
+
+describe("toCardPatch", () => {
+  it("leaves the draft's own intent flag out of a card write", () => {
+    const patch = toCardPatch({ ...note(), learning: true });
+    expect("learning" in patch).toBe(false);
+    expect(patch.title).toBe("Inversion");
+  });
 });
 
 describe("toPreviewCard", () => {
@@ -100,5 +188,10 @@ describe("toPreviewCard", () => {
     expect(card.type).toBe("vocabulary");
     expect(card.title).toBe("saudade");
     expect(card.updatedAt).toBe("");
+  });
+
+  it("carries the draft's learning intent onto the previewed card", () => {
+    expect(toPreviewCard({ ...note(), learning: true }).box).toBe(1);
+    expect(toPreviewCard(note()).box).toBeNull();
   });
 });

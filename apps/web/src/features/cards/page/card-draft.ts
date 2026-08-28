@@ -2,6 +2,7 @@ import {
   type Card,
   type CardCreate,
   type CardTypeId,
+  foldsByDefault,
   listTypeSlots,
   type SlotId,
 } from "@vega/shared";
@@ -19,6 +20,8 @@ export interface CardDraft {
   language: string | null;
   examples: string[];
   synonyms: string[];
+  /** Intent only — nothing is scheduled until Save turns it into a real card. */
+  learning: boolean;
 }
 
 const TEXT_SLOTS = ["title", "body"] as const;
@@ -38,6 +41,7 @@ export function createEmptyDraft(): CardDraft {
     language: null,
     examples: [],
     synonyms: [],
+    learning: false,
   };
 }
 
@@ -54,6 +58,7 @@ export function toDraft(card: Card): CardDraft {
     language: card.language,
     examples: card.examples,
     synonyms: card.synonyms,
+    learning: card.box !== null,
   };
 }
 
@@ -71,7 +76,11 @@ export function setDraftSlot(draft: CardDraft, slot: SlotId, value: string | str
 
 export function changeDraftType(draft: CardDraft, nextType: CardTypeId): CardDraft {
   const declared = new Set(listTypeSlots(nextType).map(([slot]) => slot));
-  const next: CardDraft = { ...draft, type: nextType };
+  const next: CardDraft = {
+    ...draft,
+    type: nextType,
+    learning: nextType === "prompt" ? false : draft.learning,
+  };
   for (const slot of TEXT_SLOTS) if (!declared.has(slot)) next[slot] = "";
   for (const slot of NULLABLE_SLOTS) if (!declared.has(slot)) next[slot] = null;
   for (const slot of ARRAY_SLOTS) if (!declared.has(slot)) next[slot] = [];
@@ -86,7 +95,14 @@ export function isDraftComplete(draft: CardDraft): boolean {
   });
 }
 
+/** The card fields a draft owns — never the intent flag, which is not a card field. */
+export function toCardPatch(draft: CardDraft): Partial<Card> {
+  const { learning: _learning, ...fields } = draft;
+  return fields;
+}
+
 export function toCardCreate(draft: CardDraft): CardCreate {
+  const isEnrolled = draft.learning;
   return {
     type: draft.type,
     category: draft.category.trim(),
@@ -99,13 +115,13 @@ export function toCardCreate(draft: CardDraft): CardCreate {
     language: draft.language,
     examples: draft.examples,
     synonyms: draft.synonyms,
-    hasRecall: false,
+    hasRecall: isEnrolled && !foldsByDefault(draft),
     addedAt: todayISO(),
     hiddenAt: null,
     likedAt: null,
-    box: null,
+    box: isEnrolled ? 1 : null,
     lastReviewed: null,
-    nextDue: null,
+    nextDue: isEnrolled ? todayISO() : null,
     reviewCount: 0,
   };
 }

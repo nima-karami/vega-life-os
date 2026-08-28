@@ -106,3 +106,38 @@ test("deleting a card returns to the deck and offers an undo", async ({ page }) 
   await undo.getByRole("button", { name: "Undo" }).click();
   await expect(page.locator("[data-card-row]:visible")).toHaveCount(before);
 });
+
+test("a new card can be created already learning", async ({ page }) => {
+  await openDeck(page);
+  await page.getByRole("button", { name: "New card" }).click();
+  await expect(page).toHaveURL(/\/cards\/new$/);
+
+  await page.getByRole("textbox", { name: "Title" }).fill("Hiraeth");
+  await page
+    .getByRole("textbox", { name: "Body" })
+    .fill("A longing for a home you cannot return to.");
+
+  const learning = page.getByRole("button", { name: "Learning", exact: true });
+  await expect(learning).toHaveAttribute("aria-pressed", "false");
+  await learning.click();
+  await expect(learning).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText(/Starts in review/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Save card" }).click();
+  await expect(page).toHaveURL(/\/cards\/[^/]+$/);
+  await expect(page).not.toHaveURL(/\/cards\/new$/);
+  await expect(page.getByText(/box 1/)).toBeVisible();
+});
+
+test("a draft never claims a history it does not have", async ({ page }) => {
+  await openDeck(page);
+  await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
+
+  const learning = page.getByRole("button", { name: "Learning", exact: true });
+  await expect(page.getByText("Not learning", { exact: true })).toBeVisible();
+  await expect(page.getByText(/added/), "an unsaved draft has no add date").toHaveCount(0);
+
+  await learning.click();
+  await expect(page.getByText("Starts in review · box 1, due today")).toBeVisible();
+  await expect(page.getByText(/added/), "enrolling a draft adds no history").toHaveCount(0);
+});

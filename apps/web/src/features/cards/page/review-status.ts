@@ -1,4 +1,4 @@
-import { CARD_TYPES, type Card, hasReveal } from "@vega/shared";
+import { CARD_TYPES, type Card, foldsByDefault, hasReveal } from "@vega/shared";
 import { daysBetween, formatShortDate } from "@/core/lib/date";
 
 export type ReviewControlState = "learning" | "notLearning" | "promotable" | "neverLearnable";
@@ -17,9 +17,19 @@ function formatDuePhrase(nextDue: string | null, today: string): string | null {
   return `due in ${days} days`;
 }
 
-export function buildReviewStatus(card: Card, today: string, variant: "full" | "short"): string {
+export type ReviewStatusVariant = "full" | "short" | "draft";
+
+/** Future tense: an unsaved draft has no schedule and no add date to report. */
+function buildDraftStatus(card: Card): string {
+  if (card.box === null) return "Not learning";
+  const start = "Starts in review · box 1, due today";
+  return foldsByDefault(card) ? start : `${start} · body hidden to recall`;
+}
+
+export function buildReviewStatus(card: Card, today: string, variant: ReviewStatusVariant): string {
   const state = getReviewControlState(card);
   if (state === "neverLearnable") return "Not learnable · a prompt is answered, not recalled";
+  if (variant === "draft") return buildDraftStatus(card);
   if (state === "promotable") return "Not in review · hide the body to recall this";
 
   const added = `added ${formatShortDate(card.addedAt)}`;

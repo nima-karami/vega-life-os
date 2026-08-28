@@ -7,6 +7,7 @@ import type { Card, CardCreate } from "@vega/shared";
 import { create } from "zustand";
 import { shiftISO, todayISO } from "@/core/lib/date";
 import { LEITNER_DAYS } from "../leitner";
+import { createEmptyDraft, setDraftSlot, toCardCreate } from "../page/card-draft";
 import { selectReviewSet } from "../queue";
 import { type CardsSlice, createCardsSlice } from "../store";
 import { buildCardCreate } from "./fixtures";
@@ -25,6 +26,19 @@ describe("addCard", () => {
     expect(card.id.startsWith("c_")).toBe(true);
     expect(card.category).toBe("focus");
     expect(s.getState().cards).toEqual([card]);
+    expect(savePut).toHaveBeenCalledWith("cards", card);
+  });
+
+  it("writes an enrolled card in a single put", () => {
+    let draft = setDraftSlot(createEmptyDraft(), "title", "Inversion");
+    draft = setDraftSlot(draft, "body", "Solve it backward.");
+
+    const card = mk()
+      .getState()
+      .addCard(toCardCreate({ ...draft, learning: true }));
+    expect(card.box).toBe(1);
+    expect(card.nextDue).toBe(todayISO());
+    expect(savePut).toHaveBeenCalledTimes(1);
     expect(savePut).toHaveBeenCalledWith("cards", card);
   });
 });

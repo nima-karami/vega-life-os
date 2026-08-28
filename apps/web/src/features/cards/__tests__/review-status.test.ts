@@ -49,6 +49,15 @@ describe("getReviewControlState", () => {
       "notLearning",
     );
   });
+
+  it("reads an enrolled draft's card as learning", () => {
+    expect(getReviewControlState(card({ type: "quote", hasRecall: true, box: 1 }))).toBe(
+      "learning",
+    );
+    expect(getReviewControlState(card({ type: "quote", hasRecall: false, box: null }))).toBe(
+      "promotable",
+    );
+  });
 });
 
 describe("buildReviewStatus", () => {
@@ -100,5 +109,46 @@ describe("buildReviewStatus", () => {
       "Not learning · added Aug 8",
     );
     expect(buildReviewStatus(card({ box: null }), "2026-08-11", "short")).toBe("Not learning");
+  });
+});
+
+describe("buildReviewStatus — draft", () => {
+  const DRAFT_DAY = "2026-08-27";
+
+  it("says nothing has started when a draft is not learning", () => {
+    expect(buildReviewStatus(card({ type: "note", box: null }), DRAFT_DAY, "draft")).toBe(
+      "Not learning",
+    );
+    expect(
+      buildReviewStatus(card({ type: "quote", hasRecall: false, box: null }), DRAFT_DAY, "draft"),
+    ).toBe("Not learning");
+  });
+
+  it("promises the schedule a folding draft will start on", () => {
+    expect(buildReviewStatus(card({ type: "note", box: 1 }), DRAFT_DAY, "draft")).toBe(
+      "Starts in review · box 1, due today",
+    );
+  });
+
+  it("names the promotion a non-folding draft will take", () => {
+    expect(
+      buildReviewStatus(card({ type: "quote", hasRecall: true, box: 1 }), DRAFT_DAY, "draft"),
+    ).toBe("Starts in review · box 1, due today · body hidden to recall");
+  });
+
+  it("reuses the prompt sentence for a draft", () => {
+    expect(buildReviewStatus(card({ type: "prompt", box: null }), DRAFT_DAY, "draft")).toBe(
+      "Not learnable · a prompt is answered, not recalled",
+    );
+  });
+
+  it("leaves the saved variants untouched", () => {
+    expect(buildReviewStatus(card(), "2026-08-11", "full")).toBe(
+      "Graded · box 3 · due in 4 days · 7 reviews · added Aug 8",
+    );
+    expect(buildReviewStatus(card(), "2026-08-11", "short")).toBe("Graded · box 3 · due in 4 days");
+    expect(buildReviewStatus(card({ type: "quote", box: null }), "2026-08-11", "full")).toBe(
+      "Not in review · hide the body to recall this",
+    );
   });
 });

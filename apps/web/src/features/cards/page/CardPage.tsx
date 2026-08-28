@@ -12,7 +12,7 @@ import { listCardCategories } from "../queries";
 import { CardFieldStack } from "./CardFieldStack";
 import { CardPageFooter } from "./CardPageFooter";
 import { CardPageFrame } from "./CardPageFrame";
-import { setDraftSlot, toDraft } from "./card-draft";
+import { setDraftSlot, toCardPatch, toDraft } from "./card-draft";
 import type { CardPageLocationState } from "./card-page-nav";
 import { FIELD_GROUP_CLASS } from "./field-classes";
 import { LiveCardPane } from "./LiveCardPane";
@@ -100,7 +100,7 @@ function CardEditor({ card }: { card: Card }) {
             else applyType(nextType);
           }}
           onSlotChange={(slot: SlotId, value) =>
-            updateCard(card.id, { ...setDraftSlot(values, slot, value) })
+            updateCard(card.id, toCardPatch(setDraftSlot(values, slot, value)))
           }
           onCategoryChange={(category) => updateCard(card.id, { category })}
         />
