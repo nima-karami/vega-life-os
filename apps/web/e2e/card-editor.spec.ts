@@ -46,6 +46,33 @@ test("the field stack is generated from the type, and the live card shows the re
   await expect(page.getByTestId("live-card")).toContainText("saudade");
 });
 
+test("the type picker is a single row from 640px up", async ({ page }) => {
+  await openDeck(page);
+
+  for (const width of [640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
+
+    const buttons = page.getByRole("group", { name: "Card type" }).getByRole("button");
+    await expect(buttons).toHaveCount(6);
+    const tops: number[] = [];
+    for (let index = 0; index < 6; index += 1) {
+      const box = await buttons.nth(index).boundingBox();
+      if (box === null) throw new Error(`type cell ${index} has no bounds at ${width}px`);
+      tops.push(box.y);
+    }
+    for (const top of tops) {
+      expect(Math.abs(top - tops[0]), `the picker wraps at ${width}px`).toBeLessThanOrEqual(1);
+    }
+
+    const overflow = await page.evaluate(() => {
+      const el = document.documentElement;
+      return el.scrollWidth - el.clientWidth;
+    });
+    expect(overflow, `page overflows horizontally at ${width}px`).toBeLessThanOrEqual(1);
+  }
+});
+
 test("a saved card edits in place and the Review control states its consequence", async ({
   page,
 }) => {

@@ -31,7 +31,7 @@ export function CardPageFrame({
         {previewTo !== null && (
           <Link
             to={previewTo}
-            className="inline-flex h-11 items-center gap-1.5 px-1 font-medium text-[15px] text-muted sm:hidden"
+            className="inline-flex h-11 items-center gap-1.5 px-1 font-medium text-[15px] text-muted lg:hidden"
           >
             <Icon name="eye" size={16} aria-hidden />
             Preview

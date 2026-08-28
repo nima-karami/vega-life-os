@@ -1,18 +1,18 @@
 import { Link, Navigate, useParams } from "react-router";
 import { useStore } from "@/core/store";
-import { Icon, useCompact } from "@/core/ui";
+import { Icon, useBelowLarge } from "@/core/ui";
 import { TurnableCard } from "../face/TurnableCard";
 
 const PREVIEW_SCALE = 0.918;
 
 export function CardPreviewPage() {
   const { cardId } = useParams();
-  const isCompact = useCompact();
+  const isBelowLarge = useBelowLarge();
   const isReady = useStore((s) => s.ready);
   const card = useStore((s) => s.cards.find((c) => c.id === cardId));
 
-  // On a desk the card is already on the page; the preview route is a phone affordance.
-  if (!isCompact) return <Navigate to={`/cards/${cardId}`} replace />;
+  // From `lg` up the card is already on the page; below it the aside is gone, so the route stands in.
+  if (!isBelowLarge) return <Navigate to={`/cards/${cardId}`} replace />;
   if (!isReady) return <div className="h-full bg-background" />;
   if (card === undefined) return <Navigate to="/cards" replace />;
 

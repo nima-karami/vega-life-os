@@ -8,7 +8,7 @@ import { TurnableCard } from "../face/TurnableCard";
  */
 export function LiveCardPane({ card }: { card: Card }) {
   return (
-    <aside className="sticky top-5 hidden shrink-0 sm:block">
+    <aside className="sticky top-5 hidden shrink-0 lg:block">
       <div data-testid="live-card" className="relative h-[600px] w-[390px]">
         <TurnableCard
           card={card}

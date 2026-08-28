@@ -41,7 +41,16 @@ async function horizontalOverflow(page: import("@playwright/test").Page): Promis
   });
 }
 
-const ROUTES = ["/today", "/values", "/habits", "/calendar", "/analytics", "/settings", "/cards"];
+const ROUTES = [
+  "/today",
+  "/values",
+  "/habits",
+  "/calendar",
+  "/analytics",
+  "/settings",
+  "/cards",
+  "/cards/new",
+];
 
 test.beforeEach(async ({ page }) => {
   await bootSandbox(page);

@@ -4,19 +4,30 @@ import { useEffect, useState } from "react";
 type ContainerProps = Modal["ContainerProps"];
 
 const COMPACT_QUERY = "(max-width: 639px)";
+const BELOW_LARGE_QUERY = "(max-width: 1023px)";
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    setMatches(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 
 /** True while the viewport is compact (< sm). SSR-safe. */
 export function useCompact(): boolean {
-  const [compact, setCompact] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(COMPACT_QUERY).matches,
-  );
-  useEffect(() => {
-    const mql = window.matchMedia(COMPACT_QUERY);
-    const onChange = () => setCompact(mql.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-  return compact;
+  return useMediaQuery(COMPACT_QUERY);
+}
+
+/** True below `lg` — where the card editor is a single column with no sticky aside. */
+export function useBelowLarge(): boolean {
+  return useMediaQuery(BELOW_LARGE_QUERY);
 }
 
 /**
