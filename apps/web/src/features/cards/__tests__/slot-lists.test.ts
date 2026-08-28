@@ -3,8 +3,8 @@ import type { SlotDef } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import { addChipValue, canAddListItem, removeChipAt, toStoredList } from "../page/slot-lists";
 
-const synonyms: SlotDef = { label: "Synonyms", max: 60, maxItems: 12 };
-const examples: SlotDef = { label: "Examples", max: 200, maxItems: 5 };
+const synonyms: SlotDef = { label: "Synonyms", max: 60, maxItems: 12, example: ["longing"] };
+const examples: SlotDef = { label: "Examples", max: 200, maxItems: 5, example: ["A sentence."] };
 
 describe("toStoredList", () => {
   it("drops blank rows and trims what is kept", () => {

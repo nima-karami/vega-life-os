@@ -178,8 +178,14 @@ describe("buildCardSchema is registry-driven", () => {
         label: "Recipe",
         signature: "title-body" as const,
         slots: {
-          title: { label: "Dish", required: true as const, max: 160 },
-          body: { label: "Method", required: true as const, lines: "tall" as const, max: 600 },
+          title: { label: "Dish", required: true as const, max: 160, example: "Tarte Tatin" },
+          body: {
+            label: "Method",
+            required: true as const,
+            lines: "tall" as const,
+            max: 600,
+            example: "Caramelise the apples, lay the pastry over, bake, then invert.",
+          },
         },
       },
     };

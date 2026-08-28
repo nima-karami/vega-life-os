@@ -36,21 +36,6 @@ export function listTypeOptions(): { id: CardTypeId; label: string }[] {
   return CARD_TYPE_IDS.map((id) => ({ id, label: CARD_TYPES[id].label }));
 }
 
-/** An empty form should show what a good card looks like, not six blank boxes. */
-const SLOT_EXAMPLE: Partial<Record<SlotId, string>> = {
-  title: "Second-order thinking",
-  body: "And then what? First-order effects are obvious; the cost sits further out.",
-  author: "Seneca",
-  work: "Letters to Lucilius",
-  locator: "p. 92",
-  phonetic: "/saʊˈdɑdə/",
-  language: "Portuguese",
-  examples: "A quiet saudade for the city she left behind.",
-  synonyms: "longing",
-};
-
-export function slotPlaceholder(def: SlotDef, slot?: SlotId): string {
-  const example = slot === undefined ? undefined : SLOT_EXAMPLE[slot];
-  if (example !== undefined) return example;
-  return def.required === true ? "" : "Optional";
+export function slotPlaceholder(def: SlotDef): string {
+  return typeof def.example === "string" ? def.example : (def.example[0] ?? "");
 }

@@ -1,6 +1,6 @@
 // apps/web/src/features/cards/__tests__/card-fields.test.ts
 
-import { CARD_TYPE_IDS } from "@vega/shared";
+import { CARD_TYPE_IDS, CARD_TYPES, type SlotDef } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import {
   listCardPageFields,
@@ -11,17 +11,25 @@ import {
 
 describe("resolveSlotControl", () => {
   it("makes a short array slot a chip field and a long one repeatable rows", () => {
-    expect(resolveSlotControl({ label: "Synonyms", max: 60, maxItems: 12 })).toBe("chips");
-    expect(resolveSlotControl({ label: "Examples", max: 200, maxItems: 5 })).toBe("rows");
+    expect(resolveSlotControl({ label: "Synonyms", max: 60, maxItems: 12, example: ["a"] })).toBe(
+      "chips",
+    );
+    expect(resolveSlotControl({ label: "Examples", max: 200, maxItems: 5, example: ["a"] })).toBe(
+      "rows",
+    );
   });
 
   it("makes a tall slot a textarea and a mono slot a mono text field", () => {
-    expect(resolveSlotControl({ label: "Body", max: 600, lines: "tall" })).toBe("textarea");
-    expect(resolveSlotControl({ label: "Pronunciation", max: 60, mono: true })).toBe("mono");
+    expect(resolveSlotControl({ label: "Body", max: 600, lines: "tall", example: "a" })).toBe(
+      "textarea",
+    );
+    expect(resolveSlotControl({ label: "Pronunciation", max: 60, mono: true, example: "a" })).toBe(
+      "mono",
+    );
   });
 
   it("falls back to a plain text field", () => {
-    expect(resolveSlotControl({ label: "Source", max: 160 })).toBe("text");
+    expect(resolveSlotControl({ label: "Source", max: 160, example: "a" })).toBe("text");
   });
 });
 
@@ -79,8 +87,12 @@ describe("listTypeOptions", () => {
 });
 
 describe("slotPlaceholder", () => {
-  it("marks an optional slot and leaves a required one bare", () => {
-    expect(slotPlaceholder({ label: "Attribution", max: 120 })).toBe("Optional");
-    expect(slotPlaceholder({ label: "Title", max: 160, required: true })).toBe("");
+  it("returns the slot's own example", () => {
+    expect(slotPlaceholder(CARD_TYPES.quote.slots.author as SlotDef)).toBe("Plutarch");
+    expect(slotPlaceholder(CARD_TYPES.note.slots.title as SlotDef)).toBe("Second-order thinking");
+  });
+
+  it("uses the first item of a list example", () => {
+    expect(slotPlaceholder(CARD_TYPES.vocabulary.slots.synonyms as SlotDef)).toBe("longing");
   });
 });

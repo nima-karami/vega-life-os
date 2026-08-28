@@ -77,4 +77,33 @@ describe("card type registry", () => {
     expect(vocabulary.synonyms.max).toBe(60);
     expect(vocabulary.phonetic.mono).toBe(true);
   });
+
+  it("gives every declared slot of every type an example", () => {
+    for (const id of CARD_TYPE_IDS) {
+      for (const [slot, def] of listTypeSlots(id)) {
+        const where = `${id}.${slot}`;
+        if (def.maxItems !== undefined) {
+          expect(Array.isArray(def.example), where).toBe(true);
+          const items = def.example as readonly string[];
+          expect(items.length, where).toBeGreaterThan(0);
+          expect(items.length, where).toBeLessThanOrEqual(def.maxItems);
+          for (const item of items) {
+            expect(item.trim(), where).not.toBe("");
+            expect(item.length, where).toBeLessThanOrEqual(def.max);
+          }
+        } else {
+          expect(typeof def.example, where).toBe("string");
+          const text = def.example as string;
+          expect(text.trim(), where).not.toBe("");
+          expect(text.length, where).toBeLessThanOrEqual(def.max);
+        }
+      }
+    }
+  });
+
+  it("gives each type its own title example", () => {
+    const titles = CARD_TYPE_IDS.map((id) => CARD_TYPES[id].slots.title?.example as string);
+    expect(new Set(titles).size).toBe(CARD_TYPE_IDS.length);
+    for (const title of titles) expect(title.trim()).not.toBe("");
+  });
 });

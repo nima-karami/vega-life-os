@@ -44,7 +44,7 @@ export function CardSlotField({
         {control === "textarea" && (
           <textarea
             aria-label={def.label}
-            placeholder={slotPlaceholder(def, slot)}
+            placeholder={slotPlaceholder(def)}
             value={text}
             maxLength={def.max}
             onChange={(event) => onChange(slot, event.target.value)}
@@ -55,7 +55,7 @@ export function CardSlotField({
           <input
             type="text"
             aria-label={def.label}
-            placeholder={slotPlaceholder(def, slot)}
+            placeholder={slotPlaceholder(def)}
             value={text}
             maxLength={def.max}
             onChange={(event) => onChange(slot, event.target.value)}
