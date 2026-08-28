@@ -336,6 +336,9 @@ function resolveBasePadding(
   };
 }
 
+const sampleFlag = (block: FaceBlock): { isSample?: true } =>
+  block.isSample === true ? { isSample: true } : {};
+
 export function planFace(
   spec: FaceSpec,
   scale: number,
@@ -362,7 +365,7 @@ export function planFace(
         kind: "rule",
         width: scaleSpace(RULE.width, scale),
         marginY: scaleSpace(RULE.marginY, scale),
-        ...(block.isSample === true ? { isSample: true as const } : {}),
+        ...sampleFlag(block),
       });
       isFirstRendered = false;
       continue;
@@ -394,7 +397,7 @@ export function planFace(
       isCaps: block.kind === "caps",
       wraps: fit.wraps,
       quoteMark: pendingQuoteMark,
-      ...(block.isSample === true ? { isSample: true as const } : {}),
+      ...sampleFlag(block),
     });
     pendingQuoteMark = null;
     isFirstRendered = false;
