@@ -151,6 +151,25 @@ describe("planFace — the drawn metrics at scale 1", () => {
       bottom: 78,
     });
   });
+
+  it("carries the sample flag onto the planned item", () => {
+    const partial = planFace(composeFace(note, "reveal", new Set(["body"] as const)), 1, false);
+    const items = textItems(partial.items);
+    expect(items.find((item) => item.kind === "caps")?.isSample).toBeUndefined();
+    expect(items.find((item) => item.kind === "lead")?.isSample).toBe(true);
+    expect(partial.items.filter((item) => item.kind === "rule").some((item) => item.isSample)).toBe(
+      false,
+    );
+
+    const whole = planFace(
+      composeFace(note, "reveal", new Set(["title", "body"] as const)),
+      1,
+      false,
+    );
+    expect(
+      whole.items.filter((item) => item.kind === "rule").every((item) => item.isSample === true),
+    ).toBe(true);
+  });
 });
 
 describe("planFace — scale is per property", () => {

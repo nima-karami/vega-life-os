@@ -80,7 +80,8 @@ function FaceItem({ item }: { item: FacePlanItem }) {
   if (item.kind === "rule") {
     return (
       <span
-        className="mx-auto block bg-line-strong"
+        data-sample={item.isSample === true ? "true" : undefined}
+        className={cx("mx-auto block bg-line-strong", item.isSample === true && "opacity-40")}
         style={{
           width: item.width,
           height: HAIRLINE_PX,
@@ -93,12 +94,14 @@ function FaceItem({ item }: { item: FacePlanItem }) {
 
   const paragraph = (
     <p
+      data-sample={item.isSample === true ? "true" : undefined}
       className={cx(
         "relative text-pretty text-center",
         TONE_CLASS[item.tone],
         item.isMono && "font-mono",
         item.isCaps && "uppercase",
         item.wraps && "break-words",
+        item.isSample === true && "opacity-40",
       )}
       style={{
         fontSize: item.fontSize,

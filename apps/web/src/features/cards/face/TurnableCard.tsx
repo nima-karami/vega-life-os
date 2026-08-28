@@ -1,4 +1,4 @@
-import { type Card, hasReveal } from "@vega/shared";
+import { type Card, hasReveal, type SlotId } from "@vega/shared";
 import { useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { CardFace } from "./CardFace";
@@ -10,11 +10,13 @@ export function TurnableCard({
   card,
   scale,
   faceClass,
+  sampleSlots,
 }: {
   card: Card;
   scale: number;
   /** the card chrome, carried onto both faces so the card itself is what rotates */
   faceClass?: string;
+  sampleSlots?: ReadonlySet<SlotId>;
 }) {
   const [isTurned, setIsTurned] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -29,8 +31,10 @@ export function TurnableCard({
       turned={isTurned}
       reduceMotion={shouldReduceMotion === true}
       faceClass={faceClass}
-      front={<CardFace spec={composeFace(card, "face")} scale={scale} />}
-      back={canTurn ? <CardFace spec={composeFace(card, "reveal")} scale={scale} /> : null}
+      front={<CardFace spec={composeFace(card, "face", sampleSlots)} scale={scale} />}
+      back={
+        canTurn ? <CardFace spec={composeFace(card, "reveal", sampleSlots)} scale={scale} /> : null
+      }
     />
   );
 

@@ -373,3 +373,52 @@ describe("composeFace — a type the shipped registry has never heard of", () =>
     ]);
   });
 });
+
+describe("composeFace — sample tagging", () => {
+  const noteCard = () =>
+    buildCard({
+      title: "Second-order thinking",
+      body: "And then what? The cost sits further out.",
+    });
+
+  const excerptCard = () =>
+    buildCard({
+      type: "excerpt",
+      body: "Attention is the rarest generosity.",
+      work: "Gravity and Grace",
+      locator: "p. 92",
+    });
+
+  it("leaves every block untagged when no sample set is given", () => {
+    for (const block of composeFace(noteCard(), "reveal").blocks) {
+      expect(block.isSample).toBeUndefined();
+    }
+  });
+
+  it("tags the block that came from a sampled slot", () => {
+    const spec = composeFace(noteCard(), "reveal", new Set(["body"] as const));
+    expect(spec.blocks.find((b) => b.kind === "caps")?.isSample).toBeUndefined();
+    expect(spec.blocks.find((b) => b.kind === "lead")?.isSample).toBe(true);
+  });
+
+  it("ghosts the rules only when the whole face is sample", () => {
+    const all = composeFace(noteCard(), "reveal", new Set(["title", "body"] as const));
+    expect(all.blocks.filter((b) => b.kind === "rule").every((b) => b.isSample === true)).toBe(
+      true,
+    );
+    const some = composeFace(noteCard(), "reveal", new Set(["body"] as const));
+    expect(some.blocks.filter((b) => b.kind === "rule").some((b) => b.isSample === true)).toBe(
+      false,
+    );
+  });
+
+  it("leaves a citation that mixes typed and sampled parts untagged", () => {
+    const spec = composeFace(excerptCard(), "face", new Set(["locator"] as const));
+    expect(spec.blocks.find((b) => b.kind === "caps")?.isSample).toBeUndefined();
+  });
+
+  it("tags a citation whose every part is sampled", () => {
+    const spec = composeFace(excerptCard(), "face", new Set(["work", "locator"] as const));
+    expect(spec.blocks.find((b) => b.kind === "caps")?.isSample).toBe(true);
+  });
+});

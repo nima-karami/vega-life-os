@@ -286,9 +286,16 @@ export type FaceTextPlan = {
   isCaps: boolean;
   wraps: boolean;
   quoteMark: FaceQuoteMarkPlan | null;
+  isSample?: true;
 };
 
-export type FaceRulePlan = { key: string; kind: "rule"; width: number; marginY: number };
+export type FaceRulePlan = {
+  key: string;
+  kind: "rule";
+  width: number;
+  marginY: number;
+  isSample?: true;
+};
 
 export type FacePlanItem = FaceTextPlan | FaceRulePlan;
 
@@ -355,6 +362,7 @@ export function planFace(
         kind: "rule",
         width: scaleSpace(RULE.width, scale),
         marginY: scaleSpace(RULE.marginY, scale),
+        ...(block.isSample === true ? { isSample: true as const } : {}),
       });
       isFirstRendered = false;
       continue;
@@ -386,6 +394,7 @@ export function planFace(
       isCaps: block.kind === "caps",
       wraps: fit.wraps,
       quoteMark: pendingQuoteMark,
+      ...(block.isSample === true ? { isSample: true as const } : {}),
     });
     pendingQuoteMark = null;
     isFirstRendered = false;
