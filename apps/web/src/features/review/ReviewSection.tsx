@@ -195,7 +195,7 @@ export function ReviewSection() {
             <div className="flex items-center justify-between">
               <SectionHead title="Reflection" className="flex-1" />
               {dirty ? (
-                <Label className="text-danger">Unsaved changes</Label>
+                <span className="text-xs text-danger">Unsaved changes</span>
               ) : (
                 existing && <Label>Saved {existing.createdAt.slice(5, 10)}</Label>
               )}

@@ -25,6 +25,7 @@ export function Menu({
   triggerLabel,
   triggerClassName,
   isIconOnly,
+  tone = "muted",
   items,
   align = "end",
 }: {
@@ -33,6 +34,8 @@ export function Menu({
   triggerClassName?: string;
   /** Pads/sizes the trigger as a square icon button. */
   isIconOnly?: boolean;
+  /** `inherit` drops the trigger's own colour so `triggerClassName` owns it outright. */
+  tone?: "muted" | "inherit";
   items: MenuItem[];
   align?: "start" | "center" | "end";
 }) {
@@ -44,7 +47,9 @@ export function Menu({
       <Dropdown.Trigger
         aria-label={triggerLabel}
         className={cx(
-          "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium text-muted transition-colors outline-none hover:bg-surface-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent data-[hovered=true]:text-foreground",
+          "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium transition-colors outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent",
+          tone === "muted" &&
+            "text-muted hover:text-foreground data-[hovered=true]:text-foreground",
           isIconOnly ? "h-8 w-8 shrink-0" : "px-3 py-1.5",
           triggerClassName,
         )}

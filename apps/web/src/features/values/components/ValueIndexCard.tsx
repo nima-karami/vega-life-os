@@ -54,6 +54,7 @@ export function ValueIndexCard({
         <Menu
           align="end"
           isIconOnly
+          tone="inherit"
           triggerLabel={`${value.name} actions`}
           triggerClassName="text-white/[.86] hover:bg-white/10 hover:text-white data-[hovered=true]:text-white"
           triggerContent={<Icon name="dots" size={16} />}

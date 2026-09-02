@@ -6,7 +6,13 @@ import { LedgerCheckbox } from "./LedgerCheckbox";
 import { formatSignedCents } from "./ledger-copy";
 import type { LedgerRowView } from "./ledger-row";
 import { NO_FIGURE } from "./ledger-row";
-import { CHARGE_MONEY_CLASS, FadeEdge, SHARE_MONEY_CLASS, StateChip } from "./primitives";
+import {
+  CHARGE_MONEY_CLASS,
+  FadeEdge,
+  moneyInClass,
+  SHARE_MONEY_CLASS,
+  StateChip,
+} from "./primitives";
 
 /** The ledger's seven columns: two money columns, so a shared row never lies in either direction. */
 export const LEDGER_GRID = "grid-cols-[2.5rem_5.5rem_1fr_10.5rem_8.5rem_6.5rem_6.5rem]";
@@ -53,7 +59,9 @@ export function LedgerRow({
   onToggleSelect,
   onAssignCategory,
 }: LedgerRowProps) {
-  const moneyTone = view.isMoneyIn ? "text-success" : "";
+  const chargeMoneyClass = view.isMoneyIn ? moneyInClass("charge") : CHARGE_MONEY_CLASS;
+  const shareMoneyClass = view.isMoneyIn ? moneyInClass("share") : SHARE_MONEY_CLASS;
+  const noFigureClass = view.isMoneyIn ? "text-[13.5px] text-success" : "text-[13.5px] text-muted";
 
   return (
     <div
@@ -104,22 +112,21 @@ export function LedgerRow({
 
       {mode === "ledger" ? (
         <>
-          <span className={cx(CHARGE_MONEY_CLASS, moneyTone, "text-right")}>
+          <span className={cx(chargeMoneyClass, "text-right")}>
             {formatSignedCents(view.fullCents)}
           </span>
           <span
             className={cx(
               "text-right",
               // The share column drops its emphasis when there is no honest value to print.
-              view.shareCents === null ? "text-[13.5px] text-muted" : SHARE_MONEY_CLASS,
-              moneyTone,
+              view.shareCents === null ? noFigureClass : shareMoneyClass,
             )}
           >
             {view.shareCents === null ? NO_FIGURE : formatSignedCents(view.shareCents)}
           </span>
         </>
       ) : (
-        <span className={cx(SHARE_MONEY_CLASS, moneyTone, "text-right")}>
+        <span className={cx(shareMoneyClass, "text-right")}>
           {formatSignedCents(view.fullCents)}
         </span>
       )}

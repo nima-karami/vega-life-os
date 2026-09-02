@@ -53,8 +53,8 @@ export function FinanceImportDropZone({
 
       <section
         className={cx(
-          "flex flex-col items-start gap-3 rounded-[16px] border border-dashed bg-surface p-5 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent sm:flex-row sm:items-center sm:gap-3.5",
-          isOver ? "border-accent bg-canvas" : "border-line-strong",
+          "flex flex-col items-start gap-3 rounded-[16px] border border-dashed p-5 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-accent sm:flex-row sm:items-center sm:gap-3.5",
+          isOver ? "border-accent bg-canvas" : "border-line-strong bg-surface",
           isDisabled && "opacity-60",
         )}
       >

@@ -80,6 +80,7 @@ export function BulkActionBar({
                 Set status
               </>
             }
+            tone="inherit"
             triggerClassName="text-foreground"
             items={STATUS_CHOICES.map((s) => ({
               label: STATUS_LABEL[s],

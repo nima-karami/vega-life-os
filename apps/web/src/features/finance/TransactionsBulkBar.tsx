@@ -98,9 +98,9 @@ export function TransactionsBulkBar({
 
         <Menu
           align="center"
+          tone="inherit"
           triggerLabel="Set category for selection"
-          // The menu trigger carries its own muted colour, so the label wears the bar's instead.
-          triggerContent={<span className="text-background/85">Set category</span>}
+          triggerContent="Set category"
           triggerClassName={cx(BAR_BUTTON, "hover:bg-transparent")}
           items={categoryItems}
         />

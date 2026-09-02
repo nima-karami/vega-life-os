@@ -67,8 +67,8 @@ export function TimedChip({
         }}
         aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          "group absolute block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] bg-surface px-1.5 py-1 text-left shadow-sm",
-          resolved && "bg-surface-secondary",
+          "group absolute block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm",
+          resolved ? "bg-surface-secondary" : "bg-surface",
           dim ? "opacity-30" : "opacity-100",
           selected && "z-20 ring-2 ring-accent",
           provisional && !selected && "z-20 ring-2 ring-accent/40",
@@ -106,8 +106,8 @@ export function TimedChip({
         </span>
         <span
           className={cx(
-            "block truncate text-[11px] leading-tight text-foreground",
-            resolved && "text-muted line-through",
+            "block truncate text-[11px] leading-tight",
+            resolved ? "text-muted line-through" : "text-foreground",
           )}
         >
           {task.title}

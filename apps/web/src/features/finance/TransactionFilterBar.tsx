@@ -5,7 +5,8 @@ import { ANY, NO_CATEGORY, type TransactionFilters } from "./transactions-query"
 const CHIP_BASE =
   "inline-flex h-7 items-center gap-1.5 rounded-[10px] border px-3 text-[12.5px] hover:bg-transparent";
 const CHIP_ON = "border-accent font-medium text-foreground";
-const CHIP_OFF = "border-border font-normal text-muted";
+const CHIP_OFF =
+  "border-border font-normal text-muted hover:text-foreground data-[hovered=true]:text-foreground";
 
 interface MenuChipProps {
   label: string;
@@ -19,6 +20,7 @@ function MenuChip({ label, isConstrained, triggerLabel, items }: MenuChipProps) 
   return (
     <Menu
       align="start"
+      tone="inherit"
       triggerLabel={triggerLabel}
       triggerClassName={cx(CHIP_BASE, isConstrained ? CHIP_ON : CHIP_OFF)}
       triggerContent={

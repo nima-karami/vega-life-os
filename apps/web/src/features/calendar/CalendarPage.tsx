@@ -1263,8 +1263,7 @@ export function CalendarPage() {
                       key={d.iso}
                       className={cx(
                         "relative border-l border-border",
-                        d.today && "bg-surface-secondary/40",
-                        isTarget && "bg-surface-secondary",
+                        isTarget ? "bg-surface-secondary" : d.today && "bg-surface-secondary/40",
                       )}
                     >
                       <button

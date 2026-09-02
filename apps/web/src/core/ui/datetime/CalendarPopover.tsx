@@ -113,8 +113,9 @@ export function CalendarPopover({
                   "grid h-8 place-items-center rounded-[var(--radius-sm)] font-sans text-[12px] tabular-nums transition-colors duration-150",
                   sel
                     ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
-                    : "hover:bg-[var(--color-canvas)]",
-                  out ? "text-[var(--color-muted)]" : "text-[var(--color-ink)]",
+                    : out
+                      ? "text-[var(--color-muted)] hover:bg-[var(--color-canvas)]"
+                      : "text-[var(--color-ink)] hover:bg-[var(--color-canvas)]",
                   !sel && isToday && "ring-1 ring-inset ring-[var(--color-accent)]",
                 )}
               >
