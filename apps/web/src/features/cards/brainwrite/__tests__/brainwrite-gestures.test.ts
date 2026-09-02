@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  AXIS_RECLAIM_DRIFT_PX,
+  AXIS_RECLAIM_TRAVEL_PX,
+  AXIS_SLOP_PX,
   advanceGesturePhase,
   canDragInPhase,
+  classifyGestureAxis,
   computeDragRotationDeg,
   computeEdgeGlowOpacity,
-  computeFeedbackOffset,
   type DragResolution,
   type DragSample,
   EDGE_DEAD_ZONE_PX,
+  type GestureAxis,
   type GesturePhase,
   type GesturePhaseEvent,
+  isExitPhase,
   isInEdgeVoid,
   MAX_DRAG_ROTATE_DEG,
   resolveDragOutcome,
+  SWIPE_CONE_DEG,
 } from "../brainwrite-gestures";
 
 const CARD_WIDTH = 400;
@@ -33,20 +39,25 @@ function buildSample(over: Partial<DragSample> = {}): DragSample {
     isGradeable: true,
     phase: "dragging",
     isCancelled: false,
+    axis: "x",
     ...over,
   };
 }
 
-/** A flick of `speedPxPerSec` at `degreesOffVertical`, sampled after `seconds` of travel. */
+/** A flick of `speedPxPerSec` at `degreesOffVertical`, sampled after `seconds` of travel. Its
+ *  axis comes from the arbiter reading the same vector, so the sweep exercises the real lock. */
 function buildFlick(degreesOffVertical: number, speedPxPerSec: number, seconds = 0.25): DragSample {
   const radians = (degreesOffVertical * Math.PI) / 180;
   const distance = speedPxPerSec * seconds;
+  const offsetX = distance * Math.sin(radians);
+  const offsetY = -distance * Math.cos(radians);
   return buildSample({
     cardWidthPx: PHONE_WIDTH,
-    offsetX: distance * Math.sin(radians),
-    offsetY: -distance * Math.cos(radians),
+    offsetX,
+    offsetY,
     velocityX: speedPxPerSec * Math.sin(radians),
     velocityY: -speedPxPerSec * Math.cos(radians),
+    axis: classifyGestureAxis("undecided", offsetX, offsetY),
   });
 }
 
@@ -147,7 +158,49 @@ describe("resolveDragOutcome rule 4 — a degenerate sample is total, not a cras
   }
 });
 
-describe("resolveDragOutcome rule 5 — threshold and axis dominance", () => {
+describe("resolveDragOutcome rule 5 — the axis lock", () => {
+  const refusedAxes: GestureAxis[] = ["undecided", "y"];
+
+  for (const axis of refusedAxes) {
+    it(`refuses an ${axis} gesture however far it travelled`, () => {
+      expect(resolveDragOutcome(buildSample({ offsetX: COMMIT_DISTANCE * 2, axis }))).toEqual({
+        kind: "none",
+        reason: "axis-locked",
+      });
+    });
+  }
+
+  it("refuses a y-locked flick that would otherwise clear the velocity gate", () => {
+    expect(
+      resolveDragOutcome(
+        buildSample({ offsetX: TRAVEL_FLOOR, velocityX: 900, velocityY: 0, axis: "y" }),
+      ),
+    ).toEqual({ kind: "none", reason: "axis-locked" });
+  });
+
+  // What the retired end-state dominance refused as "exactly diagonal". The arbiter refuses it
+  // a step earlier — at 10px of travel — so the card never tilted in the first place.
+  it("refuses an exactly diagonal gesture, because it never locked to x", () => {
+    const axis = classifyGestureAxis("undecided", COMMIT_DISTANCE, -COMMIT_DISTANCE);
+    expect(axis).toBe("y");
+    expect(
+      resolveDragOutcome(
+        buildSample({ offsetX: COMMIT_DISTANCE, offsetY: -COMMIT_DISTANCE, axis }),
+      ),
+    ).toEqual({ kind: "none", reason: "axis-locked" });
+  });
+
+  it("refuses a vertically dominant gesture that also cleared the distance gate", () => {
+    const axis = classifyGestureAxis("undecided", 200, -300);
+    expect(axis).toBe("y");
+    expect(resolveDragOutcome(buildSample({ offsetX: 200, offsetY: -300, axis }))).toEqual({
+      kind: "none",
+      reason: "axis-locked",
+    });
+  });
+});
+
+describe("resolveDragOutcome rule 6 — the distance and velocity thresholds", () => {
   it("commits exactly at the 40% distance threshold", () => {
     expect(resolveDragOutcome(buildSample({ offsetX: COMMIT_DISTANCE }))).toEqual({
       kind: "grade",
@@ -162,20 +215,16 @@ describe("resolveDragOutcome rule 5 — threshold and axis dominance", () => {
     });
   });
 
-  it("refuses an exactly diagonal gesture — dominance is strict", () => {
-    expect(
-      resolveDragOutcome(buildSample({ offsetX: COMMIT_DISTANCE, offsetY: -COMMIT_DISTANCE })),
-    ).toEqual({ kind: "none", reason: "below-threshold" });
-  });
-
-  it("refuses a vertically dominant gesture that also cleared the distance gate", () => {
-    expect(resolveDragOutcome(buildSample({ offsetX: 200, offsetY: -300 }))).toEqual({
-      kind: "none",
-      reason: "below-threshold",
+  // The reported snap-back: the card tracked the finger across 40% of its width, the thumb
+  // curled upward on the way out, and the retired dominance term threw the grade away.
+  it("grades an x-locked arc past the distance gate even though it ended vertical", () => {
+    expect(resolveDragOutcome(buildSample({ offsetX: COMMIT_DISTANCE, offsetY: -300 }))).toEqual({
+      kind: "grade",
+      correct: true,
     });
   });
 
-  it("refuses a fast gesture whose vertical velocity dominates", () => {
+  it("refuses a fast x-locked gesture whose release fell outside the flick cone", () => {
     expect(
       resolveDragOutcome(
         buildSample({ offsetX: 100, offsetY: -200, velocityX: 600, velocityY: -700 }),
@@ -211,19 +260,19 @@ describe("resolveDragOutcome rule 5 — threshold and axis dominance", () => {
   it("refuses R10's diagonal flick — 12 degrees off vertical at 800px/s", () => {
     expect(resolveDragOutcome(buildFlick(12, 800))).toEqual({
       kind: "none",
-      reason: "below-threshold",
+      reason: "axis-locked",
     });
   });
 
   it("refuses the same geometry at 2950px/s, where the incidental vx clears the gate", () => {
     const sample = buildFlick(12, 2950);
     expect(Math.abs(sample.velocityX)).toBeGreaterThan(500);
-    expect(resolveDragOutcome(sample)).toEqual({ kind: "none", reason: "below-threshold" });
+    expect(resolveDragOutcome(sample)).toEqual({ kind: "none", reason: "axis-locked" });
   });
 
-  // The one gesture real touch actually reproduced (evidence/e2e-red.md): 40px of sideways
-  // travel hands the sequence to the page, and the vertical flick that follows commits on
-  // velocity alone — under the distance gate, so only the axis comparison refuses it.
+  // The one gesture real touch actually reproduced (evidence/e2e-red.md). Its opening 40px
+  // sideways nudge genuinely locks the axis to x, so the arbiter cannot be what refuses it:
+  // the distance gate (152px against 164.8px) and the 40-degree flick cone are.
   it("refuses the measured thumb arc — 152px across against 425px up at 621px/s", () => {
     const sample = buildSample({
       cardWidthPx: PHONE_WIDTH,
@@ -231,6 +280,7 @@ describe("resolveDragOutcome rule 5 — threshold and axis dominance", () => {
       offsetY: -425,
       velocityX: 621,
       velocityY: -2318,
+      axis: "x",
     });
     expect(Math.abs(sample.offsetX)).toBeLessThan(PHONE_WIDTH * 0.4);
     expect(Math.abs(sample.offsetX)).toBeGreaterThan(PHONE_WIDTH * 0.08);
@@ -240,7 +290,7 @@ describe("resolveDragOutcome rule 5 — threshold and axis dominance", () => {
   it("refuses the field-realistic thumb arc — 30 degrees off vertical at 1100px/s", () => {
     const sample = buildFlick(30, 1100);
     expect(Math.abs(sample.velocityX)).toBeGreaterThan(500);
-    expect(resolveDragOutcome(sample)).toEqual({ kind: "none", reason: "below-threshold" });
+    expect(resolveDragOutcome(sample)).toEqual({ kind: "none", reason: "axis-locked" });
   });
 
   // The invariant behind A1/A2, swept rather than sampled at one point (rulings round 2, D0).
@@ -253,7 +303,7 @@ describe("resolveDragOutcome rule 5 — threshold and axis dominance", () => {
   }
 });
 
-describe("resolveDragOutcome rule 6 — a flick-back refuses rather than guessing", () => {
+describe("resolveDragOutcome rule 7 — a flick-back refuses rather than guessing", () => {
   it("refuses when the velocity sign disagrees with where the card ended up", () => {
     expect(
       resolveDragOutcome(buildSample({ offsetX: TRAVEL_FLOOR, velocityX: -600, velocityY: 0 })),
@@ -274,7 +324,7 @@ describe("resolveDragOutcome rule 6 — a flick-back refuses rather than guessin
   });
 });
 
-describe("resolveDragOutcome rule 7 — the edge dead zone", () => {
+describe("resolveDragOutcome rule 8 — the edge dead zone", () => {
   it("voids a committing swipe that started on the left edge", () => {
     expect(
       resolveDragOutcome(buildSample({ offsetX: COMMIT_DISTANCE, pointerStartClientX: 16 })),
@@ -334,7 +384,7 @@ describe("isInEdgeVoid", () => {
   });
 });
 
-describe("resolveDragOutcome rule 8 — gradeability", () => {
+describe("resolveDragOutcome rule 9 — gradeability", () => {
   it("bounces a card that is not in spaced repetition", () => {
     expect(
       resolveDragOutcome(buildSample({ offsetX: COMMIT_DISTANCE, isGradeable: false })),
@@ -354,7 +404,7 @@ describe("resolveDragOutcome rule 8 — gradeability", () => {
   });
 });
 
-describe("resolveDragOutcome rule 9 — the commit", () => {
+describe("resolveDragOutcome rule 10 — the commit", () => {
   it("grades a rightward distance swipe as remembered", () => {
     expect(resolveDragOutcome(buildSample({ offsetX: COMMIT_DISTANCE }))).toEqual({
       kind: "grade",
@@ -384,6 +434,7 @@ describe("DragResolution", () => {
       buildSample({ offsetX: COMMIT_DISTANCE, isCancelled: true }),
       buildSample({ offsetX: COMMIT_DISTANCE, phase: "settling" }),
       buildSample({ offsetX: 200, velocityX: 3000, cardWidthPx: 0 }),
+      buildSample({ offsetX: COMMIT_DISTANCE, axis: "y" }),
       buildSample({ offsetX: 1 }),
       buildSample({ offsetX: TRAVEL_FLOOR, velocityX: -600 }),
       buildSample({ offsetX: COMMIT_DISTANCE, pointerStartClientX: 4 }),
@@ -402,6 +453,7 @@ describe("DragResolution", () => {
         "none:cancelled",
         "none:phase-locked",
         "none:unmeasured",
+        "none:axis-locked",
         "none:below-threshold",
         "none:direction-conflict",
         "bounce:edge-void",
@@ -413,6 +465,90 @@ describe("DragResolution", () => {
   });
 });
 
+describe("classifyGestureAxis — the slop boundary", () => {
+  it("holds undecided until the accumulated vector reaches the slop", () => {
+    expect(classifyGestureAxis("undecided", AXIS_SLOP_PX - 0.001, 0)).toBe("undecided");
+    expect(classifyGestureAxis("undecided", 0, -(AXIS_SLOP_PX - 0.001))).toBe("undecided");
+    expect(classifyGestureAxis("undecided", 6, -7.9)).toBe("undecided");
+  });
+
+  it("decides at exactly the slop, on the vector's own angle", () => {
+    expect(classifyGestureAxis("undecided", AXIS_SLOP_PX, 0)).toBe("x");
+    expect(classifyGestureAxis("undecided", 6, -8)).toBe("y");
+    expect(classifyGestureAxis("undecided", 8, -6)).toBe("x");
+  });
+
+  it("stays undecided at exactly zero travel", () => {
+    expect(classifyGestureAxis("undecided", 0, 0)).toBe("undecided");
+  });
+});
+
+describe("classifyGestureAxis — the 45 degree cone", () => {
+  it("claims a vector strictly inside the cone, in all four quadrants", () => {
+    expect(classifyGestureAxis("undecided", 100, -99)).toBe("x");
+    expect(classifyGestureAxis("undecided", -100, -99)).toBe("x");
+    expect(classifyGestureAxis("undecided", 100, 99)).toBe("x");
+    expect(classifyGestureAxis("undecided", -100, 99)).toBe("x");
+  });
+
+  it("gives up a vector on or outside the cone — 45 degrees is exclusive", () => {
+    expect(classifyGestureAxis("undecided", 100, -100)).toBe("y");
+    expect(classifyGestureAxis("undecided", 100, -101)).toBe("y");
+    expect(classifyGestureAxis("undecided", 0, -100)).toBe("y");
+  });
+
+  it("draws the cone at the same 45 degrees the retired dominance test used", () => {
+    expect(SWIPE_CONE_DEG).toBe(45);
+  });
+});
+
+describe("classifyGestureAxis — x is terminal", () => {
+  it("never surrenders a tilting card to the scroller", () => {
+    expect(classifyGestureAxis("x", 5, -500)).toBe("x");
+    expect(classifyGestureAxis("x", 0, 0)).toBe("x");
+    expect(classifyGestureAxis("x", -2, 900)).toBe("x");
+  });
+});
+
+describe("classifyGestureAxis — reclaiming y", () => {
+  it("reclaims a young gesture that travelled sideways without drifting", () => {
+    expect(classifyGestureAxis("y", AXIS_RECLAIM_TRAVEL_PX, -AXIS_RECLAIM_DRIFT_PX)).toBe("x");
+    expect(classifyGestureAxis("y", -AXIS_RECLAIM_TRAVEL_PX, AXIS_RECLAIM_DRIFT_PX)).toBe("x");
+  });
+
+  it("holds y a hair under the travel it demands", () => {
+    expect(classifyGestureAxis("y", AXIS_RECLAIM_TRAVEL_PX - 0.001, 0)).toBe("y");
+  });
+
+  it("holds y a hair past the drift it tolerates", () => {
+    expect(
+      classifyGestureAxis("y", AXIS_RECLAIM_TRAVEL_PX * 4, -(AXIS_RECLAIM_DRIFT_PX + 0.001)),
+    ).toBe("y");
+  });
+
+  it("keeps a real scroll locked however much the finger waggles sideways", () => {
+    expect(classifyGestureAxis("y", 300, -280)).toBe("y");
+  });
+});
+
+describe("classifyGestureAxis — a non-finite offset changes nothing", () => {
+  const axes: GestureAxis[] = ["undecided", "x", "y"];
+  const degenerate: [number, number][] = [
+    [Number.NaN, 0],
+    [0, Number.NaN],
+    [Number.POSITIVE_INFINITY, 0],
+    [200, Number.NEGATIVE_INFINITY],
+  ];
+
+  for (const axis of axes) {
+    for (const [offsetX, offsetY] of degenerate) {
+      it(`leaves ${axis} alone for (${offsetX}, ${offsetY})`, () => {
+        expect(classifyGestureAxis(axis, offsetX, offsetY)).toBe(axis);
+      });
+    }
+  }
+});
+
 describe("advanceGesturePhase", () => {
   const legal: [GesturePhase, GesturePhaseEvent, GesturePhase][] = [
     ["idle", "drag-start", "dragging"],
@@ -420,9 +556,7 @@ describe("advanceGesturePhase", () => {
     ["dragging", "release-idle", "idle"],
     ["dragging", "abort", "idle"],
     ["committing", "fly-off-end", "settling"],
-    ["committing", "abort", "idle"],
     ["settling", "recentre-end", "idle"],
-    ["settling", "abort", "idle"],
     ["idle", "abort", "idle"],
   ];
 
@@ -452,8 +586,29 @@ describe("advanceGesturePhase", () => {
     }
   });
 
-  it("accepts abort from every phase and always lands on idle", () => {
-    for (const phase of phases) expect(advanceGesturePhase(phase, "abort")).toBe("idle");
+  it("takes a gesture that is still live to idle on abort", () => {
+    expect(advanceGesturePhase("idle", "abort")).toBe("idle");
+    expect(advanceGesturePhase("dragging", "abort")).toBe("idle");
+  });
+
+  // The regression this guards: a pointercancel arriving mid fly-off — Chromium reclaiming a
+  // touch that landed behind the flying card — used to release the lock and let the next swipe
+  // grade the same card again.
+  it("refuses to abort the exit window a committed grade owns", () => {
+    expect(advanceGesturePhase("committing", "abort")).toBe("committing");
+    expect(advanceGesturePhase("settling", "abort")).toBe("settling");
+  });
+});
+
+describe("isExitPhase", () => {
+  it("names the two phases a committed grade owns", () => {
+    expect(isExitPhase("committing")).toBe(true);
+    expect(isExitPhase("settling")).toBe(true);
+  });
+
+  it("leaves the phases a live gesture owns", () => {
+    expect(isExitPhase("idle")).toBe(false);
+    expect(isExitPhase("dragging")).toBe(false);
   });
 });
 
@@ -494,22 +649,6 @@ describe("computeDragRotationDeg", () => {
 
   it("guards against an unmeasured (zero-width) stage", () => {
     expect(computeDragRotationDeg(50, 0)).toBe(0);
-  });
-});
-
-describe("computeFeedbackOffset", () => {
-  it("tracks the pointer while the gesture is horizontally dominant", () => {
-    expect(computeFeedbackOffset(120, -40)).toBe(120);
-    expect(computeFeedbackOffset(-120, 40)).toBe(-120);
-  });
-
-  it("stays flat through a page swipe, so a scroll shows no glow", () => {
-    expect(computeFeedbackOffset(40, -300)).toBe(0);
-    expect(computeFeedbackOffset(0, -300)).toBe(0);
-  });
-
-  it("stays flat on an exact diagonal, matching the arbiter's strict dominance", () => {
-    expect(computeFeedbackOffset(100, -100)).toBe(0);
   });
 });
 

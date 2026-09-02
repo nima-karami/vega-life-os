@@ -3,6 +3,7 @@ import {
   advanceGesturePhase,
   type GesturePhase,
   type GesturePhaseEvent,
+  isExitPhase,
 } from "./brainwrite-gestures";
 
 interface GesturePhaseCallbacks {
@@ -47,7 +48,10 @@ export function useGesturePhase(callbacks: GesturePhaseCallbacks): GesturePhaseC
     else if (next === "idle") callbacksRef.current.onGestureEnd();
   }, []);
 
+  // A committed card has nothing left to abort: its motion values and timers are driving the
+  // exit window, and tearing them down strands the fly-off that ends it.
   const abort = useCallback(() => {
+    if (isExitPhase(phaseRef.current)) return;
     isDragSuppressedRef.current = true;
     setIsDragSuppressed(true);
     callbacksRef.current.onAbort();

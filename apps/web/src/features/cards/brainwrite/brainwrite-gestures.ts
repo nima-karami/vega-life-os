@@ -8,6 +8,8 @@ export type GesturePhaseEvent =
   | "recentre-end"
   | "abort";
 
+export type GestureAxis = "undecided" | "x" | "y";
+
 export interface DragSample {
   /** Signed horizontal travel from the gesture origin, px (framer `info.offset.x`). */
   offsetX: number;
@@ -31,6 +33,8 @@ export interface DragSample {
   phase: GesturePhase;
   /** True for pointercancel, a fired long-press, backgrounding, or unmount. */
   isCancelled: boolean;
+  /** The axis committed to during the drag, never re-derived from where the gesture ended. */
+  axis: GestureAxis;
 }
 
 export type DragResolution =
@@ -42,6 +46,7 @@ export type DragResolution =
         | "cancelled"
         | "phase-locked"
         | "unmeasured"
+        | "axis-locked"
         | "below-threshold"
         | "direction-conflict";
     };
@@ -49,28 +54,57 @@ export type DragResolution =
 const GRADE_DRAG_RATIO = 0.4;
 const GRADE_VELOCITY_PX_PER_S = 500;
 const MIN_GRADE_TRAVEL_RATIO = 0.08;
+const FLICK_CONE_DEG = 40;
 export const EDGE_DEAD_ZONE_PX = 16;
+
+export const AXIS_SLOP_PX = 10;
+export const SWIPE_CONE_DEG = 45;
+export const AXIS_RECLAIM_TRAVEL_PX = 44;
+export const AXIS_RECLAIM_DRIFT_PX = 24;
 
 export const MAX_DRAG_ROTATE_DEG = 10;
 const GLOW_FADE_START_RATIO = 0.2;
+const DEGREES_PER_RADIAN = 180 / Math.PI;
 
 export function isInEdgeVoid(clientX: number, viewportWidthPx: number): boolean {
   return clientX <= EDGE_DEAD_ZONE_PX || clientX >= viewportWidthPx - EDGE_DEAD_ZONE_PX;
+}
+
+/** Strictly inside, so an exact 45° diagonal falls outside a 45° cone — the boundary the
+ *  retired end-state dominance test drew, kept so no gesture changes side. */
+const isWithinConeOfHorizontal = (deltaX: number, deltaY: number, coneDeg: number): boolean =>
+  Math.atan2(Math.abs(deltaY), Math.abs(deltaX)) * DEGREES_PER_RADIAN < coneDeg;
+
+/** Pure and total. Reads the accumulated origin→current vector, not the frame delta, so an
+ *  arc's curvature averages out instead of flipping the lock frame by frame. */
+export function classifyGestureAxis(
+  current: GestureAxis,
+  offsetX: number,
+  offsetY: number,
+): GestureAxis {
+  if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return current;
+  if (current === "x") return current;
+  if (current === "y") {
+    const canReclaim =
+      Math.abs(offsetY) <= AXIS_RECLAIM_DRIFT_PX && Math.abs(offsetX) >= AXIS_RECLAIM_TRAVEL_PX;
+    return canReclaim ? "x" : "y";
+  }
+  if (Math.hypot(offsetX, offsetY) < AXIS_SLOP_PX) return "undecided";
+  return isWithinConeOfHorizontal(offsetX, offsetY, SWIPE_CONE_DEG) ? "x" : "y";
 }
 
 const hasFiniteTravel = (sample: DragSample): boolean =>
   [sample.offsetX, sample.offsetY, sample.velocityX, sample.velocityY].every(Number.isFinite);
 
 const passedDistanceGate = (sample: DragSample): boolean =>
-  Math.abs(sample.offsetX) >= sample.cardWidthPx * GRADE_DRAG_RATIO &&
-  Math.abs(sample.offsetX) > Math.abs(sample.offsetY);
+  Math.abs(sample.offsetX) >= sample.cardWidthPx * GRADE_DRAG_RATIO;
 
-// The floor and the axis comparison both matter here: the thumb arc that reproduces the
-// defect clears the floor comfortably and is refused only by the axis comparison.
+// This path commits on 8% of travel, so unlike the distance path it still wants the release
+// direction to corroborate the axis the drag committed to.
 const passedVelocityGate = (sample: DragSample): boolean =>
   Math.abs(sample.velocityX) >= GRADE_VELOCITY_PX_PER_S &&
-  Math.abs(sample.velocityX) > Math.abs(sample.velocityY) &&
-  Math.abs(sample.offsetX) >= sample.cardWidthPx * MIN_GRADE_TRAVEL_RATIO;
+  Math.abs(sample.offsetX) >= sample.cardWidthPx * MIN_GRADE_TRAVEL_RATIO &&
+  isWithinConeOfHorizontal(sample.velocityX, sample.velocityY, FLICK_CONE_DEG);
 
 /** Classifies a completed pointer sequence. Pure and total — the only place a gesture is decided. */
 export function resolveDragOutcome(sample: DragSample): DragResolution {
@@ -80,6 +114,7 @@ export function resolveDragOutcome(sample: DragSample): DragResolution {
     return { kind: "none", reason: "unmeasured" };
   }
   if (!hasFiniteTravel(sample)) return { kind: "none", reason: "below-threshold" };
+  if (sample.axis !== "x") return { kind: "none", reason: "axis-locked" };
 
   const passedDistance = passedDistanceGate(sample);
   const passedVelocity = passedVelocityGate(sample);
@@ -101,20 +136,19 @@ const PHASE_TRANSITIONS: Record<GesturePhase, Partial<Record<GesturePhaseEvent, 
   settling: { "recentre-end": "idle" },
 };
 
+/** The window a committed grade owns. It ends on its own fly-off and recentre, never on an abort. */
+export function isExitPhase(phase: GesturePhase): boolean {
+  return phase === "committing" || phase === "settling";
+}
+
 /** Total: an event the phase does not name leaves it alone, so an orphaned framer callback is a no-op. */
 export function advanceGesturePhase(phase: GesturePhase, event: GesturePhaseEvent): GesturePhase {
-  if (event === "abort") return "idle";
+  if (event === "abort") return isExitPhase(phase) ? phase : "idle";
   return PHASE_TRANSITIONS[phase][event] ?? phase;
 }
 
 export function canDragInPhase(phase: GesturePhase, isActiveCard: boolean): boolean {
   return isActiveCard && (phase === "idle" || phase === "dragging");
-}
-
-/** What the glow and the rotation read. Zero while the gesture is vertically dominant: a page
- *  swipe is not a near-miss grade, and `dragDirectionLock` leaves `offsetX` growing regardless. */
-export function computeFeedbackOffset(offsetX: number, offsetY: number): number {
-  return Math.abs(offsetX) > Math.abs(offsetY) ? offsetX : 0;
 }
 
 export function computeDragRotationDeg(offsetX: number, cardWidthPx: number): number {
