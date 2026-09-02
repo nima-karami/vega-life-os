@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { format, subMonths } from "date-fns";
 import { enterApp } from "./helpers/app";
 
 /**
@@ -18,6 +19,13 @@ async function openCommandBar(page: Page, query: string) {
 }
 
 const viewNav = (page: Page) => page.getByRole("navigation", { name: "Finance views" });
+
+/**
+ * The ledger is month-scoped and the seed dates most rows back from today, so the current month is
+ * empty for the first days of a month. The settled month's rows are offsets from its own start,
+ * so it always has three.
+ */
+const MONTH_WITH_ROWS = format(subMonths(new Date(), 2), "yyyy-MM");
 
 /** The strip's five cells, in the order they must read left to right. */
 const FINANCE_VIEWS = [
@@ -155,7 +163,7 @@ test("the view strip does not overflow the page at 320px", async ({ page }) => {
 
 test("the ledger filters on a search and offers a way back", async ({ page }) => {
   await enterApp(page);
-  await page.goto("/finance/transactions", { waitUntil: "networkidle" });
+  await page.goto(`/finance/transactions?month=${MONTH_WITH_ROWS}`, { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible({
     timeout: 15_000,
   });

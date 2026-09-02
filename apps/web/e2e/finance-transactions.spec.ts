@@ -26,6 +26,12 @@ function monthShiftedBy(months: number): string {
 
 /** The partner-paid grocery run, 3 days back — the seed's most recent row. */
 const RECENT_MONTH = monthOfDaysAgo(3);
+/**
+ * The seed's recent rows sit 3–25 days back, so a month boundary splits them between this month
+ * and last. Whichever of the two holds the row from 12 days back holds at least three of them,
+ * and neither is ever the settled month.
+ */
+const OPEN_MONTH_WITH_ROWS = monthOfDaysAgo(12);
 /** The unknown merchant, 5 days back: no category, so it is the one row still needing review. */
 const UNREVIEWED_DESCRIPTION = "SQ *8231 VENDOR 4417";
 
@@ -90,7 +96,7 @@ test("the review lens triages the row in place and empties the queue", async ({ 
 });
 
 test("a bulk category change lands on every selected row", async ({ page }) => {
-  await openLedger(page, `?month=${monthShiftedBy(0)}`);
+  await openLedger(page, `?month=${OPEN_MONTH_WITH_ROWS}`);
 
   const rowCount = await rowBoxes(page).count();
   expect(rowCount).toBeGreaterThan(1);

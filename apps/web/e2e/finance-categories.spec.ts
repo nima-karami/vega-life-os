@@ -118,17 +118,19 @@ test("delete is refused while the category is referenced, and offers archive or 
 });
 
 test("merging moves every row into the target and archives the source", async ({ page }) => {
-  await expect(rowLink(page, "Groceries")).toContainText("2 rows");
+  // The page is scoped to the current month with no cursor, so the source has to be a category the
+  // seed lands in every month: Software carries the annual licence, recognised across twelve.
+  await expect(rowLink(page, "Software")).toContainText("1 row");
   await expect(rowLink(page, "Dining out")).toContainText("0 rows");
 
-  await openRowMenu(page, "Groceries", "Merge into…");
-  const merge = page.getByRole("dialog", { name: "Merge Groceries into…" });
+  await openRowMenu(page, "Software", "Merge into…");
+  const merge = page.getByRole("dialog", { name: "Merge Software into…" });
   await merge.getByRole("button", { name: /Pick a category/ }).click();
   await page.getByRole("option", { name: /^Dining out/ }).click();
   await merge.getByRole("button", { name: "Merge", exact: true }).click();
   await expect(merge).toBeHidden();
 
-  await expect(rowLink(page, "Dining out")).toContainText("2 rows");
-  await expect(rowLink(page, "Groceries")).toBeHidden();
+  await expect(rowLink(page, "Dining out")).toContainText("1 row");
+  await expect(rowLink(page, "Software")).toBeHidden();
   await expect(page.getByRole("button", { name: /Show archived \(1\)/ })).toBeVisible();
 });

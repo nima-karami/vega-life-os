@@ -26,6 +26,15 @@ async function passGratitudeGate(page: import("@playwright/test").Page) {
   }
 }
 
+/** Clicks every "Mark … done" control in a region until none is left. */
+async function markRegionDone(region: import("@playwright/test").Locator) {
+  for (;;) {
+    const next = region.getByRole("button", { name: /^Mark .+ done$/ }).first();
+    if (!(await next.isVisible().catch(() => false))) break;
+    await next.click();
+  }
+}
+
 // Boot the app and dismiss onboarding once before each test.
 test.beforeEach(async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
@@ -650,11 +659,13 @@ test("today: the date picker jumps to a chosen day", async ({ page }) => {
   await passGratitudeGate(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Today", { timeout: 15_000 });
 
-  // Open the calendar and pick the 1st of the visible month.
+  // Pick a day of the visible month that today never is. The grid's leading cells are the tail of
+  // the month before, so a single-digit number always resolves to this month's own cell first.
+  const otherDay = new Date().getDate() === 1 ? "2" : "1";
   await page.getByRole("button", { name: "Pick a date" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "1", exact: true }).first().click();
+  await dialog.getByRole("button", { name: otherDay, exact: true }).first().click();
 
   // We've left "today" — the jump-back affordance is now shown.
   await expect(page.getByRole("button", { name: "Jump to today" })).toBeVisible();
@@ -700,14 +711,12 @@ test("today: reflection step appears once all tasks are resolved, and can be ski
   await page.goto("/today", { waitUntil: "networkidle" });
   await passGratitudeGate(page);
 
-  // Resolve every remaining task via its "Mark … done" control.
+  // Reflection waits on the whole day, so both regions have to be drained: the
+  // to-do list and the Daily-habits strip, which is not inside it.
   const remaining = page.getByRole("region", { name: "Remaining" });
   await expect(remaining).toBeVisible({ timeout: 15_000 });
-  for (;;) {
-    const next = remaining.getByRole("button", { name: /^Mark .+ done$/ }).first();
-    if (!(await next.isVisible().catch(() => false))) break;
-    await next.click();
-  }
+  await markRegionDone(remaining);
+  await markRegionDone(page.getByRole("region", { name: "Daily habits" }));
 
   // The full-screen reflection step now shows.
   const reflectHeading = page.getByRole("heading", { name: "Reflect on today" });

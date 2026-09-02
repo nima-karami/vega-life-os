@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { format, setDate, subMonths } from "date-fns";
 import { enterApp } from "./helpers/app";
 
 /**
@@ -13,20 +14,29 @@ const rbcStatement = (rows: string[]) =>
     ...rows,
   ].join("\n");
 
+/**
+ * Last month, never a fixed one: the seed settles the month two back, and a settled month freezes
+ * every row in it — so a pinned statement date eventually imports rows this suite can't edit.
+ */
+const STATEMENT_ANCHOR = subMonths(new Date(), 1);
+const onDay = (day: number) => format(setDate(STATEMENT_ANCHOR, day), "MM/dd/yyyy");
+const isoOnDay = (day: number) => format(setDate(STATEMENT_ANCHOR, day), "yyyy-MM-dd");
+
 const STATEMENT = rbcStatement([
-  "Chequing,1234,07/03/2026,,E2E COFFEE HOUSE,,-12.50",
-  "Chequing,1234,07/04/2026,,E2E BOOK STORE,,-31.00",
-  "Chequing,1234,07/05/2026,,E2E TICKET REFUND,,15.00",
-  "Chequing,1234,07/06/2026,,PAYMENT - THANK YOU,,900.00",
+  `Chequing,1234,${onDay(3)},,E2E COFFEE HOUSE,,-12.50`,
+  `Chequing,1234,${onDay(4)},,E2E BOOK STORE,,-31.00`,
+  `Chequing,1234,${onDay(5)},,E2E TICKET REFUND,,15.00`,
+  `Chequing,1234,${onDay(6)},,PAYMENT - THANK YOU,,900.00`,
 ]);
 
-const NEXT_WEEK = rbcStatement(["Chequing,1234,07/10/2026,,E2E COFFEE HOUSE,,-9.00"]);
+const NEXT_WEEK = rbcStatement([`Chequing,1234,${onDay(10)},,E2E COFFEE HOUSE,,-9.00`]);
 
 /** The ledger is month-scoped, so a search for an imported row has to name the month it lands in. */
-const STATEMENT_MONTH = "2026-07";
+const STATEMENT_MONTH = format(STATEMENT_ANCHOR, "yyyy-MM");
 
 /** Headers no registry entry knows, so this file can only be read through the mapper. */
-const UNKNOWN_LAYOUT = ["Posted,Merchant,Value", "2026-07-06,E2E CORNER SHOP,-8.25"].join("\n");
+const UNKNOWN_LAYOUT = ["Posted,Merchant,Value", `${isoOnDay(6)},E2E CORNER SHOP,-8.25`].join("\n");
+const UNKNOWN_DATE_LABEL = format(setDate(STATEMENT_ANCHOR, 6), "d MMMM yyyy");
 
 async function dropStatement(page: Page, csv = STATEMENT) {
   await page.goto("/finance/import", { waitUntil: "networkidle" });
@@ -122,7 +132,7 @@ test("an unknown layout is mapped once and then previews", async ({ page }) => {
   await chooseInMapper("Description column", "Merchant");
   await chooseInMapper("Amount column", "Value");
   await chooseInMapper("Date format", "YYYY-MM-DD");
-  await expect(mapper.getByText("6 July 2026 (YYYY-MM-DD)")).toBeVisible();
+  await expect(mapper.getByText(`${UNKNOWN_DATE_LABEL} (YYYY-MM-DD)`)).toBeVisible();
 
   await mapper.getByRole("button", { name: "Confirm mapping" }).click();
   await expect(mapper).toBeHidden();
