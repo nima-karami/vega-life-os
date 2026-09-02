@@ -1,19 +1,15 @@
 import { shiftISO } from "@/core/lib/date";
 import type { Task } from "@/features/tasks/model";
-import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
+import { computeDayCounts } from "@/features/tasks/selectors";
 import { type DayEntry, hasContent, hasGratitude } from "./model";
 
 /**
- * A day is "reflectable" once it had at least one task and every task is
- * resolved (done or skip). Anytime habits are excluded — they're daily trackers,
- * not to-dos, so an unticked habit never blocks the end-of-day reflection (same
- * rule as the Today "X of Y" count). Zero-task days are never reflectable.
+ * A day is "reflectable" once everything scheduled on it — one-offs, timed habits
+ * and anytime habits alike — is resolved (done or skip). Nothing on the day's list
+ * may be left open. Zero-task days are never reflectable.
  */
 export function isDayReflectable(tasks: Task[], date: string): boolean {
-  const counts = computeDayCounts(
-    tasks.filter((t) => !isAnytimeHabit(t)),
-    date,
-  );
+  const counts = computeDayCounts(tasks, date);
   return counts.total > 0 && counts.todo === 0;
 }
 

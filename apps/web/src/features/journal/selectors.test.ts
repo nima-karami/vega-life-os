@@ -45,7 +45,7 @@ describe("isDayReflectable", () => {
     ).toBe(true);
   });
 
-  it("ignores anytime habits — an unticked daily habit doesn't block reflection", () => {
+  it("false while an anytime habit is unticked, even with every to-do done", () => {
     expect(
       isDayReflectable(
         [
@@ -54,13 +54,28 @@ describe("isDayReflectable", () => {
         ],
         "2026-06-22",
       ),
+    ).toBe(false);
+  });
+
+  it("true when the day's only items are anytime habits and all are ticked", () => {
+    expect(
+      isDayReflectable(
+        [
+          task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "done" }),
+          task({ id: "h2", kind: "habit", habitId: "h2", time: null, status: "skip" }),
+        ],
+        "2026-06-22",
+      ),
     ).toBe(true);
   });
 
-  it("false when the only tasks are anytime habits (no real to-dos)", () => {
+  it("false while a timed habit is unticked", () => {
     expect(
       isDayReflectable(
-        [task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "done" })],
+        [
+          task({ id: "a", status: "done" }),
+          task({ id: "h", kind: "habit", habitId: "h1", time: "09:00", status: "todo" }),
+        ],
         "2026-06-22",
       ),
     ).toBe(false);
