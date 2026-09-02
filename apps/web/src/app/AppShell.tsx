@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router";
 import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
+import { cx } from "@/core/ui";
 import { RouteUndoBar } from "@/features/cards/RouteUndoBar";
 import { isGratitudeRequired } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
@@ -8,9 +9,9 @@ import { BottomNav } from "./BottomNav";
 import { OmniTrigger } from "./OmniTrigger";
 import { PageTransition } from "./PageTransition";
 
-/** Content slides under the phone nav rather than being cut off at it — the band overlaps
- *  the last rows of scrolled content, so it is always on and never scroll-driven. */
-const NAV_FADE_HEIGHT_PX = 32;
+/** Ramps the last rows of scrolled content into the nav's own opaque band, which sits
+ *  directly below it — so the two together always hide the page behind the glyphs. */
+const NAV_FADE_RAMP_PX = 32;
 
 export function AppShell() {
   // Subscribing to the live date here re-renders the whole routed subtree at the
@@ -23,8 +24,8 @@ export function AppShell() {
   // The journal page is allowlisted: gratitude written there satisfies the gate
   // reactively (it reads s.journal), dismissing the overlay with no extra wiring.
   const onJournal = pathname.startsWith("/journal/");
-  // /brainwrite fills the true viewport and overlays the nav over its bottom edge —
-  // every other route keeps the nav in-flow.
+  // /brainwrite bleeds its card under the overlaid nav and insets its own text off the
+  // measured band; every other route reserves that band as bottom padding instead.
   const isFullStage = pathname === "/brainwrite";
 
   // Hard morning gate: every other route bounces to /today's gratitude step.
@@ -49,25 +50,34 @@ export function AppShell() {
           </div>
         </header>
       )}
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        className={cx(
+          "relative flex min-h-0 flex-1 flex-col",
+          // BottomNav's own band: its h-11 glyph row plus the container's safe-area padding.
+          // It shortens the scrollport rather than padding the content, so the overlaid
+          // glyphs can never sit over a control the page put near its bottom edge.
+          !gated &&
+            !isFullStage &&
+            "pb-[calc(env(safe-area-inset-bottom)_+_0.875rem_+_2.75rem)] sm:pb-0",
+        )}
+      >
         <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <PageTransition />
           <RouteUndoBar />
         </main>
+        {/* One mount, one position, every route: the band is overlaid rather than in flow,
+        so no route change can unmount it and let the outgoing page flash through it. */}
         {!gated && (
-          <span
-            aria-hidden
-            style={{ height: NAV_FADE_HEIGHT_PX }}
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas to-canvas/0 sm:hidden"
-          />
-        )}
-        {!gated && isFullStage && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 sm:hidden">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 sm:hidden">
+            <span
+              aria-hidden
+              style={{ height: NAV_FADE_RAMP_PX }}
+              className="block bg-gradient-to-t from-canvas to-canvas/0"
+            />
             <BottomNav />
           </div>
         )}
       </div>
-      {!gated && !isFullStage && <BottomNav />}
     </div>
   );
 }

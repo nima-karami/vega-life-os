@@ -31,10 +31,11 @@ const AVATAR_CELL = cx(
 );
 
 /** Phone-only primary navigation — the dissolved nav: bare glyphs sitting on the canvas
- *  with no pill, container or background, the glyph itself carrying state (accent at
- *  stroke 2.5 when current). Carries the six destinations plus the search (⌘K) and
- *  account controls that live in the desktop header, so phones need no top chrome. Lives
- *  in-flow at the base of the app shell so content always clears it. Hidden at sm+. */
+ *  with no pill or container, the glyph itself carrying state (accent at stroke 2.5 when
+ *  current). Carries the six destinations plus the search (⌘K) and account controls that
+ *  live in the desktop header, so phones need no top chrome. Overlaid at the base of the
+ *  app shell on every route, painting its own opaque band so no page ever shows through
+ *  it; the shell reserves that band's height below the content. Hidden at sm+. */
 export function BottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ export function BottomNav() {
   return (
     <div
       data-bottom-nav
-      className="pointer-events-none shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden"
+      className="pointer-events-none bg-canvas px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden"
     >
       <nav aria-label="Primary" className="flex w-full items-center">
         {TABS.map((t) => {
