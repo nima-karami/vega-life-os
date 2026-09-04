@@ -105,7 +105,7 @@ export function FinanceImportColumnsCard({
           label="Account"
           value={accountName}
           options={accountOptions}
-          isDisabled={accountOptions.length === 0}
+          isDisabled={false}
           onSelect={onAccountChange}
         />
       </div>

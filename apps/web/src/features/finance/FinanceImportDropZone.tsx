@@ -17,6 +17,10 @@ export interface FinanceImportDropZoneProps {
   priorImportNote?: string;
   /** the file's merchants are strangers to the chosen account */
   mismatchNote?: string;
+  /** overrides the module's idle hint — the zero-account state says what to do instead */
+  idleHint?: string;
+  /** a drop the shut zone swallowed, so it is answered rather than handed to the browser */
+  onBlockedDrop?: (files: FileList | null) => void;
 }
 
 /**
@@ -31,11 +35,23 @@ export function FinanceImportDropZone({
   blockedReason,
   priorImportNote,
   mismatchNote,
+  idleHint,
+  onBlockedDrop,
 }: FinanceImportDropZoneProps) {
   const [isOver, setIsOver] = useState(false);
 
   return (
-    <div className="relative">
+    <fieldset
+      className="relative min-w-0"
+      onDragOver={(event) => {
+        if (isDisabled) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (!isDisabled) return;
+        event.preventDefault();
+        onBlockedDrop?.(event.dataTransfer.files);
+      }}
+    >
       <input
         type="file"
         aria-label="Choose a statement file"
@@ -66,7 +82,7 @@ export function FinanceImportDropZone({
             {fileName !== null && <span className="font-normal text-muted"> · {fileMeta}</span>}
           </p>
           <p className="mt-[3px] text-[12.5px] text-muted">
-            {fileName === null ? IDLE_HINT : STAGED_HINT}
+            {fileName === null ? (idleHint ?? IDLE_HINT) : STAGED_HINT}
           </p>
           {priorImportNote && (
             <p data-testid="import-prior-file" className="mt-[3px] text-[12.5px] text-warning">
@@ -81,6 +97,6 @@ export function FinanceImportDropZone({
           Choose file
         </span>
       </section>
-    </div>
+    </fieldset>
   );
 }

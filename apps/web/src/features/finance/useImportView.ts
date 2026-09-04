@@ -36,6 +36,10 @@ const IDLE_SUB_LINE =
   "Drop a statement and read what it would do. Nothing is written until you import.";
 const OFFLINE_REASON = "You’re offline — a signed-in import has nowhere to land until you’re back.";
 const RECENT_LIMIT = 6;
+const NO_ACCOUNT_HINT = "Add an account first.";
+
+/** The picker's create sentinel — a value no account id can ever hold. */
+export const NEW_ACCOUNT_OPTION = "__new-account__";
 
 interface StagedView {
   staged: StagedFile | null;
@@ -105,10 +109,14 @@ interface DropZoneInput {
 
 function buildDropZone(input: DropZoneInput): FinanceImportDropZoneProps {
   const { staged } = input.stage;
+  const hasAccount = input.account !== null;
   const base = {
     onFiles: input.onFiles,
-    isDisabled: input.isBlockedOffline || input.isParsing || input.stage.isCommitting,
+    isDisabled:
+      !hasAccount || input.isBlockedOffline || input.isParsing || input.stage.isCommitting,
     blockedReason: input.isBlockedOffline ? OFFLINE_REASON : undefined,
+    idleHint: hasAccount ? undefined : NO_ACCOUNT_HINT,
+    onBlockedDrop: hasAccount ? undefined : input.onFiles,
   };
   if (staged === null) return { ...base, fileName: null, fileMeta: "" };
 
@@ -131,6 +139,8 @@ function buildDropZone(input: DropZoneInput): FinanceImportDropZoneProps {
 export interface ImportView extends StagedView {
   flow: StatementImport;
   account: FinanceAccount | null;
+  /** every account, archived included — the sidebar card lists them all */
+  accounts: FinanceAccount[];
   accountOptions: SelectFieldOption[];
   counts: ImportOutcomeCounts;
   previewRows: ImportPreviewRow[];
@@ -169,10 +179,14 @@ export function useImportView(): ImportView {
     ...stage,
     flow,
     account,
-    accountOptions: openAccounts.map((candidate) => ({
-      value: candidate.id,
-      label: readAccountLabel(candidate),
-    })),
+    accounts,
+    accountOptions: [
+      ...openAccounts.map((candidate) => ({
+        value: candidate.id,
+        label: readAccountLabel(candidate),
+      })),
+      { value: NEW_ACCOUNT_OPTION, label: "New account…" },
+    ],
     counts,
     previewRows,
     recent,

@@ -43,6 +43,8 @@ export type ImportPhase =
 const REMAP_HINT =
   "Those columns aren’t in this file. Check the header-row setting and pick again.";
 
+const NO_ACCOUNT_TOAST = "Add an account before importing";
+
 export interface StatementImport {
   phase: ImportPhase;
   reset: () => void;
@@ -64,6 +66,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const updateFinanceAccount = useStore((s) => s.updateFinanceAccount);
   const rollBackFinanceImport = useStore((s) => s.rollBackFinanceImport);
   const importFinanceTransactions = useStore((s) => s.importFinanceTransactions);
+  const pushToast = useStore((s) => s.pushToast);
 
   const [phase, setPhase] = useState<ImportPhase>({ status: "idle" });
 
@@ -161,7 +164,12 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     reset: () => setPhase({ status: "idle" }),
     openFiles: (files) => {
       const file = files?.[0];
-      if (file && account) void readFile(file);
+      if (!file) return;
+      if (!account) {
+        pushToast(NO_ACCOUNT_TOAST);
+        return;
+      }
+      void readFile(file);
     },
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
