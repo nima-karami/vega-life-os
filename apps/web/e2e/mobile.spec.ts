@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 /**
  * Mobile-usability proof (spec §7). Runs on a touch phone profile; the @automatable
@@ -31,6 +31,21 @@ async function passGratitudeGate(page: import("@playwright/test").Page) {
     await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
     await gate.click();
   }
+}
+
+/**
+ * How far a bottom-fixed bar hangs into the nav band; ≤ 1 means it clears the glyphs.
+ *
+ * Always read through expect.poll: PageTransition animates `filter: blur()`, and a live
+ * filter makes the routed page a containing block for the fixed bars it owns, so for the
+ * first 0.3–0.45s of a route they resolve against the page box and read un-lifted.
+ */
+async function navOverlap(page: Page, bar: Locator): Promise<number> {
+  const navBox = await page.locator("[data-bottom-nav]").boundingBox();
+  const barBox = await bar.boundingBox();
+  if (!navBox) throw new Error("the bottom nav has no bounds");
+  if (!barBox) throw new Error("the bar has no bounds");
+  return barBox.y + barBox.height - navBox.y;
 }
 
 /** scrollWidth must not exceed clientWidth — no horizontal page overflow. */
@@ -293,4 +308,100 @@ test("the cards filter opens as a centred modal on a phone (390px)", async ({ pa
 
   await page.getByRole("button", { name: "Filter cards" }).click();
   await expect(page.getByRole("dialog")).toContainText("Filter cards");
+});
+
+// ─── Bottom-fixed bars clear the nav band (spec §7) ──────────────────────────
+
+test("the undo bar clears the nav and a nav tab still navigates under it (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/today", { waitUntil: "domcontentloaded" });
+  await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.locator('main [aria-label^="Actions for "]').first().click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+
+  const undoBar = page.getByRole("status").filter({ hasText: "Task deleted" });
+  await expect(undoBar).toBeVisible();
+  await expect
+    .poll(() => navOverlap(page, undoBar), {
+      message: "the undo bar hangs over the nav band",
+      timeout: 5_000,
+    })
+    .toBeLessThanOrEqual(1);
+
+  // The point of the lift: the glyph is reachable, not merely un-intersected.
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await nav.getByRole("button", { name: "Habits" }).click();
+  await expect(page).toHaveURL(/\/habits$/);
+});
+
+test("a toast clears the nav band (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/today", { waitUntil: "domcontentloaded" });
+  await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await nav.getByRole("button", { name: "Search" }).click();
+  const commandBar = page.getByRole("dialog", { name: "Command bar" });
+  await expect(commandBar).toBeVisible();
+  await page.keyboard.type("clear the nav band");
+  await page.getByRole("button", { name: /to backlog$/ }).click();
+
+  // The toast self-dismisses after 2.6s, so poll it rather than settling first.
+  const toast = page.getByRole("status").filter({ hasText: "to backlog" });
+  await expect
+    .poll(() => navOverlap(page, toast), {
+      message: "the toast hangs over the nav band",
+      intervals: [50, 50, 100, 100, 200],
+      timeout: 2_400,
+    })
+    .toBeLessThanOrEqual(1);
+});
+
+test("the journal format toolbar docks flush on the nav band (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const today = new Date();
+  const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  await page.goto(`/journal/${date}`, { waitUntil: "domcontentloaded" });
+
+  const editor = page.getByRole("textbox", { name: "Journal" });
+  await expect(editor).toBeVisible({ timeout: 15_000 });
+  await editor.click();
+  await editor.pressSequentially("format me");
+  await page.keyboard.press("Shift+Home");
+
+  // D-C1-2: a toolbar, not a notification — it sits ON the band's top edge, no gap.
+  const toolbar = page.getByRole("toolbar", { name: "Text formatting" });
+  await expect(toolbar).toBeVisible();
+  await expect
+    .poll(() => navOverlap(page, toolbar).then(Math.abs), {
+      message: "the format toolbar is not docked flush against the nav band",
+      timeout: 5_000,
+    })
+    .toBeLessThanOrEqual(1);
+});
+
+test("the journal slash menu clears the nav band (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const today = new Date();
+  const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  await page.goto(`/journal/${date}`, { waitUntil: "domcontentloaded" });
+
+  const editor = page.getByRole("textbox", { name: "Journal" });
+  await expect(editor).toBeVisible({ timeout: 15_000 });
+  await editor.click();
+  await editor.pressSequentially("/");
+
+  const slashMenu = page.getByRole("listbox", { name: "Insert block" });
+  await expect(slashMenu).toBeVisible();
+  await expect
+    .poll(() => navOverlap(page, slashMenu), {
+      message: "the slash menu hangs over the nav band",
+      timeout: 5_000,
+    })
+    .toBeLessThanOrEqual(1);
 });
