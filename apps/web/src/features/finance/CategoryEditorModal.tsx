@@ -3,7 +3,7 @@ import type { FinanceCategory } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { FIELD_CLASS, SegmentButton } from "@/core/ui";
-import { CategoryModalFrame } from "./CategoryModalFrame";
+import { FinanceModalFrame } from "./FinanceModalFrame";
 
 const KINDS: { id: FinanceCategory["kind"]; label: string }[] = [
   { id: "spend", label: "Spend" },
@@ -40,7 +40,7 @@ export function CategoryEditorModal({
   };
 
   return (
-    <CategoryModalFrame
+    <FinanceModalFrame
       title={category ? "Category" : "New category"}
       onClose={onClose}
       footer={
@@ -87,6 +87,6 @@ export function CategoryEditorModal({
           ? "Set the monthly budget in the categories table — it writes against that month only, so earlier months keep the figure they were judged against."
           : "Income categories carry no budget — they show up in the month's in/out strip instead."}
       </p>
-    </CategoryModalFrame>
+    </FinanceModalFrame>
   );
 }

@@ -3,7 +3,7 @@ import type { FinanceCategory } from "@vega/shared";
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { Select } from "@/core/ui";
-import { CategoryModalFrame } from "./CategoryModalFrame";
+import { FinanceModalFrame } from "./FinanceModalFrame";
 import {
   type CategoryReferences,
   describeCategoryReferences,
@@ -37,7 +37,7 @@ export function CategoryMergeModal({
   };
 
   return (
-    <CategoryModalFrame
+    <FinanceModalFrame
       title={`Merge ${source.name} into…`}
       onClose={onClose}
       footer={
@@ -78,6 +78,6 @@ export function CategoryMergeModal({
           <p className="text-sm font-medium text-danger">This cannot be undone.</p>
         </>
       )}
-    </CategoryModalFrame>
+    </FinanceModalFrame>
   );
 }
