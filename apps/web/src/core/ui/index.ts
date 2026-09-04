@@ -46,4 +46,10 @@ export type { SelectOption } from "./select";
 export { NONE, Select } from "./select";
 export { UndoBar } from "./UndoBar";
 export { useBelowLarge, useCompact, useCompactModal } from "./useCompactModal";
-export { useNavClearance } from "./useNavClearance";
+export {
+  NAV_BAR_GAP_PX,
+  publishNavBandHeight,
+  readNavBandHeight,
+  useBottomBarLift,
+  useNavClearance,
+} from "./useNavClearance";

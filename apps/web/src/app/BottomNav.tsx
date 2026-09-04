@@ -1,7 +1,8 @@
+import { useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
-import { cx, Icon } from "@/core/ui";
+import { cx, Icon, publishNavBandHeight } from "@/core/ui";
 import { AccountMenu } from "./AccountMenu";
 
 const TABS: { label: string; to: string; icon: IconName; match: (p: string) => boolean }[] = [
@@ -40,8 +41,26 @@ export function BottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const openCommand = useStore((s) => s.openCommand);
+  const bandRef = useRef<HTMLDivElement>(null);
+
+  // The band publishes its own height so every bottom-fixed bar can clear it — measured
+  // rather than queried, so unmounting (the gratitude gate) and sm:hidden both report.
+  useLayoutEffect(() => {
+    const band = bandRef.current;
+    if (band === null) return;
+    const measure = () => publishNavBandHeight(band.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(band);
+    return () => {
+      observer.disconnect();
+      publishNavBandHeight(null);
+    };
+  }, []);
+
   return (
     <div
+      ref={bandRef}
       data-bottom-nav
       className="pointer-events-none bg-canvas px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden"
     >
