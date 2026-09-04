@@ -4,6 +4,7 @@ import type { CardSort, CardSortColumn } from "../manager-query";
 import type { CardSelection } from "../useCardSelection";
 import { CardsGallery } from "./CardsGallery";
 import { CardsMobileList } from "./CardsMobileList";
+import { CardsMobileListSkeleton } from "./CardsMobileListSkeleton";
 import { CardsTable } from "./CardsTable";
 import { CardsTableSkeleton } from "./CardsTableSkeleton";
 import type { CardRowActions } from "./card-row-actions";
@@ -39,7 +40,7 @@ export function CardsResults({
 }: CardsResultsProps) {
   const { widths, resize, commit } = useColumnWidths();
   const isCompact = useCompact();
-  if (!isReady) return <CardsTableSkeleton />;
+  if (!isReady) return isCompact ? <CardsMobileListSkeleton /> : <CardsTableSkeleton />;
 
   if (isDeckEmpty) {
     return (
@@ -77,7 +78,6 @@ export function CardsResults({
         categories={categories}
         selectedIds={selection.selectedIds}
         actions={actions}
-        onLongPressSelect={selection.select}
       />
     );
 

@@ -113,6 +113,14 @@ export function CardsBulkBar({
           >
             <Icon name="trash" size={16} />
           </button>
+          <button
+            type="button"
+            aria-label="Clear selection"
+            onClick={onClear}
+            className={GLYPH_CELL}
+          >
+            <Icon name="close" size={16} />
+          </button>
         </>
       ) : (
         <>

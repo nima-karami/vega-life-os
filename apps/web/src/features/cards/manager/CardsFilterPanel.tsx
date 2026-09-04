@@ -12,9 +12,13 @@ import { describeFilterFooter } from "../manager-query";
 import { buildTypeOptions } from "./card-row-actions";
 
 const GROUP_LABEL_CLASS =
-  "block px-2 pt-2 pb-1 font-medium text-[11px] text-muted uppercase tracking-[.06em]";
+  "block px-2 pt-2 pb-1 font-medium text-[12px] text-muted uppercase tracking-[.06em] sm:text-[11px]";
 // Layout lives on Content: the Checkbox root lays itself out, and styling both fights it.
-const ROW_CLASS = "w-full rounded-[7px] px-2 py-[5px] text-[13.5px] hover:bg-surface-secondary";
+const ROW_CLASS =
+  "grid min-h-11 w-full items-center rounded-[7px] px-2 py-[5px] hover:bg-surface-secondary sm:min-h-0";
+// The size sits on the label, not the row: HeroUI's Checkbox root carries its own
+// font-size, so anything inherited from the row never reaches the text.
+const ROW_LABEL_CLASS = "min-w-0 flex-1 truncate text-left text-[15px] sm:text-[13.5px]";
 
 function FilterRow({
   label,
@@ -26,9 +30,12 @@ function FilterRow({
   onToggle: () => void;
 }) {
   return (
-    <div className={cx(ROW_CLASS, isChecked ? "text-foreground" : "text-foreground/80")}>
+    <div
+      data-filter-row=""
+      className={cx(ROW_CLASS, isChecked ? "text-foreground" : "text-foreground/80")}
+    >
       <CheckField isSelected={isChecked} onChange={onToggle} label={label}>
-        <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+        <span className={ROW_LABEL_CLASS}>{label}</span>
       </CheckField>
     </div>
   );

@@ -130,7 +130,8 @@ const PRESS_FEEDBACK_MS = 180;
  * primitive (and its Dropdown's dismiss-on-interact-outside races with the
  * right-click that would open it), so this wraps the target in a `display:contents`
  * element and opens a {@link FloatingMenu} at the cursor. With `longPress`, a held
- * touch/pen pointer opens it too.
+ * touch/pen pointer opens it too — read in the capture phase, because a react-aria
+ * pressable descendant stops `pointerdown` before it could bubble here.
  */
 export function ContextMenu({
   children,
@@ -213,10 +214,10 @@ export function ContextMenu({
           cancelPress();
           setPos({ x: e.clientX, y: e.clientY });
         }}
-        onPointerDown={handlePressStart}
-        onPointerMove={handlePressMove}
-        onPointerUp={cancelPress}
-        onPointerCancel={cancelPress}
+        onPointerDownCapture={handlePressStart}
+        onPointerMoveCapture={handlePressMove}
+        onPointerUpCapture={cancelPress}
+        onPointerCancelCapture={cancelPress}
         onClickCapture={handleClickCapture}
       >
         {children}
