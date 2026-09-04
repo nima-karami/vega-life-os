@@ -1,11 +1,14 @@
 import { Button } from "@heroui/react";
-import { Icon } from "@/core/ui";
+import { useStore } from "@/core/store";
+import { ConfirmDialog, Icon } from "@/core/ui";
+import { AccountEditorModal } from "./AccountEditorModal";
 import { FinanceImportMapper } from "./FinanceImportMapper";
 import { FinanceImportPhasePanel } from "./FinanceImportPhasePanel";
 import { FinanceImportSidebar } from "./FinanceImportSidebar";
 import { FinanceImportStage } from "./FinanceImportStage";
 import { FinanceNotice } from "./FinanceNotice";
 import { FinancePageShell } from "./FinancePageShell";
+import { useAccountManager } from "./useAccountManager";
 import { useImportView } from "./useImportView";
 
 const NO_ACCOUNT_BODY =
@@ -14,6 +17,8 @@ const NO_ACCOUNT_BODY =
 /** Drop a file, see what it would do to every row, then write it — in that order, always. */
 export function FinanceImportPage() {
   const view = useImportView();
+  const manager = useAccountManager();
+  const accounts = useStore((s) => s.financeAccounts);
   const { flow, staged, counts } = view;
   const { phase } = flow;
 
@@ -57,8 +62,24 @@ export function FinanceImportPage() {
         <FinanceImportSidebar
           newRows={staged === null ? null : counts.newRows}
           recent={view.recent}
+          accounts={accounts}
+          buildMenuItems={manager.buildMenuItems}
+          onCreateAccount={manager.openCreate}
         />
       </div>
+
+      {manager.editing && (
+        <AccountEditorModal account={manager.editing.account} onClose={manager.closeEditor} />
+      )}
+
+      <ConfirmDialog
+        open={manager.archiving !== null}
+        title={manager.archiving?.title ?? ""}
+        body={manager.archiving?.body}
+        confirmLabel="Archive"
+        onConfirm={manager.confirmArchive}
+        onClose={manager.cancelArchive}
+      />
 
       {phase.status === "mapping-required" && view.account && (
         <FinanceImportMapper

@@ -1,6 +1,9 @@
+import type { FinanceAccount } from "@vega/shared";
 import type { IconName } from "@/core/lib/icon-names";
-import { Icon } from "@/core/ui";
+import { Icon, type MenuItem } from "@/core/ui";
+import { FinanceAccountsCard } from "./FinanceAccountsCard";
 import type { RecentImport } from "./import-preview";
+import { SidebarCard } from "./SidebarCard";
 
 const RULES: { icon: IconName; tone: string; body: string }[] = [
   {
@@ -21,6 +24,9 @@ export interface FinanceImportSidebarProps {
   /** how many rows a commit would write, or null when nothing is staged */
   newRows: number | null;
   recent: RecentImport[];
+  accounts: FinanceAccount[];
+  buildMenuItems: (account: FinanceAccount) => MenuItem[];
+  onCreateAccount: () => void;
 }
 
 const NOTHING_LANDS = "Nothing new lands — every row in this file is already in Transactions.";
@@ -38,32 +44,32 @@ function AfterImportBody({ newRows }: { newRows: number | null }) {
 
 function AfterImportCard({ newRows }: { newRows: number | null }) {
   return (
-    <section className="rounded-[16px] border border-border bg-surface px-[18px] py-4 shadow-sm">
-      <h2 className="font-semibold text-[14px] text-foreground">After import</h2>
-      <p className="mt-1.5 text-[13px] text-muted leading-[1.55]">
-        <AfterImportBody newRows={newRows} />
-      </p>
-      <div className="mt-3 flex flex-col gap-[7px] text-[12.5px] text-muted">
-        {RULES.map((rule) => (
-          <p key={rule.icon} className="flex gap-2">
-            <Icon
-              name={rule.icon}
-              size={15}
-              className={`mt-px shrink-0 ${rule.tone}`}
-              aria-hidden
-            />
-            <span>{rule.body}</span>
-          </p>
-        ))}
+    <SidebarCard heading="After import">
+      <div className="px-4 pb-4">
+        <p className="text-[13px] text-muted leading-[1.55]">
+          <AfterImportBody newRows={newRows} />
+        </p>
+        <div className="mt-3 flex flex-col gap-[7px] text-[12.5px] text-muted">
+          {RULES.map((rule) => (
+            <p key={rule.icon} className="flex gap-2">
+              <Icon
+                name={rule.icon}
+                size={15}
+                className={`mt-px shrink-0 ${rule.tone}`}
+                aria-hidden
+              />
+              <span>{rule.body}</span>
+            </p>
+          ))}
+        </div>
       </div>
-    </section>
+    </SidebarCard>
   );
 }
 
 function RecentImportsCard({ recent }: { recent: RecentImport[] }) {
   return (
-    <section className="overflow-hidden rounded-[16px] border border-border bg-surface shadow-sm">
-      <h2 className="px-4 pt-3.5 pb-2 font-semibold text-[14px] text-foreground">Recent imports</h2>
+    <SidebarCard heading="Recent imports" footer={FOOTER}>
       <div className="flex flex-col px-4 pb-1.5">
         {recent.map((entry, index) => (
           <div
@@ -81,15 +87,25 @@ function RecentImportsCard({ recent }: { recent: RecentImport[] }) {
           </div>
         ))}
       </div>
-      <p className="border-t border-border px-4 pt-2.5 pb-3.5 text-[12px] text-muted">{FOOTER}</p>
-    </section>
+    </SidebarCard>
   );
 }
 
-/** What the import will leave behind, and what earlier ones already did. */
-export function FinanceImportSidebar({ newRows, recent }: FinanceImportSidebarProps) {
+/** The accounts a statement can land in, what the import will leave behind, and what earlier ones did. */
+export function FinanceImportSidebar({
+  newRows,
+  recent,
+  accounts,
+  buildMenuItems,
+  onCreateAccount,
+}: FinanceImportSidebarProps) {
   return (
     <div className="flex flex-col gap-3">
+      <FinanceAccountsCard
+        accounts={accounts}
+        buildMenuItems={buildMenuItems}
+        onCreate={onCreateAccount}
+      />
       <AfterImportCard newRows={newRows} />
       {recent.length > 0 && <RecentImportsCard recent={recent} />}
     </div>
