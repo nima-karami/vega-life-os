@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Overridable so parallel worktree lanes never share one server.
+const devPort = process.env.E2E_PORT ?? "5188";
+const previewPort = process.env.E2E_PREVIEW_PORT ?? "5179";
+
 /**
  * Thin runtime-QA layer: boot the real app and prove each spine view renders
  * (not a blank screen) with no uncaught errors. Not an exhaustive E2E suite.
@@ -16,7 +20,7 @@ export default defineConfig({
   use: {
     // Dedicated e2e port (NOT the dev server's 5180) so a long-running `npm run dev`
     // can stay up — the suite boots its own isolated server and never collides.
-    baseURL: "http://localhost:5188",
+    baseURL: `http://localhost:${devPort}`,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -39,14 +43,14 @@ export default defineConfig({
   // proof (the service worker + injected manifest link only exist in a build).
   webServer: [
     {
-      command: "npm run dev -- --port 5188 --strictPort",
-      url: "http://localhost:5188",
+      command: `npm run dev -- --port ${devPort} --strictPort`,
+      url: `http://localhost:${devPort}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: "vite build && vite preview --port 5179 --strictPort",
-      url: "http://localhost:5179",
+      command: `vite build && vite preview --port ${previewPort} --strictPort`,
+      url: `http://localhost:${previewPort}`,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },

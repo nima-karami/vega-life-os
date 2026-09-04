@@ -8,7 +8,8 @@ import { expect, test } from "@playwright/test";
  * Native install dialogs and iOS Add-to-Home-Screen are NOT automatable and are
  * verified by manual on-device smoke (see the spec's @manual scenarios).
  */
-test.use({ baseURL: "http://localhost:5179" });
+const previewBaseUrl = `http://localhost:${process.env.E2E_PREVIEW_PORT ?? "5179"}`;
+test.use({ baseURL: previewBaseUrl });
 
 interface ManifestIcon {
   src: string;
@@ -100,7 +101,7 @@ test("graceful degradation: nothing throws when service workers are unsupported"
   browser,
 }) => {
   // Strip the serviceWorker API before any app script runs, then load the app.
-  const context = await browser.newContext({ baseURL: "http://localhost:5179" });
+  const context = await browser.newContext({ baseURL: previewBaseUrl });
   const page = await context.newPage();
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "serviceWorker", { get: () => undefined });
