@@ -350,8 +350,9 @@ export function planFace(
   const side = resolveSide(spec.signature, spec.side);
   const isSoloTitle = spec.blocks.length === 1 && spec.blocks[0].kind === "title";
   const padding = resolveBasePadding(fullBleed, narrow, navClearancePx);
+  // A wide full-bleed face never fits its term; every other measured face does.
   const fitWidthPx =
-    fullBleed && narrow && columnWidthPx !== undefined && columnWidthPx > 0
+    columnWidthPx !== undefined && columnWidthPx > 0 && (!fullBleed || narrow)
       ? columnWidthPx - padding.left - padding.right
       : null;
   const items: FacePlanItem[] = [];
