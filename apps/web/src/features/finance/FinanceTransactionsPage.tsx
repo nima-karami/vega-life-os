@@ -1,15 +1,17 @@
 import { Button } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon, useCompact } from "@/core/ui";
+import { AccountEditorModal } from "./AccountEditorModal";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
 import { FinancePageShell } from "./FinancePageShell";
 import { FinanceQuickAddHost } from "./FinanceQuickAddHost";
 import { LedgerDayCards } from "./LedgerDayCards";
 import { LedgerTable } from "./LedgerTable";
 import { LedgerTriage } from "./LedgerTriage";
+import { buildFinanceStartGuide } from "./finance-start-guide";
 import { describeLedgerSummary } from "./ledger-copy";
 import { groupTransactionsByDay } from "./ledger-grouping";
 import { buildLedgerLookups, buildLedgerRowView } from "./ledger-row";
@@ -104,8 +106,10 @@ export function FinanceTransactionsPage() {
   const removeFinanceTransactions = useStore((s) => s.removeFinanceTransactions);
   const setPendingFinanceEntry = useStore((s) => s.setPendingFinanceEntry);
   const isCompact = useCompact();
+  const navigate = useNavigate();
 
   const [params, setParams] = useSearchParams();
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -284,10 +288,12 @@ export function FinanceTransactionsPage() {
           />
         }
         isEmpty={financeTransactions.length === 0}
-        empty={{
-          title: "No transactions yet",
-          body: "Import a statement, or add one by hand from the command bar.",
-        }}
+        empty={buildFinanceStartGuide({
+          surface: "ledger",
+          hasOpenAccount: financeAccounts.some((account) => account.archivedAt === null),
+          onAddAccount: () => setIsCreatingAccount(true),
+          navigate,
+        })}
         hasNoMatches={rows.length === 0}
         noMatches={{
           title: "No transactions match these filters",
@@ -371,6 +377,10 @@ export function FinanceTransactionsPage() {
         onConfirm={confirmDelete}
         onClose={() => setPendingDeleteIds(null)}
       />
+
+      {isCreatingAccount && (
+        <AccountEditorModal account={null} onClose={() => setIsCreatingAccount(false)} />
+      )}
 
       <FinanceQuickAddHost />
     </>

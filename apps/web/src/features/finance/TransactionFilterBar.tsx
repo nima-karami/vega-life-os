@@ -79,7 +79,10 @@ export function TransactionFilterBar({
         items={[
           { label: "All accounts", onSelect: () => onChange({ accountId: ANY }) },
           ...accounts.map((account) => ({
-            label: account.displayName,
+            label:
+              account.archivedAt === null
+                ? account.displayName
+                : `${account.displayName} (archived)`,
             onSelect: () => onChange({ accountId: account.id }),
           })),
         ]}
