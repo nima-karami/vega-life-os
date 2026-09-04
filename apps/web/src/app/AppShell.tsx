@@ -37,14 +37,13 @@ export function AppShell() {
     <div className="safe-inset-x safe-pt flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {!gated && (
         <header className="relative hidden shrink-0 px-4 pt-5 pb-3 sm:block">
-          {/* Mobile: search + avatar share one centered, vertically-aligned row with
-          breathing room. Desktop (sm+): the avatar floats at the far right while the
-          search stays centered. */}
           <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
             <div className="min-w-0 flex-1">
               <OmniTrigger />
             </div>
-            <div className="shrink-0 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2">
+            {/* Below lg the centered max-w-2xl row reaches under a floated avatar, so the
+            avatar only leaves the flow once there is room beside the row. */}
+            <div className="shrink-0 lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2">
               <AccountMenu />
             </div>
           </div>
