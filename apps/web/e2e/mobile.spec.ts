@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { longPress } from "./helpers/touch";
 
 /**
  * Mobile-usability proof (spec §7). Runs on a touch phone profile; the @automatable
@@ -260,7 +261,9 @@ test("calendar: long-press an all-day chip → 'Move to day…' moves it to anot
   ).toHaveCount(0);
 });
 
-test("a long press starts selection while a tap still opens the card (390px)", async ({ page }) => {
+test("a long press opens the row menu while a tap still opens the card (390px)", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
@@ -272,18 +275,13 @@ test("a long press starts selection while a tap still opens the card (390px)", a
 
   await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
 
-  // A synthetic PointerEvent defaults isPrimary to false, which useLongPress now filters
-  // out — a real first finger always carries it.
-  const touch = { pointerType: "touch", pointerId: 1, isPrimary: true };
-  await row.dispatchEvent("pointerdown", {
-    ...touch,
-    clientX: box.x + box.width / 2,
-    clientY: box.y + 10,
-  });
-  await page.waitForTimeout(650);
-  await row.dispatchEvent("pointerup", touch);
-
+  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.getByRole("menuitem", { name: "Select" }).click();
   await expect(page.getByText("1 selected")).toBeVisible();
+
+  await row.getByRole("button").first().click();
+  await expect(page).toHaveURL(/\/cards\/[^/]+$/);
 });
 
 test("the cards filter opens as a centred modal on a phone (390px)", async ({ page }) => {

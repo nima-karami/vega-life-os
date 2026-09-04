@@ -1,0 +1,311 @@
+import { expect, type Page, test } from "@playwright/test";
+import { openDeck } from "./helpers/deck";
+import { longPress } from "./helpers/touch";
+
+/**
+ * The deck manager on a phone. The desktop `cards-manager.spec.ts` runs only in the
+ * chromium project, so nothing there reaches the compact list, the compact bulk bar or
+ * the gallery at a phone track width — the `.mobile.spec.ts` suffix routes this file
+ * into the Pixel 7 project instead.
+ *
+ * The compact loading skeleton is not asserted here: `RootBoot` holds the whole app on
+ * its own "Booting VEGA…" screen until the store is ready, so `CardsResults` never
+ * mounts with `isReady` false and neither skeleton can reach a viewport.
+ */
+
+const PHONE_WIDTHS = [320, 390];
+const PHONE_HEIGHT = 844;
+const CARD_STAGE_WIDTH_PX = 390;
+const FACE_SIDE_PADDING_PX = 30;
+const LONG_TERM = "counterrevolutionary";
+
+const rows = (page: Page) => page.locator("[data-card-row]");
+
+interface WidthProbe {
+  widestPx: number;
+  widestTag: string;
+  viewportPx: number;
+  samples: number;
+}
+
+interface TileProbe {
+  label: string;
+  tileWidthPx: number;
+  spillPx: number;
+  firstTextLeftInsetPx: number;
+}
+
+async function horizontalOverflow(page: Page): Promise<number> {
+  return page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+}
+
+async function openGallery(page: Page, width: number) {
+  await page.setViewportSize({ width, height: PHONE_HEIGHT });
+  await openDeck(page);
+  await page.getByRole("button", { name: "Gallery view" }).click();
+  await expect(page.getByRole("button", { name: "Gallery view" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+}
+
+/** Every gallery tile, with how far its live face text escapes the tile box. */
+async function probeTiles(page: Page): Promise<TileProbe[]> {
+  return page.evaluate(() => {
+    const tiles = Array.from(document.querySelectorAll("[aria-label]")).filter((el) =>
+      / — (face|reveal)$/.test(el.getAttribute("aria-label") ?? ""),
+    );
+    return tiles.map((tile) => {
+      const box = tile.getBoundingClientRect();
+      const paragraphs = Array.from(tile.querySelectorAll("p")).filter(
+        (paragraph) => paragraph.closest('[aria-hidden="true"]') === null,
+      );
+      let spillPx = 0;
+      for (const paragraph of paragraphs) {
+        const rect = paragraph.getBoundingClientRect();
+        spillPx = Math.max(
+          spillPx,
+          box.top - rect.top,
+          rect.bottom - box.bottom,
+          box.left - rect.left,
+          rect.right - box.right,
+        );
+      }
+      const first = paragraphs[0];
+      return {
+        label: tile.getAttribute("aria-label") ?? "",
+        tileWidthPx: box.width,
+        spillPx,
+        firstTextLeftInsetPx:
+          first === undefined ? Number.NaN : first.getBoundingClientRect().left - box.left,
+      };
+    });
+  });
+}
+
+for (const width of PHONE_WIDTHS) {
+  test(`the gallery keeps every face inside its tile at ${width}px`, async ({ page }) => {
+    await openGallery(page, width);
+    const probes = await probeTiles(page);
+    expect(probes.length).toBeGreaterThan(0);
+
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+    for (const probe of probes) {
+      expect(probe.spillPx, `${probe.label} spills its tile`).toBeLessThanOrEqual(1);
+      // The face is laid out for the 390 stage, so its side padding lands at the derived scale.
+      expect(
+        Math.abs(
+          probe.firstTextLeftInsetPx -
+            (FACE_SIDE_PADDING_PX * probe.tileWidthPx) / CARD_STAGE_WIDTH_PX,
+        ),
+        `${probe.label} pads at the derived scale`,
+      ).toBeLessThanOrEqual(1.5);
+    }
+  });
+}
+
+test("a long vocabulary term is fitted inside its gallery tile (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("group", { name: "Card type" })
+    .getByRole("button", { name: "Vocabulary" })
+    .click();
+  await page.getByRole("textbox", { name: "Word" }).fill(LONG_TERM);
+  await page.getByRole("textbox", { name: "Definition" }).fill("Set against a revolution.");
+  await page.getByRole("button", { name: "Save card" }).click();
+  await expect(page).toHaveURL(/\/cards\/[^/]+$/);
+
+  await page.goto("/cards", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Gallery view" }).click();
+  const tile = page.locator(`[aria-label="${LONG_TERM} — face"]`);
+  await expect(tile).toBeVisible({ timeout: 15_000 });
+
+  // The inked text, not the paragraph box — an unfitted term overflows a full-width <p>.
+  const spillPx = await tile.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const range = document.createRange();
+    let worst = 0;
+    for (const paragraph of el.querySelectorAll("p")) {
+      if (paragraph.closest('[aria-hidden="true"]') !== null) continue;
+      range.selectNodeContents(paragraph);
+      const rect = range.getBoundingClientRect();
+      worst = Math.max(worst, box.left - rect.left, rect.right - box.right);
+    }
+    return worst;
+  });
+  expect(spillPx).toBeLessThanOrEqual(1);
+});
+
+test("a long press on a list row opens the five row actions and Select picks just that row (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const box = await row.boundingBox();
+  if (box === null) throw new Error("the row has no bounding box");
+  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  const items = menu.getByRole("menuitem");
+  await expect(items).toHaveCount(5);
+  await expect(items.nth(0)).toHaveText("Open");
+  await expect(items.nth(1)).toHaveText("Select");
+  await expect(items.nth(2)).toHaveText(/^(Start|Stop) learning$/);
+  await expect(items.nth(3)).toHaveText(/^(Hide|Restore)$/);
+  await expect(items.nth(4)).toHaveText("Delete");
+
+  await items.nth(1).click();
+  await expect(menu).toBeHidden();
+  await expect(page.getByText("1 selected")).toBeVisible();
+  await expect(row.getByRole("checkbox")).toBeChecked();
+  await expect(rows(page).nth(1).getByRole("checkbox")).not.toBeChecked();
+
+  // The bulk bar lands above the list once a row is selected, so the row has moved.
+  const movedBox = await row.boundingBox();
+  if (movedBox === null) throw new Error("the selected row has no bounding box");
+  await longPress(page, {
+    x: movedBox.x + movedBox.width / 2,
+    y: movedBox.y + movedBox.height / 2,
+  });
+  await expect(page.getByRole("menuitem", { name: "Deselect" })).toBeVisible();
+});
+
+test("the compact bulk bar clears the selection (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await row.getByRole("checkbox").click({ force: true });
+  await expect(page.getByText("1 selected")).toBeVisible();
+
+  await page.getByRole("button", { name: "Clear selection" }).click();
+  await expect(page.getByText("1 selected")).toHaveCount(0);
+  await expect(row.getByRole("checkbox")).not.toBeChecked();
+});
+
+test("a cold load never draws anything wider than the phone (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  // Every intermediate paint is measured from inside the page: the deck lands from Dexie
+  // in a frame or two, far too fast to sample from the test side.
+  await page.addInitScript(() => {
+    const probed = window as unknown as { widthProbe?: WidthProbe };
+    probed.widthProbe = { widestPx: 0, widestTag: "", viewportPx: window.innerWidth, samples: 0 };
+    const record = () => {
+      const probe = probed.widthProbe;
+      if (probe === undefined) return;
+      probe.samples += 1;
+      for (const el of document.querySelectorAll("*")) {
+        const width = el.getBoundingClientRect().width;
+        if (width > probe.widestPx) {
+          probe.widestPx = width;
+          probe.widestTag = `${el.tagName}.${el.className}`.slice(0, 120);
+        }
+      }
+    };
+    new MutationObserver(record).observe(document, { childList: true, subtree: true });
+  });
+  await page.goto("/cards", { waitUntil: "commit" });
+  await expect(rows(page).first()).toBeVisible({ timeout: 15_000 });
+
+  const probe = await page.evaluate(
+    () => (window as unknown as { widthProbe?: WidthProbe }).widthProbe,
+  );
+  expect(probe?.samples ?? 0).toBeGreaterThan(0);
+  expect(probe?.widestPx, `${probe?.widestTag} overflows the phone`).toBeLessThanOrEqual(
+    probe?.viewportPx ?? 0,
+  );
+});
+
+test("the filter rows are thumb-sized on a phone and unchanged above sm", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  await page.getByRole("button", { name: "Filter cards" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Filter cards");
+
+  const filterRows = dialog.locator("[data-filter-row]");
+  const count = await filterRows.count();
+  expect(count).toBeGreaterThan(0);
+  for (let index = 0; index < count; index += 1) {
+    const box = await filterRows.nth(index).boundingBox();
+    if (box === null) throw new Error(`filter row ${index} has no bounding box`);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  await expect(filterRows.first().getByText("Note", { exact: true })).toHaveCSS(
+    "font-size",
+    "15px",
+  );
+  await expect(dialog.getByText("Visibility", { exact: true })).toHaveCSS("font-size", "12px");
+
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.getByRole("button", { name: "Filter cards" }).click();
+  const wideRows = page.locator("[data-filter-row]");
+  await expect(wideRows.first()).toBeVisible();
+  const wideBox = await wideRows.first().boundingBox();
+  if (wideBox === null) throw new Error("the wide filter row has no bounding box");
+  expect(wideBox.height).toBeLessThan(44);
+  await expect(wideRows.first().getByText("Note", { exact: true })).toHaveCSS(
+    "font-size",
+    "13.5px",
+  );
+  await expect(page.getByText("Visibility", { exact: true })).toHaveCSS("font-size", "11px");
+});
+
+test("the compact branch still reaches both empty states (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const search = page.getByRole("searchbox", { name: "Search cards" });
+  await search.fill("zzzznothingmatchesthis");
+  await expect(page.getByText("Nothing matches those filters")).toBeVisible();
+  await search.fill("");
+
+  const total = await rows(page).count();
+  expect(total).toBeGreaterThan(0);
+  for (let index = 0; index < total; index += 1) {
+    await rows(page).nth(index).getByRole("checkbox").click({ force: true });
+  }
+  await expect(page.getByText(`${total} selected`)).toBeVisible();
+
+  await page.getByRole("button", { name: "Delete selection" }).click();
+  const confirm = page.getByRole("dialog");
+  await confirm.getByRole("textbox", { name: "Type delete to confirm" }).fill("delete");
+  await confirm.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("Write your first card")).toBeVisible();
+});
+
+test("the view toggle keeps aria-pressed and the choice survives a reload (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const table = page.getByRole("button", { name: "Table view" });
+  const gallery = page.getByRole("button", { name: "Gallery view" });
+  await expect(table).toHaveAttribute("aria-pressed", "true");
+  await expect(gallery).toHaveAttribute("aria-pressed", "false");
+
+  await gallery.click();
+  await expect(gallery).toHaveAttribute("aria-pressed", "true");
+  await expect(table).toHaveAttribute("aria-pressed", "false");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "Gallery view" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
