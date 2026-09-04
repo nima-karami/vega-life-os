@@ -39,10 +39,18 @@ async function assertOverlayIsFixed(page: import("@playwright/test").Page) {
   expect(position, "modal backdrop must be position:fixed").toBe("fixed");
 }
 
-/** The dialog's bounding box must be fully on-screen. */
+/** The dialog's bounding box must be fully on-screen. The container zooms in over 250ms,
+ *  so measure only once the box stops moving — mid-animation it reports a scaled size. */
 async function assertDialogOnScreen(page: import("@playwright/test").Page) {
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  let previousBox = "";
+  await expect(async () => {
+    const currentBox = JSON.stringify(await dialog.boundingBox());
+    const isSettled = currentBox === previousBox;
+    previousBox = currentBox;
+    expect(isSettled, "dialog is still animating").toBe(true);
+  }).toPass({ timeout: 5000 });
   const box = await dialog.boundingBox();
   const vp = page.viewportSize();
   if (!box || !vp) throw new Error("missing dialog box or viewport size");
@@ -102,7 +110,9 @@ test("desktop: a modal stays on-screen even when the page behind is tall", async
   await expect(dialog).toBeHidden();
 });
 
-test("mobile: modal renders as an on-screen sheet with a clickable action", async ({ page }) => {
+test("mobile: confirm renders as a centered dialog inset from the phone edges", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 850 });
   await passGratitudeGate(page);
   await openHabitDeleteDialog(page);
@@ -110,8 +120,12 @@ test("mobile: modal renders as an on-screen sheet with a clickable action", asyn
   await assertOverlayIsFixed(page);
   const { box, vp } = await assertDialogOnScreen(page);
 
-  // A compact sheet fills (most of) the width.
-  expect(box.width, "mobile sheet too narrow").toBeGreaterThan(vp.width * 0.9);
+  // A two-line confirm is a small centered dialog, never a full-screen sheet: it keeps
+  // a gutter on both sides and nowhere near the full height of the phone.
+  const rightGutter = vp.width - (box.x + box.width);
+  expect(box.x, "confirm dialog not inset from the left edge").toBeGreaterThanOrEqual(12);
+  expect(rightGutter, "confirm dialog not inset from the right edge").toBeGreaterThanOrEqual(12);
+  expect(box.height, "confirm dialog fills the phone height").toBeLessThan(vp.height * 0.9);
 
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Cancel" }).click({ timeout: 3000 });

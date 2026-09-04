@@ -1,5 +1,4 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { useCompactModal } from "./useCompactModal";
 
 /** A centered, calm confirm modal on HeroUI v3 — replaces window.confirm. API unchanged. */
 export function ConfirmDialog({
@@ -21,7 +20,6 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const responsive = useCompactModal("sm");
   const state = useOverlayState({
     isOpen: open,
     onOpenChange: (next) => {
@@ -34,7 +32,9 @@ export function ConfirmDialog({
       {/* react-aria pins an open popover at z-index 100000, so a confirm raised from inside
           one has to outrank it or it renders underneath. */}
       <Modal.Backdrop variant="blur" className="z-[100001]">
-        <Modal.Container {...responsive}>
+        {/* A two-line confirm stays a small centered dialog on every viewport — the
+            phone sheet the other modals use swallowed the whole screen for it. */}
+        <Modal.Container size="sm" placement="center" scroll="inside">
           <Modal.Dialog>
             <Modal.Header>
               <Modal.Heading className="text-lg font-semibold tracking-tight">
