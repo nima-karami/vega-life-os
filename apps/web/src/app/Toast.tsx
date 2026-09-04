@@ -2,10 +2,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { useStore } from "@/core/store";
+import { cx, useBottomBarLift } from "@/core/ui";
 
 export function Toast() {
   const toast = useStore((s) => s.toast);
   const dismissToast = useStore((s) => s.dismissToast);
+  const lift = useBottomBarLift();
 
   useEffect(() => {
     if (!toast?.sticky && !toast?.action) return;
@@ -24,9 +26,12 @@ export function Toast() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 20, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className={`safe-mb fixed inset-x-4 bottom-5 z-50 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 ${
-            toast.action ? "pointer-events-auto" : "pointer-events-none"
-          }`}
+          className={cx(
+            lift.className,
+            "fixed inset-x-4 bottom-5 z-50 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2",
+            toast.action ? "pointer-events-auto" : "pointer-events-none",
+          )}
+          style={lift.style}
         >
           <div
             role="status"

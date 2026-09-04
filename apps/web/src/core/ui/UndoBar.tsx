@@ -1,5 +1,6 @@
 import { Button, Card } from "@heroui/react";
 import { cx } from "./cx";
+import { useBottomBarLift } from "./useNavClearance";
 
 /** Inline undo affordance for a recent destructive action (no native confirm). */
 export function UndoBar({
@@ -13,8 +14,15 @@ export function UndoBar({
   tone?: "ink";
 }) {
   const isInk = tone === "ink";
+  const lift = useBottomBarLift();
   return (
-    <div className="safe-mb pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4">
+    <div
+      className={cx(
+        lift.className,
+        "pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4",
+      )}
+      style={lift.style}
+    >
       <Card
         role="status"
         className={cx(

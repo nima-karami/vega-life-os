@@ -18,6 +18,7 @@ import {
   Type,
 } from "lucide-react";
 import { forwardRef, useImperativeHandle, useState } from "react";
+import { NAV_BAR_GAP_PX, readNavBandHeight } from "@/core/ui";
 
 interface SlashCommand {
   title: string;
@@ -229,12 +230,15 @@ export const SlashMenu = Extension.create({
           // that sits above the keyboard, where the caret popup would be hidden.
           const reposition = (rect: (() => DOMRect | null) | null | undefined) => {
             if (isCompact()) {
+              // The band's measured height already carries the safe-area inset, so the
+              // lifted sheet drops its own padding rather than counting it twice.
+              const bandPx = readNavBandHeight();
               popup.style.position = "fixed";
               popup.style.top = "auto";
               popup.style.left = "0";
               popup.style.right = "0";
-              popup.style.bottom = "0";
-              popup.style.paddingBottom = "env(safe-area-inset-bottom)";
+              popup.style.bottom = bandPx === null ? "0" : `${bandPx + NAV_BAR_GAP_PX}px`;
+              popup.style.paddingBottom = bandPx === null ? "env(safe-area-inset-bottom)" : "";
               popup.classList.add("bg-surface", "border-t", "border-border");
               return;
             }

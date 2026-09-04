@@ -1,6 +1,16 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useState } from "react";
-import { DatePicker, Icon, Menu, NONE, Select, TimePicker, useCompactModal } from "@/core/ui";
+import {
+  cx,
+  DatePicker,
+  Icon,
+  Menu,
+  NONE,
+  Select,
+  TimePicker,
+  useBottomBarLift,
+  useCompactModal,
+} from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
 import { STATUS_LABEL, type Task, type TaskStatus } from "@/features/tasks";
 import type { Value } from "@/features/values/model";
@@ -45,6 +55,7 @@ export function BulkActionBar({
 
   const goalOptions = lineage?.valueId ? goals.filter((g) => g.valueId === lineage.valueId) : goals;
   const responsive = useCompactModal("sm");
+  const lift = useBottomBarLift();
 
   const rescheduleState = useOverlayState({
     isOpen: !!reschedule,
@@ -64,7 +75,11 @@ export function BulkActionBar({
       <div
         role="toolbar"
         aria-label="Bulk actions"
-        className="safe-mb pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4"
+        className={cx(
+          lift.className,
+          "pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4",
+        )}
+        style={lift.style}
       >
         <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-[12px] border border-border bg-surface px-3 py-2 shadow-lg">
           <span className="px-1 text-sm font-medium text-foreground">{count} selected</span>
