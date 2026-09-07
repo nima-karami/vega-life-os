@@ -202,9 +202,6 @@ export function useImportView(): ImportView {
       onFiles: flow.openFiles,
     }),
     subLine: statement === null ? IDLE_SUB_LINE : describeStagedFile(statement.file, counts),
-    onAccountChange: (accountId) => {
-      setChosenAccountId(accountId);
-      flow.reset();
-    },
+    onAccountChange: setChosenAccountId,
   };
 }

@@ -1,4 +1,8 @@
-import { expect, type Page, test } from "@playwright/test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { expect, type Locator, type Page, test } from "@playwright/test";
+import { format, setDate, subMonths } from "date-fns";
 import { enterApp } from "./helpers/app";
 import { clearFinanceStores } from "./helpers/finance";
 
@@ -9,6 +13,18 @@ import { clearFinanceStores } from "./helpers/finance";
  */
 
 const SEEDED = ["Everyday chequing", "Rewards card"];
+
+/** Last month, never a fixed one: the seed settles the month two back and freezes its rows. */
+const STATEMENT_ANCHOR = subMonths(new Date(), 1);
+const onDay = (day: number) => format(setDate(STATEMENT_ANCHOR, day), "MM/dd/yyyy");
+const STAGED_FILE = "e2e-staged.csv";
+const STATEMENT = [
+  "Account Type,Account Number,Transaction Date,Cheque Number,Description 1,Description 2,CAD$",
+  `Chequing,1234,${onDay(3)},,E2E STAGED COFFEE,,-12.50`,
+  `Chequing,1234,${onDay(4)},,E2E STAGED BOOKS,,-31.00`,
+].join("\n");
+const STAGED_ACTION = "Import 2 rows";
+const IDLE_LINE = "Drop a statement here, or choose a file.";
 
 const card = (page: Page) => page.getByTestId("finance-accounts-card");
 
@@ -47,6 +63,47 @@ async function archiveAccount(page: Page, name: string) {
 
 async function openAccountPicker(page: Page) {
   await page.getByRole("button", { name: "Account column" }).click();
+}
+
+async function chooseAccount(page: Page, name: string) {
+  await openAccountPicker(page);
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}
+
+async function stageStatement(page: Page) {
+  await page.locator('input[type="file"]').setInputFiles({
+    name: STAGED_FILE,
+    mimeType: "text/csv",
+    buffer: Buffer.from(STATEMENT),
+  });
+  await expect(page.getByRole("button", { name: STAGED_ACTION })).toBeVisible();
+}
+
+async function expectNothingStaged(page: Page) {
+  await expect(page.getByRole("button", { name: STAGED_ACTION })).toBeHidden();
+  await expect(page.getByText(IDLE_LINE)).toBeVisible();
+  await expect(page.getByText(STAGED_FILE)).toHaveCount(0);
+}
+
+/**
+ * A real drag-drop at the browser's input layer. `setInputFiles` drives the input's own change
+ * handler and so can never reach the wrapper's drop guard — the path a browser would otherwise
+ * answer by navigating the tab away to the dropped file.
+ */
+async function dropFileOn(page: Page, target: Locator, filePath: string) {
+  const box = await target.boundingBox();
+  if (box === null) throw new Error("the drop zone is not laid out, so nothing can be dropped");
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const session = await page.context().newCDPSession(page);
+  const data = {
+    items: [{ mimeType: "text/csv", data: STATEMENT }],
+    files: [filePath],
+    dragOperationsMask: 1,
+  };
+  for (const type of ["dragEnter", "dragOver", "drop"] as const) {
+    await session.send("Input.dispatchDragEvent", { type, ...point, data });
+  }
+  await session.detach();
 }
 
 test("an account is created from the sidebar and offered as an import target", async ({ page }) => {
@@ -187,4 +244,45 @@ test("the ledger guides the same empty book", async ({ page }) => {
   await expect(page.getByText("No transactions yet")).toBeVisible();
   await expect(page.getByRole("button", { name: "Import statements" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add a transaction by hand" })).toBeVisible();
+});
+
+test("a staged file is discarded when the chosen account is archived, and when one is restored", async ({
+  page,
+}) => {
+  await enterApp(page);
+  await openImport(page);
+
+  await chooseAccount(page, "Rewards card");
+  await stageStatement(page);
+  await archiveAccount(page, "Rewards card");
+
+  await expectNothingStaged(page);
+
+  // Restoring resolves a different account too, so it has to discard the stage the same way.
+  await stageStatement(page);
+  await chooseRowAction(page, "Rewards card", "Restore");
+
+  await expectNothingStaged(page);
+});
+
+test("a file dropped on the shut zone raises the guard rather than the browser", async ({
+  page,
+}) => {
+  await enterApp(page);
+  await openImport(page);
+
+  for (const name of SEEDED) await archiveAccount(page, name);
+
+  const directory = await mkdtemp(join(tmpdir(), "vega-e2e-drop-"));
+  const filePath = join(directory, STAGED_FILE);
+  await writeFile(filePath, STATEMENT, "utf8");
+  try {
+    await dropFileOn(page, page.locator('input[type="file"]'), filePath);
+
+    await expect(page.getByText("Add an account before importing")).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe("/finance/import");
+    await expect(page.getByRole("heading", { name: "Import", exact: true })).toBeVisible();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

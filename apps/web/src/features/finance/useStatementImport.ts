@@ -45,6 +45,14 @@ const REMAP_HINT =
 
 const NO_ACCOUNT_TOAST = "Add an account before importing";
 
+const IDLE: ImportPhase = { status: "idle" };
+
+interface StagingState {
+  /** the account the phase was parsed against — a stale stamp reads as nothing staged */
+  accountId: string | null;
+  phase: ImportPhase;
+}
+
 export interface StatementImport {
   phase: ImportPhase;
   reset: () => void;
@@ -68,7 +76,11 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const importFinanceTransactions = useStore((s) => s.importFinanceTransactions);
   const pushToast = useStore((s) => s.pushToast);
 
-  const [phase, setPhase] = useState<ImportPhase>({ status: "idle" });
+  const accountId = account?.id ?? null;
+  const [staging, setStaging] = useState<StagingState>({ accountId, phase: IDLE });
+  // A stale stamp means the account moved on, so a stage keyed to the old slug can never commit.
+  const phase = staging.accountId === accountId ? staging.phase : IDLE;
+  const setPhase = (next: ImportPhase) => setStaging({ accountId, phase: next });
 
   const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
@@ -161,7 +173,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
 
   return {
     phase,
-    reset: () => setPhase({ status: "idle" }),
+    reset: () => setPhase(IDLE),
     openFiles: (files) => {
       const file = files?.[0];
       if (!file) return;
@@ -174,7 +186,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
       void rollBackFinanceImport(staged.batchId);
-      setPhase({ status: "idle" });
+      setPhase(IDLE);
     },
     confirmMapping: (mapping) => {
       if (phase.status !== "mapping-required" || !account) return;
