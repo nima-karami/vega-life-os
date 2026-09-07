@@ -169,26 +169,43 @@ test("typing a slot replaces its sample at full strength", async ({ page }) => {
   await expect(live.locator('[data-sample="true"]', { hasText: "Compounding" })).toHaveCount(0);
 });
 
-// The toggle is gated on useBelowLarge, not on a CSS class — regressing that to
+// The preview control is gated on useBelowLarge, not on a CSS class — regressing that to
 // `lg:hidden` would dual-mount two card stages below lg and still look right.
-test("the editor shows no view toggle at lg and above", async ({ page }) => {
+test("the editor shows no preview button at lg and above", async ({ page }) => {
   await openDeck(page);
   await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
 
+  await expect(page.getByRole("button", { name: "Preview card" })).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Editor view" })).toHaveCount(0);
   await expect(page.getByTestId("live-card")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save card" })).toHaveCount(1);
 });
 
-// 640-1023 is one column with no aside after T1, so it needs the toggle. A gate
-// wired to useCompact() passes phone and desktop and fails only here.
-test("the tablet band gets the toggle instead of the aside", async ({ page }) => {
-  await openDeck(page);
-  await page.setViewportSize({ width: 800, height: 1000 });
-  await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
+// 640-1023 is one column with no aside, so it needs the preview button. A gate wired
+// to useCompact() passes phone and desktop and fails only here.
+for (const [width, height] of [
+  [800, 1000],
+  [700, 1000],
+]) {
+  test(`the tablet band gets the preview button instead of the aside (${width}px)`, async ({
+    page,
+  }) => {
+    await openDeck(page);
+    await page.setViewportSize({ width, height });
+    await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByRole("group", { name: "Editor view" })).toBeVisible();
-  await expect(page.getByTestId("live-card")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Preview card" })).toBeVisible();
+    await expect(page.getByTestId("live-card")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(page.getByTestId("preview-card")).toBeVisible();
-});
+    await page.getByRole("button", { name: "Preview card" }).click();
+    const stage = page.getByTestId("preview-card");
+    await expect(stage).toBeVisible();
+    const box = await stage.boundingBox();
+    if (box === null) throw new Error("the preview stage has no bounding box");
+    expect(box.width).toBeCloseTo(390, 0);
+    expect(box.height).toBeCloseTo(600, 0);
+
+    await page.getByRole("button", { name: "Close preview" }).click();
+    await expect(stage).toHaveCount(0);
+  });
+}

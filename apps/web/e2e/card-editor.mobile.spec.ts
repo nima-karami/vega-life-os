@@ -110,33 +110,6 @@ test("the picker marks the selected type and switches on press", async ({ page }
   await expect(page.getByRole("textbox", { name: "Word" })).toBeVisible();
 });
 
-// The phone has no room for a sticky live card, so the editor swaps between the
-// fields and the card in place. The draft lives in the page above both.
-test("the phone editor swaps the fields for the card in place", async ({ page }) => {
-  await openDeck(page);
-  await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
-
-  const title = page.getByRole("textbox", { name: "Title" });
-  await title.fill("Compounding");
-
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(page.getByTestId("preview-card")).toBeVisible();
-  await expect(title).toBeHidden();
-
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(title).toBeVisible();
-  await expect(title).toHaveValue("Compounding");
-});
-
-test("the phone editor previews a saved card too", async ({ page }) => {
-  await openDeck(page);
-  const id = await page.locator("[data-card-row]:visible").first().getAttribute("data-card-row");
-  await page.goto(`/cards/${id}`, { waitUntil: "domcontentloaded" });
-
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(page.getByTestId("preview-card")).toBeVisible();
-});
-
 test("the retired preview route is gone", async ({ page }) => {
   await openDeck(page);
   const id = await page.locator("[data-card-row]:visible").first().getAttribute("data-card-row");
