@@ -3,8 +3,8 @@ import type { FinanceAccount, FinanceAccountKind } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
 import { CheckField, FIELD_CLASS, SegmentButton } from "@/core/ui";
-import { deriveAccountSlug } from "./account-slug";
 import { describeAccountKind } from "./account-copy";
+import { deriveAccountSlug } from "./account-slug";
 import { FinanceModalFrame } from "./FinanceModalFrame";
 
 const KINDS: FinanceAccountKind[] = ["chequing", "savings", "credit_card"];

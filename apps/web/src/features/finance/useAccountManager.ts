@@ -6,8 +6,6 @@ import { describeAccountArchive } from "./account-copy";
 
 const NOW_BUSINESS = "is now a business account";
 const NOW_PERSONAL = "is now a personal account";
-const ARCHIVED = "Archived";
-const RESTORED = "Restored";
 
 export interface AccountArchivePrompt {
   account: FinanceAccount;
@@ -17,7 +15,7 @@ export interface AccountArchivePrompt {
 
 export interface AccountManager {
   editing: { account: FinanceAccount | null } | null;
-  /** null when nothing is being archived; carries its own copy so the page derives nothing */
+  /** carries its own copy so the page derives nothing */
   archiving: AccountArchivePrompt | null;
   openCreate: () => void;
   closeEditor: () => void;
@@ -26,7 +24,6 @@ export interface AccountManager {
   buildMenuItems: (account: FinanceAccount) => MenuItem[];
 }
 
-/** Every write an account row's menu can make, and the two overlays those writes open. */
 export function useAccountManager(): AccountManager {
   const transactions = useStore((s) => s.financeTransactions);
   const updateFinanceAccount = useStore((s) => s.updateFinanceAccount);
@@ -45,7 +42,7 @@ export function useAccountManager(): AccountManager {
 
   const restore = (account: FinanceAccount) => {
     updateFinanceAccount(account.id, { archivedAt: null });
-    pushToast(`${RESTORED} ${account.displayName}`);
+    pushToast(`Restored ${account.displayName}`);
   };
 
   const buildMenuItems = (account: FinanceAccount): MenuItem[] => [
@@ -77,7 +74,7 @@ export function useAccountManager(): AccountManager {
     confirmArchive: () => {
       if (archiving === null) return;
       updateFinanceAccount(archiving.account.id, { archivedAt: new Date().toISOString() });
-      pushToast(`${ARCHIVED} ${archiving.account.displayName}`);
+      pushToast(`Archived ${archiving.account.displayName}`);
       setArchiving(null);
     },
     cancelArchive: () => setArchiving(null),

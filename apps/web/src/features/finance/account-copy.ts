@@ -10,7 +10,6 @@ export function describeAccountKind(kind: FinanceAccountKind): string {
   return KIND_LABELS[kind];
 }
 
-/** The card row's second line: the kind, and `· Business` when it is one. Archived is the chip's job. */
 export function describeAccountMeta(account: FinanceAccount): string {
   const kind = describeAccountKind(account.kind);
   return account.isBusiness ? `${kind} · Business` : kind;

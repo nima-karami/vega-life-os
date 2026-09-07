@@ -6,6 +6,7 @@ import {
   computeSettlementBalance,
   type FinanceBook,
 } from "../queries";
+import { buildAccount } from "../row-builders";
 import {
   buildCarryForwardWrites,
   buildSettlePatch,
@@ -17,7 +18,6 @@ import {
   findNextOpenMonth,
   listSettlementMonths,
 } from "../settlement";
-import { buildAccount } from "../row-builders";
 import { CHEQUING, makeBook, row, settlement } from "./fixtures";
 
 const MONTH = "2026-03";
@@ -314,7 +314,7 @@ describe("marking an account business", () => {
     const personal = computeSettlementFigures(bookWhereChequingIs(false), MONTH);
     const business = computeSettlementFigures(bookWhereChequingIs(true), MONTH);
     expect(business).toEqual(personal);
-    expect(personal.householdRowCount).toBe(2);
+    expect(personal.householdTotalCents).toBe(208600);
     expect(business.phase).toBe("settled");
   });
 });
