@@ -5,8 +5,7 @@ import type { CardRowActions } from "./card-row-actions";
 
 const GRID_CLASS = "mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5";
 
-// The resolved template gives the track width straight from layout, gaps already taken out —
-// one read on the grid instead of an observer per tile.
+// The resolved template already has the gaps taken out — one read, not an observer per tile.
 function readTrackWidth(grid: HTMLElement): number {
   const track = Number.parseFloat(window.getComputedStyle(grid).gridTemplateColumns);
   return Number.isFinite(track) ? track : 0;

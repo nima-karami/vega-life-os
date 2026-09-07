@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { composeFace } from "../face/compose";
-import { type FaceTextPlan, planFace } from "../face/face-metrics";
+import { type FaceTextPlan, planFace, TERM_FIT_FLOOR_PX } from "../face/face-metrics";
 import { CARD_STAGE_WIDTH_PX, deriveGalleryScale } from "../manager/gallery-scale";
 import { buildCard } from "./fixtures";
 
 const BASE_TERM_PX = 56;
 const MIN_TYPE_PX = 8;
-const TERM_FIT_FLOOR_PX = 28;
 
 const galleryTermOf = (title: string, scale: number): FaceTextPlan => {
   const card = buildCard({ type: "vocabulary", title, phonetic: "/x/", body: "A gloss." });
@@ -39,11 +38,11 @@ describe("a gallery face fits its term", () => {
     expect(galleryTermOf("saudade", 1).fontSize).toBe(BASE_TERM_PX);
   });
 
-  it("keeps a fitted term above the small-type floor once the tile scale is applied", () => {
-    const term = galleryTermOf(
-      "pneumonoultramicroscopicsilicovolcanoconiosis",
-      deriveGalleryScale(136),
-    );
-    expect(term.fontSize).toBeGreaterThanOrEqual(MIN_TYPE_PX);
+  it("draws a wrapped term at the fit floor times the tile scale, clear of the small-type floor", () => {
+    const scale = deriveGalleryScale(136);
+    const term = galleryTermOf("pneumonoultramicroscopicsilicovolcanoconiosis", scale);
+    expect(term.fontSize).toBeCloseTo(TERM_FIT_FLOOR_PX * scale, 5);
+    expect(term.fontSize).toBeGreaterThan(MIN_TYPE_PX);
+    expect(term.wraps).toBe(true);
   });
 });

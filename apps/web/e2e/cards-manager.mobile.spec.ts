@@ -8,9 +8,9 @@ import { longPress } from "./helpers/touch";
  * the gallery at a phone track width — the `.mobile.spec.ts` suffix routes this file
  * into the Pixel 7 project instead.
  *
- * The compact loading skeleton is not asserted here: `RootBoot` holds the whole app on
- * its own "Booting VEGA…" screen until the store is ready, so `CardsResults` never
- * mounts with `isReady` false and neither skeleton can reach a viewport.
+ * There is no loading skeleton to assert: `RootBoot` holds the whole app on its own
+ * "Booting VEGA…" screen until the store is ready, so `CardsResults` only ever mounts
+ * with the deck already in hand.
  */
 
 const PHONE_WIDTHS = [320, 390];
@@ -18,6 +18,14 @@ const PHONE_HEIGHT = 844;
 const CARD_STAGE_WIDTH_PX = 390;
 const FACE_SIDE_PADDING_PX = 30;
 const LONG_TERM = "counterrevolutionary";
+const TOUCH_TARGET_PX = 44;
+const BULK_BAR_CONTROLS = [
+  "Set category for selection",
+  "Set learning for selection",
+  "Hide selection",
+  "Delete selection",
+  "Clear selection",
+];
 
 const rows = (page: Page) => page.locator("[data-card-row]");
 
@@ -33,6 +41,7 @@ interface TileProbe {
   tileWidthPx: number;
   spillPx: number;
   firstTextLeftInsetPx: number;
+  chromeBorderPx: number;
 }
 
 async function horizontalOverflow(page: Page): Promise<number> {
@@ -74,12 +83,18 @@ async function probeTiles(page: Page): Promise<TileProbe[]> {
         );
       }
       const first = paragraphs[0];
+      let chromeBorderPx = 0;
+      for (let node = first?.parentElement ?? null; node !== null && node !== tile; ) {
+        chromeBorderPx += Number.parseFloat(getComputedStyle(node).borderLeftWidth) || 0;
+        node = node.parentElement;
+      }
       return {
         label: tile.getAttribute("aria-label") ?? "",
         tileWidthPx: box.width,
         spillPx,
         firstTextLeftInsetPx:
           first === undefined ? Number.NaN : first.getBoundingClientRect().left - box.left,
+        chromeBorderPx,
       };
     });
   });
@@ -94,14 +109,17 @@ for (const width of PHONE_WIDTHS) {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
     for (const probe of probes) {
       expect(probe.spillPx, `${probe.label} spills its tile`).toBeLessThanOrEqual(1);
-      // The face is laid out for the 390 stage, so its side padding lands at the derived scale.
+      // The face is laid out for the 390 stage, so its side padding lands at the derived scale —
+      // measured from the tile box, which also holds the card chrome's border.
+      expect(probe.chromeBorderPx).toBeGreaterThan(0);
       expect(
         Math.abs(
           probe.firstTextLeftInsetPx -
+            probe.chromeBorderPx -
             (FACE_SIDE_PADDING_PX * probe.tileWidthPx) / CARD_STAGE_WIDTH_PX,
         ),
         `${probe.label} pads at the derived scale`,
-      ).toBeLessThanOrEqual(1.5);
+      ).toBeLessThanOrEqual(0.5);
     }
   });
 }
@@ -177,9 +195,37 @@ test("a long press on a list row opens the five row actions and Select picks jus
     y: movedBox.y + movedBox.height / 2,
   });
   await expect(page.getByRole("menuitem", { name: "Deselect" })).toBeVisible();
+
+  // Dismissing the menu must not leave the row swallowing its next tap (spec §4).
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  await row.getByRole("checkbox").click({ force: true });
+  await expect(page.getByText("1 selected")).toHaveCount(0);
+
+  await row.getByRole("button", { name: /^Type of / }).click();
+  await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
 });
 
-test("the compact bulk bar clears the selection (390px)", async ({ page }) => {
+test("a long press on a gallery tile opens the same row actions (390px)", async ({ page }) => {
+  await openGallery(page, 390);
+
+  const tile = page.locator('[aria-label$=" — face"]').first();
+  await expect(tile).toBeVisible({ timeout: 15_000 });
+  const box = await tile.boundingBox();
+  if (box === null) throw new Error("the tile has no bounding box");
+  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem")).toHaveCount(5);
+  await menu.getByRole("menuitem", { name: "Select" }).click();
+  await expect(page.getByText("1 selected")).toBeVisible();
+});
+
+test("the compact bulk bar keeps its controls on one row and clears the selection (390px)", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
   await openDeck(page);
 
@@ -187,6 +233,23 @@ test("the compact bulk bar clears the selection (390px)", async ({ page }) => {
   await expect(row).toBeVisible({ timeout: 15_000 });
   await row.getByRole("checkbox").click({ force: true });
   await expect(page.getByText("1 selected")).toBeVisible();
+
+  const bar = page.getByText("1 selected").locator("xpath=..");
+  const barBox = await bar.boundingBox();
+  if (barBox === null) throw new Error("the bulk bar has no bounding box");
+  const tops: number[] = [];
+  for (const label of BULK_BAR_CONTROLS) {
+    const box = await bar.getByRole("button", { name: label }).boundingBox();
+    if (box === null) throw new Error(`the bulk bar control "${label}" has no bounding box`);
+    tops.push(box.y);
+  }
+  expect(tops).toHaveLength(BULK_BAR_CONTROLS.length);
+  expect(Math.max(...tops) - Math.min(...tops), "the bulk bar controls wrap").toBeLessThanOrEqual(
+    1,
+  );
+  expect(barBox.height, "the bulk bar is taller than one control row").toBeLessThan(
+    2 * TOUCH_TARGET_PX,
+  );
 
   await page.getByRole("button", { name: "Clear selection" }).click();
   await expect(page.getByText("1 selected")).toHaveCount(0);

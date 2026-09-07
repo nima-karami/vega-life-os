@@ -537,8 +537,6 @@ export function CalendarPage() {
         return;
       }
     }
-    // No stopPropagation: the chip's ContextMenu wrapper must still see this pointerdown
-    // to arm its long-press (the only route to the menu on touch).
     e.preventDefault();
     if (!selectedRef.current.has(t.id)) clearSelection();
     dragRef.current = {

@@ -6,7 +6,6 @@ export interface CardSelection {
   toggleOne: (id: string) => void;
   /** the header checkbox — selects every visible row, or clears them from the selection */
   toggleVisible: () => void;
-  select: (id: string) => void;
   deselect: (id: string) => void;
   clear: () => void;
 }
@@ -32,10 +31,6 @@ export function useCardSelection(visibleIds: string[]): CardSelection {
     });
   }, []);
 
-  const select = useCallback((id: string) => {
-    setSelectedIds((current) => (current.has(id) ? current : new Set(current).add(id)));
-  }, []);
-
   const deselect = useCallback((id: string) => {
     setSelectedIds((current) => {
       if (!current.has(id)) return current;
@@ -59,5 +54,5 @@ export function useCardSelection(visibleIds: string[]): CardSelection {
 
   const clear = useCallback(() => setSelectedIds(new Set()), []);
 
-  return { selectedIds, isAllVisibleSelected, toggleOne, toggleVisible, select, deselect, clear };
+  return { selectedIds, isAllVisibleSelected, toggleOne, toggleVisible, deselect, clear };
 }

@@ -261,6 +261,20 @@ test("calendar: long-press an all-day chip → 'Move to day…' moves it to anot
   ).toHaveCount(0);
 });
 
+test("calendar: a real held touch on an all-day chip opens its menu", async ({ page }) => {
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+  const box = await chip.boundingBox();
+  if (box === null) throw new Error("the all-day chip has no bounding box");
+
+  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await expect(page.getByRole("menuitem", { name: "Move to day…" })).toBeVisible();
+});
+
 test("a long press opens the row menu while a tap still opens the card (390px)", async ({
   page,
 }) => {

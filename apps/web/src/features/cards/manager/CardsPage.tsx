@@ -30,7 +30,6 @@ import { useCardsBulk } from "./useCardsBulk";
 export function CardsPage() {
   const cards = useStore((s) => s.cards);
   const view = useStore((s) => s.cardPrefs.view);
-  const ready = useStore((s) => s.ready);
   const loadFailed = useStore((s) => s.loadFailed);
   const setCardPrefs = useStore((s) => s.setCardPrefs);
   const updateCard = useStore((s) => s.updateCard);
@@ -175,7 +174,6 @@ export function CardsPage() {
       <CardsResults
         rows={rows}
         categories={categories}
-        isReady={ready}
         isDeckEmpty={isDeckEmpty}
         view={view}
         sort={sort}
