@@ -72,15 +72,15 @@ test("journal: slash menu inserts a to-do and it persists across reload", async 
   await editor.pressSequentially("buy milk");
 
   // The checkbox item rendered.
-  const checkbox = page.locator('ul[data-type="taskList"] input[type="checkbox"]');
-  await expect(checkbox).toHaveCount(1);
-  await expect(page.getByText("buy milk")).toBeVisible();
+  const taskList = page.locator('ul[data-type="taskList"]');
+  await expect(taskList.locator('input[type="checkbox"]')).toHaveCount(1);
+  await expect(taskList.locator("p", { hasText: "buy milk" })).toBeVisible();
 
   // Wait past the autosave debounce, reload, and confirm it persisted.
   await page.waitForTimeout(1200);
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.locator('ul[data-type="taskList"] input[type="checkbox"]')).toHaveCount(1);
-  await expect(page.getByText("buy milk")).toBeVisible();
+  await expect(taskList.locator('input[type="checkbox"]')).toHaveCount(1);
+  await expect(taskList.locator("p", { hasText: "buy milk" })).toBeVisible();
 });
 
 test("journal: slash menu does NOT open mid-word (http://)", async ({ page }) => {
