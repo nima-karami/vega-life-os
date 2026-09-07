@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from "react";
-import { NAV_CLEARANCE_FALLBACK_PX, NAV_SAFE_MARGIN_PX } from "@/features/cards/face/face-metrics";
 import { useCompact } from "./useCompactModal";
 
 /** The gap a lifted bottom bar keeps above the nav band — the same margin a card face reserves. */
-export const NAV_BAR_GAP_PX = NAV_SAFE_MARGIN_PX;
+export const NAV_BAR_GAP_PX = 12;
+
+export const NAV_CLEARANCE_FALLBACK_PX = 58;
 
 const listeners = new Set<() => void>();
 let navBandHeightPx: number | null = null;
@@ -22,7 +23,7 @@ export function readNavBandHeight(): number | null {
   return navBandHeightPx;
 }
 
-function subscribeNavBand(listener: () => void): () => void {
+export function subscribeNavBand(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -40,11 +41,8 @@ export function resolveNavBandHeight(
   return isCompact && bandPx !== null ? bandPx : undefined;
 }
 
-function useNavBandHeight(): number | undefined {
-  return resolveNavBandHeight(
-    useCompact(),
-    useSyncExternalStore(subscribeNavBand, readNavBandHeight, readAbsentNavBand),
-  );
+function useNavBandPx(): number | null {
+  return useSyncExternalStore(subscribeNavBand, readNavBandHeight, readAbsentNavBand);
 }
 
 export interface BottomBarLift {
@@ -66,11 +64,15 @@ export function resolveBottomBarLift(
 /** Where a viewport-bottom-fixed bar sits: clear of the phone nav band while it is on
  *  screen, otherwise the caller's own `bottom-*` class plus the home-indicator inset. */
 export function useBottomBarLift(gapPx: number = NAV_BAR_GAP_PX): BottomBarLift {
-  return resolveBottomBarLift(useNavBandHeight(), gapPx);
+  return resolveBottomBarLift(resolveNavBandHeight(useCompact(), useNavBandPx()), gapPx);
+}
+
+export function resolveNavClearance(isCompact: boolean, bandPx: number | null): number {
+  return resolveNavBandHeight(isCompact, bandPx) ?? NAV_CLEARANCE_FALLBACK_PX;
 }
 
 /** The live rendered height of the overlaid bottom nav (including its own safe-area
  *  padding), or NAV_CLEARANCE_FALLBACK_PX while it is unmeasured or off screen. */
 export function useNavClearance(): number {
-  return useNavBandHeight() ?? NAV_CLEARANCE_FALLBACK_PX;
+  return resolveNavClearance(useCompact(), useNavBandPx());
 }

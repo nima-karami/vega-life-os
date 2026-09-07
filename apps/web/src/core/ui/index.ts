@@ -48,8 +48,10 @@ export { UndoBar } from "./UndoBar";
 export { useBelowLarge, useCompact, useCompactModal } from "./useCompactModal";
 export {
   NAV_BAR_GAP_PX,
+  NAV_CLEARANCE_FALLBACK_PX,
   publishNavBandHeight,
   readNavBandHeight,
+  resolveBottomBarLift,
   useBottomBarLift,
   useNavClearance,
 } from "./useNavClearance";

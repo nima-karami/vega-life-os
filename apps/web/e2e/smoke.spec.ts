@@ -224,6 +224,34 @@ test("add-a-task captures a title and the card appears in Remaining", async ({ p
   await expect(remaining).toContainText(unique);
 });
 
+test("the undo bar keeps its desktop offset of 24px above the viewport bottom", async ({
+  page,
+}) => {
+  const viewport = { width: 1280, height: 800 };
+  await page.setViewportSize(viewport);
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.locator('main [aria-label^="Actions for "]').first().click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+
+  // No nav band above sm, so the phone lift must never fire here: bottom-6 stands.
+  const undoBar = page.getByRole("status").filter({ hasText: "Task deleted" });
+  await expect(undoBar).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        const box = await undoBar.boundingBox();
+        return box === null
+          ? Number.POSITIVE_INFINITY
+          : Math.round(viewport.height - box.y - box.height);
+      },
+      { message: "the undo bar moved off its desktop offset", timeout: 5_000 },
+    )
+    .toBe(24);
+});
+
 // ─── Calendar: slot create / draft discard / right-click delete ───────────────
 
 test("calendar: opening a slot then closing without naming discards the draft", async ({

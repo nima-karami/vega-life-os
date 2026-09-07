@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { NAV_CLEARANCE_FALLBACK_PX } from "@/features/cards/face/face-metrics";
 import {
   NAV_BAR_GAP_PX,
+  NAV_CLEARANCE_FALLBACK_PX,
   publishNavBandHeight,
   readNavBandHeight,
   resolveBottomBarLift,
   resolveNavBandHeight,
+  resolveNavClearance,
+  subscribeNavBand,
 } from "../useNavClearance";
 
 beforeEach(() => publishNavBandHeight(null));
@@ -27,6 +29,31 @@ describe("nav band store", () => {
     publishNavBandHeight(null);
     expect(readNavBandHeight()).toBeNull();
   });
+
+  it("notifies every subscriber with the new snapshot on each change", () => {
+    const seen: (number | null)[] = [];
+    const unsubscribe = subscribeNavBand(() => seen.push(readNavBandHeight()));
+
+    publishNavBandHeight(58);
+    publishNavBandHeight(null);
+    unsubscribe();
+    publishNavBandHeight(58);
+
+    expect(seen).toEqual([58, null]);
+  });
+
+  it("does not notify when the published height is unchanged", () => {
+    publishNavBandHeight(58);
+    let notifications = 0;
+    const unsubscribe = subscribeNavBand(() => {
+      notifications += 1;
+    });
+
+    publishNavBandHeight(58);
+    unsubscribe();
+
+    expect(notifications).toBe(0);
+  });
 });
 
 describe("resolveNavBandHeight", () => {
@@ -39,12 +66,23 @@ describe("resolveNavBandHeight", () => {
     expect(resolveNavBandHeight(true, null)).toBeUndefined();
     expect(resolveNavBandHeight(false, null)).toBeUndefined();
   });
+});
 
-  it("leaves useNavClearance on its fallback whenever there is no band", () => {
-    expect(resolveNavBandHeight(false, 70) ?? NAV_CLEARANCE_FALLBACK_PX).toBe(
-      NAV_CLEARANCE_FALLBACK_PX,
-    );
-    expect(resolveNavBandHeight(true, 70) ?? NAV_CLEARANCE_FALLBACK_PX).toBe(70);
+describe("resolveNavClearance", () => {
+  it("reports the band the nav published while the viewport is compact", () => {
+    publishNavBandHeight(70);
+    expect(resolveNavClearance(true, readNavBandHeight())).toBe(70);
+  });
+
+  it("falls back once the nav unpublishes its band", () => {
+    publishNavBandHeight(70);
+    publishNavBandHeight(null);
+    expect(resolveNavClearance(true, readNavBandHeight())).toBe(NAV_CLEARANCE_FALLBACK_PX);
+  });
+
+  it("falls back at sm and up even with a band on the store", () => {
+    publishNavBandHeight(70);
+    expect(resolveNavClearance(false, readNavBandHeight())).toBe(NAV_CLEARANCE_FALLBACK_PX);
   });
 });
 

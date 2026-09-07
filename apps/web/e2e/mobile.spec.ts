@@ -43,8 +43,8 @@ async function passGratitudeGate(page: import("@playwright/test").Page) {
 async function navOverlap(page: Page, bar: Locator): Promise<number> {
   const navBox = await page.locator("[data-bottom-nav]").boundingBox();
   const barBox = await bar.boundingBox();
-  if (!navBox) throw new Error("the bottom nav has no bounds");
-  if (!barBox) throw new Error("the bar has no bounds");
+  // A box caught mid-mount is "not clear yet" — infinity lets expect.poll retry, not abort.
+  if (!navBox || !barBox) return Number.POSITIVE_INFINITY;
   return barBox.y + barBox.height - navBox.y;
 }
 

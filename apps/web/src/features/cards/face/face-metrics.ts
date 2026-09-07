@@ -1,4 +1,5 @@
 import type { SignatureId } from "@vega/shared";
+import { NAV_BAR_GAP_PX, NAV_CLEARANCE_FALLBACK_PX } from "@/core/ui/useNavClearance";
 import type { FaceBlock, FaceSide, FaceSpec } from "./compose";
 
 export type FaceTone = "ink" | "ink-secondary" | "muted" | "ink-faint";
@@ -34,10 +35,7 @@ const HEADER_ROW_HEIGHT_PX = 18;
 const HEADER_CONTENT_GAP_PX = FACE_HEADER.gap;
 const HEADER_MIN_CLEARANCE_PX = HEADER_TOP_INSET_PX + HEADER_ROW_HEIGHT_PX + HEADER_CONTENT_GAP_PX;
 
-export const NAV_SAFE_MARGIN_PX = 12;
 export const TERM_FIT_FLOOR_PX = 28;
-
-export const NAV_CLEARANCE_FALLBACK_PX = 58;
 
 // Inter 600 / -.045em measured in Chrome: per-word averages ran .44–.55 of the font size, so .52
 // sits above the long-word mean — an estimate that never undershoots a term into overflowing.
@@ -46,7 +44,7 @@ const TERM_AVG_GLYPH_WIDTH_RATIO = 0.52;
 export type FacePadding = { top: number; left: number; right: number; bottom: number };
 
 export function resolveVerticalInset(navClearancePx: number): number {
-  return Math.max(HEADER_MIN_CLEARANCE_PX, navClearancePx + NAV_SAFE_MARGIN_PX);
+  return Math.max(HEADER_MIN_CLEARANCE_PX, navClearancePx + NAV_BAR_GAP_PX);
 }
 
 export function resolveFullBleedPadding(

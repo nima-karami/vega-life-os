@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
-import { cx } from "@/core/ui";
+import { cx, NAV_CLEARANCE_FALLBACK_PX } from "@/core/ui";
 import type { FaceSpec } from "./compose";
 import {
   type FacePlanItem,
   type FaceTone,
   FULL_BLEED_SIDE_PX,
   HEADER_TOP_INSET_PX,
-  NAV_CLEARANCE_FALLBACK_PX,
   planFace,
 } from "./face-metrics";
 
