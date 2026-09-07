@@ -32,6 +32,7 @@ export function GoalSteps({ goal }: { goal: Goal }) {
           getId={(s) => s.id}
           getLabel={(s) => s.name}
           onReorder={(activeId, overId) => reorderSubgoals(goal.id, activeId, overId)}
+          longPress="compact"
           className="space-y-1.5"
           renderItem={(s) => (
             <StepRow

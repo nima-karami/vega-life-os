@@ -92,6 +92,7 @@ function ValueDetail({ value }: { value: Value }) {
           <Menu
             align="end"
             isIconOnly
+            touchTarget
             triggerLabel="Value actions"
             triggerContent={<Icon name="dots" size={16} />}
             items={[
@@ -136,6 +137,7 @@ function ValueDetail({ value }: { value: Value }) {
             getId={(g) => g.id}
             getLabel={(g) => g.name}
             onReorder={reorderGoals}
+            longPress="compact"
             className="space-y-3"
             renderItem={(g) => <GoalEntityCard goal={g} value={value} />}
           />

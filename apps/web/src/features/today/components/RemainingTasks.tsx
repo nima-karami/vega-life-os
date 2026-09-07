@@ -60,6 +60,7 @@ export function RemainingTasks({
           getId={(t) => t.id}
           getLabel={(t) => t.title}
           onReorder={onReorder}
+          longPress="compact"
           className="flex flex-col gap-3"
           renderItem={card}
         />
