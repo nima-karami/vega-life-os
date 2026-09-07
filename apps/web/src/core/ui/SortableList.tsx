@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { type ReactNode, useState } from "react";
 import { cx } from "./cx";
 import { Icon } from "./icons";
+import { useCompact } from "./useCompactModal";
 
 // Two static group names so a nested list's handles don't reveal when an
 // ancestor row is hovered (Tailwind group-hover matches any same-named ancestor).
@@ -149,13 +150,15 @@ export function SortableList<T>({
   nested?: boolean;
   /** Drag the whole row (grab cursor, no left handle) — for modals/editors where a left-edge handle is clipped. */
   wholeRowDrag?: boolean;
-  /** Hold the whole row to lift it — no handle at all, for rows that are themselves a link. */
-  longPress?: boolean;
+  /** Hold the whole row to lift it — no handle at all, for rows that are themselves a link. `"compact"` does it on a phone only. */
+  longPress?: boolean | "compact";
 }) {
+  const compact = useCompact();
+  const isLongPress = longPress === "compact" ? compact : longPress;
   const sensors = useSensors(
     useSensor(PointerSensor, {
       // Delaying activation lets a quick click on the row's own link through; only a held press drags.
-      activationConstraint: longPress
+      activationConstraint: isLongPress
         ? { delay: POINTER_LONG_PRESS_DELAY_MS, tolerance: POINTER_LONG_PRESS_TOLERANCE_PX }
         : { distance: HANDLE_DRAG_DISTANCE_PX },
     }),
@@ -196,8 +199,8 @@ export function SortableList<T>({
               id={getId(item)}
               label={`Reorder ${getLabel(item)}`}
               nested={nested}
-              wholeRow={wholeRowDrag || longPress}
-              longPress={longPress}
+              wholeRow={wholeRowDrag || isLongPress}
+              longPress={isLongPress}
             >
               {renderItem(item)}
             </SortableRow>
