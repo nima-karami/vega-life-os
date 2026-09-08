@@ -944,15 +944,30 @@ test("values: a held mouse press reorders a value card and the order survives a 
       const t = getComputedStyle(el).transform;
       return t === "none" ? 0 : Math.abs(new DOMMatrixReadOnly(t).m42);
     });
+  const dragDownPastNextRow = async () => {
+    for (let step = 1; step <= 40 && (await nextRowShift()) < 1; step += 1) {
+      await page.mouse.move(x, fromY + step * 12);
+      await page.waitForTimeout(20);
+    }
+  };
+
+  // The sensor is what is under test, not the outcome: a distance-only PointerSensor would
+  // arm on this drag's first 12px step and reorder without any hold at all.
+  await page.mouse.move(x, fromY);
+  await page.mouse.down();
+  await dragDownPastNextRow();
+  await page.mouse.up();
+  await page.goto("/values", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+  await expect
+    .poll(valueOrder, { message: "a drag with no hold reordered the values" })
+    .toEqual(before);
 
   await page.mouse.move(x, fromY);
   await page.mouse.down();
   // MouseSensor arms at 300ms and an 8px move before then cancels it, so hold still first.
   await page.waitForTimeout(400);
-  for (let step = 1; step <= 40 && (await nextRowShift()) < 1; step += 1) {
-    await page.mouse.move(x, fromY + step * 12);
-    await page.waitForTimeout(20);
-  }
+  await dragDownPastNextRow();
   expect(await nextRowShift(), "the held press never displaced the next card").toBeGreaterThan(1);
   await page.mouse.up();
 

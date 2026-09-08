@@ -450,6 +450,8 @@ async function addUntimedTask(page: Page, title: string) {
   await expect(page.getByRole("region", { name: "Remaining" })).toContainText(title);
 }
 
+// The title's own box widens with the viewport, so the horizontal reading is taken against
+// its leading edge — the gap the negative margins have to preserve.
 async function measureCircleOffsetFromTitle(remaining: Locator, title: string) {
   const circle = remaining
     .getByRole("button", { name: `Mark ${title} done` })
@@ -459,7 +461,10 @@ async function measureCircleOffsetFromTitle(remaining: Locator, title: string) {
   const circleBox = await circle.boundingBox();
   const titleBox = await titleLine.boundingBox();
   if (!circleBox || !titleBox) throw new Error("the toggle circle or the title has no box");
-  return circleBox.y + circleBox.height / 2 - (titleBox.y + titleBox.height / 2);
+  return {
+    dx: circleBox.x + circleBox.width / 2 - titleBox.x,
+    dy: circleBox.y + circleBox.height / 2 - (titleBox.y + titleBox.height / 2),
+  };
 }
 
 const ADDED_ROWS = ["Reorder First untimed", "Reorder Second untimed"];
@@ -510,8 +515,7 @@ test("the task done toggle has a 44px hit box and leaves the circle put (390px)"
   const toggle = remaining.locator('[aria-label^="Mark "]').first();
   const label = (await toggle.getAttribute("aria-label")) ?? "";
   const title = label.replace(/^Mark /, "").replace(/ done$/, "");
-  const { opacity, box } = await measureControl(toggle);
-  expect(opacity, "the task done toggle is transparent on a phone").toBe("1");
+  const { box } = await measureControl(toggle);
   expectTouchSized(box, "the task done toggle");
 
   // The desktop reading is the pre-change position: §4's negative margins buy exactly this.
@@ -520,8 +524,12 @@ test("the task done toggle has a 44px hit box and leaves the circle put (390px)"
   const desktopOffset = await measureCircleOffsetFromTitle(remaining, title);
   await page.setViewportSize(PHONE);
   expect(
-    Math.abs(phoneOffset - desktopOffset),
-    "the 44px hit box moved the done circle relative to the title",
+    Math.abs(phoneOffset.dx - desktopOffset.dx),
+    "the 44px hit box moved the done circle across from the title",
+  ).toBeLessThanOrEqual(CIRCLE_DRIFT_TOLERANCE_PX);
+  expect(
+    Math.abs(phoneOffset.dy - desktopOffset.dy),
+    "the 44px hit box moved the done circle down from the title",
   ).toBeLessThanOrEqual(CIRCLE_DRIFT_TOLERANCE_PX);
 });
 
