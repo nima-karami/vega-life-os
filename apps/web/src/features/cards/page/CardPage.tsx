@@ -84,12 +84,11 @@ function CardEditor({ card }: { card: Card }) {
     navigate("/cards", { state });
   };
 
+  const deleteFooter = <CardPageFooter onDelete={() => setIsConfirmingDelete(true)} />;
+
   return (
     <>
-      <CardPageFrame
-        preview={preview}
-        footer={<CardPageFooter onDelete={() => setIsConfirmingDelete(true)} />}
-      >
+      <CardPageFrame preview={preview} footer={deleteFooter} formEnd={deleteFooter}>
         <CardFieldStack
           values={values}
           categories={categories}

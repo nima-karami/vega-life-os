@@ -1,6 +1,6 @@
 import { Button } from "@heroui/react";
 import type { CardTypeId, SlotId } from "@vega/shared";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
 import { readDraftPrefill } from "../draft-prefill";
@@ -38,23 +38,38 @@ export function NewCardPage() {
   const canSave = isDraftComplete(draft);
   const preview = toPreviewCard(draft);
 
+  // The route replaces itself with the written card, so a second save is always a duplicate.
+  const hasSavedRef = useRef(false);
+
   const handleSave = () => {
-    if (!canSave) return;
+    if (!canSave || hasSavedRef.current) return;
+    hasSavedRef.current = true;
     const created = addCard(toCardCreate(draft));
     navigate(`/cards/${created.id}`, { replace: true });
   };
 
+  const saveButton = (
+    <Button
+      size="sm"
+      variant="primary"
+      isDisabled={!canSave}
+      onPress={handleSave}
+      className="h-11 lg:h-auto"
+    >
+      Save card
+    </Button>
+  );
+
   return (
     <CardPageFrame
       preview={preview}
+      headerAction={saveButton}
       footer={
         <footer className="mt-3 flex items-center justify-end gap-2 border-border border-t pt-3.5 sm:mt-9 sm:pt-5">
           <Button size="sm" variant="ghost" onPress={() => navigate("/cards")}>
             Cancel
           </Button>
-          <Button size="sm" variant="primary" isDisabled={!canSave} onPress={handleSave}>
-            Save card
-          </Button>
+          {saveButton}
         </footer>
       }
     >
