@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { openDeck } from "./helpers/deck";
-import { longPress } from "./helpers/touch";
+import { cancelTouch, longPress, startTouch, tap } from "./helpers/touch";
 
 /**
  * The deck manager on a phone. The desktop `cards-manager.spec.ts` runs only in the
@@ -19,6 +19,8 @@ const CARD_STAGE_WIDTH_PX = 390;
 const FACE_SIDE_PADDING_PX = 30;
 const LONG_TERM = "counterrevolutionary";
 const TOUCH_TARGET_PX = 44;
+// Past the 500ms the row menu waits for, short enough to stay a press and not a drag.
+const HOLD_MS = 650;
 const BULK_BAR_CONTROLS = [
   "Set category for selection",
   "Set learning for selection",
@@ -46,12 +48,49 @@ interface TileProbe {
 
 /** Hold on one element and expect the row's own five-item menu, wherever the press started. */
 async function holdForRowMenu(page: Page, target: Locator) {
-  const box = await target.boundingBox();
-  if (box === null) throw new Error("the press target has no bounding box");
-  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await longPress(page, await centreOf(target));
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("menuitem")).toHaveCount(5);
+}
+
+async function centreOf(target: Locator): Promise<{ x: number; y: number }> {
+  const box = await target.boundingBox();
+  if (box === null) throw new Error("the touch target has no bounding box");
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/**
+ * A finger aims at the checkbox's 44px rail, not at its 15px mark — and it has to: a CDP
+ * tap on the mark's own centre lands `pointerdown` on the mark but `pointerup` on the rail
+ * around it, so react-aria's press never completes and the box does not toggle.
+ */
+async function touchRailCentreOf(target: Locator): Promise<{ x: number; y: number }> {
+  return target.evaluate((el) => {
+    let node: HTMLElement | null = el as HTMLElement;
+    while (node !== null && node.getBoundingClientRect().height < 44) node = node.parentElement;
+    const rect = (node ?? (el as HTMLElement)).getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  });
+}
+
+/**
+ * A held press that ends the way a phone's does — the gesture is taken over, so the
+ * release emits no click. Chromium's touch emulation synthesises one after a plain
+ * `longPress`, which hides exactly the defect this shape reproduces.
+ */
+async function holdUntilMenu(page: Page, row: Locator) {
+  await startTouch(page, await centreOf(row));
+  await page.waitForTimeout(HOLD_MS);
+  await cancelTouch(page);
+  await expect(page.getByRole("menu")).toBeVisible();
+}
+
+/** Hold the row open, dismiss with Escape, and leave the row ready for the next tap. */
+async function holdThenDismiss(page: Page, row: Locator) {
+  await holdUntilMenu(page, row);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
 }
 
 async function horizontalOverflow(page: Page): Promise<number> {
@@ -135,19 +174,22 @@ for (const width of PHONE_WIDTHS) {
   });
 }
 
-test("a long vocabulary term is fitted inside its gallery tile (390px)", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
-  await openDeck(page);
-
+async function addVocabularyCard(page: Page, term: string) {
   await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
   await page
     .getByRole("group", { name: "Card type" })
     .getByRole("button", { name: "Vocabulary" })
     .click();
-  await page.getByRole("textbox", { name: "Word" }).fill(LONG_TERM);
+  await page.getByRole("textbox", { name: "Word" }).fill(term);
   await page.getByRole("textbox", { name: "Definition" }).fill("Set against a revolution.");
   await page.getByRole("button", { name: "Save card" }).click();
   await expect(page).toHaveURL(/\/cards\/[^/]+$/);
+}
+
+test("a long vocabulary term is fitted inside its gallery tile (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+  await addVocabularyCard(page, LONG_TERM);
 
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Gallery view" }).click();
@@ -168,6 +210,71 @@ test("a long vocabulary term is fitted inside its gallery tile (390px)", async (
     return worst;
   });
   expect(spillPx).toBeLessThanOrEqual(1);
+});
+
+test("a long vocabulary term wraps instead of spilling the reveal face (320px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: PHONE_HEIGHT });
+  await openDeck(page);
+  await addVocabularyCard(page, LONG_TERM);
+
+  await page.goto("/cards", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Gallery view" }).click();
+  const tile = page.locator(`[aria-label="${LONG_TERM} — face"]`);
+  await expect(tile).toBeVisible({ timeout: 15_000 });
+  await tile.click();
+
+  const reveal = page.locator(`[aria-label="${LONG_TERM} — reveal"]`);
+  await expect(reveal).toBeVisible();
+  const spillPx = await reveal.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    let worst = 0;
+    for (const paragraph of el.querySelectorAll("p")) {
+      if (paragraph.closest('[aria-hidden="true"]') !== null) continue;
+      worst = Math.max(worst, paragraph.scrollWidth - paragraph.clientWidth);
+      const rect = paragraph.getBoundingClientRect();
+      worst = Math.max(worst, box.left - rect.left, rect.right - box.right);
+    }
+    return worst;
+  });
+  expect(spillPx).toBeLessThanOrEqual(1);
+});
+
+test("the toolbar's own controls are thumb-sized on a phone (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  for (const label of ["Table view", "Gallery view", "New card"]) {
+    const box = await page.getByRole("button", { name: label }).boundingBox();
+    if (box === null) throw new Error(`the toolbar control "${label}" has no bounding box`);
+    expect(box.height, `${label} is under the touch target`).toBeGreaterThanOrEqual(
+      TOUCH_TARGET_PX,
+    );
+  }
+
+  await page.setViewportSize({ width: 700, height: 900 });
+  const wideBox = await page.getByRole("button", { name: "Gallery view" }).boundingBox();
+  if (wideBox === null) throw new Error("the wide view toggle has no bounding box");
+  expect(wideBox.height, "the desktop toggle grew").toBeLessThan(TOUCH_TARGET_PX);
+});
+
+test("the compact filter sheet's list fills the sheet (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  await page.getByRole("button", { name: "Filter cards" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Filter cards");
+
+  const scrollerHeightPx = await dialog.evaluate((el) => {
+    const row = el.querySelector("[data-filter-row]");
+    for (let node = row?.parentElement ?? null; node !== null; node = node.parentElement) {
+      if (getComputedStyle(node).overflowY === "auto") return node.getBoundingClientRect().height;
+    }
+    return 0;
+  });
+  expect(scrollerHeightPx).toBeGreaterThanOrEqual(0.7 * PHONE_HEIGHT);
 });
 
 test("a long press on a list row opens the five row actions and Select picks just that row (390px)", async ({
@@ -216,6 +323,58 @@ test("a long press on a list row opens the five row actions and Select picks jus
 
   await row.getByRole("button", { name: /^Type of / }).click();
   await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
+});
+
+test("the tap after a dismissed row menu reaches the control it lands on (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+
+  await holdThenDismiss(page, row);
+  await tap(page, await touchRailCentreOf(row.getByRole("checkbox")));
+  await expect(page.getByText("1 selected")).toBeVisible();
+  await expect(row.getByRole("checkbox")).toBeChecked();
+
+  await holdThenDismiss(page, row);
+  await tap(page, await centreOf(row.getByRole("button", { name: /^Type of / })));
+  await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  const selectLabel = await row.getByRole("checkbox").getAttribute("aria-label");
+  const cardTitle = (selectLabel ?? "").replace(/^Select /, "");
+  expect(cardTitle).not.toBe("");
+
+  await holdThenDismiss(page, row);
+  await tap(page, await centreOf(row.getByRole("button", { name: cardTitle, exact: true })));
+  await expect(page).toHaveURL(/\/cards\/[^/]+$/);
+});
+
+test("a tap on a row control while the menu is open dismisses it and still acts (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+
+  // The chip is the honest probe of the dismiss listener: selecting a row also reflows
+  // the page, which would close the menu even if the tap itself never reached it.
+  await holdUntilMenu(page, row);
+  await tap(page, await centreOf(row.getByRole("button", { name: /^Type of / })));
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await holdUntilMenu(page, row);
+  await tap(page, await touchRailCentreOf(row.getByRole("checkbox")));
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByText("1 selected")).toBeVisible();
+  await expect(row.getByRole("checkbox")).toBeChecked();
 });
 
 // A react-aria pressable stops `pointerdown` before it can bubble, so a press starting on one

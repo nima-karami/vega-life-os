@@ -72,14 +72,15 @@ export function FloatingMenu({
     };
     // Defer so the opening right-click isn't itself caught as a dismiss.
     const id = requestAnimationFrame(() => {
-      window.addEventListener("pointerdown", onPointerDown);
+      // Capture: a react-aria pressable stops `pointerdown` before it could bubble here.
+      window.addEventListener("pointerdown", onPointerDown, true);
       window.addEventListener("scroll", close, true);
       window.addEventListener("resize", close);
       window.addEventListener("keydown", onKey);
     });
     return () => {
       cancelAnimationFrame(id);
-      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
       window.removeEventListener("keydown", onKey);
@@ -174,6 +175,9 @@ export function ContextMenu({
   );
 
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+    // A touch long-press releases without a click, so the flag outlives its own press
+    // unless the next press clears it.
+    suppressClickRef.current = false;
     if (!longPress || event.pointerType === "mouse") return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
     feedbackTimerRef.current = window.setTimeout(() => {

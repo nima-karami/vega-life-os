@@ -100,7 +100,7 @@ export function CardsPage() {
           {isDeckEmpty ? "Nothing in the deck yet" : describeCardStats(stats, rows.length)}
         </p>
       </div>
-      <Button solid icon="plus" onPress={() => navigate("/cards/new")}>
+      <Button solid icon="plus" className="h-11 sm:h-9" onPress={() => navigate("/cards/new")}>
         New card
       </Button>
     </header>

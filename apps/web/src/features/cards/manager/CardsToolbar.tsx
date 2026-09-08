@@ -18,6 +18,7 @@ export interface CardsToolbarProps {
 
 const SEARCH_CLASS =
   "h-11 w-full rounded-[12px] border border-border bg-surface py-2 pr-3 pl-9 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:h-9 sm:text-sm";
+const VIEW_BUTTON_CLASS = "h-11 w-11 sm:h-9 sm:w-9";
 
 export function CardsToolbar({
   query,
@@ -131,6 +132,7 @@ export function CardsToolbar({
         <Button
           isIconOnly
           size="sm"
+          className={VIEW_BUTTON_CLASS}
           aria-label="Table view"
           aria-pressed={view === "rows"}
           variant={view === "rows" ? "primary" : "secondary"}
@@ -141,6 +143,7 @@ export function CardsToolbar({
         <Button
           isIconOnly
           size="sm"
+          className={VIEW_BUTTON_CLASS}
           aria-label="Gallery view"
           aria-pressed={view === "gallery"}
           variant={view === "gallery" ? "primary" : "secondary"}

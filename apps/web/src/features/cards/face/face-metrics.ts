@@ -307,6 +307,10 @@ export type FacePlan = {
 
 const scaleType = (px: number, scale: number): number => Math.max(MIN_TYPE_PX, px * scale);
 const scaleSpace = (px: number, scale: number): number => px * scale;
+// Floored type is drawn larger than the layout planned for, so a long unbroken run
+// (a vocabulary term on the reveal side) spills unless it may break.
+const shouldBreakWords = (fit: { fontSize: number; wraps: boolean }, scale: number): boolean =>
+  fit.wraps || fit.fontSize * scale < MIN_TYPE_PX;
 
 function resolveSide(signature: SignatureId, side: FaceSide): SideMetrics {
   const metrics = FACE_METRICS[signature];
@@ -396,7 +400,7 @@ export function planFace(
       tone: metric.tone,
       isMono: block.kind === "mono",
       isCaps: block.kind === "caps",
-      wraps: fit.wraps,
+      wraps: shouldBreakWords(fit, scale),
       quoteMark: pendingQuoteMark,
       ...sampleFlag(block),
     });

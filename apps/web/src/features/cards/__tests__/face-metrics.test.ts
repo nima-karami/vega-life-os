@@ -191,6 +191,18 @@ describe("planFace — scale is per property", () => {
     expect(planFace(composeFace(vocabulary, "face"), 0.54, false).header.fontSize).toBe(8);
   });
 
+  it("lets floored type break its words so a long term cannot spill the reveal face", () => {
+    const term = buildCard({ ...vocabulary, title: "counterrevolutionary" });
+    const items = textItems(planFace(composeFace(term, "reveal"), 0.35, false).items);
+    expect(items[0]).toMatchObject({ kind: "caps", fontSize: 8, wraps: true });
+    expect(items[1].wraps).toBe(true);
+  });
+
+  it("leaves type that still has room to shrink unbroken", () => {
+    const items = textItems(planFace(composeFace(vocabulary, "reveal"), 1, false).items);
+    expect(items.every((item) => item.wraps)).toBe(false);
+  });
+
   it("scales the rule's width and margins but never its thickness", () => {
     const rule = planFace(composeFace(vocabulary, "face"), 0.54, false).items.find(
       (item) => item.kind === "rule",
