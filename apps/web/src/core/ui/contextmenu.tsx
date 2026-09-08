@@ -17,6 +17,23 @@ export interface MenuPos {
   y: number;
 }
 
+// Dismiss-only: stop the press before react-aria starts one, then eat the click it becomes.
+function swallowDismissingTap(dismissing: PointerEvent) {
+  dismissing.stopPropagation();
+  function release() {
+    window.removeEventListener("click", swallowClick, true);
+    window.removeEventListener("pointerdown", release, true);
+  }
+  function swallowClick(click: MouseEvent) {
+    click.preventDefault();
+    click.stopPropagation();
+    release();
+  }
+  window.addEventListener("click", swallowClick, true);
+  // A dismissing press that never becomes a click must not arm the swallow for a later tap.
+  window.addEventListener("pointerdown", release, true);
+}
+
 /**
  * A positioned action menu floating at viewport coordinates — the shared panel
  * behind both `ContextMenu` (right-click a target) and any controlled use
@@ -65,6 +82,7 @@ export function FloatingMenu({
     // portal on pointerdown, before the click ever lands (every item went dead).
     const onPointerDown = (e: PointerEvent) => {
       if (menuRef.current?.contains(e.target as Node)) return;
+      if (e.pointerType !== "mouse") swallowDismissingTap(e);
       onCloseRef.current();
     };
     const onKey = (e: KeyboardEvent) => {
@@ -175,9 +193,9 @@ export function ContextMenu({
   );
 
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // A touch long-press releases without a click, so the flag outlives its own press
-    // unless the next press clears it.
-    suppressClickRef.current = false;
+    // A touch long-press releases without a click, so the flag outlives its own press until
+    // a press clears it — and only a press landing with no menu open is allowed to act.
+    if (pos === null) suppressClickRef.current = false;
     if (!longPress || event.pointerType === "mouse") return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
     feedbackTimerRef.current = window.setTimeout(() => {

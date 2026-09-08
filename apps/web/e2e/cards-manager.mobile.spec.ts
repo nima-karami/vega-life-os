@@ -19,6 +19,7 @@ const CARD_STAGE_WIDTH_PX = 390;
 const FACE_SIDE_PADDING_PX = 30;
 const LONG_TERM = "counterrevolutionary";
 const TOUCH_TARGET_PX = 44;
+const CORNER_INSET_PX = 12;
 // Past the 500ms the row menu waits for, short enough to stay a press and not a drag.
 const HOLD_MS = 650;
 const BULK_BAR_CONTROLS = [
@@ -60,11 +61,13 @@ async function centreOf(target: Locator): Promise<{ x: number; y: number }> {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
 
-/**
- * A finger aims at the checkbox's 44px rail, not at its 15px mark — and it has to: a CDP
- * tap on the mark's own centre lands `pointerdown` on the mark but `pointerup` on the rail
- * around it, so react-aria's press never completes and the box does not toggle.
- */
+async function upperCornerOf(target: Locator): Promise<{ x: number; y: number }> {
+  const box = await target.boundingBox();
+  if (box === null) throw new Error("the touch target has no bounding box");
+  return { x: box.x + CORNER_INSET_PX, y: box.y + CORNER_INSET_PX };
+}
+
+/** The 44px rail, not the 15px mark: a CDP tap on the mark releases on the rail and never presses. */
 async function touchRailCentreOf(target: Locator): Promise<{ x: number; y: number }> {
   return target.evaluate((el) => {
     let node: HTMLElement | null = el as HTMLElement;
@@ -74,11 +77,7 @@ async function touchRailCentreOf(target: Locator): Promise<{ x: number; y: numbe
   });
 }
 
-/**
- * A held press that ends the way a phone's does — the gesture is taken over, so the
- * release emits no click. Chromium's touch emulation synthesises one after a plain
- * `longPress`, which hides exactly the defect this shape reproduces.
- */
+/** A held press that ends the way a phone's does: taken over, so the release emits no click. */
 async function holdUntilMenu(page: Page, row: Locator) {
   await startTouch(page, await centreOf(row));
   await page.waitForTimeout(HOLD_MS);
@@ -285,9 +284,7 @@ test("a long press on a list row opens the five row actions and Select picks jus
 
   const row = rows(page).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
-  const box = await row.boundingBox();
-  if (box === null) throw new Error("the row has no bounding box");
-  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await longPress(page, await centreOf(row));
 
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
@@ -306,12 +303,7 @@ test("a long press on a list row opens the five row actions and Select picks jus
   await expect(rows(page).nth(1).getByRole("checkbox")).not.toBeChecked();
 
   // The bulk bar lands above the list once a row is selected, so the row has moved.
-  const movedBox = await row.boundingBox();
-  if (movedBox === null) throw new Error("the selected row has no bounding box");
-  await longPress(page, {
-    x: movedBox.x + movedBox.width / 2,
-    y: movedBox.y + movedBox.height / 2,
-  });
+  await longPress(page, await centreOf(row));
   await expect(page.getByRole("menuitem", { name: "Deselect" })).toBeVisible();
 
   // Dismissing the menu must not leave the row swallowing its next tap (spec §4).
@@ -334,26 +326,22 @@ test("the tap after a dismissed row menu reaches the control it lands on (390px)
   const row = rows(page).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
 
-  await holdThenDismiss(page, row);
-  await tap(page, await touchRailCentreOf(row.getByRole("checkbox")));
-  await expect(page.getByText("1 selected")).toBeVisible();
-  await expect(row.getByRole("checkbox")).toBeChecked();
-
-  await holdThenDismiss(page, row);
-  await tap(page, await centreOf(row.getByRole("button", { name: /^Type of / })));
-  await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
-  await page.keyboard.press("Escape");
-
   const selectLabel = await row.getByRole("checkbox").getAttribute("aria-label");
   const cardTitle = (selectLabel ?? "").replace(/^Select /, "");
   expect(cardTitle).not.toBe("");
+
+  // The hide button is the honest probe: it is a plain click handler, so a swallowed click
+  // really does stop it — a react-aria control presses without one and would act regardless.
+  await holdThenDismiss(page, row);
+  await tap(page, await centreOf(row.getByRole("button", { name: `Hide ${cardTitle}` })));
+  await expect(row.getByRole("button", { name: `Restore ${cardTitle}` })).toBeVisible();
 
   await holdThenDismiss(page, row);
   await tap(page, await centreOf(row.getByRole("button", { name: cardTitle, exact: true })));
   await expect(page).toHaveURL(/\/cards\/[^/]+$/);
 });
 
-test("a tap on a row control while the menu is open dismisses it and still acts (390px)", async ({
+test("a tap while the row menu is open only dismisses it, and the next tap acts (390px)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
@@ -361,20 +349,22 @@ test("a tap on a row control while the menu is open dismisses it and still acts 
 
   const row = rows(page).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
+  const chip = row.getByRole("button", { name: /^Type of / });
+  const option = page.locator(".popover").first().getByRole("option").first();
 
-  // The chip is the honest probe of the dismiss listener: selecting a row also reflows
-  // the page, which would close the menu even if the tap itself never reached it.
   await holdUntilMenu(page, row);
-  await tap(page, await centreOf(row.getByRole("button", { name: /^Type of / })));
+  await tap(page, await centreOf(chip));
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
+  await expect(option).toHaveCount(0);
+
+  await tap(page, await centreOf(chip));
+  await expect(option).toBeVisible();
   await page.keyboard.press("Escape");
 
   await holdUntilMenu(page, row);
   await tap(page, await touchRailCentreOf(row.getByRole("checkbox")));
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await expect(page.getByText("1 selected")).toBeVisible();
-  await expect(row.getByRole("checkbox")).toBeChecked();
+  await expect(page.getByText("1 selected")).toHaveCount(0);
 });
 
 // A react-aria pressable stops `pointerdown` before it can bubble, so a press starting on one
@@ -407,15 +397,32 @@ test("a long press on a gallery tile opens the same row actions (390px)", async 
 
   const tile = page.locator('[aria-label$=" — face"]').first();
   await expect(tile).toBeVisible({ timeout: 15_000 });
-  const box = await tile.boundingBox();
-  if (box === null) throw new Error("the tile has no bounding box");
-  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await longPress(page, await centreOf(tile));
 
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("menuitem")).toHaveCount(5);
   await menu.getByRole("menuitem", { name: "Select" }).click();
   await expect(page.getByText("1 selected")).toBeVisible();
+});
+
+test("a tap while a gallery tile's menu is open dismisses it without flipping (390px)", async ({
+  page,
+}) => {
+  await openGallery(page, 390);
+
+  const tile = page.getByRole("button", { name: /— face$/ }).first();
+  await expect(tile).toBeVisible({ timeout: 15_000 });
+  const faceLabel = (await tile.getAttribute("aria-label")) ?? "";
+  expect(faceLabel).not.toBe("");
+
+  await longPress(page, await centreOf(tile));
+  await expect(page.getByRole("menu")).toBeVisible();
+
+  // The menu hangs down-right of the press, so the tile's own top corner is outside it.
+  await tap(page, await upperCornerOf(tile));
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: faceLabel })).toBeVisible();
 });
 
 test("the compact bulk bar keeps its controls on one row and clears the selection (390px)", async ({

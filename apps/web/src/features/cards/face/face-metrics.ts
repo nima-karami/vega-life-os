@@ -307,8 +307,8 @@ export type FacePlan = {
 
 const scaleType = (px: number, scale: number): number => Math.max(MIN_TYPE_PX, px * scale);
 const scaleSpace = (px: number, scale: number): number => px * scale;
-// Floored type is drawn larger than the layout planned for, so a long unbroken run
-// (a vocabulary term on the reveal side) spills unless it may break.
+// Floored type is drawn larger than the layout planned for, so a long unbroken run of it
+// spills unless it may break.
 const shouldBreakWords = (fit: { fontSize: number; wraps: boolean }, scale: number): boolean =>
   fit.wraps || fit.fontSize * scale < MIN_TYPE_PX;
 
