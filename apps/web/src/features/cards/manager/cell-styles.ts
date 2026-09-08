@@ -1,7 +1,3 @@
-// Tailwind needs a literal arbitrary-value class to scan, so this tracks
-// tableWidth(DEFAULT_COLUMN_WIDTHS) by hand rather than being computed.
-export const CARDS_TABLE_MIN_WIDTH = "min-w-[894px]";
-
 export const CELL_CLASS =
   "flex h-full min-w-0 items-center gap-1.5 border-black/[0.06] border-r px-3 last:border-r-0";
 export const CENTER_CELL_CLASS = `${CELL_CLASS} justify-center`;

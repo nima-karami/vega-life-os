@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { openDeck } from "./helpers/deck";
 import { longPress } from "./helpers/touch";
 
@@ -42,6 +42,16 @@ interface TileProbe {
   spillPx: number;
   firstTextLeftInsetPx: number;
   chromeBorderPx: number;
+}
+
+/** Hold on one element and expect the row's own five-item menu, wherever the press started. */
+async function holdForRowMenu(page: Page, target: Locator) {
+  const box = await target.boundingBox();
+  if (box === null) throw new Error("the press target has no bounding box");
+  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem")).toHaveCount(5);
 }
 
 async function horizontalOverflow(page: Page): Promise<number> {
@@ -109,17 +119,18 @@ for (const width of PHONE_WIDTHS) {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
     for (const probe of probes) {
       expect(probe.spillPx, `${probe.label} spills its tile`).toBeLessThanOrEqual(1);
-      // The face is laid out for the 390 stage, so its side padding lands at the derived scale —
-      // measured from the tile box, which also holds the card chrome's border.
+      // The face is laid out for the 390 stage and drawn inside the card chrome's border, so
+      // its side padding lands at the scale derived from the tile's content width, not its box.
       expect(probe.chromeBorderPx).toBeGreaterThan(0);
+      const faceWidthPx = probe.tileWidthPx - 2 * probe.chromeBorderPx;
       expect(
         Math.abs(
           probe.firstTextLeftInsetPx -
             probe.chromeBorderPx -
-            (FACE_SIDE_PADDING_PX * probe.tileWidthPx) / CARD_STAGE_WIDTH_PX,
+            (FACE_SIDE_PADDING_PX * faceWidthPx) / CARD_STAGE_WIDTH_PX,
         ),
         `${probe.label} pads at the derived scale`,
-      ).toBeLessThanOrEqual(0.5);
+      ).toBeLessThanOrEqual(0.1);
     }
   });
 }
@@ -207,6 +218,31 @@ test("a long press on a list row opens the five row actions and Select picks jus
   await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
 });
 
+// A react-aria pressable stops `pointerdown` before it can bubble, so a press starting on one
+// reaches `ContextMenu` only through its capture-phase listener.
+test("a long press starting on the checkbox rail opens the row actions (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await holdForRowMenu(page, row.getByRole("checkbox"));
+  await expect(page.getByText("1 selected")).toHaveCount(0);
+});
+
+test("a long press starting on an attribute chip opens the row actions (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await holdForRowMenu(page, row.getByRole("button", { name: /^Type of / }));
+});
+
 test("a long press on a gallery tile opens the same row actions (390px)", async ({ page }) => {
   await openGallery(page, 390);
 
@@ -243,7 +279,6 @@ test("the compact bulk bar keeps its controls on one row and clears the selectio
     if (box === null) throw new Error(`the bulk bar control "${label}" has no bounding box`);
     tops.push(box.y);
   }
-  expect(tops).toHaveLength(BULK_BAR_CONTROLS.length);
   expect(Math.max(...tops) - Math.min(...tops), "the bulk bar controls wrap").toBeLessThanOrEqual(
     1,
   );

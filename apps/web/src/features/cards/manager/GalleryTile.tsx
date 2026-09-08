@@ -11,6 +11,8 @@ import { CARD_STAGE_WIDTH_PX, deriveGalleryScale } from "./gallery-scale";
 /** The container holds the tile's place in the grid; the card inside it is what turns. */
 const SLOT = "relative aspect-[390/600]";
 const CARD_CHROME = "rounded-[13px] border shadow-soft";
+// CardFlip paints that border on each face, so the face is laid out inside it, not across it.
+const CARD_CHROME_BORDER_PX = 1;
 
 export function GalleryTile({
   card,
@@ -27,7 +29,7 @@ export function GalleryTile({
   const shouldReduceMotion = useReducedMotion();
   const canTurn = hasReveal(card);
   const menuItems = buildCardMenuItems(card, actions, { isSelected });
-  const scale = deriveGalleryScale(tileWidthPx);
+  const scale = deriveGalleryScale(tileWidthPx - 2 * CARD_CHROME_BORDER_PX);
   const faceSide = (side: FaceSide) =>
     scale > 0 ? (
       <CardFace spec={composeFace(card, side)} scale={scale} columnWidthPx={CARD_STAGE_WIDTH_PX} />
