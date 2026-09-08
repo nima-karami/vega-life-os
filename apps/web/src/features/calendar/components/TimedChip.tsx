@@ -4,6 +4,7 @@ import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
 import {
   type ColumnSlot,
+  DRAG_THRESHOLD_PX,
   formatMinutes,
   getChipHeight,
   getChipTop,
@@ -20,9 +21,12 @@ export function TimedChip({
   selected,
   provisional,
   onPointerDownBody,
+  onPointerUpBody,
+  onPointerCancelBody,
   onPointerDownTop,
   onPointerDownBottom,
   onOpen,
+  onLongPress,
   menuItems,
 }: {
   task: Task;
@@ -34,9 +38,12 @@ export function TimedChip({
   selected: boolean;
   provisional: boolean;
   onPointerDownBody: (e: React.PointerEvent) => void;
+  onPointerUpBody: (e: React.PointerEvent) => void;
+  onPointerCancelBody: () => void;
   onPointerDownTop: (e: React.PointerEvent) => void;
   onPointerDownBottom: (e: React.PointerEvent) => void;
   onOpen: () => void;
+  onLongPress: () => void;
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
@@ -52,13 +59,20 @@ export function TimedChip({
     : task.time;
 
   return (
-    <ContextMenu items={menuItems}>
+    <ContextMenu
+      items={menuItems}
+      longPress
+      longPressMoveTolerancePx={DRAG_THRESHOLD_PX}
+      onLongPress={onLongPress}
+    >
       <button
         type="button"
         data-block
         data-chip-id={task.id}
         aria-pressed={selected}
         onPointerDown={onPointerDownBody}
+        onPointerUp={onPointerUpBody}
+        onPointerCancel={onPointerCancelBody}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -67,7 +81,8 @@ export function TimedChip({
         }}
         aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          "group absolute block cursor-grab touch-none select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm",
+          // A phone swipe belongs to the grid's scroller, so the finger never starts a drag here.
+          "group absolute block cursor-grab touch-manipulation select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm sm:touch-none",
           resolved ? "bg-surface-secondary" : "bg-surface",
           dim ? "opacity-30" : "opacity-100",
           selected && "z-20 ring-2 ring-accent",

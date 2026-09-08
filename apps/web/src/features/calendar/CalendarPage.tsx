@@ -156,6 +156,8 @@ export function CalendarPage() {
   const allDayRowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const previewRef = useRef<Preview | null>(null);
+  // A phone press on a timed chip, which arms no drag — only a still release is a tap.
+  const chipPressRef = useRef<{ id: string; x: number; y: number } | null>(null);
   // Id of a task freshly created by clicking an empty slot — discarded on close
   // if it was never named (so an accidental click doesn't litter the calendar).
   const draftIdRef = useRef<string | null>(null);
@@ -467,6 +469,15 @@ export function CalendarPage() {
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
+    // A finger has no hover, so the 6px grips it cannot see are inert: the press falls
+    // through to the chip body and a duration change goes through the editor.
+    if (mode !== "move" && e.pointerType === "touch") return;
+    // On a phone the swipe belongs to the grid's scroller, so a touch arms no drag at all
+    // — the press is only remembered so a still release still counts as a tap.
+    if (mode === "move" && compact && e.pointerType === "touch") {
+      chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
+      return;
+    }
     // Selection via modifier-click (desktop only; resize edges ignore it).
     if (mode === "move" && !compact) {
       if (e.shiftKey) {
@@ -688,6 +699,21 @@ export function CalendarPage() {
   };
   const handleChipTapRef = useRef(handleChipTap);
   handleChipTapRef.current = handleChipTap;
+
+  // The held press won (or the browser took the touch): drop both the pending tap and,
+  // at ≥ sm where a touch does arm a drag, the drag itself.
+  const cancelChipPress = () => {
+    chipPressRef.current = null;
+    if (dragRef.current) cancelDrag();
+  };
+
+  const endChipPress = (e: React.PointerEvent) => {
+    const press = chipPressRef.current;
+    chipPressRef.current = null;
+    if (!press) return;
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) >= DRAG_THRESHOLD_PX) return;
+    handleChipTap(press.id);
+  };
 
   // Resolve a drag release: commit a real change, or treat a no-move as a tap.
   const endDrag = (d: DragState, p: Preview) => {
@@ -1327,9 +1353,12 @@ export function CalendarPage() {
                           selected={selectedIds.has(t.id)}
                           provisional={provisional.has(t.id)}
                           onPointerDownBody={(e) => beginDrag(e, t, "move")}
+                          onPointerUpBody={endChipPress}
+                          onPointerCancelBody={cancelChipPress}
                           onPointerDownTop={(e) => beginDrag(e, t, "top")}
                           onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
                           onOpen={() => openTask(t)}
+                          onLongPress={cancelChipPress}
                           menuItems={timedMenuItems(t)}
                         />
                       ))}
