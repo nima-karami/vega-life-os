@@ -1,8 +1,8 @@
 import { Link } from "react-router";
 import { cx } from "@/core/ui";
 import { describeCategoryOverflow } from "./category-copy";
+import type { CategoryRowsCardProps } from "./finance-table-props";
 import { formatSignedCents } from "./ledger-copy";
-import type { LedgerRowView } from "./ledger-row";
 import { CHARGE_MONEY_CLASS, SHARE_MONEY_CLASS } from "./primitives";
 
 const GRID = "grid-cols-[5.5rem_1fr_9rem_6.5rem_6.5rem]";
@@ -12,13 +12,6 @@ const HEADERS = ["Date", "Title", "Split", "Full", "Your share"];
 const RIGHT_ALIGNED = new Set(["Full", "Your share"]);
 
 const NO_FIGURE = "—";
-
-export interface CategoryRowsCardProps {
-  views: LedgerRowView[];
-  /** How many of the month's rows are not on screen — stated, never quietly dropped. */
-  hiddenCount: number;
-  month: string;
-}
 
 /**
  * The ledger's language minus the columns this page already answers — no checkbox, no category, and

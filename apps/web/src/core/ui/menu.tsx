@@ -25,6 +25,7 @@ export function Menu({
   triggerLabel,
   triggerClassName,
   isIconOnly,
+  touchTarget,
   tone = "muted",
   items,
   align = "end",
@@ -34,6 +35,8 @@ export function Menu({
   triggerClassName?: string;
   /** Pads/sizes the trigger as a square icon button. */
   isIconOnly?: boolean;
+  /** 44px hit area on a phone, back to 32px at `sm`. No-op without `isIconOnly`. */
+  touchTarget?: boolean;
   /** `inherit` drops the trigger's own colour so `triggerClassName` owns it outright. */
   tone?: "muted" | "inherit";
   items: MenuItem[];
@@ -50,7 +53,11 @@ export function Menu({
           "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium transition-colors outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent",
           tone === "muted" &&
             "text-muted hover:text-foreground data-[hovered=true]:text-foreground",
-          isIconOnly ? "h-8 w-8 shrink-0" : "px-3 py-1.5",
+          isIconOnly
+            ? touchTarget
+              ? "h-11 w-11 shrink-0 sm:h-8 sm:w-8"
+              : "h-8 w-8 shrink-0"
+            : "px-3 py-1.5",
           triggerClassName,
         )}
       >

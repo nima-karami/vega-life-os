@@ -5,6 +5,7 @@ import {
   buildSettlementRowViews,
   computeRowsNetCents,
   filterSettlementRows,
+  formatOwedCents,
   partitionSettlementSplits,
 } from "../settlement-rows";
 import { makeBook, row, settlement } from "./fixtures";
@@ -214,5 +215,19 @@ describe("the settled-period history", () => {
   it("leaves an open period out of the history entirely", () => {
     const book = makeBook({ financeSettlements: [settlement(MONTH)] });
     expect(buildSettlementHistory(book, "Robin")).toEqual([]);
+  });
+});
+
+describe("the owed figure", () => {
+  it("carries an explicit plus on a credit, so the direction never rests on the absent sign", () => {
+    expect(formatOwedCents(12850)).toBe("+$128.50");
+  });
+
+  it("prints a debit with the true minus the rest of the money uses", () => {
+    expect(formatOwedCents(-12850)).toBe("−$128.50");
+  });
+
+  it("leaves a settled row unsigned", () => {
+    expect(formatOwedCents(0)).toBe("$0.00");
   });
 });

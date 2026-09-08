@@ -118,7 +118,7 @@ export function LedgerDayCards({
         </div>
       ))}
       <div className="relative h-[22px]">
-        <FadeEdge className="h-[22px] from-canvas" />
+        <FadeEdge tone="canvas" className="h-[22px]" />
       </div>
     </div>
   );

@@ -1,44 +1,13 @@
 import { cx } from "@/core/ui";
-import {
-  filterByImportLens,
-  type ImportOutcome,
-  type ImportOutcomeLens,
-  type ImportPreviewRow,
-  INTERNAL_REASON,
-  NO_GUESS,
-  OUTCOME_LABEL,
-} from "./import-preview";
+import type { FinanceImportOutcomeTableProps } from "./finance-table-props";
+import { filterByImportLens, type ImportPreviewRow, OUTCOME_LABEL } from "./import-preview";
+import { ImportGuessLabel, OUTCOME_CLASS } from "./ImportGuessLabel";
 import { formatSignedCents } from "./ledger-copy";
-import { CategoryChip } from "./primitives";
 
 const GRID = "grid-cols-[5.5rem_1fr_11rem_6.5rem_7rem]";
 const MIN_WIDTH = "min-w-[42rem]";
 const HEADERS = ["Date", "Title from file", "Category guess", "Amount", "Outcome"];
 const ROW_LIMIT = 8;
-
-const OUTCOME_CLASS: Record<ImportOutcome, string> = {
-  "will-add": "text-success",
-  internal: "text-muted",
-  "already-here": "text-muted",
-};
-
-export interface FinanceImportOutcomeTableProps {
-  rows: ImportPreviewRow[];
-  lenses: ImportOutcomeLens[];
-  activeLens: ImportOutcome;
-  onLensChange: (lens: ImportOutcome) => void;
-}
-
-function GuessCell({ row }: { row: ImportPreviewRow }) {
-  if (row.outcome === "internal") {
-    return <span className="text-[12.5px] text-muted">{INTERNAL_REASON}</span>;
-  }
-  if (row.guess === null) return <span className="text-[12.5px] text-muted">{NO_GUESS}</span>;
-  if (row.outcome === "already-here") {
-    return <span className="text-[12.5px] text-muted">{row.guess.name}</span>;
-  }
-  return <CategoryChip label={row.guess.name} color={row.guess.color} />;
-}
 
 function OutcomeRow({ row, isLast }: { row: ImportPreviewRow; isLast: boolean }) {
   const isPast = row.outcome === "already-here";
@@ -61,7 +30,7 @@ function OutcomeRow({ row, isLast }: { row: ImportPreviewRow; isLast: boolean })
         {row.title}
       </span>
       <span className="flex min-w-0 items-center">
-        <GuessCell row={row} />
+        <ImportGuessLabel row={row} />
       </span>
       <span
         className={cx(

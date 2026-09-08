@@ -1,16 +1,18 @@
 import { Button } from "@heroui/react";
 import { Link } from "react-router";
 import { cx } from "@/core/ui";
+import type { SettlementRowsCardProps } from "./finance-table-props";
 import { formatSignedCents } from "./ledger-copy";
-import { formatCents, formatShareBps } from "./money";
-import type { SettlementFigures } from "./settlement";
 import { describeRowsFooter } from "./settlement-copy";
 import {
   computeRowsNetCents,
   filterSettlementRows,
+  formatOwedCents,
   type SettlementRowFilter,
   type SettlementRowView,
 } from "./settlement-rows";
+import { SettlementOwedFigure } from "./SettlementOwedFigure";
+import { SettlementSplitCell } from "./SettlementSplitCell";
 
 const ROWS_GRID = "grid-cols-[5.5rem_1fr_9rem_6.5rem_5rem_6.5rem_6.5rem]";
 const FOOTER_GRID = "grid-cols-[1fr_6.5rem]";
@@ -24,40 +26,7 @@ const CHIP_BASE =
 const CHIP_ON = "border-accent font-medium text-foreground";
 const CHIP_OFF = "border-border font-normal text-muted";
 
-const SET_CHIP_CLASS =
-  "inline-flex h-6 items-center rounded-[10px] border border-warning border-dashed px-[9px] font-medium text-[12px] text-warning";
-
 const NO_FIGURE = "—";
-
-const formatOwed = (cents: number): string =>
-  cents > 0 ? `+${formatCents(cents)}` : formatSignedCents(cents);
-
-export interface SettlementRowsCardProps {
-  views: SettlementRowView[];
-  figures: SettlementFigures;
-  filter: SettlementRowFilter;
-  partnerName: string;
-  onSelectFilter: (filter: SettlementRowFilter) => void;
-}
-
-function OwedCell({ view }: { view: SettlementRowView }) {
-  if (view.owedCents === null)
-    return <span className="text-right text-[13.5px] text-muted">waiting</span>;
-  return (
-    <span
-      className={cx(
-        "text-right font-medium text-[13.5px] tabular-nums",
-        view.owedCents > 0
-          ? "text-success"
-          : view.owedCents < 0
-            ? "text-danger"
-            : "text-foreground",
-      )}
-    >
-      {formatOwed(view.owedCents)}
-    </span>
-  );
-}
 
 function RowsTableRow({
   view,
@@ -90,11 +59,7 @@ function RowsTableRow({
         {formatSignedCents(view.fullCents)}
       </span>
       <span className="text-right text-[13px] text-muted tabular-nums">
-        {view.isWaiting ? (
-          <span className={SET_CHIP_CLASS}>Set</span>
-        ) : (
-          `${formatShareBps(view.shareBps)}%`
-        )}
+        <SettlementSplitCell view={view} />
       </span>
       <span
         className={cx(
@@ -106,7 +71,7 @@ function RowsTableRow({
       >
         {view.shareCents === null ? NO_FIGURE : formatSignedCents(view.shareCents)}
       </span>
-      <OwedCell view={view} />
+      <SettlementOwedFigure view={view} className="text-right" />
     </div>
   );
 }
@@ -191,7 +156,7 @@ export function SettlementRowsCard({
         >
           <span className="text-[13px] text-muted">{describeRowsFooter(figures)}</span>
           <span className="text-right font-semibold text-[14px] text-foreground tabular-nums">
-            {formatOwed(computeRowsNetCents(figures))}
+            {formatOwedCents(computeRowsNetCents(figures))}
           </span>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import type { FinanceTransaction } from "@vega/shared";
 import { format, parseISO } from "date-fns";
-import { computeShareFraction, HOUSEHOLD_DEFAULT_BPS, roundToCents } from "./money";
+import { formatSignedCents } from "./ledger-copy";
+import { computeShareFraction, formatCents, HOUSEHOLD_DEFAULT_BPS, roundToCents } from "./money";
 import { formatMonthLabel } from "./month-cursor";
 import { type FinanceBook, selectHouseholdRows } from "./queries";
 import { hasUnresolvedFlags } from "./review-flags";
@@ -104,6 +105,10 @@ export function partitionSettlementSplits(views: SettlementRowView[]): Settlemen
  */
 export const computeRowsNetCents = (figures: SettlementFigures): number =>
   figures.ownerPaidCents - figures.myShareCents;
+
+/** Owed reads as a direction, so a credit carries its plus rather than leaving the sign implied. */
+export const formatOwedCents = (cents: number): string =>
+  cents > 0 ? `+${formatCents(cents)}` : formatSignedCents(cents);
 
 export interface SettlementHistoryRow {
   month: string;

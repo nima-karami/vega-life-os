@@ -7,6 +7,7 @@ export {
 export { SECONDARY_BUTTON_CLASS, SMALL_SECONDARY_BUTTON_CLASS } from "./button-classes";
 export type { CategoryChipProps, CategoryChipTone } from "./CategoryChip";
 export { CategoryChip } from "./CategoryChip";
+export type { FadeEdgeProps } from "./FadeEdge";
 export { FadeEdge } from "./FadeEdge";
 export { FUSED_CELL_CLASS, FUSED_GROUP_CLASS } from "./fused-group";
 export {

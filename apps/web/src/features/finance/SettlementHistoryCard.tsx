@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { cx } from "@/core/ui";
+import type { SettlementHistoryCardProps } from "./finance-table-props";
 import { StateChip } from "./primitives";
-import type { SettlementHistoryRow } from "./settlement-rows";
 
 const HISTORY_GRID = "grid-cols-[9rem_1fr_8rem_8rem]";
 const HISTORY_MIN_WIDTH = "min-w-[42rem]";
@@ -10,7 +10,7 @@ const HEADERS = ["Period", "Outcome", "Rows", "Settled"];
 const RIGHT_ALIGNED = new Set(["Rows", "Settled"]);
 
 /** Closed periods, each at the figure it was settled at — and the chip when its rows moved since. */
-export function SettlementHistoryCard({ rows }: { rows: SettlementHistoryRow[] }) {
+export function SettlementHistoryCard({ rows }: SettlementHistoryCardProps) {
   return (
     <section
       aria-label="Settled periods"

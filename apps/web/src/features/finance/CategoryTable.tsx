@@ -4,6 +4,7 @@ import { cx, Icon, Menu, type MenuItem } from "@/core/ui";
 import { CategoryBudgetChip } from "./CategoryBudgetChip";
 import { describeCategoryRowCount, describeTablePace, formatShortMonth } from "./category-copy";
 import type { CategoryTableRow, CategoryTableTotals } from "./category-table-figures";
+import type { CategoryTableProps } from "./finance-table-props";
 import { formatCents } from "./money";
 import { PaceBar } from "./primitives";
 
@@ -13,17 +14,6 @@ const MIN_WIDTH = "min-w-[58rem]";
 const PACE_CELL = "px-4";
 
 const NO_FIGURE = "—";
-
-export interface CategoryTableProps {
-  rows: CategoryTableRow[];
-  totals: CategoryTableTotals;
-  month: string;
-  elapsedFraction: number;
-  budgets: Map<string, FinanceBudget>;
-  /** The archived list reads the same but carries no total — it is not a plan, it is a record. */
-  hasTotalRow?: boolean;
-  buildMenuItems: (row: CategoryTableRow) => MenuItem[];
-}
 
 function HeaderRow({ month }: { month: string }) {
   const labels = [
