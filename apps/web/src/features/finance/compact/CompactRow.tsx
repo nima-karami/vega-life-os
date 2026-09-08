@@ -57,13 +57,12 @@ export function CompactRow({
           </div>
 
           {meta.length > 0 && (
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
               {meta.map((item, index) => (
                 <span
                   key={item.label ?? `slot-${index}`}
-                  className="flex items-center gap-[5px] whitespace-nowrap"
+                  className="flex min-w-0 flex-wrap items-center gap-[5px]"
                 >
-                  {index > 0 && <span aria-hidden>·</span>}
                   {item.label !== undefined && <span>{item.label}</span>}
                   {item.value}
                 </span>
