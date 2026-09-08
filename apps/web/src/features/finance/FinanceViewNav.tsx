@@ -1,10 +1,11 @@
 import { Button, ButtonGroup } from "@heroui/react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useStore } from "@/core/store";
 import { cx, Icon } from "@/core/ui";
-import { FUSED_CELL_CLASS, FUSED_GROUP_CLASS } from "./primitives";
+import { FadeEdge, FUSED_CELL_CLASS, FUSED_GROUP_CLASS } from "./primitives";
 import { countRowsNeedingReview, describeReviewPrompt } from "./review-flags";
+import { useHorizontalScrollFade } from "./useHorizontalScrollFade";
 
 interface FinanceView {
   to: string;
@@ -26,8 +27,8 @@ const CELL_BASE = `h-[34px] px-4 text-[13px] ${FUSED_CELL_CLASS}`;
 const CELL_ON = "bg-paper-2 font-semibold text-foreground";
 const CELL_OFF = "bg-transparent font-medium text-muted";
 
-function findCurrentView(pathname: string): FinanceView | undefined {
-  return FINANCE_VIEWS.find((view) => view.to === pathname);
+function findCurrentIndex(pathname: string): number {
+  return FINANCE_VIEWS.findIndex((view) => view.to === pathname);
 }
 
 /**
@@ -40,7 +41,10 @@ export function FinanceViewNav() {
   const transactions = useStore((s) => s.financeTransactions);
   const importBatches = useStore((s) => s.financeImportBatches);
 
-  const currentView = findCurrentView(pathname);
+  const { scrollRef, hasMoreRight } = useHorizontalScrollFade<HTMLElement>();
+
+  const currentIndex = findCurrentIndex(pathname);
+  const currentView = currentIndex < 0 ? undefined : FINANCE_VIEWS[currentIndex];
   const reviewCount = useMemo(() => countRowsNeedingReview(transactions), [transactions]);
   const prompt = useMemo(
     () => describeReviewPrompt(transactions, importBatches),
@@ -49,37 +53,51 @@ export function FinanceViewNav() {
   // Only the overview carries the explainer; from anywhere else the badge alone is the prompt.
   const hasPrompt = reviewCount > 0 && pathname === "/finance";
 
+  // The strip scrolls, so landing on a room whose pill is off-screen has to bring it back. The pill
+  // is found by position rather than by ref — HeroUI v3 Button ref-forwarding is unverified here.
+  useEffect(() => {
+    if (currentIndex < 0) return;
+    scrollRef.current
+      ?.querySelectorAll("[aria-pressed]")
+      [currentIndex]?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "auto" });
+  }, [currentIndex, scrollRef]);
+
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-      <nav aria-label="Finance views" className="-mx-4 max-w-full overflow-x-auto px-4">
-        <ButtonGroup className={FUSED_GROUP_CLASS}>
-          {FINANCE_VIEWS.map((view) => {
-            const isCurrent = view === currentView;
-            return (
-              <Button
-                key={view.to}
-                variant="ghost"
-                aria-pressed={isCurrent}
-                onPress={() => navigate(view.to)}
-                className={cx(CELL_BASE, isCurrent ? CELL_ON : CELL_OFF)}
-              >
-                {view.label}
-                {view.to === TRANSACTIONS_VIEW && reviewCount > 0 && (
-                  <span
-                    data-testid="finance-review-badge"
-                    className="grid h-[18px] min-w-[18px] place-items-center rounded-[9px] bg-warning px-[5px] font-semibold text-[11px] text-white tabular-nums"
-                  >
-                    {reviewCount}
-                  </span>
-                )}
-              </Button>
-            );
-          })}
-        </ButtonGroup>
-        <span aria-live="polite" aria-atomic="true" className="sr-only">
-          {currentView ? `${currentView.label} — finance` : ""}
-        </span>
-      </nav>
+      <div className="relative -mx-4 min-w-0 max-w-full px-4">
+        <nav aria-label="Finance views" ref={scrollRef} className="overflow-x-auto">
+          <ButtonGroup className={FUSED_GROUP_CLASS}>
+            {FINANCE_VIEWS.map((view) => {
+              const isCurrent = view === currentView;
+              return (
+                <Button
+                  key={view.to}
+                  variant="ghost"
+                  aria-pressed={isCurrent}
+                  onPress={() => navigate(view.to)}
+                  className={cx(CELL_BASE, isCurrent ? CELL_ON : CELL_OFF)}
+                >
+                  {view.label}
+                  {view.to === TRANSACTIONS_VIEW && reviewCount > 0 && (
+                    <span
+                      data-testid="finance-review-badge"
+                      className="grid h-[18px] min-w-[18px] place-items-center rounded-[9px] bg-warning px-[5px] font-semibold text-[11px] text-white tabular-nums"
+                    >
+                      {reviewCount}
+                    </span>
+                  )}
+                </Button>
+              );
+            })}
+          </ButtonGroup>
+          <span aria-live="polite" aria-atomic="true" className="sr-only">
+            {currentView ? `${currentView.label} — finance` : ""}
+          </span>
+        </nav>
+        {hasMoreRight && (
+          <FadeEdge edge="right" tone="canvas" className="w-9" testId="finance-nav-fade" />
+        )}
+      </div>
 
       {hasPrompt && (
         <>
