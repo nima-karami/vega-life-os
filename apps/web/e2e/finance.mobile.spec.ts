@@ -21,6 +21,12 @@ function partnerHeavyMonth(): string {
   return monthKey(date);
 }
 
+/**
+ * The settled month is the only one whose household rows are offsets from its own start, so it
+ * always holds two owner-paid rows and one partner-paid one — the mix a payer filter needs.
+ */
+const settledMonth = (): string => monthKey(subMonths(new Date(), 2));
+
 const STATEMENT_ANCHOR = subMonths(new Date(), 1);
 const onDay = (day: number) => format(setDate(STATEMENT_ANCHOR, day), "MM/dd/yyyy");
 
@@ -37,12 +43,7 @@ async function openPhone(page: Page, route: string) {
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 }
 
-/**
- * Every element inside `selector` that is wider than the viewport — the shape a fixed-column grid
- * takes on a phone, and the thing a compact twin exists to remove. The view strip is left out on
- * purpose: it is deliberately scrollable, it bleeds into the shell's padding, and the page-level
- * sweep in `mobile.spec.ts` is what holds the frame around it.
- */
+// The view strip is left out on purpose: it is deliberately scrollable and bleeds into the shell.
 async function tooWideInside(page: Page, selector: string): Promise<string[]> {
   return page.evaluate((sel) => {
     const root = document.querySelector(sel);
@@ -115,7 +116,18 @@ test("the budget is still edited in the row, on a target a thumb can hit", async
 
 test("the row menu still offers every action the desktop row does", async ({ page }) => {
   await openPhone(page, "/finance/categories");
-  await page.getByRole("button", { name: "Actions for Software" }).click();
+  const trigger = page.getByRole("button", { name: "Actions for Software" });
+  const box = await trigger.boundingBox();
+  expect(
+    box?.height ?? 0,
+    "the row-menu trigger is under the 44px phone minimum",
+  ).toBeGreaterThanOrEqual(44);
+  expect(
+    box?.width ?? 0,
+    "the row-menu trigger is under the 44px phone minimum",
+  ).toBeGreaterThanOrEqual(44);
+
+  await trigger.click();
 
   for (const item of ["Edit", "Merge into…", "Archive", "Delete"]) {
     await expect(page.getByRole("menuitem", { name: item })).toBeVisible();
@@ -160,7 +172,7 @@ test("the settlement rows stack and keep every column as a labelled pair", async
 });
 
 test("the filter chips still narrow the stacked list, empty state included", async ({ page }) => {
-  await openPhone(page, `/finance/settlement?month=${partnerHeavyMonth()}`);
+  await openPhone(page, `/finance/settlement?month=${settledMonth()}`);
   const rows = region(page, "Shared rows in this period");
   await expect(rows).toBeVisible({ timeout: 15_000 });
 
@@ -171,11 +183,16 @@ test("the filter chips still narrow the stacked list, empty state included", asy
     );
   }
 
+  const links = rows.getByRole("link");
+  await expect(links).toHaveCount(3);
+
   await rows.getByRole("button", { name: "Partner paid" }).click();
   await expect(rows.getByRole("button", { name: "Partner paid" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
+  await expect(links).toHaveCount(1);
+  await expect(links).toHaveText(["Dinner out"]);
   await expect(rows.getByText("You", { exact: true })).toHaveCount(0);
 
   // No seeded row carries an unresolved flag in this period, so the empty state is this filter's

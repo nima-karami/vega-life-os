@@ -7,5 +7,5 @@ const SET_CHIP_CLASS =
 /** The owner's cut of the row, or the chip naming the split it still needs. */
 export function SettlementSplitCell({ view }: { view: SettlementRowView }) {
   if (view.isWaiting) return <span className={SET_CHIP_CLASS}>Set</span>;
-  return <>{`${formatShareBps(view.shareBps)}%`}</>;
+  return <span className="tabular-nums">{`${formatShareBps(view.shareBps)}%`}</span>;
 }

@@ -5,10 +5,7 @@ import { CompactRow } from "./CompactRow";
 
 const AMOUNT_CLASS = "font-semibold text-[14px] text-foreground tabular-nums";
 
-/**
- * Settled periods on a phone. The desktop sentence splits across the two lines — the direction
- * stays in the meta, the figure drops into the amount column so it scans straight down.
- */
+/** Settled periods on a phone: the direction stays in the meta, the figure drops into the amount column. */
 export function CompactSettlementHistory({ rows }: SettlementHistoryCardProps) {
   return (
     <>

@@ -23,10 +23,7 @@ export interface CompactRowProps {
 
 const AMOUNT_CLASS = "font-medium text-[14px] text-foreground tabular-nums";
 
-/**
- * The one row shape every compact finance grid maps onto: what the row is on the first line, the
- * columns it dropped as label·value pairs on the second, and the figure held down the right.
- */
+/** The one row shape every compact finance grid maps onto. */
 export function CompactRow({
   swatch,
   title,
@@ -61,10 +58,12 @@ export function CompactRow({
               {meta.map((item, index) => (
                 <span
                   key={item.label ?? `slot-${index}`}
-                  className="flex min-w-0 flex-wrap items-center gap-[5px]"
+                  className="flex items-center gap-[5px] whitespace-nowrap"
                 >
-                  {item.label !== undefined && <span>{item.label}</span>}
-                  {item.value}
+                  {item.label !== undefined && (
+                    <span className="font-medium text-foreground/70">{item.label}</span>
+                  )}
+                  <span>{item.value}</span>
                 </span>
               ))}
             </div>

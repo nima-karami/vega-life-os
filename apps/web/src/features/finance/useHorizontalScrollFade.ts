@@ -1,10 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
 
-/**
- * Whether a horizontal scroller still has content to its right. Measured, never inferred from a
- * breakpoint — and observed as well as listened to, because a badge arriving from store state or a
- * webfont swapping in changes the scroll width without firing scroll or resize.
- */
+/** Observed, not just listened to: a late badge or a webfont swap changes scrollWidth without firing scroll or resize. */
 export function useHorizontalScrollFade<T extends HTMLElement>(): {
   scrollRef: RefObject<T | null>;
   hasMoreRight: boolean;

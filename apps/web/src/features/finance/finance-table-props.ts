@@ -10,11 +10,7 @@ import type {
   SettlementRowView,
 } from "./settlement-rows";
 
-/**
- * Each wide grid and its compact twin read the same props, so the shapes live in a leaf both sides
- * import — a twin typed off its desktop sibling would close an import cycle the compiler tolerates
- * and the browser does not.
- */
+/** A leaf both sides import: a twin typed off its desktop sibling would close an import cycle. */
 
 export interface CategoryTableProps {
   rows: CategoryTableRow[];
