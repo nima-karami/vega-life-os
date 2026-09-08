@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { dragAlong, endTouch, startTouch } from "./helpers/touch";
 
 /**
  * Mobile-usability proof (spec §7). Runs on a touch phone profile; the @automatable
@@ -404,4 +405,148 @@ test("the journal slash menu clears the nav band (390px)", async ({ page }) => {
       timeout: 5_000,
     })
     .toBeLessThanOrEqual(1);
+});
+
+// ─── Touch-reachable task and goal-step actions (spec §8) ────────────────────
+
+const MIN_TOUCH_PX = 44;
+const PHONE = { width: 390, height: 844 };
+
+async function openPhone(page: Page, route: string) {
+  await page.setViewportSize(PHONE);
+  await page.goto(route, { waitUntil: "domcontentloaded" });
+  await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+}
+
+/** `toBeVisible()` passes on `opacity: 0`, so reachability needs the computed value. */
+async function measureControl(control: Locator) {
+  const opacity = await control.evaluate((el) => getComputedStyle(el).opacity);
+  const box = await control.boundingBox();
+  if (!box) throw new Error("the control has no bounding box");
+  return { opacity, box };
+}
+
+function expectTouchSized(box: { width: number; height: number }, what: string) {
+  expect(box.width, `${what} is narrower than ${MIN_TOUCH_PX}px`).toBeGreaterThanOrEqual(
+    MIN_TOUCH_PX,
+  );
+  expect(box.height, `${what} is shorter than ${MIN_TOUCH_PX}px`).toBeGreaterThanOrEqual(
+    MIN_TOUCH_PX,
+  );
+}
+
+async function addUntimedTask(page: Page, title: string) {
+  const titleInput = page.getByRole("textbox", { name: "Task title" });
+  // A commit leaves the composer open on an empty draft, so the second call has no
+  // collapsed trigger left to press.
+  if (!(await titleInput.isVisible().catch(() => false))) {
+    await page
+      .getByRole("button", { name: /^Add task$/ })
+      .first()
+      .click();
+  }
+  await expect(titleInput).toBeVisible();
+  await titleInput.fill(title);
+  await titleInput.press("Enter");
+  await expect(page.getByRole("region", { name: "Remaining" })).toContainText(title);
+}
+
+const reorderLabels = (page: Page): Promise<string[]> =>
+  page
+    .locator('main [aria-label^="Reorder "]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""));
+
+test("the task actions menu is visible, 44px and works by tap (390px)", async ({ page }) => {
+  await openPhone(page, "/today");
+  const remaining = page.getByRole("region", { name: "Remaining" });
+  await expect(remaining).toBeVisible({ timeout: 15_000 });
+
+  const trigger = remaining.locator('[aria-label^="Actions for "]').first();
+  const { opacity, box } = await measureControl(trigger);
+  expect(opacity, "the task ⋯ trigger is transparent on a phone").toBe("1");
+  expectTouchSized(box, "the task ⋯ trigger");
+
+  await trigger.click();
+  await page.getByRole("menuitem", { name: "Skip" }).click();
+  // A skipped task is resolved, so its card leaves Remaining for the Done section.
+  await expect(page.locator("main").getByText("Skipped").first()).toBeVisible();
+});
+
+test("the task done toggle has a 44px hit box (390px)", async ({ page }) => {
+  await openPhone(page, "/today");
+  const remaining = page.getByRole("region", { name: "Remaining" });
+  await expect(remaining).toBeVisible({ timeout: 15_000 });
+
+  const { box } = await measureControl(remaining.locator('[aria-label^="Mark "]').first());
+  expectTouchSized(box, "the task done toggle");
+});
+
+test("a goal step is removable by tap on a phone (390px)", async ({ page }) => {
+  await openPhone(page, "/values");
+
+  // Tapping through both long-press rows (a value card, then a goal card) also proves a
+  // press under the sensor delay still activates the link the row wraps.
+  await page.locator('main a[href^="/values/"]').first().click();
+  await expect(page).toHaveURL(/\/values\/[^/]+$/);
+  await page.locator('main a[href^="/goals/"]').first().click();
+  await expect(page).toHaveURL(/\/goals\/[^/]+$/);
+
+  const draft = page.getByRole("textbox", { name: "Add a step" });
+  await draft.fill("touch-removable step");
+  await draft.press("Enter");
+
+  const removes = page.locator('main [aria-label^="Remove "]');
+  const remove = page.getByRole("button", { name: "Remove touch-removable step" });
+  await expect(remove).toHaveCount(1);
+  const before = await removes.count();
+
+  const { opacity, box } = await measureControl(remove);
+  expect(opacity, "the step remove is transparent on a phone").toBe("1");
+  expectTouchSized(box, "the step remove");
+
+  await remove.click();
+  await expect(removes).toHaveCount(before - 1);
+});
+
+test("a long press reorders two untimed tasks and the order survives a reload (390px)", async ({
+  page,
+}) => {
+  await openPhone(page, "/today");
+  await addUntimedTask(page, "First untimed");
+  await addUntimedTask(page, "Second untimed");
+
+  // The open composer pushes the untimed rows past the fold, and a CDP touch outside
+  // the viewport lands on nothing.
+  await page.getByRole("textbox", { name: "Task title" }).press("Escape");
+
+  const rows = page.locator('main [aria-label^="Reorder "]');
+  await expect(rows).toHaveCount(2);
+  expect(await reorderLabels(page)).toEqual(["Reorder First untimed", "Reorder Second untimed"]);
+
+  await rows.nth(1).evaluate((el) => {
+    el.scrollIntoView({ block: "center" });
+  });
+  const fromBox = await rows.first().boundingBox();
+  const toBox = await rows.nth(1).boundingBox();
+  if (!fromBox || !toBox) throw new Error("a sortable row has no bounding box");
+  const from = { x: fromBox.x + fromBox.width / 2, y: fromBox.y + fromBox.height / 2 };
+  const to = { x: from.x, y: toBox.y + toBox.height * 0.75 };
+
+  await startTouch(page, from);
+  // Both sensors have to arm: touch at 250ms, pointer-from-touch at 300ms. Holding
+  // still keeps the press inside the 8px tolerance that would cancel it.
+  await page.waitForTimeout(500);
+  await dragAlong(page, { from, to, durationMs: 500, steps: 10 });
+  await endTouch(page);
+
+  await expect
+    .poll(() => reorderLabels(page), { message: "the long press did not reorder the rows" })
+    .toEqual(["Reorder Second untimed", "Reorder First untimed"]);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await passGratitudeGate(page);
+  await expect
+    .poll(() => reorderLabels(page), { message: "the new order did not survive a reload" })
+    .toEqual(["Reorder Second untimed", "Reorder First untimed"]);
 });
