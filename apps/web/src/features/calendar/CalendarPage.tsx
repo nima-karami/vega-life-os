@@ -674,6 +674,21 @@ export function CalendarPage() {
   const replaceWithRef = useRef(replaceWith);
   replaceWithRef.current = replaceWith;
 
+  // A tap on a timed chip: paste-replace if the clipboard is armed, else clear the
+  // selection and open the editor. Two producers reach it — the desktop drag release
+  // and the phone press, which never arms a drag at all.
+  const handleChipTap = (id: string) => {
+    if (clipRef.current) {
+      replaceWithRef.current(id, clipRef.current);
+      return;
+    }
+    clearSelection();
+    const t = tasksRef.current.find((x) => x.id === id);
+    if (t) openTask(t);
+  };
+  const handleChipTapRef = useRef(handleChipTap);
+  handleChipTapRef.current = handleChipTap;
+
   // Resolve a drag release: commit a real change, or treat a no-move as a tap.
   const endDrag = (d: DragState, p: Preview) => {
     if (d.mode === "allday") {
@@ -723,15 +738,8 @@ export function CalendarPage() {
       markJustDragged();
       return;
     }
-    // a tap (no movement): paste-replace if armed, else clear selection + open
     if (d.mode !== "move" || d.moved) return;
-    if (clipRef.current) {
-      replaceWithRef.current(d.id, clipRef.current);
-      return;
-    }
-    clearSelection();
-    const t = tasksRef.current.find((x) => x.id === d.id);
-    if (t) openTask(t);
+    handleChipTapRef.current(d.id);
   };
   const endDragRef = useRef(endDrag);
   endDragRef.current = endDrag;
@@ -775,6 +783,9 @@ export function CalendarPage() {
         return;
       }
 
+      // ignore sub-threshold jitter so a click still opens the chip
+      if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD_PX)
+        return;
       const date = cols[getColumnIndexAt(e.clientX, rect, cols.length)].iso;
       const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
       const next = {
