@@ -1,6 +1,6 @@
 import { Button, ButtonGroup, Card, Modal, ScrollShadow, useOverlayState } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useTodayISO } from "@/core/lib/clock";
 import { addMinutes, formatShortDate, getWeekDays, minutesOf, weekStartOf } from "@/core/lib/date";
@@ -12,6 +12,7 @@ import {
   type MenuItem,
   TimePicker,
   UndoBar,
+  useCompact,
   useCompactModal,
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
@@ -95,8 +96,6 @@ interface Preview {
   isUntimed: boolean;
 }
 
-const MOBILE_QUERY = "(max-width: 639px)";
-
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
   const goals = useStore((s) => s.goals);
@@ -150,10 +149,8 @@ export function CalendarPage() {
   const [dayMoveTask, setDayMoveTask] = useState<Task | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
-  const [mobile, setMobile] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches,
-  );
-  const [activeDay, setActiveDay] = useState(0); // mobile single-day index 0..6
+  const compact = useCompact();
+  const [activeDay, setActiveDay] = useState(0); // single-day index 0..6 on a phone
 
   const gridRef = useRef<HTMLDivElement>(null);
   const allDayRowRef = useRef<HTMLDivElement>(null);
@@ -208,19 +205,16 @@ export function CalendarPage() {
     },
   ]);
 
-  // Track the mobile breakpoint so the wide grid degrades to a single day.
-  useEffect(() => {
-    const mql = window.matchMedia(MOBILE_QUERY);
-    const onChange = () => {
-      // the column set changes underneath the pointer — never commit a day the user didn't target
-      if (dragRef.current) cancelDragRef.current();
-      setMobile(mql.matches);
-    };
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
+  // Crossing the breakpoint swaps the column set underneath the pointer, so the cancel has
+  // to land before the browser can dispatch another pointer event — layout effect, not effect.
+  const wasCompact = useRef(compact);
+  useLayoutEffect(() => {
+    if (wasCompact.current === compact) return;
+    wasCompact.current = compact;
+    if (dragRef.current) cancelDragRef.current();
+  }, [compact]);
 
-  // Keep the active mobile day on today when the week contains it.
+  // Keep the active single day on today when the week contains it.
   useEffect(() => {
     const todayIdx = days.findIndex((d) => d.today);
     if (todayIdx >= 0) setActiveDay(todayIdx);
@@ -474,7 +468,7 @@ export function CalendarPage() {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
     // Selection via modifier-click (desktop only; resize edges ignore it).
-    if (mode === "move" && !mobile) {
+    if (mode === "move" && !compact) {
       if (e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -523,7 +517,7 @@ export function CalendarPage() {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.date) return;
     // Selection via modifier-click (desktop only).
-    if (!mobile) {
+    if (!compact) {
       if (e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -571,7 +565,7 @@ export function CalendarPage() {
 
   // Rubber-band selection: press-drag on empty timed-grid space (desktop only).
   const beginMarquee = (e: React.PointerEvent) => {
-    if (mobile || e.button !== 0) return;
+    if (compact || e.button !== 0) return;
     if ((e.target as HTMLElement).closest("[data-block]")) return;
     const grid = gridRef.current;
     if (!grid) return;
@@ -742,8 +736,8 @@ export function CalendarPage() {
   const endDragRef = useRef(endDrag);
   endDragRef.current = endDrag;
 
-  // columns the move-drag can land on (mobile = just the active day)
-  const dragDays = mobile ? [days[activeDay]] : days;
+  // columns the move-drag can land on (on a phone, just the active day)
+  const dragDays = compact ? [days[activeDay]] : days;
   const dragDaysRef = useRef(dragDays);
   dragDaysRef.current = dragDays;
 
@@ -917,7 +911,7 @@ export function CalendarPage() {
   const gotoPrev = () => {
     if (dragRef.current) cancelDrag();
     clearSelection();
-    if (mobile) {
+    if (compact) {
       if (activeDay > 0) setActiveDay((i) => i - 1);
       else {
         setWeekRef(addDays(weekStartOf(weekRef), -7));
@@ -930,7 +924,7 @@ export function CalendarPage() {
   const gotoNext = () => {
     if (dragRef.current) cancelDrag();
     clearSelection();
-    if (mobile) {
+    if (compact) {
       if (activeDay < 6) setActiveDay((i) => i + 1);
       else {
         setWeekRef(addDays(weekStartOf(weekRef), 7));
@@ -947,7 +941,7 @@ export function CalendarPage() {
     setAnnounce("Showing this week");
   };
 
-  const visibleDays = mobile ? [days[activeDay]] : days;
+  const visibleDays = compact ? [days[activeDay]] : days;
   const spanBars = useMemo(
     () =>
       layoutSpanBars(
@@ -995,7 +989,7 @@ export function CalendarPage() {
       {/* ── Nav header — quiet, like Today (keeps the grid in view) ── */}
       <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          {mobile
+          {compact
             ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
             : `${formatShortDate(days[0].iso)} – ${formatShortDate(days[6].iso)}`}
         </h1>
@@ -1008,7 +1002,7 @@ export function CalendarPage() {
               isIconOnly
               size="sm"
               variant="ghost"
-              aria-label={mobile ? "Previous day" : "Previous week"}
+              aria-label={compact ? "Previous day" : "Previous week"}
               onPress={gotoPrev}
             >
               <Icon name="chevL" size={16} />
@@ -1025,7 +1019,7 @@ export function CalendarPage() {
               isIconOnly
               size="sm"
               variant="ghost"
-              aria-label={mobile ? "Next day" : "Next week"}
+              aria-label={compact ? "Next day" : "Next week"}
               onPress={gotoNext}
             >
               <Icon name="chevR" size={16} />
@@ -1035,7 +1029,7 @@ export function CalendarPage() {
       </header>
 
       {/* ── Mobile day strip ─────────────────────────────────────── */}
-      {mobile && (
+      {compact && (
         <div className="mb-4 flex gap-1.5 overflow-x-auto no-scrollbar">
           {days.map((d, i) => (
             <button
@@ -1096,7 +1090,7 @@ export function CalendarPage() {
         }}
       >
         <div className="overflow-x-auto">
-          <div className={mobile ? "min-w-0" : "min-w-[720px]"}>
+          <div className={compact ? "min-w-0" : "min-w-[720px]"}>
             {/* day headers */}
             <div
               className="grid border-b border-border"
@@ -1346,7 +1340,7 @@ export function CalendarPage() {
               {visibleDays.every((d) => getTimedTasksForDay(tasks, d.iso).length === 0) && (
                 <div className="pointer-events-none absolute inset-x-0 top-1/3 text-center">
                   <p className="text-sm text-muted">
-                    Nothing scheduled {mobile ? "this day" : "this week"} — click a slot to add
+                    Nothing scheduled {compact ? "this day" : "this week"} — click a slot to add
                   </p>
                 </div>
               )}
