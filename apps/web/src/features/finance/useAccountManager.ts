@@ -6,8 +6,6 @@ import { describeAccountArchive } from "./account-copy";
 
 const NOW_BUSINESS = "is now a business account";
 const NOW_PERSONAL = "is now a personal account";
-const RESTORED = "Restored";
-const ARCHIVED = "Archived";
 
 export interface AccountArchivePrompt {
   account: FinanceAccount;
@@ -44,7 +42,7 @@ export function useAccountManager(): AccountManager {
 
   const restore = (account: FinanceAccount) => {
     updateFinanceAccount(account.id, { archivedAt: null });
-    pushToast(`${RESTORED} ${account.displayName}`);
+    pushToast(`Restored ${account.displayName}`);
   };
 
   const buildMenuItems = (account: FinanceAccount): MenuItem[] => [
@@ -76,7 +74,7 @@ export function useAccountManager(): AccountManager {
     confirmArchive: () => {
       if (archiving === null) return;
       updateFinanceAccount(archiving.account.id, { archivedAt: new Date().toISOString() });
-      pushToast(`${ARCHIVED} ${archiving.account.displayName}`);
+      pushToast(`Archived ${archiving.account.displayName}`);
       setArchiving(null);
     },
     cancelArchive: () => setArchiving(null),

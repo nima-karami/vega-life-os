@@ -1,9 +1,9 @@
 import { Button } from "@heroui/react";
 import type { EmptyCopy } from "@/core/ui";
+import { TOUCH_BUTTON_HEIGHT_CLASS } from "./primitives";
 
 const IMPORT_ROUTE = "/finance/import";
 const NEW_TRANSACTION_ROUTE = "/finance/transactions/new";
-const CTA_CLASS = "h-11 sm:h-10";
 
 const NO_ACCOUNT_TITLE = "Set up your first account";
 const NO_ACCOUNT_BODY =
@@ -47,12 +47,12 @@ export function buildFinanceStartGuide({
       : { title: NO_ACCOUNT_TITLE, body: NO_ACCOUNT_BODY }),
     cta: (
       <div className="flex flex-wrap justify-center gap-2">
-        <Button variant="secondary" className={CTA_CLASS} onPress={step.act}>
+        <Button variant="secondary" className={TOUCH_BUTTON_HEIGHT_CLASS} onPress={step.act}>
           {step.label}
         </Button>
         <Button
           variant="secondary"
-          className={CTA_CLASS}
+          className={TOUCH_BUTTON_HEIGHT_CLASS}
           onPress={() => navigate(NEW_TRANSACTION_ROUTE)}
         >
           Add a transaction by hand

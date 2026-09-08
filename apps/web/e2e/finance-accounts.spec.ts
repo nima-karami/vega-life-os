@@ -31,7 +31,8 @@ const card = (page: Page) => page.getByTestId("finance-accounts-card");
 /** The month holding the seed's newest Rewards card row, derived so no fixed month can rot. */
 const CARD_ROW_MONTH = format(subDays(new Date(), 5), "yyyy-MM");
 
-const ledgerRows = (page: Page) => page.getByRole("checkbox", { name: /^Select / });
+// "Select all transactions" is the header box; the rest are one per row.
+const ledgerRows = (page: Page) => page.getByRole("checkbox", { name: /^Select (?!all)/ });
 
 async function filterByAccount(page: Page, label: string) {
   await page.getByRole("button", { name: "Filter by account" }).click();
@@ -256,25 +257,6 @@ test("the ledger guides the same empty book", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Add a transaction by hand" })).toBeVisible();
 });
 
-test("a staged file is discarded when the chosen account is archived, and when one is restored", async ({
-  page,
-}) => {
-  await enterApp(page);
-  await openImport(page);
-
-  await chooseAccount(page, "Rewards card");
-  await stageStatement(page);
-  await archiveAccount(page, "Rewards card");
-
-  await expectNothingStaged(page);
-
-  // Restoring resolves a different account too, so it has to discard the stage the same way.
-  await stageStatement(page);
-  await chooseRowAction(page, "Rewards card", "Restore");
-
-  await expectNothingStaged(page);
-});
-
 test("a file dropped on the shut zone raises the guard rather than the browser", async ({
   page,
 }) => {
@@ -308,6 +290,12 @@ test("a stage is discarded when its account is archived, and stays gone on resto
   await archiveAccount(page, "Rewards card");
   await expectNothingStaged(page);
 
+  await chooseRowAction(page, "Rewards card", "Restore");
+  await expectNothingStaged(page);
+
+  // A restore resolves a different account too, so a stage made while it was gone goes the same way.
+  await archiveAccount(page, "Rewards card");
+  await stageStatement(page);
   await chooseRowAction(page, "Rewards card", "Restore");
 
   await expectNothingStaged(page);

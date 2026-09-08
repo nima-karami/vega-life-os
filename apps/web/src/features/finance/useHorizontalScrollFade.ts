@@ -1,6 +1,9 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
 
-/** Observed, not just listened to: a late badge or a webfont swap changes scrollWidth without firing scroll or resize. */
+/**
+ * Observed, not just listened to: a late badge or a webfont swap changes scrollWidth
+ * without firing scroll or resize.
+ */
 export function useHorizontalScrollFade<T extends HTMLElement>(): {
   scrollRef: RefObject<T | null>;
   hasMoreRight: boolean;

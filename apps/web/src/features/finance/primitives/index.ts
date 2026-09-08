@@ -7,6 +7,7 @@ export {
 export {
   SECONDARY_BUTTON_CLASS,
   SMALL_SECONDARY_BUTTON_CLASS,
+  TOUCH_BUTTON_HEIGHT_CLASS,
   TOUCH_SMALL_SECONDARY_BUTTON_CLASS,
 } from "./button-classes";
 export type { CategoryChipProps, CategoryChipTone } from "./CategoryChip";

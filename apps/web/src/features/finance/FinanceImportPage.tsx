@@ -7,12 +7,12 @@ import { FinanceImportSidebar } from "./FinanceImportSidebar";
 import { FinanceImportStage } from "./FinanceImportStage";
 import { FinanceNotice } from "./FinanceNotice";
 import { FinancePageShell } from "./FinancePageShell";
+import { TOUCH_BUTTON_HEIGHT_CLASS } from "./primitives";
 import { useAccountManager } from "./useAccountManager";
 import { NEW_ACCOUNT_OPTION, useImportView } from "./useImportView";
 
 const NO_ACCOUNT_BODY =
   "An account has to exist first — its slug is baked into every row’s duplicate key.";
-const NOTICE_ACTION_CLASS = "h-11 sm:h-10";
 
 /** Drop a file, see what it would do to every row, then write it — in that order, always. */
 export function FinanceImportPage() {
@@ -51,7 +51,7 @@ export function FinanceImportPage() {
           actions={
             <Button
               variant="secondary"
-              className={NOTICE_ACTION_CLASS}
+              className={TOUCH_BUTTON_HEIGHT_CLASS}
               onPress={manager.openCreate}
             >
               Add an account

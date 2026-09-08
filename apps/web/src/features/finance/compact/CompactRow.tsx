@@ -5,6 +5,8 @@ export interface CompactMetaItem {
   /** Omitted where the desktop cell carries no header word of its own. */
   label?: string;
   value: ReactNode;
+  /** A control rather than text: it gets its own line under the figures, clear of the amount cell. */
+  isControl?: boolean;
 }
 
 export interface CompactRowProps {
@@ -22,6 +24,18 @@ export interface CompactRowProps {
 }
 
 const AMOUNT_CLASS = "font-medium text-[14px] text-foreground tabular-nums";
+const META_RUN_CLASS = "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted";
+
+function MetaPair({ item, isOwnLine }: { item: CompactMetaItem; isOwnLine: boolean }) {
+  return (
+    <span className={cx("flex min-w-0 items-center gap-[5px]", !isOwnLine && "whitespace-nowrap")}>
+      {item.label !== undefined && (
+        <span className="shrink-0 font-medium text-foreground/70">{item.label}</span>
+      )}
+      <span className={cx("min-w-0", !isOwnLine && "truncate")}>{item.value}</span>
+    </span>
+  );
+}
 
 /** The one row shape every compact finance grid maps onto. */
 export function CompactRow({
@@ -36,6 +50,9 @@ export function CompactRow({
   isLast,
   className,
 }: CompactRowProps) {
+  const inlineMeta = meta.filter((item) => item.isControl !== true);
+  const controlMeta = meta.filter((item) => item.isControl === true);
+
   return (
     <div className={cx("px-3.5 py-2.5", !isLast && "border-border border-b", className)}>
       <div className="flex min-h-[60px] items-center gap-3">
@@ -53,25 +70,19 @@ export function CompactRow({
             </span>
           </div>
 
-          {meta.length > 0 && (
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
-              {meta.map((item, index) => (
-                <span
-                  key={item.label ?? `slot-${index}`}
-                  className="flex items-center gap-[5px] whitespace-nowrap"
-                >
-                  {item.label !== undefined && (
-                    <span className="font-medium text-foreground/70">{item.label}</span>
-                  )}
-                  <span>{item.value}</span>
-                </span>
+          {inlineMeta.length > 0 && (
+            <div className={cx("mt-1", META_RUN_CLASS)}>
+              {inlineMeta.map((item, index) => (
+                <MetaPair key={item.label ?? `slot-${index}`} item={item} isOwnLine={false} />
               ))}
             </div>
           )}
         </div>
 
         <div className="shrink-0 text-right">
-          <p className={amountClassName ?? AMOUNT_CLASS}>{amount}</p>
+          <p data-testid="compact-amount" className={amountClassName ?? AMOUNT_CLASS}>
+            {amount}
+          </p>
           {amountNote !== undefined && (
             <p className="text-[11.5px] text-muted tabular-nums">{amountNote}</p>
           )}
@@ -81,6 +92,14 @@ export function CompactRow({
           <div className="flex shrink-0 items-center gap-0.5 text-muted">{actions}</div>
         )}
       </div>
+
+      {controlMeta.length > 0 && (
+        <div className={cx("mt-2", META_RUN_CLASS)}>
+          {controlMeta.map((item, index) => (
+            <MetaPair key={item.label ?? `control-${index}`} item={item} isOwnLine />
+          ))}
+        </div>
+      )}
 
       {footer !== undefined && <div className="mt-2">{footer}</div>}
     </div>

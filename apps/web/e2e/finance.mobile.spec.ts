@@ -64,14 +64,50 @@ async function tooWideInside(page: Page, selector: string): Promise<string[]> {
 
 const region = (page: Page, name: string) => page.getByRole("region", { name });
 
+/** The narrowest phone still supported — where the meta run has the least room to give. */
+const NARROW = { width: 320, height: 800 };
+
+/**
+ * Rects, not `documentElement.scrollWidth`: a 16px budget input painted straight over the spent
+ * figure without widening the page at all, so only an element-level overlap can see it.
+ */
+async function findAmountCollisions(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const hits: string[] = [];
+    for (const chip of document.querySelectorAll('[aria-label^="Monthly budget for"]')) {
+      let row: Element | null = chip;
+      let amount: Element | null = null;
+      while (row !== null && amount === null) {
+        row = row.parentElement;
+        amount = row?.querySelector('[data-testid="compact-amount"]') ?? null;
+      }
+      if (amount === null) continue;
+      const chipBox = chip.getBoundingClientRect();
+      const amountBox = amount.getBoundingClientRect();
+      const overlapX =
+        Math.min(chipBox.right, amountBox.right) - Math.max(chipBox.left, amountBox.left);
+      const overlapY =
+        Math.min(chipBox.bottom, amountBox.bottom) - Math.max(chipBox.top, amountBox.top);
+      if (overlapX > 0 && overlapY > 0) {
+        hits.push(`${chip.getAttribute("aria-label")} overprints ${amount.textContent}`);
+      }
+    }
+    return hits;
+  });
+}
+
 const TOUCH_MINIMUM = 44;
 
 async function expectThumbSized(target: Locator, label: string) {
   await expect(target).toBeVisible();
   const box = await target.boundingBox();
-  expect(box?.height ?? 0, label + " is under the 44px phone minimum").toBeGreaterThanOrEqual(
+  expect(box?.height ?? 0, `${label} is under the 44px phone minimum`).toBeGreaterThanOrEqual(
     TOUCH_MINIMUM,
   );
+  expect(
+    box?.width ?? 0,
+    `${label} is narrower than the 44px phone minimum`,
+  ).toBeGreaterThanOrEqual(TOUCH_MINIMUM);
 }
 
 test("the category table stacks, and every row action survives the drop", async ({ page }) => {
@@ -90,6 +126,19 @@ test("the category table stacks, and every row action survives the drop", async 
   await expect(page.getByRole("progressbar", { name: "Software pace" })).toBeVisible();
 
   expect(await tooWideInside(page, "main")).toEqual([]);
+});
+
+test("the budget chip never paints over the figure it is judged against", async ({ page }) => {
+  await openPhone(page, "/finance/categories");
+  await expect(page.getByRole("button", { name: "Monthly budget for Software" })).toBeVisible({
+    timeout: 15_000,
+  });
+  expect(await findAmountCollisions(page), "at 390").toEqual([]);
+
+  await page.setViewportSize(NARROW);
+  await expect(page.getByRole("button", { name: "Monthly budget for Home & rent" })).toBeVisible();
+
+  expect(await findAmountCollisions(page), "at 320").toEqual([]);
 });
 
 test("the budget is still edited in the row, on a target a thumb can hit", async ({ page }) => {
@@ -117,15 +166,7 @@ test("the budget is still edited in the row, on a target a thumb can hit", async
 test("the row menu still offers every action the desktop row does", async ({ page }) => {
   await openPhone(page, "/finance/categories");
   const trigger = page.getByRole("button", { name: "Actions for Software" });
-  const box = await trigger.boundingBox();
-  expect(
-    box?.height ?? 0,
-    "the row-menu trigger is under the 44px phone minimum",
-  ).toBeGreaterThanOrEqual(44);
-  expect(
-    box?.width ?? 0,
-    "the row-menu trigger is under the 44px phone minimum",
-  ).toBeGreaterThanOrEqual(44);
+  await expectThumbSized(trigger, "the row-menu trigger");
 
   await trigger.click();
 

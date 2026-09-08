@@ -34,6 +34,7 @@ function CategoryRow({
     ? [
         {
           label: "Budget",
+          isControl: true,
           value: (
             <CategoryBudgetChip
               categoryId={row.id}
