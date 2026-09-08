@@ -5,18 +5,17 @@ import { TurnableCard } from "../face/TurnableCard";
 import type { SampledCard } from "./card-sample";
 import { fitPreviewScale, PREVIEW_CARD_H, PREVIEW_CARD_W } from "./preview-scale";
 
-const readViewport = (): number =>
+const readFittedScale = (): number =>
   fitPreviewScale(
     window.visualViewport?.width ?? window.innerWidth,
     window.visualViewport?.height ?? window.innerHeight,
   );
 
 function useFittedPreviewScale(): number {
-  const [scale, setScale] = useState(readViewport);
+  const [scale, setScale] = useState(readFittedScale);
 
   useEffect(() => {
-    const refit = () => setScale(readViewport());
-    refit();
+    const refit = () => setScale(readFittedScale());
     window.addEventListener("resize", refit);
     window.addEventListener("orientationchange", refit);
     window.visualViewport?.addEventListener("resize", refit);
@@ -61,7 +60,7 @@ export function CardPreviewOverlay({
               label="Close preview"
               size={18}
               onPress={onClose}
-              className="absolute top-3 right-3 h-11 w-11 bg-surface shadow-soft"
+              className="absolute top-3 right-3 h-11 w-11 bg-surface shadow-soft data-[hovered=true]:bg-canvas"
             />
             <div
               data-testid="preview-card"

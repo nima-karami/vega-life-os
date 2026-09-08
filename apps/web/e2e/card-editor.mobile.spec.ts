@@ -248,6 +248,22 @@ test("the phone mounts no card stage until the preview is opened", async ({ page
   await expect(page.getByTestId("live-card")).toHaveCount(0);
 });
 
+test("the preview dialog keeps none of the modal's paper chrome", async ({ page }) => {
+  await openNewCard(page, 390, 844);
+  await previewButton(page).click();
+  await expect(previewStage(page)).toBeVisible();
+
+  const chrome = await page.getByRole("dialog", { name: "Card preview" }).evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      background: style.backgroundColor,
+      padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+    };
+  });
+  expect(chrome.background).toBe("rgba(0, 0, 0, 0)");
+  expect(chrome.padding).toEqual(["0px", "0px", "0px", "0px"]);
+});
+
 test("the preview refits when the viewport changes", async ({ page }) => {
   await openNewCard(page, 390, 844);
   await previewButton(page).click();
@@ -272,8 +288,12 @@ test("saving twice writes one card", async ({ page }) => {
   await page.getByRole("textbox", { name: "Title" }).fill(uniqueTitle);
   await page.getByRole("textbox", { name: "Body" }).fill("Once, not twice.");
 
-  const save = page.getByRole("button", { name: "Save card" });
-  await Promise.all([save.click(), save.click()]);
+  // Both clicks in one browser task — `Promise.all` still round-trips between them, which
+  // hands the handler a whole event loop to settle in and lets a double submit pass.
+  await page.getByRole("button", { name: "Save card" }).evaluate((el: HTMLElement) => {
+    el.click();
+    el.click();
+  });
   await expect(page).toHaveURL(/\/cards\/[^/]+$/);
 
   await page.goto("/cards", { waitUntil: "domcontentloaded" });

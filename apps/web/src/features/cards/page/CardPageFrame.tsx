@@ -6,8 +6,8 @@ import { CardPreviewOverlay } from "./CardPreviewOverlay";
 import { LiveCardPane } from "./LiveCardPane";
 
 /**
- * One frame for both breakpoints: desktop is a bare two-column measure, the phone is a
- * pinned back row over its own scroller (so the footer stays put) with a 28px edge fade.
+ * One frame for both breakpoints: desktop is a bare two-column measure with a footer row,
+ * the phone is a pinned back row over its own scroller with a 28px edge fade.
  */
 export function CardPageFrame({
   preview,
