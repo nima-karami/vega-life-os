@@ -1,4 +1,5 @@
-import { cx } from "@/core/ui";
+import { cx, useCompact } from "@/core/ui";
+import { CompactImportOutcomes } from "./compact/CompactImportOutcomes";
 import type { FinanceImportOutcomeTableProps } from "./finance-table-props";
 import { filterByImportLens, type ImportPreviewRow, OUTCOME_LABEL } from "./import-preview";
 import { ImportGuessLabel, OUTCOME_CLASS } from "./ImportGuessLabel";
@@ -54,6 +55,7 @@ export function FinanceImportOutcomeTable({
   activeLens,
   onLensChange,
 }: FinanceImportOutcomeTableProps) {
+  const isCompact = useCompact();
   const lensed = filterByImportLens(rows, activeLens);
   const shown = lensed.slice(0, ROW_LIMIT);
   const overflow = lensed.length - shown.length;
@@ -84,36 +86,45 @@ export function FinanceImportOutcomeTable({
         </fieldset>
       </div>
 
-      <div className="overflow-x-auto">
-        <div
-          className={cx(
-            "grid h-9 items-center border-t border-b border-border bg-surface-secondary px-4 text-[12px] text-muted",
-            GRID,
-            MIN_WIDTH,
-          )}
-        >
-          {HEADERS.map((header) => (
-            <span
-              key={header}
-              className={header === "Amount" || header === "Outcome" ? "text-right" : undefined}
-            >
-              {header}
-            </span>
-          ))}
+      {isCompact ? (
+        <div className="border-border border-t">
+          <CompactImportOutcomes rows={shown} />
         </div>
-
-        {shown.map((row, index) => (
-          <OutcomeRow key={row.key} row={row} isLast={index === shown.length - 1} />
-        ))}
-
-        {shown.length === 0 && (
+      ) : (
+        <div className="overflow-x-auto">
           <div
-            className={cx("grid h-11 place-items-center px-4 text-[12.5px] text-muted", MIN_WIDTH)}
+            className={cx(
+              "grid h-9 items-center border-t border-b border-border bg-surface-secondary px-4 text-[12px] text-muted",
+              GRID,
+              MIN_WIDTH,
+            )}
           >
-            No rows read this way.
+            {HEADERS.map((header) => (
+              <span
+                key={header}
+                className={header === "Amount" || header === "Outcome" ? "text-right" : undefined}
+              >
+                {header}
+              </span>
+            ))}
           </div>
-        )}
-      </div>
+
+          {shown.map((row, index) => (
+            <OutcomeRow key={row.key} row={row} isLast={index === shown.length - 1} />
+          ))}
+
+          {shown.length === 0 && (
+            <div
+              className={cx(
+                "grid h-11 place-items-center px-4 text-[12.5px] text-muted",
+                MIN_WIDTH,
+              )}
+            >
+              No rows read this way.
+            </div>
+          )}
+        </div>
+      )}
 
       {overflow > 0 && (
         <div className="grid h-9 place-items-center bg-canvas font-medium text-[12.5px] text-muted">

@@ -1,8 +1,10 @@
 import { Button } from "@heroui/react";
 import { Link } from "react-router";
-import { cx } from "@/core/ui";
+import { cx, useCompact } from "@/core/ui";
+import { CompactSettlementRows } from "./compact/CompactSettlementRows";
 import type { SettlementRowsCardProps } from "./finance-table-props";
 import { formatSignedCents } from "./ledger-copy";
+import type { SettlementFigures } from "./settlement";
 import { describeRowsFooter } from "./settlement-copy";
 import {
   computeRowsNetCents,
@@ -27,6 +29,23 @@ const CHIP_ON = "border-accent font-medium text-foreground";
 const CHIP_OFF = "border-border font-normal text-muted";
 
 const NO_FIGURE = "—";
+
+function RowsFooter({ figures, isCompact }: { figures: SettlementFigures; isCompact: boolean }) {
+  return (
+    <div
+      className={cx(
+        "grid h-11 items-center border-border border-t bg-paper-2 px-4",
+        FOOTER_GRID,
+        !isCompact && ROWS_MIN_WIDTH,
+      )}
+    >
+      <span className="text-[13px] text-muted">{describeRowsFooter(figures)}</span>
+      <span className="text-right font-semibold text-[14px] text-foreground tabular-nums">
+        {formatOwedCents(computeRowsNetCents(figures))}
+      </span>
+    </div>
+  );
+}
 
 function RowsTableRow({
   view,
@@ -87,6 +106,7 @@ export function SettlementRowsCard({
   partnerName,
   onSelectFilter,
 }: SettlementRowsCardProps) {
+  const isCompact = useCompact();
   const chips: { key: SettlementRowFilter; label: string }[] = [
     { key: "all", label: `All ${views.length}` },
     { key: "owner", label: "You paid" },
@@ -117,49 +137,47 @@ export function SettlementRowsCard({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div
-          className={cx(
-            "grid h-9 items-center border-border border-t border-b bg-paper-2 px-4 text-[12px] text-muted",
-            ROWS_GRID,
-            ROWS_MIN_WIDTH,
-          )}
-        >
-          {HEADERS.map((label) => (
-            <span key={label} className={RIGHT_ALIGNED.has(label) ? "text-right" : undefined}>
-              {label}
-            </span>
-          ))}
+      {isCompact ? (
+        <div className="border-border border-t">
+          <CompactSettlementRows views={shown} partnerName={partnerName} />
+          <RowsFooter figures={figures} isCompact />
         </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div
+            className={cx(
+              "grid h-9 items-center border-border border-t border-b bg-paper-2 px-4 text-[12px] text-muted",
+              ROWS_GRID,
+              ROWS_MIN_WIDTH,
+            )}
+          >
+            {HEADERS.map((label) => (
+              <span key={label} className={RIGHT_ALIGNED.has(label) ? "text-right" : undefined}>
+                {label}
+              </span>
+            ))}
+          </div>
 
-        {shown.length === 0 ? (
-          <p className={cx("grid h-11 place-items-center text-[13px] text-muted", ROWS_MIN_WIDTH)}>
-            No row in this period matches that filter.
-          </p>
-        ) : (
-          shown.map((view, index) => (
-            <RowsTableRow
-              key={view.id}
-              view={view}
-              partner={partnerName}
-              isLast={index === shown.length - 1}
-            />
-          ))
-        )}
-
-        <div
-          className={cx(
-            "grid h-11 items-center border-border border-t bg-paper-2 px-4",
-            FOOTER_GRID,
-            ROWS_MIN_WIDTH,
+          {shown.length === 0 ? (
+            <p
+              className={cx("grid h-11 place-items-center text-[13px] text-muted", ROWS_MIN_WIDTH)}
+            >
+              No row in this period matches that filter.
+            </p>
+          ) : (
+            shown.map((view, index) => (
+              <RowsTableRow
+                key={view.id}
+                view={view}
+                partner={partnerName}
+                isLast={index === shown.length - 1}
+              />
+            ))
           )}
-        >
-          <span className="text-[13px] text-muted">{describeRowsFooter(figures)}</span>
-          <span className="text-right font-semibold text-[14px] text-foreground tabular-nums">
-            {formatOwedCents(computeRowsNetCents(figures))}
-          </span>
+
+          <RowsFooter figures={figures} isCompact={false} />
         </div>
-      </div>
+      )}
     </section>
   );
 }
