@@ -61,7 +61,7 @@ export function CardPreviewOverlay({
               label="Close preview"
               size={18}
               onPress={onClose}
-              className="absolute top-3 right-3 h-11 w-11"
+              className="absolute top-3 right-3 h-11 w-11 bg-surface shadow-soft"
             />
             <div
               data-testid="preview-card"
