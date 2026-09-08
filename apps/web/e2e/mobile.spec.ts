@@ -50,6 +50,11 @@ const ROUTES = [
   "/settings",
   "/cards",
   "/cards/new",
+  "/finance",
+  "/finance/transactions",
+  "/finance/categories",
+  "/finance/settlement",
+  "/finance/import",
 ];
 
 test.beforeEach(async ({ page }) => {
