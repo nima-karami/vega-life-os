@@ -82,7 +82,7 @@ export function StepRow({
         type="button"
         aria-label={`Remove ${sub.name}`}
         onClick={onRemove}
-        className="-my-2 -me-2 grid h-11 w-11 shrink-0 place-items-center text-muted transition-opacity hover:text-danger sm:my-0 sm:me-0 sm:h-auto sm:w-auto sm:opacity-0 sm:group-hover:opacity-100"
+        className="-my-2 -me-2 grid h-11 w-11 shrink-0 place-items-center text-muted hover:text-danger sm:my-0 sm:me-0 sm:h-auto sm:w-auto sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
       >
         <Icon name="close" size={14} />
       </button>

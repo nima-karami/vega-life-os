@@ -50,14 +50,12 @@ export function Menu({
       <Dropdown.Trigger
         aria-label={triggerLabel}
         className={cx(
-          "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium transition-colors outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent",
+          // cx is not tailwind-merge: name every property a caller might also transition.
+          "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium transition-[color,background-color,opacity] outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent",
           tone === "muted" &&
             "text-muted hover:text-foreground data-[hovered=true]:text-foreground",
-          isIconOnly
-            ? touchTarget
-              ? "h-11 w-11 shrink-0 sm:h-8 sm:w-8"
-              : "h-8 w-8 shrink-0"
-            : "px-3 py-1.5",
+          isIconOnly && "shrink-0",
+          isIconOnly ? (touchTarget ? "h-11 w-11 sm:h-8 sm:w-8" : "h-8 w-8") : "px-3 py-1.5",
           triggerClassName,
         )}
       >

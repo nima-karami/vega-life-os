@@ -405,10 +405,10 @@ test("the journal slash menu clears the nav band (390px)", async ({ page }) => {
     .toBeLessThanOrEqual(1);
 });
 
-// ─── Touch-reachable task and goal-step actions (spec §8) ────────────────────
-
 const MIN_TOUCH_PX = 44;
 const PHONE = { width: 390, height: 844 };
+const DESKTOP = { width: 900, height: 844 };
+const CIRCLE_DRIFT_TOLERANCE_PX = 1;
 
 async function openPhone(page: Page, route: string) {
   await page.setViewportSize(PHONE);
@@ -450,10 +450,31 @@ async function addUntimedTask(page: Page, title: string) {
   await expect(page.getByRole("region", { name: "Remaining" })).toContainText(title);
 }
 
-const reorderLabels = (page: Page): Promise<string[]> =>
+async function measureCircleOffsetFromTitle(remaining: Locator, title: string) {
+  const circle = remaining
+    .getByRole("button", { name: `Mark ${title} done` })
+    .locator("span")
+    .first();
+  const titleLine = remaining.getByText(title, { exact: true }).last();
+  const circleBox = await circle.boundingBox();
+  const titleBox = await titleLine.boundingBox();
+  if (!circleBox || !titleBox) throw new Error("the toggle circle or the title has no box");
+  return circleBox.y + circleBox.height / 2 - (titleBox.y + titleBox.height / 2);
+}
+
+const ADDED_ROWS = ["Reorder First untimed", "Reorder Second untimed"];
+
+// The sandbox seeds an untimed task on some dates, so only the added rows are asserted.
+const addedRowOrder = (page: Page): Promise<string[]> =>
   page
     .locator('main [aria-label^="Reorder "]')
-    .evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""));
+    .evaluateAll(
+      (els, wanted) =>
+        els
+          .map((el) => el.getAttribute("aria-label") ?? "")
+          .filter((label) => wanted.includes(label)),
+      ADDED_ROWS,
+    );
 
 test("the task actions menu is visible, 44px and works by tap (390px)", async ({ page }) => {
   await openPhone(page, "/today");
@@ -461,23 +482,47 @@ test("the task actions menu is visible, 44px and works by tap (390px)", async ({
   await expect(remaining).toBeVisible({ timeout: 15_000 });
 
   const trigger = remaining.locator('[aria-label^="Actions for "]').first();
+  const title = ((await trigger.getAttribute("aria-label")) ?? "").replace(/^Actions for /, "");
   const { opacity, box } = await measureControl(trigger);
   expect(opacity, "the task ⋯ trigger is transparent on a phone").toBe("1");
   expectTouchSized(box, "the task ⋯ trigger");
 
   await trigger.click();
   await page.getByRole("menuitem", { name: "Skip" }).click();
-  // A skipped task is resolved, so its card leaves Remaining for the Done section.
-  await expect(page.locator("main").getByText("Skipped").first()).toBeVisible();
+
+  // The tapped card has to be the one reading Skipped, not merely some card in Done.
+  const skippedCard = page
+    .getByRole("region", { name: "Done" })
+    .getByRole("button")
+    .filter({ hasText: title })
+    .filter({ hasText: "Skipped" });
+  await expect(skippedCard).toHaveCount(1);
+  await expect(remaining.getByRole("button", { name: `Actions for ${title}` })).toHaveCount(0);
 });
 
-test("the task done toggle has a 44px hit box (390px)", async ({ page }) => {
+test("the task done toggle has a 44px hit box and leaves the circle put (390px)", async ({
+  page,
+}) => {
   await openPhone(page, "/today");
   const remaining = page.getByRole("region", { name: "Remaining" });
   await expect(remaining).toBeVisible({ timeout: 15_000 });
 
-  const { box } = await measureControl(remaining.locator('[aria-label^="Mark "]').first());
+  const toggle = remaining.locator('[aria-label^="Mark "]').first();
+  const label = (await toggle.getAttribute("aria-label")) ?? "";
+  const title = label.replace(/^Mark /, "").replace(/ done$/, "");
+  const { opacity, box } = await measureControl(toggle);
+  expect(opacity, "the task done toggle is transparent on a phone").toBe("1");
   expectTouchSized(box, "the task done toggle");
+
+  // The desktop reading is the pre-change position: §4's negative margins buy exactly this.
+  const phoneOffset = await measureCircleOffsetFromTitle(remaining, title);
+  await page.setViewportSize(DESKTOP);
+  const desktopOffset = await measureCircleOffsetFromTitle(remaining, title);
+  await page.setViewportSize(PHONE);
+  expect(
+    Math.abs(phoneOffset - desktopOffset),
+    "the 44px hit box moved the done circle relative to the title",
+  ).toBeLessThanOrEqual(CIRCLE_DRIFT_TOLERANCE_PX);
 });
 
 test("a goal step is removable by tap on a phone (390px)", async ({ page }) => {
@@ -518,33 +563,35 @@ test("a long press reorders two untimed tasks and the order survives a reload (3
   // the viewport lands on nothing.
   await page.getByRole("textbox", { name: "Task title" }).press("Escape");
 
-  const rows = page.locator('main [aria-label^="Reorder "]');
-  await expect(rows).toHaveCount(2);
-  expect(await reorderLabels(page)).toEqual(["Reorder First untimed", "Reorder Second untimed"]);
+  const first = page.locator(`main [aria-label="${ADDED_ROWS[0]}"]`);
+  const second = page.locator(`main [aria-label="${ADDED_ROWS[1]}"]`);
+  await expect(first).toHaveCount(1);
+  await expect(second).toHaveCount(1);
+  expect(await addedRowOrder(page)).toEqual(ADDED_ROWS);
 
-  await rows.nth(1).evaluate((el) => {
+  await second.evaluate((el) => {
     el.scrollIntoView({ block: "center" });
   });
-  const fromBox = await rows.first().boundingBox();
-  const toBox = await rows.nth(1).boundingBox();
+  const fromBox = await first.boundingBox();
+  const toBox = await second.boundingBox();
   if (!fromBox || !toBox) throw new Error("a sortable row has no bounding box");
   const from = { x: fromBox.x + fromBox.width / 2, y: fromBox.y + fromBox.height / 2 };
   const to = { x: from.x, y: toBox.y + toBox.height * 0.75 };
 
   await startTouch(page, from);
-  // Both sensors have to arm: touch at 250ms, pointer-from-touch at 300ms. Holding
-  // still keeps the press inside the 8px tolerance that would cancel it.
+  // TouchSensor arms at 250ms; hold still inside the 8px tolerance.
   await page.waitForTimeout(500);
   await dragAlong(page, { from, to, durationMs: 500, steps: 10 });
   await endTouch(page);
 
+  const swapped = [ADDED_ROWS[1], ADDED_ROWS[0]];
   await expect
-    .poll(() => reorderLabels(page), { message: "the long press did not reorder the rows" })
-    .toEqual(["Reorder Second untimed", "Reorder First untimed"]);
+    .poll(() => addedRowOrder(page), { message: "the long press did not reorder the rows" })
+    .toEqual(swapped);
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
   await expect
-    .poll(() => reorderLabels(page), { message: "the new order did not survive a reload" })
-    .toEqual(["Reorder Second untimed", "Reorder First untimed"]);
+    .poll(() => addedRowOrder(page), { message: "the new order did not survive a reload" })
+    .toEqual(swapped);
 });

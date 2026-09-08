@@ -919,6 +919,56 @@ test("values: Add creates the value and opens its page", async ({ page }) => {
   await expect(cards).toHaveCount(before + 1);
 });
 
+// The only always-on long-press list, so D-C2-6's MouseSensor swap has no other cover.
+test("values: a held mouse press reorders a value card and the order survives a reload", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/values", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const rows = page.locator('main [aria-label^="Reorder "]');
+  const valueOrder = () =>
+    rows.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""));
+  const before = await valueOrder();
+  expect(before.length, "the sample sandbox needs two values to reorder").toBeGreaterThan(1);
+
+  const fromBox = await rows.first().boundingBox();
+  if (!fromBox) throw new Error("a value row has no bounding box");
+  const x = fromBox.x + fromBox.width / 2;
+  const fromY = fromBox.y + fromBox.height / 2;
+  // The next row is only pushed aside once it is the drop target, and dnd-kit hands the drop
+  // to the row after it if the press keeps travelling — so release on the first displacement.
+  const nextRowShift = () =>
+    rows.nth(1).evaluate((el) => {
+      const t = getComputedStyle(el).transform;
+      return t === "none" ? 0 : Math.abs(new DOMMatrixReadOnly(t).m42);
+    });
+
+  await page.mouse.move(x, fromY);
+  await page.mouse.down();
+  // MouseSensor arms at 300ms and an 8px move before then cancels it, so hold still first.
+  await page.waitForTimeout(400);
+  for (let step = 1; step <= 40 && (await nextRowShift()) < 1; step += 1) {
+    await page.mouse.move(x, fromY + step * 12);
+    await page.waitForTimeout(20);
+  }
+  expect(await nextRowShift(), "the held press never displaced the next card").toBeGreaterThan(1);
+  await page.mouse.up();
+
+  const swapped = [before[1], before[0], ...before.slice(2)];
+  await expect
+    .poll(valueOrder, { message: "the held mouse press did not reorder the values" })
+    .toEqual(swapped);
+  await expect(page, "the drag must not follow the card's link").toHaveURL(/\/values$/);
+
+  await page.reload({ waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+  await expect
+    .poll(valueOrder, { message: "the new value order did not survive a reload" })
+    .toEqual(swapped);
+});
+
 // Reorder is not covered here: driving dnd-kit's keyboard path failed ~1 run in 3, and keyboard
 // drag is an explicit non-goal for this single-user app. `arrayMove` ordering is unit-tested in
 // features/goals/__tests__/store.test.ts.
