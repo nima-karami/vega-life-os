@@ -13,6 +13,7 @@ const BUSINESS_HELPER =
   "Kept out of personal budgets unless the dashboard is switched to With business.";
 const SLUG_CAPTION = "Used in duplicate keys — fixed";
 const NAME_MAX_LENGTH = 60;
+const FOOTER_BUTTON_CLASS = "h-11 sm:h-9";
 
 export interface AccountEditorModalProps {
   /** null creates; a row renames. Create and rename share one editor. */
@@ -62,10 +63,16 @@ export function AccountEditorModal({ account, onClose, onCreated }: AccountEdito
       onClose={onClose}
       footer={
         <>
-          <Button size="sm" variant="ghost" onPress={onClose}>
+          <Button size="sm" variant="ghost" className={FOOTER_BUTTON_CLASS} onPress={onClose}>
             Cancel
           </Button>
-          <Button size="sm" variant="primary" isDisabled={!canSave} onPress={handleSave}>
+          <Button
+            size="sm"
+            variant="primary"
+            className={FOOTER_BUTTON_CLASS}
+            isDisabled={!canSave}
+            onPress={handleSave}
+          >
             {account ? "Save" : "Create account"}
           </Button>
         </>

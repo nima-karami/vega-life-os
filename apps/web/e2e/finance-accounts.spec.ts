@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { format, setDate, subMonths } from "date-fns";
+import { format, setDate, subDays, subMonths } from "date-fns";
 import { enterApp } from "./helpers/app";
 import { clearFinanceStores } from "./helpers/finance";
 
@@ -27,6 +27,16 @@ const STAGED_ACTION = "Import 2 rows";
 const IDLE_LINE = "Drop a statement here, or choose a file.";
 
 const card = (page: Page) => page.getByTestId("finance-accounts-card");
+
+/** The month holding the seed's newest Rewards card row, derived so no fixed month can rot. */
+const CARD_ROW_MONTH = format(subDays(new Date(), 5), "yyyy-MM");
+
+const ledgerRows = (page: Page) => page.getByRole("checkbox", { name: /^Select / });
+
+async function filterByAccount(page: Page, label: string) {
+  await page.getByRole("button", { name: "Filter by account" }).click();
+  await page.getByRole("menuitem", { name: label, exact: true }).click();
+}
 
 async function openImport(page: Page) {
   await page.goto("/finance/import", { waitUntil: "networkidle" });
@@ -285,4 +295,89 @@ test("a file dropped on the shut zone raises the guard rather than the browser",
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("a stage is discarded when its account is archived, and stays gone on restore", async ({
+  page,
+}) => {
+  await enterApp(page);
+  await openImport(page);
+
+  await chooseAccount(page, "Rewards card");
+  await stageStatement(page);
+  await archiveAccount(page, "Rewards card");
+  await expectNothingStaged(page);
+
+  await chooseRowAction(page, "Rewards card", "Restore");
+
+  await expectNothingStaged(page);
+});
+
+test("a stage is discarded when the picker moves away, and stays gone on the way back", async ({
+  page,
+}) => {
+  await enterApp(page);
+  await openImport(page);
+
+  await chooseAccount(page, "Rewards card");
+  await stageStatement(page);
+
+  await chooseAccount(page, "Everyday chequing");
+  await expectNothingStaged(page);
+
+  await chooseAccount(page, "Rewards card");
+
+  await expectNothingStaged(page);
+});
+
+test("a blank or whitespace name never creates an account", async ({ page }) => {
+  await enterApp(page);
+  await openImport(page);
+
+  await card(page).getByRole("button", { name: "New account" }).click();
+  const create = page.getByRole("button", { name: "Create account" });
+  const name = page.getByRole("textbox", { name: "Account name" });
+
+  await expect(create).toBeDisabled();
+  await name.fill("   ");
+  await expect(create).toBeDisabled();
+
+  await name.fill("E2E Named At Last");
+  await expect(create).toBeEnabled();
+});
+
+test("renaming an archived account leaves it archived", async ({ page }) => {
+  await enterApp(page);
+  await openImport(page);
+
+  await archiveAccount(page, "Rewards card");
+  await chooseRowAction(page, "Rewards card", "Rename…");
+  await page.getByRole("textbox", { name: "Account name" }).fill("E2E Retired Card");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("textbox", { name: "Account name" })).toBeHidden();
+
+  await expect(card(page).getByText("E2E Retired Card")).toBeVisible();
+  await expect(card(page).getByText("Archived")).toHaveCount(1);
+
+  await openAccountPicker(page);
+  await expect(page.getByRole("menuitem", { name: "E2E Retired Card" })).toHaveCount(0);
+});
+
+test("archiving an account leaves its transactions exactly where they are", async ({ page }) => {
+  await enterApp(page);
+  await page.goto(`/finance/transactions?month=${CARD_ROW_MONTH}`, { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "Transactions", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await filterByAccount(page, "Rewards card");
+  const before = await ledgerRows(page).count();
+  expect(before, "the seed files no Rewards card row in this month").toBeGreaterThan(0);
+
+  await openImport(page);
+  await archiveAccount(page, "Rewards card");
+
+  await page.goto(`/finance/transactions?month=${CARD_ROW_MONTH}`, { waitUntil: "networkidle" });
+  await filterByAccount(page, "Rewards card (archived)");
+  await expect(ledgerRows(page)).toHaveCount(before);
 });

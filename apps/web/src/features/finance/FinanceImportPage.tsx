@@ -12,6 +12,7 @@ import { NEW_ACCOUNT_OPTION, useImportView } from "./useImportView";
 
 const NO_ACCOUNT_BODY =
   "An account has to exist first — its slug is baked into every row’s duplicate key.";
+const NOTICE_ACTION_CLASS = "h-11 sm:h-10";
 
 /** Drop a file, see what it would do to every row, then write it — in that order, always. */
 export function FinanceImportPage() {
@@ -48,7 +49,11 @@ export function FinanceImportPage() {
           title="No account to import into"
           body={NO_ACCOUNT_BODY}
           actions={
-            <Button variant="secondary" onPress={manager.openCreate}>
+            <Button
+              variant="secondary"
+              className={NOTICE_ACTION_CLASS}
+              onPress={manager.openCreate}
+            >
               Add an account
             </Button>
           }

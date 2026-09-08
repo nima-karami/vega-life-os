@@ -1,6 +1,7 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { format, setDate, subMonths } from "date-fns";
 import { enterApp } from "./helpers/app";
+import { clearFinanceStores } from "./helpers/finance";
 
 /**
  * The five finance grids drop their fixed columns for stacked rows on a phone. The desktop specs
@@ -61,6 +62,16 @@ async function tooWideInside(page: Page, selector: string): Promise<string[]> {
 }
 
 const region = (page: Page, name: string) => page.getByRole("region", { name });
+
+const TOUCH_MINIMUM = 44;
+
+async function expectThumbSized(target: Locator, label: string) {
+  await expect(target).toBeVisible();
+  const box = await target.boundingBox();
+  expect(box?.height ?? 0, label + " is under the 44px phone minimum").toBeGreaterThanOrEqual(
+    TOUCH_MINIMUM,
+  );
+}
 
 test("the category table stacks, and every row action survives the drop", async ({ page }) => {
   await openPhone(page, "/finance/categories");
@@ -237,4 +248,26 @@ test("landing on the last room scrolls its pill back into the strip", async ({ p
     pillBox.x + pillBox.width,
     "the pressed pill runs past the strip's right edge",
   ).toBeLessThanOrEqual(stripBox.x + stripBox.width + 1);
+});
+
+test("every account control on a phone is a target a thumb can hit", async ({ page }) => {
+  await openPhone(page, "/finance/import");
+  await expect(page.getByRole("heading", { name: "Import", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const newAccount = page
+    .getByTestId("finance-accounts-card")
+    .getByRole("button", { name: "New account" });
+  await expectThumbSized(newAccount, "New account");
+
+  await newAccount.click();
+  await expectThumbSized(page.getByRole("button", { name: "Cancel" }), "Cancel");
+  await expectThumbSized(page.getByRole("button", { name: "Create account" }), "Create account");
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  await clearFinanceStores(page, ["financeAccounts", "financeTransactions"]);
+  await page.goto("/finance", { waitUntil: "networkidle" });
+  await expect(page.getByText("Set up your first account")).toBeVisible({ timeout: 15_000 });
+  await expectThumbSized(page.getByRole("button", { name: "Add an account" }), "Add an account");
 });

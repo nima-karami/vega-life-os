@@ -48,7 +48,7 @@ const NO_ACCOUNT_TOAST = "Add an account before importing";
 const IDLE: ImportPhase = { status: "idle" };
 
 interface StagingState {
-  /** the account the phase was parsed against — a stale stamp reads as nothing staged */
+  /** the account the phase was parsed against — a stale stamp is thrown away, never re-read */
   accountId: string | null;
   phase: ImportPhase;
 }
@@ -78,7 +78,8 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
 
   const accountId = account?.id ?? null;
   const [staging, setStaging] = useState<StagingState>({ accountId, phase: IDLE });
-  // A stale stamp means the account moved on, so a stage keyed to the old slug can never commit.
+  // Discarded, not masked: a stage the account moved on from must not come back when it is chosen again.
+  if (staging.accountId !== accountId) setStaging({ accountId, phase: IDLE });
   const phase = staging.accountId === accountId ? staging.phase : IDLE;
   const setPhase = (next: ImportPhase) => setStaging({ accountId, phase: next });
 

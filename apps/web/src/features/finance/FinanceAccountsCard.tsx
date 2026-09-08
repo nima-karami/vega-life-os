@@ -2,7 +2,7 @@ import { Button } from "@heroui/react";
 import type { FinanceAccount } from "@vega/shared";
 import { Icon, Menu, type MenuItem } from "@/core/ui";
 import { describeAccountMeta } from "./account-copy";
-import { SMALL_SECONDARY_BUTTON_CLASS, StateChip } from "./primitives";
+import { StateChip, TOUCH_SMALL_SECONDARY_BUTTON_CLASS } from "./primitives";
 import { SidebarCard } from "./SidebarCard";
 
 const EMPTY_LINE = "No accounts yet — a statement needs one to import into.";
@@ -32,7 +32,7 @@ export function FinanceAccountsCard({
       heading="Accounts"
       testId="finance-accounts-card"
       action={
-        <Button className={SMALL_SECONDARY_BUTTON_CLASS} onPress={onCreate}>
+        <Button className={TOUCH_SMALL_SECONDARY_BUTTON_CLASS} onPress={onCreate}>
           <Icon name="plus" size={14} aria-hidden />
           New account
         </Button>

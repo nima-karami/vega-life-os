@@ -42,6 +42,7 @@ export function FinanceImportDropZone({
 
   return (
     <fieldset
+      aria-label="Statement file"
       className="relative min-w-0"
       onDragOver={(event) => {
         if (isDisabled) event.preventDefault();
