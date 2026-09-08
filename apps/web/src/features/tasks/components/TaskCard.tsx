@@ -148,7 +148,7 @@ export function TaskCard({
         isIconOnly
         touchTarget
         triggerLabel={`Actions for ${task.title}`}
-        triggerClassName="-mt-1 -mb-1.5 -ms-1.5 -me-1.5 sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:opacity-0 sm:transition-opacity sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
+        triggerClassName="-mt-1 -mb-1.5 -ms-1.5 -me-1.5 sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
         triggerContent={<Icon name="dots" size={16} />}
         items={menuItems}
       />

@@ -51,7 +51,7 @@ export function Menu({
         aria-label={triggerLabel}
         className={cx(
           // cx is not tailwind-merge: name every property a caller might also transition.
-          "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium transition-[color,background-color,opacity] outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent",
+          "inline-flex items-center justify-center gap-1.5 rounded-[12px] text-sm font-medium transition-[color,background-color,border-color,opacity] outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent",
           tone === "muted" &&
             "text-muted hover:text-foreground data-[hovered=true]:text-foreground",
           isIconOnly && "shrink-0",

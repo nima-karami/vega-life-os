@@ -2,11 +2,13 @@ import { expect, type Page, test } from "@playwright/test";
 import { longPress, startTouch, dragAlong, endTouch, tap } from "./helpers/touch";
 
 /**
- * Phone touch safety for the calendar's single-day grid (spec
+ * Touch safety for the calendar's timed grid (spec
  * docs/specs/2026-09-04-calendar-touch.md): a finger scrolls, it never reschedules.
+ * Both widths run here — a touchscreen laptop is past `sm` and still has only fingers.
  */
 
 const PHONE = { width: 390, height: 844 };
+const WIDE = { width: 900, height: 900 };
 const CHIP_LABEL = /^Update ID card, 13:00–14:00/;
 
 async function passGratitudeGate(page: Page) {
@@ -17,10 +19,8 @@ async function passGratitudeGate(page: Page) {
   }
 }
 
-// The seeded "Update ID card" sits on the week's Thursday; the day strip is the only way
-// to reach it on a phone, and the label is derived from the week so no date is pinned.
-async function openSeededChipDay(page: Page) {
-  await page.setViewportSize(PHONE);
+async function openCalendar(page: Page, viewport: { width: number; height: number }) {
+  await page.setViewportSize(viewport);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");
@@ -32,15 +32,25 @@ async function openSeededChipDay(page: Page) {
   await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await expect(main).toBeVisible({ timeout: 15_000 });
+}
+
+async function findSeededChip(page: Page) {
+  const chip = page.getByRole("button", { name: CHIP_LABEL });
+  await expect(chip).toBeVisible({ timeout: 15_000 });
+  await chip.scrollIntoViewIfNeeded();
+  return chip;
+}
+
+// The seeded "Update ID card" sits on the week's Thursday; the day strip is the only way
+// to reach it on a phone, and the label is derived from the week so no date is pinned.
+async function openSeededChipDay(page: Page) {
+  await openCalendar(page, PHONE);
   await page
     .locator("main button")
     .filter({ hasText: /^Thu\d{2}$/ })
     .first()
     .click();
-  const chip = page.getByRole("button", { name: CHIP_LABEL });
-  await expect(chip).toBeVisible({ timeout: 15_000 });
-  await chip.scrollIntoViewIfNeeded();
-  return chip;
+  return findSeededChip(page);
 }
 
 // gridRef is a fixed-height div that never scrolls; the real scroller is ScrollShadow's
@@ -95,4 +105,27 @@ test("a tap on a timed chip's top edge opens the editor instead of resizing", as
   await page.keyboard.press("Escape");
   // The 6px grip is inert on touch, so the duration — and the end time — is untouched.
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
+// Past sm the chip body does arm a drag, so a grip press that falls through to it
+// reschedules the event instead of resizing it — the width no phone test reaches.
+test("a touch drag on a resize grip writes nothing at 900px", async ({ page }) => {
+  await openCalendar(page, WIDE);
+  const chip = await findSeededChip(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const grip = { x: box.x + box.width / 2, y: box.y + 3 };
+
+  await startTouch(page, grip);
+  await dragAlong(page, {
+    from: grip,
+    to: { x: grip.x, y: grip.y + 92 },
+    durationMs: 300,
+    steps: 12,
+  });
+  await endTouch(page);
+
+  // The label carries both ends of the range, so one read covers the time and the duration.
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+  await expect(page.getByRole("status")).not.toContainText("Moved to");
 });
