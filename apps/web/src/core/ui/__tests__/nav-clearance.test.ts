@@ -5,6 +5,7 @@ import {
   publishNavBandHeight,
   readNavBandHeight,
   resolveBottomBarLift,
+  resolveLiftedBottom,
   resolveNavBandHeight,
   resolveNavClearance,
   subscribeNavBand,
@@ -83,6 +84,19 @@ describe("resolveNavClearance", () => {
   it("falls back at sm and up even with a band on the store", () => {
     publishNavBandHeight(70);
     expect(resolveNavClearance(false, readNavBandHeight())).toBe(NAV_CLEARANCE_FALLBACK_PX);
+  });
+});
+
+describe("resolveLiftedBottom", () => {
+  it("is the band plus the gap, and absent with no band", () => {
+    expect(resolveLiftedBottom(58, NAV_BAR_GAP_PX)).toBe(70);
+    expect(resolveLiftedBottom(58, 0)).toBe(58);
+    expect(resolveLiftedBottom(undefined, NAV_BAR_GAP_PX)).toBeUndefined();
+  });
+
+  it("is the offset the class-and-style lift carries, so SlashMenu cannot drift from it", () => {
+    expect(resolveBottomBarLift(58).style.bottom).toBe(resolveLiftedBottom(58));
+    expect(resolveBottomBarLift(undefined).style.bottom).toBe(resolveLiftedBottom(undefined));
   });
 });
 

@@ -35,8 +35,6 @@ async function passGratitudeGate(page: import("@playwright/test").Page) {
 }
 
 /**
- * How far a bottom-fixed bar hangs into the nav band; ≤ 1 means it clears the glyphs.
- *
  * Always read through expect.poll: PageTransition animates `filter: blur()`, and a live
  * filter makes the routed page a containing block for the fixed bars it owns, so for the
  * first 0.3–0.45s of a route they resolve against the page box and read un-lifted.
@@ -44,7 +42,7 @@ async function passGratitudeGate(page: import("@playwright/test").Page) {
 async function navOverlap(page: Page, bar: Locator): Promise<number> {
   const navBox = await page.locator("[data-bottom-nav]").boundingBox();
   const barBox = await bar.boundingBox();
-  // A box caught mid-mount is "not clear yet" — infinity lets expect.poll retry, not abort.
+  // Infinity keeps a box caught mid-mount inside expect.poll's retry rather than aborting.
   if (!navBox || !barBox) return Number.POSITIVE_INFINITY;
   return barBox.y + barBox.height - navBox.y;
 }

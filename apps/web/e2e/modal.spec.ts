@@ -121,11 +121,35 @@ test("mobile: confirm renders as a centered dialog inset from the phone edges", 
   const { box, vp } = await assertDialogOnScreen(page);
 
   // A two-line confirm is a small centered dialog, never a full-screen sheet: it keeps
-  // a gutter on both sides and nowhere near the full height of the phone.
+  // the container's 16px gutter on both sides and nowhere near the full phone height.
   const rightGutter = vp.width - (box.x + box.width);
-  expect(box.x, "confirm dialog not inset from the left edge").toBeGreaterThanOrEqual(12);
-  expect(rightGutter, "confirm dialog not inset from the right edge").toBeGreaterThanOrEqual(12);
+  expect(box.x, "confirm dialog not inset from the left edge").toBeGreaterThanOrEqual(15);
+  expect(rightGutter, "confirm dialog not inset from the right edge").toBeGreaterThanOrEqual(15);
   expect(box.height, "confirm dialog fills the phone height").toBeLessThan(vp.height * 0.9);
+
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Cancel" }).click({ timeout: 3000 });
+  await expect(dialog).toBeHidden();
+});
+
+test("mobile: the create-name dialog is centered and inset from the phone edges", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 850 });
+  await passGratitudeGate(page);
+  await page.goto("/values", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: "Add value" }).click();
+  await expect(page.getByRole("textbox", { name: "Value name" })).toBeVisible({ timeout: 10_000 });
+
+  await assertOverlayIsFixed(page);
+  const { box, vp } = await assertDialogOnScreen(page);
+
+  const rightGutter = vp.width - (box.x + box.width);
+  expect(box.x, "create dialog not inset from the left edge").toBeGreaterThanOrEqual(15);
+  expect(rightGutter, "create dialog not inset from the right edge").toBeGreaterThanOrEqual(15);
+  expect(box.height, "create dialog fills the phone height").toBeLessThan(vp.height * 0.9);
 
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Cancel" }).click({ timeout: 3000 });

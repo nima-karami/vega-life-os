@@ -252,6 +252,39 @@ test("the undo bar keeps its desktop offset of 24px above the viewport bottom", 
     .toBe(24);
 });
 
+test("the header avatar clears the search bar in the tablet band and floats right at lg", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  const avatar = page.getByRole("button", { name: "Account menu" });
+  const search = page.getByRole("button", { name: "Open command bar" });
+  await expect(avatar).toBeVisible();
+
+  const tabletAvatar = await avatar.boundingBox();
+  const tabletSearch = await search.boundingBox();
+  if (!tabletAvatar || !tabletSearch) throw new Error("missing header box");
+  // The centered max-w-2xl search row reaches the avatar in this band, so the avatar
+  // must still be in flow beside it — the float would put them on top of each other.
+  expect(
+    tabletSearch.x + tabletSearch.width,
+    "the search bar runs under the account avatar",
+  ).toBeLessThanOrEqual(tabletAvatar.x + 1);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect
+    .poll(
+      async () => {
+        const box = await avatar.boundingBox();
+        return box === null ? Number.POSITIVE_INFINITY : Math.round(1280 - (box.x + box.width));
+      },
+      { message: "the avatar is not pinned to the right edge at lg", timeout: 5_000 },
+    )
+    .toBe(16);
+});
+
 // ─── Calendar: slot create / draft discard / right-click delete ───────────────
 
 test("calendar: opening a slot then closing without naming discards the draft", async ({
@@ -547,6 +580,8 @@ test("calendar: relink a detached habit instance snaps it back to the template",
 test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count", async ({
   page,
 }) => {
+  const viewport = { width: 1280, height: 800 };
+  await page.setViewportSize(viewport);
   await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
@@ -560,6 +595,19 @@ test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count
   const bar = page.getByRole("toolbar", { name: "Bulk actions" });
   await expect(bar).toContainText("2 selected", { timeout: 10_000 });
   await expect(a).toHaveAttribute("aria-pressed", "true");
+
+  // No nav band above sm, so the phone lift must never fire here: bottom-6 stands.
+  await expect
+    .poll(
+      async () => {
+        const box = await bar.boundingBox();
+        return box === null
+          ? Number.POSITIVE_INFINITY
+          : Math.round(viewport.height - box.y - box.height);
+      },
+      { message: "the bulk action bar moved off its desktop offset", timeout: 5_000 },
+    )
+    .toBe(24);
 
   // Esc clears the selection and hides the bar.
   await page.keyboard.press("Escape");

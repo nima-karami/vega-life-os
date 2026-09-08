@@ -41,8 +41,8 @@ export function AppShell() {
             <div className="min-w-0 flex-1">
               <OmniTrigger />
             </div>
-            {/* Below lg the centered max-w-2xl row reaches under a floated avatar, so the
-            avatar only leaves the flow once there is room beside the row. */}
+            {/* The centered max-w-2xl row runs under a floated avatar until ~768px; lg is
+            the nearest token above that crossover, so the avatar stays in flow until then. */}
             <div className="shrink-0 lg:absolute lg:right-4 lg:top-1/2 lg:-translate-y-1/2">
               <AccountMenu />
             </div>

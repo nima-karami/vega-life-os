@@ -18,7 +18,7 @@ import {
   Type,
 } from "lucide-react";
 import { forwardRef, useImperativeHandle, useState } from "react";
-import { readNavBandHeight, resolveBottomBarLift } from "@/core/ui";
+import { readNavBandHeight, resolveLiftedBottom } from "@/core/ui";
 
 interface SlashCommand {
   title: string;
@@ -232,8 +232,7 @@ export const SlashMenu = Extension.create({
             if (isCompact()) {
               // The band's measured height already carries the safe-area inset, so the
               // lifted sheet drops its own padding rather than counting it twice.
-              const liftedBottom = resolveBottomBarLift(readNavBandHeight() ?? undefined).style
-                .bottom;
+              const liftedBottom = resolveLiftedBottom(readNavBandHeight() ?? undefined);
               popup.style.position = "fixed";
               popup.style.top = "auto";
               popup.style.left = "0";

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
-import { cx, NAV_CLEARANCE_FALLBACK_PX } from "@/core/ui";
+import { cx } from "@/core/ui";
+import { NAV_CLEARANCE_FALLBACK_PX } from "@/core/ui/useNavClearance";
 import type { FaceSpec } from "./compose";
 import {
   type FacePlanItem,

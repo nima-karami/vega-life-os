@@ -1,6 +1,7 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { FIELD_CLASS } from "./field-styles";
+import { smallCenteredDialogContainer } from "./modal";
 
 /**
  * Naming the thing *is* the save. Creating an empty row and dropping the user on its page
@@ -44,9 +45,7 @@ export function CreateNameDialog({
   return (
     <Modal state={state}>
       <Modal.Backdrop variant="blur">
-        {/* One field and two buttons — a small centered dialog on every viewport, not
-            the full-screen phone sheet the editors use. */}
-        <Modal.Container size="sm" placement="center" scroll="inside">
+        <Modal.Container {...smallCenteredDialogContainer}>
           <Modal.Dialog aria-label={title}>
             <Modal.Header>
               <Modal.Heading className="font-semibold text-lg tracking-tight">
