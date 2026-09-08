@@ -1,10 +1,11 @@
 import type { FinanceAccount, FinanceColumnMapping } from "@vega/shared";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { uid } from "@/core/lib/id";
 import { useStore } from "@/core/store";
 import { parseDelimitedTable } from "./import/delimited";
 import { parseStatement } from "./import/parse";
 import type { ParsedStatement, ParseFailure, TableData } from "./import/types";
+import { advanceStamp, isStampLive, type StageStamp } from "./import-stage-stamp";
 import {
   computeFileHash,
   findLimitBreach,
@@ -48,8 +49,8 @@ const NO_ACCOUNT_TOAST = "Add an account before importing";
 const IDLE: ImportPhase = { status: "idle" };
 
 interface StagingState {
-  /** the account the phase was parsed against — a stale stamp is thrown away, never re-read */
-  accountId: string | null;
+  /** the selection the phase was parsed under — a stale stamp is thrown away, never re-read */
+  stamp: StageStamp;
   phase: ImportPhase;
 }
 
@@ -77,15 +78,26 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const pushToast = useStore((s) => s.pushToast);
 
   const accountId = account?.id ?? null;
-  const [staging, setStaging] = useState<StagingState>({ accountId, phase: IDLE });
-  // Discarded, not masked: a stage the account moved on from must not come back when it is chosen again.
-  if (staging.accountId !== accountId) setStaging({ accountId, phase: IDLE });
-  const phase = staging.accountId === accountId ? staging.phase : IDLE;
-  const setPhase = (next: ImportPhase) => setStaging({ accountId, phase: next });
+  const liveStamp = useRef<StageStamp>({ accountId, selection: 0 });
+  liveStamp.current = advanceStamp(liveStamp.current, accountId);
+  const stamp = liveStamp.current;
 
-  const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
+  const [staging, setStaging] = useState<StagingState>({ stamp, phase: IDLE });
+  // Discarded, not masked: a stage the account moved on from must not come back when it is chosen again.
+  if (!isStampLive(staging.stamp, stamp)) setStaging({ stamp, phase: IDLE });
+  const phase = isStampLive(staging.stamp, stamp) ? staging.phase : IDLE;
+  const setPhase = (next: ImportPhase) => setStaging({ stamp: liveStamp.current, phase: next });
+  const setPhaseIfLive = (startedUnder: StageStamp, next: ImportPhase) => {
+    if (isStampLive(startedUnder, liveStamp.current)) setPhase(next);
+  };
+
+  const runParse = async (
+    startedUnder: StageStamp,
+    source: SourceFile,
+    mapping: FinanceColumnMapping | null,
+  ) => {
     if (!account) return;
-    setPhase({ status: "parsing", fileName: source.name });
+    setPhaseIfLive(startedUnder, { status: "parsing", fileName: source.name });
     const outcome = await parseStatement({
       fileName: source.name,
       table: source.table,
@@ -100,7 +112,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     });
 
     if (outcome.status === "mapping-required") {
-      setPhase({
+      setPhaseIfLive(startedUnder, {
         status: "mapping-required",
         fileName: source.name,
         source,
@@ -109,10 +121,10 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
       return;
     }
     if (outcome.status === "parse-failed") {
-      setPhase({ status: "parse-failed", error: outcome.error });
+      setPhaseIfLive(startedUnder, { status: "parse-failed", error: outcome.error });
       return;
     }
-    setPhase({
+    setPhaseIfLive(startedUnder, {
       status: "preview",
       staged: {
         fileName: source.name,
@@ -125,21 +137,29 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     });
   };
 
-  const readFile = async (file: File) => {
+  const readFile = async (startedUnder: StageStamp, file: File) => {
     const sizeBreach = findLimitBreach({ bytes: file.size });
     if (sizeBreach) {
-      setPhase({ status: "limit-reached", fileName: file.name, breach: sizeBreach });
+      setPhaseIfLive(startedUnder, {
+        status: "limit-reached",
+        fileName: file.name,
+        breach: sizeBreach,
+      });
       return;
     }
     const text = await file.text();
     const table = parseDelimitedTable(text);
     const rowBreach = findLimitBreach({ rows: table.records.length });
     if (rowBreach) {
-      setPhase({ status: "limit-reached", fileName: file.name, breach: rowBreach });
+      setPhaseIfLive(startedUnder, {
+        status: "limit-reached",
+        fileName: file.name,
+        breach: rowBreach,
+      });
       return;
     }
     const source = { name: file.name, hash: await computeFileHash(text), table };
-    await runParse(source, account?.columnMapping ?? null);
+    await runParse(startedUnder, source, account?.columnMapping ?? null);
   };
 
   const runCommit = async (staged: StagedFile) => {
@@ -182,7 +202,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
         pushToast(NO_ACCOUNT_TOAST);
         return;
       }
-      void readFile(file);
+      void readFile(liveStamp.current, file);
     },
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
@@ -192,12 +212,12 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     confirmMapping: (mapping) => {
       if (phase.status !== "mapping-required" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(phase.source, mapping);
+      void runParse(liveStamp.current, phase.source, mapping);
     },
     remap: (mapping) => {
       if (phase.status !== "preview" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(phase.staged.source, mapping);
+      void runParse(liveStamp.current, phase.staged.source, mapping);
     },
   };
 }
