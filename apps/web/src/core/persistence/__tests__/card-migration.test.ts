@@ -70,14 +70,16 @@ describe("toCardFromMindCard", () => {
     expect(toCardFromMindCard(mindCard({ title: "", body: "" })).title).toBe("Untitled");
   });
 
-  it("routes source to author on a quote and to work everywhere else", () => {
+  it("routes source to a quote's attribution, and drops it where the type declares no slot", () => {
     expect(toCardFromMindCard(mindCard({ type: "quote", source: "Seneca" }))).toMatchObject({
       author: "Seneca",
       work: null,
     });
+    // Note has only title and body. Writing work here produced a card the schema rejects,
+    // so the whole record was skipped rather than converted.
     expect(toCardFromMindCard(mindCard({ type: "note", source: "Poor Charlie" }))).toMatchObject({
       author: null,
-      work: "Poor Charlie",
+      work: null,
     });
   });
 
@@ -206,6 +208,27 @@ describe("migrateToCards", () => {
     });
     expect(result.cards.map((c) => c.id)).toEqual(["mc_1", "mc_2", "w1", "w2"]);
     expect(result.skipped).toEqual([]);
+  });
+
+  it("converts a sourced note instead of skipping it — Note declares no Source slot", () => {
+    const result = migrateToCards({
+      mindCards: [mindCard({ source: "Poor Charlie's Almanack" })],
+      mindMeta: [],
+      vocab: [],
+    });
+    expect(result.skipped).toEqual([]);
+    expect(result.cards.map((c) => c.id)).toEqual(["mc_1"]);
+    expect(result.cards[0].work).toBeNull();
+  });
+
+  it("keeps a quote's source as its attribution", () => {
+    const result = migrateToCards({
+      mindCards: [mindCard({ type: "quote", source: "Plutarch" })],
+      mindMeta: [],
+      vocab: [],
+    });
+    expect(result.skipped).toEqual([]);
+    expect(result.cards[0].author).toBe("Plutarch");
   });
 
   it("is idempotent — the same sources produce the same rows", () => {

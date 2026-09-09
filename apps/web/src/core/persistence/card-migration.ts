@@ -54,6 +54,9 @@ export function toCardFromMindCard(source: MindCard): Card {
   const type = source.type as CardTypeId;
   const body = cut(flattenMarkdown(source.body), slotMax(type, "body"));
   const isQuote = type === "quote";
+  // A note has no Source slot, and the schema rejects a value in a slot its type never declared —
+  // which skipped every sourced note instead of converting it.
+  const keepsSource = CARD_TYPES[type].slots.work !== undefined;
   const canCarryRecall = CARD_TYPES[type].learnable !== false && !foldsByDefault({ type });
   const card: Card = {
     id: source.id,
@@ -62,7 +65,7 @@ export function toCardFromMindCard(source: MindCard): Card {
     title: deriveTitle(source.title, body, slotMax(type, "title")),
     body,
     author: isQuote ? source.source : null,
-    work: isQuote ? null : source.source,
+    work: isQuote || !keepsSource ? null : source.source,
     locator: null,
     phonetic: null,
     language: null,
