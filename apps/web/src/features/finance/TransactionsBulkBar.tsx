@@ -5,11 +5,10 @@ import { cx, Icon, Menu, type MenuItem, Popover, SegmentButton, useBottomBarLift
 import { DraftInput } from "./DraftInput";
 import { FULL_SHARE_BPS, formatShareBps, HOUSEHOLD_DEFAULT_BPS, parseShareBps } from "./money";
 
-// Menu's trigger transitions its own colours, so it takes the shape without a second
-// `transition-property` — cx is not tailwind-merge and both would land.
-const BAR_BUTTON_SHAPE =
-  "rounded-[10px] px-2 py-1 font-medium text-[13px] text-background/85 outline-none hover:text-background focus-visible:ring-2 focus-visible:ring-accent";
-const BAR_BUTTON = cx(BAR_BUTTON_SHAPE, "transition-colors");
+const BAR_BUTTON =
+  "rounded-[10px] px-2 py-1 font-medium text-[13px] text-background/85 outline-none transition-colors hover:text-background focus-visible:ring-2 focus-visible:ring-accent";
+// Menu owns its own shape, so the trigger only inherits the bar's ink colours.
+const BAR_MENU_TONE = "text-background/85 hover:text-background";
 
 export interface TransactionsBulkBarProps {
   selectedCount: number;
@@ -109,9 +108,10 @@ export function TransactionsBulkBar({
         <Menu
           align="center"
           tone="inherit"
+          shape="bar"
           triggerLabel="Set category for selection"
           triggerContent="Set category"
-          triggerClassName={cx(BAR_BUTTON_SHAPE, "hover:bg-transparent")}
+          triggerClassName={BAR_MENU_TONE}
           items={categoryItems}
         />
         <Popover
