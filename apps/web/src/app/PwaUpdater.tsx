@@ -1,7 +1,6 @@
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { useEffect } from "react";
 import { useStore } from "@/core/store";
-import { browserReloadPorts, reloadWhenActivated } from "./pwa-reload";
 
 /** Registers the service worker and surfaces new builds via the existing toast. */
 export function PwaUpdater() {
@@ -19,7 +18,7 @@ export function PwaUpdater() {
     if (needRefresh) {
       pushActionToast("New version available", {
         label: "Reload",
-        onClick: () => reloadWhenActivated(updateServiceWorker(true), browserReloadPorts()),
+        onClick: () => void updateServiceWorker(true),
       });
     }
   }, [needRefresh, pushActionToast, updateServiceWorker]);
