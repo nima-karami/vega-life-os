@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { dragAlong, endTouch, startTouch } from "./helpers/touch";
+import { dragAlong, endTouch, startTouch, tap } from "./helpers/touch";
 
 /**
  * Mobile-usability proof (spec §7). Runs on a touch phone profile; the @automatable
@@ -624,6 +624,49 @@ test("the task done toggle has a 44px hit box and leaves the circle put (390px)"
     Math.abs(phoneOffset.dy - desktopOffset.dy),
     "the 44px hit box moved the done circle down from the title",
   ).toBeLessThanOrEqual(CIRCLE_DRIFT_TOLERANCE_PX);
+});
+
+// `EntityCard`'s link covers the whole card through an `after:inset-0` overlay, which no
+// bounding box can see — the anchor measures 191x22 while the live target is 358x162. A
+// `position:relative` or an `overflow:hidden` on that anchor would silently collapse it
+// back to the text, so the hit map is asserted where a finger actually lands.
+test("the whole habit card is the link, not just its title (390px)", async ({ page }) => {
+  await openPhone(page, "/habits");
+  const card = page.locator("main li").first();
+  const box = await card.boundingBox();
+  if (!box) throw new Error("the habit card has no bounding box");
+  const href = await card.getByRole("link").first().getAttribute("href");
+  expect(href).toMatch(/^\/habits\//);
+
+  const corners = { x: 10, y: 10 };
+  const edges = 3;
+  const points = {
+    "top-left": { x: box.x + corners.x, y: box.y + corners.y },
+    "top-right": { x: box.x + box.width - corners.x, y: box.y + corners.y },
+    "bottom-left": { x: box.x + corners.x, y: box.y + box.height - corners.y },
+    "bottom-right": { x: box.x + box.width - corners.x, y: box.y + box.height - corners.y },
+    "mid-top": { x: box.x + box.width / 2, y: box.y + edges },
+    "mid-bottom": { x: box.x + box.width / 2, y: box.y + box.height - edges },
+    "mid-left": { x: box.x + edges, y: box.y + box.height / 2 },
+    "mid-right": { x: box.x + box.width - edges, y: box.y + box.height / 2 },
+  };
+  const hits = await page.evaluate(
+    (pts) =>
+      Object.fromEntries(
+        Object.entries(pts).map(([name, p]) => {
+          const el = document.elementFromPoint(p.x, p.y);
+          return [name, el?.closest("a")?.getAttribute("href") ?? "no link"];
+        }),
+      ),
+    points,
+  );
+  for (const name of Object.keys(points)) {
+    expect(hits[name], `${name} of the habit card is not the link`).toBe(href);
+  }
+
+  // A hit map is not a click: one corner has to really navigate.
+  await tap(page, points["bottom-right"]);
+  await expect(page).toHaveURL(new RegExp(`${href}$`));
 });
 
 // The same gesture on two surfaces must not disagree: Today's ⋯ is 44px, so the values
