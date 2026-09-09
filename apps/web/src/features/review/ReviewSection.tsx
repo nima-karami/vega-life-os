@@ -111,7 +111,8 @@ export function ReviewSection() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+      {/* minmax(0,…) on the phone column too, or a long past-review preview inflates it past the viewport. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="space-y-5">
           <WeekSummaryPanel rollup={rollup} />
 
@@ -239,11 +240,13 @@ export function ReviewSection() {
                       r.periodKey === periodKey ? "border-accent" : "border-border",
                     )}
                   >
-                    <span className="text-sm text-foreground">
+                    <span className="shrink-0 text-sm text-foreground">
                       Week of {formatShortDate(r.periodKey)}
                     </span>
-                    <span className="text-xs text-muted">{Math.round(r.completion * 100)}%</span>
-                    <span className="ml-auto truncate text-xs text-muted">
+                    <span className="shrink-0 text-xs text-muted">
+                      {Math.round(r.completion * 100)}%
+                    </span>
+                    <span className="ml-auto min-w-0 truncate text-xs text-muted">
                       {r.prompts.find((p) => p.a)?.a ?? "—"}
                     </span>
                   </button>

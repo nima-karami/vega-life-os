@@ -55,6 +55,39 @@ async function horizontalOverflow(page: import("@playwright/test").Page): Promis
   });
 }
 
+/**
+ * `main` is `overflow-x-hidden`, so content pushed past the right edge never reaches
+ * `documentElement.scrollWidth` — it is silently clipped and unreachable. Measure the
+ * boxes themselves instead; anything inside a real scroller is reachable by a finger,
+ * and a `truncate` box reports its clipped border box, so neither is a false positive.
+ * Returns "" when clean, else a description of the worst offender.
+ */
+async function measureClippedOverflow(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const viewportWidth = document.documentElement.clientWidth;
+    const main = document.querySelector("main");
+    if (!main) return "";
+    const isInsideScroller = (el: Element) => {
+      for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+        const overflowX = getComputedStyle(p).overflowX;
+        if (overflowX === "auto" || overflowX === "scroll") return true;
+      }
+      return false;
+    };
+    let worst = 1;
+    let culprit = "";
+    for (const el of main.querySelectorAll("*")) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) continue;
+      const past = Math.round(rect.right - viewportWidth);
+      if (past <= worst || isInsideScroller(el)) continue;
+      worst = past;
+      culprit = `${el.tagName.toLowerCase()}.${(el.getAttribute("class") ?? "").slice(0, 60)}`;
+    }
+    return culprit && `${worst}px past the viewport: ${culprit}`;
+  });
+}
+
 /** Derived, never pinned — a literal date in a fixture rots the day it passes. */
 function todayISO(): string {
   const now = new Date();
@@ -70,6 +103,7 @@ const ROUTES = [
   "/habits",
   "/calendar",
   "/analytics",
+  "/analytics?tab=review",
   "/settings",
   "/cards",
   "/cards/new",
@@ -115,6 +149,13 @@ async function expectNoOverflow(page: Page, where: string) {
       timeout: 5_000,
     })
     .toBeLessThanOrEqual(1);
+
+  await expect
+    .poll(() => measureClippedOverflow(page), {
+      message: `content is clipped off the right edge on ${where}`,
+      timeout: 5_000,
+    })
+    .toBe("");
 }
 
 for (const width of WIDTHS) {
