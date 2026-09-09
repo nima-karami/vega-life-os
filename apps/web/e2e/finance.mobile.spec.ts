@@ -349,6 +349,59 @@ test("a long partner name is cut short rather than pushing the stacked row wide"
   expect(await tooWideInside(page, '[aria-label="Shared rows in this period"]')).toEqual([]);
 });
 
+/** One token with nothing to break on, so the name alone sets the card's min-content width. */
+const UNBROKEN_PARTNER = "Bartholomewfeatherstonehaughsonnenschein";
+
+/**
+ * Element boxes and `text-overflow` together: the period card kept its own 288px box while its
+ * contents were laid out 835px wide, so only a per-descendant measurement sees the spill — and only
+ * the computed `text-overflow` tells the name we deliberately ellipsise from text nobody can reach.
+ */
+async function measurePeriodCard(page: Page) {
+  return page.evaluate(() => {
+    const card = document.querySelector('[aria-label="The period being settled"]');
+    if (card === null) return { past: ["no period card"], clipped: ["no period card"], cut: [] };
+
+    const limit = document.documentElement.clientWidth + 1;
+    const past: string[] = [];
+    const clipped: string[] = [];
+    const cut: string[] = [];
+    for (const element of card.querySelectorAll("*")) {
+      const text = (element.textContent ?? "").slice(0, 60);
+      if (element.getBoundingClientRect().right > limit) past.push(text);
+      if (element.scrollWidth > element.clientWidth + 1) {
+        if (getComputedStyle(element).textOverflow === "ellipsis") cut.push(text);
+        else clipped.push(text);
+      }
+    }
+    return { past, clipped, cut };
+  });
+}
+
+test("a long partner name never pushes the period card off a 320px screen", async ({ page }) => {
+  await enterApp(page);
+  await page.setViewportSize(NARROW);
+  await setPartnerName(page, UNBROKEN_PARTNER);
+
+  await page.goto(`/finance/settlement?month=${partnerHeavyMonth()}`, {
+    waitUntil: "domcontentloaded",
+  });
+  const card = region(page, "The period being settled");
+  await expect(card).toBeVisible({ timeout: 15_000 });
+
+  const measured = await measurePeriodCard(page);
+  expect(measured.past, "the period card paints past the viewport").toEqual([]);
+  expect(measured.clipped, "period-card text is cut off with no way to scroll to it").toEqual([]);
+  expect(measured.cut, "the partner name is drawn whole instead of ellipsised").toContain(
+    UNBROKEN_PARTNER,
+  );
+
+  await expect(card).toContainText(/owes you|You owe/);
+  await expect(card).toContainText(/netted across \d+ rows?/);
+  await expect(card).toContainText(/your true share \$/);
+  await expect(card.getByRole("heading", { name: "Before you settle" })).toBeVisible();
+});
+
 test("the settled-periods history stacks and still links each period", async ({ page }) => {
   await openPhone(page, `/finance/settlement?month=${partnerHeavyMonth()}`);
   const history = region(page, "Settled periods");

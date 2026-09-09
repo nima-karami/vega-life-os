@@ -23,15 +23,20 @@ const DOT_TONE = {
 } as const;
 
 interface LegendEntry {
+  /** the only unbounded half of the line — a typed name is the one thing allowed to ellipsise */
+  name: string | null;
   text: string;
   swatch: "lead" | "trail" | null;
 }
 
 function LegendSpan({ entry }: { entry: LegendEntry }) {
   return (
-    <span>
+    <span className="min-w-0">
       {entry.swatch === "lead" && (
         <span aria-hidden className={cx(SWATCH_CLASS, "mr-1.5")} style={{ background: ACCENT }} />
+      )}
+      {entry.name !== null && (
+        <span className="inline-block max-w-full truncate align-bottom">{entry.name}</span>
       )}
       {entry.text}
       {entry.swatch === "trail" && (
@@ -89,9 +94,9 @@ export function SettlementPeriodCard({
   const partner = resolvePartnerName(partnerName);
   const segments = buildReconciliationSegments(figures);
   const legend: LegendEntry[] = [
-    { text: `You paid ${formatCents(figures.ownerPaidCents)}`, swatch: "lead" },
-    { text: `your true share ${formatCents(figures.myShareCents)}`, swatch: null },
-    { text: `${partner} paid ${formatCents(figures.partnerPaidCents)}`, swatch: "trail" },
+    { name: null, text: `You paid ${formatCents(figures.ownerPaidCents)}`, swatch: "lead" },
+    { name: null, text: `your true share ${formatCents(figures.myShareCents)}`, swatch: null },
+    { name: partner, text: ` paid ${formatCents(figures.partnerPaidCents)}`, swatch: "trail" },
   ];
 
   return (
@@ -99,12 +104,12 @@ export function SettlementPeriodCard({
       aria-label="The period being settled"
       className="mt-4 grid items-start gap-6 rounded-[16px] border border-border bg-surface px-[22px] py-5 shadow-soft lg:grid-cols-[1fr_20rem]"
     >
-      <div>
+      <div className="min-w-0">
         <p className="flex items-center gap-[9px] text-[12px] text-muted">
           <span aria-hidden className={cx("size-[7px] rounded-full", DOT_TONE[figures.phase])} />
           {describePeriodStatus(figures)}
         </p>
-        <p className="mt-2 mb-1 font-semibold text-[30px] text-foreground tracking-[-0.025em] tabular-nums">
+        <p className="mt-2 mb-1 break-words font-semibold text-[30px] text-foreground tracking-[-0.025em] tabular-nums">
           {describeBalance(figures.headlineBalanceCents, "now", partnerName)}
         </p>
         <p className="text-[13.5px] text-muted">{describeSettlementScope(figures)}</p>
