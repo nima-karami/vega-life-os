@@ -369,3 +369,21 @@ test("a gallery tile's context menu opens without flipping the card, on both a f
   await plain.click({ button: "right" });
   await expect(menu.getByRole("menuitem")).toHaveCount(5);
 });
+
+test("an excerpt tile shows its title and turns to the passage and its source", async ({
+  page,
+}) => {
+  await openDeck(page);
+  await page.getByRole("button", { name: "Gallery view" }).click();
+
+  // Before excerpts folded this tile was a figure with no back at all, so the role is the assertion.
+  const tile = page.getByRole("button", { name: "The cost of a switch — face" });
+  await expect(tile).toBeVisible();
+  await expect(tile.locator('[aria-hidden="true"]')).toContainText("Deep Work · p. 41");
+
+  await tile.click();
+  const turned = page.getByRole("button", { name: "The cost of a switch — reveal" });
+  await expect(turned).toBeVisible();
+  await expect(turned.locator('[aria-hidden="true"]')).toContainText("The cost of a switch");
+  await expect(turned.locator('[aria-hidden="true"]')).not.toContainText("Deep Work");
+});

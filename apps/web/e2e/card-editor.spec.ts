@@ -209,3 +209,29 @@ for (const [width, height] of [
     await expect(stage).toHaveCount(0);
   });
 }
+
+test("an Excerpt draft's live card turns from the title to the passage", async ({ page }) => {
+  await openDeck(page);
+  await page.goto("/cards/new", { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("group", { name: "Card type" })
+    .getByRole("button", { name: "Excerpt" })
+    .click();
+
+  await page.getByRole("textbox", { name: "Title" }).fill("On attending");
+  await page
+    .getByRole("textbox", { name: "Excerpt" })
+    .fill("Attention costs the giver everything.");
+
+  // Both faces stay mounted so the card can turn; the withheld one is the aria-hidden side.
+  const live = page.getByTestId("live-card");
+  const hidden = live.locator('[aria-hidden="true"]');
+  await expect(live.getByRole("button", { name: "Card, showing the front" })).toBeVisible();
+  await expect(hidden).toContainText("Attention costs the giver everything.");
+  await expect(hidden).not.toContainText("On attending");
+
+  await live.getByRole("button", { name: "Card, showing the front" }).click();
+  await expect(live.getByRole("button", { name: "Card, showing the reveal" })).toBeVisible();
+  await expect(hidden).toContainText("On attending");
+  await expect(hidden).not.toContainText("Attention costs the giver everything.");
+});
