@@ -206,8 +206,11 @@ test("a chip press held across the breakpoint opens nothing on release", async (
   // Where the chip covers itself in both layouts, so the release cannot land on an empty slot.
   const left = Math.max(phoneBox.x, weekBox.x);
   const right = Math.min(phoneBox.x + phoneBox.width, weekBox.x + weekBox.width);
-  expect(right - left, "the chip does not overlap itself across the breakpoint").toBeGreaterThan(8);
-  const press = { x: (left + right) / 2, y: phoneBox.y + phoneBox.height / 2 };
+  const top = Math.max(phoneBox.y, weekBox.y);
+  const bottom = Math.min(phoneBox.y + phoneBox.height, weekBox.y + weekBox.height);
+  expect(right - left, "no horizontal chip overlap across sm").toBeGreaterThan(8);
+  expect(bottom - top, "no vertical chip overlap across sm").toBeGreaterThan(8);
+  const press = { x: (left + right) / 2, y: (top + bottom) / 2 };
 
   // A still tap first, so the negative below cannot pass on a press that reaches nothing.
   await tap(page, press);

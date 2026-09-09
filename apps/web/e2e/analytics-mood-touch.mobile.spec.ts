@@ -21,6 +21,19 @@ async function enterMoodChart(page: Page) {
   await openMoodChart(page, SEEDED_DAYS_AGO);
 }
 
+async function plotBox(page: Page) {
+  const box = await page.locator("[data-iso]").first().locator("xpath=..").boundingBox();
+  if (!box) throw new Error("the mood plot has no bounding box");
+  return box;
+}
+
+// Measured, not read off a class: the emphasis is Tailwind's `scale`, so `transform` stays none.
+async function dotWidth(page: Page, iso: string) {
+  const box = await page.locator(`[data-iso="${iso}"] span`).boundingBox();
+  if (!box) throw new Error(`the ${iso} dot has no bounding box`);
+  return box.width;
+}
+
 const moodPanel = (page: Page) =>
   page
     .locator("[data-iso]")
@@ -60,6 +73,28 @@ test("a tap on a mood point past sm still names the day before opening its journ
 
   await tap(page, point);
   await expect(page).toHaveURL(new RegExp(`/journal/${interior}$`));
+});
+
+// A tap makes the selection dwell, so past sm it needs the emphasis and the edge clamp
+// that were compact-only: the newest point sits at left 100%, half a tooltip past the plot.
+test("a mood point selected past sm is emphasised and keeps its tooltip inside the plot", async ({
+  page,
+}) => {
+  await page.setViewportSize(WIDE);
+  await enterMoodChart(page);
+  const newest = isoDaysAgo(0);
+
+  await tap(page, await dotCentre(page, newest));
+  await expect(page.getByTestId("mood-tooltip")).toBeVisible({ timeout: 15_000 });
+  const unselected = await dotWidth(page, isoDaysAgo(1));
+  await expect.poll(() => dotWidth(page, newest), { timeout: 5_000 }).toBeGreaterThan(unselected);
+
+  const plot = await plotBox(page);
+  const tooltip = await page.getByTestId("mood-tooltip").boundingBox();
+  if (!tooltip) throw new Error("the mood tooltip has no bounding box");
+  const plotRight = plot.x + plot.width;
+  expect(tooltip.x, "past the plot's left edge").toBeGreaterThanOrEqual(plot.x);
+  expect(tooltip.x + tooltip.width, "past the plot's right edge").toBeLessThanOrEqual(plotRight);
 });
 
 test("a tap between two mood points selects the nearer one", async ({ page }) => {

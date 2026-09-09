@@ -10,6 +10,13 @@ import type { CDPSession, Locator, Page } from "@playwright/test";
  * exception: CDP has no touch channel for it, so `penDrag` dispatches on the mouse
  * channel with `pointerType: "pen"`.
  *
+ * A pointer-media gate cannot be driven from here, and every way it fails is silent — the
+ * wrong branch simply renders and the assertion reads the other string (measured 2026-09-09):
+ * `Emulation.setEmulatedMedia` ignores `pointer`/`any-pointer` features; touch is a *context*
+ * property, so a fresh page comes back coarse and only its own session is fine-pointered; and
+ * `hasTouch` moves `pointer` and `any-pointer` together, so no configuration reproduces the
+ * hybrid device (fine primary, finger available) that `useAnyCoarsePointer` exists for.
+ *
  * Velocity is a test input: a swipe of `distance` px over `durationMs` releases at
  * roughly `distance / durationMs * 1000` px/s, because the moves are evenly spaced
  * and really awaited. framer-motion reads the last ~100ms of that move history, so a

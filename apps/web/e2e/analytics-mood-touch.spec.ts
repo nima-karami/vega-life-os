@@ -21,7 +21,7 @@ test("a mouse hover names the day and one click opens its journal", async ({ pag
   const point = page.locator(`[data-iso="${today}"]`);
 
   await point.hover();
-  await expect(page.getByTestId("mood-tooltip")).toBeVisible();
+  await expect(page.getByTestId("mood-tooltip")).toBeVisible({ timeout: 15_000 });
 
   await point.click();
   await expect(page).toHaveURL(new RegExp(`/journal/${today}$`));

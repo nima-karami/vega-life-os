@@ -5,7 +5,7 @@ type ContainerProps = Modal["ContainerProps"];
 
 const COMPACT_QUERY = "(max-width: 639px)";
 const BELOW_LARGE_QUERY = "(max-width: 1023px)";
-const COARSE_POINTER_QUERY = "(pointer: coarse)";
+const ANY_COARSE_POINTER_QUERY = "(any-pointer: coarse)";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(
@@ -26,9 +26,10 @@ export function useCompact(): boolean {
   return useMediaQuery(COMPACT_QUERY);
 }
 
-/** True when the primary pointer is a finger — the static proxy for touch-gated copy. */
-export function useCoarsePointer(): boolean {
-  return useMediaQuery(COARSE_POINTER_QUERY);
+/** True when a finger is available — `pointer:` reads only the primary one, so a
+ *  touchscreen laptop answers `fine` and its touch user would be promised the wrong flow. */
+export function useAnyCoarsePointer(): boolean {
+  return useMediaQuery(ANY_COARSE_POINTER_QUERY);
 }
 
 /** True below `lg` — where the card editor is a single column with no sticky aside. */

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { DOW, dowIndex } from "@/core/lib/date";
-import { cx, useCoarsePointer, useCompact } from "@/core/ui";
+import { cx, useAnyCoarsePointer, useCompact } from "@/core/ui";
 import { MOOD_LABEL } from "@/features/journal/model";
 import { CHART_PRIMARY } from "../chart-constants";
 import type { MoodPoint } from "../selectors";
@@ -85,7 +85,7 @@ export function MoodChart({
   granularity?: Granularity;
 }) {
   const compact = useCompact();
-  const coarsePointer = useCoarsePointer();
+  const anyCoarsePointer = useAnyCoarsePointer();
   const navigate = useNavigate();
   // Tagged with the range it was picked in, so switching range drops it without an effect.
   const [selection, setSelection] = useState<{
@@ -252,7 +252,7 @@ export function MoodChart({
                       compact
                         ? "absolute left-1/2 -translate-x-1/2 -translate-y-1/2 ring-offset-2 ring-offset-surface group-focus-visible:ring-2 group-focus-visible:ring-accent"
                         : "hover:scale-125",
-                      compact && active?.iso === day.iso && "scale-125",
+                      active?.iso === day.iso && "scale-125",
                     )}
                     style={{
                       width: 10,
@@ -274,14 +274,10 @@ export function MoodChart({
                   !compact && "whitespace-nowrap",
                 )}
                 style={{
-                  left: `${
-                    compact
-                      ? Math.min(
-                          100 - TOOLTIP_EDGE_PERCENT,
-                          Math.max(TOOLTIP_EDGE_PERCENT, activeIndex * step),
-                        )
-                      : activeIndex * step
-                  }%`,
+                  left: `${Math.min(
+                    100 - TOOLTIP_EDGE_PERCENT,
+                    Math.max(TOOLTIP_EDGE_PERCENT, activeIndex * step),
+                  )}%`,
                   top: `calc(${(1 - moodToUnit(active.mood ?? 1)) * 100}% - 10px)`,
                   maxWidth: compact ? "50%" : undefined,
                 }}
@@ -305,7 +301,7 @@ export function MoodChart({
       <p className="mt-3 text-xs text-muted">
         {logged.length === 0
           ? "No mood logged in this range."
-          : `${logged.length} ${granularity === "week" ? "week" : "day"}${logged.length === 1 ? "" : "s"} logged — ${coarsePointer ? "tap a point to see the day, tap again to open its journal" : "tap a point to open that day's journal"}. Gaps are unrecorded ${granularity === "week" ? "weeks" : "days"}.`}
+          : `${logged.length} ${granularity === "week" ? "week" : "day"}${logged.length === 1 ? "" : "s"} logged — ${anyCoarsePointer ? "tap a point to see the day, tap again to open its journal" : "tap a point to open that day's journal"}. Gaps are unrecorded ${granularity === "week" ? "weeks" : "days"}.`}
       </p>
     </div>
   );
