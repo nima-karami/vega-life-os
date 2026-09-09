@@ -197,6 +197,58 @@ test("the budget chip never paints over the figure it is judged against", async 
   await expectChipsClearOfAmounts(page, "at 320");
 });
 
+/** Long enough that a title sharing its line with an amount and two 44px targets is useless. */
+const LONG_CATEGORY = "Subscriptions and memberships";
+
+/** All the title gives up to the colour swatch and its gap: any name is cuttable, the layout isn't. */
+const SWATCH_RUN = 20;
+
+/** The title against the row's own content box — the row never overflowed, it starved the name. */
+async function measureRowTitle(page: Page, name: string) {
+  return page.evaluate((wanted) => {
+    const title = Array.from(document.querySelectorAll("span")).find(
+      (node) =>
+        node.className.includes("truncate") &&
+        (node.textContent ?? "").startsWith(wanted.slice(0, 8)),
+    );
+    if (title === undefined) return { shown: 0, available: 0, text: "" };
+
+    let row = title.parentElement;
+    while (row !== null && !(row.className || "").includes("py-2.5")) row = row.parentElement;
+    if (row === null)
+      return { shown: title.clientWidth, available: 0, text: title.textContent ?? "" };
+
+    const padding = getComputedStyle(row);
+    const available =
+      row.clientWidth -
+      Number.parseFloat(padding.paddingLeft) -
+      Number.parseFloat(padding.paddingRight);
+    return { shown: title.clientWidth, available, text: title.textContent ?? "" };
+  }, name);
+}
+
+test("a long category name gets the width the row actually has", async ({ page }) => {
+  await openPhone(page, "/finance/categories");
+  await page.getByRole("button", { name: "Actions for Software" }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  await page.getByRole("textbox", { name: "Category name" }).fill(LONG_CATEGORY);
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await page.setViewportSize(NARROW);
+  await expect(page.getByRole("link", { name: LONG_CATEGORY }).first()).toBeVisible();
+
+  const title = await measureRowTitle(page, LONG_CATEGORY);
+  expect(title.text, "no title span carried the category name").toContain(LONG_CATEGORY);
+  expect(title.available, "the row it sits in was never found").toBeGreaterThan(0);
+  expect(
+    title.shown,
+    `the name reads in ${title.shown}px of the ${title.available}px the row has`,
+  ).toBeGreaterThanOrEqual(title.available - SWATCH_RUN);
+
+  await expectChipsClearOfAmounts(page, "at 320 under a long category name");
+  expect(await tooWideInside(page, "main")).toEqual([]);
+});
+
 test("the budget is still edited in the row, on a target a thumb can hit", async ({ page }) => {
   await openPhone(page, "/finance/categories");
   const chip = page.getByRole("button", { name: "Monthly budget for Software" });

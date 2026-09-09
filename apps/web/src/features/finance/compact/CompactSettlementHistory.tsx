@@ -23,14 +23,8 @@ export function CompactSettlementHistory({ rows }: SettlementHistoryCardProps) {
           amount={row.outcome.amount}
           amountClassName={AMOUNT_CLASS}
           meta={[
-            {
-              value: (
-                <>
-                  {row.outcome.lead}
-                  {row.isAmended && <StateChip label="amended" tone="amended" />}
-                </>
-              ),
-            },
+            { value: row.outcome.lead, isFreeText: true },
+            ...(row.isAmended ? [{ value: <StateChip label="amended" tone="amended" /> }] : []),
             { label: "Rows", value: row.rowCount },
             { label: "Settled", value: row.settledLabel },
           ]}

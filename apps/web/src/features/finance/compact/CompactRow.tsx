@@ -65,42 +65,38 @@ export function CompactRow({
 
   return (
     <div className={cx("px-3.5 py-2.5", !isLast && "border-border border-b", className)}>
-      <div className="flex min-h-[60px] items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-[9px]">
-            {swatch != null && (
-              <span
-                aria-hidden
-                className="size-2.5 shrink-0 rounded-[3px]"
-                style={{ background: swatch }}
-              />
-            )}
-            <span className="min-w-0 truncate font-medium text-[14px] text-foreground">
-              {title}
-            </span>
+      <div className="flex min-h-[60px] flex-col justify-center gap-1">
+        <div className="flex min-w-0 items-center gap-[9px]">
+          {swatch != null && (
+            <span
+              aria-hidden
+              className="size-2.5 shrink-0 rounded-[3px]"
+              style={{ background: swatch }}
+            />
+          )}
+          <span className="min-w-0 truncate font-medium text-[14px] text-foreground">{title}</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className={cx("flex-1", META_RUN_CLASS)}>
+            {inlineMeta.map((item, index) => (
+              <MetaPair key={item.label ?? `slot-${index}`} item={item} isOwnLine={false} />
+            ))}
           </div>
 
-          {inlineMeta.length > 0 && (
-            <div className={cx("mt-1", META_RUN_CLASS)}>
-              {inlineMeta.map((item, index) => (
-                <MetaPair key={item.label ?? `slot-${index}`} item={item} isOwnLine={false} />
-              ))}
-            </div>
+          <div className="shrink-0 text-right">
+            <p data-testid="compact-amount" className={amountClassName ?? AMOUNT_CLASS}>
+              {amount}
+            </p>
+            {amountNote !== undefined && (
+              <p className="text-[11.5px] text-muted tabular-nums">{amountNote}</p>
+            )}
+          </div>
+
+          {actions !== undefined && (
+            <div className="flex shrink-0 items-center gap-0.5 text-muted">{actions}</div>
           )}
         </div>
-
-        <div className="shrink-0 text-right">
-          <p data-testid="compact-amount" className={amountClassName ?? AMOUNT_CLASS}>
-            {amount}
-          </p>
-          {amountNote !== undefined && (
-            <p className="text-[11.5px] text-muted tabular-nums">{amountNote}</p>
-          )}
-        </div>
-
-        {actions !== undefined && (
-          <div className="flex shrink-0 items-center gap-0.5 text-muted">{actions}</div>
-        )}
       </div>
 
       {controlMeta.length > 0 && (
