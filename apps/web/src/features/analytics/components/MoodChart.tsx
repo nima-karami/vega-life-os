@@ -87,15 +87,21 @@ export function MoodChart({
   const compact = useCompact();
   const navigate = useNavigate();
   // Tagged with the range it was picked in, so switching range drops it without an effect.
-  const [selection, setSelection] = useState<{ rangeKey: string; iso: string } | null>(null);
+  const [selection, setSelection] = useState<{
+    rangeKey: string;
+    iso: string;
+    source: "tap" | "hover";
+  } | null>(null);
   const plotRef = useRef<HTMLDivElement>(null);
   const pointerTypeRef = useRef("");
   const step = series.length > 1 ? 100 / (series.length - 1) : 0;
   const rangeKey = `${granularity}:${series.length}:${series[0]?.iso ?? ""}`;
   const activeIso = selection?.rangeKey === rangeKey ? selection.iso : null;
-  const selectIso = (iso: string | null) => setSelection(iso == null ? null : { rangeKey, iso });
-  const deselectIso = (iso: string) => {
-    if (activeIso === iso) setSelection(null);
+  const selectIso = (iso: string, source: "tap" | "hover") =>
+    setSelection({ rangeKey, iso, source });
+  // A second tap moves focus onto the occluding neighbour, so a tap must outlive blur.
+  const clearHoverSelection = () => {
+    if (selection?.source === "hover") setSelection(null);
   };
   const segments = buildSegments(series, step);
   const logged = series.filter((d) => d.mood != null);
@@ -120,26 +126,28 @@ export function MoodChart({
     return () => document.removeEventListener("pointerdown", onDown);
   }, [activeIso]);
 
-  // Overlapping hit columns make the receiving element meaningless, so a tap resolves by x.
-  const handlePointClick = (e: React.MouseEvent, iso: string) => {
-    if (e.detail === 0 || pointerTypeRef.current !== "touch") return;
+  // Overlapping hit columns make the receiving element meaningless, so compact resolves by x.
+  const resolveIsoAt = (clientX: number) => {
     const rect = plotRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    const resolved = findNearestLoggedIso(
-      series,
-      step,
-      ((e.clientX - rect.left) / rect.width) * 100,
-    );
+    if (!rect || rect.width === 0) return null;
+    return findNearestLoggedIso(series, step, ((clientX - rect.left) / rect.width) * 100);
+  };
+
+  const handlePointClick = (e: React.MouseEvent, iso: string) => {
+    if (e.detail === 0 || !compact) return;
+    const resolved = resolveIsoAt(e.clientX);
     if (resolved == null) return;
-    if (resolved === activeIso) {
-      if (resolved === iso) return;
+    const shouldNavigate = pointerTypeRef.current !== "touch" || resolved === activeIso;
+    if (!shouldNavigate) {
       e.preventDefault();
-      navigate(`/journal/${resolved}`);
+      selectIso(resolved, "tap");
+      plotRef.current?.querySelector<HTMLElement>(`[data-iso="${resolved}"]`)?.focus();
       return;
     }
-    e.preventDefault();
-    selectIso(resolved);
-    plotRef.current?.querySelector<HTMLElement>(`[data-iso="${resolved}"]`)?.focus();
+    if (resolved !== iso) {
+      e.preventDefault();
+      navigate(`/journal/${resolved}`);
+    }
   };
 
   return (
@@ -200,16 +208,18 @@ export function MoodChart({
                     pointerTypeRef.current = e.pointerType;
                   }}
                   onPointerEnter={(e) => {
-                    if (e.pointerType !== "touch") selectIso(day.iso);
+                    if (e.pointerType === "touch") return;
+                    selectIso((compact ? resolveIsoAt(e.clientX) : null) ?? day.iso, "hover");
                   }}
                   onPointerLeave={(e) => {
-                    if (e.pointerType !== "touch") deselectIso(day.iso);
+                    if (e.pointerType !== "touch") clearHoverSelection();
                   }}
                   onFocus={(e) => {
                     // A tap focuses the link before its click, which would read as a second tap.
-                    if (e.currentTarget.matches(":focus-visible")) selectIso(day.iso);
+                    if (activeIso !== day.iso && e.currentTarget.matches(":focus-visible"))
+                      selectIso(day.iso, "hover");
                   }}
-                  onBlur={() => deselectIso(day.iso)}
+                  onBlur={clearHoverSelection}
                   onClick={(e) => handlePointClick(e, day.iso)}
                   className={cx(
                     "group absolute -translate-x-1/2 outline-none",

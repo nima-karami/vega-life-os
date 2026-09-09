@@ -1,30 +1,22 @@
 import { expect, type Page, test } from "@playwright/test";
 import { enterApp } from "./helpers/app";
+import { describedAs, dotCentre, isoDaysAgo, openMoodChart } from "./helpers/mood";
 
 /**
  * The desktop half of the mood-chart touch work: a mouse keeps hover plus one-click
  * navigation, and the wider gutters are unchanged (spec
- * docs/specs/2026-09-04-analytics-habit-touch.md).
+ * docs/specs/2026-09-04-analytics-habit-touch.md). Under 640px a mouse meets the phone's
+ * overlapping hit columns — a narrowed window or ≥250% zoom — so that width is covered
+ * here too; neither existing project reaches it otherwise.
  */
 
-function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-async function openMoodChart(page: Page) {
+async function enterMoodChart(page: Page, daysAgo: number[]) {
   await enterApp(page);
-  await page.goto(`/journal/${isoDaysAgo(0)}`, { waitUntil: "domcontentloaded" });
-  const pip = page.getByRole("radio", { name: /^Mood 4 of 5/ });
-  await expect(pip).toBeVisible({ timeout: 15_000 });
-  await pip.click();
-  await page.goto("/analytics", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("[data-iso]").first()).toBeVisible({ timeout: 15_000 });
+  await openMoodChart(page, daysAgo);
 }
 
 test("a mouse hover names the day and one click opens its journal", async ({ page }) => {
-  await openMoodChart(page);
+  await enterMoodChart(page, [0]);
   const today = isoDaysAgo(0);
   const point = page.locator(`[data-iso="${today}"]`);
 
@@ -35,8 +27,21 @@ test("a mouse hover names the day and one click opens its journal", async ({ pag
   await expect(page).toHaveURL(new RegExp(`/journal/${today}$`));
 });
 
+test("a mouse under 640px names and opens the day whose dot it is on", async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 900 });
+  await enterMoodChart(page, [0, 1, 2]);
+  const interior = isoDaysAgo(1);
+  const dot = await dotCentre(page, interior);
+
+  await page.mouse.move(dot.x, dot.y);
+  await expect(page.getByTestId("mood-tooltip")).toHaveText(await describedAs(page, interior));
+
+  await page.mouse.click(dot.x, dot.y);
+  await expect(page).toHaveURL(new RegExp(`/journal/${interior}$`));
+});
+
 test("the mood panel and a settings card keep their 24px desktop gutter", async ({ page }) => {
-  await openMoodChart(page);
+  await enterMoodChart(page, [0]);
   const panel = page
     .locator("[data-iso]")
     .first()
