@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { longPress, startTouch, dragAlong, endTouch, tap } from "./helpers/touch";
+import { longPress, penDrag, startTouch, dragAlong, endTouch, tap } from "./helpers/touch";
 
 /**
  * Touch safety for the calendar's timed grid (spec
@@ -9,6 +9,7 @@ import { longPress, startTouch, dragAlong, endTouch, tap } from "./helpers/touch
 
 const PHONE = { width: 390, height: 844 };
 const WIDE = { width: 900, height: 900 };
+// Both ends of the range, so one read covers the start time and the duration.
 const CHIP_LABEL = /^Update ID card, 13:00–14:00/;
 
 async function passGratitudeGate(page: Page) {
@@ -79,6 +80,20 @@ test("a swipe that starts on a timed chip scrolls the grid and moves nothing", a
   await expect(page.getByRole("status")).not.toContainText("Moved to");
 });
 
+// A stylus is the third pointer: it has no hover to find the grips with either, so at
+// phone width it must behave as a finger rather than as a mouse.
+test("a pen drag on a timed chip writes nothing", async ({ page }) => {
+  const chip = await openSeededChipDay(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  await penDrag(page, { from, to: { x: from.x, y: from.y + 92 }, durationMs: 300, steps: 12 });
+
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+  await expect(page.getByRole("status")).not.toContainText("Moved to");
+});
+
 test("a long press on a timed chip opens its menu and leaves the time alone", async ({ page }) => {
   const chip = await openSeededChipDay(page);
   const box = await chip.boundingBox();
@@ -103,7 +118,6 @@ test("a tap on a timed chip's top edge opens the editor instead of resizing", as
 
   await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Update ID card");
   await page.keyboard.press("Escape");
-  // The 6px grip is inert on touch, so the duration — and the end time — is untouched.
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });
 
@@ -125,7 +139,19 @@ test("a touch drag on a resize grip writes nothing at 900px", async ({ page }) =
   });
   await endTouch(page);
 
-  // The label carries both ends of the range, so one read covers the time and the duration.
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
   await expect(page.getByRole("status")).not.toContainText("Moved to");
+});
+
+test("a still tap on a resize grip opens the editor at 900px", async ({ page }) => {
+  await openCalendar(page, WIDE);
+  const chip = await findSeededChip(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+
+  await tap(page, { x: box.x + box.width / 2, y: box.y + 3 });
+
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Update ID card");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });

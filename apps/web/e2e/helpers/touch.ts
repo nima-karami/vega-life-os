@@ -35,7 +35,7 @@ const DEFAULT_LONG_PRESS_MS = 650;
 
 const cdpSessions = new WeakMap<Page, Promise<CDPSession>>();
 
-function openTouchSession(page: Page): Promise<CDPSession> {
+function openInputSession(page: Page): Promise<CDPSession> {
   const existing = cdpSessions.get(page);
   if (existing) return existing;
   const session = page.context().newCDPSession(page);
@@ -44,7 +44,7 @@ function openTouchSession(page: Page): Promise<CDPSession> {
 }
 
 async function dispatchTouch(page: Page, type: TouchEventType, fingers: TouchFinger[]) {
-  const session = await openTouchSession(page);
+  const session = await openInputSession(page);
   await session.send("Input.dispatchTouchEvent", {
     type,
     touchPoints: fingers.map((finger, index) => ({
@@ -66,6 +66,34 @@ const interpolate = (path: SwipePath, progress: number): TouchFinger => ({
   y: path.from.y + (path.to.y - path.from.y) * progress,
   id: path.from.id,
 });
+
+type PenEventType = "mousePressed" | "mouseMoved" | "mouseReleased";
+
+// CDP carries a stylus on the mouse channel, so pen never comes through dispatchTouchEvent.
+async function dispatchPen(page: Page, type: PenEventType, point: TouchFinger) {
+  const session = await openInputSession(page);
+  await session.send("Input.dispatchMouseEvent", {
+    type,
+    x: Math.round(point.x),
+    y: Math.round(point.y),
+    button: "left",
+    buttons: type === "mouseReleased" ? 0 : 1,
+    clickCount: 1,
+    force: 1,
+    pointerType: "pen",
+  });
+}
+
+/** A stylus press-drag-lift: the pointer that is neither a mouse nor a finger. */
+export async function penDrag(page: Page, path: SwipePath) {
+  await dispatchPen(page, "mousePressed", path.from);
+  const gapMs = path.durationMs / path.steps;
+  for (let step = 1; step <= path.steps; step += 1) {
+    await dispatchPen(page, "mouseMoved", interpolate(path, step / path.steps));
+    await page.waitForTimeout(gapMs);
+  }
+  await dispatchPen(page, "mouseReleased", path.to);
+}
 
 export async function startTouch(page: Page, fingers: TouchFinger | TouchFinger[]) {
   await dispatchTouch(page, "touchStart", asFingers(fingers));

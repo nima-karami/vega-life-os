@@ -469,10 +469,10 @@ export function CalendarPage() {
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
-    // A finger has no hover, so the 6px grips it cannot see are inert: a duration change
-    // goes through the editor. On a phone the press falls through to the chip body, which
-    // arms nothing; wider it must die here, because there the body would arm a move.
-    if (mode !== "move" && e.pointerType === "touch") {
+    // The 6px grips have no hover, so a finger never resizes — the press is recorded so a
+    // still release still taps. Past sm it must die here too, or the body would arm a move.
+    if (mode !== "move" && e.pointerType !== "mouse") {
+      chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
       if (!compact) {
         e.preventDefault();
         e.stopPropagation();
@@ -481,7 +481,7 @@ export function CalendarPage() {
     }
     // On a phone the swipe belongs to the grid's scroller, so a touch arms no drag at all
     // — the press is only remembered so a still release still counts as a tap.
-    if (mode === "move" && compact && e.pointerType === "touch") {
+    if (mode === "move" && compact && e.pointerType !== "mouse") {
       chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
       return;
     }
@@ -692,8 +692,6 @@ export function CalendarPage() {
   const replaceWithRef = useRef(replaceWith);
   replaceWithRef.current = replaceWith;
 
-  // Two producers reach this — the desktop drag release and the phone press, which never
-  // arms a drag at all.
   const handleChipTap = (id: string) => {
     if (clipRef.current) {
       replaceWithRef.current(id, clipRef.current);
