@@ -78,17 +78,21 @@ export function TaskCard({
         aria-pressed={done}
         aria-label={checkLabel}
         onClick={() => onToggleDone(task)}
-        className={cx(
-          "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors",
-          done
-            ? "border-accent bg-accent text-accent-foreground"
-            : skipped
-              ? "border-border text-muted"
-              : "border-border text-transparent hover:border-accent",
-        )}
+        className="-mt-2.5 -mb-3 -ms-3 -me-3 grid h-11 w-11 shrink-0 place-items-center sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:h-5 sm:w-5"
       >
-        {done && <Icon name="check" size={12} />}
-        {skipped && <Icon name="skip" size={12} />}
+        <span
+          className={cx(
+            "grid h-5 w-5 place-items-center rounded-full border transition-colors",
+            done
+              ? "border-accent bg-accent text-accent-foreground"
+              : skipped
+                ? "border-border text-muted"
+                : "border-border text-transparent hover:border-accent",
+          )}
+        >
+          {done && <Icon name="check" size={12} />}
+          {skipped && <Icon name="skip" size={12} />}
+        </span>
       </button>
 
       <button
@@ -142,8 +146,9 @@ export function TaskCard({
 
       <Menu
         isIconOnly
+        touchTarget
         triggerLabel={`Actions for ${task.title}`}
-        triggerClassName="mt-0.5 shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+        triggerClassName="-mt-1 -mb-1.5 -ms-1.5 -me-1.5 sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
         triggerContent={<Icon name="dots" size={16} />}
         items={menuItems}
       />

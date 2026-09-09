@@ -5,6 +5,7 @@ type ContainerProps = Modal["ContainerProps"];
 
 const COMPACT_QUERY = "(max-width: 639px)";
 const BELOW_LARGE_QUERY = "(max-width: 1023px)";
+const ANY_COARSE_POINTER_QUERY = "(any-pointer: coarse)";
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(
@@ -23,6 +24,12 @@ function useMediaQuery(query: string): boolean {
 /** True while the viewport is compact (< sm). SSR-safe. */
 export function useCompact(): boolean {
   return useMediaQuery(COMPACT_QUERY);
+}
+
+/** True when a finger is available — `pointer:` reads only the primary one, so a
+ *  touchscreen laptop answers `fine` and its touch user would be promised the wrong flow. */
+export function useAnyCoarsePointer(): boolean {
+  return useMediaQuery(ANY_COARSE_POINTER_QUERY);
 }
 
 /** True below `lg` — where the card editor is a single column with no sticky aside. */

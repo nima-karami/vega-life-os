@@ -1,12 +1,21 @@
 import type { CDPSession, Locator, Page } from "@playwright/test";
 
 /**
- * Real touch input, injected at the browser's input layer through CDP.
+ * Real touch and stylus input, injected at the browser's input layer through CDP.
  *
  * `page.mouse` emits pointer-from-mouse even on a touch device profile, and
  * `dispatchEvent("touchstart")` is a synthetic DOM event that never reaches the
  * compositor — neither one can produce a `touch-action` / native-scroll conflict,
- * which is the whole bug class these specs exist to reproduce.
+ * which is the whole bug class these specs exist to reproduce. A stylus is the
+ * exception: CDP has no touch channel for it, so `penDrag` dispatches on the mouse
+ * channel with `pointerType: "pen"`.
+ *
+ * A pointer-media gate cannot be driven from here, and every way it fails is silent — the
+ * wrong branch simply renders and the assertion reads the other string (measured 2026-09-09):
+ * `Emulation.setEmulatedMedia` ignores `pointer`/`any-pointer` features; touch is a *context*
+ * property, so a fresh page comes back coarse and only its own session is fine-pointered; and
+ * `hasTouch` moves `pointer` and `any-pointer` together, so no configuration reproduces the
+ * hybrid device (fine primary, finger available) that `useAnyCoarsePointer` exists for.
  *
  * Velocity is a test input: a swipe of `distance` px over `durationMs` releases at
  * roughly `distance / durationMs * 1000` px/s, because the moves are evenly spaced
@@ -35,7 +44,7 @@ const DEFAULT_LONG_PRESS_MS = 650;
 
 const cdpSessions = new WeakMap<Page, Promise<CDPSession>>();
 
-function openTouchSession(page: Page): Promise<CDPSession> {
+function openInputSession(page: Page): Promise<CDPSession> {
   const existing = cdpSessions.get(page);
   if (existing) return existing;
   const session = page.context().newCDPSession(page);
@@ -44,7 +53,7 @@ function openTouchSession(page: Page): Promise<CDPSession> {
 }
 
 async function dispatchTouch(page: Page, type: TouchEventType, fingers: TouchFinger[]) {
-  const session = await openTouchSession(page);
+  const session = await openInputSession(page);
   await session.send("Input.dispatchTouchEvent", {
     type,
     touchPoints: fingers.map((finger, index) => ({
@@ -66,6 +75,34 @@ const interpolate = (path: SwipePath, progress: number): TouchFinger => ({
   y: path.from.y + (path.to.y - path.from.y) * progress,
   id: path.from.id,
 });
+
+type PenEventType = "mousePressed" | "mouseMoved" | "mouseReleased";
+
+// CDP carries a stylus on the mouse channel, so pen never comes through dispatchTouchEvent.
+async function dispatchPen(page: Page, type: PenEventType, point: TouchFinger) {
+  const session = await openInputSession(page);
+  await session.send("Input.dispatchMouseEvent", {
+    type,
+    x: Math.round(point.x),
+    y: Math.round(point.y),
+    button: "left",
+    buttons: type === "mouseReleased" ? 0 : 1,
+    clickCount: 1,
+    force: 1,
+    pointerType: "pen",
+  });
+}
+
+/** A stylus press-drag-lift: the pointer that is neither a mouse nor a finger. */
+export async function penDrag(page: Page, path: SwipePath) {
+  await dispatchPen(page, "mousePressed", path.from);
+  const gapMs = path.durationMs / path.steps;
+  for (let step = 1; step <= path.steps; step += 1) {
+    await dispatchPen(page, "mouseMoved", interpolate(path, step / path.steps));
+    await page.waitForTimeout(gapMs);
+  }
+  await dispatchPen(page, "mouseReleased", path.to);
+}
 
 export async function startTouch(page: Page, fingers: TouchFinger | TouchFinger[]) {
   await dispatchTouch(page, "touchStart", asFingers(fingers));

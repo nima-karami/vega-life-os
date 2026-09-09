@@ -1,6 +1,6 @@
 import { Button, ButtonGroup, Card, Modal, ScrollShadow, useOverlayState } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useTodayISO } from "@/core/lib/clock";
 import { addMinutes, formatShortDate, getWeekDays, minutesOf, weekStartOf } from "@/core/lib/date";
@@ -15,6 +15,7 @@ import {
   pressSourceOf,
   TimePicker,
   UndoBar,
+  useCompact,
   useCompactModal,
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
@@ -98,8 +99,6 @@ interface Preview {
   isUntimed: boolean;
 }
 
-const MOBILE_QUERY = "(max-width: 639px)";
-
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
   const goals = useStore((s) => s.goals);
@@ -154,15 +153,15 @@ export function CalendarPage() {
   const [dayMoveTask, setDayMoveTask] = useState<Task | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
-  const [mobile, setMobile] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches,
-  );
-  const [activeDay, setActiveDay] = useState(0); // mobile single-day index 0..6
+  const compact = useCompact();
+  const [activeDay, setActiveDay] = useState(0); // single-day index 0..6 on a phone
 
   const gridRef = useRef<HTMLDivElement>(null);
   const allDayRowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const previewRef = useRef<Preview | null>(null);
+  // A phone press on a timed chip, which arms no drag — only a still release is a tap.
+  const chipPressRef = useRef<{ id: string; x: number; y: number } | null>(null);
   // Id of a task freshly created by clicking an empty slot — discarded on close
   // if it was never named (so an accidental click doesn't litter the calendar).
   const draftIdRef = useRef<string | null>(null);
@@ -213,19 +212,16 @@ export function CalendarPage() {
     },
   ]);
 
-  // Track the mobile breakpoint so the wide grid degrades to a single day.
-  useEffect(() => {
-    const mql = window.matchMedia(MOBILE_QUERY);
-    const onChange = () => {
-      // the column set changes underneath the pointer — never commit a day the user didn't target
-      if (dragRef.current) cancelDragRef.current();
-      setMobile(mql.matches);
-    };
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
+  // Crossing the breakpoint swaps the column set underneath the pointer, so the cancel has
+  // to land before the browser can dispatch another pointer event — layout effect, not effect.
+  const wasCompact = useRef(compact);
+  useLayoutEffect(() => {
+    if (wasCompact.current === compact) return;
+    wasCompact.current = compact;
+    cancelChipPressRef.current();
+  }, [compact]);
 
-  // Keep the active mobile day on today when the week contains it.
+  // Keep the active single day on today when the week contains it.
   useEffect(() => {
     const todayIdx = days.findIndex((d) => d.today);
     if (todayIdx >= 0) setActiveDay(todayIdx);
@@ -479,8 +475,18 @@ export function CalendarPage() {
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
+    // The pointer decides, never the width: a touchscreen laptop is past `sm` and still has
+    // only fingers, so a width-gated finger armed a real move drag and silently rescheduled.
+    const canResize = e.pointerType === "mouse" || (e.pointerType === "pen" && !compact);
+    const canMove = e.pointerType === "mouse" || (e.pointerType !== "touch" && !compact);
+    if (!(mode === "move" ? canMove : canResize)) {
+      // Remembered only so a still release still counts as a tap. Nothing is swallowed here:
+      // the press must reach the chip's ContextMenu wrapper, touch's only route to the menu.
+      chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
+      return;
+    }
     // Selection via modifier-click (desktop only; resize edges ignore it).
-    if (mode === "move" && !mobile) {
+    if (mode === "move" && !compact) {
       if (e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -529,7 +535,7 @@ export function CalendarPage() {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.date) return;
     // Selection via modifier-click (desktop only).
-    if (!mobile) {
+    if (!compact) {
       if (e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -575,7 +581,7 @@ export function CalendarPage() {
 
   // Rubber-band selection: press-drag on empty timed-grid space (desktop only).
   const beginMarquee = (e: React.PointerEvent) => {
-    if (mobile || e.button !== 0) return;
+    if (compact || e.button !== 0) return;
     if ((e.target as HTMLElement).closest("[data-block]")) return;
     const grid = gridRef.current;
     if (!grid) return;
@@ -689,6 +695,35 @@ export function CalendarPage() {
   const replaceWithRef = useRef(replaceWith);
   replaceWithRef.current = replaceWith;
 
+  const handleChipTap = (id: string) => {
+    if (clipRef.current) {
+      replaceWithRef.current(id, clipRef.current);
+      return;
+    }
+    clearSelection();
+    const t = tasksRef.current.find((x) => x.id === id);
+    if (t) openTask(t);
+  };
+  const handleChipTapRef = useRef(handleChipTap);
+  handleChipTapRef.current = handleChipTap;
+
+  // The held press won (or the browser took the touch): drop both the pending tap and,
+  // at ≥ sm where a touch does arm a drag, the drag itself.
+  const cancelChipPress = () => {
+    chipPressRef.current = null;
+    if (dragRef.current) cancelDrag();
+  };
+  const cancelChipPressRef = useRef(cancelChipPress);
+  cancelChipPressRef.current = cancelChipPress;
+
+  const endChipPress = (e: React.PointerEvent) => {
+    const press = chipPressRef.current;
+    chipPressRef.current = null;
+    if (!press) return;
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) >= DRAG_THRESHOLD_PX) return;
+    handleChipTap(press.id);
+  };
+
   // Resolve a drag release: commit a real change, or treat a no-move as a tap.
   const endDrag = (d: DragState, p: Preview) => {
     if (d.mode === "allday") {
@@ -738,21 +773,14 @@ export function CalendarPage() {
       markJustDragged();
       return;
     }
-    // a tap (no movement): paste-replace if armed, else clear selection + open
     if (d.mode !== "move" || d.moved) return;
-    if (clipRef.current) {
-      replaceWithRef.current(d.id, clipRef.current);
-      return;
-    }
-    clearSelection();
-    const t = tasksRef.current.find((x) => x.id === d.id);
-    if (t) openTask(t);
+    handleChipTapRef.current(d.id);
   };
   const endDragRef = useRef(endDrag);
   endDragRef.current = endDrag;
 
-  // columns the move-drag can land on (mobile = just the active day)
-  const dragDays = mobile ? [days[activeDay]] : days;
+  // columns the move-drag can land on (on a phone, just the active day)
+  const dragDays = compact ? [days[activeDay]] : days;
   const dragDaysRef = useRef(dragDays);
   dragDaysRef.current = dragDays;
 
@@ -790,6 +818,9 @@ export function CalendarPage() {
         return;
       }
 
+      // ignore sub-threshold jitter so a click still opens the chip
+      if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD_PX)
+        return;
       const date = cols[getColumnIndexAt(e.clientX, rect, cols.length)].iso;
       const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
       const next = {
@@ -926,7 +957,7 @@ export function CalendarPage() {
   const gotoPrev = () => {
     if (dragRef.current) cancelDrag();
     clearSelection();
-    if (mobile) {
+    if (compact) {
       if (activeDay > 0) setActiveDay((i) => i - 1);
       else {
         setWeekRef(addDays(weekStartOf(weekRef), -7));
@@ -939,7 +970,7 @@ export function CalendarPage() {
   const gotoNext = () => {
     if (dragRef.current) cancelDrag();
     clearSelection();
-    if (mobile) {
+    if (compact) {
       if (activeDay < 6) setActiveDay((i) => i + 1);
       else {
         setWeekRef(addDays(weekStartOf(weekRef), 7));
@@ -956,7 +987,7 @@ export function CalendarPage() {
     setAnnounce("Showing this week");
   };
 
-  const visibleDays = mobile ? [days[activeDay]] : days;
+  const visibleDays = compact ? [days[activeDay]] : days;
   const spanBars = useMemo(
     () =>
       layoutSpanBars(
@@ -1004,7 +1035,7 @@ export function CalendarPage() {
       {/* ── Nav header — quiet, like Today (keeps the grid in view) ── */}
       <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          {mobile
+          {compact
             ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
             : `${formatShortDate(days[0].iso)} – ${formatShortDate(days[6].iso)}`}
         </h1>
@@ -1017,7 +1048,7 @@ export function CalendarPage() {
               isIconOnly
               size="sm"
               variant="ghost"
-              aria-label={mobile ? "Previous day" : "Previous week"}
+              aria-label={compact ? "Previous day" : "Previous week"}
               onPress={gotoPrev}
             >
               <Icon name="chevL" size={16} />
@@ -1034,7 +1065,7 @@ export function CalendarPage() {
               isIconOnly
               size="sm"
               variant="ghost"
-              aria-label={mobile ? "Next day" : "Next week"}
+              aria-label={compact ? "Next day" : "Next week"}
               onPress={gotoNext}
             >
               <Icon name="chevR" size={16} />
@@ -1044,7 +1075,7 @@ export function CalendarPage() {
       </header>
 
       {/* ── Mobile day strip ─────────────────────────────────────── */}
-      {mobile && (
+      {compact && (
         <div className="mb-4 flex gap-1.5 overflow-x-auto no-scrollbar">
           {days.map((d, i) => (
             <button
@@ -1105,7 +1136,7 @@ export function CalendarPage() {
         }}
       >
         <div className="overflow-x-auto">
-          <div className={mobile ? "min-w-0" : "min-w-[720px]"}>
+          <div className={compact ? "min-w-0" : "min-w-[720px]"}>
             {/* day headers */}
             <div
               className="grid border-b border-border"
@@ -1334,9 +1365,12 @@ export function CalendarPage() {
                           selected={selectedIds.has(t.id)}
                           provisional={provisional.has(t.id)}
                           onPointerDownBody={(e) => beginDrag(e, t, "move")}
+                          onPointerUpBody={endChipPress}
+                          onPointerCancelBody={cancelChipPress}
                           onPointerDownTop={(e) => beginDrag(e, t, "top")}
                           onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
                           onOpen={() => openTask(t)}
+                          onLongPress={cancelChipPress}
                           menuItems={timedMenuItems(t)}
                         />
                       ))}
@@ -1358,7 +1392,7 @@ export function CalendarPage() {
               {visibleDays.every((d) => getTimedTasksForDay(tasks, d.iso).length === 0) && (
                 <div className="pointer-events-none absolute inset-x-0 top-1/3 text-center">
                   <p className="text-sm text-muted">
-                    Nothing scheduled {mobile ? "this day" : "this week"} — click a slot to add
+                    Nothing scheduled {compact ? "this day" : "this week"} — click a slot to add
                   </p>
                 </div>
               )}

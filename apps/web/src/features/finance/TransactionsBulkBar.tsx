@@ -1,12 +1,14 @@
 import { Button, ButtonGroup } from "@heroui/react";
 import type { FinanceCategory, FinanceTransaction } from "@vega/shared";
 import { useState } from "react";
-import { cx, Icon, Menu, type MenuItem, Popover, SegmentButton } from "@/core/ui";
+import { cx, Icon, Menu, type MenuItem, Popover, SegmentButton, useBottomBarLift } from "@/core/ui";
 import { DraftInput } from "./DraftInput";
 import { FULL_SHARE_BPS, formatShareBps, HOUSEHOLD_DEFAULT_BPS, parseShareBps } from "./money";
 
 const BAR_BUTTON =
   "rounded-[10px] px-2 py-1 font-medium text-[13px] text-background/85 outline-none transition-colors hover:text-background focus-visible:ring-2 focus-visible:ring-accent";
+// Menu owns its own shape, so the trigger only inherits the bar's ink colours.
+const BAR_MENU_TONE = "text-background/85 hover:text-background";
 
 export interface TransactionsBulkBarProps {
   selectedCount: number;
@@ -75,6 +77,7 @@ export function TransactionsBulkBar({
   onClear,
 }: TransactionsBulkBarProps) {
   const isEditable = selectedCount - lockedCount > 0;
+  const lift = useBottomBarLift();
   const categoryItems: MenuItem[] = [
     ...categories.map((category) => ({
       label: category.name,
@@ -84,7 +87,13 @@ export function TransactionsBulkBar({
   ];
 
   return (
-    <div className="safe-mb pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
+    <div
+      className={cx(
+        lift.className,
+        "pointer-events-none fixed inset-x-0 bottom-5 z-30 flex justify-center px-4",
+      )}
+      style={lift.style}
+    >
       <div className="pointer-events-auto flex w-full items-center gap-3 rounded-[12px] bg-foreground px-4 py-2.5 shadow-lg sm:w-auto">
         <span aria-live="polite" className="font-medium text-[13px] text-background tabular-nums">
           {selectedCount} selected
@@ -99,9 +108,10 @@ export function TransactionsBulkBar({
         <Menu
           align="center"
           tone="inherit"
+          shape="bar"
           triggerLabel="Set category for selection"
           triggerContent="Set category"
-          triggerClassName={cx(BAR_BUTTON, "hover:bg-transparent")}
+          triggerClassName={BAR_MENU_TONE}
           items={categoryItems}
         />
         <Popover

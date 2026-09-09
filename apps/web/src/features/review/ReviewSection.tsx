@@ -111,14 +111,15 @@ export function ReviewSection() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+      {/* minmax(0,…) on the phone column too, or a long past-review preview inflates it past the viewport. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="space-y-5">
           <WeekSummaryPanel rollup={rollup} />
 
           <MoodWeekPanel week={moodWeek} />
 
           {noActivity ? (
-            <Panel className="p-6">
+            <Panel className="p-4 sm:p-6">
               <SectionHead title="This week" meta="empty" />
               <p className="mt-3 text-sm leading-relaxed text-muted">
                 Nothing logged this week yet — but you can still write a reflection below.
@@ -126,7 +127,7 @@ export function ReviewSection() {
             </Panel>
           ) : (
             <>
-              <Panel className="p-5">
+              <Panel className="p-4 sm:p-5">
                 <SectionHead title="Balance" meta="by value" />
                 <div className="mt-3 space-y-2">
                   {rollup.byValue.map(({ v, n }) => (
@@ -135,7 +136,7 @@ export function ReviewSection() {
                 </div>
               </Panel>
 
-              <Panel className="p-5">
+              <Panel className="p-4 sm:p-5">
                 <SectionHead title="Habits" meta="this week" />
                 <div className="mt-3 space-y-1.5">
                   {rollup.habitRows.map(({ h, rate, done, total }) => (
@@ -157,7 +158,7 @@ export function ReviewSection() {
 
         <div className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
-            <Panel className="p-5">
+            <Panel className="p-4 sm:p-5">
               <SectionHead title="Wins" meta={String(rollup.winsTotal)} />
               <ul className="mt-3 space-y-1.5">
                 {rollup.wins.map((t) => (
@@ -171,7 +172,7 @@ export function ReviewSection() {
                 )}
               </ul>
             </Panel>
-            <Panel className="p-5">
+            <Panel className="p-4 sm:p-5">
               <SectionHead title="Slipped" meta={String(rollup.slippedTotal)} />
               <ul className="mt-3 space-y-1.5">
                 {rollup.slipped.map((t) => (
@@ -191,7 +192,7 @@ export function ReviewSection() {
 
           <JournalWeekPanel journal={journal} weekIsos={weekIsos} />
 
-          <Panel className="p-6">
+          <Panel className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <SectionHead title="Reflection" className="flex-1" />
               {dirty ? (
@@ -225,7 +226,7 @@ export function ReviewSection() {
           </Panel>
 
           {reviews.length > 0 && (
-            <Panel className="p-5">
+            <Panel className="p-4 sm:p-5">
               <SectionHead title="Past reviews" meta={String(reviews.length)} />
               <div className="mt-3 space-y-1.5">
                 {visibleReviews.map((r) => (
@@ -239,10 +240,12 @@ export function ReviewSection() {
                       r.periodKey === periodKey ? "border-accent" : "border-border",
                     )}
                   >
-                    <span className="text-sm text-foreground">
+                    <span className="shrink-0 text-sm text-foreground">
                       Week of {formatShortDate(r.periodKey)}
                     </span>
-                    <span className="text-xs text-muted">{Math.round(r.completion * 100)}%</span>
+                    <span className="shrink-0 text-xs text-muted">
+                      {Math.round(r.completion * 100)}%
+                    </span>
                     <span className="ml-auto truncate text-xs text-muted">
                       {r.prompts.find((p) => p.a)?.a ?? "—"}
                     </span>

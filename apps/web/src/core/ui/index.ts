@@ -46,5 +46,11 @@ export { StreakBadge } from "./StreakBadge";
 export type { SelectOption } from "./select";
 export { NONE, Select } from "./select";
 export { UndoBar } from "./UndoBar";
-export { useBelowLarge, useCompact, useCompactModal } from "./useCompactModal";
-export { useNavClearance } from "./useNavClearance";
+export { useAnyCoarsePointer, useBelowLarge, useCompact, useCompactModal } from "./useCompactModal";
+export {
+  publishNavBandHeight,
+  readNavBandHeight,
+  resolveLiftedBottom,
+  useBottomBarLift,
+  useNavClearance,
+} from "./useNavClearance";

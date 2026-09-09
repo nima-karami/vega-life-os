@@ -15,3 +15,14 @@ export const draftSafeBackdrop = {
     if (event.target === event.currentTarget) event.preventDefault();
   },
 } as const;
+
+/**
+ * Spread onto the `Modal.Container` of a dialog that fits in a few lines — a confirm, a
+ * one-field create. Routed through `useCompactModal` they became full-screen phone sheets;
+ * these stay a small centered dialog at every width.
+ */
+export const smallCenteredDialogContainer = {
+  size: "sm",
+  placement: "center",
+  scroll: "inside",
+} as const;

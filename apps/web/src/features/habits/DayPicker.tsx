@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Icon } from "@/core/ui";
+import { Icon, useCompact } from "@/core/ui";
 import { getOnlyDay, getRangeDays, toggleDay } from "./day-select";
 
 /** Day picker order is fixed Mon..Sun to match the model's days[7] mask. */
@@ -24,6 +24,7 @@ export function DayPicker({
   onChange: (days: number[]) => void;
   disabled?: boolean;
 }) {
+  const compact = useCompact();
   const [anchor, setAnchor] = useState(0);
   const [solo, setSolo] = useState<{ index: number; prev: number[] } | null>(null);
   const hasActiveDays = value.some((d) => d === 1);
@@ -72,7 +73,7 @@ export function DayPicker({
           );
         })}
       </div>
-      {!disabled && (
+      {!disabled && !compact && (
         <p className="mt-1.5 text-[11px] text-muted">
           Shift-click for a range · right-click to isolate a day
         </p>

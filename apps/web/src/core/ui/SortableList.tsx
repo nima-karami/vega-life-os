@@ -5,6 +5,7 @@ import {
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
+  MouseSensor,
   PointerSensor,
   TouchSensor,
   useSensor,
@@ -20,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { type ReactNode, useState } from "react";
 import { cx } from "./cx";
 import { Icon } from "./icons";
+import { useCompact } from "./useCompactModal";
 
 // Two static group names so a nested list's handles don't reveal when an
 // ancestor row is hovered (Tailwind group-hover matches any same-named ancestor).
@@ -31,8 +33,8 @@ const ROW_GROUP = {
 const HANDLE_DRAG_DISTANCE_PX = 6;
 const TOUCH_LONG_PRESS_DELAY_MS = 250;
 const TOUCH_LONG_PRESS_TOLERANCE_PX = 8;
-const POINTER_LONG_PRESS_DELAY_MS = 300;
-const POINTER_LONG_PRESS_TOLERANCE_PX = 8;
+const MOUSE_LONG_PRESS_DELAY_MS = 300;
+const MOUSE_LONG_PRESS_TOLERANCE_PX = 8;
 
 function SortableRow({
   id,
@@ -149,24 +151,38 @@ export function SortableList<T>({
   nested?: boolean;
   /** Drag the whole row (grab cursor, no left handle) — for modals/editors where a left-edge handle is clipped. */
   wholeRowDrag?: boolean;
-  /** Hold the whole row to lift it — no handle at all, for rows that are themselves a link. */
-  longPress?: boolean;
+  /** Hold the whole row to lift it — no handle at all, for rows that are themselves a link. `"compact"` does it on a phone only. */
+  longPress?: boolean | "compact";
 }) {
+  const compact = useCompact();
+  const isLongPress = longPress === "compact" ? compact : longPress;
+  // Delaying activation lets a quick click on the row's own link through; only a held press drags.
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: {
+      delay: MOUSE_LONG_PRESS_DELAY_MS,
+      tolerance: MOUSE_LONG_PRESS_TOLERANCE_PX,
+    },
+  });
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: { distance: HANDLE_DRAG_DISTANCE_PX },
+  });
+  // Press-and-hold on touch lets quick swipes scroll rather than drag (WCAG 2.5.7).
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: TOUCH_LONG_PRESS_DELAY_MS,
+      tolerance: TOUCH_LONG_PRESS_TOLERANCE_PX,
+    },
+  });
+  const keyboardSensor = useSensor(KeyboardSensor, {
+    coordinateGetter: sortableKeyboardCoordinates,
+  });
+  // A long-press row keeps `touch-manipulation`, so Chromium answers a moving touch with
+  // `pointercancel` and a PointerSensor drag dies on the first move. MouseSensor leaves the
+  // touch stream to TouchSensor, whose non-passive `touchmove` listener can cancel the pan.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      // Delaying activation lets a quick click on the row's own link through; only a held press drags.
-      activationConstraint: longPress
-        ? { delay: POINTER_LONG_PRESS_DELAY_MS, tolerance: POINTER_LONG_PRESS_TOLERANCE_PX }
-        : { distance: HANDLE_DRAG_DISTANCE_PX },
-    }),
-    // Press-and-hold on touch lets quick swipes scroll rather than drag (WCAG 2.5.7).
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: TOUCH_LONG_PRESS_DELAY_MS,
-        tolerance: TOUCH_LONG_PRESS_TOLERANCE_PX,
-      },
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    isLongPress ? mouseSensor : pointerSensor,
+    touchSensor,
+    keyboardSensor,
   );
   const ids = items.map(getId);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -196,8 +212,8 @@ export function SortableList<T>({
               id={getId(item)}
               label={`Reorder ${getLabel(item)}`}
               nested={nested}
-              wholeRow={wholeRowDrag || longPress}
-              longPress={longPress}
+              wholeRow={wholeRowDrag || isLongPress}
+              longPress={isLongPress}
             >
               {renderItem(item)}
             </SortableRow>

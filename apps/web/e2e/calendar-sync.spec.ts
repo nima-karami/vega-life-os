@@ -177,3 +177,27 @@ test("clicking a lived event on Today opens the event editor", async ({ page }) 
     "Concert with friends",
   );
 });
+
+// A mouse click carries a pixel of jitter between down and up, which used to set the drag's
+// `moved` flag and swallow the tap — the chip looked dead.
+test("a jittered click on a timed chip opens the editor and moves nothing", async ({ page }) => {
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+
+  const chip = page.getByRole("button", { name: /^Update ID card, 13:00–14:00/ });
+  await expect(chip).toBeVisible({ timeout: 15_000 });
+  // hover() scrolls the chip inside the grid's own scroller first; a raw box read there
+  // points at a clipped position the mouse would miss.
+  await chip.hover();
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 1, box.y + box.height / 2 + 1);
+  await page.mouse.up();
+
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Update ID card");
+  await page.keyboard.press("Escape");
+  await expect(chip).toBeVisible();
+});

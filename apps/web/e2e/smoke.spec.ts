@@ -224,6 +224,67 @@ test("add-a-task captures a title and the card appears in Remaining", async ({ p
   await expect(remaining).toContainText(unique);
 });
 
+test("the undo bar keeps its desktop offset of 24px above the viewport bottom", async ({
+  page,
+}) => {
+  const viewport = { width: 1280, height: 800 };
+  await page.setViewportSize(viewport);
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.locator('main [aria-label^="Actions for "]').first().click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+
+  // No nav band above sm, so the phone lift must never fire here: bottom-6 stands.
+  const undoBar = page.getByRole("status").filter({ hasText: "Task deleted" });
+  await expect(undoBar).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        const box = await undoBar.boundingBox();
+        return box === null
+          ? Number.POSITIVE_INFINITY
+          : Math.round(viewport.height - box.y - box.height);
+      },
+      { message: "the undo bar moved off its desktop offset", timeout: 5_000 },
+    )
+    .toBe(24);
+});
+
+test("the header avatar clears the search bar in the tablet band and floats right at lg", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  const avatar = page.getByRole("button", { name: "Account menu" });
+  const search = page.getByRole("button", { name: "Open command bar" });
+  await expect(avatar).toBeVisible();
+
+  const tabletAvatar = await avatar.boundingBox();
+  const tabletSearch = await search.boundingBox();
+  if (!tabletAvatar || !tabletSearch) throw new Error("missing header box");
+  // The centered max-w-2xl search row reaches the avatar in this band, so the avatar
+  // must still be in flow beside it — the float would put them on top of each other.
+  expect(
+    tabletSearch.x + tabletSearch.width,
+    "the search bar runs under the account avatar",
+  ).toBeLessThanOrEqual(tabletAvatar.x + 1);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect
+    .poll(
+      async () => {
+        const box = await avatar.boundingBox();
+        return box === null ? Number.POSITIVE_INFINITY : Math.round(1280 - (box.x + box.width));
+      },
+      { message: "the avatar is not pinned to the right edge at lg", timeout: 5_000 },
+    )
+    .toBe(16);
+});
+
 // ─── Calendar: slot create / draft discard / right-click delete ───────────────
 
 test("calendar: opening a slot then closing without naming discards the draft", async ({
@@ -519,6 +580,8 @@ test("calendar: relink a detached habit instance snaps it back to the template",
 test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count", async ({
   page,
 }) => {
+  const viewport = { width: 1280, height: 800 };
+  await page.setViewportSize(viewport);
   await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
@@ -532,6 +595,19 @@ test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count
   const bar = page.getByRole("toolbar", { name: "Bulk actions" });
   await expect(bar).toContainText("2 selected", { timeout: 10_000 });
   await expect(a).toHaveAttribute("aria-pressed", "true");
+
+  // No nav band above sm, so the phone lift must never fire here: bottom-6 stands.
+  await expect
+    .poll(
+      async () => {
+        const box = await bar.boundingBox();
+        return box === null
+          ? Number.POSITIVE_INFINITY
+          : Math.round(viewport.height - box.y - box.height);
+      },
+      { message: "the bulk action bar moved off its desktop offset", timeout: 5_000 },
+    )
+    .toBe(24);
 
   // Esc clears the selection and hides the bar.
   await page.keyboard.press("Escape");
@@ -841,6 +917,71 @@ test("values: Add creates the value and opens its page", async ({ page }) => {
 
   await page.getByRole("link", { name: "Values", exact: true }).click();
   await expect(cards).toHaveCount(before + 1);
+});
+
+// The only always-on long-press list, so D-C2-6's MouseSensor swap has no other cover.
+test("values: a held mouse press reorders a value card and the order survives a reload", async ({
+  page,
+}) => {
+  await passGratitudeGate(page);
+  await page.goto("/values", { waitUntil: "networkidle" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  const rows = page.locator('main [aria-label^="Reorder "]');
+  const valueOrder = () =>
+    rows.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""));
+  const before = await valueOrder();
+  expect(before.length, "the sample sandbox needs two values to reorder").toBeGreaterThan(1);
+
+  const fromBox = await rows.first().boundingBox();
+  if (!fromBox) throw new Error("a value row has no bounding box");
+  const x = fromBox.x + fromBox.width / 2;
+  const fromY = fromBox.y + fromBox.height / 2;
+  // The next row is only pushed aside once it is the drop target, and dnd-kit hands the drop
+  // to the row after it if the press keeps travelling — so release on the first displacement.
+  const nextRowShift = () =>
+    rows.nth(1).evaluate((el) => {
+      const t = getComputedStyle(el).transform;
+      return t === "none" ? 0 : Math.abs(new DOMMatrixReadOnly(t).m42);
+    });
+  const dragDownPastNextRow = async () => {
+    for (let step = 1; step <= 40 && (await nextRowShift()) < 1; step += 1) {
+      await page.mouse.move(x, fromY + step * 12);
+      await page.waitForTimeout(20);
+    }
+  };
+
+  // The sensor is what is under test, not the outcome: a distance-only PointerSensor would
+  // arm on this drag's first 12px step and reorder without any hold at all.
+  await page.mouse.move(x, fromY);
+  await page.mouse.down();
+  await dragDownPastNextRow();
+  await page.mouse.up();
+  await page.goto("/values", { waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+  await expect
+    .poll(valueOrder, { message: "a drag with no hold reordered the values" })
+    .toEqual(before);
+
+  await page.mouse.move(x, fromY);
+  await page.mouse.down();
+  // MouseSensor arms at 300ms and an 8px move before then cancels it, so hold still first.
+  await page.waitForTimeout(400);
+  await dragDownPastNextRow();
+  expect(await nextRowShift(), "the held press never displaced the next card").toBeGreaterThan(1);
+  await page.mouse.up();
+
+  const swapped = [before[1], before[0], ...before.slice(2)];
+  await expect
+    .poll(valueOrder, { message: "the held mouse press did not reorder the values" })
+    .toEqual(swapped);
+  await expect(page, "the drag must not follow the card's link").toHaveURL(/\/values$/);
+
+  await page.reload({ waitUntil: "networkidle" });
+  await passGratitudeGate(page);
+  await expect
+    .poll(valueOrder, { message: "the new value order did not survive a reload" })
+    .toEqual(swapped);
 });
 
 // Reorder is not covered here: driving dnd-kit's keyboard path failed ~1 run in 3, and keyboard

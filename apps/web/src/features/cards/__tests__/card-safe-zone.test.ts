@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { NAV_CLEARANCE_FALLBACK_PX } from "@/core/ui/useNavClearance";
 import { composeFace } from "../face/compose";
 import {
   type FaceTextPlan,
   FULL_BLEED_SIDE_PX,
   fitTermFontSize,
-  NAV_CLEARANCE_FALLBACK_PX,
   planFace,
   resolveFullBleedPadding,
   resolveVerticalInset,

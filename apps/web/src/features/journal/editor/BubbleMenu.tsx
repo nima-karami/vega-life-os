@@ -2,7 +2,7 @@ import type { Editor } from "@tiptap/react";
 import { posToDOMRect } from "@tiptap/react";
 import { Bold, Code, Italic, Link2, Link2Off, Strikethrough } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { useCompact } from "@/core/ui";
+import { cx, useBottomBarLift, useCompact } from "@/core/ui";
 import { isSafeHref } from "./extensions";
 
 interface MarkButton {
@@ -50,6 +50,8 @@ const MARKS: MarkButton[] = [
  */
 export function JournalBubbleMenu({ editor }: { editor: Editor }) {
   const compact = useCompact();
+  // A toolbar, not a notification: it docks flush against the nav band, no gap.
+  const lift = useBottomBarLift(0);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkValue, setLinkValue] = useState("");
@@ -120,9 +122,12 @@ export function JournalBubbleMenu({ editor }: { editor: Editor }) {
   // floating over the selection, where it's hidden by the caret/handles.
   // The wrapper is larger than the bar it centers, so it must not swallow taps behind it.
   const wrapperClass = compact
-    ? "safe-mb pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-2"
+    ? cx(
+        lift.className,
+        "pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3",
+      )
     : "pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full pb-2";
-  const wrapperStyle = compact ? undefined : { top: pos.top, left: pos.left };
+  const wrapperStyle = compact ? lift.style : { top: pos.top, left: pos.left };
 
   return (
     <div className={wrapperClass} style={wrapperStyle}>
