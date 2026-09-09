@@ -35,6 +35,7 @@ const CORNER_INSET_PX = 12;
 const ROW_PRESS_INSET_PX = 6;
 // The band a row-sized-but-not-pressable-sized box leaves dead: only its middle takes a tap.
 const ROW_EDGE_INSETS_PX = [3, 8];
+const CONTROL_EDGE_INSET_PX = 4;
 const FILTER_EDGE_WIDTHS = [320, 390, 430];
 // Past the 500ms the row menu waits for, short enough to stay a press and not a drag.
 const HOLD_MS = 650;
@@ -129,6 +130,49 @@ async function probeRowPoint(page: Page, point: Point) {
       isOnPressable: pressable !== null && (hit === pressable || pressable.contains(hit)),
     };
   }, point);
+}
+
+/** The rim a thumb actually lands on: four corners and four mid-edges, never the safe middle. */
+async function controlEdgePoints(target: Locator): Promise<(Point & { label: string })[]> {
+  const box = await target.boundingBox();
+  if (box === null) throw new Error("the control has no bounding box");
+  const left = box.x + CONTROL_EDGE_INSET_PX;
+  const right = box.x + box.width - CONTROL_EDGE_INSET_PX;
+  const midX = box.x + box.width / 2;
+  const top = box.y + CONTROL_EDGE_INSET_PX;
+  const bottom = box.y + box.height - CONTROL_EDGE_INSET_PX;
+  const midY = box.y + box.height / 2;
+  return [
+    { label: "top-left", x: left, y: top },
+    { label: "top-centre", x: midX, y: top },
+    { label: "top-right", x: right, y: top },
+    { label: "right-middle", x: right, y: midY },
+    { label: "bottom-right", x: right, y: bottom },
+    { label: "bottom-centre", x: midX, y: bottom },
+    { label: "bottom-left", x: left, y: bottom },
+    { label: "left-middle", x: left, y: midY },
+  ];
+}
+
+/** What a thumb at `point` really lands on, and whether that element is the control itself. */
+async function probeControlPoint(page: Page, point: Point, control: Locator) {
+  const handle = await control.elementHandle();
+  if (handle === null) throw new Error("the control is not attached");
+  try {
+    return await page.evaluate(
+      ({ x, y, control: expected }) => {
+        const hit = document.elementFromPoint(x, y);
+        const classNames = typeof hit?.className === "string" ? hit.className : "";
+        return {
+          hit: hit === null ? "nothing" : `${hit.tagName.toLowerCase()}.${classNames}`.slice(0, 90),
+          isOnControl: hit === expected,
+        };
+      },
+      { ...point, control: handle },
+    );
+  } finally {
+    await handle.dispose();
+  }
 }
 
 async function upperCornerOf(target: Locator): Promise<{ x: number; y: number }> {
@@ -894,6 +938,103 @@ test("a filter row takes a tap on its top and bottom edges, not only its middle"
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
   }
+});
+
+// Eight rim points, each with a real tap and a state assertion, is more than one 30s test can
+// hold for three widths — a width per test keeps every point and its own budget.
+for (const width of FILTER_EDGE_WIDTHS) {
+  test(`the category filter input takes a tap anywhere on its rim (${width}px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: PHONE_HEIGHT });
+    await openDeck(page);
+    await page.getByRole("button", { name: "Filter cards" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Filter cards");
+
+    const input = dialog.getByRole("textbox", { name: "Filter categories" });
+    // The box a thumb aims at is the bordered one, so the rim is measured from the input's
+    // container: a smaller input centred inside it is exactly the dead band being ruled out.
+    const field = dialog.locator('div:has(> input[aria-label="Filter categories"])');
+    const box = await input.boundingBox();
+    const fieldBox = await field.boundingBox();
+    if (box === null || fieldBox === null)
+      throw new Error("the category field has no bounding box");
+    expect(box.height, "the category input is under a thumb").toBeGreaterThanOrEqual(
+      TOUCH_TARGET_PX,
+    );
+    expect(fieldBox.height, "the category field is under a thumb").toBeGreaterThanOrEqual(
+      TOUCH_TARGET_PX,
+    );
+
+    // The dialog contains focus, so `blur()` is undone the moment it lands — park focus on a
+    // sibling inside the scope instead, or every tap looks like a hit.
+    const elsewhere = dialog.getByRole("button", { name: "Clear", exact: true });
+    for (const point of await controlEdgePoints(field)) {
+      await elsewhere.focus();
+      await expect(input).not.toBeFocused();
+      const probe = await probeControlPoint(page, point, input);
+      expect(probe.isOnControl, `${point.label}: the tap hits ${probe.hit}`).toBe(true);
+      await tap(page, point);
+      await expect(input, `${point.label} focused nothing`).toBeFocused();
+    }
+  });
+
+  test(`the sheet's clear button is thumb-sized and really clears from its rim (${width}px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: PHONE_HEIGHT });
+    await openDeck(page);
+    await page.getByRole("button", { name: "Filter cards" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Filter cards");
+
+    const clear = dialog.getByRole("button", { name: "Clear", exact: true });
+    const clearBox = await clear.boundingBox();
+    if (clearBox === null) throw new Error("the clear button has no bounding box");
+    expect(clearBox.height, "clear is under a thumb").toBeGreaterThanOrEqual(TOUCH_TARGET_PX);
+    expect(clearBox.y + clearBox.height, "the footer runs off the sheet").toBeLessThan(
+      PHONE_HEIGHT,
+    );
+
+    const footer = dialog.getByText(/^\d+ of \d+ cards?$/);
+    const unfilteredFooter = (await footer.innerText()).trim();
+    const firstRow = dialog.locator("[data-filter-row]").first();
+    const firstBox = firstRow.locator('input[type="checkbox"]');
+
+    for (const point of await controlEdgePoints(clear)) {
+      await firstRow.locator("label").click();
+      await expect(firstBox).toBeChecked();
+      await expect(footer).not.toHaveText(unfilteredFooter);
+
+      const probe = await probeControlPoint(page, point, clear);
+      expect(probe.isOnControl, `${point.label}: the tap hits ${probe.hit}`).toBe(true);
+      await tap(page, point);
+      await expect(firstBox, `${point.label} cleared nothing`).not.toBeChecked();
+      await expect(footer).toHaveText(unfilteredFooter);
+    }
+  });
+}
+
+test("the grown filter footer still fits the shortest phone (320x568)", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: SHORT_PHONE_HEIGHT });
+  await openDeck(page);
+  await page.getByRole("button", { name: "Filter cards" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator("[data-filter-row]").first()).toBeVisible();
+
+  const clearBox = await dialog.getByRole("button", { name: "Clear", exact: true }).boundingBox();
+  if (clearBox === null) throw new Error("the clear button has no bounding box");
+  expect(clearBox.height).toBeGreaterThanOrEqual(TOUCH_TARGET_PX);
+  expect(clearBox.y + clearBox.height, "the footer runs off a short phone").toBeLessThan(
+    SHORT_PHONE_HEIGHT,
+  );
+  // The scroller has to keep real room next to the taller footer, not collapse behind it.
+  const scrollerHeight = await dialog
+    .locator("[data-filter-row]")
+    .first()
+    .evaluate((row) => (row.parentElement?.parentElement?.clientHeight ?? 0) as number);
+  expect(scrollerHeight, "the filter list has no room left").toBeGreaterThan(TOUCH_TARGET_PX * 3);
 });
 
 test("the compact branch still reaches both empty states (390px)", async ({ page }) => {

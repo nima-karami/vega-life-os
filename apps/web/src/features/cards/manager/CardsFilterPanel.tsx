@@ -14,10 +14,21 @@ import { buildTypeOptions } from "./card-row-actions";
 const GROUP_LABEL_CLASS =
   "block px-2 pt-2 pb-1 font-medium text-[12px] text-muted uppercase tracking-[.06em] sm:text-[11px]";
 const ROW_CLASS = "grid w-full rounded-[7px] hover:bg-surface-secondary";
-// Every box the row wants belongs on Content: it is the label that takes the press, so a
-// thumb-sized row only pads a 21px pressable, and the Checkbox root carries its own font-size.
-const ROW_FIELD_CLASS = "min-h-11 px-2 py-[5px] sm:min-h-0";
+// Every pressable in the sheet wears this and nothing else grows: a box that is 44px while the
+// control inside it stays 21px is the exact failure this sheet already shipped twice.
+const TOUCH_HEIGHT_CLASS = "min-h-11 sm:min-h-0";
+const ROW_FIELD_CLASS = cx(TOUCH_HEIGHT_CLASS, "px-2 py-[5px]");
 const ROW_LABEL_CLASS = "min-w-0 flex-1 truncate text-left text-[15px] sm:text-[13.5px]";
+// The input carries the border and the height itself, the way every other search box here does,
+// so there is no shell left over to swallow a tap aimed at it.
+const CATEGORY_SEARCH_CLASS = cx(
+  TOUCH_HEIGHT_CLASS,
+  "w-full rounded-[10px] border border-border bg-surface py-1.5 pr-[9px] pl-[30px] text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:text-[13px]",
+);
+const CLEAR_CLASS = cx(
+  TOUCH_HEIGHT_CLASS,
+  "inline-flex items-center justify-center rounded px-2 font-medium text-[13px] text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent sm:px-0",
+);
 
 function FilterRow({
   label,
@@ -105,15 +116,19 @@ export function CardsFilterPanel({
 
         <div className="py-1">
           <span className={GROUP_LABEL_CLASS}>Category</span>
-          <div className="mx-2 mt-0.5 mb-1.5 flex items-center gap-2 rounded-[10px] border border-border bg-surface px-[9px] py-1.5">
-            <Icon name="search" size={13} className="shrink-0 text-muted" />
+          <div className="relative mx-2 mt-0.5 mb-1.5">
+            <Icon
+              name="search"
+              size={13}
+              className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-[9px] text-muted"
+            />
             <input
               type="text"
               value={categoryQuery}
               aria-label="Filter categories"
               placeholder="Filter categories…"
               onChange={(event) => setCategoryQuery(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted sm:text-[13px]"
+              className={CATEGORY_SEARCH_CLASS}
             />
           </div>
           <div>
@@ -152,7 +167,7 @@ export function CardsFilterPanel({
         <button
           type="button"
           onClick={() => onFilterChange(EMPTY_CARD_FILTER)}
-          className="rounded font-medium text-[13px] text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+          className={CLEAR_CLASS}
         >
           Clear
         </button>
