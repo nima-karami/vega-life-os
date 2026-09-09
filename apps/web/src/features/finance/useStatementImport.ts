@@ -50,16 +50,14 @@ const NO_ACCOUNT_TOAST = "Add an account before importing";
 
 const IDLE: ImportPhase = { status: "idle" };
 
-const HIDDEN_TAB_YIELD_MS = 60;
+const PAINT_YIELD_FLOOR_MS = 500;
 
-/**
- * A bare `setTimeout(0)` hands back the event loop but not a rendering opportunity — measured, the
- * parsing notice still never reached the screen. A hidden tab is given no frame at all, so the
- * outer timer is a floor rather than a race.
- */
+// A bare `setTimeout(0)` hands back the event loop but not a rendering opportunity — measured, the
+// parsing notice still never reached the screen. The floor only ever wins where no frame is coming
+// (a hidden tab, whose timers Chrome throttles to ~1s anyway), never against a contended one.
 const yieldToPaint = () =>
   new Promise<void>((resolve) => {
-    const floor = setTimeout(resolve, HIDDEN_TAB_YIELD_MS);
+    const floor = setTimeout(resolve, PAINT_YIELD_FLOOR_MS);
     requestAnimationFrame(() => {
       clearTimeout(floor);
       setTimeout(resolve, 0);
@@ -137,7 +135,9 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     );
 
   const clearPhase = () => {
-    setReceipt((current) => (current?.stamp.accountId === accountId ? null : current));
+    setReceipt((current) =>
+      current?.stamp.accountId === liveStamp.current.accountId ? null : current,
+    );
     setPhase(IDLE);
   };
 

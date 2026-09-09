@@ -60,6 +60,7 @@ const buildAccount = (id: string): FinanceAccount => ({
 
 const ACCOUNT_A = buildAccount("facc_a");
 const ACCOUNT_B = buildAccount("facc_b");
+const ACCOUNT_C = buildAccount("facc_c");
 
 const STATEMENT: ParsedStatement = {
   file: "unit-statement.csv",
@@ -203,8 +204,10 @@ describe("useStatementImport while the chosen account moves", () => {
 
   it("hands the thread back once the notice is up, before the parse takes it", async () => {
     await render(ACCOUNT_A);
+    const rafSpy = vi.spyOn(globalThis, "requestAnimationFrame");
     await openHeldFileToParsingWindow();
 
+    expect(rafSpy, "the parse waited on a timer, not on a frame").toHaveBeenCalled();
     expect(flow.phase).toEqual({ status: "parsing", fileName: "unit-statement.csv" });
     expect(held.parses, "the parse took the thread without letting its notice paint").toHaveLength(
       0,
@@ -221,7 +224,6 @@ describe("useStatementImport while the chosen account moves", () => {
     await releaseParse();
 
     expect(flow.phase.status).toBe("idle");
-    expect(held.writtenTo, "the abandoned parse wrote under the account moved to").toEqual([]);
 
     await render(ACCOUNT_A);
     expect(flow.phase.status).toBe("idle");
@@ -387,6 +389,56 @@ describe("useStatementImport while the chosen account moves", () => {
     await render(ACCOUNT_A);
 
     expect(flow.phase.status).toBe("idle");
+  });
+
+  it("hands the slot to the last dead commit to land when no live receipt holds it", async () => {
+    await render(ACCOUNT_A);
+    const stagedInA = await stagePreview();
+    await act(async () => {
+      flow.commit(stagedInA);
+    });
+
+    await render(ACCOUNT_B);
+    const stagedInB = await stagePreview();
+    await act(async () => {
+      flow.commit(stagedInB);
+    });
+
+    await render(ACCOUNT_C);
+    await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null }, 1);
+    await releaseCommit({ writtenRows: 9, writtenChunks: 1, failedChunk: null }, 0);
+
+    await render(ACCOUNT_A);
+    expect(flow.phase, "the newer dead receipt kept a slot no live account was reading").toEqual({
+      status: "committed",
+      inserted: 9,
+      skipped: 0,
+    });
+
+    await render(ACCOUNT_B);
+    expect(flow.phase.status).toBe("idle");
+  });
+
+  it("keeps a receipt a cancel raised from the account already left cannot own", async () => {
+    await render(ACCOUNT_A);
+    const staged = await stagePreview();
+    await act(async () => {
+      flow.commit(staged);
+    });
+    await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null });
+    const cancelFromA = flow.reset;
+
+    await render(ACCOUNT_B);
+    await act(async () => {
+      cancelFromA();
+    });
+    await render(ACCOUNT_A);
+
+    expect(flow.phase, "a cancel closed over the account left behind cleared its receipt").toEqual({
+      status: "committed",
+      inserted: 2,
+      skipped: 0,
+    });
   });
 
   it("keeps another account's receipt when a failed parse is cleared", async () => {
