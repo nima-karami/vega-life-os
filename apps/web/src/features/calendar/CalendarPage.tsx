@@ -9,6 +9,7 @@ import {
   cx,
   FloatingMenu,
   Icon,
+  isTouchPointer,
   type MenuItem,
   TimePicker,
   UndoBar,
@@ -142,6 +143,7 @@ export function CalendarPage() {
     y: number;
     date: string;
     time: string;
+    scrim: boolean;
   } | null>(null);
   const [scheduleSlot, setScheduleSlot] = useState<{ date: string; time: string } | null>(null);
   // "Schedule to time…" — the keyboard path that gives an all-day chip a time.
@@ -313,6 +315,7 @@ export function CalendarPage() {
       y: e.clientY,
       date: dayIso,
       time: formatMinutes(minuteAt(e.clientY)),
+      scrim: isTouchPointer(e.nativeEvent),
     });
   };
 
@@ -1426,6 +1429,7 @@ export function CalendarPage() {
           pos={{ x: slotMenu.x, y: slotMenu.y }}
           onClose={() => setSlotMenu(null)}
           label="Slot actions"
+          dismissScrim={slotMenu.scrim}
           items={[
             {
               label: "Add task here",

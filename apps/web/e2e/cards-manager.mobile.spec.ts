@@ -31,6 +31,7 @@ const BULK_BAR_CONTROLS = [
 ];
 
 const rows = (page: Page) => page.locator("[data-card-row]");
+const tileFace = (page: Page) => page.getByRole("button", { name: /— face$/ }).first();
 
 interface WidthProbe {
   widestPx: number;
@@ -83,6 +84,7 @@ async function holdUntilMenu(page: Page, row: Locator) {
   await page.waitForTimeout(HOLD_MS);
   await cancelTouch(page);
   await expect(page.getByRole("menu")).toBeVisible();
+  await expect(page.locator("[data-menu-scrim]")).toHaveCount(1);
 }
 
 /** Hold the row open, dismiss with Escape, and leave the row ready for the next tap. */
@@ -362,9 +364,36 @@ test("a tap while the row menu is open only dismisses it, and the next tap acts 
   await page.keyboard.press("Escape");
 
   await holdUntilMenu(page, row);
-  await tap(page, await touchRailCentreOf(row.getByRole("checkbox")));
+  const rail = await touchRailCentreOf(row.getByRole("checkbox"));
+  await tap(page, rail);
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(page.getByText("1 selected")).toHaveCount(0);
+
+  await tap(page, rail);
+  await expect(page.getByText("1 selected")).toBeVisible();
+});
+
+test("a dismissal that never becomes a click arms nothing for later (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const selectLabel = await row.getByRole("checkbox").getAttribute("aria-label");
+  const cardTitle = (selectLabel ?? "").replace(/^Select /, "");
+  expect(cardTitle).not.toBe("");
+
+  await holdUntilMenu(page, row);
+  // Taken over before it lifts: the dismissing touch emits no click of its own, so anything
+  // the dismissal armed on the way past is still waiting when the next click arrives.
+  await startTouch(page, await centreOf(page.getByRole("searchbox", { name: "Search cards" })));
+  await cancelTouch(page);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  // A keyboard click arrives with no pointerdown ahead of it to release what the dismissal left.
+  await row.getByRole("button", { name: `Hide ${cardTitle}` }).focus();
+  await page.keyboard.press("Enter");
+  await expect(row.getByRole("button", { name: `Restore ${cardTitle}` })).toBeVisible();
 });
 
 // A react-aria pressable stops `pointerdown` before it can bubble, so a press starting on one
@@ -395,7 +424,7 @@ test("a long press starting on an attribute chip opens the row actions (390px)",
 test("a long press on a gallery tile opens the same row actions (390px)", async ({ page }) => {
   await openGallery(page, 390);
 
-  const tile = page.locator('[aria-label$=" — face"]').first();
+  const tile = tileFace(page);
   await expect(tile).toBeVisible({ timeout: 15_000 });
   await longPress(page, await centreOf(tile));
 
@@ -411,7 +440,7 @@ test("a tap while a gallery tile's menu is open dismisses it without flipping (3
 }) => {
   await openGallery(page, 390);
 
-  const tile = page.getByRole("button", { name: /— face$/ }).first();
+  const tile = tileFace(page);
   await expect(tile).toBeVisible({ timeout: 15_000 });
   const faceLabel = (await tile.getAttribute("aria-label")) ?? "";
   expect(faceLabel).not.toBe("");

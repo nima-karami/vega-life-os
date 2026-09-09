@@ -207,11 +207,9 @@ describe("planFace — scale is per property", () => {
     expect(galleryTerm(vocabulary)).toMatchObject({ fontSize: 56 * FLOORING_SCALE, wraps: false });
   });
 
-  it("lets floored type break its words so a long term cannot spill the reveal face", () => {
+  it("breaks the words of every floored line on the reveal face", () => {
     const term = buildCard({ ...vocabulary, title: "counterrevolutionary" });
-    const items = textItems(
-      planFace(composeFace(term, "reveal"), 0.35, false, false, CARD_STAGE_WIDTH_PX).items,
-    );
+    const items = textItems(planFace(composeFace(term, "reveal"), 0.35, false).items);
     expect(items[0]).toMatchObject({ kind: "caps", fontSize: 8, wraps: true });
     expect(items[1].wraps).toBe(true);
   });

@@ -284,6 +284,8 @@ test("a row's context menu never opens the native menu or flips selection by its
   await row.click({ button: "right" });
   await expect(page.getByRole("menu")).toBeVisible();
   await expect(row.getByRole("checkbox")).not.toBeChecked();
+  // Only a touch-opened menu absorbs its dismissing tap; a mouse one leaves the page uncovered.
+  await expect(page.locator("[data-menu-scrim]")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toBeHidden();
 

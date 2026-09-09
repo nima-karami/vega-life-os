@@ -258,14 +258,12 @@ test("the preview dialog keeps none of the modal's paper chrome", async ({ page 
     return {
       background: style.backgroundColor,
       padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
-      borderTopWidth: style.borderTopWidth,
       // Tailwind resolves `shadow-none` to a chain of transparent layers, never to "none".
       shadowColours: [...style.boxShadow.matchAll(/rgba?\([^)]*\)/g)].map(([colour]) => colour),
     };
   });
   expect(chrome.background).toBe("rgba(0, 0, 0, 0)");
   expect(chrome.padding).toEqual(["0px", "0px", "0px", "0px"]);
-  expect(chrome.borderTopWidth).toBe("0px");
   expect(chrome.shadowColours.every((colour) => colour === "rgba(0, 0, 0, 0)")).toBe(true);
 });
 

@@ -17,21 +17,9 @@ export interface MenuPos {
   y: number;
 }
 
-// Dismiss-only: stop the press before react-aria starts one, then eat the click it becomes.
-function swallowDismissingTap(dismissing: PointerEvent) {
-  dismissing.stopPropagation();
-  function release() {
-    window.removeEventListener("click", swallowClick, true);
-    window.removeEventListener("pointerdown", release, true);
-  }
-  function swallowClick(click: MouseEvent) {
-    click.preventDefault();
-    click.stopPropagation();
-    release();
-  }
-  window.addEventListener("click", swallowClick, true);
-  // A dismissing press that never becomes a click must not arm the swallow for a later tap.
-  window.addEventListener("pointerdown", release, true);
+/** Chromium dispatches `contextmenu` as a PointerEvent; a keyboard-opened one is not. */
+export function isTouchPointer(event: Event): boolean {
+  return event instanceof PointerEvent && event.pointerType !== "mouse";
 }
 
 /**
@@ -45,13 +33,17 @@ export function FloatingMenu({
   items,
   onClose,
   label = "Context actions",
+  dismissScrim = false,
 }: {
   pos: MenuPos;
   items: MenuItem[];
   onClose: () => void;
   label?: string;
+  /** a touch-opened menu absorbs the dismissing tap on a scrim, so it reaches no consumer */
+  dismissScrim?: boolean;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
   const { x: px, y: py } = pos;
   const [coords, setCoords] = useState<MenuPos>({ x: px, y: py });
 
@@ -80,9 +72,11 @@ export function FloatingMenu({
     // A pointerdown *inside* the menu is a selection, not a dismiss — ignore it so
     // the item's own onClick can fire. Otherwise the global handler unmounts the
     // portal on pointerdown, before the click ever lands (every item went dead).
+    // The scrim closes on its own release instead: unmounting it mid-gesture would hand the
+    // click that follows to whatever it was covering.
     const onPointerDown = (e: PointerEvent) => {
       if (menuRef.current?.contains(e.target as Node)) return;
-      if (e.pointerType !== "mouse") swallowDismissingTap(e);
+      if (e.target === scrimRef.current) return;
       onCloseRef.current();
     };
     const onKey = (e: KeyboardEvent) => {
@@ -105,35 +99,61 @@ export function FloatingMenu({
     };
   }, []);
 
+  // Every listener the menu registers lives and dies with it — the scrim's on the scrim itself.
+  useEffect(() => {
+    const scrim = dismissScrim ? scrimRef.current : null;
+    if (scrim === null) return;
+    // The held press that opened the menu is still down, and its release clicks the scrim
+    // that appeared beneath it — so only a gesture that *starts* on the scrim dismisses.
+    let startedOnScrim = false;
+    const arm = () => {
+      startedOnScrim = true;
+    };
+    const close = () => {
+      if (startedOnScrim) onCloseRef.current();
+    };
+    scrim.addEventListener("pointerdown", arm);
+    scrim.addEventListener("click", close);
+    scrim.addEventListener("pointercancel", close);
+    return () => {
+      scrim.removeEventListener("pointerdown", arm);
+      scrim.removeEventListener("click", close);
+      scrim.removeEventListener("pointercancel", close);
+    };
+  }, [dismissScrim]);
+
   return createPortal(
-    <div
-      ref={menuRef}
-      role="menu"
-      aria-label={label}
-      className="fixed z-[80] min-w-[180px] overflow-hidden rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md"
-      style={{ left: coords.x, top: coords.y }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {items.map((it) => (
-        <button
-          key={it.label}
-          type="button"
-          role="menuitem"
-          disabled={it.disabled}
-          onClick={() => {
-            onCloseRef.current();
-            it.onSelect();
-          }}
-          className={cx(
-            "flex w-full cursor-pointer items-center gap-2.5 rounded-[var(--radius-floating-row)] px-2.5 py-2 text-left text-sm outline-none transition-colors duration-150 disabled:cursor-default disabled:opacity-50",
-            it.danger ? "text-danger hover:bg-danger/10" : "text-foreground hover:bg-default/40",
-          )}
-        >
-          {it.icon && <Icon name={it.icon} size={13} />}
-          {it.label}
-        </button>
-      ))}
-    </div>,
+    <>
+      {dismissScrim && <div ref={scrimRef} data-menu-scrim className="fixed inset-0 z-[79]" />}
+      <div
+        ref={menuRef}
+        role="menu"
+        aria-label={label}
+        className="fixed z-[80] min-w-[180px] overflow-hidden rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md"
+        style={{ left: coords.x, top: coords.y }}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {items.map((it) => (
+          <button
+            key={it.label}
+            type="button"
+            role="menuitem"
+            disabled={it.disabled}
+            onClick={() => {
+              onCloseRef.current();
+              it.onSelect();
+            }}
+            className={cx(
+              "flex w-full cursor-pointer items-center gap-2.5 rounded-[var(--radius-floating-row)] px-2.5 py-2 text-left text-sm outline-none transition-colors duration-150 disabled:cursor-default disabled:opacity-50",
+              it.danger ? "text-danger hover:bg-danger/10" : "text-foreground hover:bg-default/40",
+            )}
+          >
+            {it.icon && <Icon name={it.icon} size={13} />}
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </>,
     document.body,
   );
 }
@@ -169,7 +189,7 @@ export function ContextMenu({
   /** the held press won: a caller that also armed a drag on this pointerdown must abandon it */
   onLongPress?: () => void;
 }) {
-  const [pos, setPos] = useState<MenuPos | null>(null);
+  const [menu, setMenu] = useState<{ pos: MenuPos; scrim: boolean } | null>(null);
   const pressTimerRef = useRef<number | null>(null);
   const feedbackTimerRef = useRef<number | null>(null);
   const pressOriginRef = useRef<MenuPos | null>(null);
@@ -193,9 +213,8 @@ export function ContextMenu({
   );
 
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // A touch long-press releases without a click, so the flag outlives its own press until
-    // a press clears it — and only a press landing with no menu open is allowed to act.
-    if (pos === null) suppressClickRef.current = false;
+    // A held touch releases without a click, so its suppression stands while its menu is open.
+    if (menu === null || event.pointerType === "mouse") suppressClickRef.current = false;
     if (!longPress || event.pointerType === "mouse") return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
     feedbackTimerRef.current = window.setTimeout(() => {
@@ -204,10 +223,12 @@ export function ContextMenu({
     }, PRESS_FEEDBACK_MS);
     pressTimerRef.current = window.setTimeout(() => {
       pressTimerRef.current = null;
+      const origin = pressOriginRef.current;
+      if (origin === null) return;
       suppressClickRef.current = true;
       onLongPressPending?.(false);
       onLongPress?.();
-      setPos(pressOriginRef.current);
+      setMenu({ pos: origin, scrim: true });
       pressOriginRef.current = null;
     }, LONG_PRESS_MS);
   };
@@ -234,7 +255,10 @@ export function ContextMenu({
         onContextMenu={(e) => {
           e.preventDefault();
           cancelPress();
-          setPos({ x: e.clientX, y: e.clientY });
+          setMenu({
+            pos: { x: e.clientX, y: e.clientY },
+            scrim: isTouchPointer(e.nativeEvent),
+          });
         }}
         onPointerDownCapture={handlePressStart}
         onPointerMoveCapture={handlePressMove}
@@ -245,7 +269,17 @@ export function ContextMenu({
         {children}
       </div>
 
-      {pos && <FloatingMenu pos={pos} items={items} onClose={() => setPos(null)} />}
+      {menu && (
+        <FloatingMenu
+          pos={menu.pos}
+          items={items}
+          onClose={() => {
+            suppressClickRef.current = false;
+            setMenu(null);
+          }}
+          dismissScrim={menu.scrim}
+        />
+      )}
     </>
   );
 }

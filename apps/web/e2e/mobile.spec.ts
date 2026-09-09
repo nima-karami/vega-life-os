@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { longPress } from "./helpers/touch";
+import { expect, type Locator, type Page, test } from "@playwright/test";
+import { longPress, tap } from "./helpers/touch";
 
 /**
  * Mobile-usability proof (spec §7). Runs on a touch phone profile; the @automatable
@@ -273,6 +273,55 @@ test("calendar: a real held touch on an all-day chip opens its menu", async ({ p
 
   await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
   await expect(page.getByRole("menuitem", { name: "Move to day…" })).toBeVisible();
+});
+
+/** A point on `target` the open menu does not cover — the menu hangs off the press it opened on. */
+async function pointClearOfMenu(page: Page, target: Locator): Promise<{ x: number; y: number }> {
+  const box = await target.boundingBox();
+  const menu = await page.getByRole("menu").boundingBox();
+  if (box === null || menu === null) throw new Error("the chip or the menu has no bounding box");
+  const y = box.y + box.height / 2;
+  const x = [box.x + 8, box.x + box.width / 2, box.x + box.width - 8].find(
+    (candidate) =>
+      candidate < menu.x ||
+      candidate > menu.x + menu.width ||
+      y < menu.y ||
+      y > menu.y + menu.height,
+  );
+  if (x === undefined) throw new Error("the menu covers the whole chip");
+  return { x, y };
+}
+
+test("calendar: a touch while a chip's menu is open only dismisses it, and the next one opens the chip", async ({
+  page,
+}) => {
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  const allDay = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(allDay).toBeVisible({ timeout: 10_000 });
+
+  const timed = page.getByRole("button", { name: /, \d{2}:\d{2}–\d{2}:\d{2}/ }).first();
+  await expect(timed).toBeVisible({ timeout: 10_000 });
+  await timed.scrollIntoViewIfNeeded();
+
+  const allDayBox = await allDay.boundingBox();
+  if (allDayBox === null) throw new Error("the all-day chip has no bounding box");
+  await longPress(page, {
+    x: allDayBox.x + allDayBox.width / 2,
+    y: allDayBox.y + allDayBox.height / 2,
+  });
+  await expect(page.getByRole("menu")).toBeVisible();
+
+  // The dismissing touch stops at the menu: it neither opens the chip nor arms its drag.
+  const target = await pointClearOfMenu(page, timed);
+  await tap(page, target);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Edit task" })).toHaveCount(0);
+
+  await tap(page, target);
+  await expect(page.getByRole("dialog", { name: "Edit task" })).toBeVisible();
 });
 
 test("a long press opens the row menu while a tap still opens the card (390px)", async ({
