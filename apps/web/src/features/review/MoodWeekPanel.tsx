@@ -11,8 +11,8 @@ const DELTA_COPY = {
 } as const;
 
 /** Full-height finger cell on a phone; back to a bare 16px pip from sm up. */
-const DAY_CELL =
-  "grid h-11 flex-1 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent sm:h-4 sm:w-4 sm:flex-none";
+const DAY_CELL = "grid h-11 flex-1 place-items-center rounded-full sm:h-4 sm:w-4 sm:flex-none";
+const DAY_LINK = `${DAY_CELL} outline-none focus-visible:ring-2 focus-visible:ring-accent`;
 
 const moodTint = (mood: number) => ({
   background: "var(--color-accent)",
@@ -41,7 +41,7 @@ export function MoodWeekPanel({ week }: { week: MoodWeek }) {
               to={`/journal/${iso}`}
               title={`${dayLabel} — ${MOOD_LABEL[mood]} (${mood})`}
               aria-label={`${dayLabel} — ${MOOD_LABEL[mood]} (${mood})`}
-              className={DAY_CELL}
+              className={DAY_LINK}
             >
               <span className="h-4 w-4 rounded-full" style={moodTint(mood)} />
             </Link>
