@@ -147,16 +147,21 @@ export function FloatingMenu({
       if (laterPointers.has(e.pointerId)) return;
       frame = requestAnimationFrame(goLive);
     };
+    // Guarded here rather than inside `goLive`: the rAF path has already vetted its own pointer,
+    // and a second finger still down would leave the panel inert for good.
+    const goLiveOnClick = () => {
+      if (laterPointers.size === 0) goLive();
+    };
     window.addEventListener("pointerdown", trackLaterPointer, true);
     window.addEventListener("pointerup", goLiveNextFrame, true);
     window.addEventListener("pointercancel", goLiveNextFrame, true);
-    window.addEventListener("click", goLive, true);
+    window.addEventListener("click", goLiveOnClick, true);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("pointerdown", trackLaterPointer, true);
       window.removeEventListener("pointerup", goLiveNextFrame, true);
       window.removeEventListener("pointercancel", goLiveNextFrame, true);
-      window.removeEventListener("click", goLive, true);
+      window.removeEventListener("click", goLiveOnClick, true);
     };
   }, [dismissScrim]);
 
@@ -168,7 +173,8 @@ export function FloatingMenu({
         role="menu"
         aria-label={label}
         className={cx(
-          "fixed top-0 left-0 z-[80] min-w-[180px] overflow-y-auto overscroll-contain rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md",
+          // No classic scrollbar: it would widen the placed box past the width the cap was read from.
+          "fixed top-0 left-0 z-[80] min-w-[180px] overflow-y-auto overscroll-contain rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md [scrollbar-width:none]",
           // Inert until the press that opened it releases: portalled outside the wrapper, the panel
           // would otherwise catch that release's own click and fire whatever sits under the finger.
           isInert && "pointer-events-none",

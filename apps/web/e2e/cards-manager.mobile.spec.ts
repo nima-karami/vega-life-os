@@ -7,7 +7,7 @@ import {
   MENU_EDGE_PAD_PX,
   type Point,
 } from "./helpers/menu";
-import { cancelTouch, endTouch, longPress, startTouch, tap } from "./helpers/touch";
+import { cancelTouch, endTouch, longPress, startTouch, swipe, tap } from "./helpers/touch";
 
 /**
  * The deck manager on a phone. The desktop `cards-manager.spec.ts` runs only in the
@@ -23,6 +23,10 @@ import { cancelTouch, endTouch, longPress, startTouch, tap } from "./helpers/tou
 const PHONE_WIDTHS = [320, 390];
 const PHONE_HEIGHT = 844;
 const SHORT_PHONE_HEIGHT = 568;
+// 420/2 − 32 leaves a 178px cap, under the 190px five-item row menu — the panel has to scroll here.
+const CAPPING_PHONE_HEIGHT = 420;
+const MENU_DRAG_INSET_PX = 20;
+const MENU_DRAG_DISTANCE_PX = 96;
 const CARD_STAGE_WIDTH_PX = 390;
 const FACE_SIDE_PADDING_PX = 30;
 const LONG_TERM = "counterrevolutionary";
@@ -63,6 +67,31 @@ async function holdForRowMenu(page: Page, target: Locator) {
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("menuitem")).toHaveCount(5);
+}
+
+/** The open panel's own scroll state — what the height cap bought and what the drag has to move. */
+async function measureMenuPanel(page: Page) {
+  return page.evaluate(() => {
+    const panel = document.querySelector('[role="menu"]');
+    if (panel === null) throw new Error("there is no open menu to measure");
+    return {
+      scrollRangePx: panel.scrollHeight - panel.clientHeight,
+      scrollTop: panel.scrollTop,
+    };
+  });
+}
+
+async function dragUpFrom(page: Page, menu: Locator) {
+  const box = await menu.boundingBox();
+  if (box === null) throw new Error("the open menu has no bounding box");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height - MENU_DRAG_INSET_PX;
+  await swipe(page, {
+    from: { x, y },
+    to: { x, y: y - MENU_DRAG_DISTANCE_PX },
+    durationMs: 200,
+    steps: 8,
+  });
 }
 
 async function centreOf(target: Locator): Promise<{ x: number; y: number }> {
@@ -443,6 +472,40 @@ test("a long press at the right edge opens the menu beside it, firing nothing (3
   expect(menuBox.x + menuBox.width, "the menu did not flip to the left of the press").toBeLessThan(
     press.x,
   );
+});
+
+test("a capped row menu scrolls to its last item instead of dismissing (390x420)", async ({
+  page,
+}) => {
+  const viewport = { x: 0, y: 0, width: 390, height: CAPPING_PHONE_HEIGHT };
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const press = await centreOf(row);
+  await longPress(page, press);
+
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem")).toHaveCount(5);
+  await expectMenuClearOf(page, press, viewport);
+
+  const panel = await measureMenuPanel(page);
+  expect(panel.scrollRangePx, "the viewport is too tall to cap a five-item menu").toBeGreaterThan(
+    0,
+  );
+  // A space-taking scrollbar would widen the panel after the cap was read off the narrower box,
+  // leaving the placement reasoning about a width the browser no longer draws.
+  await expect(menu).toHaveCSS("scrollbar-width", "none");
+
+  await dragUpFrom(page, menu);
+  await expect(menu, "the panel's own scroll dismissed it").toBeVisible();
+  expect((await measureMenuPanel(page)).scrollTop, "the panel never scrolled").toBeGreaterThan(0);
+
+  await menu.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByText(/This removes .+ from the deck/)).toBeVisible();
 });
 
 // Placement is the cushion, not the defence. Park the panel over the finger — the one position

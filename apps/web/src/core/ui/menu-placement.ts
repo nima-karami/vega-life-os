@@ -24,6 +24,9 @@ const clearsOnX = (menuWidth: number, viewportWidth: number): boolean =>
  * The tallest the panel may be. Half the viewport where `y` has to carry the clearance on its
  * own — that cap costs items, so it is spent only there; a viewport wide enough to hang the menu
  * beside the press keeps every row and only has to fit on screen.
+ *
+ * Either path can still cut items — a landscape phone at ~568x276 caps at 244, under the 262 a
+ * 7-item all-day menu wants — so both rely on the panel scrolling to reach what the cap hid.
  */
 export const computeHeightCap = (viewport: MenuSize, menuWidth: number): number =>
   clearsOnX(menuWidth, viewport.width)

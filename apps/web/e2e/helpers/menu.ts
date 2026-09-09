@@ -5,8 +5,9 @@ import { expect, type Page } from "@playwright/test";
  *
  * Two separate things are proven here: the menu is placed clear of the press (geometry), and the
  * release that ends the opening press activates nothing (the panel is inert until it lands).
- * Only the second one is the guarantee — under two menu widths no horizontal placement can clear
- * the press, so the geometry probe checks a hit-test, not a promise.
+ * Both are guarantees: `placeMenu` holds the panel a full pad off the press on one axis — `x`
+ * wherever two menu widths and their pads fit, `y` below that width — so the hit-test probe is a
+ * second reading of that promise rather than a stand-in for one.
  */
 
 export interface Point {
