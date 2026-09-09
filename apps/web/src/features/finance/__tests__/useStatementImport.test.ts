@@ -87,6 +87,13 @@ const STATEMENT: ParsedStatement = {
   },
 };
 
+const PARSED: ParseOutcome = { status: "parsed", statement: STATEMENT };
+
+const PARSE_FAILED: ParseOutcome = {
+  status: "parse-failed",
+  error: { code: "PARSE_FAILED", file: "unit-statement.csv", line: 3, reason: "unreadable row" },
+};
+
 const FILE = {
   name: "unit-statement.csv",
   size: 128,
@@ -139,16 +146,17 @@ const openHeldFile = async () => {
 };
 
 /** Queued in the order the files were opened, so a later one can be answered first. */
-const releaseParse = async (queued = 0) => {
+const releaseParse = async (queued = 0, outcome: ParseOutcome = PARSED) => {
   await act(async () => {
-    held.parses.splice(queued, 1)[0]?.({ status: "parsed", statement: STATEMENT });
+    held.parses.splice(queued, 1)[0]?.(outcome);
   });
   await drain();
 };
 
-const releaseCommit = async (outcome: FinanceImportOutcome) => {
+/** Queued in the order the commits were started, so a later one can be answered first. */
+const releaseCommit = async (outcome: FinanceImportOutcome, queued = 0) => {
   await act(async () => {
-    held.commits.shift()?.(outcome);
+    held.commits.splice(queued, 1)[0]?.(outcome);
   });
   await drain();
 };
@@ -326,6 +334,77 @@ describe("useStatementImport while the chosen account moves", () => {
     await render(ACCOUNT_B);
     await stagePreview();
     await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null });
+    await render(ACCOUNT_A);
+
+    expect(flow.phase).toEqual({ status: "committed", inserted: 2, skipped: 0 });
+  });
+
+  it("leaves the live account's receipt standing when an older commit lands last", async () => {
+    await render(ACCOUNT_A);
+    const stagedInA = await stagePreview();
+    await act(async () => {
+      flow.commit(stagedInA);
+    });
+
+    await render(ACCOUNT_B);
+    const stagedInB = await stagePreview();
+    await act(async () => {
+      flow.commit(stagedInB);
+    });
+
+    await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null }, 1);
+    expect(flow.phase, "B's own receipt should be on screen").toEqual({
+      status: "committed",
+      inserted: 2,
+      skipped: 0,
+    });
+
+    await releaseCommit({ writtenRows: 9, writtenChunks: 1, failedChunk: null }, 0);
+
+    expect(flow.phase, "A's stale commit evicted the receipt B was reading").toEqual({
+      status: "committed",
+      inserted: 2,
+      skipped: 0,
+    });
+  });
+
+  it("hands the one receipt slot to the live account's own commit", async () => {
+    await render(ACCOUNT_A);
+    const stagedInA = await stagePreview();
+    await act(async () => {
+      flow.commit(stagedInA);
+    });
+    await releaseCommit({ writtenRows: 9, writtenChunks: 1, failedChunk: null });
+
+    await render(ACCOUNT_B);
+    const stagedInB = await stagePreview();
+    await act(async () => {
+      flow.commit(stagedInB);
+    });
+    await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null });
+    expect(flow.phase).toEqual({ status: "committed", inserted: 2, skipped: 0 });
+
+    await render(ACCOUNT_A);
+
+    expect(flow.phase.status).toBe("idle");
+  });
+
+  it("keeps another account's receipt when a failed parse is cleared", async () => {
+    await render(ACCOUNT_A);
+    const stagedInA = await stagePreview();
+    await act(async () => {
+      flow.commit(stagedInA);
+    });
+    await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null });
+
+    await render(ACCOUNT_B);
+    await openHeldFile();
+    await releaseParse(0, PARSE_FAILED);
+    if (flow.phase.status !== "parse-failed") throw new Error(`parsed as ${flow.phase.status}`);
+    await act(async () => {
+      flow.reset();
+    });
+
     await render(ACCOUNT_A);
 
     expect(flow.phase).toEqual({ status: "committed", inserted: 2, skipped: 0 });

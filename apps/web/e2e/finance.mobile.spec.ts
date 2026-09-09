@@ -78,9 +78,10 @@ interface BudgetChipPlacement {
 }
 
 /**
- * Rects, not `documentElement.scrollWidth`: a 16px budget input painted straight over the spent
- * figure without widening the page at all, so only an element-level measurement sees it. The
- * positive half is measured too — a chip clipped down to nothing also stops overlapping.
+ * Rects, not `documentElement.scrollWidth`: every call site measures the chip at rest, and a
+ * resting chip can paint over the spent figure, or be cut short by an ancestor, without widening
+ * the page at all. The positive half is measured too — a chip clipped to nothing also stops
+ * overlapping.
  */
 async function measureBudgetChips(page: Page): Promise<BudgetChipPlacement[]> {
   return page.evaluate(() => {

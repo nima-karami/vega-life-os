@@ -125,8 +125,19 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     );
   };
 
+  // A receipt is refused only when it would take the slot from one the live account is reading:
+  // a dead selection's commit still reports itself when nothing live stands to lose.
+  const writeReceipt = (next: StagingState) =>
+    setReceipt((current) =>
+      isStampLive(next.stamp, liveStamp.current) ||
+      current === null ||
+      current.stamp.accountId !== liveStamp.current.accountId
+        ? next
+        : current,
+    );
+
   const clearPhase = () => {
-    setReceipt(null);
+    setReceipt((current) => (current?.stamp.accountId === accountId ? null : current));
     setPhase(IDLE);
   };
 
@@ -213,7 +224,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
         startedAt: staged.startedAt,
       },
     });
-    setReceipt({
+    writeReceipt({
       stamp,
       phase:
         outcome.failedChunk === null
