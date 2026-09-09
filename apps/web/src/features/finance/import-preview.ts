@@ -131,12 +131,21 @@ export const describeStagedMeta = (startedAt: string, rowsRead: number): string 
 
 /**
  * Row-level dedupe already stops a double count; this is what lets the preview say *why* nothing
- * new is landing, instead of leaving the owner wondering whether the importer works at all.
+ * new is landing, instead of leaving the owner wondering whether the importer works at all. A
+ * dedupe key carries the account, so the same file under a second account really does have new
+ * rows — saying "you already imported this" beside a count of 4 new reads as a bug.
  */
-export const describePriorImport = (batch: FinanceImportBatch | null): string | undefined => {
+export const describePriorImport = (
+  batch: FinanceImportBatch | null,
+  stagingAccountId: string,
+  priorAccountName: string,
+): string | undefined => {
   if (batch === null) return undefined;
-  const when = (batch.committedAt ?? batch.startedAt).slice(0, 10);
-  return `You already imported this exact file on ${formatDateLabel(when)} — ${batch.rowsInserted} rows landed then.`;
+  const when = formatDateLabel((batch.committedAt ?? batch.startedAt).slice(0, 10));
+  if (batch.accountId === stagingAccountId) {
+    return `You already imported this exact file on ${when} — ${batch.rowsInserted} rows landed then.`;
+  }
+  return `This same file went into ${priorAccountName} on ${when}. Its rows are new here, because a duplicate key carries the account it was read under.`;
 };
 
 export const describeAccountMismatch = (

@@ -97,9 +97,19 @@ function readAccountPatterns(
   );
 }
 
+/** Archived accounts still own batches, so the whole list answers this, not the open ones. */
+const namePriorAccount = (
+  accounts: readonly FinanceAccount[],
+  batch: FinanceImportBatch | null,
+): string => {
+  const owner = accounts.find((candidate) => candidate.id === batch?.accountId);
+  return owner === undefined ? "another account" : readAccountLabel(owner);
+};
+
 interface DropZoneInput {
   stage: StagedView;
   account: FinanceAccount | null;
+  accounts: readonly FinanceAccount[];
   transactions: readonly FinanceTransaction[];
   batches: readonly FinanceImportBatch[];
   isBlockedOffline: boolean;
@@ -122,12 +132,15 @@ function buildDropZone(input: DropZoneInput): FinanceImportDropZoneProps {
 
   const rows = staged.statement.rows;
   const patterns = readAccountPatterns(input.transactions, input.account?.id);
+  const prior = findPriorImport(staged.fileHash, staged.batchId, input.batches);
   return {
     ...base,
     fileName: staged.fileName,
     fileMeta: describeStagedMeta(staged.startedAt, rows.length),
     priorImportNote: describePriorImport(
-      findPriorImport(staged.fileHash, staged.batchId, input.batches),
+      prior,
+      staged.accountId,
+      namePriorAccount(input.accounts, prior),
     ),
     mismatchNote: describeAccountMismatch(
       findAccountMismatch(rows, patterns),
@@ -193,6 +206,7 @@ export function useImportView(): ImportView {
     dropZone: buildDropZone({
       stage,
       account,
+      accounts,
       transactions,
       batches,
       // Signed-out is the local Dexie sandbox, where an offline write genuinely succeeds; only a
