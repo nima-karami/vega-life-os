@@ -698,3 +698,95 @@ test("every account control on a phone is a target a thumb can hit", async ({ pa
   await expect(page.getByText("Set up your first account")).toBeVisible({ timeout: 15_000 });
   await expectThumbSized(page.getByRole("button", { name: "Add an account" }), "Add an account");
 });
+
+const ACTION_PREFIX = "Actions for ";
+
+interface RowOwnership {
+  name: string;
+  rowHeight: number;
+  triggerHeight: number;
+  escapesRowBy: number;
+  stolenEdges: string[];
+}
+
+/**
+ * The hit must land ON the trigger or inside it: counting an ancestor that merely contains the
+ * trigger passes over a neighbour that has taken the edge outright.
+ */
+async function measureRowOwnership(page: Page): Promise<RowOwnership[]> {
+  return page.evaluate((prefix) => {
+    const selector = `[aria-label^="${prefix}"]`;
+    const cardNode = document.querySelector('[data-testid="finance-accounts-card"]');
+    if (cardNode === null) return [];
+
+    return Array.from(cardNode.querySelectorAll<HTMLElement>(selector)).map((trigger) => {
+      let row: HTMLElement = trigger;
+      while (
+        row.parentElement !== null &&
+        row.parentElement.querySelectorAll(selector).length < 2
+      ) {
+        row = row.parentElement;
+      }
+
+      const rowBox = row.getBoundingClientRect();
+      const box = trigger.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const stolenEdges: string[] = [];
+
+      for (const [edge, y] of [
+        ["top", box.top + 2],
+        ["bottom", box.bottom - 2],
+      ] as const) {
+        const hit = document.elementFromPoint(x, y);
+        if (hit !== null && trigger.contains(hit)) continue;
+        const thief = hit?.closest(selector)?.getAttribute("aria-label");
+        stolenEdges.push(`${edge} → ${thief ?? hit?.tagName ?? "nothing"}`);
+      }
+
+      return {
+        name: (trigger.getAttribute("aria-label") ?? "").slice(prefix.length),
+        rowHeight: Math.round(rowBox.height),
+        triggerHeight: Math.round(box.height),
+        escapesRowBy: Math.round(
+          Math.max(0, rowBox.top - box.top) + Math.max(0, box.bottom - rowBox.bottom),
+        ),
+        stolenEdges,
+      };
+    });
+  }, ACTION_PREFIX);
+}
+
+test("an account row's menu never reaches into the row below it", async ({ page }) => {
+  await openPhone(page, "/finance/import");
+  await expect(page.getByRole("heading", { name: "Import", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole("button", { name: `${ACTION_PREFIX}Rewards card` })).toBeVisible();
+  await page.getByTestId("finance-accounts-card").scrollIntoViewIfNeeded();
+
+  const rows = await measureRowOwnership(page);
+  expect(rows.length, "the accounts card offered fewer than two row menus").toBeGreaterThanOrEqual(
+    2,
+  );
+  expect(
+    rows.filter((row) => row.triggerHeight > row.rowHeight),
+    "a row menu is taller than the row that holds it",
+  ).toEqual([]);
+  expect(
+    rows.filter((row) => row.escapesRowBy > 0),
+    "a row menu paints past its own row",
+  ).toEqual([]);
+  expect(
+    rows.filter((row) => row.stolenEdges.length > 0),
+    "another row's menu owns this one's edge",
+  ).toEqual([]);
+
+  const first = rows[0];
+  const trigger = page.getByRole("button", { name: `${ACTION_PREFIX}${first.name}` });
+  const box = await trigger.boundingBox();
+  if (box === null) throw new Error(`${first.name} has no menu box`);
+
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 2);
+  await page.getByRole("menuitem", { name: "Rename…" }).click();
+  await expect(page.getByRole("textbox", { name: "Account name" })).toHaveValue(first.name);
+});

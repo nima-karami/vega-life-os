@@ -45,7 +45,8 @@ export function FinanceAccountsCard({
           {rows.map((account, index) => (
             <div
               key={account.id}
-              className={`flex h-[38px] items-center gap-2 ${
+              // 45px, not h-11: the border-box owes the separator a pixel before the 44px trigger fits
+              className={`flex h-[45px] items-center gap-2 sm:h-[38px] ${
                 index === rows.length - 1 ? "" : "border-b border-line-soft"
               } ${account.archivedAt === null ? "" : "opacity-60"}`}
             >
@@ -62,7 +63,8 @@ export function FinanceAccountsCard({
                 align="end"
                 triggerLabel={`Actions for ${account.displayName}`}
                 triggerContent={<Icon name="dots" size={16} aria-hidden />}
-                triggerClassName="h-11 w-11 shrink-0 sm:h-8 sm:w-8"
+                isIconOnly
+                touchTarget
                 items={buildMenuItems(account)}
               />
             </div>
