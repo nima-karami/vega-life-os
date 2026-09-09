@@ -33,6 +33,9 @@ const LONG_TERM = "counterrevolutionary";
 const TOUCH_TARGET_PX = 44;
 const CORNER_INSET_PX = 12;
 const ROW_PRESS_INSET_PX = 6;
+// The band a row-sized-but-not-pressable-sized box leaves dead: only its middle takes a tap.
+const ROW_EDGE_INSETS_PX = [3, 8];
+const FILTER_EDGE_WIDTHS = [320, 390, 430];
 // Past the 500ms the row menu waits for, short enough to stay a press and not a drag.
 const HOLD_MS = 650;
 const BULK_BAR_CONTROLS = [
@@ -98,6 +101,34 @@ async function centreOf(target: Locator): Promise<{ x: number; y: number }> {
   const box = await target.boundingBox();
   if (box === null) throw new Error("the touch target has no bounding box");
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/** The four y's a thumb reaches inside a row that its middle band never covers. */
+async function rowEdgePoints(row: Locator): Promise<(Point & { label: string })[]> {
+  const box = await row.boundingBox();
+  if (box === null) throw new Error("the filter row has no bounding box");
+  const x = box.x + box.width / 2;
+  return [
+    ...ROW_EDGE_INSETS_PX.map((inset) => ({ label: `top + ${inset}`, x, y: box.y + inset })),
+    ...ROW_EDGE_INSETS_PX.map((inset) => ({
+      label: `bottom - ${inset}`,
+      x,
+      y: box.y + box.height - inset,
+    })),
+  ];
+}
+
+/** What a thumb at `point` really lands on, and whether that is the row's own pressable label. */
+async function probeRowPoint(page: Page, point: Point) {
+  return page.evaluate(({ x, y }) => {
+    const hit = document.elementFromPoint(x, y);
+    const classNames = typeof hit?.className === "string" ? hit.className : "";
+    const pressable = hit?.closest("[data-filter-row]")?.querySelector("label") ?? null;
+    return {
+      hit: hit === null ? "nothing" : `${hit.tagName.toLowerCase()}.${classNames}`.slice(0, 90),
+      isOnPressable: pressable !== null && (hit === pressable || pressable.contains(hit)),
+    };
+  }, point);
 }
 
 async function upperCornerOf(target: Locator): Promise<{ x: number; y: number }> {
@@ -833,6 +864,36 @@ test("the filter rows are thumb-sized on a phone and unchanged above sm", async 
     "13.5px",
   );
   await expect(page.getByText("Visibility", { exact: true })).toHaveCSS("font-size", "11px");
+});
+
+test("a filter row takes a tap on its top and bottom edges, not only its middle", async ({
+  page,
+}) => {
+  await openDeck(page);
+
+  for (const width of FILTER_EDGE_WIDTHS) {
+    await page.setViewportSize({ width, height: PHONE_HEIGHT });
+    await page.getByRole("button", { name: "Filter cards" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Filter cards");
+
+    const row = dialog.locator("[data-filter-row]").first();
+    const box = row.locator('input[type="checkbox"]');
+    for (const point of await rowEdgePoints(row)) {
+      const wasChecked = await box.isChecked();
+      const probe = await probeRowPoint(page, point);
+      expect(probe.isOnPressable, `${width}px, ${point.label}: the tap hits ${probe.hit}`).toBe(
+        true,
+      );
+      await tap(page, point);
+      await expect(box, `${width}px, ${point.label} toggled nothing`).toBeChecked({
+        checked: !wasChecked,
+      });
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  }
 });
 
 test("the compact branch still reaches both empty states (390px)", async ({ page }) => {

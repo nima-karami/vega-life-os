@@ -105,6 +105,18 @@ describe("placeMenu", () => {
     expect(computeHeightCap({ width: 423, height: 390 }, MENU_WIDTH)).toBe(163);
   });
 
+  it("hands a panel too wide to clear on x back to the height cap, at the 430px margin", () => {
+    // 430 clears on x by 3px at 180 wide; the cap is read from the same predicate, so a wider
+    // panel loses the x clearance and regains the halved height that lets y carry it.
+    const viewport = { width: 430, height: 844 };
+    expect(computeHeightCap(viewport, 183)).toBe(812);
+    expect(computeHeightCap(viewport, 184)).toBe(390);
+    for (const width of [MENU_WIDTH, 183, 184, 240]) {
+      const size = { width, height: Math.min(262, computeHeightCap(viewport, width)) };
+      expect(failuresAt(viewport, size), `${width}px panel`).toEqual([]);
+    }
+  });
+
   it("keeps every item of an 8-item menu on a landscape phone, clear of the press on x", () => {
     const viewport = { width: 844, height: 390 };
     const size = asMeasured(298, viewport);
