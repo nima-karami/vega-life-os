@@ -11,26 +11,8 @@ import { createPortal } from "react-dom";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 import type { MenuItem } from "./menu";
-
-export interface MenuPos {
-  x: number;
-  y: number;
-}
-
-const MENU_EDGE_PAD_PX = 8;
-
-/** Flip to the far side rather than slide under the press: a slid menu catches its opening press's release. */
-function placeMenu(origin: MenuPos, width: number, height: number): MenuPos {
-  const pad = MENU_EDGE_PAD_PX;
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const x = origin.x + width > viewportWidth - pad ? origin.x - width - pad : origin.x;
-  const y = origin.y + height > viewportHeight - pad ? origin.y - height - pad : origin.y;
-  return {
-    x: Math.min(Math.max(pad, x), Math.max(pad, viewportWidth - width - pad)),
-    y: Math.min(Math.max(pad, y), Math.max(pad, viewportHeight - height - pad)),
-  };
-}
+import { type MenuPos, placeMenu } from "./menu-placement";
+import { isRecentTouchPress } from "./press-pointer";
 
 /**
  * A positioned action menu floating at viewport coordinates — the shared panel
@@ -57,13 +39,19 @@ export function FloatingMenu({
   const { x: px, y: py } = pos;
   const [coords, setCoords] = useState<MenuPos>({ x: px, y: py });
 
-  // Translated from the corner, not offset by `left`/`top`: an offset near an edge squeezes the
-  // shrink-to-fit box and distorts the measurement. Primitive deps — a fresh {x,y} must not re-place.
+  // Translated from the corner, not `left`/`top`: an offset near an edge squeezes the shrink-to-fit
+  // box and distorts the measurement. Cost: the transform is a containing block for `fixed` children.
   useLayoutEffect(() => {
     const menu = menuRef.current;
     if (menu === null) return;
     const { width, height } = menu.getBoundingClientRect();
-    setCoords(placeMenu({ x: px, y: py }, width, height));
+    setCoords(
+      placeMenu(
+        { x: px, y: py },
+        { width, height },
+        { width: window.innerWidth, height: window.innerHeight },
+      ),
+    );
   }, [px, py]);
 
   // Keep the latest onClose without re-arming the dismiss listeners each render.
@@ -196,8 +184,7 @@ export function ContextMenu({
   const feedbackTimerRef = useRef<number | null>(null);
   const pressOriginRef = useRef<MenuPos | null>(null);
   const suppressClickRef = useRef(false);
-  // `contextmenu` is a PointerEvent only in Blink, so read the type off the press instead.
-  const lastPointerTypeRef = useRef("mouse");
+  const touchPressAtRef = useRef(0);
 
   const cancelPress = () => {
     if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
@@ -217,7 +204,7 @@ export function ContextMenu({
   );
 
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    lastPointerTypeRef.current = event.pointerType;
+    touchPressAtRef.current = event.pointerType === "mouse" ? 0 : Date.now();
     suppressClickRef.current = false;
     if (!longPress || event.pointerType === "mouse") return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
@@ -261,7 +248,7 @@ export function ContextMenu({
           cancelPress();
           setMenu({
             pos: { x: e.clientX, y: e.clientY },
-            scrim: lastPointerTypeRef.current !== "mouse",
+            scrim: isRecentTouchPress(touchPressAtRef.current),
           });
         }}
         onPointerDownCapture={handlePressStart}

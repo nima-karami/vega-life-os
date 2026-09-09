@@ -15,6 +15,7 @@ import { cancelTouch, longPress, startTouch, tap } from "./helpers/touch";
 
 const PHONE_WIDTHS = [320, 390];
 const PHONE_HEIGHT = 844;
+const SHORT_PHONE_HEIGHT = 568;
 const CARD_STAGE_WIDTH_PX = 390;
 const FACE_SIDE_PADDING_PX = 30;
 const LONG_TERM = "counterrevolutionary";
@@ -132,6 +133,32 @@ async function expectMenuClearOf(page: Page, press: Point, viewport: Box): Promi
   }, press);
   expect(pressHitsMenu, "the press point hit-tests into the menu").toBe(false);
   return menu;
+}
+
+/** Opening a menu must never also run one of its items: every item closes the menu before it acts. */
+async function expectMenuOpenAndInert(page: Page, deckSize: number) {
+  await expect(
+    page.getByRole("menu"),
+    "an item under the press ran and closed the menu",
+  ).toBeVisible();
+  await expect(page.getByRole("dialog"), "Delete ran and asked to confirm").toHaveCount(0);
+  await expect(page.getByText(/\d+ selected/), "Select ran").toHaveCount(0);
+  await expect(rows(page), "a row left the list").toHaveCount(deckSize);
+  await expect(page, "Open ran and navigated").toHaveURL(/\/cards$/);
+}
+
+/**
+ * Long-press `press`, then prove the menu opened clear of the finger and that the release
+ * the press ends with reached nothing. The geometry probe runs first: its round-trips give
+ * that release's click time to land before the behavioural assertions read the page.
+ */
+async function pressRowAndProbeMenu(page: Page, press: Point, viewport: Box): Promise<Box> {
+  const deckSize = await rows(page).count();
+  await longPress(page, press);
+  await expect(page.getByRole("menu")).toBeVisible();
+  const menuBox = await expectMenuClearOf(page, press, viewport);
+  await expectMenuOpenAndInert(page, deckSize);
+  return menuBox;
 }
 
 /** The lowest point that still lands on a list row — the press a down-hanging menu would cover. */
@@ -319,6 +346,43 @@ test("the toolbar's own controls are thumb-sized on a phone (390px)", async ({ p
   expect(wideBox.height, "the desktop toggle grew").toBeLessThan(TOUCH_TARGET_PX);
 });
 
+test("the row's own controls are thumb-sized on a phone (390px)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+
+  const hideBox = await row.getByRole("button", { name: /^(Hide|Restore) / }).boundingBox();
+  if (hideBox === null) throw new Error("the row's hide control has no bounding box");
+  expect(hideBox.width, "the hide control is under the touch target").toBeGreaterThanOrEqual(
+    TOUCH_TARGET_PX,
+  );
+  expect(hideBox.height, "the hide control is under the touch target").toBeGreaterThanOrEqual(
+    TOUCH_TARGET_PX,
+  );
+
+  // The press lands on the checkbox's label, not on the sr-only input the role sits on.
+  const selectBox = await row.evaluate((el) => {
+    const input = el.querySelector('input[type="checkbox"]');
+    const target = input?.closest("label") ?? input;
+    if (!target) return null;
+    const rect = target.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  });
+  if (selectBox === null) throw new Error("the row's checkbox has no press target");
+  expect(selectBox.width, "the checkbox is under the touch target").toBeGreaterThanOrEqual(
+    TOUCH_TARGET_PX,
+  );
+  expect(selectBox.height, "the checkbox is under the touch target").toBeGreaterThanOrEqual(
+    TOUCH_TARGET_PX,
+  );
+
+  // A thumb landing in the corner of that target — well off the 15px box — must still select.
+  await tap(page, { x: selectBox.x + CORNER_INSET_PX / 3, y: selectBox.y + CORNER_INSET_PX / 3 });
+  await expect(page.getByText("1 selected")).toBeVisible();
+});
+
 test("the compact filter sheet's list fills the sheet (390px)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
   await openDeck(page);
@@ -340,15 +404,18 @@ test("the compact filter sheet's list fills the sheet (390px)", async ({ page })
 test("a long press on a list row opens the five row actions and Select picks just that row (390px)", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  const viewport = { x: 0, y: 0, width: 390, height: PHONE_HEIGHT };
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
   await openDeck(page);
 
   const row = rows(page).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
-  await longPress(page, await centreOf(row));
+  const press = await centreOf(row);
+  await longPress(page, press);
 
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
+  await expectMenuClearOf(page, press, viewport);
   const items = menu.getByRole("menuitem");
   await expect(items).toHaveCount(5);
   await expect(items.nth(0)).toHaveText("Open");
@@ -389,13 +456,7 @@ test("a long press at the foot of the list opens the menu above it, firing nothi
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const press = await findLowestRowPress(page);
 
-  await longPress(page, press);
-  const menu = page.getByRole("menu");
-  // Every item closes the menu before it acts, so a still-open menu is proof none of them ran.
-  await expect(menu).toBeVisible();
-  await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
-
-  const menuBox = await expectMenuClearOf(page, press, viewport);
+  const menuBox = await pressRowAndProbeMenu(page, press, viewport);
   expect(
     press.y + menuBox.height,
     "the press is too high to force the menu to flip up",
@@ -415,18 +476,58 @@ test("a long press at the right edge opens the menu beside it, firing nothing (3
   if (box === null) throw new Error("the first row has no bounding box");
   const press = { x: box.x + box.width - ROW_PRESS_INSET_PX, y: box.y + box.height / 2 };
 
-  await longPress(page, press);
-  const menu = page.getByRole("menu");
-  await expect(menu).toBeVisible();
-  await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
-
-  const menuBox = await expectMenuClearOf(page, press, viewport);
+  const menuBox = await pressRowAndProbeMenu(page, press, viewport);
   expect(
     press.x + menuBox.width,
     "the press is too far left to force the menu to flip",
   ).toBeGreaterThan(viewport.width - MENU_EDGE_PAD_PX);
   expect(menuBox.x + menuBox.width, "the menu did not flip to the left of the press").toBeLessThan(
     press.x,
+  );
+});
+
+// The band where the flip has nowhere to go and the clamp used to drag the menu back over the
+// finger: it opens at every viewport under two menu widths, and the row centre sits in the middle.
+test("a long press at a row's centre opens the menu clear of the finger (320px)", async ({
+  page,
+}) => {
+  const viewport = { x: 0, y: 0, width: 320, height: SHORT_PHONE_HEIGHT };
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const press = await centreOf(row);
+
+  const menuBox = await pressRowAndProbeMenu(page, press, viewport);
+  expect(press.x, "the press is too far left to be caught by the clamp").toBeGreaterThan(
+    viewport.width - MENU_EDGE_PAD_PX - menuBox.width,
+  );
+  expect(menuBox.x, "the flipped menu was not clamped back across the press").toBeLessThan(press.x);
+});
+
+// Neither axis flips here, so the menu's own corner lands nearest the finger. Unpadded, only the
+// panel's 5px gutter stood between the press and "Open", and Blink's touch adjustment — the 12px
+// contact radius `startTouch` dispatches — reached across it and navigated to the card.
+test("a long press at a row's upper-left corner opens the menu clear of the finger (390px)", async ({
+  page,
+}) => {
+  const viewport = { x: 0, y: 0, width: 390, height: PHONE_HEIGHT };
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const box = await row.boundingBox();
+  if (box === null) throw new Error("the first row has no bounding box");
+  const press = { x: box.x + CORNER_INSET_PX + 2, y: box.y + CORNER_INSET_PX };
+
+  const menuBox = await pressRowAndProbeMenu(page, press, viewport);
+  expect(menuBox.x, "the menu flipped left instead of hanging off the press").toBeGreaterThan(
+    press.x,
+  );
+  expect(menuBox.y, "the menu flipped up instead of hanging off the press").toBeGreaterThan(
+    press.y,
   );
 });
 

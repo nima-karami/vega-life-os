@@ -40,11 +40,12 @@ function MobileRow({
           isHidden && "opacity-50",
         )}
       >
-        <span className="grid h-11 w-11 shrink-0 place-items-center">
+        <span className="shrink-0">
           <CheckField
             isSelected={isSelected}
             onChange={() => actions.onToggleSelect(card.id)}
             label={`Select ${card.title}`}
+            isTouchTarget
           />
         </span>
 
@@ -121,16 +122,14 @@ function MobileRow({
           </span>
         </span>
 
-        <span className="grid h-11 w-11 shrink-0 place-items-center">
-          <button
-            type="button"
-            onClick={() => actions.onToggleHidden(card)}
-            aria-label={isHidden ? `Restore ${card.title}` : `Hide ${card.title}`}
-            className="rounded text-muted outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <Icon name={isHidden ? "eye-off" : "eye"} size={16} />
-          </button>
-        </span>
+        <button
+          type="button"
+          onClick={() => actions.onToggleHidden(card)}
+          aria-label={isHidden ? `Restore ${card.title}` : `Hide ${card.title}`}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded text-muted outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Icon name={isHidden ? "eye-off" : "eye"} size={16} />
+        </button>
       </div>
     </ContextMenu>
   );

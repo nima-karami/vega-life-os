@@ -9,6 +9,7 @@ import {
   cx,
   FloatingMenu,
   Icon,
+  isRecentTouchPress,
   type MenuItem,
   TimePicker,
   UndoBar,
@@ -165,8 +166,7 @@ export function CalendarPage() {
   const draftIdRef = useRef<string | null>(null);
   const justDragged = useRef(false);
   const pasteSuppressUntil = useRef(0);
-  // `contextmenu` is a PointerEvent only in Blink, so read the type off the column's own press.
-  const columnPointerTypeRef = useRef("mouse");
+  const columnTouchPressAtRef = useRef(0);
   const [dragId, setDragId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
 
@@ -316,7 +316,7 @@ export function CalendarPage() {
       y: e.clientY,
       date: dayIso,
       time: formatMinutes(minuteAt(e.clientY)),
-      scrim: columnPointerTypeRef.current !== "mouse",
+      scrim: isRecentTouchPress(columnTouchPressAtRef.current),
     });
   };
 
@@ -634,7 +634,7 @@ export function CalendarPage() {
   };
 
   const handleColumnPointerDown = (e: React.PointerEvent) => {
-    columnPointerTypeRef.current = e.pointerType;
+    columnTouchPressAtRef.current = e.pointerType === "mouse" ? 0 : Date.now();
     beginMarquee(e);
   };
 
