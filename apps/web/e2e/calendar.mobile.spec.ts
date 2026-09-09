@@ -125,6 +125,43 @@ test("a tap on a timed chip's top edge opens the editor instead of resizing", as
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });
 
+// The touchscreen-laptop band: past sm the pointer is still only a finger, so the body
+// owes the same two guarantees the phone gets — a swipe writes nothing, a hold opens the menu.
+test("a swipe on the chip body writes nothing at 900px", async ({ page }) => {
+  await openCalendar(page, WIDE);
+  const chip = await findSeededChip(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  expect(await maxScrollTop(page), "the grid is already scrolled before the swipe").toBe(0);
+
+  await startTouch(page, from);
+  await dragAlong(page, { from, to: { x: from.x, y: from.y - 200 }, durationMs: 350, steps: 12 });
+  await endTouch(page);
+
+  await expect
+    .poll(() => maxScrollTop(page), { message: "the swipe did not scroll the grid" })
+    .toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+  await expect(page.getByRole("status")).not.toContainText("Moved to");
+});
+
+test("a long press on the chip body opens its menu at 900px", async ({ page }) => {
+  await openCalendar(page, WIDE);
+  const chip = await findSeededChip(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+
+  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  for (const item of ["Copy", "Unschedule", "Delete"]) {
+    await expect(menu.getByRole("menuitem", { name: item })).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
 // Past sm the chip body does arm a drag, so a grip press that falls through to it
 // reschedules the event instead of resizing it — the width no phone test reaches.
 test("a touch drag on a resize grip writes nothing at 900px", async ({ page }) => {

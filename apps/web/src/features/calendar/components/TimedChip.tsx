@@ -81,8 +81,9 @@ export function TimedChip({
         }}
         aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          // A phone swipe belongs to the grid's scroller, so the finger never starts a drag here.
-          "group absolute block cursor-grab touch-manipulation select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm sm:touch-none",
+          // A swipe belongs to the grid's scroller at every width — `touch-action` cannot read
+          // the pointer, so a `sm:touch-none` froze the finger on a touchscreen laptop.
+          "group absolute block cursor-grab touch-manipulation select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm",
           resolved ? "bg-surface-secondary" : "bg-surface",
           dim ? "opacity-30" : "opacity-100",
           selected && "z-20 ring-2 ring-accent",

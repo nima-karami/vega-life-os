@@ -469,20 +469,13 @@ export function CalendarPage() {
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
+    // The pointer decides, never the width: a touchscreen laptop is past `sm` and still has
+    // only fingers, so a width-gated finger armed a real move drag and silently rescheduled.
     const canResize = e.pointerType === "mouse" || (e.pointerType === "pen" && !compact);
-    if (mode !== "move" && !canResize) {
-      chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
-      if (!compact) {
-        // Pins the release to this chip; Chromium implies it for touch, Safari never proved it.
-        e.currentTarget.setPointerCapture(e.pointerId);
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      return;
-    }
-    // On a phone the swipe belongs to the grid's scroller, so a touch arms no drag at all
-    // — the press is only remembered so a still release still counts as a tap.
-    if (mode === "move" && compact && e.pointerType !== "mouse") {
+    const canMove = e.pointerType === "mouse" || (e.pointerType !== "touch" && !compact);
+    if (!(mode === "move" ? canMove : canResize)) {
+      // Remembered only so a still release still counts as a tap. Nothing is swallowed here:
+      // the press must reach the chip's ContextMenu wrapper, touch's only route to the menu.
       chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
       return;
     }
