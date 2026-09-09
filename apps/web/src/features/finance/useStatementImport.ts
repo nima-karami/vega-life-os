@@ -1,10 +1,11 @@
 import type { FinanceAccount, FinanceColumnMapping } from "@vega/shared";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { uid } from "@/core/lib/id";
 import { useStore } from "@/core/store";
 import { parseDelimitedTable } from "./import/delimited";
 import { parseStatement } from "./import/parse";
 import type { ParsedStatement, ParseFailure, TableData } from "./import/types";
+import { advanceStamp, isStampLive, type StageStamp } from "./import-stage-stamp";
 import {
   computeFileHash,
   findLimitBreach,
@@ -14,6 +15,8 @@ import {
 import type { FinanceImportOutcome } from "./store";
 
 export interface StagedFile {
+  /** the account the rows were parsed under — their dedupe keys carry its slug, so no other may claim them */
+  accountId: string;
   fileName: string;
   fileHash: string;
   batchId: string;
@@ -43,6 +46,34 @@ export type ImportPhase =
 const REMAP_HINT =
   "Those columns aren’t in this file. Check the header-row setting and pick again.";
 
+const NO_ACCOUNT_TOAST = "Add an account before importing";
+
+const IDLE: ImportPhase = { status: "idle" };
+
+const PAINT_YIELD_FLOOR_MS = 500;
+
+// A bare `setTimeout(0)` hands back the event loop but not a rendering opportunity — measured, the
+// parsing notice still never reached the screen. The floor only ever wins where no frame is coming
+// (a hidden tab, whose timers Chrome throttles to ~1s anyway), never against a contended one.
+const yieldToPaint = () =>
+  new Promise<void>((resolve) => {
+    const floor = setTimeout(resolve, PAINT_YIELD_FLOOR_MS);
+    requestAnimationFrame(() => {
+      clearTimeout(floor);
+      setTimeout(resolve, 0);
+    });
+  });
+
+interface StagingState {
+  /** the selection the phase was parsed under — a stale stamp is thrown away, never re-read */
+  stamp: StageStamp;
+  phase: ImportPhase;
+}
+
+/** A stage lives under its own selection; a receipt lives under its own account, however it is reached. */
+const readLiveReceipt = (receipt: StagingState | null, live: StageStamp) =>
+  receipt !== null && receipt.stamp.accountId === live.accountId ? receipt.phase : null;
+
 export interface StatementImport {
   phase: ImportPhase;
   reset: () => void;
@@ -64,12 +95,60 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const updateFinanceAccount = useStore((s) => s.updateFinanceAccount);
   const rollBackFinanceImport = useStore((s) => s.rollBackFinanceImport);
   const importFinanceTransactions = useStore((s) => s.importFinanceTransactions);
+  const pushToast = useStore((s) => s.pushToast);
 
-  const [phase, setPhase] = useState<ImportPhase>({ status: "idle" });
+  const accountId = account?.id ?? null;
+  const liveStamp = useRef<StageStamp>({ accountId, selection: 0 });
+  liveStamp.current = advanceStamp(liveStamp.current, accountId);
+  const stamp = liveStamp.current;
 
+  const [staging, setStaging] = useState<StagingState>({ stamp, phase: IDLE });
+  // A receipt keeps its own slot: sharing the staging one let a commit that resolved late evict the
+  // preview the account the user had moved to was showing, and the reset below then dropped both.
+  const [receipt, setReceipt] = useState<StagingState | null>(null);
+  const isStagingLive = isStampLive(staging.stamp, stamp);
+  if (!isStagingLive) setStaging({ stamp, phase: IDLE });
+  const stagedPhase = isStagingLive ? staging.phase : IDLE;
+  const liveReceipt = readLiveReceipt(receipt, stamp);
+  const phase = stagedPhase.status === "idle" && liveReceipt !== null ? liveReceipt : stagedPhase;
+
+  // This render's stamp, never the ref's: a write started under a selection the user has since left
+  // is stale, and a stale write may not overwrite what the live selection has staged.
+  const setPhase = (next: ImportPhase) => {
+    const write: StagingState = { stamp, phase: next };
+    setStaging((current) =>
+      isStampLive(write.stamp, liveStamp.current) || !isStampLive(current.stamp, liveStamp.current)
+        ? write
+        : current,
+    );
+  };
+
+  // A receipt is refused only when it would take the slot from one the live account is reading:
+  // a dead selection's commit still reports itself when nothing live stands to lose.
+  const writeReceipt = (next: StagingState) =>
+    setReceipt((current) =>
+      isStampLive(next.stamp, liveStamp.current) ||
+      current === null ||
+      current.stamp.accountId !== liveStamp.current.accountId
+        ? next
+        : current,
+    );
+
+  const clearPhase = () => {
+    setReceipt((current) =>
+      current?.stamp.accountId === liveStamp.current.accountId ? null : current,
+    );
+    setPhase(IDLE);
+  };
+
+  const announceParsing = async (fileName: string) => {
+    setPhase({ status: "parsing", fileName });
+    await yieldToPaint();
+  };
+
+  /** Reach this only through `announceParsing` — it never raises the notice the blocking parse needs. */
   const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
-    setPhase({ status: "parsing", fileName: source.name });
     const outcome = await parseStatement({
       fileName: source.name,
       table: source.table,
@@ -99,6 +178,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     setPhase({
       status: "preview",
       staged: {
+        accountId: account.id,
         fileName: source.name,
         fileHash: source.hash,
         batchId: uid("fbat_"),
@@ -109,12 +189,21 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     });
   };
 
+  /** A column re-point re-reads nothing, so it announces for itself before the parse takes over. */
+  const reparse = async (source: SourceFile, mapping: FinanceColumnMapping) => {
+    await announceParsing(source.name);
+    await runParse(source, mapping);
+  };
+
+  // The read and the delimited parse block for as long as the statement parse does, so the notice
+  // has to be up before them — not between them and `parseStatement`.
   const readFile = async (file: File) => {
     const sizeBreach = findLimitBreach({ bytes: file.size });
     if (sizeBreach) {
       setPhase({ status: "limit-reached", fileName: file.name, breach: sizeBreach });
       return;
     }
+    await announceParsing(file.name);
     const text = await file.text();
     const table = parseDelimitedTable(text);
     const rowBreach = findLimitBreach({ rows: table.records.length });
@@ -127,11 +216,10 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   };
 
   const runCommit = async (staged: StagedFile) => {
-    if (!account) return;
     setPhase({ status: "committing", staged });
     const plan = stageImport({
       statement: staged.statement,
-      accountId: account.id,
+      accountId: staged.accountId,
       batchId: staged.batchId,
       merchants,
     });
@@ -140,7 +228,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
       merchants: plan.merchants,
       batch: {
         id: staged.batchId,
-        accountId: account.id,
+        accountId: staged.accountId,
         fileNames: [staged.fileName],
         fileHashes: [staged.fileHash],
         detectedFormat: staged.statement.layoutId,
@@ -149,34 +237,42 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
         startedAt: staged.startedAt,
       },
     });
-    setPhase(
-      outcome.failedChunk === null
-        ? { status: "committed", inserted: outcome.writtenRows, skipped: plan.skipped }
-        : { status: "partial-commit", staged, outcome },
-    );
+    writeReceipt({
+      stamp,
+      phase:
+        outcome.failedChunk === null
+          ? { status: "committed", inserted: outcome.writtenRows, skipped: plan.skipped }
+          : { status: "partial-commit", staged, outcome },
+    });
+    setPhase(IDLE);
   };
 
   return {
     phase,
-    reset: () => setPhase({ status: "idle" }),
+    reset: clearPhase,
     openFiles: (files) => {
       const file = files?.[0];
-      if (file && account) void readFile(file);
+      if (!file) return;
+      if (!account) {
+        pushToast(NO_ACCOUNT_TOAST);
+        return;
+      }
+      void readFile(file);
     },
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
       void rollBackFinanceImport(staged.batchId);
-      setPhase({ status: "idle" });
+      clearPhase();
     },
     confirmMapping: (mapping) => {
       if (phase.status !== "mapping-required" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(phase.source, mapping);
+      void reparse(phase.source, mapping);
     },
     remap: (mapping) => {
       if (phase.status !== "preview" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(phase.staged.source, mapping);
+      void reparse(phase.staged.source, mapping);
     },
   };
 }

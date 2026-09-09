@@ -16,13 +16,21 @@ export async function computeFileHash(text: string): Promise<string> {
   return toHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
 }
 
+/** One file can sit in batches under several accounts; the staging one decides which note is true. */
 export const findPriorImport = (
   fileHash: string,
   currentBatchId: string,
   batches: readonly FinanceImportBatch[],
-): FinanceImportBatch | null =>
-  batches.find((batch) => batch.id !== currentBatchId && batch.fileHashes.includes(fileHash)) ??
-  null;
+  preferAccountId?: string,
+): FinanceImportBatch | null => {
+  const carries = (batch: FinanceImportBatch) =>
+    batch.id !== currentBatchId && batch.fileHashes.includes(fileHash);
+  return (
+    batches.find((batch) => carries(batch) && batch.accountId === preferAccountId) ??
+    batches.find(carries) ??
+    null
+  );
+};
 
 export interface ImportLimitBreach {
   kind: "bytes" | "rows";

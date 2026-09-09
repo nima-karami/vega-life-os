@@ -126,8 +126,10 @@ export function listSettlementNotes(figures: SettlementFigures): SettlementNote[
 }
 
 export interface SettlementOutcome {
-  /** The sentence up to the figure, so the history row can bold the figure alone. */
-  lead: string;
+  /** the typed half of the sentence — the only part allowed to ellipsise, so the direction survives */
+  name: string | null;
+  /** the rest of the sentence up to the figure, so the history row can bold the figure alone */
+  phrase: string;
   amount: string;
 }
 
@@ -173,7 +175,9 @@ export function describeSettlementOutcome(
   partnerName: string,
 ): SettlementOutcome {
   const partner = resolvePartnerName(partnerName);
-  if (balanceCents > 0) return { lead: `${partner} sent you`, amount: formatCents(balanceCents) };
-  if (balanceCents < 0) return { lead: `You sent ${partner}`, amount: formatCents(-balanceCents) };
-  return { lead: "Square — nothing changed hands", amount: "" };
+  if (balanceCents > 0)
+    return { name: partner, phrase: " sent you", amount: formatCents(balanceCents) };
+  if (balanceCents < 0)
+    return { name: null, phrase: `You sent ${partner}`, amount: formatCents(-balanceCents) };
+  return { name: null, phrase: "Square — nothing changed hands", amount: "" };
 }

@@ -1,9 +1,11 @@
 import type { FinanceBudget } from "@vega/shared";
 import { Link } from "react-router";
-import { cx, Icon, Menu, type MenuItem } from "@/core/ui";
+import { cx, Icon, Menu, type MenuItem, useCompact } from "@/core/ui";
 import { CategoryBudgetChip } from "./CategoryBudgetChip";
 import { describeCategoryRowCount, describeTablePace, formatShortMonth } from "./category-copy";
 import type { CategoryTableRow, CategoryTableTotals } from "./category-table-figures";
+import { CompactCategoryList } from "./compact/CompactCategoryList";
+import type { CategoryTableProps } from "./finance-table-props";
 import { formatCents } from "./money";
 import { PaceBar } from "./primitives";
 
@@ -13,17 +15,6 @@ const MIN_WIDTH = "min-w-[58rem]";
 const PACE_CELL = "px-4";
 
 const NO_FIGURE = "—";
-
-export interface CategoryTableProps {
-  rows: CategoryTableRow[];
-  totals: CategoryTableTotals;
-  month: string;
-  elapsedFraction: number;
-  budgets: Map<string, FinanceBudget>;
-  /** The archived list reads the same but carries no total — it is not a plan, it is a record. */
-  hasTotalRow?: boolean;
-  buildMenuItems: (row: CategoryTableRow) => MenuItem[];
-}
 
 function HeaderRow({ month }: { month: string }) {
   const labels = [
@@ -184,15 +175,20 @@ function TotalRow({
 }
 
 /** Every category, its budget editable in the row, and every column that can be totalled totalled. */
-export function CategoryTable({
-  rows,
-  totals,
-  month,
-  elapsedFraction,
-  budgets,
-  hasTotalRow = true,
-  buildMenuItems,
-}: CategoryTableProps) {
+export function CategoryTable(props: CategoryTableProps) {
+  const isCompact = useCompact();
+  if (isCompact) return <CompactCategoryList {...props} />;
+
+  const {
+    rows,
+    totals,
+    month,
+    elapsedFraction,
+    budgets,
+    hasTotalRow = true,
+    buildMenuItems,
+  } = props;
+
   return (
     <div className="overflow-x-auto">
       <div className="overflow-hidden rounded-[16px] border border-border bg-surface shadow-soft">

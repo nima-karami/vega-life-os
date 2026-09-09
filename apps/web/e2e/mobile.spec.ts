@@ -110,6 +110,11 @@ const ROUTES = [
   "/cards/new",
   "/entries",
   `/journal/${TODAY}`,
+  "/finance",
+  "/finance/transactions",
+  "/finance/categories",
+  "/finance/settlement",
+  "/finance/import",
 ];
 
 /** Detail routes carry runtime ids, so each is reached by following the index's first link. */

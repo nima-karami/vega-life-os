@@ -118,7 +118,7 @@ export function FinanceOverviewMobile({
           <p className="text-[12px] text-muted">
             {monthLabel} settle-up · {settlement.phase}
           </p>
-          <p className="mt-0.5 font-semibold text-[18px] text-foreground tabular-nums">
+          <p className="mt-0.5 break-words font-semibold text-[18px] text-foreground tabular-nums">
             {describeBalance(settlement.headlineBalanceCents, "now", partnerName)}
           </p>
         </OverviewCard>

@@ -1,12 +1,12 @@
 import type { FinanceBudget } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import { cx } from "@/core/ui";
+import { cx, useCompact } from "@/core/ui";
 import { resolveBudgetEdit } from "./budget-edit";
 import { formatCents, formatCentsPlain } from "./money";
 
 const CHIP_BASE =
-  "inline-flex h-[26px] items-center rounded-[10px] border px-2.5 font-medium text-[16px] tabular-nums sm:text-[12.5px]";
+  "inline-flex items-center rounded-[10px] border px-2.5 font-medium text-[16px] tabular-nums sm:text-[12.5px]";
 const CHIP_RESTING = "border-border bg-surface text-foreground hover:border-muted";
 const CHIP_EDITING =
   "border-accent bg-surface text-foreground shadow-[0_0_0_1px_var(--color-accent)]";
@@ -31,6 +31,8 @@ export function CategoryBudgetChip({
   month,
   effectiveBudget,
 }: CategoryBudgetChipProps) {
+  const isCompact = useCompact();
+  const heightClass = isCompact ? "h-11" : "h-[26px]";
   const addFinanceBudget = useStore((s) => s.addFinanceBudget);
   const removeFinanceBudget = useStore((s) => s.removeFinanceBudget);
   const pushToast = useStore((s) => s.pushToast);
@@ -64,7 +66,7 @@ export function CategoryBudgetChip({
         onClick={() =>
           setDraft(effectiveBudget === null ? "" : formatCentsPlain(effectiveBudget.cents))
         }
-        className={cx(CHIP_BASE, CHIP_RESTING)}
+        className={cx(CHIP_BASE, heightClass, CHIP_RESTING)}
       >
         {effectiveBudget === null ? <span className="text-muted">{NO_BUDGET}</span> : label}
       </button>
@@ -84,7 +86,7 @@ export function CategoryBudgetChip({
         if (event.key === "Enter") commit();
         if (event.key === "Escape") setDraft(null);
       }}
-      className={cx(CHIP_BASE, CHIP_EDITING, "w-[5.5rem] text-right outline-none")}
+      className={cx(CHIP_BASE, heightClass, CHIP_EDITING, "w-[5.5rem] text-right outline-none")}
     />
   );
 }

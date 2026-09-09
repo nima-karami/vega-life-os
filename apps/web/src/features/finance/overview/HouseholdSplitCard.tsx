@@ -32,7 +32,7 @@ export function HouseholdSplitCard({
         title="Household split"
         qualifier={`${monthLabel} settle-up · ${figures.phase}`}
       />
-      <p className="mt-3.5 mb-1 font-semibold text-[24px] text-foreground tracking-[-0.02em] tabular-nums">
+      <p className="mt-3.5 mb-1 break-words font-semibold text-[24px] text-foreground tracking-[-0.02em] tabular-nums">
         {describeBalance(figures.headlineBalanceCents, "now", partnerName)}
       </p>
       <p className="text-[13px] text-muted">

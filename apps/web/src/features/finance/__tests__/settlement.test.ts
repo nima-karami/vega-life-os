@@ -6,6 +6,7 @@ import {
   computeSettlementBalance,
   type FinanceBook,
 } from "../queries";
+import { buildAccount } from "../row-builders";
 import {
   buildCarryForwardWrites,
   buildSettlePatch,
@@ -17,7 +18,7 @@ import {
   findNextOpenMonth,
   listSettlementMonths,
 } from "../settlement";
-import { makeBook, row, settlement } from "./fixtures";
+import { CHEQUING, makeBook, row, settlement } from "./fixtures";
 
 const MONTH = "2026-03";
 const NEXT_MONTH = "2026-04";
@@ -291,5 +292,29 @@ describe("direction copy", () => {
     expect(describeDirection(500, "now", "Robin")).toBe("Robin owes you");
     expect(describeDirection(-500, "still", "Robin")).toBe("You still owe Robin");
     expect(describeBalance(500, "now", "Robin")).toBe(`Robin owes you ${formatCents(500)}`);
+  });
+});
+
+describe("marking an account business", () => {
+  const settled = settlement(MONTH, {
+    status: "settled",
+    settledBalanceCents: 95700,
+    settledAt: "2026-04-01",
+    paidCents: 95700,
+    paidAt: "2026-04-02",
+  });
+  const bookWhereChequingIs = (isBusiness: boolean) =>
+    makeBook({
+      financeAccounts: [buildAccount({ id: CHEQUING, isBusiness })],
+      financeTransactions: [shared("2026-03-02", -200000), partnerPaid("2026-03-12", -8600)],
+      financeSettlements: [settled],
+    });
+
+  it("moves no settlement figure, so a settled month never turns amended", () => {
+    const personal = computeSettlementFigures(bookWhereChequingIs(false), MONTH);
+    const business = computeSettlementFigures(bookWhereChequingIs(true), MONTH);
+    expect(business).toEqual(personal);
+    expect(personal.householdTotalCents).toBe(208600);
+    expect(business.phase).toBe("settled");
   });
 });

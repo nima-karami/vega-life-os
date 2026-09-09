@@ -6,6 +6,7 @@ import {
   buildImportPreviewRows,
   buildRecentImports,
   countImportOutcomes,
+  describePriorImport,
   describeStagedFile,
   describeWorkedExample,
   filterByImportLens,
@@ -220,5 +221,28 @@ describe("recent imports", () => {
     const recent = buildRecentImports([batch("stalled", { committedAt: null })], 6);
 
     expect(recent[0].when).toBe("Jul 29");
+  });
+});
+
+describe("the prior-import warning", () => {
+  const PRIOR = batch("statement-b");
+
+  it("says you already imported it when the same account took it", () => {
+    expect(describePriorImport(PRIOR, "acc_card_a", "Card A")).toBe(
+      "You already imported this exact file on 29 July 2026 — 9 rows landed then.",
+    );
+  });
+
+  it("names the other account instead, so it never contradicts a count of new rows", () => {
+    const note = describePriorImport(PRIOR, "acc_visa", "Rewards card");
+
+    expect(note).toContain("Rewards card");
+    expect(note, "the warning still claims the rows are already here").not.toContain(
+      "already imported",
+    );
+  });
+
+  it("says nothing when no earlier batch carried the file", () => {
+    expect(describePriorImport(null, "acc_card_a", "Card A")).toBeUndefined();
   });
 });

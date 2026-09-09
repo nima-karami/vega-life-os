@@ -2,8 +2,8 @@ import { Modal, useOverlayState } from "@heroui/react";
 import type { ReactNode } from "react";
 import { draftSafeBackdrop, useCompactModal } from "@/core/ui";
 
-/** The centered shell every category flow renders into — draft-safe backdrop, sheet on a phone. */
-export function CategoryModalFrame({
+/** The centered shell every finance flow renders into — draft-safe backdrop, sheet on a phone. */
+export function FinanceModalFrame({
   title,
   onClose,
   footer,

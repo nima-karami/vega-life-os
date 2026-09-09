@@ -2,7 +2,7 @@ import { Button } from "@heroui/react";
 import type { FinanceCategory } from "@vega/shared";
 import { useStore } from "@/core/store";
 import { ConfirmDialog } from "@/core/ui";
-import { CategoryModalFrame } from "./CategoryModalFrame";
+import { FinanceModalFrame } from "./FinanceModalFrame";
 import {
   type CategoryReferences,
   describeCategoryReferences,
@@ -29,7 +29,7 @@ export function CategoryDeleteModal({
 
   if (isCategoryReferenced(references)) {
     return (
-      <CategoryModalFrame
+      <FinanceModalFrame
         title={`Can't delete ${category.name}`}
         onClose={onClose}
         footer={
@@ -50,7 +50,7 @@ export function CategoryDeleteModal({
           {describeCategoryReferences(references)} still use this category. Archive it to keep that
           history exactly where it is, or merge it into another category.
         </p>
-      </CategoryModalFrame>
+      </FinanceModalFrame>
     );
   }
 

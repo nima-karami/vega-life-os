@@ -1,44 +1,14 @@
-import { cx } from "@/core/ui";
-import {
-  filterByImportLens,
-  type ImportOutcome,
-  type ImportOutcomeLens,
-  type ImportPreviewRow,
-  INTERNAL_REASON,
-  NO_GUESS,
-  OUTCOME_LABEL,
-} from "./import-preview";
+import { cx, useCompact } from "@/core/ui";
+import { CompactImportOutcomes } from "./compact/CompactImportOutcomes";
+import type { FinanceImportOutcomeTableProps } from "./finance-table-props";
+import { filterByImportLens, type ImportPreviewRow, OUTCOME_LABEL } from "./import-preview";
+import { ImportGuessLabel, OUTCOME_CLASS } from "./ImportGuessLabel";
 import { formatSignedCents } from "./ledger-copy";
-import { CategoryChip } from "./primitives";
 
 const GRID = "grid-cols-[5.5rem_1fr_11rem_6.5rem_7rem]";
 const MIN_WIDTH = "min-w-[42rem]";
 const HEADERS = ["Date", "Title from file", "Category guess", "Amount", "Outcome"];
 const ROW_LIMIT = 8;
-
-const OUTCOME_CLASS: Record<ImportOutcome, string> = {
-  "will-add": "text-success",
-  internal: "text-muted",
-  "already-here": "text-muted",
-};
-
-export interface FinanceImportOutcomeTableProps {
-  rows: ImportPreviewRow[];
-  lenses: ImportOutcomeLens[];
-  activeLens: ImportOutcome;
-  onLensChange: (lens: ImportOutcome) => void;
-}
-
-function GuessCell({ row }: { row: ImportPreviewRow }) {
-  if (row.outcome === "internal") {
-    return <span className="text-[12.5px] text-muted">{INTERNAL_REASON}</span>;
-  }
-  if (row.guess === null) return <span className="text-[12.5px] text-muted">{NO_GUESS}</span>;
-  if (row.outcome === "already-here") {
-    return <span className="text-[12.5px] text-muted">{row.guess.name}</span>;
-  }
-  return <CategoryChip label={row.guess.name} color={row.guess.color} />;
-}
 
 function OutcomeRow({ row, isLast }: { row: ImportPreviewRow; isLast: boolean }) {
   const isPast = row.outcome === "already-here";
@@ -61,7 +31,7 @@ function OutcomeRow({ row, isLast }: { row: ImportPreviewRow; isLast: boolean })
         {row.title}
       </span>
       <span className="flex min-w-0 items-center">
-        <GuessCell row={row} />
+        <ImportGuessLabel row={row} />
       </span>
       <span
         className={cx(
@@ -85,6 +55,7 @@ export function FinanceImportOutcomeTable({
   activeLens,
   onLensChange,
 }: FinanceImportOutcomeTableProps) {
+  const isCompact = useCompact();
   const lensed = filterByImportLens(rows, activeLens);
   const shown = lensed.slice(0, ROW_LIMIT);
   const overflow = lensed.length - shown.length;
@@ -115,36 +86,45 @@ export function FinanceImportOutcomeTable({
         </fieldset>
       </div>
 
-      <div className="overflow-x-auto">
-        <div
-          className={cx(
-            "grid h-9 items-center border-t border-b border-border bg-surface-secondary px-4 text-[12px] text-muted",
-            GRID,
-            MIN_WIDTH,
-          )}
-        >
-          {HEADERS.map((header) => (
-            <span
-              key={header}
-              className={header === "Amount" || header === "Outcome" ? "text-right" : undefined}
-            >
-              {header}
-            </span>
-          ))}
+      {isCompact ? (
+        <div className="border-border border-t">
+          <CompactImportOutcomes rows={shown} />
         </div>
-
-        {shown.map((row, index) => (
-          <OutcomeRow key={row.key} row={row} isLast={index === shown.length - 1} />
-        ))}
-
-        {shown.length === 0 && (
+      ) : (
+        <div className="overflow-x-auto">
           <div
-            className={cx("grid h-11 place-items-center px-4 text-[12.5px] text-muted", MIN_WIDTH)}
+            className={cx(
+              "grid h-9 items-center border-t border-b border-border bg-surface-secondary px-4 text-[12px] text-muted",
+              GRID,
+              MIN_WIDTH,
+            )}
           >
-            No rows read this way.
+            {HEADERS.map((header) => (
+              <span
+                key={header}
+                className={header === "Amount" || header === "Outcome" ? "text-right" : undefined}
+              >
+                {header}
+              </span>
+            ))}
           </div>
-        )}
-      </div>
+
+          {shown.map((row, index) => (
+            <OutcomeRow key={row.key} row={row} isLast={index === shown.length - 1} />
+          ))}
+
+          {shown.length === 0 && (
+            <div
+              className={cx(
+                "grid h-11 place-items-center px-4 text-[12.5px] text-muted",
+                MIN_WIDTH,
+              )}
+            >
+              No rows read this way.
+            </div>
+          )}
+        </div>
+      )}
 
       {overflow > 0 && (
         <div className="grid h-9 place-items-center bg-canvas font-medium text-[12.5px] text-muted">

@@ -5,6 +5,7 @@ import {
   buildSettlementRowViews,
   computeRowsNetCents,
   filterSettlementRows,
+  formatOwedCents,
   partitionSettlementSplits,
 } from "../settlement-rows";
 import { makeBook, row, settlement } from "./fixtures";
@@ -189,7 +190,7 @@ describe("the settled-period history", () => {
     const [entry] = buildSettlementHistory(book, "Robin");
 
     expect(entry.periodLabel).toBe("February 2026");
-    expect(entry.outcome).toEqual({ lead: "Robin sent you", amount: "$314.20" });
+    expect(entry.outcome).toEqual({ name: "Robin", phrase: " sent you", amount: "$314.20" });
     expect(entry.rowCount).toBe(2);
     expect(entry.settledLabel).toBe("Mar 1");
     expect(entry.isAmended).toBe(false);
@@ -198,7 +199,8 @@ describe("the settled-period history", () => {
   it("falls back to `Partner` when Settings carries no name", () => {
     const book = makeBook({ financeSettlements: [settledPeriod({ settledBalanceCents: -8845 })] });
     expect(buildSettlementHistory(book, "")[0].outcome).toEqual({
-      lead: "You sent Partner",
+      name: null,
+      phrase: "You sent Partner",
       amount: "$88.45",
     });
   });
@@ -214,5 +216,19 @@ describe("the settled-period history", () => {
   it("leaves an open period out of the history entirely", () => {
     const book = makeBook({ financeSettlements: [settlement(MONTH)] });
     expect(buildSettlementHistory(book, "Robin")).toEqual([]);
+  });
+});
+
+describe("the owed figure", () => {
+  it("carries an explicit plus on a credit, so the direction never rests on the absent sign", () => {
+    expect(formatOwedCents(12850)).toBe("+$128.50");
+  });
+
+  it("prints a debit with the true minus the rest of the money uses", () => {
+    expect(formatOwedCents(-12850)).toBe("−$128.50");
+  });
+
+  it("leaves a settled row unsigned", () => {
+    expect(formatOwedCents(0)).toBe("$0.00");
   });
 });

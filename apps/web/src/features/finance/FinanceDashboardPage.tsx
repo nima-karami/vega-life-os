@@ -5,10 +5,12 @@ import { useNavigate, useSearchParams } from "react-router";
 import { signOutUser } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { cx, type EmptyCopy, Icon } from "@/core/ui";
+import { AccountEditorModal } from "./AccountEditorModal";
 import { FinanceDashboardBody } from "./FinanceDashboardBody";
 import { FinanceDashboardSkeleton } from "./FinanceDashboardSkeleton";
 import { FinanceMonthCursor } from "./FinanceMonthCursor";
 import { FinancePageShell } from "./FinancePageShell";
+import { buildFinanceStartGuide } from "./finance-start-guide";
 import { isMonthKey, toMonthKey } from "./month-cursor";
 import { FUSED_CELL_CLASS, FUSED_GROUP_CLASS, SECONDARY_BUTTON_CLASS } from "./primitives";
 import { useFinanceBook } from "./useFinanceBook";
@@ -64,6 +66,7 @@ export function FinanceDashboardPage() {
   const isOnline = useOnlineStatus();
 
   const [includeBusiness, setIncludeBusiness] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   // A failed derivation is pure, so retrying it means running it again over whatever is on file now.
   const [, setAttempt] = useState(0);
   const retry = () => setAttempt((count) => count + 1);
@@ -85,53 +88,61 @@ export function FinanceDashboardPage() {
   const monthName = isMonthKey(month) ? format(parseISO(`${month}-01`), "MMMM") : "this month";
 
   const renderShell = (children: ReactNode, emptyCopy?: EmptyCopy) => (
-    <FinancePageShell
-      title="Finance"
-      subLine={`Your share of ${monthName}, against plan.`}
-      monthCursor={
-        <FinanceMonthCursor month={month} currentMonth={currentMonth} onChange={setMonth} />
-      }
-      headerAction={
-        <>
-          {/* A phone fits the month and one action; Import is a tap away in the strip below. */}
-          <span className="hidden sm:inline-flex">
-            <Button
-              variant="ghost"
-              className={SECONDARY_BUTTON_CLASS}
-              onPress={() => navigate("/finance/import")}
-            >
-              Import statements
-            </Button>
-          </span>
-          <Button variant="primary" onPress={() => navigate("/finance/transactions/new")}>
-            <Icon name="plus" size={16} aria-hidden />
-            Add transaction
-          </Button>
-        </>
-      }
-      filters={
-        <ButtonGroup aria-label="Business accounts" className={cx(FUSED_GROUP_CLASS, "self-start")}>
-          {SCOPES.map((scope) => {
-            const isCurrent = scope.withBusiness === includeBusiness;
-            return (
+    <>
+      <FinancePageShell
+        title="Finance"
+        subLine={`Your share of ${monthName}, against plan.`}
+        monthCursor={
+          <FinanceMonthCursor month={month} currentMonth={currentMonth} onChange={setMonth} />
+        }
+        headerAction={
+          <>
+            {/* A phone fits the month and one action; Import is a tap away in the strip below. */}
+            <span className="hidden sm:inline-flex">
               <Button
-                key={scope.label}
                 variant="ghost"
-                aria-pressed={isCurrent}
-                onPress={() => setIncludeBusiness(scope.withBusiness)}
-                className={cx(SCOPE_CELL, isCurrent ? SCOPE_ON : SCOPE_OFF)}
+                className={SECONDARY_BUTTON_CLASS}
+                onPress={() => navigate("/finance/import")}
               >
-                {scope.label}
+                Import statements
               </Button>
-            );
-          })}
-        </ButtonGroup>
-      }
-      isEmpty={emptyCopy !== undefined}
-      empty={emptyCopy ?? NO_COPY}
-    >
-      {children}
-    </FinancePageShell>
+            </span>
+            <Button variant="primary" onPress={() => navigate("/finance/transactions/new")}>
+              <Icon name="plus" size={16} aria-hidden />
+              Add transaction
+            </Button>
+          </>
+        }
+        filters={
+          <ButtonGroup
+            aria-label="Business accounts"
+            className={cx(FUSED_GROUP_CLASS, "self-start")}
+          >
+            {SCOPES.map((scope) => {
+              const isCurrent = scope.withBusiness === includeBusiness;
+              return (
+                <Button
+                  key={scope.label}
+                  variant="ghost"
+                  aria-pressed={isCurrent}
+                  onPress={() => setIncludeBusiness(scope.withBusiness)}
+                  className={cx(SCOPE_CELL, isCurrent ? SCOPE_ON : SCOPE_OFF)}
+                >
+                  {scope.label}
+                </Button>
+              );
+            })}
+          </ButtonGroup>
+        }
+        isEmpty={emptyCopy !== undefined}
+        empty={emptyCopy ?? NO_COPY}
+      >
+        {children}
+      </FinancePageShell>
+      {isCreatingAccount && (
+        <AccountEditorModal account={null} onClose={() => setIsCreatingAccount(false)} />
+      )}
+    </>
   );
 
   if (loadFailed)
@@ -161,15 +172,15 @@ export function FinanceDashboardPage() {
     });
 
   if (book.financeTransactions.length === 0)
-    return renderShell(null, {
-      title: "Nothing imported yet",
-      body: "Import a bank statement to start the weekly loop: import, categorise and split, then settle.",
-      cta: (
-        <Button variant="secondary" onPress={() => navigate("/finance/import")}>
-          Import statements
-        </Button>
-      ),
-    });
+    return renderShell(
+      null,
+      buildFinanceStartGuide({
+        surface: "overview",
+        hasOpenAccount: book.financeAccounts.some((account) => account.archivedAt === null),
+        onAddAccount: () => setIsCreatingAccount(true),
+        navigate,
+      }),
+    );
 
   return renderShell(
     <FinanceDashboardBody

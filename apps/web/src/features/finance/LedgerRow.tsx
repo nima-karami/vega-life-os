@@ -131,7 +131,7 @@ export function LedgerRow({
         </span>
       )}
 
-      {isLast && <FadeEdge />}
+      {isLast && <FadeEdge className="h-7" />}
     </div>
   );
 }

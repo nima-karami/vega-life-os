@@ -208,18 +208,30 @@ describe("the confirm-dialog copy", () => {
 describe("a closed period's outcome", () => {
   it("says who sent whom, never a bare sign", () => {
     expect(describeSettlementOutcome(31420, "Robin")).toEqual({
-      lead: "Robin sent you",
+      name: "Robin",
+      phrase: " sent you",
       amount: "$314.20",
     });
     expect(describeSettlementOutcome(-8845, "Robin")).toEqual({
-      lead: "You sent Robin",
+      name: null,
+      phrase: "You sent Robin",
       amount: "$88.45",
     });
   });
 
+  it("keeps the direction out of the half a long name may ellipsise", () => {
+    const outcome = describeSettlementOutcome(31420, "Bartholomewfeatherstonehaughsonnenschein");
+
+    expect(outcome.name).toBe("Bartholomewfeatherstonehaughsonnenschein");
+    expect(outcome.phrase, "the direction sits in the half that can be cut short").toBe(
+      " sent you",
+    );
+  });
+
   it("has a sentence for a period that came out square", () => {
     expect(describeSettlementOutcome(0, "Robin")).toEqual({
-      lead: "Square — nothing changed hands",
+      name: null,
+      phrase: "Square — nothing changed hands",
       amount: "",
     });
   });

@@ -1,16 +1,20 @@
 import { Button } from "@heroui/react";
 import { Link } from "react-router";
-import { cx } from "@/core/ui";
+import { cx, useCompact } from "@/core/ui";
+import { CompactSettlementRows } from "./compact/CompactSettlementRows";
+import type { SettlementRowsCardProps } from "./finance-table-props";
 import { formatSignedCents } from "./ledger-copy";
-import { formatCents, formatShareBps } from "./money";
 import type { SettlementFigures } from "./settlement";
 import { describeRowsFooter } from "./settlement-copy";
 import {
   computeRowsNetCents,
   filterSettlementRows,
+  formatOwedCents,
   type SettlementRowFilter,
   type SettlementRowView,
 } from "./settlement-rows";
+import { SettlementOwedFigure } from "./SettlementOwedFigure";
+import { SettlementSplitCell } from "./SettlementSplitCell";
 
 const ROWS_GRID = "grid-cols-[5.5rem_1fr_9rem_6.5rem_5rem_6.5rem_6.5rem]";
 const FOOTER_GRID = "grid-cols-[1fr_6.5rem]";
@@ -20,42 +24,33 @@ const HEADERS = ["Date", "Title", "Paid by", "Full", "Mine", "Your share", "Owed
 const RIGHT_ALIGNED = new Set(["Full", "Mine", "Your share", "Owed you"]);
 
 const CHIP_BASE =
-  "h-7 shrink-0 rounded-[10px] border px-3 text-[12.5px] data-[hovered=true]:border-muted";
+  "h-7 max-w-full shrink-0 rounded-[10px] border px-3 text-[12.5px] data-[hovered=true]:border-muted";
 const CHIP_ON = "border-accent font-medium text-foreground";
 const CHIP_OFF = "border-border font-normal text-muted";
 
-const SET_CHIP_CLASS =
-  "inline-flex h-6 items-center rounded-[10px] border border-warning border-dashed px-[9px] font-medium text-[12px] text-warning";
-
 const NO_FIGURE = "—";
 
-const formatOwed = (cents: number): string =>
-  cents > 0 ? `+${formatCents(cents)}` : formatSignedCents(cents);
-
-export interface SettlementRowsCardProps {
-  views: SettlementRowView[];
-  figures: SettlementFigures;
-  filter: SettlementRowFilter;
-  partnerName: string;
-  onSelectFilter: (filter: SettlementRowFilter) => void;
+interface PayerChip {
+  key: SettlementRowFilter;
+  /** the typed half of the label — the only part allowed to ellipsise, so ` paid` survives */
+  name: string | null;
+  label: string;
 }
 
-function OwedCell({ view }: { view: SettlementRowView }) {
-  if (view.owedCents === null)
-    return <span className="text-right text-[13.5px] text-muted">waiting</span>;
+function RowsFooter({ figures, isCompact }: { figures: SettlementFigures; isCompact: boolean }) {
   return (
-    <span
+    <div
       className={cx(
-        "text-right font-medium text-[13.5px] tabular-nums",
-        view.owedCents > 0
-          ? "text-success"
-          : view.owedCents < 0
-            ? "text-danger"
-            : "text-foreground",
+        "grid h-11 items-center border-border border-t bg-paper-2 px-4",
+        FOOTER_GRID,
+        !isCompact && ROWS_MIN_WIDTH,
       )}
     >
-      {formatOwed(view.owedCents)}
-    </span>
+      <span className="text-[13px] text-muted">{describeRowsFooter(figures)}</span>
+      <span className="text-right font-semibold text-[14px] text-foreground tabular-nums">
+        {formatOwedCents(computeRowsNetCents(figures))}
+      </span>
+    </div>
   );
 }
 
@@ -90,11 +85,7 @@ function RowsTableRow({
         {formatSignedCents(view.fullCents)}
       </span>
       <span className="text-right text-[13px] text-muted tabular-nums">
-        {view.isWaiting ? (
-          <span className={SET_CHIP_CLASS}>Set</span>
-        ) : (
-          `${formatShareBps(view.shareBps)}%`
-        )}
+        <SettlementSplitCell view={view} />
       </span>
       <span
         className={cx(
@@ -106,7 +97,7 @@ function RowsTableRow({
       >
         {view.shareCents === null ? NO_FIGURE : formatSignedCents(view.shareCents)}
       </span>
-      <OwedCell view={view} />
+      <SettlementOwedFigure view={view} className="text-right" />
     </div>
   );
 }
@@ -122,11 +113,12 @@ export function SettlementRowsCard({
   partnerName,
   onSelectFilter,
 }: SettlementRowsCardProps) {
-  const chips: { key: SettlementRowFilter; label: string }[] = [
-    { key: "all", label: `All ${views.length}` },
-    { key: "owner", label: "You paid" },
-    { key: "partner", label: `${partnerName} paid` },
-    { key: "waiting", label: "Missing split" },
+  const isCompact = useCompact();
+  const chips: PayerChip[] = [
+    { key: "all", name: null, label: `All ${views.length}` },
+    { key: "owner", name: null, label: "You paid" },
+    { key: "partner", name: partnerName, label: " paid" },
+    { key: "waiting", name: null, label: "Missing split" },
   ];
   const shown = filterSettlementRows(views, filter);
 
@@ -137,7 +129,7 @@ export function SettlementRowsCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3.5 pb-2.5">
         <h2 className="font-semibold text-[15px] text-foreground">Shared rows in this period</h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2">
           {chips.map((chip) => (
             <Button
               key={chip.key}
@@ -146,55 +138,56 @@ export function SettlementRowsCard({
               onPress={() => onSelectFilter(chip.key)}
               className={cx(CHIP_BASE, filter === chip.key ? CHIP_ON : CHIP_OFF)}
             >
+              {chip.name !== null && (
+                <span className="inline-block max-w-full truncate align-bottom">{chip.name}</span>
+              )}
               {chip.label}
             </Button>
           ))}
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div
-          className={cx(
-            "grid h-9 items-center border-border border-t border-b bg-paper-2 px-4 text-[12px] text-muted",
-            ROWS_GRID,
-            ROWS_MIN_WIDTH,
-          )}
-        >
-          {HEADERS.map((label) => (
-            <span key={label} className={RIGHT_ALIGNED.has(label) ? "text-right" : undefined}>
-              {label}
-            </span>
-          ))}
+      {isCompact ? (
+        <div className="border-border border-t">
+          <CompactSettlementRows views={shown} partnerName={partnerName} />
+          <RowsFooter figures={figures} isCompact />
         </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div
+            className={cx(
+              "grid h-9 items-center border-border border-t border-b bg-paper-2 px-4 text-[12px] text-muted",
+              ROWS_GRID,
+              ROWS_MIN_WIDTH,
+            )}
+          >
+            {HEADERS.map((label) => (
+              <span key={label} className={RIGHT_ALIGNED.has(label) ? "text-right" : undefined}>
+                {label}
+              </span>
+            ))}
+          </div>
 
-        {shown.length === 0 ? (
-          <p className={cx("grid h-11 place-items-center text-[13px] text-muted", ROWS_MIN_WIDTH)}>
-            No row in this period matches that filter.
-          </p>
-        ) : (
-          shown.map((view, index) => (
-            <RowsTableRow
-              key={view.id}
-              view={view}
-              partner={partnerName}
-              isLast={index === shown.length - 1}
-            />
-          ))
-        )}
-
-        <div
-          className={cx(
-            "grid h-11 items-center border-border border-t bg-paper-2 px-4",
-            FOOTER_GRID,
-            ROWS_MIN_WIDTH,
+          {shown.length === 0 ? (
+            <p
+              className={cx("grid h-11 place-items-center text-[13px] text-muted", ROWS_MIN_WIDTH)}
+            >
+              No row in this period matches that filter.
+            </p>
+          ) : (
+            shown.map((view, index) => (
+              <RowsTableRow
+                key={view.id}
+                view={view}
+                partner={partnerName}
+                isLast={index === shown.length - 1}
+              />
+            ))
           )}
-        >
-          <span className="text-[13px] text-muted">{describeRowsFooter(figures)}</span>
-          <span className="text-right font-semibold text-[14px] text-foreground tabular-nums">
-            {formatOwed(computeRowsNetCents(figures))}
-          </span>
+
+          <RowsFooter figures={figures} isCompact={false} />
         </div>
-      </div>
+      )}
     </section>
   );
 }

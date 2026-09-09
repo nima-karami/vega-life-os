@@ -1,12 +1,15 @@
 import { Button } from "@heroui/react";
-import { Icon } from "@/core/ui";
+import { ConfirmDialog, Icon } from "@/core/ui";
+import { AccountEditorModal } from "./AccountEditorModal";
 import { FinanceImportMapper } from "./FinanceImportMapper";
 import { FinanceImportPhasePanel } from "./FinanceImportPhasePanel";
 import { FinanceImportSidebar } from "./FinanceImportSidebar";
 import { FinanceImportStage } from "./FinanceImportStage";
 import { FinanceNotice } from "./FinanceNotice";
 import { FinancePageShell } from "./FinancePageShell";
-import { useImportView } from "./useImportView";
+import { TOUCH_BUTTON_HEIGHT_CLASS } from "./primitives";
+import { useAccountManager } from "./useAccountManager";
+import { NEW_ACCOUNT_OPTION, useImportView } from "./useImportView";
 
 const NO_ACCOUNT_BODY =
   "An account has to exist first — its slug is baked into every row’s duplicate key.";
@@ -14,8 +17,14 @@ const NO_ACCOUNT_BODY =
 /** Drop a file, see what it would do to every row, then write it — in that order, always. */
 export function FinanceImportPage() {
   const view = useImportView();
+  const manager = useAccountManager();
   const { flow, staged, counts } = view;
   const { phase } = flow;
+
+  const chooseAccount = (accountId: string) => {
+    if (accountId === NEW_ACCOUNT_OPTION) manager.openCreate();
+    else view.onAccountChange(accountId);
+  };
 
   return (
     <FinancePageShell
@@ -35,7 +44,20 @@ export function FinanceImportPage() {
       }
     >
       {view.account === null && (
-        <FinanceNotice tone="warning" title="No account to import into" body={NO_ACCOUNT_BODY} />
+        <FinanceNotice
+          tone="warning"
+          title="No account to import into"
+          body={NO_ACCOUNT_BODY}
+          actions={
+            <Button
+              variant="secondary"
+              className={TOUCH_BUTTON_HEIGHT_CLASS}
+              onPress={manager.openCreate}
+            >
+              Add an account
+            </Button>
+          }
+        />
       )}
 
       <FinanceImportPhasePanel flow={flow} />
@@ -50,15 +72,35 @@ export function FinanceImportPage() {
           accountId={view.account?.id ?? ""}
           counts={counts}
           rows={view.previewRows}
-          onAccountChange={view.onAccountChange}
+          onAccountChange={chooseAccount}
           onRemap={flow.remap}
         />
 
         <FinanceImportSidebar
           newRows={staged === null ? null : counts.newRows}
           recent={view.recent}
+          accounts={view.accounts}
+          buildMenuItems={manager.buildMenuItems}
+          onCreateAccount={manager.openCreate}
         />
       </div>
+
+      {manager.editing && (
+        <AccountEditorModal
+          account={manager.editing.account}
+          onClose={manager.closeEditor}
+          onCreated={(account) => view.onAccountChange(account.id)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={manager.archiving !== null}
+        title={manager.archiving?.title ?? ""}
+        body={manager.archiving?.body}
+        confirmLabel="Archive"
+        onConfirm={manager.confirmArchive}
+        onClose={manager.cancelArchive}
+      />
 
       {phase.status === "mapping-required" && view.account && (
         <FinanceImportMapper
