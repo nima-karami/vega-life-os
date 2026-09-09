@@ -50,6 +50,22 @@ const NO_ACCOUNT_TOAST = "Add an account before importing";
 
 const IDLE: ImportPhase = { status: "idle" };
 
+const HIDDEN_TAB_YIELD_MS = 60;
+
+/**
+ * A bare `setTimeout(0)` hands back the event loop but not a rendering opportunity — measured, the
+ * parsing notice still never reached the screen. A hidden tab is given no frame at all, so the
+ * outer timer is a floor rather than a race.
+ */
+const yieldToPaint = () =>
+  new Promise<void>((resolve) => {
+    const floor = setTimeout(resolve, HIDDEN_TAB_YIELD_MS);
+    requestAnimationFrame(() => {
+      clearTimeout(floor);
+      setTimeout(resolve, 0);
+    });
+  });
+
 interface StagingState {
   /** the selection the phase was parsed under — a stale stamp is thrown away, never re-read */
   stamp: StageStamp;
@@ -117,6 +133,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
     setPhase({ status: "parsing", fileName: source.name });
+    await yieldToPaint();
     const outcome = await parseStatement({
       fileName: source.name,
       table: source.table,

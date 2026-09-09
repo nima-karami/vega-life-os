@@ -108,17 +108,33 @@ const render = async (account: FinanceAccount) => {
   });
 };
 
-/** Both mocked steps resolve on microtasks, so draining them is the whole wait. */
-const drain = async () => {
+/** Everything up to the parse resolves on microtasks — the file read, the hash, each mocked step. */
+const settleMicrotasks = async () => {
   await act(async () => {
     for (let pass = 0; pass < 8; pass += 1) await Promise.resolve();
   });
 };
 
-const openHeldFile = async () => {
+/** The parse waits for a painted frame before it starts, so the frame clock is part of the wait. */
+const drain = async () => {
+  await act(async () => {
+    for (let pass = 0; pass < 8; pass += 1) {
+      await vi.advanceTimersByTimeAsync(100);
+      await Promise.resolve();
+    }
+  });
+};
+
+/** Stops in the paint window: the notice is up, the thread has not been handed to the parse yet. */
+const openHeldFileToParsingWindow = async () => {
   await act(async () => {
     flow.openFiles([FILE] as unknown as FileList);
   });
+  await settleMicrotasks();
+};
+
+const openHeldFile = async () => {
+  await openHeldFileToParsingWindow();
   await drain();
 };
 
@@ -149,6 +165,10 @@ const stagePreview = async (): Promise<StagedFile> => {
 };
 
 beforeEach(() => {
+  // only the clocks the parse yields on: React's own scheduler must keep its real one
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"],
+  });
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   held.parses.length = 0;
   held.commits.length = 0;
@@ -161,6 +181,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  // drops any parse still waiting in its paint window, so it cannot resume against the next test
+  vi.useRealTimers();
 });
 
 describe("useStatementImport while the chosen account moves", () => {
@@ -169,6 +191,32 @@ describe("useStatementImport while the chosen account moves", () => {
     const staged = await stagePreview();
 
     expect(staged.fileName).toBe("unit-statement.csv");
+  });
+
+  it("hands the thread back once the notice is up, before the parse takes it", async () => {
+    await render(ACCOUNT_A);
+    await openHeldFileToParsingWindow();
+
+    expect(flow.phase).toEqual({ status: "parsing", fileName: "unit-statement.csv" });
+    expect(held.parses, "the parse took the thread without letting its notice paint").toHaveLength(
+      0,
+    );
+  });
+
+  it("drops a parse abandoned in the window the notice paints in", async () => {
+    await render(ACCOUNT_A);
+    await openHeldFileToParsingWindow();
+    expect(held.parses, "there was no window left to abandon the parse in").toHaveLength(0);
+
+    await render(ACCOUNT_B);
+    await drain();
+    await releaseParse();
+
+    expect(flow.phase.status).toBe("idle");
+    expect(held.writtenTo, "the abandoned parse wrote under the account moved to").toEqual([]);
+
+    await render(ACCOUNT_A);
+    expect(flow.phase.status).toBe("idle");
   });
 
   it("drops a parse that lands after the account moved", async () => {
