@@ -56,15 +56,9 @@ interface StagingState {
   phase: ImportPhase;
 }
 
-/** A phase that reports a write that already landed, rather than a stage that can still go stale. */
-const isReceipt = (phase: ImportPhase) =>
-  phase.status === "committed" || phase.status === "partial-commit";
-
 /** A stage lives under its own selection; a receipt lives under its own account, however it is reached. */
-const isPhaseLive = (staging: StagingState, live: StageStamp) =>
-  isReceipt(staging.phase)
-    ? staging.stamp.accountId === live.accountId
-    : isStampLive(staging.stamp, live);
+const readLiveReceipt = (receipt: StagingState | null, live: StageStamp) =>
+  receipt !== null && receipt.stamp.accountId === live.accountId ? receipt.phase : null;
 
 export interface StatementImport {
   phase: ImportPhase;
@@ -95,14 +89,30 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const stamp = liveStamp.current;
 
   const [staging, setStaging] = useState<StagingState>({ stamp, phase: IDLE });
-  const isLive = isPhaseLive(staging, stamp);
-  // A stage the account moved on from is discarded so it cannot come back; a receipt is only hidden,
-  // so the account that was actually written to still learns how its commit ended.
-  if (!isLive && !isReceipt(staging.phase)) setStaging({ stamp, phase: IDLE });
-  const phase = isLive ? staging.phase : IDLE;
-  // This render's stamp, never the ref's: a write that lands after the account moved has to carry
-  // the selection it was started under, or the reset above cannot tell it apart from a live one.
-  const setPhase = (next: ImportPhase) => setStaging({ stamp, phase: next });
+  // A receipt keeps its own slot: sharing the staging one let a commit that resolved late evict the
+  // preview the account the user had moved to was showing, and the reset below then dropped both.
+  const [receipt, setReceipt] = useState<StagingState | null>(null);
+  const isStagingLive = isStampLive(staging.stamp, stamp);
+  if (!isStagingLive) setStaging({ stamp, phase: IDLE });
+  const stagedPhase = isStagingLive ? staging.phase : IDLE;
+  const liveReceipt = readLiveReceipt(receipt, stamp);
+  const phase = stagedPhase.status === "idle" && liveReceipt !== null ? liveReceipt : stagedPhase;
+
+  // This render's stamp, never the ref's: a write started under a selection the user has since left
+  // is stale, and a stale write may not overwrite what the live selection has staged.
+  const setPhase = (next: ImportPhase) => {
+    const write: StagingState = { stamp, phase: next };
+    setStaging((current) =>
+      isStampLive(write.stamp, liveStamp.current) || !isStampLive(current.stamp, liveStamp.current)
+        ? write
+        : current,
+    );
+  };
+
+  const clearPhase = () => {
+    setReceipt(null);
+    setPhase(IDLE);
+  };
 
   const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
@@ -186,16 +196,19 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
         startedAt: staged.startedAt,
       },
     });
-    setPhase(
-      outcome.failedChunk === null
-        ? { status: "committed", inserted: outcome.writtenRows, skipped: plan.skipped }
-        : { status: "partial-commit", staged, outcome },
-    );
+    setReceipt({
+      stamp,
+      phase:
+        outcome.failedChunk === null
+          ? { status: "committed", inserted: outcome.writtenRows, skipped: plan.skipped }
+          : { status: "partial-commit", staged, outcome },
+    });
+    setPhase(IDLE);
   };
 
   return {
     phase,
-    reset: () => setPhase(IDLE),
+    reset: clearPhase,
     openFiles: (files) => {
       const file = files?.[0];
       if (!file) return;
@@ -208,7 +221,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
       void rollBackFinanceImport(staged.batchId);
-      setPhase(IDLE);
+      clearPhase();
     },
     confirmMapping: (mapping) => {
       if (phase.status !== "mapping-required" || !account) return;

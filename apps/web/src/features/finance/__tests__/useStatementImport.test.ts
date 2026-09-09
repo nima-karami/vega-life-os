@@ -5,7 +5,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParsedStatement, ParseOutcome } from "../import/types";
 import type { FinanceImportOutcome } from "../store";
-import { type StagedFile, type StatementImport, useStatementImport } from "../useStatementImport";
+import {
+  type ImportPhase,
+  type StagedFile,
+  type StatementImport,
+  useStatementImport,
+} from "../useStatementImport";
 
 /**
  * The subject is the phase machine, not the parser: both async steps are held open by the test so
@@ -117,9 +122,10 @@ const openHeldFile = async () => {
   await drain();
 };
 
-const releaseParse = async () => {
+/** Queued in the order the files were opened, so a later one can be answered first. */
+const releaseParse = async (queued = 0) => {
   await act(async () => {
-    held.parses.shift()?.({ status: "parsed", statement: STATEMENT });
+    held.parses.splice(queued, 1)[0]?.({ status: "parsed", statement: STATEMENT });
   });
   await drain();
 };
@@ -130,6 +136,10 @@ const releaseCommit = async (outcome: FinanceImportOutcome) => {
   });
   await drain();
 };
+
+/** The account whose rows are staged, or the phase's own name when none are — one readable diff. */
+const stagedAccount = (phase: ImportPhase) =>
+  phase.status === "preview" ? phase.staged.accountId : phase.status;
 
 const stagePreview = async (): Promise<StagedFile> => {
   await openHeldFile();
@@ -182,7 +192,7 @@ describe("useStatementImport while the chosen account moves", () => {
     expect(flow.phase.status).toBe("idle");
   });
 
-  it("discards the staged preview rather than showing it again on the way back", async () => {
+  it("keeps the staged preview gone on the way back to the account that staged it", async () => {
     await render(ACCOUNT_A);
     await stagePreview();
 
@@ -242,6 +252,47 @@ describe("useStatementImport while the chosen account moves", () => {
     await render(ACCOUNT_A);
 
     expect(flow.phase.status).toBe("partial-commit");
+  });
+
+  it("leaves the live account's preview standing when another account's commit lands", async () => {
+    await render(ACCOUNT_A);
+    const staged = await stagePreview();
+    await act(async () => {
+      flow.commit(staged);
+    });
+
+    await render(ACCOUNT_B);
+    await stagePreview();
+    await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null });
+
+    expect(stagedAccount(flow.phase)).toBe(ACCOUNT_B.id);
+  });
+
+  it("still reports that commit on the way back, though another account staged in between", async () => {
+    await render(ACCOUNT_A);
+    const staged = await stagePreview();
+    await act(async () => {
+      flow.commit(staged);
+    });
+
+    await render(ACCOUNT_B);
+    await stagePreview();
+    await releaseCommit({ writtenRows: 2, writtenChunks: 1, failedChunk: null });
+    await render(ACCOUNT_A);
+
+    expect(flow.phase).toEqual({ status: "committed", inserted: 2, skipped: 0 });
+  });
+
+  it("leaves the live account's preview standing when an older parse lands last", async () => {
+    await render(ACCOUNT_A);
+    await openHeldFile();
+
+    await render(ACCOUNT_B);
+    await openHeldFile();
+    await releaseParse(1);
+    await releaseParse(0);
+
+    expect(stagedAccount(flow.phase)).toBe(ACCOUNT_B.id);
   });
 
   it("retries the staged rows into the account they were parsed under", async () => {

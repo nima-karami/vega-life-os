@@ -74,7 +74,6 @@ interface BudgetChipPlacement {
   overprints: string | null;
   clippedBy: string | null;
   startsBelowAmount: boolean;
-  isFullyDrawn: boolean;
   width: number;
 }
 
@@ -125,7 +124,6 @@ async function measureBudgetChips(page: Page): Promise<BudgetChipPlacement[]> {
           overprints: overlaps ? `over ${amount?.textContent ?? ""}` : null,
           clippedBy,
           startsBelowAmount: amountBox !== null && box.top >= amountBox.bottom - 0.5,
-          isFullyDrawn: box.width + 0.5 >= chip.scrollWidth,
           width: box.width,
         };
       },
@@ -146,7 +144,7 @@ async function expectChipsClearOfAmounts(page: Page, where: string) {
     `${where}: a chip does not start below the amount cell`,
   ).toEqual([]);
   expect(
-    chips.filter((chip) => chip.clippedBy !== null || !chip.isFullyDrawn),
+    chips.filter((chip) => chip.clippedBy !== null),
     `${where}: a chip is cut short rather than taking its own line`,
   ).toEqual([]);
   expect(
@@ -297,6 +295,58 @@ test("the filter chips still narrow the stacked list, empty state included", asy
   // happy path rather than an edge case.
   await rows.getByRole("button", { name: "Missing split" }).click();
   await expect(rows).toContainText("No row in this period matches that filter.");
+});
+
+/** Long enough that the stacked row cannot draw it whole, short enough to keep its filter chip in. */
+const LONG_PARTNER = "Anastasia Kowalczyk-Bell";
+
+async function setPartnerName(page: Page, name: string) {
+  await page.goto("/settings", { waitUntil: "domcontentloaded" });
+  const field = page.getByRole("textbox", { name: "Partner name" });
+  await expect(field).toBeVisible({ timeout: 15_000 });
+  await field.fill(name);
+  await expect(field).toHaveValue(name);
+}
+
+/** The value half of the row's `Paid by` pair — the one cell that ellipsises rather than wraps. */
+async function measurePaidBy(page: Page) {
+  return page.evaluate(() => {
+    const label = Array.from(document.querySelectorAll("span")).find(
+      (node) => node.textContent === "Paid by",
+    );
+    const value = label?.nextElementSibling ?? null;
+    if (value === null) return null;
+    return {
+      text: value.textContent ?? "",
+      isEllipsised: value.scrollWidth > value.clientWidth,
+      overflow: Math.round(
+        value.getBoundingClientRect().right - document.documentElement.clientWidth,
+      ),
+    };
+  });
+}
+
+test("a long partner name is cut short rather than pushing the stacked row wide", async ({
+  page,
+}) => {
+  await enterApp(page);
+  await page.setViewportSize(NARROW);
+  await setPartnerName(page, LONG_PARTNER);
+
+  await page.goto(`/finance/settlement?month=${settledMonth()}`, {
+    waitUntil: "domcontentloaded",
+  });
+  const rows = region(page, "Shared rows in this period");
+  await expect(rows).toBeVisible({ timeout: 15_000 });
+  await rows.getByRole("button", { name: `${LONG_PARTNER} paid` }).click();
+  await expect(rows.getByRole("link")).toHaveCount(1);
+
+  const paidBy = await measurePaidBy(page);
+  expect(paidBy?.text, "the stacked row never names the partner").toBe(LONG_PARTNER);
+  expect(paidBy?.isEllipsised, "the partner name is drawn whole instead of ellipsised").toBe(true);
+  expect(paidBy?.overflow ?? 0, "the partner name runs past the viewport").toBeLessThanOrEqual(0);
+
+  expect(await tooWideInside(page, '[aria-label="Shared rows in this period"]')).toEqual([]);
 });
 
 test("the settled-periods history stacks and still links each period", async ({ page }) => {
