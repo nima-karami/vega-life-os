@@ -3,12 +3,12 @@ import type { FinanceCategory } from "@vega/shared";
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { Select } from "@/core/ui";
-import { FinanceModalFrame } from "./FinanceModalFrame";
 import {
   type CategoryReferences,
   describeCategoryReferences,
   describeDroppedBudgets,
 } from "./category-references";
+import { FinanceModalFrame } from "./FinanceModalFrame";
 
 /** Merge is how the imported categories collapse to a handful — so it says exactly what it moves. */
 export function CategoryMergeModal({

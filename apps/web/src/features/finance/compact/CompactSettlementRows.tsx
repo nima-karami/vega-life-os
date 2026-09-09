@@ -1,8 +1,8 @@
 import { Link } from "react-router";
 import { formatSignedCents } from "../ledger-copy";
 import { SettlementOwedFigure } from "../SettlementOwedFigure";
-import type { SettlementRowView } from "../settlement-rows";
 import { SettlementSplitCell } from "../SettlementSplitCell";
+import type { SettlementRowView } from "../settlement-rows";
 import { CompactRow } from "./CompactRow";
 
 const NO_FIGURE = "—";

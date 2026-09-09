@@ -2,12 +2,12 @@ import { Button } from "@heroui/react";
 import type { FinanceCategory } from "@vega/shared";
 import { useStore } from "@/core/store";
 import { ConfirmDialog } from "@/core/ui";
-import { FinanceModalFrame } from "./FinanceModalFrame";
 import {
   type CategoryReferences,
   describeCategoryReferences,
   isCategoryReferenced,
 } from "./category-references";
+import { FinanceModalFrame } from "./FinanceModalFrame";
 
 /** A category with rows is never hard-deleted — the two safe ways out are offered by name. */
 export function CategoryDeleteModal({

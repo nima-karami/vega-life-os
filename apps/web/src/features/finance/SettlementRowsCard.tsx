@@ -4,6 +4,8 @@ import { cx, useCompact } from "@/core/ui";
 import { CompactSettlementRows } from "./compact/CompactSettlementRows";
 import type { SettlementRowsCardProps } from "./finance-table-props";
 import { formatSignedCents } from "./ledger-copy";
+import { SettlementOwedFigure } from "./SettlementOwedFigure";
+import { SettlementSplitCell } from "./SettlementSplitCell";
 import type { SettlementFigures } from "./settlement";
 import { describeRowsFooter } from "./settlement-copy";
 import {
@@ -13,8 +15,6 @@ import {
   type SettlementRowFilter,
   type SettlementRowView,
 } from "./settlement-rows";
-import { SettlementOwedFigure } from "./SettlementOwedFigure";
-import { SettlementSplitCell } from "./SettlementSplitCell";
 
 const ROWS_GRID = "grid-cols-[5.5rem_1fr_9rem_6.5rem_5rem_6.5rem_6.5rem]";
 const FOOTER_GRID = "grid-cols-[1fr_6.5rem]";

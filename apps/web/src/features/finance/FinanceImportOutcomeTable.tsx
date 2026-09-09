@@ -1,8 +1,8 @@
 import { cx, useCompact } from "@/core/ui";
 import { CompactImportOutcomes } from "./compact/CompactImportOutcomes";
 import type { FinanceImportOutcomeTableProps } from "./finance-table-props";
-import { filterByImportLens, type ImportPreviewRow, OUTCOME_LABEL } from "./import-preview";
 import { ImportGuessLabel, OUTCOME_CLASS } from "./ImportGuessLabel";
+import { filterByImportLens, type ImportPreviewRow, OUTCOME_LABEL } from "./import-preview";
 import { formatSignedCents } from "./ledger-copy";
 
 const GRID = "grid-cols-[5.5rem_1fr_11rem_6.5rem_7rem]";
