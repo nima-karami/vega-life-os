@@ -11,8 +11,11 @@ import { createPortal } from "react-dom";
 import { cx } from "./cx";
 import { Icon } from "./icons";
 import type { MenuItem } from "./menu";
-import { type MenuPos, placeMenu } from "./menu-placement";
+import { computeHeightCap, computeWidthCap, type MenuPos, placeMenu } from "./menu-placement";
 import { isTouchPress, type PressSource, pressSourceOf } from "./press-pointer";
+
+const hasContentBelow = (panel: HTMLElement): boolean =>
+  panel.scrollTop + panel.clientHeight < panel.scrollHeight - 1;
 
 /**
  * A positioned action menu floating at viewport coordinates — the shared panel
@@ -39,20 +42,25 @@ export function FloatingMenu({
   const { x: px, y: py } = pos;
   const [coords, setCoords] = useState<MenuPos>({ x: px, y: py });
   const [isInert, setIsInert] = useState(dismissScrim);
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
 
   // Translated from the corner, not `left`/`top`: an offset near an edge squeezes the shrink-to-fit
   // box and distorts the measurement. Cost: the transform is a containing block for `fixed` children.
   useLayoutEffect(() => {
     const menu = menuRef.current;
     if (menu === null) return;
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    // The caps come from the same numbers `placeMenu` is handed, so neither can drift from the
+    // clearance they buy — a CSS `max-h` against `dvh` was the one premise held by measurement.
+    menu.style.maxWidth = `${computeWidthCap(viewport.width)}px`;
+    // Dropped before the width is read: a cap left over from a previous origin can add a scrollbar,
+    // and a wider box would ask for a cap it does not need.
+    menu.style.maxHeight = "";
+    const naturalWidth = menu.getBoundingClientRect().width;
+    menu.style.maxHeight = `${computeHeightCap(viewport, naturalWidth)}px`;
     const { width, height } = menu.getBoundingClientRect();
-    setCoords(
-      placeMenu(
-        { x: px, y: py },
-        { width, height },
-        { width: window.innerWidth, height: window.innerHeight },
-      ),
-    );
+    setHasMoreBelow(hasContentBelow(menu));
+    setCoords(placeMenu({ x: px, y: py }, { width, height }, viewport));
   }, [px, py]);
 
   // Keep the latest onClose without re-arming the dismiss listeners each render.
@@ -71,6 +79,12 @@ export function FloatingMenu({
       if (e.target === scrimRef.current) return;
       onCloseRef.current();
     };
+    // A capped panel scrolls to reach its last item, and that scroll captures on `window` too —
+    // dismissing on it would put the item the cap hid permanently out of reach.
+    const onScroll = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      onCloseRef.current();
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
     };
@@ -78,14 +92,14 @@ export function FloatingMenu({
     const id = requestAnimationFrame(() => {
       // Capture: a react-aria pressable stops `pointerdown` before it could bubble here.
       window.addEventListener("pointerdown", onPointerDown, true);
-      window.addEventListener("scroll", close, true);
+      window.addEventListener("scroll", onScroll, true);
       window.addEventListener("resize", close);
       window.addEventListener("keydown", onKey);
     });
     return () => {
       cancelAnimationFrame(id);
       window.removeEventListener("pointerdown", onPointerDown, true);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
       window.removeEventListener("keydown", onKey);
     };
@@ -114,20 +128,32 @@ export function FloatingMenu({
   }, [dismissScrim]);
 
   useEffect(() => {
-    if (!dismissScrim) return;
+    if (!dismissScrim) {
+      setIsInert(false);
+      return;
+    }
     let frame = 0;
     const goLive = () => setIsInert(false);
+    // Only the press that opened the menu un-gates it. A second finger landing and lifting while
+    // the first is still down would otherwise hand that first release a live panel.
+    const laterPointers = new Set<number>();
+    const trackLaterPointer = (e: PointerEvent) => {
+      laterPointers.add(e.pointerId);
+    };
     // A frame's delay: Blink hit-tests the release's synthesised mousedown/mouseup/click in the
     // same input phase, so the panel must still be inert for all three. Keyboard activation is
     // unaffected — `pointer-events` only gates hit-testing.
-    const goLiveNextFrame = () => {
+    const goLiveNextFrame = (e: PointerEvent) => {
+      if (laterPointers.has(e.pointerId)) return;
       frame = requestAnimationFrame(goLive);
     };
+    window.addEventListener("pointerdown", trackLaterPointer, true);
     window.addEventListener("pointerup", goLiveNextFrame, true);
     window.addEventListener("pointercancel", goLiveNextFrame, true);
     window.addEventListener("click", goLive, true);
     return () => {
       cancelAnimationFrame(frame);
+      window.removeEventListener("pointerdown", trackLaterPointer, true);
       window.removeEventListener("pointerup", goLiveNextFrame, true);
       window.removeEventListener("pointercancel", goLiveNextFrame, true);
       window.removeEventListener("click", goLive, true);
@@ -142,13 +168,18 @@ export function FloatingMenu({
         role="menu"
         aria-label={label}
         className={cx(
-          "fixed top-0 left-0 z-[80] max-h-[calc(50dvh_-_32px)] min-w-[180px] max-w-[calc(100vw_-_32px)] overflow-y-auto rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md",
+          "fixed top-0 left-0 z-[80] min-w-[180px] overflow-y-auto overscroll-contain rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md",
           // Inert until the press that opened it releases: portalled outside the wrapper, the panel
           // would otherwise catch that release's own click and fire whatever sits under the finger.
           isInert && "pointer-events-none",
+          // A mask rather than an inner scroller: anything between `role="menu"` and its items
+          // takes ownership of them away from the menu. Overlay scrollbars give no other cue.
+          hasMoreBelow &&
+            "[mask-image:linear-gradient(to_bottom,#000_calc(100%_-_20px),transparent)]",
         )}
         style={{ transform: `translate(${coords.x}px, ${coords.y}px)` }}
         onContextMenu={(e) => e.preventDefault()}
+        onScroll={(e) => setHasMoreBelow(hasContentBelow(e.currentTarget))}
       >
         {items.map((it) => (
           <button

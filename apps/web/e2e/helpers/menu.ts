@@ -21,7 +21,10 @@ export interface Box {
   height: number;
 }
 
-/** What `placeMenu` spends to hold the menu off the press. */
+/**
+ * What `placeMenu` spends to hold the menu off the press. Re-declared, never imported: importing it
+ * would let a mutation to the production constant move this file's goalposts with it.
+ */
 export const MENU_EDGE_PAD_PX = 16;
 // Blink adjusts a touch to the nearest target within ~9px of the contact point. Asserting the
 // physical requirement rather than the pad leaves room for the sub-pixel a real box carries.

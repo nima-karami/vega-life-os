@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { type MenuSize, placeMenu } from "../menu-placement";
+import { computeHeightCap, computeWidthCap, type MenuSize, placeMenu } from "../menu-placement";
 
 const PHONE_WIDTHS = [320, 360, 390, 430];
 // `placeMenu` is fed `window.innerHeight`, not the device height: browser chrome takes ~100px off
 // a phone, so the short viewports are the ones the app actually runs at.
 const PHONE_HEIGHTS = [420, 454, 500, 568, 844];
+// Landscape phones, and the two widths either side of the 424px where two menu widths and their
+// pads start to fit — the point where `x` takes over the clearance and the height cap is dropped.
+const WIDE_VIEWPORTS: MenuSize[] = [
+  { width: 844, height: 390 },
+  { width: 932, height: 430 },
+  { width: 424, height: 390 },
+  { width: 423, height: 390 },
+];
 // The panel at 5, 6, 7 and 8 items — the row menu is 5, the calendar all-day menu 6 or 7.
 const MENU_HEIGHTS = [190, 226, 262, 298];
 const MENU_WIDTH = 180;
@@ -12,14 +20,12 @@ const MENU_WIDTH = 180;
 // own 4px padding sits inside the item's hit box, so it buys nothing. This is the physical
 // requirement — deliberately not `MENU_EDGE_PAD_PX`, which is what the code chose to spend.
 const TOUCH_ADJUSTMENT_PX = 12;
-// The literal 32px is the panel's `max-h-[calc(50dvh_-_32px)]` / `max-w-[calc(100vw_-_32px)]`.
-const PANEL_INSET_PX = 32;
 
-/** What the panel's `max-h`/`max-w` guarantee `placeMenu` is handed. */
-const asMeasured = (height: number, viewport: MenuSize): MenuSize => ({
-  width: Math.min(MENU_WIDTH, viewport.width - PANEL_INSET_PX),
-  height: Math.min(height, viewport.height / 2 - PANEL_INSET_PX),
-});
+/** What the panel's caps guarantee `placeMenu` is handed. */
+const asMeasured = (height: number, viewport: MenuSize): MenuSize => {
+  const width = Math.min(MENU_WIDTH, computeWidthCap(viewport.width));
+  return { width, height: Math.min(height, computeHeightCap(viewport, width)) };
+};
 
 /** How far the placed menu stays off the origin — negative when the origin is inside it. */
 const clearanceOn = (placed: number, size: number, origin: number): number =>
@@ -55,18 +61,18 @@ const failuresAt = (viewport: MenuSize, size: MenuSize): Failure[] => {
   return failures;
 };
 
-describe("placeMenu", () => {
-  for (const width of PHONE_WIDTHS) {
-    for (const height of PHONE_HEIGHTS) {
-      const viewport = { width, height };
+const PORTRAIT_VIEWPORTS: MenuSize[] = PHONE_WIDTHS.flatMap((width) =>
+  PHONE_HEIGHTS.map((height) => ({ width, height })),
+);
 
-      it(`clears every press on the viewport by a full pad (${width}x${height})`, () => {
-        for (const menuHeight of MENU_HEIGHTS) {
-          const size = asMeasured(menuHeight, viewport);
-          expect(failuresAt(viewport, size), `${menuHeight}px menu`).toEqual([]);
-        }
-      });
-    }
+describe("placeMenu", () => {
+  for (const viewport of [...PORTRAIT_VIEWPORTS, ...WIDE_VIEWPORTS]) {
+    it(`clears every press on the viewport by a full pad (${viewport.width}x${viewport.height})`, () => {
+      for (const menuHeight of MENU_HEIGHTS) {
+        const size = asMeasured(menuHeight, viewport);
+        expect(failuresAt(viewport, size), `${menuHeight}px menu`).toEqual([]);
+      }
+    });
   }
 
   it("hangs a top-left press off the press, down and to the right", () => {
@@ -92,6 +98,27 @@ describe("placeMenu", () => {
     const size = asMeasured(262, viewport);
     const placed = placeMenu({ x: 157, y: 184 }, size, viewport);
     expect(clearanceOn(placed.y, size.height, 184)).toBeGreaterThanOrEqual(TOUCH_ADJUSTMENT_PX);
+  });
+
+  it("spends the halving cap only below the width where the menu can hang beside the press", () => {
+    expect(computeHeightCap({ width: 424, height: 390 }, MENU_WIDTH)).toBe(358);
+    expect(computeHeightCap({ width: 423, height: 390 }, MENU_WIDTH)).toBe(163);
+  });
+
+  it("keeps every item of an 8-item menu on a landscape phone, clear of the press on x", () => {
+    const viewport = { width: 844, height: 390 };
+    const size = asMeasured(298, viewport);
+    expect(size.height, "the menu lost items to a cap the width made unnecessary").toBe(298);
+    const placed = placeMenu({ x: 420, y: 195 }, size, viewport);
+    expect(clearanceOn(placed.x, size.width, 420)).toBeGreaterThanOrEqual(TOUCH_ADJUSTMENT_PX);
+  });
+
+  it("halves an 8-item menu on a narrow phone and clears the press on y instead", () => {
+    const viewport = { width: 320, height: 454 };
+    const size = asMeasured(298, viewport);
+    expect(size.height).toBe(195);
+    const placed = placeMenu({ x: 160, y: 227 }, size, viewport);
+    expect(clearanceOn(placed.y, size.height, 227)).toBeGreaterThanOrEqual(TOUCH_ADJUSTMENT_PX);
   });
 
   it("reclaims the strip the flip would have clamped back across the press", () => {

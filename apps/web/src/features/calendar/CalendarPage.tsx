@@ -1279,7 +1279,7 @@ export function CalendarPage() {
                         type="button"
                         aria-label={`Add task on ${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
                         onPointerDown={handleColumnPointerDown}
-                        onKeyDown={() => {
+                        onKeyDownCapture={() => {
                           columnPressSourceRef.current = "none";
                         }}
                         onClick={(e) => onColumnClick(e, d.iso)}
