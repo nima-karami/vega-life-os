@@ -22,7 +22,7 @@ export function JournalWeekPanel({
 }) {
   const entries = getWeekEntries(journal, weekIsos);
   return (
-    <Panel className="p-5">
+    <Panel className="p-4 sm:p-5">
       <SectionHead
         title="Journal"
         meta={entries.length ? `${entries.length} of 7 days` : "empty"}

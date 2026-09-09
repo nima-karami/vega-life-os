@@ -6,7 +6,7 @@ const CHART_PRIMARY = "var(--color-accent)";
 
 export function WeekSummaryPanel({ rollup }: { rollup: WeekRollup }) {
   return (
-    <Panel className="p-6">
+    <Panel className="p-4 sm:p-6">
       <div className="flex items-center gap-5">
         <Gauge value={rollup.completion} size={76} stroke={7} hue={CHART_PRIMARY} />
         <div className="flex-1 space-y-1.5">

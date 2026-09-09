@@ -22,7 +22,7 @@ export function SettingsCard({
 }) {
   return (
     <Card className={cx("rounded-[16px] border border-border bg-surface", className)}>
-      <Card.Header className="flex items-start justify-between gap-4 px-6 pb-0 pt-6">
+      <Card.Header className="flex items-start justify-between gap-4 px-4 pb-0 pt-4 sm:px-6 sm:pt-6">
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
           {description != null && (
@@ -31,7 +31,9 @@ export function SettingsCard({
         </div>
         {action != null && <div className="shrink-0">{action}</div>}
       </Card.Header>
-      {children != null && <Card.Content className="px-6 pb-6 pt-5">{children}</Card.Content>}
+      {children != null && (
+        <Card.Content className="px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">{children}</Card.Content>
+      )}
     </Card>
   );
 }

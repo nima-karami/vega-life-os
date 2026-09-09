@@ -117,7 +117,7 @@ function AnalyticsSection() {
   // First-run: no tasks ever logged → one explanatory panel, not a wall of charts.
   if (!hasTasks) {
     return (
-      <Panel className="p-8 text-center">
+      <Panel className="p-6 text-center sm:p-8">
         <Icon name="chart" size={28} className="mx-auto text-muted" />
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
           Nothing to chart yet
@@ -238,14 +238,14 @@ function AnalyticsSection() {
       </div>
 
       {!tasksInRange && (
-        <Panel className="mb-6 p-6 text-center">
+        <Panel className="mb-6 p-4 text-center sm:p-6">
           <p className="text-sm text-muted">No activity in this range — try a wider one.</p>
         </Panel>
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {ANALYTICS_SECTIONS.map((s) => (
-          <Panel key={s.id} className={cx("p-6", s.span === "full" && "lg:col-span-2")}>
+          <Panel key={s.id} className={cx("p-4 sm:p-6", s.span === "full" && "lg:col-span-2")}>
             {sectionBody(s.id)}
           </Panel>
         ))}

@@ -10,6 +10,10 @@ const DELTA_COPY = {
   par: () => "on par with your 4-week average",
 } as const;
 
+/** Full-height finger cell on a phone; back to a bare 16px pip from sm up. */
+const DAY_CELL =
+  "grid h-11 flex-1 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent sm:h-4 sm:w-4 sm:flex-none";
+
 const moodTint = (mood: number) => ({
   background: "var(--color-accent)",
   opacity: 0.25 + (mood - 1) * 0.1875, // 1→.25 … 5→1
@@ -22,13 +26,13 @@ export function MoodWeekPanel({ week }: { week: MoodWeek }) {
     week.weekAvg != null ? `, average ${week.weekAvg.toFixed(1)}` : ""
   }`;
   return (
-    <Panel className="p-5">
+    <Panel className="p-4 sm:p-5">
       <SectionHead
         title="Mood"
         meta={week.loggedCount ? `${week.loggedCount} of 7 days` : "empty"}
       />
       <p className="sr-only">{summary}</p>
-      <div className="mt-3 flex items-center gap-1.5">
+      <div className="mt-3 flex items-center gap-0 sm:gap-1.5">
         {week.days.map(({ iso, mood }) => {
           const dayLabel = format(new Date(`${iso}T00:00:00`), "EEE MMM d");
           return mood != null ? (
@@ -37,16 +41,14 @@ export function MoodWeekPanel({ week }: { week: MoodWeek }) {
               to={`/journal/${iso}`}
               title={`${dayLabel} — ${MOOD_LABEL[mood]} (${mood})`}
               aria-label={`${dayLabel} — ${MOOD_LABEL[mood]} (${mood})`}
-              className="h-4 w-4 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              style={moodTint(mood)}
-            />
+              className={DAY_CELL}
+            >
+              <span className="h-4 w-4 rounded-full" style={moodTint(mood)} />
+            </Link>
           ) : (
-            <span
-              key={iso}
-              aria-hidden
-              title={dayLabel}
-              className="h-4 w-4 rounded-full border border-border"
-            />
+            <span key={iso} aria-hidden title={dayLabel} className={DAY_CELL}>
+              <span className="h-4 w-4 rounded-full border border-border" />
+            </span>
           );
         })}
       </div>
