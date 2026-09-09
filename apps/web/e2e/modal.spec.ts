@@ -121,13 +121,6 @@ test("mobile: confirm renders as a centered dialog inset from the phone edges", 
   const { box, vp } = await assertDialogOnScreen(page);
 
   // A two-line confirm is a small centered dialog, never a full-screen sheet: it keeps
-<<<<<<< HEAD
-  // a gutter on both sides and nowhere near the full height of the phone.
-  const rightGutter = vp.width - (box.x + box.width);
-  expect(box.x, "confirm dialog not inset from the left edge").toBeGreaterThanOrEqual(12);
-  expect(rightGutter, "confirm dialog not inset from the right edge").toBeGreaterThanOrEqual(12);
-  expect(box.height, "confirm dialog fills the phone height").toBeLessThan(vp.height * 0.9);
-=======
   // the container's 16px gutter on both sides and nowhere near the full phone height.
   const rightGutter = vp.width - (box.x + box.width);
   expect(box.x, "confirm dialog not inset from the left edge").toBeGreaterThanOrEqual(15);
@@ -157,7 +150,6 @@ test("mobile: the create-name dialog is centered and inset from the phone edges"
   expect(box.x, "create dialog not inset from the left edge").toBeGreaterThanOrEqual(15);
   expect(rightGutter, "create dialog not inset from the right edge").toBeGreaterThanOrEqual(15);
   expect(box.height, "create dialog fills the phone height").toBeLessThan(vp.height * 0.9);
->>>>>>> lane/sweep
 
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Cancel" }).click({ timeout: 3000 });
