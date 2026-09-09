@@ -32,6 +32,7 @@ describe("toFeedCard", () => {
   it("gives a quote no reveal until it is promoted", () => {
     expect(toFeedCard(card({ type: "quote" }), TODAY).hasReveal).toBe(false);
     expect(toFeedCard(card({ type: "quote", hasRecall: true }), TODAY).hasReveal).toBe(true);
+    expect(toFeedCard(card({ type: "excerpt" }), TODAY).hasReveal).toBe(true);
   });
 
   it("builds one reveal per example for a vocabulary card", () => {

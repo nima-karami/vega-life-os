@@ -40,95 +40,111 @@ export function CardsBulkBar({
   const [isLearningOpen, setIsLearningOpen] = useState(false);
 
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2.5 rounded-[16px] border border-border bg-surface px-4 py-3 shadow-soft">
+    <div className="mt-4 flex flex-wrap items-center gap-1 rounded-[16px] border border-border bg-surface px-4 py-3 shadow-soft sm:gap-2.5">
       <span aria-live="polite" className="font-medium text-foreground text-sm tabular-nums">
         {selectedCount} selected
       </span>
       <span className="flex-1" />
 
-      <Popover
-        open={isCategoryOpen}
-        onOpenChange={setIsCategoryOpen}
-        align="end"
-        triggerLabel="Set category for selection"
-        className="p-[5px]"
-        triggerClassName={isCompact ? GLYPH_CELL : LABELLED_TRIGGER}
-        triggerContent={
-          <>
-            <Icon name="tag" size={isCompact ? 16 : 14} />
-            {!isCompact && "Category"}
-          </>
-        }
-      >
-        <div className={PICKER_PANEL_CLASS}>
-          <CategoryCombobox
-            categories={categories}
-            selected=""
-            ariaLabel="Filter categories"
-            onSelect={(category) => {
-              setIsCategoryOpen(false);
-              onSetCategory(category);
-            }}
-          />
-        </div>
-      </Popover>
+      {/* Five 44px glyphs do not fit beside the count on a phone; they wrap as one row, not one by one. */}
+      <div className={isCompact ? "flex items-center gap-1" : "contents"}>
+        <Popover
+          open={isCategoryOpen}
+          onOpenChange={setIsCategoryOpen}
+          align="end"
+          triggerLabel="Set category for selection"
+          className="p-[5px]"
+          triggerClassName={isCompact ? GLYPH_CELL : LABELLED_TRIGGER}
+          triggerContent={
+            <>
+              <Icon name="tag" size={isCompact ? 16 : 14} />
+              {!isCompact && "Category"}
+            </>
+          }
+        >
+          <div className={PICKER_PANEL_CLASS}>
+            <CategoryCombobox
+              categories={categories}
+              selected=""
+              ariaLabel="Filter categories"
+              onSelect={(category) => {
+                setIsCategoryOpen(false);
+                onSetCategory(category);
+              }}
+            />
+          </div>
+        </Popover>
 
-      <Popover
-        open={isLearningOpen}
-        onOpenChange={setIsLearningOpen}
-        align="end"
-        triggerLabel="Set learning for selection"
-        className="p-[5px]"
-        triggerClassName={isCompact ? GLYPH_CELL : LABELLED_TRIGGER}
-        triggerContent={
-          <>
-            <Icon name="brain" size={isCompact ? 16 : 14} />
-            {!isCompact && "Learning"}
-          </>
-        }
-      >
-        <div className={PICKER_PANEL_CLASS}>
-          <FixedListPicker
-            options={LEARNING_OPTIONS}
-            selectedId=""
-            ariaLabel="Learning state"
-            onSelect={(id) => {
-              setIsLearningOpen(false);
-              onSetLearning(id === "learning");
-            }}
-          />
-        </div>
-      </Popover>
+        <Popover
+          open={isLearningOpen}
+          onOpenChange={setIsLearningOpen}
+          align="end"
+          triggerLabel="Set learning for selection"
+          className="p-[5px]"
+          triggerClassName={isCompact ? GLYPH_CELL : LABELLED_TRIGGER}
+          triggerContent={
+            <>
+              <Icon name="brain" size={isCompact ? 16 : 14} />
+              {!isCompact && "Learning"}
+            </>
+          }
+        >
+          <div className={PICKER_PANEL_CLASS}>
+            <FixedListPicker
+              options={LEARNING_OPTIONS}
+              selectedId=""
+              ariaLabel="Learning state"
+              onSelect={(id) => {
+                setIsLearningOpen(false);
+                onSetLearning(id === "learning");
+              }}
+            />
+          </div>
+        </Popover>
 
-      {isCompact ? (
-        <>
-          <button type="button" aria-label="Hide selection" onClick={onHide} className={GLYPH_CELL}>
-            <Icon name="eye-off" size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label="Delete selection"
-            onClick={onDelete}
-            className={GLYPH_CELL}
-          >
-            <Icon name="trash" size={16} />
-          </button>
-        </>
-      ) : (
-        <>
-          <Button size="sm" variant="secondary" onPress={onHide}>
-            <Icon name="eye-off" size={14} />
-            Hide
-          </Button>
-          <Button size="sm" variant="danger" onPress={onDelete}>
-            <Icon name="trash" size={14} />
-            Delete
-          </Button>
-          <Button size="sm" variant="secondary" onPress={onClear}>
-            Clear
-          </Button>
-        </>
-      )}
+        {isCompact ? (
+          <>
+            <button
+              type="button"
+              aria-label="Hide selection"
+              onClick={onHide}
+              className={GLYPH_CELL}
+            >
+              <Icon name="eye-off" size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Delete selection"
+              onClick={onDelete}
+              className={GLYPH_CELL}
+            >
+              <Icon name="trash" size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Clear selection"
+              onClick={onClear}
+              className={GLYPH_CELL}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </>
+        ) : (
+          <>
+            <Button size="sm" variant="secondary" onPress={onHide}>
+              <Icon name="eye-off" size={14} />
+              Hide
+            </Button>
+            <Button size="sm" variant="danger" onPress={onDelete}>
+              <Icon name="trash" size={14} />
+              Delete
+            </Button>
+            <Button size="sm" variant="secondary" onPress={onClear}>
+              Clear
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

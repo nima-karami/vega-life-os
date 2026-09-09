@@ -5,14 +5,12 @@ import type { CardSelection } from "../useCardSelection";
 import { CardsGallery } from "./CardsGallery";
 import { CardsMobileList } from "./CardsMobileList";
 import { CardsTable } from "./CardsTable";
-import { CardsTableSkeleton } from "./CardsTableSkeleton";
 import type { CardRowActions } from "./card-row-actions";
 import { useColumnWidths } from "./column-widths";
 
 export interface CardsResultsProps {
   rows: Card[];
   categories: string[];
-  isReady: boolean;
   isDeckEmpty: boolean;
   view: "rows" | "gallery";
   sort: CardSort;
@@ -23,11 +21,10 @@ export interface CardsResultsProps {
   onClearFilters: () => void;
 }
 
-/** Whichever of the six list states is live — the page itself never branches on them. */
+/** Whichever list state is live — the page itself never branches on them. */
 export function CardsResults({
   rows,
   categories,
-  isReady,
   isDeckEmpty,
   view,
   sort,
@@ -39,7 +36,6 @@ export function CardsResults({
 }: CardsResultsProps) {
   const { widths, resize, commit } = useColumnWidths();
   const isCompact = useCompact();
-  if (!isReady) return <CardsTableSkeleton />;
 
   if (isDeckEmpty) {
     return (
@@ -77,7 +73,6 @@ export function CardsResults({
         categories={categories}
         selectedIds={selection.selectedIds}
         actions={actions}
-        onLongPressSelect={selection.select}
       />
     );
 

@@ -16,6 +16,7 @@ export function CheckField({
   label,
   children,
   className,
+  isTouchTarget = false,
 }: {
   isSelected: boolean;
   onChange: () => void;
@@ -23,10 +24,19 @@ export function CheckField({
   label: string;
   children?: ReactNode;
   className?: string;
+  /** grow the pressable to a thumb-sized hit area around the 15px box, without scaling it */
+  isTouchTarget?: boolean;
 }) {
   return (
     <Checkbox isSelected={isSelected} onChange={onChange} aria-label={label}>
-      <Checkbox.Content className={cx("flex w-full items-center gap-2.5", className)}>
+      {/* `Checkbox.Content` is the label, and the label is what takes the press — size it, not the root. */}
+      <Checkbox.Content
+        className={cx(
+          "flex items-center gap-2.5",
+          isTouchTarget ? "h-11 w-11 justify-center" : "w-full",
+          className,
+        )}
+      >
         <span
           aria-hidden="true"
           className={cx(

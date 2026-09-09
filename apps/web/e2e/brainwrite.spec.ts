@@ -49,3 +49,31 @@ test("the deck pages with the keyboard and logs nothing", async ({ page }) => {
     .toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
+
+test("an excerpt shows its title and reveals the passage and its source on a tap", async ({
+  page,
+}) => {
+  await enterApp(page);
+  await page.goto("/brainwrite", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(deck)).toBeVisible({ timeout: 15_000 });
+
+  // The deck seed is per-session, so narrow the feed to the type rather than hunt for a card.
+  await page.locator("article").first().click({ button: "right" });
+  await page.getByRole("button", { name: "Customize feed" }).click();
+  await page.getByRole("button", { name: "Excerpt", exact: true }).click();
+  await page.getByRole("button", { name: /^Show \d+ cards?$/ }).click();
+  await expect(page.locator(deck)).toBeVisible();
+
+  const card = page.getByRole("article", { name: /, showing the (front|reveal)$/ }).first();
+  const stage = card.locator("[data-brainwrite-flip]");
+  // The bounce hints are aria-hidden too, so narrow to the turning card's own sides.
+  const hidden = card.locator('[class*="backface"][aria-hidden="true"]');
+  await expect(stage).toHaveAttribute("data-brainwrite-flip", "face");
+  // The passage and its page reference sit on the back, withheld until the tap.
+  await expect(hidden).toContainText(/p\. \d+/);
+
+  await card.click();
+  await expect(stage).toHaveAttribute("data-brainwrite-flip", "reveal");
+  await expect(card).toHaveAttribute("aria-label", /, showing the reveal$/);
+  await expect(hidden).not.toContainText(/p\. \d+/);
+});

@@ -9,7 +9,10 @@ import {
   cx,
   FloatingMenu,
   Icon,
+  isTouchPress,
   type MenuItem,
+  type PressSource,
+  pressSourceOf,
   TimePicker,
   UndoBar,
   useCompactModal,
@@ -142,6 +145,7 @@ export function CalendarPage() {
     y: number;
     date: string;
     time: string;
+    scrim: boolean;
   } | null>(null);
   const [scheduleSlot, setScheduleSlot] = useState<{ date: string; time: string } | null>(null);
   // "Schedule to time…" — the keyboard path that gives an all-day chip a time.
@@ -164,6 +168,7 @@ export function CalendarPage() {
   const draftIdRef = useRef<string | null>(null);
   const justDragged = useRef(false);
   const pasteSuppressUntil = useRef(0);
+  const columnPressSourceRef = useRef<PressSource>("none");
   const [dragId, setDragId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
 
@@ -313,6 +318,7 @@ export function CalendarPage() {
       y: e.clientY,
       date: dayIso,
       time: formatMinutes(minuteAt(e.clientY)),
+      scrim: isTouchPress(columnPressSourceRef.current),
     });
   };
 
@@ -537,8 +543,6 @@ export function CalendarPage() {
         return;
       }
     }
-    // No stopPropagation: the chip's ContextMenu wrapper must still see this pointerdown
-    // to arm its long-press (the only route to the menu on touch).
     e.preventDefault();
     if (!selectedRef.current.has(t.id)) clearSelection();
     dragRef.current = {
@@ -629,6 +633,11 @@ export function CalendarPage() {
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+  };
+
+  const handleColumnPointerDown = (e: React.PointerEvent) => {
+    columnPressSourceRef.current = pressSourceOf(e.pointerType);
+    beginMarquee(e);
   };
 
   // Give an all-day task a time without dragging (the keyboard schedule path).
@@ -1269,7 +1278,10 @@ export function CalendarPage() {
                       <button
                         type="button"
                         aria-label={`Add task on ${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
-                        onPointerDown={beginMarquee}
+                        onPointerDown={handleColumnPointerDown}
+                        onKeyDownCapture={() => {
+                          columnPressSourceRef.current = "none";
+                        }}
                         onClick={(e) => onColumnClick(e, d.iso)}
                         onContextMenu={(e) => onColumnContextMenu(e, d.iso)}
                         className={cx(
@@ -1428,6 +1440,7 @@ export function CalendarPage() {
           pos={{ x: slotMenu.x, y: slotMenu.y }}
           onClose={() => setSlotMenu(null)}
           label="Slot actions"
+          dismissScrim={slotMenu.scrim}
           items={[
             {
               label: "Add task here",

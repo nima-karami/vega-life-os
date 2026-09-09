@@ -4,34 +4,43 @@ import { useState } from "react";
 import { ContextMenu, cx } from "@/core/ui";
 import { CardFace } from "../face/CardFace";
 import { CardFlip } from "../face/CardFlip";
-import { composeFace } from "../face/compose";
-import { GALLERY_SCALE } from "./CardsGallery";
+import { composeFace, type FaceSide } from "../face/compose";
 import { buildCardMenuItems, type CardRowActions } from "./card-row-actions";
+import { CARD_STAGE_WIDTH_PX, deriveGalleryScale } from "./gallery-scale";
 
 /** The container holds the tile's place in the grid; the card inside it is what turns. */
 const SLOT = "relative aspect-[390/600]";
 const CARD_CHROME = "rounded-[13px] border shadow-soft";
+// CardFlip paints that border on each face, so the face is laid out inside it, not across it.
+const CARD_CHROME_BORDER_PX = 1;
 
 export function GalleryTile({
   card,
   isSelected,
   actions,
+  tileWidthPx,
 }: {
   card: Card;
   isSelected: boolean;
   actions: CardRowActions;
+  tileWidthPx: number;
 }) {
   const [isTurned, setIsTurned] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const canTurn = hasReveal(card);
   const menuItems = buildCardMenuItems(card, actions, { isSelected });
+  const scale = deriveGalleryScale(tileWidthPx - 2 * CARD_CHROME_BORDER_PX);
+  const faceSide = (side: FaceSide) =>
+    scale > 0 ? (
+      <CardFace spec={composeFace(card, side)} scale={scale} columnWidthPx={CARD_STAGE_WIDTH_PX} />
+    ) : null;
   const face = (
     <CardFlip
       turned={isTurned}
       reduceMotion={shouldReduceMotion === true}
       faceClass={cx(CARD_CHROME, isSelected ? "border-accent" : "border-border")}
-      front={<CardFace spec={composeFace(card, "face")} scale={GALLERY_SCALE} />}
-      back={canTurn ? <CardFace spec={composeFace(card, "reveal")} scale={GALLERY_SCALE} /> : null}
+      front={faceSide("face")}
+      back={canTurn ? faceSide("reveal") : null}
     />
   );
 

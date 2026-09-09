@@ -284,6 +284,8 @@ test("a row's context menu never opens the native menu or flips selection by its
   await row.click({ button: "right" });
   await expect(page.getByRole("menu")).toBeVisible();
   await expect(row.getByRole("checkbox")).not.toBeChecked();
+  // Only a touch-opened menu absorbs its dismissing tap; a mouse one leaves the page uncovered.
+  await expect(page.locator("[data-menu-scrim]")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toBeHidden();
 
@@ -366,4 +368,22 @@ test("a gallery tile's context menu opens without flipping the card, on both a f
   await expect(plain).toBeVisible();
   await plain.click({ button: "right" });
   await expect(menu.getByRole("menuitem")).toHaveCount(5);
+});
+
+test("an excerpt tile shows its title and turns to the passage and its source", async ({
+  page,
+}) => {
+  await openDeck(page);
+  await page.getByRole("button", { name: "Gallery view" }).click();
+
+  // Before excerpts folded this tile was a figure with no back at all, so the role is the assertion.
+  const tile = page.getByRole("button", { name: "The cost of a switch — face" });
+  await expect(tile).toBeVisible();
+  await expect(tile.locator('[aria-hidden="true"]')).toContainText("Deep Work · p. 41");
+
+  await tile.click();
+  const turned = page.getByRole("button", { name: "The cost of a switch — reveal" });
+  await expect(turned).toBeVisible();
+  await expect(turned.locator('[aria-hidden="true"]')).toContainText("The cost of a switch");
+  await expect(turned.locator('[aria-hidden="true"]')).not.toContainText("Deep Work");
 });

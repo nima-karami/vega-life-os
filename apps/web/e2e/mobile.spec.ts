@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expectMenuClearOf, expectMenuOpenAndInert } from "./helpers/menu";
+import { longPress, tap } from "./helpers/touch";
 
 /**
  * Mobile-usability proof (spec §7). Runs on a touch phone profile; the @automatable
@@ -260,7 +262,108 @@ test("calendar: long-press an all-day chip → 'Move to day…' moves it to anot
   ).toHaveCount(0);
 });
 
-test("a long press starts selection while a tap still opens the card (390px)", async ({ page }) => {
+/**
+ * The all-day menu is the tall one (six items, ending in Delete) and the one whose height leaves
+ * no clear vertical placement on a short viewport — so it is the menu that most needs to prove
+ * the release of its own opening press reaches nothing.
+ */
+async function pressAllDayChipAndProbeMenu(
+  page: Page,
+  viewport: { width: number; height: number },
+) {
+  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+  const box = await chip.boundingBox();
+  if (box === null) throw new Error("the all-day chip has no bounding box");
+
+  const press = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await longPress(page, press);
+  await expect(page.getByRole("menuitem", { name: "Move to day…" })).toBeVisible();
+  await expectMenuClearOf(page, press, { x: 0, y: 0, ...viewport });
+  await expectMenuOpenAndInert(page, async () => {
+    await expect(chip, "Unschedule or Delete ran").toHaveCount(1);
+  });
+}
+
+test("calendar: a real held touch on an all-day chip opens its menu, firing nothing", async ({
+  page,
+}) => {
+  const viewport = { width: 390, height: 844 };
+  await page.setViewportSize(viewport);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  await pressAllDayChipAndProbeMenu(page, viewport);
+});
+
+// 320×454 is the triple where no in-viewport placement of an uncapped all-day menu could clear
+// the press: the panel's max-h makes one exist, and the inert panel covers it either way.
+test("calendar: the all-day menu fires nothing on the shortest viewport (320x454)", async ({
+  page,
+}) => {
+  const viewport = { width: 320, height: 454 };
+  await page.setViewportSize(viewport);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  await pressAllDayChipAndProbeMenu(page, viewport);
+});
+
+/** A point on `target` the open menu does not cover — the menu hangs off the press it opened on. */
+async function pointClearOfMenu(page: Page, target: Locator): Promise<{ x: number; y: number }> {
+  const box = await target.boundingBox();
+  if (box === null) throw new Error("the dismiss target has no bounding box");
+  const menu = await page.getByRole("menu").boundingBox();
+  if (menu === null) throw new Error("the open menu has no bounding box");
+  const y = box.y + box.height / 2;
+  const x = [box.x + 8, box.x + box.width / 2, box.x + box.width - 8].find(
+    (candidate) =>
+      candidate < menu.x ||
+      candidate > menu.x + menu.width ||
+      y < menu.y ||
+      y > menu.y + menu.height,
+  );
+  if (x === undefined) throw new Error("the menu covers the whole chip");
+  return { x, y };
+}
+
+test("calendar: a touch while a chip's menu is open only dismisses it, and the next one opens the chip", async ({
+  page,
+}) => {
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  const allDay = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  await expect(allDay).toBeVisible({ timeout: 10_000 });
+
+  const timed = page.getByRole("button", { name: /, \d{2}:\d{2}–\d{2}:\d{2}/ }).first();
+  await expect(timed).toBeVisible({ timeout: 10_000 });
+  await timed.scrollIntoViewIfNeeded();
+
+  const allDayBox = await allDay.boundingBox();
+  if (allDayBox === null) throw new Error("the all-day chip has no bounding box");
+  await longPress(page, {
+    x: allDayBox.x + allDayBox.width / 2,
+    y: allDayBox.y + allDayBox.height / 2,
+  });
+  await expect(page.getByRole("menu")).toBeVisible();
+
+  // The dismissing touch stops at the menu: it neither opens the chip nor arms its drag.
+  const target = await pointClearOfMenu(page, timed);
+  await tap(page, target);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Edit task" })).toHaveCount(0);
+
+  await tap(page, target);
+  await expect(page.getByRole("dialog", { name: "Edit task" })).toBeVisible();
+});
+
+test("a long press opens the row menu while a tap still opens the card (390px)", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
   await passGratitudeGate(page);
@@ -272,18 +375,13 @@ test("a long press starts selection while a tap still opens the card (390px)", a
 
   await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
 
-  // A synthetic PointerEvent defaults isPrimary to false, which useLongPress now filters
-  // out — a real first finger always carries it.
-  const touch = { pointerType: "touch", pointerId: 1, isPrimary: true };
-  await row.dispatchEvent("pointerdown", {
-    ...touch,
-    clientX: box.x + box.width / 2,
-    clientY: box.y + 10,
-  });
-  await page.waitForTimeout(650);
-  await row.dispatchEvent("pointerup", touch);
-
+  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.getByRole("menuitem", { name: "Select" }).click();
   await expect(page.getByText("1 selected")).toBeVisible();
+
+  await row.getByRole("button").first().click();
+  await expect(page).toHaveURL(/\/cards\/[^/]+$/);
 });
 
 test("the cards filter opens as a centred modal on a phone (390px)", async ({ page }) => {

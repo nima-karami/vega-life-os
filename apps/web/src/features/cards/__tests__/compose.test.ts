@@ -140,13 +140,13 @@ describe("composeFace — title & body", () => {
     expect(spec.blocks).toEqual([{ kind: "title", text: "Second-order thinking" }]);
   });
 
-  it("prints title, rule and body when nothing is withheld", () => {
-    const spec = composeFace(buildCard({ ...note, type: "excerpt" }), "face");
-    expect(spec.signature).toBe("body-source");
+  it("keeps the face title-only whether the fold comes from the signature or the flag", () => {
+    const folded = composeFace(buildCard({ ...note, type: "excerpt" }), "face");
+    expect(folded.signature).toBe("title-body");
+    expect(folded.blocks).toEqual([{ kind: "title", text: "Second-order thinking" }]);
 
-    // The open title-body composition is reached by composing a card that has no reveal.
-    const spec2 = composeFace(buildCard({ ...note, hasRecall: false }), "face");
-    expect(spec2.blocks).toEqual([{ kind: "title", text: "Second-order thinking" }]);
+    const promoted = composeFace(buildCard({ ...note, hasRecall: true }), "face");
+    expect(promoted.blocks).toEqual([{ kind: "title", text: "Second-order thinking" }]);
   });
 
   it("promotes the body's first sentence above the rule on the reveal", () => {
@@ -236,8 +236,18 @@ describe("composeFace — body & author", () => {
 });
 
 describe("composeFace — body & source", () => {
-  it("splits the lead and joins work with locator in one caps line", () => {
-    const spec = composeFace(excerpt, "face");
+  it("folds to the title alone on the face, in the title-body treatment", () => {
+    expect(composeFace(excerpt, "face")).toEqual({
+      signature: "title-body",
+      side: "face",
+      typeLabel: "Excerpt",
+      category: "Attention",
+      blocks: [{ kind: "title", text: "On attending" }],
+    });
+  });
+
+  it("splits the lead and joins work with locator in one caps line on the reveal", () => {
+    const spec = composeFace(excerpt, "reveal");
     expect(spec.signature).toBe("body-source");
     expect(spec.blocks).toEqual([
       {
@@ -256,7 +266,7 @@ describe("composeFace — body & source", () => {
   it("drops the remainder when the body is one sentence", () => {
     const spec = composeFace(
       buildCard({ ...excerpt, body: "The mind is a fire to be kindled." }),
-      "face",
+      "reveal",
     );
     expect(spec.blocks).toEqual([
       { kind: "lead", text: "The mind is a fire to be kindled." },
@@ -266,8 +276,18 @@ describe("composeFace — body & source", () => {
   });
 
   it("drops both the rule and the citation when there is no work and no locator", () => {
-    const spec = composeFace(buildCard({ ...excerpt, work: null, locator: null }), "face");
+    const spec = composeFace(buildCard({ ...excerpt, work: null, locator: null }), "reveal");
     expect(spec.blocks.map((block) => block.kind)).toEqual(["lead", "body"]);
+  });
+
+  it("renders a legacy promoted excerpt exactly as a folded one, on both sides", () => {
+    const promoted = buildCard({ ...excerpt, hasRecall: true });
+    expect(composeFace(promoted, "face")).toEqual(composeFace(excerpt, "face"));
+    expect(composeFace(promoted, "reveal")).toEqual(composeFace(excerpt, "reveal"));
+  });
+
+  it("leaves body-alone unfolded, so the fold does not leak to a fact", () => {
+    expect(composeFace(fact, "face").blocks[0].kind).toBe("lead");
   });
 });
 
@@ -413,12 +433,21 @@ describe("composeFace — sample tagging", () => {
   });
 
   it("leaves a citation that mixes typed and sampled parts untagged", () => {
-    const spec = composeFace(excerptCard(), "face", new Set(["locator"] as const));
+    const spec = composeFace(excerptCard(), "reveal", new Set(["locator"] as const));
     expect(spec.blocks.find((b) => b.kind === "caps")?.isSample).toBeUndefined();
   });
 
   it("tags a citation whose every part is sampled", () => {
-    const spec = composeFace(excerptCard(), "face", new Set(["work", "locator"] as const));
+    const spec = composeFace(excerptCard(), "reveal", new Set(["work", "locator"] as const));
     expect(spec.blocks.find((b) => b.kind === "caps")?.isSample).toBe(true);
+  });
+
+  it("ghosts a folded excerpt title only when the title itself is sampled", () => {
+    expect(composeFace(excerptCard(), "face", new Set(["title"] as const)).blocks[0].isSample).toBe(
+      true,
+    );
+    expect(
+      composeFace(excerptCard(), "face", new Set(["body"] as const)).blocks[0].isSample,
+    ).toBeUndefined();
   });
 });

@@ -39,6 +39,9 @@ const buildSampleTag =
   (...slots) =>
     slots.length > 0 && slots.every((slot) => sampleSlots.has(slot)) ? { isSample: true } : {};
 
+/** Signatures whose front withholds the body: the title is the face, the turn is the read. */
+const TITLE_ONLY_SIGNATURES: readonly SignatureId[] = ["body-source"];
+
 const SENTENCE_BOUNDARY = /[.!?]["')\]]?(?=\s|$)/;
 const PARAGRAPH_BREAK = "\n\n";
 
@@ -180,7 +183,8 @@ export function composeFace(
   const category = card.category.trim();
   const tag = sampleSlots === undefined ? NO_SAMPLE : buildSampleTag(sampleSlots);
 
-  if (side === "face" && card.hasRecall) {
+  const foldsToTitle = card.hasRecall || TITLE_ONLY_SIGNATURES.includes(signature);
+  if (side === "face" && foldsToTitle) {
     return {
       signature: "title-body",
       side,

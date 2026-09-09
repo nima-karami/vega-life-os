@@ -32,7 +32,7 @@ export type SlotDef = {
 
 export type CardTypeDef = {
   label: string;
-  /** also picks the fold: card-rules' FOLDING_SIGNATURES makes title-body and term-gloss two-sided */
+  /** also picks the fold: card-rules' FOLDING_SIGNATURES makes term-gloss, title-body and body-source two-sided */
   signature: SignatureId;
   /** absent means learnable once the card has a reveal */
   learnable?: false;

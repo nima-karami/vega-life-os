@@ -141,6 +141,16 @@ describe("toCardCreate", () => {
     });
   });
 
+  it("enrols a learning Excerpt at box 1 without promoting it", () => {
+    const created = toCardCreate(changeDraftType({ ...note(), learning: true }, "excerpt"));
+    expect(created).toMatchObject({
+      hasRecall: false,
+      box: 1,
+      nextDue: todayISO(),
+      lastReviewed: null,
+    });
+  });
+
   it("promotes and enrols a type that has no reveal until it is promoted", () => {
     const quote = changeDraftType({ ...note(), learning: true }, "quote");
     const created = toCardCreate(quote);

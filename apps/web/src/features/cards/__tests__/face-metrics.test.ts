@@ -1,7 +1,12 @@
+import type { Card } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import { composeFace } from "../face/compose";
 import { type FaceTextPlan, planFace } from "../face/face-metrics";
+import { CARD_STAGE_WIDTH_PX } from "../manager/gallery-scale";
 import { buildCard } from "./fixtures";
+
+// Small enough that a fitted term floors, large enough that an unfitted one still does not.
+const FLOORING_SCALE = 0.2;
 
 const note = buildCard({
   title: "Second-order thinking",
@@ -26,6 +31,11 @@ const quote = buildCard({
 
 const textItems = (items: ReturnType<typeof planFace>["items"]): FaceTextPlan[] =>
   items.filter((item): item is FaceTextPlan => item.kind !== "rule");
+
+const galleryTerm = (card: Card): FaceTextPlan =>
+  textItems(
+    planFace(composeFace(card, "face"), FLOORING_SCALE, false, false, CARD_STAGE_WIDTH_PX).items,
+  )[0];
 
 describe("planFace — the drawn metrics at scale 1", () => {
   it("sets the term at 56/600/1 with -.045em and no top margin", () => {
@@ -117,7 +127,7 @@ describe("planFace — the drawn metrics at scale 1", () => {
       body: "A lead sentence here. A remainder there.",
       work: "A Work",
     });
-    expect(textItems(planFace(composeFace(source, "face"), 1, false).items)[0]).toMatchObject({
+    expect(textItems(planFace(composeFace(source, "reveal"), 1, false).items)[0]).toMatchObject({
       fontSize: 23,
       fontWeight: 400,
       lineHeight: 1.48,
@@ -126,6 +136,23 @@ describe("planFace — the drawn metrics at scale 1", () => {
       fontSize: 27,
       fontWeight: 500,
       lineHeight: 1.36,
+    });
+  });
+
+  it("gives a folded excerpt the solo-title face at 42px", () => {
+    const source = buildCard({
+      type: "excerpt",
+      title: "On attending",
+      body: "A lead sentence here. A remainder there.",
+      work: "A Work",
+    });
+    const items = textItems(planFace(composeFace(source, "face"), 1, false).items);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "title",
+      fontSize: 42,
+      fontWeight: 600,
+      lineHeight: 1.08,
     });
   });
 
@@ -189,6 +216,24 @@ describe("planFace — scale is per property", () => {
     expect(items[0].fontSize).toBe(8);
     expect(items[1].fontSize).toBeCloseTo(11.88, 2);
     expect(planFace(composeFace(vocabulary, "face"), 0.54, false).header.fontSize).toBe(8);
+  });
+
+  it("breaks a fitted term the tile then floors, and leaves a term with room alone", () => {
+    const long = buildCard({ ...vocabulary, title: "counterrevolutionary" });
+    expect(galleryTerm(long)).toMatchObject({ kind: "term", fontSize: 8, wraps: true });
+    expect(galleryTerm(vocabulary)).toMatchObject({ fontSize: 56 * FLOORING_SCALE, wraps: false });
+  });
+
+  it("breaks the words of every floored line on the reveal face", () => {
+    const term = buildCard({ ...vocabulary, title: "counterrevolutionary" });
+    const items = textItems(planFace(composeFace(term, "reveal"), 0.35, false).items);
+    expect(items[0]).toMatchObject({ kind: "caps", fontSize: 8, wraps: true });
+    expect(items[1].wraps).toBe(true);
+  });
+
+  it("leaves type that still has room to shrink unbroken", () => {
+    const items = textItems(planFace(composeFace(vocabulary, "reveal"), 1, false).items);
+    expect(items.every((item) => item.wraps)).toBe(false);
   });
 
   it("scales the rule's width and margins but never its thickness", () => {
