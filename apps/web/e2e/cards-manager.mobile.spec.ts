@@ -1,6 +1,13 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { openDeck } from "./helpers/deck";
-import { cancelTouch, longPress, startTouch, tap } from "./helpers/touch";
+import {
+  type Box,
+  expectMenuClearOf,
+  expectMenuOpenAndInert,
+  MENU_EDGE_PAD_PX,
+  type Point,
+} from "./helpers/menu";
+import { cancelTouch, endTouch, longPress, startTouch, tap } from "./helpers/touch";
 
 /**
  * The deck manager on a phone. The desktop `cards-manager.spec.ts` runs only in the
@@ -22,7 +29,6 @@ const LONG_TERM = "counterrevolutionary";
 const TOUCH_TARGET_PX = 44;
 const CORNER_INSET_PX = 12;
 const ROW_PRESS_INSET_PX = 6;
-const MENU_EDGE_PAD_PX = 8;
 // Past the 500ms the row menu waits for, short enough to stay a press and not a drag.
 const HOLD_MS = 650;
 const BULK_BAR_CONTROLS = [
@@ -97,67 +103,20 @@ async function holdThenDismiss(page: Page, row: Locator) {
   await expect(page.getByRole("menu")).toHaveCount(0);
 }
 
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** The open menu's box, and the assertion that it stays on screen and off the press that opened it. */
-async function expectMenuClearOf(page: Page, press: Point, viewport: Box): Promise<Box> {
-  const menu = await page.getByRole("menu").boundingBox();
-  if (menu === null) throw new Error("the open menu has no bounding box");
-  expect(menu.x, "the menu overflows the left edge").toBeGreaterThanOrEqual(0);
-  expect(menu.y, "the menu overflows the top edge").toBeGreaterThanOrEqual(0);
-  expect(menu.x + menu.width, "the menu overflows the right edge").toBeLessThanOrEqual(
-    viewport.width,
-  );
-  expect(menu.y + menu.height, "the menu overflows the bottom edge").toBeLessThanOrEqual(
-    viewport.height,
-  );
-  const coversPress =
-    press.x >= menu.x &&
-    press.x <= menu.x + menu.width &&
-    press.y >= menu.y &&
-    press.y <= menu.y + menu.height;
-  expect(coversPress, "the menu opened under the press that opened it").toBe(false);
-  const pressHitsMenu = await page.evaluate((point) => {
-    const hit = document.elementFromPoint(point.x, point.y);
-    return hit !== null && hit.closest('[role="menu"]') !== null;
-  }, press);
-  expect(pressHitsMenu, "the press point hit-tests into the menu").toBe(false);
-  return menu;
-}
-
-/** Opening a menu must never also run one of its items: every item closes the menu before it acts. */
-async function expectMenuOpenAndInert(page: Page, deckSize: number) {
-  await expect(
-    page.getByRole("menu"),
-    "an item under the press ran and closed the menu",
-  ).toBeVisible();
-  await expect(page.getByRole("dialog"), "Delete ran and asked to confirm").toHaveCount(0);
-  await expect(page.getByText(/\d+ selected/), "Select ran").toHaveCount(0);
-  await expect(rows(page), "a row left the list").toHaveCount(deckSize);
-  await expect(page, "Open ran and navigated").toHaveURL(/\/cards$/);
-}
-
 /**
- * Long-press `press`, then prove the menu opened clear of the finger and that the release
- * the press ends with reached nothing. The geometry probe runs first: its round-trips give
- * that release's click time to land before the behavioural assertions read the page.
+ * Long-press `press`, then prove the menu opened clear of the finger and that the release the
+ * press ends with reached nothing.
  */
 async function pressRowAndProbeMenu(page: Page, press: Point, viewport: Box): Promise<Box> {
   const deckSize = await rows(page).count();
   await longPress(page, press);
   await expect(page.getByRole("menu")).toBeVisible();
   const menuBox = await expectMenuClearOf(page, press, viewport);
-  await expectMenuOpenAndInert(page, deckSize);
+  await expectMenuOpenAndInert(page, async () => {
+    await expect(page.getByText(/\d+ selected/), "Select ran").toHaveCount(0);
+    await expect(rows(page), "a row left the list").toHaveCount(deckSize);
+    await expect(page, "Open ran and navigated").toHaveURL(/\/cards$/);
+  });
   return menuBox;
 }
 
@@ -483,6 +442,49 @@ test("a long press at the right edge opens the menu beside it, firing nothing (3
   ).toBeGreaterThan(viewport.width - MENU_EDGE_PAD_PX);
   expect(menuBox.x + menuBox.width, "the menu did not flip to the left of the press").toBeLessThan(
     press.x,
+  );
+});
+
+// Placement is the cushion, not the defence. Park the panel over the finger — the one position
+// `placeMenu` will never choose — and the release still has to reach nothing.
+test("the release that opens the menu fires nothing even from under the panel (390px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: PHONE_HEIGHT });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const press = await centreOf(row);
+  const deckSize = await rows(page).count();
+
+  await startTouch(page, press);
+  await expect(page.getByRole("menu")).toBeVisible({ timeout: 5_000 });
+  const probe = await page.evaluate((point) => {
+    const panel = document.querySelector('[role="menu"]');
+    if (!(panel instanceof HTMLElement)) throw new Error("the menu is not in the document");
+    panel.style.transform = `translate(${point.x - 24}px, ${point.y - 12}px)`;
+    const rect = panel.getBoundingClientRect();
+    const hit = document.elementFromPoint(point.x, point.y);
+    return {
+      coversPress:
+        point.x >= rect.x &&
+        point.x <= rect.x + rect.width &&
+        point.y >= rect.y &&
+        point.y <= rect.y + rect.height,
+      pressHitsMenu: hit !== null && hit.closest('[role="menu"]') !== null,
+    };
+  }, press);
+  expect(probe.coversPress, "the probe failed to park the panel over the press").toBe(true);
+
+  await endTouch(page);
+  await expectMenuOpenAndInert(page, async () => {
+    await expect(page.getByText(/\d+ selected/), "Select ran").toHaveCount(0);
+    await expect(rows(page), "a row left the list").toHaveCount(deckSize);
+    await expect(page, "Open ran and navigated").toHaveURL(/\/cards$/);
+  });
+  expect(probe.pressHitsMenu, "the panel was hit-testable while its own press was still down").toBe(
+    false,
   );
 });
 

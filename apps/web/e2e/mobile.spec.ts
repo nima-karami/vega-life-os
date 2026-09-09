@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expectMenuClearOf, expectMenuOpenAndInert } from "./helpers/menu";
 import { longPress, tap } from "./helpers/touch";
 
 /**
@@ -261,18 +262,53 @@ test("calendar: long-press an all-day chip → 'Move to day…' moves it to anot
   ).toHaveCount(0);
 });
 
-test("calendar: a real held touch on an all-day chip opens its menu", async ({ page }) => {
-  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
-
-  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+/**
+ * The all-day menu is the tall one (six items, ending in Delete) and the one whose height leaves
+ * no clear vertical placement on a short viewport — so it is the menu that most needs to prove
+ * the release of its own opening press reaches nothing.
+ */
+async function pressAllDayChipAndProbeMenu(
+  page: Page,
+  viewport: { width: number; height: number },
+) {
   const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
   await expect(chip).toBeVisible({ timeout: 10_000 });
   const box = await chip.boundingBox();
   if (box === null) throw new Error("the all-day chip has no bounding box");
 
-  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  const press = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await longPress(page, press);
   await expect(page.getByRole("menuitem", { name: "Move to day…" })).toBeVisible();
+  await expectMenuClearOf(page, press, { x: 0, y: 0, ...viewport });
+  await expectMenuOpenAndInert(page, async () => {
+    await expect(chip, "Unschedule or Delete ran").toHaveCount(1);
+  });
+}
+
+test("calendar: a real held touch on an all-day chip opens its menu, firing nothing", async ({
+  page,
+}) => {
+  const viewport = { width: 390, height: 844 };
+  await page.setViewportSize(viewport);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  await pressAllDayChipAndProbeMenu(page, viewport);
+});
+
+// 320×454 is the triple where no in-viewport placement of an uncapped all-day menu could clear
+// the press: the panel's max-h makes one exist, and the inert panel covers it either way.
+test("calendar: the all-day menu fires nothing on the shortest viewport (320x454)", async ({
+  page,
+}) => {
+  const viewport = { width: 320, height: 454 };
+  await page.setViewportSize(viewport);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  await pressAllDayChipAndProbeMenu(page, viewport);
 });
 
 /** A point on `target` the open menu does not cover — the menu hangs off the press it opened on. */
