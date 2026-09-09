@@ -626,6 +626,21 @@ test("the task done toggle has a 44px hit box and leaves the circle put (390px)"
   ).toBeLessThanOrEqual(CIRCLE_DRIFT_TOLERANCE_PX);
 });
 
+// The same gesture on two surfaces must not disagree: Today's ⋯ is 44px, so the values
+// list's is too, and the tap has to still reach the menu it grew around.
+test("the value actions menu is 44px and works by tap (390px)", async ({ page }) => {
+  await openPhone(page, "/values");
+
+  const trigger = page.locator('main [aria-label$=" actions"]').first();
+  const { opacity, box } = await measureControl(trigger);
+  expect(opacity, "the value ⋯ trigger is transparent on a phone").toBe("1");
+  expectTouchSized(box, "the value ⋯ trigger");
+
+  await trigger.click();
+  await expect(page.getByRole("menuitem", { name: "Add goal" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Archive" })).toBeVisible();
+});
+
 test("a goal step is removable by tap on a phone (390px)", async ({ page }) => {
   await openPhone(page, "/values");
 

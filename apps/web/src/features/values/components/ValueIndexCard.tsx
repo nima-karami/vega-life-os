@@ -54,9 +54,10 @@ export function ValueIndexCard({
         <Menu
           align="end"
           isIconOnly
+          touchTarget
           tone="inherit"
           triggerLabel={`${value.name} actions`}
-          triggerClassName="text-white/[.86] hover:bg-white/10 hover:text-white data-[hovered=true]:text-white"
+          triggerClassName="-mt-1.5 -me-1.5 text-white/[.86] hover:bg-white/10 hover:text-white data-[hovered=true]:text-white sm:mt-0 sm:me-0"
           triggerContent={<Icon name="dots" size={16} />}
           items={
             archived
