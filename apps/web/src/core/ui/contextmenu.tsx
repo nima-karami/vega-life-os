@@ -17,16 +17,26 @@ export interface MenuPos {
   y: number;
 }
 
-/** Chromium dispatches `contextmenu` as a PointerEvent; a keyboard-opened one is not. */
-export function isTouchPointer(event: Event): boolean {
-  return event instanceof PointerEvent && event.pointerType !== "mouse";
+const MENU_EDGE_PAD_PX = 8;
+
+/** Flip to the far side rather than slide under the press: a slid menu catches its opening press's release. */
+function placeMenu(origin: MenuPos, width: number, height: number): MenuPos {
+  const pad = MENU_EDGE_PAD_PX;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const x = origin.x + width > viewportWidth - pad ? origin.x - width - pad : origin.x;
+  const y = origin.y + height > viewportHeight - pad ? origin.y - height - pad : origin.y;
+  return {
+    x: Math.min(Math.max(pad, x), Math.max(pad, viewportWidth - width - pad)),
+    y: Math.min(Math.max(pad, y), Math.max(pad, viewportHeight - height - pad)),
+  };
 }
 
 /**
  * A positioned action menu floating at viewport coordinates — the shared panel
  * behind both `ContextMenu` (right-click a target) and any controlled use
- * (e.g. a right-clicked empty calendar slot). Clamps inside the viewport,
- * dismisses on outside-pointerdown / scroll / resize / Escape.
+ * (e.g. a right-clicked empty calendar slot). Hangs off the press point rather than
+ * over it, dismisses on outside-pointerdown / scroll / resize / Escape.
  */
 export function FloatingMenu({
   pos,
@@ -47,21 +57,14 @@ export function FloatingMenu({
   const { x: px, y: py } = pos;
   const [coords, setCoords] = useState<MenuPos>({ x: px, y: py });
 
-  // Re-seed when a fresh open position arrives. (Depends on primitives so a parent
-  // passing a fresh {x,y} object each render doesn't fight the viewport clamp.)
-  useLayoutEffect(() => setCoords({ x: px, y: py }), [px, py]);
-
-  // Clamp the menu inside the viewport (flip away from the edge it would overflow).
+  // Translated from the corner, not offset by `left`/`top`: an offset near an edge squeezes the
+  // shrink-to-fit box and distorts the measurement. Primitive deps — a fresh {x,y} must not re-place.
   useLayoutEffect(() => {
-    if (!menuRef.current) return;
-    const m = menuRef.current.getBoundingClientRect();
-    const pad = 8;
-    let { x, y } = coords;
-    if (x + m.width > window.innerWidth - pad) x = Math.max(pad, window.innerWidth - m.width - pad);
-    if (y + m.height > window.innerHeight - pad)
-      y = Math.max(pad, window.innerHeight - m.height - pad);
-    if (x !== coords.x || y !== coords.y) setCoords({ x, y });
-  }, [coords]);
+    const menu = menuRef.current;
+    if (menu === null) return;
+    const { width, height } = menu.getBoundingClientRect();
+    setCoords(placeMenu({ x: px, y: py }, width, height));
+  }, [px, py]);
 
   // Keep the latest onClose without re-arming the dismiss listeners each render.
   const onCloseRef = useRef(onClose);
@@ -99,7 +102,6 @@ export function FloatingMenu({
     };
   }, []);
 
-  // Every listener the menu registers lives and dies with it — the scrim's on the scrim itself.
   useEffect(() => {
     const scrim = dismissScrim ? scrimRef.current : null;
     if (scrim === null) return;
@@ -129,8 +131,8 @@ export function FloatingMenu({
         ref={menuRef}
         role="menu"
         aria-label={label}
-        className="fixed z-[80] min-w-[180px] overflow-hidden rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md"
-        style={{ left: coords.x, top: coords.y }}
+        className="fixed top-0 left-0 z-[80] min-w-[180px] overflow-hidden rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md"
+        style={{ transform: `translate(${coords.x}px, ${coords.y}px)` }}
         onContextMenu={(e) => e.preventDefault()}
       >
         {items.map((it) => (
@@ -194,6 +196,8 @@ export function ContextMenu({
   const feedbackTimerRef = useRef<number | null>(null);
   const pressOriginRef = useRef<MenuPos | null>(null);
   const suppressClickRef = useRef(false);
+  // `contextmenu` is a PointerEvent only in Blink, so read the type off the press instead.
+  const lastPointerTypeRef = useRef("mouse");
 
   const cancelPress = () => {
     if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
@@ -213,8 +217,8 @@ export function ContextMenu({
   );
 
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // A held touch releases without a click, so its suppression stands while its menu is open.
-    if (menu === null || event.pointerType === "mouse") suppressClickRef.current = false;
+    lastPointerTypeRef.current = event.pointerType;
+    suppressClickRef.current = false;
     if (!longPress || event.pointerType === "mouse") return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
     feedbackTimerRef.current = window.setTimeout(() => {
@@ -257,7 +261,7 @@ export function ContextMenu({
           cancelPress();
           setMenu({
             pos: { x: e.clientX, y: e.clientY },
-            scrim: isTouchPointer(e.nativeEvent),
+            scrim: lastPointerTypeRef.current !== "mouse",
           });
         }}
         onPointerDownCapture={handlePressStart}

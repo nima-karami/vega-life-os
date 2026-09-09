@@ -6,7 +6,7 @@ export { CheckField } from "./CheckField";
 export { CreateNameDialog } from "./CreateNameDialog";
 export { DotMeter, Gauge, ProgressBar, Radar, Sparkline } from "./charts";
 export { ConfirmDialog } from "./confirm";
-export { ContextMenu, FloatingMenu, isTouchPointer } from "./contextmenu";
+export { ContextMenu, FloatingMenu } from "./contextmenu";
 export { cx } from "./cx";
 export { Disclosure } from "./Disclosure";
 export { CalendarPopover, DatePicker, DurationStepper, TimePicker, TimeRange } from "./datetime";

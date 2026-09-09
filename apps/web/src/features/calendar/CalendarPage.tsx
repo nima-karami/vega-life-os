@@ -9,7 +9,6 @@ import {
   cx,
   FloatingMenu,
   Icon,
-  isTouchPointer,
   type MenuItem,
   TimePicker,
   UndoBar,
@@ -166,6 +165,8 @@ export function CalendarPage() {
   const draftIdRef = useRef<string | null>(null);
   const justDragged = useRef(false);
   const pasteSuppressUntil = useRef(0);
+  // `contextmenu` is a PointerEvent only in Blink, so read the type off the column's own press.
+  const columnPointerTypeRef = useRef("mouse");
   const [dragId, setDragId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
 
@@ -315,7 +316,7 @@ export function CalendarPage() {
       y: e.clientY,
       date: dayIso,
       time: formatMinutes(minuteAt(e.clientY)),
-      scrim: isTouchPointer(e.nativeEvent),
+      scrim: columnPointerTypeRef.current !== "mouse",
     });
   };
 
@@ -630,6 +631,11 @@ export function CalendarPage() {
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+  };
+
+  const handleColumnPointerDown = (e: React.PointerEvent) => {
+    columnPointerTypeRef.current = e.pointerType;
+    beginMarquee(e);
   };
 
   // Give an all-day task a time without dragging (the keyboard schedule path).
@@ -1270,7 +1276,7 @@ export function CalendarPage() {
                       <button
                         type="button"
                         aria-label={`Add task on ${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
-                        onPointerDown={beginMarquee}
+                        onPointerDown={handleColumnPointerDown}
                         onClick={(e) => onColumnClick(e, d.iso)}
                         onContextMenu={(e) => onColumnContextMenu(e, d.iso)}
                         className={cx(

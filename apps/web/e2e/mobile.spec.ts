@@ -278,8 +278,9 @@ test("calendar: a real held touch on an all-day chip opens its menu", async ({ p
 /** A point on `target` the open menu does not cover — the menu hangs off the press it opened on. */
 async function pointClearOfMenu(page: Page, target: Locator): Promise<{ x: number; y: number }> {
   const box = await target.boundingBox();
+  if (box === null) throw new Error("the dismiss target has no bounding box");
   const menu = await page.getByRole("menu").boundingBox();
-  if (box === null || menu === null) throw new Error("the chip or the menu has no bounding box");
+  if (menu === null) throw new Error("the open menu has no bounding box");
   const y = box.y + box.height / 2;
   const x = [box.x + 8, box.x + box.width / 2, box.x + box.width - 8].find(
     (candidate) =>

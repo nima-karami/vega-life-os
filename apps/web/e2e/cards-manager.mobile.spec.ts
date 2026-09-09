@@ -20,6 +20,8 @@ const FACE_SIDE_PADDING_PX = 30;
 const LONG_TERM = "counterrevolutionary";
 const TOUCH_TARGET_PX = 44;
 const CORNER_INSET_PX = 12;
+const ROW_PRESS_INSET_PX = 6;
+const MENU_EDGE_PAD_PX = 8;
 // Past the 500ms the row menu waits for, short enough to stay a press and not a drag.
 const HOLD_MS = 650;
 const BULK_BAR_CONTROLS = [
@@ -92,6 +94,63 @@ async function holdThenDismiss(page: Page, row: Locator) {
   await holdUntilMenu(page, row);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The open menu's box, and the assertion that it stays on screen and off the press that opened it. */
+async function expectMenuClearOf(page: Page, press: Point, viewport: Box): Promise<Box> {
+  const menu = await page.getByRole("menu").boundingBox();
+  if (menu === null) throw new Error("the open menu has no bounding box");
+  expect(menu.x, "the menu overflows the left edge").toBeGreaterThanOrEqual(0);
+  expect(menu.y, "the menu overflows the top edge").toBeGreaterThanOrEqual(0);
+  expect(menu.x + menu.width, "the menu overflows the right edge").toBeLessThanOrEqual(
+    viewport.width,
+  );
+  expect(menu.y + menu.height, "the menu overflows the bottom edge").toBeLessThanOrEqual(
+    viewport.height,
+  );
+  const coversPress =
+    press.x >= menu.x &&
+    press.x <= menu.x + menu.width &&
+    press.y >= menu.y &&
+    press.y <= menu.y + menu.height;
+  expect(coversPress, "the menu opened under the press that opened it").toBe(false);
+  const pressHitsMenu = await page.evaluate((point) => {
+    const hit = document.elementFromPoint(point.x, point.y);
+    return hit !== null && hit.closest('[role="menu"]') !== null;
+  }, press);
+  expect(pressHitsMenu, "the press point hit-tests into the menu").toBe(false);
+  return menu;
+}
+
+/** The lowest point that still lands on a list row — the press a down-hanging menu would cover. */
+async function findLowestRowPress(page: Page): Promise<Point> {
+  const point = await page.evaluate((insetPx) => {
+    const boxes = [...document.querySelectorAll("[data-card-row]")]
+      .map((row) => row.getBoundingClientRect())
+      .filter((box) => box.height > 0 && box.top >= 0 && box.bottom <= window.innerHeight)
+      .sort((a, b) => b.bottom - a.bottom);
+    for (const box of boxes) {
+      const x = box.right - insetPx;
+      const y = box.bottom - insetPx;
+      const hit = document.elementFromPoint(x, y);
+      if (hit !== null && hit.closest("[data-card-row]") !== null) return { x, y };
+    }
+    return null;
+  }, ROW_PRESS_INSET_PX);
+  if (point === null) throw new Error("no list row is pressable near the foot of the viewport");
+  return point;
 }
 
 async function horizontalOverflow(page: Page): Promise<number> {
@@ -317,6 +376,58 @@ test("a long press on a list row opens the five row actions and Select picks jus
 
   await row.getByRole("button", { name: /^Type of / }).click();
   await expect(page.locator(".popover").first().getByRole("option").first()).toBeVisible();
+});
+
+test("a long press at the foot of the list opens the menu above it, firing nothing (390px)", async ({
+  page,
+}) => {
+  const viewport = { x: 0, y: 0, width: 390, height: PHONE_HEIGHT };
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  await openDeck(page);
+
+  await expect(rows(page).first()).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const press = await findLowestRowPress(page);
+
+  await longPress(page, press);
+  const menu = page.getByRole("menu");
+  // Every item closes the menu before it acts, so a still-open menu is proof none of them ran.
+  await expect(menu).toBeVisible();
+  await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+
+  const menuBox = await expectMenuClearOf(page, press, viewport);
+  expect(
+    press.y + menuBox.height,
+    "the press is too high to force the menu to flip up",
+  ).toBeGreaterThan(viewport.height - MENU_EDGE_PAD_PX);
+});
+
+test("a long press at the right edge opens the menu beside it, firing nothing (390px)", async ({
+  page,
+}) => {
+  const viewport = { x: 0, y: 0, width: 390, height: PHONE_HEIGHT };
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  await openDeck(page);
+
+  const row = rows(page).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  const box = await row.boundingBox();
+  if (box === null) throw new Error("the first row has no bounding box");
+  const press = { x: box.x + box.width - ROW_PRESS_INSET_PX, y: box.y + box.height / 2 };
+
+  await longPress(page, press);
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+
+  const menuBox = await expectMenuClearOf(page, press, viewport);
+  expect(
+    press.x + menuBox.width,
+    "the press is too far left to force the menu to flip",
+  ).toBeGreaterThan(viewport.width - MENU_EDGE_PAD_PX);
+  expect(menuBox.x + menuBox.width, "the menu did not flip to the left of the press").toBeLessThan(
+    press.x,
+  );
 });
 
 test("the tap after a dismissed row menu reaches the control it lands on (390px)", async ({
