@@ -9,8 +9,10 @@ import {
   cx,
   FloatingMenu,
   Icon,
-  isRecentTouchPress,
+  isTouchPress,
   type MenuItem,
+  type PressSource,
+  pressSourceOf,
   TimePicker,
   UndoBar,
   useCompactModal,
@@ -166,7 +168,7 @@ export function CalendarPage() {
   const draftIdRef = useRef<string | null>(null);
   const justDragged = useRef(false);
   const pasteSuppressUntil = useRef(0);
-  const columnTouchPressAtRef = useRef(0);
+  const columnPressSourceRef = useRef<PressSource>("none");
   const [dragId, setDragId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
 
@@ -316,7 +318,7 @@ export function CalendarPage() {
       y: e.clientY,
       date: dayIso,
       time: formatMinutes(minuteAt(e.clientY)),
-      scrim: isRecentTouchPress(columnTouchPressAtRef.current),
+      scrim: isTouchPress(columnPressSourceRef.current),
     });
   };
 
@@ -634,7 +636,7 @@ export function CalendarPage() {
   };
 
   const handleColumnPointerDown = (e: React.PointerEvent) => {
-    columnTouchPressAtRef.current = e.pointerType === "mouse" ? 0 : Date.now();
+    columnPressSourceRef.current = pressSourceOf(e.pointerType);
     beginMarquee(e);
   };
 
@@ -1277,6 +1279,9 @@ export function CalendarPage() {
                         type="button"
                         aria-label={`Add task on ${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
                         onPointerDown={handleColumnPointerDown}
+                        onKeyDown={() => {
+                          columnPressSourceRef.current = "none";
+                        }}
                         onClick={(e) => onColumnClick(e, d.iso)}
                         onContextMenu={(e) => onColumnContextMenu(e, d.iso)}
                         className={cx(

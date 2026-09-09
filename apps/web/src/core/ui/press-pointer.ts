@@ -1,9 +1,11 @@
-const TOUCH_PRESS_GRACE_MS = 1_000;
+export type PressSource = "none" | "mouse" | "touch";
 
 /**
- * Whether the menu about to open belongs to a live touch press — `contextmenu` is a PointerEvent
- * only in Blink, so the press's own type decides. A keyboard-invoked one carries no press at all,
- * which is what the timestamp catches: otherwise the last touch keeps handing out dismiss scrims.
+ * Which gesture a `contextmenu` belongs to — it is a PointerEvent only in Blink, so the press that
+ * preceded it decides. A keyboard-invoked one carries no press at all, which its surface's
+ * key-down reset catches: otherwise the last touch keeps handing out dismiss scrims.
  */
-export const isRecentTouchPress = (pressedAt: number, now: number = Date.now()): boolean =>
-  pressedAt !== 0 && now - pressedAt < TOUCH_PRESS_GRACE_MS;
+export const pressSourceOf = (pointerType: string): PressSource =>
+  pointerType === "mouse" ? "mouse" : "touch";
+
+export const isTouchPress = (source: PressSource): boolean => source === "touch";

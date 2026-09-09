@@ -12,7 +12,7 @@ import { cx } from "./cx";
 import { Icon } from "./icons";
 import type { MenuItem } from "./menu";
 import { type MenuPos, placeMenu } from "./menu-placement";
-import { isRecentTouchPress } from "./press-pointer";
+import { isTouchPress, type PressSource, pressSourceOf } from "./press-pointer";
 
 /**
  * A positioned action menu floating at viewport coordinates — the shared panel
@@ -38,6 +38,7 @@ export function FloatingMenu({
   const scrimRef = useRef<HTMLDivElement>(null);
   const { x: px, y: py } = pos;
   const [coords, setCoords] = useState<MenuPos>({ x: px, y: py });
+  const [isInert, setIsInert] = useState(dismissScrim);
 
   // Translated from the corner, not `left`/`top`: an offset near an edge squeezes the shrink-to-fit
   // box and distorts the measurement. Cost: the transform is a containing block for `fixed` children.
@@ -112,6 +113,27 @@ export function FloatingMenu({
     };
   }, [dismissScrim]);
 
+  useEffect(() => {
+    if (!dismissScrim) return;
+    let frame = 0;
+    const goLive = () => setIsInert(false);
+    // A frame's delay: Blink hit-tests the release's synthesised mousedown/mouseup/click in the
+    // same input phase, so the panel must still be inert for all three. Keyboard activation is
+    // unaffected — `pointer-events` only gates hit-testing.
+    const goLiveNextFrame = () => {
+      frame = requestAnimationFrame(goLive);
+    };
+    window.addEventListener("pointerup", goLiveNextFrame, true);
+    window.addEventListener("pointercancel", goLiveNextFrame, true);
+    window.addEventListener("click", goLive, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pointerup", goLiveNextFrame, true);
+      window.removeEventListener("pointercancel", goLiveNextFrame, true);
+      window.removeEventListener("click", goLive, true);
+    };
+  }, [dismissScrim]);
+
   return createPortal(
     <>
       {dismissScrim && <div ref={scrimRef} data-menu-scrim className="fixed inset-0 z-[79]" />}
@@ -119,7 +141,12 @@ export function FloatingMenu({
         ref={menuRef}
         role="menu"
         aria-label={label}
-        className="fixed top-0 left-0 z-[80] min-w-[180px] overflow-hidden rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md"
+        className={cx(
+          "fixed top-0 left-0 z-[80] max-h-[calc(50dvh_-_32px)] min-w-[180px] max-w-[calc(100vw_-_32px)] overflow-y-auto rounded-[var(--radius-floating)] border border-border bg-surface p-1 shadow-md",
+          // Inert until the press that opened it releases: portalled outside the wrapper, the panel
+          // would otherwise catch that release's own click and fire whatever sits under the finger.
+          isInert && "pointer-events-none",
+        )}
         style={{ transform: `translate(${coords.x}px, ${coords.y}px)` }}
         onContextMenu={(e) => e.preventDefault()}
       >
@@ -138,8 +165,8 @@ export function FloatingMenu({
               it.danger ? "text-danger hover:bg-danger/10" : "text-foreground hover:bg-default/40",
             )}
           >
-            {it.icon && <Icon name={it.icon} size={13} />}
-            {it.label}
+            {it.icon && <Icon name={it.icon} size={13} className="shrink-0" />}
+            <span className="truncate">{it.label}</span>
           </button>
         ))}
       </div>
@@ -184,7 +211,7 @@ export function ContextMenu({
   const feedbackTimerRef = useRef<number | null>(null);
   const pressOriginRef = useRef<MenuPos | null>(null);
   const suppressClickRef = useRef(false);
-  const touchPressAtRef = useRef(0);
+  const pressSourceRef = useRef<PressSource>("none");
 
   const cancelPress = () => {
     if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
@@ -204,7 +231,7 @@ export function ContextMenu({
   );
 
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    touchPressAtRef.current = event.pointerType === "mouse" ? 0 : Date.now();
+    pressSourceRef.current = pressSourceOf(event.pointerType);
     suppressClickRef.current = false;
     if (!longPress || event.pointerType === "mouse") return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
@@ -248,8 +275,11 @@ export function ContextMenu({
           cancelPress();
           setMenu({
             pos: { x: e.clientX, y: e.clientY },
-            scrim: isRecentTouchPress(touchPressAtRef.current),
+            scrim: isTouchPress(pressSourceRef.current),
           });
+        }}
+        onKeyDownCapture={() => {
+          pressSourceRef.current = "none";
         }}
         onPointerDownCapture={handlePressStart}
         onPointerMoveCapture={handlePressMove}

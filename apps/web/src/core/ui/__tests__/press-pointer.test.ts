@@ -1,16 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { isRecentTouchPress } from "../press-pointer";
+import { isTouchPress, pressSourceOf } from "../press-pointer";
 
-describe("isRecentTouchPress", () => {
-  it("owns a menu opened while the touch that started it is still in flight", () => {
-    expect(isRecentTouchPress(10_000, 10_550)).toBe(true);
+describe("pressSourceOf", () => {
+  it("owns a press a finger made", () => {
+    expect(pressSourceOf("touch")).toBe("touch");
   });
 
-  it("disowns a menu opened long after the press ended, as a keyboard one is", () => {
-    expect(isRecentTouchPress(10_000, 14_000)).toBe(false);
+  it("owns a pen press, which behaves as a touch does", () => {
+    expect(pressSourceOf("pen")).toBe("touch");
   });
 
-  it("disowns a menu when no touch press has happened at all", () => {
-    expect(isRecentTouchPress(0, 1_760_000_000_000)).toBe(false);
+  it("disowns a mouse press", () => {
+    expect(pressSourceOf("mouse")).toBe("mouse");
+  });
+});
+
+describe("isTouchPress", () => {
+  it("gives a touch-opened menu its dismiss scrim", () => {
+    expect(isTouchPress("touch")).toBe(true);
+  });
+
+  it("leaves a right-clicked menu without one", () => {
+    expect(isTouchPress("mouse")).toBe(false);
+  });
+
+  it("leaves a keyboard-invoked menu without one, however long ago the last touch was", () => {
+    expect(isTouchPress("none")).toBe(false);
   });
 });

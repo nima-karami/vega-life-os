@@ -27,7 +27,7 @@ export { draftSafeBackdrop } from "./modal";
 export type { EmptyCopy, PageShellProps } from "./PageShell";
 export { PageShell } from "./PageShell";
 export { Popover } from "./popover";
-export { isRecentTouchPress } from "./press-pointer";
+export { isTouchPress, type PressSource, pressSourceOf } from "./press-pointer";
 export {
   Button,
   Field,
