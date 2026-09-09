@@ -1,4 +1,4 @@
-import { type DayEntry, hasGratitude } from "./model";
+import { type DayEntry, type EntryStatus, hasGratitude } from "./model";
 
 export type EntryFilter = "all" | "journaled" | "gratitude" | "mood";
 export type EntrySort = "newest" | "oldest";
@@ -30,4 +30,23 @@ export function queryEntries(
   rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)); // newest first
   if (sort === "oldest") rows.reverse();
   return rows;
+}
+
+export const EMPTY_FIELD = "—";
+
+export const ENTRY_STATUS_LABEL: Record<EntryStatus, string> = {
+  none: "Empty",
+  started: "Started",
+  reflected: "Reflected",
+};
+
+/** `"2· first thing"` — how many gratitude items, then the first non-blank one. */
+export function summarizeGratitude(entry: DayEntry): string {
+  if (!hasGratitude(entry)) return EMPTY_FIELD;
+  const items = entry.gratitude.filter((g) => g.trim() !== "");
+  return `${items.length}· ${items[0]}`;
+}
+
+export function summarizeJournal(entry: DayEntry): string {
+  return entry.journal.trim() || EMPTY_FIELD;
 }

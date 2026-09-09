@@ -3,9 +3,17 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { cx, Icon } from "@/core/ui";
-import { type EntryFilter, type EntrySort, queryEntries } from "./entries";
-import { type DayEntry, getEntryStatus, hasGratitude, MOOD_LABEL } from "./model";
+import { cx, Icon, useCompact } from "@/core/ui";
+import { EntriesMobileList } from "./components/EntriesMobileList";
+import {
+  ENTRY_STATUS_LABEL,
+  type EntryFilter,
+  type EntrySort,
+  queryEntries,
+  summarizeGratitude,
+  summarizeJournal,
+} from "./entries";
+import { type DayEntry, getEntryStatus, MOOD_LABEL } from "./model";
 
 const FIELD =
   "w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 py-2 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:text-sm";
@@ -17,8 +25,6 @@ const FILTERS: { id: EntryFilter; label: string }[] = [
   { id: "mood", label: "With mood" },
 ];
 
-const STATUS_LABEL = { none: "Empty", started: "Started", reflected: "Reflected" } as const;
-
 /**
  * Entries manager — a browsable table of every day entry: search, filter, sort, and
  * click through to that date's editor. Reads the existing journal store (no new data).
@@ -26,6 +32,7 @@ const STATUS_LABEL = { none: "Empty", started: "Started", reflected: "Reflected"
 export function EntriesPage() {
   const journal = useStore((s) => s.journal);
   const navigate = useNavigate();
+  const isCompact = useCompact();
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EntryFilter>("all");
@@ -124,6 +131,8 @@ export function EntriesPage() {
             </Button>
           }
         />
+      ) : isCompact ? (
+        <EntriesMobileList rows={rows} onOpen={(entry) => navigate(`/journal/${entry.date}`)} />
       ) : (
         <div className="mt-4 overflow-x-auto">
           <ul className="min-w-[640px] divide-y divide-border rounded-[16px] border border-border bg-surface">
@@ -141,7 +150,6 @@ export function EntriesPage() {
 
 function EntryRow({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
   const status = getEntryStatus(entry);
-  const gratCount = entry.gratitude.filter((g) => g.trim() !== "").length;
   return (
     <button
       type="button"
@@ -159,10 +167,8 @@ function EntryRow({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
           "—"
         )}
       </span>
-      <span className="truncate text-sm text-muted">
-        {hasGratitude(entry) ? `${gratCount}· ${entry.gratitude.find((g) => g.trim())}` : "—"}
-      </span>
-      <span className="truncate text-sm text-muted">{entry.journal.trim() || "—"}</span>
+      <span className="truncate text-sm text-muted">{summarizeGratitude(entry)}</span>
+      <span className="truncate text-sm text-muted">{summarizeJournal(entry)}</span>
       <span
         className={cx(
           "justify-self-start rounded-full px-2 py-0.5 text-xs",
@@ -173,7 +179,7 @@ function EntryRow({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
               : "text-muted",
         )}
       >
-        {STATUS_LABEL[status]}
+        {ENTRY_STATUS_LABEL[status]}
       </span>
     </button>
   );

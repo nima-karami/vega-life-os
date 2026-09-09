@@ -55,6 +55,15 @@ async function horizontalOverflow(page: import("@playwright/test").Page): Promis
   });
 }
 
+/** Derived, never pinned — a literal date in a fixture rots the day it passes. */
+function todayISO(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+const TODAY = todayISO();
+
 const ROUTES = [
   "/today",
   "/values",
@@ -64,6 +73,21 @@ const ROUTES = [
   "/settings",
   "/cards",
   "/cards/new",
+  "/entries",
+  `/journal/${TODAY}`,
+];
+
+/** Detail routes carry runtime ids, so each is reached by following the index's first link. */
+const DETAIL_TRAILS: { name: string; steps: { from?: string; link: string }[] }[] = [
+  { name: "/values/:id", steps: [{ from: "/values", link: 'main a[href^="/values/"]' }] },
+  {
+    name: "/goals/:id",
+    steps: [
+      { from: "/values", link: 'main a[href^="/values/"]' },
+      { link: 'main a[href^="/goals/"]' },
+    ],
+  },
+  { name: "/habits/:id", steps: [{ from: "/habits", link: 'main a[href^="/habits/"]' }] },
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -71,32 +95,64 @@ test.beforeEach(async ({ page }) => {
   await passGratitudeGate(page);
 });
 
+function watchErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+  page.on("console", (m) => {
+    if (m.type() === "error" && !IGNORE.some((re) => re.test(m.text()))) {
+      errors.push(`console.error: ${m.text()}`);
+    }
+  });
+  return errors;
+}
+
+async function expectNoOverflow(page: Page, where: string) {
+  // Poll the settled layout: v3 hydration can briefly overflow for <1 frame
+  // before responsive sizing lands; the requirement is the settled page.
+  await expect
+    .poll(() => horizontalOverflow(page), {
+      message: `page overflows horizontally on ${where}`,
+      timeout: 5_000,
+    })
+    .toBeLessThanOrEqual(1);
+}
+
 for (const width of WIDTHS) {
   for (const route of ROUTES) {
     test(`no horizontal overflow at ${width}px on ${route}`, async ({ page }) => {
-      const errors: string[] = [];
-      page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
-      page.on("console", (m) => {
-        if (m.type() === "error" && !IGNORE.some((re) => re.test(m.text()))) {
-          errors.push(`console.error: ${m.text()}`);
-        }
-      });
+      const errors = watchErrors(page);
 
       await page.setViewportSize({ width, height: 780 });
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await passGratitudeGate(page);
       await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-      // Poll the settled layout: v3 hydration can briefly overflow for <1 frame
-      // before responsive sizing lands; the requirement is the settled page.
-      await expect
-        .poll(() => horizontalOverflow(page), {
-          message: `page overflows horizontally at ${width}px on ${route}`,
-          timeout: 5_000,
-        })
-        .toBeLessThanOrEqual(1);
+      await expectNoOverflow(page, `${route} at ${width}px`);
 
       expect(errors, `runtime errors on ${route}:\n${errors.join("\n")}`).toEqual([]);
+    });
+  }
+}
+
+for (const width of WIDTHS) {
+  for (const trail of DETAIL_TRAILS) {
+    test(`no horizontal overflow at ${width}px on ${trail.name}`, async ({ page }) => {
+      const errors = watchErrors(page);
+
+      await page.setViewportSize({ width, height: 780 });
+      for (const step of trail.steps) {
+        if (step.from) {
+          await page.goto(step.from, { waitUntil: "domcontentloaded" });
+          await passGratitudeGate(page);
+        }
+        await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+        await page.locator(step.link).first().click();
+      }
+      await expect(page).toHaveURL(/\/[^/]+\/[^/]+$/, { timeout: 15_000 });
+
+      await expectNoOverflow(page, `${trail.name} at ${width}px`);
+
+      expect(errors, `runtime errors on ${trail.name}:\n${errors.join("\n")}`).toEqual([]);
     });
   }
 }
@@ -363,9 +419,7 @@ test("a toast clears the nav band (390px)", async ({ page }) => {
 
 test("the journal format toolbar docks flush on the nav band (390px)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const today = new Date();
-  const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  await page.goto(`/journal/${date}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/journal/${TODAY}`, { waitUntil: "domcontentloaded" });
 
   const editor = page.getByRole("textbox", { name: "Journal" });
   await expect(editor).toBeVisible({ timeout: 15_000 });
@@ -386,9 +440,7 @@ test("the journal format toolbar docks flush on the nav band (390px)", async ({ 
 
 test("the journal slash menu clears the nav band (390px)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const today = new Date();
-  const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  await page.goto(`/journal/${date}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/journal/${TODAY}`, { waitUntil: "domcontentloaded" });
 
   const editor = page.getByRole("textbox", { name: "Journal" });
   await expect(editor).toBeVisible({ timeout: 15_000 });
