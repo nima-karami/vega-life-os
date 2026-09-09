@@ -24,11 +24,18 @@ const HEADERS = ["Date", "Title", "Paid by", "Full", "Mine", "Your share", "Owed
 const RIGHT_ALIGNED = new Set(["Full", "Mine", "Your share", "Owed you"]);
 
 const CHIP_BASE =
-  "h-7 shrink-0 rounded-[10px] border px-3 text-[12.5px] data-[hovered=true]:border-muted";
+  "h-7 max-w-full shrink-0 rounded-[10px] border px-3 text-[12.5px] data-[hovered=true]:border-muted";
 const CHIP_ON = "border-accent font-medium text-foreground";
 const CHIP_OFF = "border-border font-normal text-muted";
 
 const NO_FIGURE = "—";
+
+interface PayerChip {
+  key: SettlementRowFilter;
+  /** the typed half of the label — the only part allowed to ellipsise, so ` paid` survives */
+  name: string | null;
+  label: string;
+}
 
 function RowsFooter({ figures, isCompact }: { figures: SettlementFigures; isCompact: boolean }) {
   return (
@@ -107,11 +114,11 @@ export function SettlementRowsCard({
   onSelectFilter,
 }: SettlementRowsCardProps) {
   const isCompact = useCompact();
-  const chips: { key: SettlementRowFilter; label: string }[] = [
-    { key: "all", label: `All ${views.length}` },
-    { key: "owner", label: "You paid" },
-    { key: "partner", label: `${partnerName} paid` },
-    { key: "waiting", label: "Missing split" },
+  const chips: PayerChip[] = [
+    { key: "all", name: null, label: `All ${views.length}` },
+    { key: "owner", name: null, label: "You paid" },
+    { key: "partner", name: partnerName, label: " paid" },
+    { key: "waiting", name: null, label: "Missing split" },
   ];
   const shown = filterSettlementRows(views, filter);
 
@@ -122,7 +129,7 @@ export function SettlementRowsCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3.5 pb-2.5">
         <h2 className="font-semibold text-[15px] text-foreground">Shared rows in this period</h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2">
           {chips.map((chip) => (
             <Button
               key={chip.key}
@@ -131,6 +138,9 @@ export function SettlementRowsCard({
               onPress={() => onSelectFilter(chip.key)}
               className={cx(CHIP_BASE, filter === chip.key ? CHIP_ON : CHIP_OFF)}
             >
+              {chip.name !== null && (
+                <span className="inline-block max-w-full truncate align-bottom">{chip.name}</span>
+              )}
               {chip.label}
             </Button>
           ))}

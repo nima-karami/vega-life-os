@@ -403,6 +403,37 @@ test("a long partner name never pushes the period card off a 320px screen", asyn
   await expect(card.getByRole("heading", { name: "Before you settle" })).toBeVisible();
 });
 
+/**
+ * The chip is the one control whose label a person types into, and `main` does not scroll
+ * sideways: a chip wider than the screen is a filter nobody can press. An email fits it, so only
+ * a token with nothing to break on reaches this.
+ */
+test("the payer filter chip stays inside a 320px screen, and still filters", async ({ page }) => {
+  await enterApp(page);
+  await page.setViewportSize(NARROW);
+  await setPartnerName(page, UNBROKEN_PARTNER);
+
+  await page.goto(`/finance/settlement?month=${settledMonth()}`, { waitUntil: "domcontentloaded" });
+  const rows = region(page, "Shared rows in this period");
+  await expect(rows).toBeVisible({ timeout: 15_000 });
+
+  const chip = rows.getByRole("button", { name: `${UNBROKEN_PARTNER} paid` });
+  const box = await chip.boundingBox();
+  expect(box?.x ?? -1, "the payer chip starts off the left of the screen").toBeGreaterThanOrEqual(
+    0,
+  );
+  expect(
+    (box?.x ?? 0) + (box?.width ?? 0),
+    "the payer chip runs off a screen that cannot scroll to it",
+  ).toBeLessThanOrEqual(NARROW.width);
+
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  await expect(rows.getByRole("link")).toHaveCount(1);
+
+  expect(await tooWideInside(page, '[aria-label="Shared rows in this period"]')).toEqual([]);
+});
+
 /** The two shapes a name breaks on differently: the email clips, the token overflows its box. */
 const UNBOUNDED_NAMES = ["alexandra.fitzgerald@example.com", UNBROKEN_PARTNER];
 
