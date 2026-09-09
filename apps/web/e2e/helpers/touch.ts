@@ -1,12 +1,14 @@
 import type { CDPSession, Locator, Page } from "@playwright/test";
 
 /**
- * Real touch input, injected at the browser's input layer through CDP.
+ * Real touch and stylus input, injected at the browser's input layer through CDP.
  *
  * `page.mouse` emits pointer-from-mouse even on a touch device profile, and
  * `dispatchEvent("touchstart")` is a synthetic DOM event that never reaches the
  * compositor — neither one can produce a `touch-action` / native-scroll conflict,
- * which is the whole bug class these specs exist to reproduce.
+ * which is the whole bug class these specs exist to reproduce. A stylus is the
+ * exception: CDP has no touch channel for it, so `penDrag` dispatches on the mouse
+ * channel with `pointerType: "pen"`.
  *
  * Velocity is a test input: a swipe of `distance` px over `durationMs` releases at
  * roughly `distance / durationMs * 1000` px/s, because the moves are evenly spaced

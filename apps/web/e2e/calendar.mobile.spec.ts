@@ -80,13 +80,17 @@ test("a swipe that starts on a timed chip scrolls the grid and moves nothing", a
   await expect(page.getByRole("status")).not.toContainText("Moved to");
 });
 
-// A stylus is the third pointer: it has no hover to find the grips with either, so at
-// phone width it must behave as a finger rather than as a mouse.
-test("a pen drag on a timed chip writes nothing", async ({ page }) => {
+// A pen hovers like a mouse but aims like a finger, so on a phone it takes the finger branch.
+test("a pen drag on a timed chip writes nothing at phone width", async ({ page }) => {
   const chip = await openSeededChipDay(page);
   const box = await chip.boundingBox();
   if (!box) throw new Error("the timed chip has no bounding box");
   const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  // A pen tap first, so the negatives below cannot pass on a pen channel that reaches nothing.
+  await penDrag(page, { from, to: from, durationMs: 40, steps: 1 });
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Update ID card");
+  await page.keyboard.press("Escape");
 
   await penDrag(page, { from, to: { x: from.x, y: from.y + 92 }, durationMs: 300, steps: 12 });
 
@@ -141,6 +145,25 @@ test("a touch drag on a resize grip writes nothing at 900px", async ({ page }) =
 
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
   await expect(page.getByRole("status")).not.toContainText("Moved to");
+});
+
+// Past sm a pen is a precision pointer that reveals the grips by hovering, so it resizes.
+test("a pen drag on the top grip resizes the chip at 900px", async ({ page }) => {
+  await openCalendar(page, WIDE);
+  const chip = await findSeededChip(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const grip = { x: box.x + box.width / 2, y: box.y + 3 };
+
+  // 92px is two hour rows, so the 13:00 start walks back to 11:00 with the end pinned.
+  await penDrag(page, {
+    from: grip,
+    to: { x: grip.x, y: grip.y - 92 },
+    durationMs: 300,
+    steps: 12,
+  });
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 11:00–14:00/ })).toBeVisible();
 });
 
 test("a still tap on a resize grip opens the editor at 900px", async ({ page }) => {

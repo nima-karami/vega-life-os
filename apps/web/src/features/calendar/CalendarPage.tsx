@@ -469,11 +469,13 @@ export function CalendarPage() {
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
-    // The 6px grips have no hover, so a finger never resizes — the press is recorded so a
-    // still release still taps. Past sm it must die here too, or the body would arm a move.
-    if (mode !== "move" && e.pointerType !== "mouse") {
+    // Nothing aims a 6px grip on a phone, so a finger never resizes and a pen only past sm.
+    // The press is recorded so a still release still taps; past sm it must also die here,
+    // or the body would arm a move. Capture keeps a release off the chip reaching endChipPress.
+    if (mode !== "move" && (e.pointerType === "touch" || (e.pointerType === "pen" && compact))) {
       chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
       if (!compact) {
+        e.currentTarget.setPointerCapture(e.pointerId);
         e.preventDefault();
         e.stopPropagation();
       }
