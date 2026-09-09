@@ -13,6 +13,8 @@ import { tap } from "./helpers/touch";
  */
 
 const SEEDED_DAYS_AGO = [0, 1, 2];
+// A touchscreen tablet or laptop: past sm, still nothing but fingers.
+const WIDE = { width: 900, height: 900 };
 
 async function enterMoodChart(page: Page) {
   await enterApp(page);
@@ -37,6 +39,24 @@ test("a first tap on an occluded mood point names that day and a second opens it
   await expect(tooltip).toBeVisible();
   await expect(tooltip).toHaveText(await describedAs(page, interior));
   await expect(page).not.toHaveURL(/\/journal\//);
+
+  await tap(page, point);
+  await expect(page).toHaveURL(new RegExp(`/journal/${interior}$`));
+});
+
+test("a tap on a mood point past sm still names the day before opening its journal", async ({
+  page,
+}) => {
+  await page.setViewportSize(WIDE);
+  await enterMoodChart(page);
+  const interior = isoDaysAgo(1);
+  const point = await dotCentre(page, interior);
+
+  await expect(page.getByText(/tap again to open its journal/)).toBeVisible();
+
+  await tap(page, point);
+  await expect(page.getByTestId("mood-tooltip")).toHaveText(await describedAs(page, interior));
+  await expect(page).toHaveURL(/\/analytics$/);
 
   await tap(page, point);
   await expect(page).toHaveURL(new RegExp(`/journal/${interior}$`));

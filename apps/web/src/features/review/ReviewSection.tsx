@@ -246,7 +246,7 @@ export function ReviewSection() {
                     <span className="shrink-0 text-xs text-muted">
                       {Math.round(r.completion * 100)}%
                     </span>
-                    <span className="ml-auto min-w-0 truncate text-xs text-muted">
+                    <span className="ml-auto truncate text-xs text-muted">
                       {r.prompts.find((p) => p.a)?.a ?? "—"}
                     </span>
                   </button>

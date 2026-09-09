@@ -44,8 +44,8 @@ async function findSeededChip(page: Page) {
 
 // The seeded "Update ID card" sits on the week's Thursday; the day strip is the only way
 // to reach it on a phone, and the label is derived from the week so no date is pinned.
-async function openSeededChipDay(page: Page) {
-  await openCalendar(page, PHONE);
+async function openSeededChipDay(page: Page, viewport = PHONE) {
+  await openCalendar(page, viewport);
   await page
     .locator("main button")
     .filter({ hasText: /^Thu\d{2}$/ })
@@ -164,6 +164,63 @@ test("a pen drag on the top grip resizes the chip at 900px", async ({ page }) =>
   });
 
   await expect(page.getByRole("button", { name: /^Update ID card, 11:00–14:00/ })).toBeVisible();
+});
+
+// A touchscreen laptop still has a mouse, and only the mouse branch of the grip guard
+// keeps desktop resize alive — nothing else in the suite drives one.
+test("a mouse drag on the top grip resizes the chip at 900px", async ({ page }) => {
+  await openCalendar(page, WIDE);
+  const chip = await findSeededChip(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const grip = { x: box.x + box.width / 2, y: box.y + 3 };
+
+  await page.mouse.move(grip.x, grip.y);
+  await page.mouse.down();
+  await page.mouse.move(grip.x, grip.y - 92, { steps: 12 });
+  await page.mouse.up();
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 11:00–14:00/ })).toBeVisible();
+});
+
+// The pixels either side of the breakpoint: the widest single-day column still covers the
+// week column the chip lands in, so a release can stay on the chip across the swap.
+const LAST_COMPACT = { width: 639, height: 844 };
+const FIRST_WEEK = { width: 640, height: 844 };
+
+async function chipBox(page: Page) {
+  const box = await (await findSeededChip(page)).boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  return box;
+}
+
+// Crossing sm swaps the columns under the finger, so the remembered press must die with them.
+test("a chip press held across the breakpoint opens nothing on release", async ({ page }) => {
+  await openSeededChipDay(page, LAST_COMPACT);
+  await page.setViewportSize(FIRST_WEEK);
+  const weekBox = await chipBox(page);
+  await page.setViewportSize(LAST_COMPACT);
+  const phoneBox = await chipBox(page);
+  const editorTitle = page.getByRole("textbox", { name: "Task title" });
+
+  // Where the chip covers itself in both layouts, so the release cannot land on an empty slot.
+  const left = Math.max(phoneBox.x, weekBox.x);
+  const right = Math.min(phoneBox.x + phoneBox.width, weekBox.x + weekBox.width);
+  expect(right - left, "the chip does not overlap itself across the breakpoint").toBeGreaterThan(8);
+  const press = { x: (left + right) / 2, y: phoneBox.y + phoneBox.height / 2 };
+
+  // A still tap first, so the negative below cannot pass on a press that reaches nothing.
+  await tap(page, press);
+  await expect(editorTitle).toHaveValue("Update ID card");
+  await page.keyboard.press("Escape");
+  await expect(editorTitle).toHaveCount(0);
+
+  await startTouch(page, press);
+  await page.setViewportSize(FIRST_WEEK);
+  await endTouch(page);
+
+  await expect(editorTitle).toHaveCount(0);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });
 
 test("a still tap on a resize grip opens the editor at 900px", async ({ page }) => {

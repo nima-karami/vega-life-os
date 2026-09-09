@@ -9,7 +9,7 @@ export function isoDaysAgo(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export async function logMood(page: Page, iso: string) {
+async function logMood(page: Page, iso: string) {
   await page.goto(`/journal/${iso}`, { waitUntil: "domcontentloaded" });
   const pip = page.getByRole("radio", { name: /^Mood 4 of 5/ });
   await expect(pip).toBeVisible({ timeout: 15_000 });

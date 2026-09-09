@@ -469,7 +469,8 @@ export function CalendarPage() {
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
-    if (mode !== "move" && e.pointerType !== "mouse" && (e.pointerType !== "pen" || compact)) {
+    const canResize = e.pointerType === "mouse" || (e.pointerType === "pen" && !compact);
+    if (mode !== "move" && !canResize) {
       chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
       if (!compact) {
         // Pins the release to this chip; Chromium implies it for touch, Safari never proved it.

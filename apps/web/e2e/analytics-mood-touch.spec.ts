@@ -32,9 +32,16 @@ test("a mouse under 640px names and opens the day whose dot it is on", async ({ 
   await enterMoodChart(page, [0, 1, 2]);
   const interior = isoDaysAgo(1);
   const dot = await dotCentre(page, interior);
+  const neighbour = await dotCentre(page, isoDaysAgo(0));
+
+  await expect(page.getByText(/tap a point to open that day's journal/)).toBeVisible();
 
   await page.mouse.move(dot.x, dot.y);
   await expect(page.getByTestId("mood-tooltip")).toHaveText(await describedAs(page, interior));
+
+  // Past the halfway mark but still inside the same column, so no second pointerenter fires.
+  await page.mouse.move((dot.x + neighbour.x) / 2 + 2, dot.y);
+  await expect(page.getByTestId("mood-tooltip")).toHaveText(await describedAs(page, isoDaysAgo(0)));
 
   await page.mouse.click(dot.x, dot.y);
   await expect(page).toHaveURL(new RegExp(`/journal/${interior}$`));

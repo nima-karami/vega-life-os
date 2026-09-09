@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { DOW, dowIndex } from "@/core/lib/date";
-import { cx, useCompact } from "@/core/ui";
+import { cx, useCoarsePointer, useCompact } from "@/core/ui";
 import { MOOD_LABEL } from "@/features/journal/model";
 import { CHART_PRIMARY } from "../chart-constants";
 import type { MoodPoint } from "../selectors";
@@ -85,6 +85,7 @@ export function MoodChart({
   granularity?: Granularity;
 }) {
   const compact = useCompact();
+  const coarsePointer = useCoarsePointer();
   const navigate = useNavigate();
   // Tagged with the range it was picked in, so switching range drops it without an effect.
   const [selection, setSelection] = useState<{
@@ -97,6 +98,7 @@ export function MoodChart({
   const step = series.length > 1 ? 100 / (series.length - 1) : 0;
   const rangeKey = `${granularity}:${series.length}:${series[0]?.iso ?? ""}`;
   const activeIso = selection?.rangeKey === rangeKey ? selection.iso : null;
+  const isTapSelection = activeIso != null && selection?.source === "tap";
   const selectIso = (iso: string, source: "tap" | "hover") =>
     setSelection({ rangeKey, iso, source });
   // A second tap moves focus onto the occluding neighbour, so a tap must outlive blur.
@@ -134,11 +136,9 @@ export function MoodChart({
   };
 
   const handlePointClick = (e: React.MouseEvent, iso: string) => {
-    if (e.detail === 0 || !compact) return;
-    const resolved = resolveIsoAt(e.clientX);
-    if (resolved == null) return;
-    const shouldNavigate = pointerTypeRef.current !== "touch" || resolved === activeIso;
-    if (!shouldNavigate) {
+    if (e.detail === 0) return;
+    const resolved = (compact ? resolveIsoAt(e.clientX) : iso) ?? iso;
+    if (pointerTypeRef.current === "touch" && resolved !== activeIso) {
       e.preventDefault();
       selectIso(resolved, "tap");
       plotRef.current?.querySelector<HTMLElement>(`[data-iso="${resolved}"]`)?.focus();
@@ -210,6 +210,13 @@ export function MoodChart({
                   onPointerEnter={(e) => {
                     if (e.pointerType === "touch") return;
                     selectIso((compact ? resolveIsoAt(e.clientX) : null) ?? day.iso, "hover");
+                  }}
+                  onPointerMove={(e) => {
+                    // Columns overlap, so the resolution boundary sits inside one element.
+                    if (!compact || e.pointerType === "touch") return;
+                    const resolved = resolveIsoAt(e.clientX);
+                    if (resolved && resolved !== activeIso && !isTapSelection)
+                      selectIso(resolved, "hover");
                   }}
                   onPointerLeave={(e) => {
                     if (e.pointerType !== "touch") clearHoverSelection();
@@ -298,7 +305,7 @@ export function MoodChart({
       <p className="mt-3 text-xs text-muted">
         {logged.length === 0
           ? "No mood logged in this range."
-          : `${logged.length} ${granularity === "week" ? "week" : "day"}${logged.length === 1 ? "" : "s"} logged — ${compact ? "tap a point to see the day, tap again to open its journal" : "tap a point to open that day's journal"}. Gaps are unrecorded ${granularity === "week" ? "weeks" : "days"}.`}
+          : `${logged.length} ${granularity === "week" ? "week" : "day"}${logged.length === 1 ? "" : "s"} logged — ${coarsePointer ? "tap a point to see the day, tap again to open its journal" : "tap a point to open that day's journal"}. Gaps are unrecorded ${granularity === "week" ? "weeks" : "days"}.`}
       </p>
     </div>
   );
