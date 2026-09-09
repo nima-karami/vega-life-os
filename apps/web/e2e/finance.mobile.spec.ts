@@ -67,36 +67,93 @@ const region = (page: Page, name: string) => page.getByRole("region", { name });
 /** The narrowest phone still supported — where the meta run has the least room to give. */
 const NARROW = { width: 320, height: 800 };
 
+const TOUCH_MINIMUM = 44;
+
+interface BudgetChipPlacement {
+  label: string;
+  overprints: string | null;
+  clippedBy: string | null;
+  startsBelowAmount: boolean;
+  isFullyDrawn: boolean;
+  width: number;
+}
+
 /**
  * Rects, not `documentElement.scrollWidth`: a 16px budget input painted straight over the spent
- * figure without widening the page at all, so only an element-level overlap can see it.
+ * figure without widening the page at all, so only an element-level measurement sees it. The
+ * positive half is measured too — a chip clipped down to nothing also stops overlapping.
  */
-async function findAmountCollisions(page: Page): Promise<string[]> {
+async function measureBudgetChips(page: Page): Promise<BudgetChipPlacement[]> {
   return page.evaluate(() => {
-    const hits: string[] = [];
-    for (const chip of document.querySelectorAll('[aria-label^="Monthly budget for"]')) {
-      let row: Element | null = chip;
-      let amount: Element | null = null;
-      while (row !== null && amount === null) {
-        row = row.parentElement;
-        amount = row?.querySelector('[data-testid="compact-amount"]') ?? null;
-      }
-      if (amount === null) continue;
-      const chipBox = chip.getBoundingClientRect();
-      const amountBox = amount.getBoundingClientRect();
-      const overlapX =
-        Math.min(chipBox.right, amountBox.right) - Math.max(chipBox.left, amountBox.left);
-      const overlapY =
-        Math.min(chipBox.bottom, amountBox.bottom) - Math.max(chipBox.top, amountBox.top);
-      if (overlapX > 0 && overlapY > 0) {
-        hits.push(`${chip.getAttribute("aria-label")} overprints ${amount.textContent}`);
-      }
-    }
-    return hits;
+    const describe = (node: Element) => `${node.tagName}[${node.getAttribute("class") ?? ""}]`;
+
+    return Array.from(document.querySelectorAll('[aria-label^="Monthly budget for"]')).map(
+      (chip) => {
+        const box = chip.getBoundingClientRect();
+
+        let amount: Element | null = null;
+        for (
+          let node = chip.parentElement;
+          node !== null && amount === null;
+          node = node.parentElement
+        ) {
+          amount = node.querySelector('[data-testid="compact-amount"]');
+        }
+        const amountBox = amount?.getBoundingClientRect() ?? null;
+
+        let clippedBy: string | null = null;
+        for (
+          let node = chip.parentElement;
+          node !== null && clippedBy === null;
+          node = node.parentElement
+        ) {
+          const style = getComputedStyle(node);
+          if (style.overflowX === "visible" && style.overflowY === "visible") continue;
+          const bounds = node.getBoundingClientRect();
+          if (box.left < bounds.left - 0.5 || box.right > bounds.right + 0.5) {
+            clippedBy = describe(node);
+          }
+        }
+
+        const overlaps =
+          amountBox !== null &&
+          Math.min(box.right, amountBox.right) - Math.max(box.left, amountBox.left) > 0 &&
+          Math.min(box.bottom, amountBox.bottom) - Math.max(box.top, amountBox.top) > 0;
+
+        return {
+          label: chip.getAttribute("aria-label") ?? "",
+          overprints: overlaps ? `over ${amount?.textContent ?? ""}` : null,
+          clippedBy,
+          startsBelowAmount: amountBox !== null && box.top >= amountBox.bottom - 0.5,
+          isFullyDrawn: box.width + 0.5 >= chip.scrollWidth,
+          width: box.width,
+        };
+      },
+    );
   });
 }
 
-const TOUCH_MINIMUM = 44;
+async function expectChipsClearOfAmounts(page: Page, where: string) {
+  const chips = await measureBudgetChips(page);
+
+  expect(chips.length, `${where}: no budget chip was measured`).toBeGreaterThan(0);
+  expect(
+    chips.filter((chip) => chip.overprints !== null),
+    `${where}: a chip paints over the figure it is judged against`,
+  ).toEqual([]);
+  expect(
+    chips.filter((chip) => !chip.startsBelowAmount),
+    `${where}: a chip does not start below the amount cell`,
+  ).toEqual([]);
+  expect(
+    chips.filter((chip) => chip.clippedBy !== null || !chip.isFullyDrawn),
+    `${where}: a chip is cut short rather than taking its own line`,
+  ).toEqual([]);
+  expect(
+    chips.filter((chip) => chip.width < TOUCH_MINIMUM),
+    `${where}: a chip is under the ${TOUCH_MINIMUM}px minimum`,
+  ).toEqual([]);
+}
 
 async function expectThumbSized(target: Locator, label: string) {
   await expect(target).toBeVisible();
@@ -133,12 +190,12 @@ test("the budget chip never paints over the figure it is judged against", async 
   await expect(page.getByRole("button", { name: "Monthly budget for Software" })).toBeVisible({
     timeout: 15_000,
   });
-  expect(await findAmountCollisions(page), "at 390").toEqual([]);
+  await expectChipsClearOfAmounts(page, "at 390");
 
   await page.setViewportSize(NARROW);
   await expect(page.getByRole("button", { name: "Monthly budget for Home & rent" })).toBeVisible();
 
-  expect(await findAmountCollisions(page), "at 320").toEqual([]);
+  await expectChipsClearOfAmounts(page, "at 320");
 });
 
 test("the budget is still edited in the row, on a target a thumb can hit", async ({ page }) => {

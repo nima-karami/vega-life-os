@@ -38,7 +38,11 @@ export function CompactSettlementRows({
           amount={<SettlementOwedFigure view={view} />}
           meta={[
             { value: view.dateLabel },
-            { label: "Paid by", value: view.isOwnerPaid ? "You" : partnerName },
+            {
+              label: "Paid by",
+              value: view.isOwnerPaid ? "You" : partnerName,
+              isFreeText: true,
+            },
             { label: "Full", value: formatSignedCents(view.fullCents) },
             { label: "Mine", value: <SettlementSplitCell view={view} /> },
             {

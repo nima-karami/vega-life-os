@@ -15,6 +15,8 @@ import {
 import type { FinanceImportOutcome } from "./store";
 
 export interface StagedFile {
+  /** the account the rows were parsed under — their dedupe keys carry its slug, so no other may claim them */
+  accountId: string;
   fileName: string;
   fileHash: string;
   batchId: string;
@@ -54,6 +56,16 @@ interface StagingState {
   phase: ImportPhase;
 }
 
+/** A phase that reports a write that already landed, rather than a stage that can still go stale. */
+const isReceipt = (phase: ImportPhase) =>
+  phase.status === "committed" || phase.status === "partial-commit";
+
+/** A stage lives under its own selection; a receipt lives under its own account, however it is reached. */
+const isPhaseLive = (staging: StagingState, live: StageStamp) =>
+  isReceipt(staging.phase)
+    ? staging.stamp.accountId === live.accountId
+    : isStampLive(staging.stamp, live);
+
 export interface StatementImport {
   phase: ImportPhase;
   reset: () => void;
@@ -83,21 +95,18 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
   const stamp = liveStamp.current;
 
   const [staging, setStaging] = useState<StagingState>({ stamp, phase: IDLE });
-  // Discarded, not masked: a stage the account moved on from must not come back when it is chosen again.
-  if (!isStampLive(staging.stamp, stamp)) setStaging({ stamp, phase: IDLE });
-  const phase = isStampLive(staging.stamp, stamp) ? staging.phase : IDLE;
-  const setPhase = (next: ImportPhase) => setStaging({ stamp: liveStamp.current, phase: next });
-  const setPhaseIfLive = (startedUnder: StageStamp, next: ImportPhase) => {
-    if (isStampLive(startedUnder, liveStamp.current)) setPhase(next);
-  };
+  const isLive = isPhaseLive(staging, stamp);
+  // A stage the account moved on from is discarded so it cannot come back; a receipt is only hidden,
+  // so the account that was actually written to still learns how its commit ended.
+  if (!isLive && !isReceipt(staging.phase)) setStaging({ stamp, phase: IDLE });
+  const phase = isLive ? staging.phase : IDLE;
+  // This render's stamp, never the ref's: a write that lands after the account moved has to carry
+  // the selection it was started under, or the reset above cannot tell it apart from a live one.
+  const setPhase = (next: ImportPhase) => setStaging({ stamp, phase: next });
 
-  const runParse = async (
-    startedUnder: StageStamp,
-    source: SourceFile,
-    mapping: FinanceColumnMapping | null,
-  ) => {
+  const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
-    setPhaseIfLive(startedUnder, { status: "parsing", fileName: source.name });
+    setPhase({ status: "parsing", fileName: source.name });
     const outcome = await parseStatement({
       fileName: source.name,
       table: source.table,
@@ -112,7 +121,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     });
 
     if (outcome.status === "mapping-required") {
-      setPhaseIfLive(startedUnder, {
+      setPhase({
         status: "mapping-required",
         fileName: source.name,
         source,
@@ -121,12 +130,13 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
       return;
     }
     if (outcome.status === "parse-failed") {
-      setPhaseIfLive(startedUnder, { status: "parse-failed", error: outcome.error });
+      setPhase({ status: "parse-failed", error: outcome.error });
       return;
     }
-    setPhaseIfLive(startedUnder, {
+    setPhase({
       status: "preview",
       staged: {
+        accountId: account.id,
         fileName: source.name,
         fileHash: source.hash,
         batchId: uid("fbat_"),
@@ -137,37 +147,28 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     });
   };
 
-  const readFile = async (startedUnder: StageStamp, file: File) => {
+  const readFile = async (file: File) => {
     const sizeBreach = findLimitBreach({ bytes: file.size });
     if (sizeBreach) {
-      setPhaseIfLive(startedUnder, {
-        status: "limit-reached",
-        fileName: file.name,
-        breach: sizeBreach,
-      });
+      setPhase({ status: "limit-reached", fileName: file.name, breach: sizeBreach });
       return;
     }
     const text = await file.text();
     const table = parseDelimitedTable(text);
     const rowBreach = findLimitBreach({ rows: table.records.length });
     if (rowBreach) {
-      setPhaseIfLive(startedUnder, {
-        status: "limit-reached",
-        fileName: file.name,
-        breach: rowBreach,
-      });
+      setPhase({ status: "limit-reached", fileName: file.name, breach: rowBreach });
       return;
     }
     const source = { name: file.name, hash: await computeFileHash(text), table };
-    await runParse(startedUnder, source, account?.columnMapping ?? null);
+    await runParse(source, account?.columnMapping ?? null);
   };
 
   const runCommit = async (staged: StagedFile) => {
-    if (!account) return;
     setPhase({ status: "committing", staged });
     const plan = stageImport({
       statement: staged.statement,
-      accountId: account.id,
+      accountId: staged.accountId,
       batchId: staged.batchId,
       merchants,
     });
@@ -176,7 +177,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
       merchants: plan.merchants,
       batch: {
         id: staged.batchId,
-        accountId: account.id,
+        accountId: staged.accountId,
         fileNames: [staged.fileName],
         fileHashes: [staged.fileHash],
         detectedFormat: staged.statement.layoutId,
@@ -202,7 +203,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
         pushToast(NO_ACCOUNT_TOAST);
         return;
       }
-      void readFile(liveStamp.current, file);
+      void readFile(file);
     },
     commit: (staged) => void runCommit(staged),
     rollBack: (staged) => {
@@ -212,12 +213,12 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     confirmMapping: (mapping) => {
       if (phase.status !== "mapping-required" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(liveStamp.current, phase.source, mapping);
+      void runParse(phase.source, mapping);
     },
     remap: (mapping) => {
       if (phase.status !== "preview" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(liveStamp.current, phase.staged.source, mapping);
+      void runParse(phase.staged.source, mapping);
     },
   };
 }

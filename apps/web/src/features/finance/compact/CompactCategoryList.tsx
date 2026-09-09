@@ -32,6 +32,7 @@ function CategoryRow({
   const isSpend = row.kind === "spend";
   const meta: CompactMetaItem[] = isSpend
     ? [
+        { label: "Avg", value: formatCents(row.averageCents) },
         {
           label: "Budget",
           isControl: true,
@@ -44,7 +45,6 @@ function CategoryRow({
             />
           ),
         },
-        { label: "Avg", value: formatCents(row.averageCents) },
       ]
     : [{ value: "Income" }];
 

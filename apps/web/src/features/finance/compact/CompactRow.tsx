@@ -7,6 +7,8 @@ export interface CompactMetaItem {
   value: ReactNode;
   /** A control rather than text: it gets its own line under the figures, clear of the amount cell. */
   isControl?: boolean;
+  /** Unbounded text a person typed, so it ellipsises rather than running past the row. */
+  isFreeText?: boolean;
 }
 
 export interface CompactRowProps {
@@ -27,12 +29,20 @@ const AMOUNT_CLASS = "font-medium text-[14px] text-foreground tabular-nums";
 const META_RUN_CLASS = "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted";
 
 function MetaPair({ item, isOwnLine }: { item: CompactMetaItem; isOwnLine: boolean }) {
+  const isEllipsised = item.isFreeText === true && !isOwnLine;
+
   return (
-    <span className={cx("flex min-w-0 items-center gap-[5px]", !isOwnLine && "whitespace-nowrap")}>
+    <span
+      className={cx(
+        "flex items-center gap-[5px]",
+        !isOwnLine && "whitespace-nowrap",
+        isEllipsised && "min-w-0",
+      )}
+    >
       {item.label !== undefined && (
         <span className="shrink-0 font-medium text-foreground/70">{item.label}</span>
       )}
-      <span className={cx("min-w-0", !isOwnLine && "truncate")}>{item.value}</span>
+      <span className={isEllipsised ? "min-w-0 truncate" : undefined}>{item.value}</span>
     </span>
   );
 }

@@ -31,8 +31,14 @@ const card = (page: Page) => page.getByTestId("finance-accounts-card");
 /** The month holding the seed's newest Rewards card row, derived so no fixed month can rot. */
 const CARD_ROW_MONTH = format(subDays(new Date(), 5), "yyyy-MM");
 
-// "Select all transactions" is the header box; the rest are one per row.
-const ledgerRows = (page: Page) => page.getByRole("checkbox", { name: /^Select (?!all)/ });
+const SELECT_ALL_LABEL = "Select all transactions";
+
+// Every row box, minus the header's — subtracted by its exact name, so a transaction whose own
+// title starts with "all" still counts as a row.
+const ledgerRows = (page: Page) =>
+  page
+    .getByRole("checkbox", { name: /^Select / })
+    .and(page.locator(`:not([aria-label="${SELECT_ALL_LABEL}"])`));
 
 async function filterByAccount(page: Page, label: string) {
   await page.getByRole("button", { name: "Filter by account" }).click();
