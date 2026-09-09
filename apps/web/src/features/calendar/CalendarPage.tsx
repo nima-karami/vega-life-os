@@ -213,7 +213,7 @@ export function CalendarPage() {
   useLayoutEffect(() => {
     if (wasCompact.current === compact) return;
     wasCompact.current = compact;
-    if (dragRef.current) cancelDragRef.current();
+    cancelChipPressRef.current();
   }, [compact]);
 
   // Keep the active single day on today when the week contains it.
@@ -469,12 +469,10 @@ export function CalendarPage() {
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
-    // Nothing aims a 6px grip on a phone, so a finger never resizes and a pen only past sm.
-    // The press is recorded so a still release still taps; past sm it must also die here,
-    // or the body would arm a move. Capture keeps a release off the chip reaching endChipPress.
-    if (mode !== "move" && (e.pointerType === "touch" || (e.pointerType === "pen" && compact))) {
+    if (mode !== "move" && e.pointerType !== "mouse" && (e.pointerType !== "pen" || compact)) {
       chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
       if (!compact) {
+        // Pins the release to this chip; Chromium implies it for touch, Safari never proved it.
         e.currentTarget.setPointerCapture(e.pointerId);
         e.preventDefault();
         e.stopPropagation();
@@ -712,6 +710,8 @@ export function CalendarPage() {
     chipPressRef.current = null;
     if (dragRef.current) cancelDrag();
   };
+  const cancelChipPressRef = useRef(cancelChipPress);
+  cancelChipPressRef.current = cancelChipPress;
 
   const endChipPress = (e: React.PointerEvent) => {
     const press = chipPressRef.current;
