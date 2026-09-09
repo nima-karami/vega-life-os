@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { longPress, penDrag, startTouch, dragAlong, endTouch, tap } from "./helpers/touch";
+import { dragAlong, endTouch, longPress, penDrag, startTouch, tap } from "./helpers/touch";
 
 /**
  * Touch safety for the calendar's timed grid (spec
@@ -98,6 +98,21 @@ test("a pen drag on a timed chip writes nothing at phone width", async ({ page }
   await expect(page.getByRole("status")).not.toContainText("Moved to");
 });
 
+// A pen that aims like a finger earns the finger's route to the menu, scrim and all —
+// the half of the rule the resize tests below cannot see.
+test("a pen long press on a timed chip opens its menu at phone width", async ({ page }) => {
+  const chip = await openSeededChipDay(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  await penDrag(page, { from: at, to: at, durationMs: 700, steps: 7 });
+
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(page.locator("[data-menu-scrim]")).toHaveCount(1);
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveCount(0);
+});
+
 test("a long press on a timed chip opens its menu and leaves the time alone", async ({ page }) => {
   const chip = await openSeededChipDay(page);
   const box = await chip.boundingBox();
@@ -182,6 +197,23 @@ test("a touch drag on a resize grip writes nothing at 900px", async ({ page }) =
 
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
   await expect(page.getByRole("status")).not.toContainText("Moved to");
+});
+
+// Past sm the pen is a mouse, so a hold arms no long press — otherwise the menu it opens
+// mid-gesture abandons the resize the grip test below depends on. The editor on release is
+// the positive control: the press really did land on the chip.
+test("a pen hold on the chip body opens no menu at 900px", async ({ page }) => {
+  await openCalendar(page, WIDE);
+  const chip = await findSeededChip(page);
+  const box = await chip.boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  await penDrag(page, { from: at, to: at, durationMs: 700, steps: 7 });
+
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Update ID card");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.locator("[data-menu-scrim]")).toHaveCount(0);
 });
 
 // Past sm a pen is a precision pointer that reveals the grips by hovering, so it resizes.

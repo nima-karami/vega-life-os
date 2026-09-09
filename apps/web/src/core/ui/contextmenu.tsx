@@ -13,6 +13,7 @@ import { Icon } from "./icons";
 import type { MenuItem } from "./menu";
 import { computeHeightCap, computeWidthCap, type MenuPos, placeMenu } from "./menu-placement";
 import { isTouchPress, type PressSource, pressSourceOf } from "./press-pointer";
+import { useCompact } from "./useCompactModal";
 
 const hasContentBelow = (panel: HTMLElement): boolean =>
   panel.scrollTop + panel.clientHeight < panel.scrollHeight - 1;
@@ -223,8 +224,9 @@ const PRESS_FEEDBACK_MS = 180;
  * primitive (and its Dropdown's dismiss-on-interact-outside races with the
  * right-click that would open it), so this wraps the target in a `display:contents`
  * element and opens a {@link FloatingMenu} at the cursor. With `longPress`, a held
- * touch/pen pointer opens it too — read in the capture phase, because a react-aria
- * pressable descendant stops `pointerdown` before it could bubble here.
+ * finger — and a pen only where it aims like one — opens it too, read in the capture
+ * phase because a react-aria pressable descendant stops `pointerdown` before it could
+ * bubble here.
  */
 export function ContextMenu({
   children,
@@ -243,6 +245,7 @@ export function ContextMenu({
   /** the held press won: a caller that also armed a drag on this pointerdown must abandon it */
   onLongPress?: () => void;
 }) {
+  const compact = useCompact();
   const [menu, setMenu] = useState<{ pos: MenuPos; scrim: boolean } | null>(null);
   const pressTimerRef = useRef<number | null>(null);
   const feedbackTimerRef = useRef<number | null>(null);
@@ -268,9 +271,10 @@ export function ContextMenu({
   );
 
   const handlePressStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pressSourceRef.current = pressSourceOf(event.pointerType);
+    const source = pressSourceOf(event.pointerType, compact);
+    pressSourceRef.current = source;
     suppressClickRef.current = false;
-    if (!longPress || event.pointerType === "mouse") return;
+    if (!longPress || !isTouchPress(source)) return;
     pressOriginRef.current = { x: event.clientX, y: event.clientY };
     feedbackTimerRef.current = window.setTimeout(() => {
       feedbackTimerRef.current = null;

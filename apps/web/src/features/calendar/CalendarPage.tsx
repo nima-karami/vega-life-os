@@ -642,7 +642,7 @@ export function CalendarPage() {
   };
 
   const handleColumnPointerDown = (e: React.PointerEvent) => {
-    columnPressSourceRef.current = pressSourceOf(e.pointerType);
+    columnPressSourceRef.current = pressSourceOf(e.pointerType, compact);
     beginMarquee(e);
   };
 
