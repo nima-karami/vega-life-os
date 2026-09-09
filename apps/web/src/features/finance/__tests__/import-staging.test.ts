@@ -6,6 +6,7 @@ import {
   type ParsedRow,
   type ParsedStatement,
 } from "../import/types";
+import { describePriorImport } from "../import-preview";
 import {
   computeFileHash,
   describeLimitBreach,
@@ -90,12 +91,16 @@ describe("import limits", () => {
 });
 
 describe("file provenance", () => {
-  const batch = (id: string, fileHashes: string[]): FinanceImportBatch => ({
+  const batch = (
+    id: string,
+    fileHashes: string[],
+    accountId = "facc_chequing",
+  ): FinanceImportBatch => ({
     id,
     status: "committed",
     fileNames: [`${id}.csv`],
     fileHashes,
-    accountId: "facc_chequing",
+    accountId,
     detectedFormat: null,
     rowsParsed: 3,
     rowsInserted: 3,
@@ -126,6 +131,20 @@ describe("file provenance", () => {
 
   it("never reports the batch being previewed as its own prior import", () => {
     expect(findPriorImport("hash-a", "fbat_1", [batch("fbat_1", ["hash-a"])])).toBeNull();
+  });
+
+  it("picks the staging account's own batch when a second account also took the file", () => {
+    const batches = [
+      batch("fbat_visa", ["hash-a"], "facc_visa"),
+      batch("fbat_card_a", ["hash-a"], "facc_card_a"),
+    ];
+    const prior = findPriorImport("hash-a", "fbat_new", batches, "facc_card_a");
+
+    expect(prior?.id).toBe("fbat_card_a");
+    expect(
+      describePriorImport(prior, "facc_card_a", "Visa"),
+      "the note claims rows are new under an account that already took them",
+    ).toContain("You already imported this exact file");
   });
 });
 

@@ -146,6 +146,7 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     await yieldToPaint();
   };
 
+  /** Reach this only through `announceParsing` — it never raises the notice the blocking parse needs. */
   const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
     const outcome = await parseStatement({

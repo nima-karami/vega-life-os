@@ -132,7 +132,7 @@ function buildDropZone(input: DropZoneInput): FinanceImportDropZoneProps {
 
   const rows = staged.statement.rows;
   const patterns = readAccountPatterns(input.transactions, input.account?.id);
-  const prior = findPriorImport(staged.fileHash, staged.batchId, input.batches);
+  const prior = findPriorImport(staged.fileHash, staged.batchId, input.batches, staged.accountId);
   return {
     ...base,
     fileName: staged.fileName,

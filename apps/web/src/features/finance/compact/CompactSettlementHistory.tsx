@@ -1,9 +1,16 @@
 import { Link } from "react-router";
 import type { SettlementHistoryCardProps } from "../finance-table-props";
 import { StateChip } from "../primitives";
-import { CompactRow } from "./CompactRow";
+import type { SettlementOutcome } from "../settlement-copy";
+import { type CompactMetaItem, CompactRow } from "./CompactRow";
 
 const AMOUNT_CLASS = "font-semibold text-[14px] text-foreground tabular-nums";
+
+/** Only the partner's name gives way — losing “ sent you” would lose who paid whom. */
+const buildLeadMeta = (outcome: SettlementOutcome): CompactMetaItem =>
+  outcome.name === null
+    ? { value: outcome.phrase, isFreeText: true }
+    : { value: outcome.name, suffix: outcome.phrase, isFreeText: true };
 
 /** Settled periods on a phone: the direction stays in the meta, the figure drops into the amount column. */
 export function CompactSettlementHistory({ rows }: SettlementHistoryCardProps) {
@@ -23,7 +30,7 @@ export function CompactSettlementHistory({ rows }: SettlementHistoryCardProps) {
           amount={row.outcome.amount}
           amountClassName={AMOUNT_CLASS}
           meta={[
-            { value: row.outcome.lead, isFreeText: true },
+            buildLeadMeta(row.outcome),
             ...(row.isAmended ? [{ value: <StateChip label="amended" tone="amended" /> }] : []),
             { label: "Rows", value: row.rowCount },
             { label: "Settled", value: row.settledLabel },

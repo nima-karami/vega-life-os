@@ -60,7 +60,8 @@ export function SettlementHistoryCard({ rows }: SettlementHistoryCardProps) {
                 {row.periodLabel}
               </Link>
               <span className="truncate text-[13px] text-muted">
-                {row.outcome.lead}{" "}
+                {row.outcome.name}
+                {row.outcome.phrase}{" "}
                 <strong className="font-semibold text-foreground tabular-nums">
                   {row.outcome.amount}
                 </strong>

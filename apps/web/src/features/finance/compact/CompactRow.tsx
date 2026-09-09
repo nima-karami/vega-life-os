@@ -9,6 +9,8 @@ export interface CompactMetaItem {
   isControl?: boolean;
   /** Unbounded text a person typed, so it ellipsises rather than running past the row. */
   isFreeText?: boolean;
+  /** Follows the value and never ellipsises — the words a long free-text value must not eat. */
+  suffix?: string;
 }
 
 export interface CompactRowProps {
@@ -30,6 +32,7 @@ const META_RUN_CLASS = "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text
 
 function MetaPair({ item, isOwnLine }: { item: CompactMetaItem; isOwnLine: boolean }) {
   const isEllipsised = item.isFreeText === true && !isOwnLine;
+  const valueClass = isEllipsised ? "min-w-0 truncate" : undefined;
 
   return (
     <span
@@ -42,7 +45,14 @@ function MetaPair({ item, isOwnLine }: { item: CompactMetaItem; isOwnLine: boole
       {item.label !== undefined && (
         <span className="shrink-0 font-medium text-foreground/70">{item.label}</span>
       )}
-      <span className={isEllipsised ? "min-w-0 truncate" : undefined}>{item.value}</span>
+      {item.suffix === undefined ? (
+        <span className={valueClass}>{item.value}</span>
+      ) : (
+        <span className={cx("flex items-baseline", isEllipsised && "min-w-0")}>
+          <span className={valueClass}>{item.value}</span>
+          <span className="shrink-0 whitespace-pre">{item.suffix}</span>
+        </span>
+      )}
     </span>
   );
 }

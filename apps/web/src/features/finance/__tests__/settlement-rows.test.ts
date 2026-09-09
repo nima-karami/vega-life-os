@@ -190,7 +190,7 @@ describe("the settled-period history", () => {
     const [entry] = buildSettlementHistory(book, "Robin");
 
     expect(entry.periodLabel).toBe("February 2026");
-    expect(entry.outcome).toEqual({ lead: "Robin sent you", amount: "$314.20" });
+    expect(entry.outcome).toEqual({ name: "Robin", phrase: " sent you", amount: "$314.20" });
     expect(entry.rowCount).toBe(2);
     expect(entry.settledLabel).toBe("Mar 1");
     expect(entry.isAmended).toBe(false);
@@ -199,7 +199,8 @@ describe("the settled-period history", () => {
   it("falls back to `Partner` when Settings carries no name", () => {
     const book = makeBook({ financeSettlements: [settledPeriod({ settledBalanceCents: -8845 })] });
     expect(buildSettlementHistory(book, "")[0].outcome).toEqual({
-      lead: "You sent Partner",
+      name: null,
+      phrase: "You sent Partner",
       amount: "$88.45",
     });
   });

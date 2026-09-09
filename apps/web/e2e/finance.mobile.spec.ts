@@ -200,9 +200,6 @@ test("the budget chip never paints over the figure it is judged against", async 
 /** Long enough that a title sharing its line with an amount and two 44px targets is useless. */
 const LONG_CATEGORY = "Subscriptions and memberships";
 
-/** All the title gives up to the colour swatch and its gap: any name is cuttable, the layout isn't. */
-const SWATCH_RUN = 20;
-
 /** The title against the row's own content box — the row never overflowed, it starved the name. */
 async function measureRowTitle(page: Page, name: string) {
   return page.evaluate((wanted) => {
@@ -211,19 +208,29 @@ async function measureRowTitle(page: Page, name: string) {
         node.className.includes("truncate") &&
         (node.textContent ?? "").startsWith(wanted.slice(0, 8)),
     );
-    if (title === undefined) return { shown: 0, available: 0, text: "" };
+    if (title === undefined) return { shown: 0, available: 0, swatchRun: 0, text: "" };
+
+    // Read rather than hardcoded: the swatch and its gap are all the title may give up, and a
+    // restyled swatch must not redden this for a reason that has nothing to do with the defect.
+    const titleRow = title.parentElement;
+    const swatch = titleRow?.querySelector("[aria-hidden]") ?? null;
+    const swatchRun =
+      swatch === null || titleRow === null
+        ? 0
+        : swatch.getBoundingClientRect().width +
+          Number.parseFloat(getComputedStyle(titleRow).columnGap);
 
     let row = title.parentElement;
     while (row !== null && !(row.className || "").includes("py-2.5")) row = row.parentElement;
     if (row === null)
-      return { shown: title.clientWidth, available: 0, text: title.textContent ?? "" };
+      return { shown: title.clientWidth, available: 0, swatchRun, text: title.textContent ?? "" };
 
     const padding = getComputedStyle(row);
     const available =
       row.clientWidth -
       Number.parseFloat(padding.paddingLeft) -
       Number.parseFloat(padding.paddingRight);
-    return { shown: title.clientWidth, available, text: title.textContent ?? "" };
+    return { shown: title.clientWidth, available, swatchRun, text: title.textContent ?? "" };
   }, name);
 }
 
@@ -241,9 +248,13 @@ test("a long category name gets the width the row actually has", async ({ page }
   expect(title.text, "no title span carried the category name").toContain(LONG_CATEGORY);
   expect(title.available, "the row it sits in was never found").toBeGreaterThan(0);
   expect(
+    title.swatchRun,
+    "the colour swatch the title makes room for was never found",
+  ).toBeGreaterThan(0);
+  expect(
     title.shown,
     `the name reads in ${title.shown}px of the ${title.available}px the row has`,
-  ).toBeGreaterThanOrEqual(title.available - SWATCH_RUN);
+  ).toBeGreaterThanOrEqual(title.available - title.swatchRun);
 
   await expectChipsClearOfAmounts(page, "at 320 under a long category name");
   expect(await tooWideInside(page, "main")).toEqual([]);
@@ -546,6 +557,39 @@ for (const partner of UNBOUNDED_NAMES) {
   });
 }
 
+/**
+ * `tooWideInside` only sees an element wider than the whole screen, and the spill here was 24px on
+ * a row that stayed inside it. So: every descendant's own right edge, plus the two halves of the
+ * lead — the name may ellipsise, the direction that says who paid whom may not.
+ */
+async function measureHistoryLead(page: Page, partner: string, limit: number) {
+  return page.evaluate(
+    ({ wanted, edge }) => {
+      const card = document.querySelector('[aria-label="Settled periods"]');
+      if (card === null) return null;
+      // The leaf that carries the name, whatever it is styled as: a finder keyed on `truncate`
+      // could only ever report "not found" for the markup this is here to catch.
+      const name = Array.from(card.querySelectorAll("span")).find(
+        (node) => node.childElementCount === 0 && (node.textContent ?? "").startsWith(wanted),
+      );
+      if (name === undefined) return null;
+      const phrase = name.nextElementSibling;
+
+      return {
+        nameText: name.textContent ?? "",
+        isNameEllipsised:
+          name.scrollWidth > name.clientWidth && getComputedStyle(name).textOverflow === "ellipsis",
+        phraseText: phrase?.textContent ?? "",
+        phraseRight: Math.round(phrase?.getBoundingClientRect().right ?? edge + 1),
+        past: Array.from(card.querySelectorAll("*"))
+          .filter((node) => node.getBoundingClientRect().right > edge + 0.5)
+          .map((node) => `${node.tagName}[${node.getAttribute("class") ?? ""}]`),
+      };
+    },
+    { wanted: partner, edge: limit },
+  );
+}
+
 test("the settled-periods history stacks and still links each period", async ({ page }) => {
   await openPhone(page, `/finance/settlement?month=${partnerHeavyMonth()}`);
   const history = region(page, "Settled periods");
@@ -555,6 +599,27 @@ test("the settled-periods history stacks and still links each period", async ({ 
   await expect(link).toHaveAttribute("href", /\/finance\/settlement\?month=\d{4}-\d{2}/);
 
   expect(await tooWideInside(page, '[aria-label="Settled periods"]')).toEqual([]);
+
+  await setPartnerName(page, UNBROKEN_PARTNER);
+  await page.goto(`/finance/settlement?month=${partnerHeavyMonth()}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.setViewportSize(NARROW);
+  await expect(history).toBeVisible({ timeout: 15_000 });
+  await expect(history).toContainText(UNBROKEN_PARTNER);
+
+  const lead = await measureHistoryLead(page, UNBROKEN_PARTNER, NARROW.width);
+  expect(lead, "the settled row never split the partner name off the direction").not.toBeNull();
+  expect(lead?.nameText, "the name is not the half that ellipsises").toBe(UNBROKEN_PARTNER);
+  expect(lead?.isNameEllipsised, "the partner name is drawn whole instead of ellipsised").toBe(
+    true,
+  );
+  expect(lead?.phraseText, "the ellipsis ate the direction, not just the name").toBe(" sent you");
+  expect(
+    lead?.phraseRight ?? 0,
+    "the direction runs off a screen that cannot scroll",
+  ).toBeLessThanOrEqual(NARROW.width);
+  expect(lead?.past, "the settled row paints past a 320px screen").toEqual([]);
 });
 
 test("the import preview stacks, and the lens buttons still switch the list", async ({ page }) => {
