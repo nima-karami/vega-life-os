@@ -65,6 +65,11 @@ describe("buildLearningOptions", () => {
     const options = buildLearningOptions(buildCard({ type: "quote", hasRecall: false }));
     expect(options.find((option) => option.id === "learning")?.isDisabled).toBe(true);
   });
+
+  it("offers both states on an excerpt, which folds on its own", () => {
+    const options = buildLearningOptions(buildCard({ type: "excerpt" }));
+    expect(options.find((option) => option.id === "learning")?.isDisabled).toBeFalsy();
+  });
 });
 
 describe("buildCardMenuItems", () => {

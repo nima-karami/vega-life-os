@@ -1,7 +1,11 @@
 import type { Card } from "./card";
 import { CARD_TYPES, type SignatureId } from "./card-types";
 
-export const FOLDING_SIGNATURES: readonly SignatureId[] = ["term-gloss", "title-body"];
+export const FOLDING_SIGNATURES: readonly SignatureId[] = [
+  "term-gloss",
+  "title-body",
+  "body-source",
+];
 
 export function isSignatureFolding(signature: SignatureId): boolean {
   return FOLDING_SIGNATURES.includes(signature);

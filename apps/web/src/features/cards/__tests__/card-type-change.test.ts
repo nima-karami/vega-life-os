@@ -73,7 +73,15 @@ describe("buildTypeChangePatch", () => {
     const promoted = graded({ type: "quote", hasRecall: true, phonetic: null });
     expect(buildTypeChangePatch(promoted, "prompt").hasRecall).toBe(false);
     expect(buildTypeChangePatch(promoted, "note").hasRecall).toBe(false);
-    expect(buildTypeChangePatch(promoted, "excerpt").hasRecall).toBeUndefined();
+    expect(buildTypeChangePatch(promoted, "excerpt").hasRecall).toBe(false);
+  });
+
+  it("keeps the schedule when the card lands on a type that folds on its own", () => {
+    const patch = buildTypeChangePatch(graded({ type: "quote", hasRecall: true }), "excerpt");
+    expect(patch.hasRecall).toBe(false);
+    expect(patch.box).toBeUndefined();
+    expect(patch.nextDue).toBeUndefined();
+    expect(patch.lastReviewed).toBeUndefined();
   });
 });
 
@@ -82,6 +90,8 @@ describe("losesReviewOnTypeChange", () => {
     expect(losesReviewOnTypeChange(graded(), "prompt")).toBe(true);
     expect(losesReviewOnTypeChange(graded(), "quote")).toBe(true);
     expect(losesReviewOnTypeChange(graded(), "note")).toBe(false);
+    expect(losesReviewOnTypeChange(graded(), "excerpt")).toBe(false);
+    expect(losesReviewOnTypeChange(graded({ type: "excerpt" }), "quote")).toBe(true);
     expect(losesReviewOnTypeChange(graded({ box: null }), "prompt")).toBe(false);
   });
 });

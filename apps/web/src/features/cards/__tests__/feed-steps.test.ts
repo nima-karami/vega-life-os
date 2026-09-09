@@ -7,13 +7,13 @@ const TODAY = "2026-08-11";
 describe("offersPromotion", () => {
   it("offers it on the non-folding learnable types", () => {
     expect(offersPromotion(buildCard({ type: "quote" }))).toBe(true);
-    expect(offersPromotion(buildCard({ type: "excerpt" }))).toBe(true);
     expect(offersPromotion(buildCard({ type: "fact" }))).toBe(true);
   });
 
   it("does not offer it to a card that already folds", () => {
     expect(offersPromotion(buildCard({ type: "note" }))).toBe(false);
     expect(offersPromotion(buildCard({ type: "vocabulary" }))).toBe(false);
+    expect(offersPromotion(buildCard({ type: "excerpt" }))).toBe(false);
   });
 
   it("never offers it on a prompt", () => {

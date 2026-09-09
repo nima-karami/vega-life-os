@@ -127,7 +127,7 @@ describe("planFace — the drawn metrics at scale 1", () => {
       body: "A lead sentence here. A remainder there.",
       work: "A Work",
     });
-    expect(textItems(planFace(composeFace(source, "face"), 1, false).items)[0]).toMatchObject({
+    expect(textItems(planFace(composeFace(source, "reveal"), 1, false).items)[0]).toMatchObject({
       fontSize: 23,
       fontWeight: 400,
       lineHeight: 1.48,
@@ -136,6 +136,23 @@ describe("planFace — the drawn metrics at scale 1", () => {
       fontSize: 27,
       fontWeight: 500,
       lineHeight: 1.36,
+    });
+  });
+
+  it("gives a folded excerpt the solo-title face at 42px", () => {
+    const source = buildCard({
+      type: "excerpt",
+      title: "On attending",
+      body: "A lead sentence here. A remainder there.",
+      work: "A Work",
+    });
+    const items = textItems(planFace(composeFace(source, "face"), 1, false).items);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "title",
+      fontSize: 42,
+      fontWeight: 600,
+      lineHeight: 1.08,
     });
   });
 

@@ -168,6 +168,17 @@ describe("rule 5 — hasRecall implies a title and a learnable type", () => {
   it("accepts recall on a quote and lets it carry a schedule", () => {
     expect(parse({ type: "quote", hasRecall: true }).success).toBe(true);
   });
+
+  it("keeps a legacy promoted excerpt valid now that the type folds on its own", () => {
+    expect(
+      parse({
+        type: "excerpt",
+        work: "Gravity and Grace",
+        locator: "p. 92",
+        hasRecall: true,
+      }).success,
+    ).toBe(true);
+  });
 });
 
 describe("buildCardSchema is registry-driven", () => {
