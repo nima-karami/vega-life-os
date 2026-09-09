@@ -22,19 +22,29 @@ export interface FinanceImportColumnsCardProps {
 interface ColumnCellProps {
   label: string;
   value: string;
+  selectedValue?: string;
   options: SelectFieldOption[];
   isDisabled: boolean;
   isMono?: boolean;
   onSelect: (value: string) => void;
 }
 
-function ColumnCell({ label, value, options, isDisabled, isMono, onSelect }: ColumnCellProps) {
+function ColumnCell({
+  label,
+  value,
+  selectedValue,
+  options,
+  isDisabled,
+  isMono,
+  onSelect,
+}: ColumnCellProps) {
   return (
     <div>
       <span className="mb-[5px] block text-[11.5px] text-muted">{label}</span>
       <SelectField
         label={`${label} column`}
         value={value}
+        selectedValue={selectedValue}
         options={options}
         isDisabled={isDisabled}
         isMono={isMono}
@@ -104,6 +114,7 @@ export function FinanceImportColumnsCard({
         <ColumnCell
           label="Account"
           value={accountName}
+          selectedValue={accountId}
           options={accountOptions}
           isDisabled={false}
           onSelect={onAccountChange}

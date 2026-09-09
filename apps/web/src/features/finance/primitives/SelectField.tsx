@@ -10,6 +10,8 @@ export interface SelectFieldProps {
   /** names the control for a screen reader, and is what an e2e selector matches on */
   label: string;
   value: string;
+  /** the option now in force, where that is not what the trigger reads — an account shows its name */
+  selectedValue?: string;
   options: SelectFieldOption[];
   isDisabled?: boolean;
   /** a source column header reads in mono, the way it does in the provenance strip */
@@ -24,6 +26,7 @@ export interface SelectFieldProps {
 export function SelectField({
   label,
   value,
+  selectedValue,
   options,
   isDisabled = false,
   isMono = false,
@@ -47,7 +50,11 @@ export function SelectField({
         offset={6}
         className="rounded-[var(--radius-floating)]"
       >
-        <Dropdown.Menu aria-label={label}>
+        <Dropdown.Menu
+          aria-label={label}
+          selectionMode="single"
+          selectedKeys={[selectedValue ?? value]}
+        >
           {options.map((option) => (
             <Dropdown.Item
               key={option.value}
@@ -57,6 +64,7 @@ export function SelectField({
               className="rounded-[var(--radius-floating-row)]"
             >
               {option.label}
+              <Dropdown.ItemIndicator />
             </Dropdown.Item>
           ))}
         </Dropdown.Menu>

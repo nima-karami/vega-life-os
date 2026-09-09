@@ -82,9 +82,13 @@ async function openAccountPicker(page: Page) {
   await page.getByRole("button", { name: "Account column" }).click();
 }
 
+/** The picker is a single-choice list, so its options are radios; the row-action menus are not. */
+const pickerOption = (page: Page, name: string, exact = false) =>
+  page.getByRole("menuitemradio", { name, exact });
+
 async function chooseAccount(page: Page, name: string) {
   await openAccountPicker(page);
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await pickerOption(page, name, true).click();
 }
 
 async function stageStatement(page: Page) {
@@ -133,7 +137,7 @@ test("an account is created from the sidebar and offered as an import target", a
   await expect(card(page).getByText("Savings", { exact: true })).toBeVisible();
 
   await openAccountPicker(page);
-  await expect(page.getByRole("menuitem", { name: "E2E Savings" })).toBeVisible();
+  await expect(pickerOption(page, "E2E Savings")).toBeVisible();
 });
 
 test("a colliding name takes the next slug, and a rename never moves it", async ({ page }) => {
@@ -177,8 +181,8 @@ test("archiving both accounts closes the import and offers the way back", async 
   await expect(page.getByText("Add an account first.")).toBeVisible();
 
   await openAccountPicker(page);
-  await expect(page.getByRole("menuitem", { name: "Everyday chequing" })).toHaveCount(0);
-  await expect(page.getByRole("menuitem", { name: "New account…" })).toBeVisible();
+  await expect(pickerOption(page, "Everyday chequing")).toHaveCount(0);
+  await expect(pickerOption(page, "New account…")).toBeVisible();
   await page.keyboard.press("Escape");
 
   await page.goto("/finance/transactions", { waitUntil: "networkidle" });
@@ -192,7 +196,7 @@ test("archiving both accounts closes the import and offers the way back", async 
   await expect(page.locator('input[type="file"]')).toBeEnabled();
 
   await openAccountPicker(page);
-  await expect(page.getByRole("menuitem", { name: "Everyday chequing" })).toBeVisible();
+  await expect(pickerOption(page, "Everyday chequing")).toBeVisible();
 });
 
 test("a file chosen with no account is answered rather than swallowed", async ({ page }) => {
@@ -219,7 +223,7 @@ test("New account… in the picker creates the account and selects it", async ({
   await openImport(page);
 
   await openAccountPicker(page);
-  await page.getByRole("menuitem", { name: "New account…" }).click();
+  await pickerOption(page, "New account…").click();
   await createAccount(page, "E2E Picker Card", "Credit card");
 
   await expect(page.getByRole("button", { name: "Account column" })).toContainText(
@@ -354,7 +358,7 @@ test("renaming an archived account leaves it archived", async ({ page }) => {
   await expect(card(page).getByText("Archived")).toHaveCount(1);
 
   await openAccountPicker(page);
-  await expect(page.getByRole("menuitem", { name: "E2E Retired Card" })).toHaveCount(0);
+  await expect(pickerOption(page, "E2E Retired Card")).toHaveCount(0);
 });
 
 test("archiving an account leaves its transactions exactly where they are", async ({ page }) => {
