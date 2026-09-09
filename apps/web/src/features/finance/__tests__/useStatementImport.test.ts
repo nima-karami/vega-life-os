@@ -95,10 +95,33 @@ const PARSE_FAILED: ParseOutcome = {
   error: { code: "PARSE_FAILED", file: "unit-statement.csv", line: 3, reason: "unreadable row" },
 };
 
+const CSV_TEXT = "Transaction Date,Description 1,CAD$";
+
 const FILE = {
   name: "unit-statement.csv",
   size: 128,
-  text: async () => "Transaction Date,Description 1,CAD$",
+  text: async () => CSV_TEXT,
+} as unknown as File;
+
+/** The read is the head of the blocking span, so a test that watches it watches the whole span. */
+const reads: { phaseWhenRead: string[]; held: ((text: string) => void)[] } = {
+  phaseWhenRead: [],
+  held: [],
+};
+
+const WATCHED_FILE = {
+  name: "unit-statement.csv",
+  size: 128,
+  text: async () => {
+    reads.phaseWhenRead.push(flow.phase.status);
+    return CSV_TEXT;
+  },
+} as unknown as File;
+
+const HELD_FILE = {
+  name: "unit-statement.csv",
+  size: 128,
+  text: () => new Promise<string>((resolve) => reads.held.push(resolve)),
 } as unknown as File;
 
 let container: HTMLDivElement;
@@ -182,6 +205,8 @@ beforeEach(() => {
   held.parses.length = 0;
   held.commits.length = 0;
   held.writtenTo.length = 0;
+  reads.phaseWhenRead.length = 0;
+  reads.held.length = 0;
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -212,6 +237,43 @@ describe("useStatementImport while the chosen account moves", () => {
     expect(held.parses, "the parse took the thread without letting its notice paint").toHaveLength(
       0,
     );
+  });
+
+  it("has the notice up before the file is read, not after", async () => {
+    await render(ACCOUNT_A);
+    await act(async () => {
+      flow.openFiles([WATCHED_FILE] as unknown as FileList);
+    });
+    await settleMicrotasks();
+
+    expect(reads.phaseWhenRead, "the file was read before its notice could paint").toEqual([]);
+    expect(flow.phase).toEqual({ status: "parsing", fileName: "unit-statement.csv" });
+
+    await drain();
+    expect(reads.phaseWhenRead, "the read ran under a phase that names no file").toEqual([
+      "parsing",
+    ]);
+  });
+
+  it("drops a file whose read finished after the account moved", async () => {
+    await render(ACCOUNT_A);
+    await act(async () => {
+      flow.openFiles([HELD_FILE] as unknown as FileList);
+    });
+    await drain();
+    expect(reads.held, "the read never started, so there was no window to abandon").toHaveLength(1);
+
+    await render(ACCOUNT_B);
+    await act(async () => {
+      reads.held.shift()?.(CSV_TEXT);
+    });
+    await drain();
+    await releaseParse();
+
+    expect(flow.phase.status).toBe("idle");
+
+    await render(ACCOUNT_A);
+    expect(flow.phase.status).toBe("idle");
   });
 
   it("drops a parse abandoned in the window the notice paints in", async () => {

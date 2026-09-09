@@ -141,10 +141,13 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     setPhase(IDLE);
   };
 
+  const announceParsing = async (fileName: string) => {
+    setPhase({ status: "parsing", fileName });
+    await yieldToPaint();
+  };
+
   const runParse = async (source: SourceFile, mapping: FinanceColumnMapping | null) => {
     if (!account) return;
-    setPhase({ status: "parsing", fileName: source.name });
-    await yieldToPaint();
     const outcome = await parseStatement({
       fileName: source.name,
       table: source.table,
@@ -185,12 +188,21 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     });
   };
 
+  /** A column re-point re-reads nothing, so it announces for itself before the parse takes over. */
+  const reparse = async (source: SourceFile, mapping: FinanceColumnMapping) => {
+    await announceParsing(source.name);
+    await runParse(source, mapping);
+  };
+
+  // The read and the delimited parse block for as long as the statement parse does, so the notice
+  // has to be up before them — not between them and `parseStatement`.
   const readFile = async (file: File) => {
     const sizeBreach = findLimitBreach({ bytes: file.size });
     if (sizeBreach) {
       setPhase({ status: "limit-reached", fileName: file.name, breach: sizeBreach });
       return;
     }
+    await announceParsing(file.name);
     const text = await file.text();
     const table = parseDelimitedTable(text);
     const rowBreach = findLimitBreach({ rows: table.records.length });
@@ -254,12 +266,12 @@ export function useStatementImport(account: FinanceAccount | null): StatementImp
     confirmMapping: (mapping) => {
       if (phase.status !== "mapping-required" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(phase.source, mapping);
+      void reparse(phase.source, mapping);
     },
     remap: (mapping) => {
       if (phase.status !== "preview" || !account) return;
       updateFinanceAccount(account.id, { columnMapping: mapping });
-      void runParse(phase.staged.source, mapping);
+      void reparse(phase.staged.source, mapping);
     },
   };
 }
