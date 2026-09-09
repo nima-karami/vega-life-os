@@ -403,6 +403,66 @@ test("a long partner name never pushes the period card off a 320px screen", asyn
   await expect(card.getByRole("heading", { name: "Before you settle" })).toBeVisible();
 });
 
+/** The two shapes a name breaks on differently: the email clips, the token overflows its box. */
+const UNBOUNDED_NAMES = ["alexandra.fitzgerald@example.com", UNBROKEN_PARTNER];
+
+/**
+ * The dashboard's settle-up card carries no landmark of its own, so it is found through the one
+ * line that names the partner. Its ancestors are measured too: the overflow escaped the card
+ * itself, and `main` is `overflow-x-hidden`, so nothing past its edge could be scrolled back.
+ */
+async function measureSettleUpCard(page: Page) {
+  return page.evaluate(() => {
+    const describe = (node: Element) => `${node.tagName}[${node.getAttribute("class") ?? ""}]`;
+    const headline = Array.from(document.querySelectorAll("main p")).find((node) =>
+      /You owe|owes you|Square/.test(node.textContent ?? ""),
+    );
+    const card = headline?.closest("section") ?? null;
+    if (headline === undefined || card === null) {
+      return { text: "", past: ["no settle-up card"], clipped: ["no settle-up card"], page: 0 };
+    }
+
+    const measured: Element[] = [card, ...card.querySelectorAll("*")];
+    for (let node = card.parentElement; node !== null; node = node.parentElement) {
+      measured.push(node);
+    }
+
+    const limit = document.documentElement.clientWidth + 1;
+    const past: string[] = [];
+    const clipped: string[] = [];
+    for (const node of measured) {
+      if (node.getBoundingClientRect().right > limit) past.push(describe(node));
+      const isCut = node.scrollWidth > node.clientWidth + 1;
+      if (isCut && getComputedStyle(node).textOverflow !== "ellipsis") clipped.push(describe(node));
+    }
+    return {
+      text: headline.textContent ?? "",
+      past,
+      clipped,
+      page: document.documentElement.scrollWidth,
+    };
+  });
+}
+
+for (const partner of UNBOUNDED_NAMES) {
+  test(`the dashboard settle-up card holds "${partner}" inside a 320px screen`, async ({
+    page,
+  }) => {
+    await enterApp(page);
+    await page.setViewportSize(NARROW);
+    await setPartnerName(page, partner);
+
+    await page.goto("/finance", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+
+    const measured = await measureSettleUpCard(page);
+    expect(measured.text, "the settle-up headline never names the partner").toContain(partner);
+    expect(measured.past, "the settle-up card paints past the viewport").toEqual([]);
+    expect(measured.clipped, "settle-up text is cut off with no way to scroll to it").toEqual([]);
+    expect(measured.page, "the page gained sideways scroll").toBe(NARROW.width);
+  });
+}
+
 test("the settled-periods history stacks and still links each period", async ({ page }) => {
   await openPhone(page, `/finance/settlement?month=${partnerHeavyMonth()}`);
   const history = region(page, "Settled periods");
