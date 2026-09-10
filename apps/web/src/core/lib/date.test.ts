@@ -88,4 +88,12 @@ describe("getWeekDays / todayISO", () => {
   it("todayISO reflects the system date", () => {
     expect(todayISO()).toBe("2026-06-15");
   });
+
+  // A Monday pins both anchors at 0, so the invariant is only load-bearing off a Monday.
+  it("dowIndex agrees with the flagged day off a Monday", () => {
+    for (const iso of ["2026-06-17", "2026-06-19", "2026-06-21"]) {
+      vi.setSystemTime(new Date(`${iso}T08:00:00`));
+      expect(dowIndex(todayISO())).toBe(getWeekDays().findIndex((d) => d.today));
+    }
+  });
 });

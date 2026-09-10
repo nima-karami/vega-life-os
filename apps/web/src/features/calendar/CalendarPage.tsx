@@ -9,7 +9,6 @@ import {
   formatShortDate,
   getWeekDays,
   minutesOf,
-  todayISO,
   weekStartOf,
 } from "@/core/lib/date";
 import { useStore } from "@/core/store";
@@ -107,9 +106,8 @@ interface Preview {
   isUntimed: boolean;
 }
 
-// Today is marked with a border, not a ring: a ring paints outside the box, where the
-// strip's horizontal overflow clips it top and bottom.
-function dayChipTone(isActive: boolean, isToday: boolean): string {
+// A border, not a ring: the strip's horizontal overflow clips a ring top and bottom.
+function getDayChipTone(isActive: boolean, isToday: boolean): string {
   if (isActive) return "border-accent bg-accent text-accent-foreground";
   if (isToday) return "border-accent bg-surface text-accent";
   return "border-border bg-surface text-foreground";
@@ -170,9 +168,9 @@ export function CalendarPage() {
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
   const compact = useCompact();
-  // Seeded from today so the first paint is already right — the effect below corrects
-  // only a later week change, and would otherwise flash Monday on mount.
-  const [activeDay, setActiveDay] = useState(() => dowIndex(todayISO())); // 0..6 on a phone
+  const todayIso = useTodayISO();
+  // Seeded from today, or the first paint flashes Monday before the effect below corrects it.
+  const [activeDay, setActiveDay] = useState(() => dowIndex(todayIso)); // 0..6 on a phone
 
   const gridRef = useRef<HTMLDivElement>(null);
   const allDayRowRef = useRef<HTMLDivElement>(null);
@@ -212,7 +210,6 @@ export function CalendarPage() {
   const clipRef = useRef(clipboardTask);
   clipRef.current = clipboardTask;
 
-  const todayIso = useTodayISO();
   const days = useMemo(() => getWeekDays(weekRef, todayIso), [weekRef, todayIso]);
 
   // Per-view commands (calendar is reachable via the command bar; these add actions).
@@ -1104,7 +1101,7 @@ export function CalendarPage() {
               className={cx(
                 "flex min-w-[44px] flex-col items-center rounded-[12px] border px-2.5 py-1.5 transition-colors",
                 // one arg, not two: `cx` is not tailwind-merge, so a second border-* would also land
-                dayChipTone(i === activeDay, d.today),
+                getDayChipTone(i === activeDay, d.today),
               )}
             >
               <span
@@ -1225,8 +1222,7 @@ export function CalendarPage() {
                     <div
                       key={d.iso}
                       className={cx(
-                        // gap, not space-y: a chip sits inside a `display:contents` context-menu
-                        // wrapper, and that wrapper generates no box to carry the margin.
+                        // gap, not space-y: the `display:contents` menu wrapper carries no margin.
                         "relative flex min-h-[28px] flex-col gap-1 border-l border-border p-1",
                         isUntimedTarget && "bg-surface-secondary ring-1 ring-inset ring-accent",
                       )}
