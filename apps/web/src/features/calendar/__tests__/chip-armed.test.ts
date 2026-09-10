@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARMED_CHIP_CLASS,
   ARMED_HANDLE_PX,
   getArmedHandleTop,
   getChipRingClass,
+  getChipShadowClass,
   getChipTouchActionClass,
 } from "../chip-armed";
 
@@ -29,6 +31,17 @@ describe("getArmedHandleTop", () => {
       const gap = getArmedHandleTop("bottom", 0, height) - getArmedHandleTop("top", 0, height);
       expect(gap).toBeGreaterThanOrEqual(ARMED_HANDLE_PX);
     }
+  });
+});
+
+describe("getChipShadowClass", () => {
+  it("the shadow is one class, never two", () => {
+    expect(getChipShadowClass(true)).toBe("shadow-md");
+    expect(getChipShadowClass(false)).toBe("shadow-sm");
+  });
+
+  it("no other chip class emits a shadow, so exactly one can land", () => {
+    expect(ARMED_CHIP_CLASS).not.toMatch(/\bshadow-/);
   });
 });
 

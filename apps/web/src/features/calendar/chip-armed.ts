@@ -4,10 +4,17 @@ export const ARMED_HANDLE_PX = 24;
 const STRADDLE_MIN_CHIP_PX = 40;
 const STRADDLE_OUTSET_PX = 16;
 
-/** Armed lift. Deliberately ring-free: the ring lands through the single argument below. */
-export const ARMED_CHIP_CLASS = "z-30 shadow-md";
+/** Armed lift. Deliberately ring- and shadow-free: both land through the single arguments below. */
+export const ARMED_CHIP_CLASS = "z-30";
 
 export const ARMED_RING_CLASS = "ring-2 ring-accent ring-offset-1 ring-offset-surface";
+
+/** One `cx` argument, so exactly one `shadow-*` lands — a base `shadow-sm` alongside the lift's
+ *  `shadow-md` both landed, and CSS source order gave the resting shadow the win, so the lift
+ *  never rendered. Every chip's shadow comes from here; none may carry one of its own. */
+export function getChipShadowClass(isLifted: boolean): string {
+  return isLifted ? "shadow-md" : "shadow-sm";
+}
 
 /** One `cx` argument, so exactly one `ring-*` lands — armed stays true through a whole drag,
  *  and two arguments both emitting `ring-*` would both land with CSS source order deciding.

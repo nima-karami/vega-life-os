@@ -1,7 +1,12 @@
 import { ContextMenu, cx, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
-import { ARMED_CHIP_CLASS, ARMED_RING_CLASS, getChipTouchActionClass } from "../chip-armed";
+import {
+  ARMED_CHIP_CLASS,
+  ARMED_RING_CLASS,
+  getChipShadowClass,
+  getChipTouchActionClass,
+} from "../chip-armed";
 import { DRAG_THRESHOLD_PX } from "../geometry";
 import { useTouchDragBlocker } from "../useTouchDragBlocker";
 
@@ -66,8 +71,10 @@ export function AllDayChip({
         }}
         aria-label={`${task.title}, all day${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
         className={cx(
-          `block w-full cursor-grab ${getChipTouchActionClass(isArmed)} select-none truncate rounded-[2px] border-l-[3px] bg-surface px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent`,
+          `block w-full cursor-grab ${getChipTouchActionClass(isArmed)} select-none truncate rounded-[2px] border-l-[3px] bg-surface px-1.5 py-0.5 text-left text-[10px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent`,
           dragging && "opacity-40",
+          // A dragged all-day chip is the faded source behind its own ghost, so it never lifts.
+          getChipShadowClass(isArmed),
           isArmed && ARMED_CHIP_CLASS,
           isArmed ? ARMED_RING_CLASS : selected && "ring-2 ring-accent",
         )}

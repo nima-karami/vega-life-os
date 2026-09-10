@@ -2,7 +2,12 @@ import { addMinutes } from "@/core/lib/date";
 import { ContextMenu, cx, Icon, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
-import { ARMED_CHIP_CLASS, getChipRingClass, getChipTouchActionClass } from "../chip-armed";
+import {
+  ARMED_CHIP_CLASS,
+  getChipRingClass,
+  getChipShadowClass,
+  getChipTouchActionClass,
+} from "../chip-armed";
 import {
   type ColumnSlot,
   DRAG_THRESHOLD_PX,
@@ -105,18 +110,19 @@ export function TimedChip({
           className={cx(
             // A swipe belongs to the grid's scroller at every width — `touch-action` cannot read
             // the pointer, so a `sm:touch-none` froze the finger on a touchscreen laptop.
-            `group absolute block cursor-grab ${getChipTouchActionClass(isArmed)} select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm`,
+            `group absolute block cursor-grab ${getChipTouchActionClass(isArmed)} select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left`,
             resolved ? "bg-surface-secondary" : "bg-surface",
             dim ? "opacity-30" : "opacity-100",
             isArmed && ARMED_CHIP_CLASS,
             (selected || provisional) && "z-20",
+            getChipShadowClass(isArmed || dragging),
             getChipRingClass({
               isArmed,
               isSelected: selected,
               isProvisional: provisional,
               isDragging: dragging,
             }),
-            dragging ? "z-30 cursor-grabbing shadow-md" : "transition-[top,height] duration-75",
+            dragging ? "z-30 cursor-grabbing" : "transition-[top,height] duration-75",
           )}
           style={{
             top,

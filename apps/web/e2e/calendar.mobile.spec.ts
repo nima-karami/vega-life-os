@@ -459,6 +459,19 @@ test("Escape disarms an armed chip and leaves its time alone", async ({ page }) 
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });
 
+// The lift is the arm's only standing signal. `cx` is not tailwind-merge, so the base
+// `shadow-sm` outlived every heavier shadow the armed chip added, and it never rendered.
+test("an armed chip lifts onto a heavier shadow", async ({ page }) => {
+  const chip = await openSeededChipDay(page);
+  const resting = await chip.evaluate((el) => getComputedStyle(el).boxShadow);
+  expect(resting, "the resting chip is not on shadow-sm").toContain("0px 1px 3px 0px");
+
+  await armSeededChip(page);
+
+  const lifted = await chip.evaluate((el) => getComputedStyle(el).boxShadow);
+  expect(lifted, "the armed chip did not lift onto shadow-md").toContain("0px 4px 6px -1px");
+});
+
 test("moving to the next day disarms an armed chip", async ({ page }) => {
   await openSeededChipDay(page);
   await armSeededChip(page);
