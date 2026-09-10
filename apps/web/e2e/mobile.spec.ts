@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { expectMenuClearOf, expectMenuOpenAndInert } from "./helpers/menu";
-import { dragAlong, endTouch, longPress, startTouch, tap } from "./helpers/touch";
+import { dragAlong, endTouch, longPress, startTouch, swipe, tap } from "./helpers/touch";
 
 /**
  * Mobile-usability proof (spec §7). Runs on a touch phone profile; the @automatable
@@ -334,6 +334,23 @@ test("analytics charts do not overflow horizontally on mobile (360px)", async ({
   ).toBeLessThanOrEqual(1);
 });
 
+const ALL_DAY_CHIP = "Pick up dry cleaning, all day";
+
+async function centreOf(chip: Locator) {
+  const box = await chip.boundingBox();
+  if (box === null) throw new Error("the all-day chip has no bounding box");
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/** The first hold arms and opens nothing; the menu is a second gesture on the armed chip. */
+async function armAllDayChip(page: Page, chip: Locator) {
+  const centre = await centreOf(chip);
+  await longPress(page, centre);
+  await expect(page.locator('[data-armed="true"]')).toHaveCount(1);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  return centre;
+}
+
 test("calendar: long-press an all-day chip → 'Move to day…' moves it to another day", async ({
   page,
 }) => {
@@ -345,23 +362,12 @@ test("calendar: long-press an all-day chip → 'Move to day…' moves it to anot
   const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
   await expect(chip).toBeVisible({ timeout: 10_000 });
 
-  const box = await chip.boundingBox();
-  const touch = {
-    pointerType: "touch",
-    pointerId: 1,
-    isPrimary: true,
-    button: 0,
-    buttons: 1,
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    clientX: (box?.x ?? 0) + 8,
-    clientY: (box?.y ?? 0) + 8,
-  };
-  await chip.dispatchEvent("pointerdown", touch);
+  // Two real held touches: the first arms the chip, the second opens its menu. A synthetic
+  // pointerdown cannot be held, so it could never have reached either timer.
+  await armAllDayChip(page, chip);
+  await longPress(page, await centreOf(chip));
   const moveItem = page.getByRole("menuitem", { name: "Move to day…" });
   await expect(moveItem).toBeVisible({ timeout: 5_000 });
-  await chip.dispatchEvent("pointerup", { ...touch, buttons: 0 });
 
   await moveItem.click();
   const dialog = page.getByRole("dialog");
@@ -386,12 +392,11 @@ async function pressAllDayChipAndProbeMenu(
   page: Page,
   viewport: { width: number; height: number },
 ) {
-  const chip = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
+  const chip = page.getByRole("button", { name: ALL_DAY_CHIP });
   await expect(chip).toBeVisible({ timeout: 10_000 });
-  const box = await chip.boundingBox();
-  if (box === null) throw new Error("the all-day chip has no bounding box");
 
-  const press = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  // The probe runs against the second press; the first leaves the chip armed underneath.
+  const press = await armAllDayChip(page, chip);
   await longPress(page, press);
   await expect(page.getByRole("menuitem", { name: "Move to day…" })).toBeVisible();
   await expectMenuClearOf(page, press, { x: 0, y: 0, ...viewport });
@@ -426,6 +431,72 @@ test("calendar: the all-day menu fires nothing on the shortest viewport (320x454
   await pressAllDayChipAndProbeMenu(page, viewport);
 });
 
+async function openTuesdayCalendar(page: Page, viewport = { width: 390, height: 844 }) {
+  await page.setViewportSize(viewport);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: /^Tue\s*\d{2}$/ }).click();
+  const chip = page.getByRole("button", { name: ALL_DAY_CHIP });
+  await expect(chip).toBeVisible({ timeout: 10_000 });
+  return chip;
+}
+
+// The all-day row sits outside the timed grid's ScrollShadow, and `scrollHeight > clientHeight`
+// is true of plenty of ancestors that never scroll — so read whichever one actually moved.
+const allDayScrollTop = (chip: Locator) =>
+  chip.evaluate((el) => {
+    let top = document.scrollingElement?.scrollTop ?? 0;
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      top = Math.max(top, node.scrollTop);
+    }
+    return top;
+  });
+
+test("calendar: a swipe on an un-armed all-day chip scrolls instead of rescheduling", async ({
+  page,
+}) => {
+  const chip = await openTuesdayCalendar(page);
+  const centre = await centreOf(chip);
+  expect(await allDayScrollTop(chip), "already scrolled before the swipe").toBe(0);
+
+  await swipe(page, {
+    from: centre,
+    to: { x: centre.x, y: centre.y - 200 },
+    durationMs: 350,
+    steps: 12,
+  });
+
+  await expect
+    .poll(() => allDayScrollTop(chip), { message: "the swipe did not scroll" })
+    .toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: ALL_DAY_CHIP })).toHaveCount(1);
+});
+
+test("calendar: a first hold arms an all-day chip and a second opens its menu", async ({
+  page,
+}) => {
+  const chip = await openTuesdayCalendar(page);
+
+  const centre = await armAllDayChip(page, chip);
+  await longPress(page, centre);
+
+  await expect(page.getByRole("menuitem", { name: "Move to day…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: ALL_DAY_CHIP })).toHaveCount(1);
+});
+
+// MVP step 5 routes a blocked all-day press through chipPressRef; without the chip's new
+// pointerup this tap would open nothing at all.
+test("calendar: a tap on an armed all-day chip still opens the editor", async ({ page }) => {
+  const chip = await openTuesdayCalendar(page);
+
+  const centre = await armAllDayChip(page, chip);
+  await tap(page, centre);
+
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue(
+    "Pick up dry cleaning",
+  );
+});
+
 /** A point on `target` the open menu does not cover — the menu hangs off the press it opened on. */
 async function pointClearOfMenu(page: Page, target: Locator): Promise<{ x: number; y: number }> {
   const box = await target.boundingBox();
@@ -458,19 +529,17 @@ test("calendar: a touch while a chip's menu is open only dismisses it, and the n
   await expect(timed).toBeVisible({ timeout: 10_000 });
   await timed.scrollIntoViewIfNeeded();
 
-  const allDayBox = await allDay.boundingBox();
-  if (allDayBox === null) throw new Error("the all-day chip has no bounding box");
-  await longPress(page, {
-    x: allDayBox.x + allDayBox.width / 2,
-    y: allDayBox.y + allDayBox.height / 2,
-  });
+  const press = await armAllDayChip(page, allDay);
+  await longPress(page, press);
   await expect(page.getByRole("menu")).toBeVisible();
 
-  // The dismissing touch stops at the menu: it neither opens the chip nor arms its drag.
+  // The dismissing touch stops at the menu: it neither opens the chip nor arms its drag —
+  // and it lands outside the armed all-day chip, so it disarms that too.
   const target = await pointClearOfMenu(page, timed);
   await tap(page, target);
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "Edit task" })).toHaveCount(0);
+  await expect(page.locator('[data-armed="true"]')).toHaveCount(0);
 
   await tap(page, target);
   await expect(page.getByRole("dialog", { name: "Edit task" })).toBeVisible();

@@ -548,7 +548,8 @@ export function CalendarPage() {
       isTouchDragLiveRef.current = true;
       clearSelection();
       setAnnounce(`${t.title} armed — drag to move, or drag an edge to resize`);
-      startTimedDrag(press, t, "move", "arm");
+      if (t.time) startTimedDrag(press, t, "move", "arm");
+      else startAllDayDrag(press, t, "arm");
     },
     onDisarm: () => {
       isTouchDragLiveRef.current = false;
@@ -684,11 +685,49 @@ export function CalendarPage() {
     );
   };
 
+  const startAllDayDrag = (press: ChipPress, t: Task, touchOrigin?: "arm" | "armed-press") => {
+    if (!gridRef.current || !t.date) return;
+    dragRef.current = {
+      id: t.id,
+      mode: "allday",
+      origDate: t.date,
+      origStart: 0,
+      origDur: DROP_DURATION,
+      grabMin: 0,
+      moved: false,
+      startX: press.clientX,
+      startY: press.clientY,
+      zone: "untimed",
+      touchOrigin,
+      pointerId: press.pointerId,
+    };
+    const p = { date: t.date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true };
+    previewRef.current = p;
+    setPreview(p);
+    setDragId(t.id);
+  };
+
   // Begin dragging an all-day chip: sideways keeps it untimed, down onto the grid schedules it.
   const beginAllDayDrag = (e: React.PointerEvent, t: Task) => {
     chipPressSourceRef.current = pressSourceOf(e.pointerType, compact);
     if (e.button !== 0) return;
     if (!gridRef.current || !t.date) return;
+    const press = { id: t.id, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId };
+    // A finger arms first and drags second, exactly as it does on a timed chip.
+    if (pressSourceOf(e.pointerType, compact) === "touch") {
+      if (arming.armedChipId !== t.id) {
+        chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
+        arming.beginPress(press);
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (dragRef.current) return;
+      isTouchDragLiveRef.current = true;
+      arming.beginArmedPress(e.pointerId);
+      startAllDayDrag(press, t, "armed-press");
+      return;
+    }
     // Selection via modifier-click (desktop only).
     if (!compact) {
       if (e.shiftKey) {
@@ -706,23 +745,7 @@ export function CalendarPage() {
     }
     e.preventDefault();
     if (!selectedRef.current.has(t.id)) clearSelection();
-    dragRef.current = {
-      id: t.id,
-      mode: "allday",
-      origDate: t.date,
-      origStart: 0,
-      origDur: DROP_DURATION,
-      grabMin: 0,
-      moved: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      zone: "untimed",
-      pointerId: e.pointerId,
-    };
-    const p = { date: t.date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true };
-    previewRef.current = p;
-    setPreview(p);
-    setDragId(t.id);
+    startAllDayDrag(press, t);
   };
 
   // Abandon an in-flight drag with no change (Esc / navigation).
@@ -1399,10 +1422,13 @@ export function CalendarPage() {
                           task={t}
                           dragging={dragId === t.id}
                           selected={selectedIds.has(t.id)}
+                          isArmed={arming.armedChipId === t.id}
                           isTouchDragLiveRef={isTouchDragLiveRef}
                           onPointerDownBody={(e) => beginAllDayDrag(e, t)}
+                          onPointerUpBody={endChipPress}
+                          onPointerCancelBody={cancelChipPress}
                           onOpen={() => openTask(t)}
-                          onLongPress={cancelDrag}
+                          onLongPress={handleChipMenuOpened}
                           onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
                           menuItems={allDayMenuItems(t)}
                         />
