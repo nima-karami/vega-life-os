@@ -1,7 +1,7 @@
 import { ContextMenu, cx, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
-import { ARMED_CHIP_CLASS, getChipTouchActionClass } from "../chip-armed";
+import { ARMED_CHIP_CLASS, ARMED_RING_CLASS, getChipTouchActionClass } from "../chip-armed";
 import { DRAG_THRESHOLD_PX } from "../geometry";
 import { useTouchDragBlocker } from "../useTouchDragBlocker";
 
@@ -17,6 +17,7 @@ export function AllDayChip({
   onOpen,
   onLongPress,
   onChipContextMenu,
+  onKeyDownCapture,
   menuItems,
 }: {
   task: Task;
@@ -31,6 +32,8 @@ export function AllDayChip({
   onLongPress: () => void;
   /** Swallow a native `contextmenu` synthesized by an un-armed touch hold. */
   onChipContextMenu: (e: React.MouseEvent) => void;
+  /** A keyboard-invoked menu carries no press, so the swallow above must forget the last one. */
+  onKeyDownCapture: () => void;
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
@@ -54,6 +57,7 @@ export function AllDayChip({
         onPointerUp={onPointerUpBody}
         onPointerCancel={onPointerCancelBody}
         onContextMenu={onChipContextMenu}
+        onKeyDownCapture={onKeyDownCapture}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -65,7 +69,7 @@ export function AllDayChip({
           `block w-full cursor-grab ${getChipTouchActionClass(isArmed)} select-none truncate rounded-[2px] border-l-[3px] bg-surface px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-accent`,
           dragging && "opacity-40",
           isArmed && ARMED_CHIP_CLASS,
-          selected && "ring-2 ring-accent",
+          isArmed ? ARMED_RING_CLASS : selected && "ring-2 ring-accent",
         )}
         style={{ borderColor: accent }}
       >

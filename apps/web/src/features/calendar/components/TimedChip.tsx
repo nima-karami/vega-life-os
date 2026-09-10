@@ -2,7 +2,7 @@ import { addMinutes } from "@/core/lib/date";
 import { ContextMenu, cx, Icon, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
-import { ARMED_CHIP_CLASS, getChipTouchActionClass } from "../chip-armed";
+import { ARMED_CHIP_CLASS, getChipRingClass, getChipTouchActionClass } from "../chip-armed";
 import {
   type ColumnSlot,
   DRAG_THRESHOLD_PX,
@@ -33,6 +33,7 @@ export function TimedChip({
   onOpen,
   onLongPress,
   onChipContextMenu,
+  onKeyDownCapture,
   onPointerDownHandle,
   menuItems,
 }: {
@@ -55,6 +56,8 @@ export function TimedChip({
   onLongPress: () => void;
   /** Swallow a native `contextmenu` synthesized by an un-armed touch hold. */
   onChipContextMenu: (e: React.MouseEvent) => void;
+  /** A keyboard-invoked menu carries no press, so the swallow above must forget the last one. */
+  onKeyDownCapture: () => void;
   /** Press on an armed chip's resize pill; stopPropagation is the caller's job. */
   onPointerDownHandle: (e: React.PointerEvent, mode: "top" | "bottom") => void;
   menuItems: MenuItem[];
@@ -91,6 +94,7 @@ export function TimedChip({
           onPointerUp={onPointerUpBody}
           onPointerCancel={onPointerCancelBody}
           onContextMenu={onChipContextMenu}
+          onKeyDownCapture={onKeyDownCapture}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -105,11 +109,14 @@ export function TimedChip({
             resolved ? "bg-surface-secondary" : "bg-surface",
             dim ? "opacity-30" : "opacity-100",
             isArmed && ARMED_CHIP_CLASS,
-            selected && "z-20 ring-2 ring-accent",
-            provisional && !selected && "z-20 ring-2 ring-accent/40",
-            dragging
-              ? "z-30 cursor-grabbing shadow-md ring-1 ring-accent"
-              : "transition-[top,height] duration-75",
+            (selected || provisional) && "z-20",
+            getChipRingClass({
+              isArmed,
+              isSelected: selected,
+              isProvisional: provisional,
+              isDragging: dragging,
+            }),
+            dragging ? "z-30 cursor-grabbing shadow-md" : "transition-[top,height] duration-75",
           )}
           style={{
             top,

@@ -4,10 +4,25 @@ export const ARMED_HANDLE_PX = 24;
 const STRADDLE_MIN_CHIP_PX = 40;
 const STRADDLE_OUTSET_PX = 16;
 
-/** Armed lift. The ring offset is what separates it from `selected` (z-20 ring-2) and
- *  `dragging` (z-30 ring-1); armed and selected never co-occur, so they cannot compound. */
-export const ARMED_CHIP_CLASS =
-  "z-30 shadow-md ring-2 ring-accent ring-offset-1 ring-offset-surface";
+/** Armed lift. Deliberately ring-free: the ring lands through the single argument below. */
+export const ARMED_CHIP_CLASS = "z-30 shadow-md";
+
+export const ARMED_RING_CLASS = "ring-2 ring-accent ring-offset-1 ring-offset-surface";
+
+/** One `cx` argument, so exactly one `ring-*` lands — armed stays true through a whole drag,
+ *  and two arguments both emitting `ring-*` would both land with CSS source order deciding.
+ *  Armed outranks the rest: dropping the lift mid-gesture reads as having lost the arm. */
+export function getChipRingClass(state: {
+  isArmed: boolean;
+  isSelected: boolean;
+  isProvisional: boolean;
+  isDragging: boolean;
+}): string {
+  if (state.isArmed) return ARMED_RING_CLASS;
+  if (state.isSelected) return "ring-2 ring-accent";
+  if (state.isProvisional) return "ring-2 ring-accent/40";
+  return state.isDragging ? "ring-1 ring-accent" : "";
+}
 
 /** One `cx` argument — two both emitting `touch-*` would both land and source order would win. */
 export function getChipTouchActionClass(isArmed: boolean): string {

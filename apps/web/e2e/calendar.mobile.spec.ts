@@ -648,3 +648,38 @@ test("a still tap on a resize grip opens the editor at 900px", async ({ page }) 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });
+
+// `chipPressSourceRef` remembers the last press so an Android hold's synthesized `contextmenu`
+// can be swallowed. A keyboard-invoked menu carries no press at all, so it must still open.
+test("a keyboard context menu opens after a touch press on the chip", async ({ page }) => {
+  const chip = await openSeededChipDay(page);
+  const centre = await chipCentre(page);
+
+  await startTouch(page, centre);
+  await cancelTouch(page);
+
+  await chip.focus();
+  await page.keyboard.press("ContextMenu");
+
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+});
+
+// Disarm edge 10 holds during the hold window too: a mouse arriving mid-hold returns the
+// surface to the desktop contract, so the finger still resting on the chip never arms it.
+test("a mouse press during the hold window stops the chip arming", async ({ page }) => {
+  await openSeededChipDay(page);
+  await parkChipClearOfEdges(page);
+  const centre = await chipCentre(page);
+
+  await startTouch(page, centre);
+  await page.mouse.move(8, centre.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+  await endTouch(page);
+
+  await expect(armed(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});

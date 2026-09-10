@@ -552,11 +552,12 @@ export function CalendarPage() {
       const t = tasksRef.current.find((x) => x.id === press.id);
       if (!t) return;
       chipPressRef.current = null;
-      isTouchDragLiveRef.current = true;
       clearSelection();
       setAnnounce(`${t.title} armed — drag to move, or drag an edge to resize`);
       if (t.time) startTimedDrag(press, t, "move", "arm");
       else startAllDayDrag(press, t, "arm");
+      // Either starter can bail; a flag left true freezes chip scrolling until the next disarm.
+      isTouchDragLiveRef.current = dragRef.current !== null;
     },
     onDisarm: () => {
       autoScroll.stop();
@@ -618,6 +619,12 @@ export function CalendarPage() {
     if (!isTouchPress(chipPressSourceRef.current) || arming.armedChipId === taskId) return;
     e.preventDefault();
     e.stopPropagation();
+  };
+
+  // A keyboard-invoked menu (Menu key / Shift+F10) carries no press, so without this the last
+  // touch on the chip keeps the swallow above armed and the menu never opens.
+  const clearChipPressSource = () => {
+    chipPressSourceRef.current = "none";
   };
 
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
@@ -1450,6 +1457,7 @@ export function CalendarPage() {
                           onOpen={() => openTask(t)}
                           onLongPress={handleChipMenuOpened}
                           onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
+                          onKeyDownCapture={clearChipPressSource}
                           menuItems={allDayMenuItems(t)}
                         />
                       ))}
@@ -1598,6 +1606,7 @@ export function CalendarPage() {
                           onOpen={() => openTask(t)}
                           onLongPress={handleChipMenuOpened}
                           onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
+                          onKeyDownCapture={clearChipPressSource}
                           onPointerDownHandle={(e, mode) => beginDrag(e, t, mode)}
                           menuItems={timedMenuItems(t)}
                         />

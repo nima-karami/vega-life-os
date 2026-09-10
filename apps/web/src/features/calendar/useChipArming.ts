@@ -139,17 +139,22 @@ export function useChipArming(callbacks: ChipArmingCallbacks): ChipArming {
     watchPress(pointerId);
   };
 
+  // Mounted through the hold too, not just while armed: edge 10 has to catch a mouse that
+  // arrives mid-hold, or a finger already down goes on to arm against the desktop contract.
   useEffect(() => {
-    if (armedChipId === null) return;
     const onPointerDown = (e: PointerEvent) => {
+      if (phaseRef.current === "idle") return;
+      const armedId = armedChipIdRef.current;
       if (pressSourceOf(e.pointerType, compactRef.current) === "mouse") {
-        disarmRef.current();
+        if (armedId === null) endPressRef.current({ kind: "cancel" });
+        else disarmRef.current();
         return;
       }
-      if (isPressInsideArmedChip(e.target, armedChipId)) return;
+      if (armedId === null || isPressInsideArmedChip(e.target, armedId)) return;
       disarmRef.current();
     };
     const onKeyDown = (e: KeyboardEvent) => {
+      if (armedChipIdRef.current === null) return;
       if (e.key === "Escape" || isCommandBarChord(e)) disarmRef.current();
     };
     window.addEventListener("pointerdown", onPointerDown, true);
@@ -158,7 +163,7 @@ export function useChipArming(callbacks: ChipArmingCallbacks): ChipArming {
       window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [armedChipId]);
+  }, []);
 
   useEffect(
     () => () => {
