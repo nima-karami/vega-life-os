@@ -1253,14 +1253,16 @@ export function CalendarPage() {
       {writeCalendarMissing && <WriteCalendarMissingBanner />}
 
       {/* ── Nav header — quiet, like Today (keeps the grid in view) ── */}
-      <header className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">
+      {/* Stacked below sm, one guarded row above: the title is a date, so a header that
+          could wrap would change height on the weekday's glyph widths alone. */}
+      <header className="mb-4 flex flex-col gap-y-2 sm:flex-row sm:items-center sm:gap-x-4">
+        <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground sm:flex-1">
           {compact
             ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
             : `${formatShortDate(days[0].iso)} – ${formatShortDate(days[6].iso)}`}
         </h1>
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+        <div className="flex shrink-0 items-center justify-end gap-x-3">
           <CalendarSync />
           <CalendarFilterButton focusableGoals={focusableGoals} />
           <div className="flex items-center gap-1.5">
