@@ -12,7 +12,9 @@ export async function passGratitudeGate(page: Page) {
 
 /** Boot the signed-out sandbox and clear the gate, so every route is reachable from here. */
 export async function enterApp(page: Page) {
-  await page.goto("/", { waitUntil: "networkidle" });
+  // Not `networkidle`: the service worker keeps connections alive, so it never settles
+  // under load — the explicit wait below is both stronger and deterministic.
+  await page.goto("/");
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");
   await expect(explore.or(main)).toBeVisible({ timeout: 20_000 });
