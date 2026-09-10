@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   ARMED_CHIP_CLASS,
   ARMED_HANDLE_PX,
+  type ChipState,
   getArmedHandleTop,
+  getChipCursorClass,
   getChipRingClass,
   getChipShadowClass,
   getChipTouchActionClass,
+  getChipZIndexClass,
 } from "../chip-armed";
 
 describe("getArmedHandleTop", () => {
@@ -80,5 +83,61 @@ describe("getChipRingClass", () => {
 
   it("an idle chip wears no ring", () => {
     expect(ringClassFor([])).toBe("");
+  });
+});
+
+const EVERY_CHIP_STATE = [false, true].flatMap((isArmed) =>
+  [false, true].flatMap((isSelected) =>
+    [false, true].flatMap((isProvisional) =>
+      [false, true].map((isDragging) => ({ isArmed, isSelected, isProvisional, isDragging })),
+    ),
+  ),
+);
+
+const chipStateWith = (on: Partial<ChipState>): ChipState => ({
+  isArmed: false,
+  isSelected: false,
+  isProvisional: false,
+  isDragging: false,
+  ...on,
+});
+
+describe("getChipZIndexClass", () => {
+  it("the z-index is one class, never two, in every state", () => {
+    for (const state of EVERY_CHIP_STATE) {
+      const levels = getChipZIndexClass(state).match(/\bz-\d+\b/g) ?? [];
+      expect(levels.length, JSON.stringify(state)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("the lift outranks selection, which is the level the cascade used to pick", () => {
+    expect(getChipZIndexClass(chipStateWith({ isArmed: true, isSelected: true }))).toBe("z-30");
+    expect(getChipZIndexClass(chipStateWith({ isDragging: true, isProvisional: true }))).toBe(
+      "z-30",
+    );
+    expect(getChipZIndexClass(chipStateWith({ isSelected: true }))).toBe("z-20");
+  });
+
+  it("an idle chip keeps the grid's own stacking", () => {
+    expect(getChipZIndexClass(chipStateWith({}))).toBe("");
+  });
+});
+
+describe("getChipCursorClass", () => {
+  it("the cursor is one class, never two", () => {
+    expect(getChipCursorClass(true)).toBe("cursor-grabbing");
+    expect(getChipCursorClass(false)).toBe("cursor-grab");
+  });
+
+  it("no other chip class emits a z-index or a cursor, so exactly one of each lands", () => {
+    for (const state of EVERY_CHIP_STATE) {
+      const others = [
+        getChipRingClass(state),
+        getChipShadowClass(state.isArmed || state.isDragging),
+        getChipTouchActionClass(state.isArmed),
+      ].join(" ");
+      expect(others, JSON.stringify(state)).not.toMatch(/\bz-\d+\b/);
+      expect(others, JSON.stringify(state)).not.toMatch(/\bcursor-/);
+    }
   });
 });

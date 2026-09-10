@@ -16,19 +16,33 @@ export function getChipShadowClass(isLifted: boolean): string {
   return isLifted ? "shadow-md" : "shadow-sm";
 }
 
-/** One `cx` argument, so exactly one `ring-*` lands — armed stays true through a whole drag,
- *  and two arguments both emitting `ring-*` would both land with CSS source order deciding.
- *  Armed outranks the rest: dropping the lift mid-gesture reads as having lost the arm. */
-export function getChipRingClass(state: {
+export interface ChipState {
   isArmed: boolean;
   isSelected: boolean;
   isProvisional: boolean;
   isDragging: boolean;
-}): string {
+}
+
+/** One `cx` argument, so exactly one `ring-*` lands — armed stays true through a whole drag,
+ *  and two arguments both emitting `ring-*` would both land with CSS source order deciding.
+ *  Armed outranks the rest: dropping the lift mid-gesture reads as having lost the arm. */
+export function getChipRingClass(state: ChipState): string {
   if (state.isArmed) return ARMED_RING_CLASS;
   if (state.isSelected) return "ring-2 ring-accent";
   if (state.isProvisional) return "ring-2 ring-accent/40";
   return state.isDragging ? "ring-1 ring-accent" : "";
+}
+
+/** One `cx` argument, so exactly one `z-*` lands — the lift's `z-30` and a selection's `z-20`
+ *  both landed, and only CSS source order handed the lift the win. */
+export function getChipZIndexClass(state: ChipState): string {
+  if (state.isArmed || state.isDragging) return ARMED_CHIP_CLASS;
+  return state.isSelected || state.isProvisional ? "z-20" : "";
+}
+
+/** One `cx` argument — a base `cursor-grab` and the drag's `cursor-grabbing` both landed. */
+export function getChipCursorClass(isDragging: boolean): string {
+  return isDragging ? "cursor-grabbing" : "cursor-grab";
 }
 
 /** One `cx` argument — two both emitting `touch-*` would both land and source order would win. */
