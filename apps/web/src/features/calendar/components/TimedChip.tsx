@@ -29,6 +29,7 @@ export function TimedChip({
   onPointerDownBottom,
   onOpen,
   onLongPress,
+  onChipContextMenu,
   menuItems,
 }: {
   task: Task;
@@ -47,6 +48,8 @@ export function TimedChip({
   onPointerDownBottom: (e: React.PointerEvent) => void;
   onOpen: () => void;
   onLongPress: () => void;
+  /** Swallow a native `contextmenu` synthesized by an un-armed touch hold. */
+  onChipContextMenu: (e: React.MouseEvent) => void;
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
@@ -77,6 +80,7 @@ export function TimedChip({
         onPointerDown={onPointerDownBody}
         onPointerUp={onPointerUpBody}
         onPointerCancel={onPointerCancelBody}
+        onContextMenu={onChipContextMenu}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();

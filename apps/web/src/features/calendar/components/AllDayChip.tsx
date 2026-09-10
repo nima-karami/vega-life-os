@@ -10,6 +10,7 @@ export function AllDayChip({
   onPointerDownBody,
   onOpen,
   onLongPress,
+  onChipContextMenu,
   menuItems,
 }: {
   task: Task;
@@ -18,6 +19,8 @@ export function AllDayChip({
   onPointerDownBody: (e: React.PointerEvent) => void;
   onOpen: () => void;
   onLongPress: () => void;
+  /** Swallow a native `contextmenu` synthesized by an un-armed touch hold. */
+  onChipContextMenu: (e: React.MouseEvent) => void;
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
@@ -35,6 +38,7 @@ export function AllDayChip({
         data-chip-id={task.id}
         aria-pressed={selected}
         onPointerDown={onPointerDownBody}
+        onContextMenu={onChipContextMenu}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();

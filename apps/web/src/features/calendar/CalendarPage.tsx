@@ -191,6 +191,7 @@ export function CalendarPage() {
   const pasteSuppressUntil = useRef(0);
   const gestureSuppressUntil = useRef(0);
   const columnPressSourceRef = useRef<PressSource>("none");
+  const chipPressSourceRef = useRef<PressSource>("none");
   const [dragId, setDragId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
 
@@ -596,7 +597,16 @@ export function CalendarPage() {
     },
   });
 
+  // Chrome/Android synthesizes `contextmenu` on a touch hold, and `ContextMenu`'s own handler
+  // is ungated — left alone, the arming hold would arm and pop the menu at once.
+  const handleChipContextMenu = (e: React.MouseEvent, taskId: string) => {
+    if (!isTouchPress(chipPressSourceRef.current) || arming.armedChipId === taskId) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
+    chipPressSourceRef.current = pressSourceOf(e.pointerType, compact);
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
     // The pointer decides, never the width: a touchscreen laptop is past `sm` and still has
@@ -656,6 +666,7 @@ export function CalendarPage() {
 
   // Begin dragging an all-day chip: sideways keeps it untimed, down onto the grid schedules it.
   const beginAllDayDrag = (e: React.PointerEvent, t: Task) => {
+    chipPressSourceRef.current = pressSourceOf(e.pointerType, compact);
     if (e.button !== 0) return;
     if (!gridRef.current || !t.date) return;
     // Selection via modifier-click (desktop only).
@@ -1358,6 +1369,7 @@ export function CalendarPage() {
                           onPointerDownBody={(e) => beginAllDayDrag(e, t)}
                           onOpen={() => openTask(t)}
                           onLongPress={cancelDrag}
+                          onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
                           menuItems={allDayMenuItems(t)}
                         />
                       ))}
@@ -1500,6 +1512,7 @@ export function CalendarPage() {
                           onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
                           onOpen={() => openTask(t)}
                           onLongPress={handleChipMenuOpened}
+                          onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
                           menuItems={timedMenuItems(t)}
                         />
                       ))}
