@@ -1325,10 +1325,12 @@ export function CalendarPage() {
       {/* ── Paste banner ─────────────────────────────────────────── */}
       {clipboardTask && (
         <Card className="mb-4 rounded-[16px] border border-border bg-surface">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-            <Icon name="clipboard" size={15} className="text-muted" />
-            <span className="text-sm text-foreground">Copied “{clipboardTask.title}”</span>
-            <span className="text-sm text-muted">
+          <div className="flex items-center gap-x-3 px-4 py-3">
+            <Icon name="clipboard" size={15} className="shrink-0 text-muted" />
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+              Copied “{clipboardTask.title}”
+            </span>
+            <span className="hidden shrink-0 text-sm text-muted sm:inline">
               — click an empty slot to place it, or a chip to replace
             </span>
             <Button
@@ -1336,7 +1338,7 @@ export function CalendarPage() {
               variant="ghost"
               onPress={clearClipboard}
               aria-label="Cancel paste"
-              className="ml-auto text-muted"
+              className="ml-auto shrink-0 text-muted"
             >
               <Icon name="close" size={12} />
               Cancel · Esc

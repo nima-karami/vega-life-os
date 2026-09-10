@@ -217,8 +217,8 @@ function AnalyticsSection() {
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted" aria-live="polite">
+      <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="min-w-0 text-xs text-muted" aria-live="polite">
           Showing the last {days} day{days === 1 ? "" : "s"}
         </p>
         <ButtonGroup aria-label="Time range">

@@ -93,14 +93,19 @@ export function CardsPage() {
   };
 
   const header = (
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div>
+    <header className="flex items-end justify-between gap-4">
+      <div className="min-w-0 flex-1">
         <h1 className="font-semibold text-3xl text-foreground tracking-tight">Cards</h1>
-        <p className="mt-1 text-muted text-sm tabular-nums">
+        <p className="mt-1 truncate text-muted text-sm tabular-nums">
           {isDeckEmpty ? "Nothing in the deck yet" : describeCardStats(stats, rows.length)}
         </p>
       </div>
-      <Button solid icon="plus" className="h-11 sm:h-9" onPress={() => navigate("/cards/new")}>
+      <Button
+        solid
+        icon="plus"
+        className="h-11 shrink-0 sm:h-9"
+        onPress={() => navigate("/cards/new")}
+      >
         New card
       </Button>
     </header>

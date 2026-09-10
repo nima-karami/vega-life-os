@@ -33,9 +33,9 @@ function OfflineBanner() {
 
 function FocusNote({ name, onClear }: { name: string; onClear: () => void }) {
   return (
-    <p className="mt-6 flex flex-wrap items-center gap-2 text-xs text-muted">
-      Showing {name} only.
-      <Button size="sm" variant="ghost" onPress={onClear}>
+    <p className="mt-6 flex items-center gap-2 text-xs text-muted">
+      <span className="min-w-0 truncate">Showing {name} only.</span>
+      <Button size="sm" variant="ghost" className="shrink-0" onPress={onClear}>
         Show every category
       </Button>
     </p>
