@@ -5,7 +5,7 @@ export interface ArmedResizeHandleProps {
   /** Chip box in day-column coordinates, from getChipTop / getChipHeight. */
   chipTop: number;
   chipHeight: number;
-  /** The chip's own `left` / `width` calc() strings, so the pill tracks its overlap column. */
+  /** The chip's own `left` / `width` calc() strings, so the dot tracks its overlap column. */
   left: string;
   width: string;
   onPointerDown: (e: React.PointerEvent) => void;
@@ -32,7 +32,8 @@ export function ArmedResizeHandle({
         width,
       }}
     >
-      <span className="h-0.5 w-5 rounded-full bg-accent" />
+      {/* The ring keeps the dot legible over both the chip fill and the grid lines behind it. */}
+      <span className="size-[11px] rounded-full bg-accent ring-2 ring-surface" />
     </span>
   );
 }
