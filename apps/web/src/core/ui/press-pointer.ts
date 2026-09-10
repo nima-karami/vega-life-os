@@ -1,3 +1,6 @@
+/** One hold clock for every surface that holds to open or arm — a menu, a card, a chip. */
+export const LONG_PRESS_MS = 500;
+
 export type PressSource = "none" | "mouse" | "touch";
 
 /**

@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { pressSourceOf, useCompact } from "@/core/ui";
-import {
-  advanceChipTouchPhase,
-  type ChipTouchEvent,
-  type ChipTouchPhase,
-  LONG_PRESS_MS,
-} from "./chip-arming";
+import { LONG_PRESS_MS, pressSourceOf, useCompact } from "@/core/ui";
+import { advanceChipTouchPhase, type ChipTouchEvent, type ChipTouchPhase } from "./chip-arming";
 import { DRAG_THRESHOLD_PX, type DragMode } from "./geometry";
 
 export interface ChipPress {

@@ -1,8 +1,5 @@
 import type { DragMode } from "./geometry";
 
-/** One clock for arm and menu. Pinned to `core/ui/contextmenu.tsx`'s private LONG_PRESS_MS. */
-export const LONG_PRESS_MS = 500;
-
 export type ChipTouchPhase =
   | "idle"
   | "pressing"

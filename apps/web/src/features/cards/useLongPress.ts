@@ -1,11 +1,7 @@
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useRef } from "react";
-import {
-  hasEscapedPressTolerance,
-  isPressablePointer,
-  LONG_PRESS_MS,
-  type PressPoint,
-} from "./long-press";
+import { LONG_PRESS_MS } from "@/core/ui";
+import { hasEscapedPressTolerance, isPressablePointer, type PressPoint } from "./long-press";
 
 /** A held touch selects the row; the tap that follows is swallowed so it can't also open the card.
  *  Tracks a single primary pointer, so a second finger can neither re-arm the hold nor end it. */

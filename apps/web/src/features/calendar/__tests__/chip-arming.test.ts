@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  advanceChipTouchPhase,
-  type ChipTouchEvent,
-  type ChipTouchPhase,
-  LONG_PRESS_MS,
-} from "../chip-arming";
+import { LONG_PRESS_MS } from "@/core/ui/press-pointer";
+import { advanceChipTouchPhase, type ChipTouchEvent, type ChipTouchPhase } from "../chip-arming";
 
 const PHASES: ChipTouchPhase[] = [
   "idle",

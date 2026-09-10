@@ -12,7 +12,7 @@ import { cx } from "./cx";
 import { Icon } from "./icons";
 import type { MenuItem } from "./menu";
 import { computeHeightCap, computeWidthCap, type MenuPos, placeMenu } from "./menu-placement";
-import { isTouchPress, type PressSource, pressSourceOf } from "./press-pointer";
+import { isTouchPress, LONG_PRESS_MS, type PressSource, pressSourceOf } from "./press-pointer";
 import { useCompact } from "./useCompactModal";
 
 const hasContentBelow = (panel: HTMLElement): boolean =>
@@ -213,7 +213,6 @@ export function FloatingMenu({
   );
 }
 
-const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 // Hold this long before the press "dips" (scale feedback). A quick tap-to-flip stays
 // below it, so it flips with no dip; only a genuine hold engages the press feedback.

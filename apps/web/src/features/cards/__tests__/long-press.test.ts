@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { LONG_PRESS_MS } from "@/core/ui/press-pointer";
 import {
   hasEscapedPressTolerance,
   isPressablePointer,
-  LONG_PRESS_MS,
   PRESS_MOVE_TOLERANCE_PX,
 } from "../long-press";
 

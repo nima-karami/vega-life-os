@@ -1,4 +1,3 @@
-export const LONG_PRESS_MS = 500;
 export const PRESS_MOVE_TOLERANCE_PX = 10;
 
 export interface PressPoint {
