@@ -176,7 +176,8 @@ export function CalendarPage() {
   const [announce, setAnnounce] = useState("");
   const compact = useCompact();
   const todayIso = useTodayISO();
-  // Seeded from today, or the first paint flashes Monday before the effect below corrects it.
+  // Seeded from today; every step from there is literal, and only the two doors that mean
+  // "today" — the Today button and the `cal-today` command — come back to it.
   const [activeDay, setActiveDay] = useState(() => dowIndex(todayIso)); // 0..6 on a phone
 
   const gridRef = useRef<HTMLDivElement>(null);
@@ -239,6 +240,7 @@ export function CalendarPage() {
       run: ({ close }) => {
         if (dragRef.current) cancelDrag();
         setWeekRef(new Date());
+        setActiveDay(dowIndex(todayIso));
         close();
       },
     },
@@ -253,12 +255,6 @@ export function CalendarPage() {
     cancelChipPressRef.current();
     disarmRef.current();
   }, [compact]);
-
-  // Keep the active single day on today when the week contains it.
-  useEffect(() => {
-    const todayIdx = days.findIndex((d) => d.today);
-    if (todayIdx >= 0) setActiveDay(todayIdx);
-  }, [days]);
 
   // Esc disarms a pending paste.
   useEffect(() => {
@@ -1207,6 +1203,7 @@ export function CalendarPage() {
     if (dragRef.current) cancelDrag();
     clearSelection();
     setWeekRef(new Date());
+    setActiveDay(dowIndex(todayIso));
     setAnnounce("Showing this week");
   };
 

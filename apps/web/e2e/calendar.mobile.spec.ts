@@ -696,3 +696,84 @@ test("a mouse press during the hold window stops the chip arming", async ({ page
   await expect(armed(page)).toHaveCount(0);
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });
+
+// ─── Day navigation: literal steps, and the two doors back to today ──────────
+//
+// A day step moves exactly one day, both ways, even when the target week holds today.
+// Each of the two step tests is degenerate on exactly one weekday (Monday for the
+// forward one, Sunday for the back one) and the pair never degenerates together.
+
+const dayChips = (page: Page) => page.locator("main button").filter({ hasText: /^\w{3}\d{2}$/ });
+const dayHeading = (page: Page) => page.getByRole("heading", { level: 1 });
+const prevDay = (page: Page) => page.getByRole("button", { name: "Previous day" });
+const nextDay = (page: Page) => page.getByRole("button", { name: "Next day" });
+
+/** Which of the strip's seven chips the grid is showing — Monday is 0. */
+async function readActiveDay(page: Page) {
+  const flags = await dayChips(page).evaluateAll((chips) =>
+    chips.map((chip) => chip.getAttribute("aria-current")),
+  );
+  return flags.indexOf("date");
+}
+
+/** Steps back to the Sunday before this week, whatever weekday today is. */
+async function openLastWeeksSunday(page: Page) {
+  const todayIndex = await readActiveDay(page);
+  for (let step = 0; step <= todayIndex; step += 1) await prevDay(page).click();
+  await expect.poll(() => readActiveDay(page)).toBe(6);
+}
+
+/** Steps forward to the Monday after this week, whatever weekday today is. */
+async function openNextWeeksMonday(page: Page) {
+  const todayIndex = await readActiveDay(page);
+  for (let step = todayIndex; step < 7; step += 1) await nextDay(page).click();
+  await expect.poll(() => readActiveDay(page)).toBe(0);
+}
+
+test("next day from last week's Sunday lands on this week's Monday", async ({ page }) => {
+  await openCalendar(page, PHONE);
+  await openLastWeeksSunday(page);
+
+  await nextDay(page).click();
+
+  await expect.poll(() => readActiveDay(page)).toBe(0);
+  await expect(dayHeading(page)).toContainText("Mon");
+});
+
+test("previous day from next week's Monday lands on this week's Sunday", async ({ page }) => {
+  await openCalendar(page, PHONE);
+  await openNextWeeksMonday(page);
+
+  await prevDay(page).click();
+
+  await expect.poll(() => readActiveDay(page)).toBe(6);
+  await expect(dayHeading(page)).toContainText("Sun");
+});
+
+test("the Today button comes back to today's own day", async ({ page }) => {
+  await openCalendar(page, PHONE);
+  const today = await dayHeading(page).textContent();
+  await openLastWeeksSunday(page);
+
+  await page.locator("main header").getByRole("button", { name: "Today", exact: true }).click();
+
+  await expect(dayHeading(page)).toHaveText(today ?? "");
+});
+
+test("the command bar's Go to today comes back to today's own day", async ({ page }) => {
+  await openCalendar(page, PHONE);
+  const today = await dayHeading(page).textContent();
+  await openLastWeeksSunday(page);
+
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", { name: "Search" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Command bar" });
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
+  await page.getByPlaceholder("Search, navigate, or ask…").fill("Go to today");
+  await dialog.getByRole("option", { name: "Calendar: Go to today" }).click();
+
+  await expect(dialog).toHaveCount(0);
+  await expect(dayHeading(page)).toHaveText(today ?? "");
+});
