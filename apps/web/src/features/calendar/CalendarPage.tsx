@@ -1548,6 +1548,7 @@ export function CalendarPage() {
                           onOpen={() => openTask(t)}
                           onLongPress={handleChipMenuOpened}
                           onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
+                          onPointerDownHandle={(e, mode) => beginDrag(e, t, mode)}
                           menuItems={timedMenuItems(t)}
                         />
                       ))}

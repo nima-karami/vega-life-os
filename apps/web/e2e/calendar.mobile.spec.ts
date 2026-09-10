@@ -156,8 +156,57 @@ test("a long press on a timed chip arms it and opens no menu", async ({ page }) 
   await longPress(page, centre);
 
   await expect(armed(page)).toHaveCount(1);
+  await expect(page.locator("[data-chip-handle]")).toHaveCount(2);
+  for (const handle of await page.locator("[data-chip-handle]").all()) {
+    await expect(handle).toBeVisible();
+  }
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
+/**
+ * Grabs an armed chip's resize pill 12px **clear of the chip box**, where nothing but the
+ * armed handle can take the press — the shipped 6px grips live inside the button, so an
+ * edge-anchored press would resize with or without the handles and prove nothing.
+ * `byPx` is the release offset from the chip's visible edge, because `resolveDrag` reads the
+ * absolute pointer for top/bottom and ignores where the grab started.
+ */
+async function dragChipEdge(page: Page, edge: "top" | "bottom", byPx: number) {
+  const box = await (await findSeededChip(page)).boundingBox();
+  if (!box) throw new Error("the timed chip has no bounding box");
+  const anchorY = edge === "top" ? box.y : box.y + box.height;
+  const x = box.x + box.width / 2;
+  const from = { x, y: anchorY + (edge === "top" ? -12 : 12) };
+  await swipe(page, { from, to: { x, y: anchorY + byPx }, durationMs: 300, steps: 12 });
+}
+
+test("dragging an armed chip's bottom handle lengthens it", async ({ page }) => {
+  await openSeededChipDay(page);
+  await armSeededChip(page);
+
+  await dragChipEdge(page, "bottom", 46);
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:00–15:00/ })).toBeVisible();
+  await expect(armed(page)).toHaveCount(1);
+});
+
+test("dragging an armed chip's top handle moves its start and pins its end", async ({ page }) => {
+  await openSeededChipDay(page);
+  await armSeededChip(page);
+
+  await dragChipEdge(page, "top", -46);
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 12:00–14:00/ })).toBeVisible();
+  await expect(armed(page)).toHaveCount(1);
+});
+
+test("a bottom handle dragged past the start floors at one snap step", async ({ page }) => {
+  await openSeededChipDay(page);
+  await armSeededChip(page);
+
+  await dragChipEdge(page, "bottom", -200);
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:00–13:15/ })).toBeVisible();
 });
 
 test("a long press on a timed chip opens its menu and leaves the time alone", async ({ page }) => {

@@ -12,6 +12,7 @@ import {
   isOffWindow,
 } from "../geometry";
 import { useTouchDragBlocker } from "../useTouchDragBlocker";
+import { ArmedResizeHandle } from "./ArmedResizeHandle";
 
 export function TimedChip({
   task,
@@ -32,6 +33,7 @@ export function TimedChip({
   onOpen,
   onLongPress,
   onChipContextMenu,
+  onPointerDownHandle,
   menuItems,
 }: {
   task: Task;
@@ -53,6 +55,8 @@ export function TimedChip({
   onLongPress: () => void;
   /** Swallow a native `contextmenu` synthesized by an un-armed touch hold. */
   onChipContextMenu: (e: React.MouseEvent) => void;
+  /** Press on an armed chip's resize pill; stopPropagation is the caller's job. */
+  onPointerDownHandle: (e: React.PointerEvent, mode: "top" | "bottom") => void;
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
@@ -69,89 +73,105 @@ export function TimedChip({
     : task.time;
 
   return (
-    <ContextMenu
-      items={menuItems}
-      longPress={isArmed}
-      longPressMoveTolerancePx={DRAG_THRESHOLD_PX}
-      onLongPress={onLongPress}
-    >
-      <button
-        ref={chipRef}
-        type="button"
-        data-block
-        data-chip-id={task.id}
-        data-armed={isArmed ? "true" : undefined}
-        aria-pressed={selected}
-        onPointerDown={onPointerDownBody}
-        onPointerUp={onPointerUpBody}
-        onPointerCancel={onPointerCancelBody}
-        onContextMenu={onChipContextMenu}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
-        aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
-        className={cx(
-          // A swipe belongs to the grid's scroller at every width — `touch-action` cannot read
-          // the pointer, so a `sm:touch-none` froze the finger on a touchscreen laptop.
-          `group absolute block cursor-grab ${getChipTouchActionClass(isArmed)} select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm`,
-          resolved ? "bg-surface-secondary" : "bg-surface",
-          dim ? "opacity-30" : "opacity-100",
-          isArmed && ARMED_CHIP_CLASS,
-          selected && "z-20 ring-2 ring-accent",
-          provisional && !selected && "z-20 ring-2 ring-accent/40",
-          dragging
-            ? "z-30 cursor-grabbing shadow-md ring-1 ring-accent"
-            : "transition-[top,height] duration-75",
-        )}
-        style={{
-          top,
-          height,
-          left,
-          width,
-          borderColor: accent,
-        }}
+    <>
+      <ContextMenu
+        items={menuItems}
+        longPress={isArmed}
+        longPressMoveTolerancePx={DRAG_THRESHOLD_PX}
+        onLongPress={onLongPress}
       >
-        {(off || detached) && (
-          <span className="absolute right-1 top-1 flex items-center gap-0.5 text-muted">
-            {detached && (
-              <span title="Edited away from its habit" aria-hidden="true">
-                <Icon name="unlink" size={10} />
-              </span>
-            )}
-            {off && (
-              <span title="Outside the visible hours" aria-hidden="true">
-                <Icon name="alert" size={10} />
-              </span>
-            )}
-          </span>
-        )}
-        <span
-          onPointerDown={onPointerDownTop}
-          className="absolute inset-x-0 top-0 z-10 flex h-1.5 cursor-ns-resize items-start justify-center opacity-0 group-hover:opacity-100"
-        >
-          <span className="mt-px h-0.5 w-5 rounded-full bg-border" />
-        </span>
-        <span
+        <button
+          ref={chipRef}
+          type="button"
+          data-block
+          data-chip-id={task.id}
+          data-armed={isArmed ? "true" : undefined}
+          aria-pressed={selected}
+          onPointerDown={onPointerDownBody}
+          onPointerUp={onPointerUpBody}
+          onPointerCancel={onPointerCancelBody}
+          onContextMenu={onChipContextMenu}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onOpen();
+            }
+          }}
+          aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
           className={cx(
-            "block truncate text-[11px] leading-tight",
-            resolved ? "text-muted line-through" : "text-foreground",
+            // A swipe belongs to the grid's scroller at every width — `touch-action` cannot read
+            // the pointer, so a `sm:touch-none` froze the finger on a touchscreen laptop.
+            `group absolute block cursor-grab ${getChipTouchActionClass(isArmed)} select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm`,
+            resolved ? "bg-surface-secondary" : "bg-surface",
+            dim ? "opacity-30" : "opacity-100",
+            isArmed && ARMED_CHIP_CLASS,
+            selected && "z-20 ring-2 ring-accent",
+            provisional && !selected && "z-20 ring-2 ring-accent/40",
+            dragging
+              ? "z-30 cursor-grabbing shadow-md ring-1 ring-accent"
+              : "transition-[top,height] duration-75",
           )}
+          style={{
+            top,
+            height,
+            left,
+            width,
+            borderColor: accent,
+          }}
         >
-          {task.title}
-        </span>
-        {height > 34 && (
-          <span className="mt-0.5 block text-[9px] tabular-nums text-muted">{timeLabel}</span>
-        )}
-        <span
-          onPointerDown={onPointerDownBottom}
-          className="absolute inset-x-0 bottom-0 z-10 flex h-1.5 cursor-ns-resize items-end justify-center opacity-0 group-hover:opacity-100"
-        >
-          <span className="mb-px h-0.5 w-5 rounded-full bg-border" />
-        </span>
-      </button>
-    </ContextMenu>
+          {(off || detached) && (
+            <span className="absolute right-1 top-1 flex items-center gap-0.5 text-muted">
+              {detached && (
+                <span title="Edited away from its habit" aria-hidden="true">
+                  <Icon name="unlink" size={10} />
+                </span>
+              )}
+              {off && (
+                <span title="Outside the visible hours" aria-hidden="true">
+                  <Icon name="alert" size={10} />
+                </span>
+              )}
+            </span>
+          )}
+          <span
+            onPointerDown={onPointerDownTop}
+            className="absolute inset-x-0 top-0 z-10 flex h-1.5 cursor-ns-resize items-start justify-center opacity-0 group-hover:opacity-100"
+          >
+            <span className="mt-px h-0.5 w-5 rounded-full bg-border" />
+          </span>
+          <span
+            className={cx(
+              "block truncate text-[11px] leading-tight",
+              resolved ? "text-muted line-through" : "text-foreground",
+            )}
+          >
+            {task.title}
+          </span>
+          {height > 34 && (
+            <span className="mt-0.5 block text-[9px] tabular-nums text-muted">{timeLabel}</span>
+          )}
+          <span
+            onPointerDown={onPointerDownBottom}
+            className="absolute inset-x-0 bottom-0 z-10 flex h-1.5 cursor-ns-resize items-end justify-center opacity-0 group-hover:opacity-100"
+          >
+            <span className="mb-px h-0.5 w-5 rounded-full bg-border" />
+          </span>
+        </button>
+      </ContextMenu>
+      {/* Siblings, not children: the button is overflow-hidden, and a press inside the
+          ContextMenu wrapper would start a menu timer that makes dwell-then-resize ambiguous. */}
+      {isArmed &&
+        (["top", "bottom"] as const).map((edge) => (
+          <ArmedResizeHandle
+            key={edge}
+            edge={edge}
+            chipTop={top}
+            chipHeight={height}
+            left={left}
+            width={width}
+            onPointerDown={(e) => onPointerDownHandle(e, edge)}
+          />
+        ))}
+    </>
   );
 }
