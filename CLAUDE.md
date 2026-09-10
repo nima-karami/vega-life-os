@@ -43,6 +43,9 @@ It runs on every commit (pre-commit hook via husky/lint-staged) and in CI.
   repo (`tsconfig.json` → `tsconfig.app.json` + `tsconfig.node.json`). The real
   typecheck is **`tsc -b`** (or `tsc -b --force` to bust the stale `.tsbuildinfo`
   cache). `npm run typecheck` / `verify` already use `tsc -b`.
+- **Unit tests are node-only.** `apps/web/vitest.config.ts` is `environment: "node"` with
+  `include: ["src/**/*.test.ts"]` — no DOM, no `renderHook`, and `.tsx` test files are never
+  collected. Anything that has to render is proved in e2e, not in a unit test.
 - Dev server runs on **port 5180** (`npm run dev`), not Vite's default 5173.
 - Stack: **React 19 + Vite 8 + Tailwind v4 + HeroUI v3 + react-router 8 + Zustand 5 +
   Dexie/Firestore**. date-fns for all date math. Lucide for icons. dnd-kit for drag-reorder.
