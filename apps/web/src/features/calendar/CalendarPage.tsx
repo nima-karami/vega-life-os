@@ -57,6 +57,7 @@ import {
   getMinuteAtOffset,
   HOUR_PX,
   HOURS,
+  isOffWindow,
   layoutColumns,
   resolveDrag,
   resolveDropZone,
@@ -71,6 +72,7 @@ import {
   layoutSpanBars,
 } from "./grid-data";
 import { useCalendarAutoRefresh } from "./useCalendarAutoRefresh";
+import { type ChipPress, useChipArming } from "./useChipArming";
 import { WriteCalendarMissingBanner } from "./WriteCalendarMissingBanner";
 
 interface DragState {
@@ -89,6 +91,10 @@ interface DragState {
   zone: DropZone;
   /** when set, the move shifts a whole selection by the anchor's delta. */
   group?: GroupMember[];
+  /** How a touch drag was entered; `undefined` for a mouse or a pen past `sm`. */
+  touchOrigin?: "arm" | "armed-press";
+  /** The pointer that owns this drag — the window listeners ignore every other one. */
+  pointerId: number;
 }
 
 interface GroupMember {
@@ -183,6 +189,7 @@ export function CalendarPage() {
   const draftIdRef = useRef<string | null>(null);
   const justDragged = useRef(false);
   const pasteSuppressUntil = useRef(0);
+  const gestureSuppressUntil = useRef(0);
   const columnPressSourceRef = useRef<PressSource>("none");
   const [dragId, setDragId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -234,6 +241,7 @@ export function CalendarPage() {
     if (wasCompact.current === compact) return;
     wasCompact.current = compact;
     cancelChipPressRef.current();
+    disarmRef.current();
   }, [compact]);
 
   // Keep the active single day on today when the week contains it.
@@ -314,6 +322,7 @@ export function CalendarPage() {
   const onColumnClick = (e: React.MouseEvent, dayIso: string) => {
     if (justDragged.current) return;
     if (Date.now() < pasteSuppressUntil.current) return;
+    if (Date.now() < gestureSuppressUntil.current) return;
     if ((e.target as HTMLElement).closest("[data-block]")) return;
     const time = formatMinutes(minuteAt(e.clientY));
     if (clipRef.current) pasteAt(dayIso, time);
@@ -350,6 +359,12 @@ export function CalendarPage() {
     setTimeout(() => {
       justDragged.current = false;
     }, 0);
+  };
+
+  // markJustDragged's 0ms tick expires before a touch compatibility click lands, so a
+  // gesture that ends on empty grid needs a real time window instead.
+  const suppressNextClick = () => {
+    gestureSuppressUntil.current = Date.now() + 400;
   };
 
   // ── Selection helpers ───────────────────────────────────────────────────────
@@ -487,6 +502,100 @@ export function CalendarPage() {
         allDay: m.time == null,
       }));
 
+  // The arm timer fires 500ms after the synthetic event that carried the coordinates was
+  // pooled, so it replays this snapshot rather than reading a stale event.
+  const startTimedDrag = (
+    press: ChipPress,
+    t: Task,
+    mode: DragMode,
+    touchOrigin?: "arm" | "armed-press",
+    group?: GroupMember[],
+  ) => {
+    const grid = gridRef.current;
+    if (!grid || !t.time || !t.date) return;
+    const rect = grid.getBoundingClientRect();
+    const pointerMin = DAY_START + ((press.clientY - rect.top) / HOUR_PX) * 60;
+    const origStart = minutesOf(t.time);
+    dragRef.current = {
+      id: t.id,
+      mode,
+      origDate: t.date,
+      origStart,
+      origDur: t.durationMin,
+      grabMin: pointerMin - origStart,
+      moved: false,
+      startX: press.clientX,
+      startY: press.clientY,
+      zone: "timed",
+      group,
+      touchOrigin,
+      pointerId: press.pointerId,
+    };
+    const p = { date: t.date, start: origStart, durationMin: t.durationMin, isUntimed: false };
+    previewRef.current = p;
+    setPreview(p);
+    setDragId(t.id);
+  };
+
+  const arming = useChipArming({
+    onArm: (press) => {
+      const t = tasksRef.current.find((x) => x.id === press.id);
+      if (!t) return;
+      chipPressRef.current = null;
+      clearSelection();
+      setAnnounce(`${t.title} armed — drag to move, or drag an edge to resize`);
+      startTimedDrag(press, t, "move", "arm");
+    },
+    onDisarm: () => {
+      if (dragRef.current) cancelDrag();
+      suppressNextClick();
+    },
+  });
+  const armingRef = useRef(arming);
+  armingRef.current = arming;
+  const disarmRef = useRef(arming.disarm);
+  disarmRef.current = arming.disarm;
+
+  // An armed chip belongs to one day with nothing over it: navigating away, or opening any
+  // modal, picker or drawer, drops the arm (edges 4 and 6).
+  const armContext = [
+    activeDay,
+    weekRef.getTime(),
+    railOpen,
+    selected?.id ?? "",
+    editingEvent?.id ?? "",
+    scheduleSlot?.time ?? "",
+    scheduleTask?.id ?? "",
+    dayMoveTask?.id ?? "",
+    slotMenu?.time ?? "",
+  ].join("|");
+  const armContextRef = useRef(armContext);
+  useEffect(() => {
+    if (armContextRef.current === armContext) return;
+    armContextRef.current = armContext;
+    disarmRef.current();
+  }, [armContext]);
+
+  useEffect(() => {
+    const armedId = armingRef.current.armedChipId;
+    if (armedId && !tasks.some((t) => t.id === armedId)) disarmRef.current();
+  }, [tasks]);
+
+  const handleChipMenuOpened = () => {
+    cancelChipPress();
+    arming.yieldToMenu();
+  };
+
+  // Every menu item disarms: Copy and Relink open nothing and remove nothing, so without
+  // this the chip stays lifted with a live clipboard.
+  const withDisarm = (item: MenuItem): MenuItem => ({
+    ...item,
+    onSelect: () => {
+      arming.disarm();
+      item.onSelect();
+    },
+  });
+
   const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
@@ -498,6 +607,19 @@ export function CalendarPage() {
       // Remembered only so a still release still counts as a tap. Nothing is swallowed here:
       // the press must reach the chip's ContextMenu wrapper, touch's only route to the menu.
       chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
+      const isArmable =
+        mode === "move" &&
+        arming.armedChipId !== t.id &&
+        pressSourceOf(e.pointerType, compact) === "touch" &&
+        !isOffWindow(minutesOf(t.time));
+      if (isArmable) {
+        arming.beginPress({
+          id: t.id,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          pointerId: e.pointerId,
+        });
+      }
       return;
     }
     // Selection via modifier-click (desktop only; resize edges ignore it).
@@ -523,26 +645,13 @@ export function CalendarPage() {
     const group =
       mode === "move" && inSelection && selectedRef.current.size > 1 ? captureGroup() : undefined;
     if (mode === "move" && !inSelection) clearSelection();
-    const rect = gridRef.current.getBoundingClientRect();
-    const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
-    const origStart = minutesOf(t.time);
-    dragRef.current = {
-      id: t.id,
+    startTimedDrag(
+      { id: t.id, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId },
+      t,
       mode,
-      origDate: t.date,
-      origStart,
-      origDur: t.durationMin,
-      grabMin: pointerMin - origStart,
-      moved: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      zone: "timed",
+      undefined,
       group,
-    };
-    const p = { date: t.date, start: origStart, durationMin: t.durationMin, isUntimed: false };
-    previewRef.current = p;
-    setPreview(p);
-    setDragId(t.id);
+    );
   };
 
   // Begin dragging an all-day chip: sideways keeps it untimed, down onto the grid schedules it.
@@ -577,6 +686,7 @@ export function CalendarPage() {
       startX: e.clientX,
       startY: e.clientY,
       zone: "untimed",
+      pointerId: e.pointerId,
     };
     const p = { date: t.date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true };
     previewRef.current = p;
@@ -788,8 +898,10 @@ export function CalendarPage() {
       markJustDragged();
       return;
     }
-    if (d.mode !== "move" || d.moved) return;
-    handleChipTapRef.current(d.id);
+    // An arming release must not also count as a tap; every other term reduces to the
+    // pre-touch expression when `touchOrigin` is undefined.
+    if (d.moved || d.touchOrigin === "arm") return;
+    if (d.mode === "move" || d.touchOrigin === "armed-press") handleChipTapRef.current(d.id);
   };
   const endDragRef = useRef(endDrag);
   endDragRef.current = endDrag;
@@ -949,16 +1061,17 @@ export function CalendarPage() {
   // get Open and "Schedule to time…" (the keyboard path for drag-to-schedule).
   const timedMenuItems = (t: Task): MenuItem[] => {
     const relink = relinkItemFor(t);
-    return [
+    const items: MenuItem[] = [
       { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
       { label: "Unschedule", icon: "calendar-off", onSelect: () => unschedule(t) },
       { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
       ...(relink ? [relink] : []),
     ];
+    return items.map(withDisarm);
   };
   const allDayMenuItems = (t: Task): MenuItem[] => {
     const relink = relinkItemFor(t);
-    return [
+    const items: MenuItem[] = [
       { label: "Open", icon: "edit", onSelect: () => openTask(t) },
       { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
       { label: "Move to day…", icon: "calendar", onSelect: () => setDayMoveTask(t) },
@@ -967,6 +1080,7 @@ export function CalendarPage() {
       { label: "Delete", icon: "trash", danger: true, onSelect: () => deleteTask(t) },
       ...(relink ? [relink] : []),
     ];
+    return items.map(withDisarm);
   };
 
   const gotoPrev = () => {
@@ -1378,13 +1492,14 @@ export function CalendarPage() {
                           detached={t.kind === "habit" && t.detached}
                           selected={selectedIds.has(t.id)}
                           provisional={provisional.has(t.id)}
+                          isArmed={arming.armedChipId === t.id}
                           onPointerDownBody={(e) => beginDrag(e, t, "move")}
                           onPointerUpBody={endChipPress}
                           onPointerCancelBody={cancelChipPress}
                           onPointerDownTop={(e) => beginDrag(e, t, "top")}
                           onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
                           onOpen={() => openTask(t)}
-                          onLongPress={cancelChipPress}
+                          onLongPress={handleChipMenuOpened}
                           menuItems={timedMenuItems(t)}
                         />
                       ))}

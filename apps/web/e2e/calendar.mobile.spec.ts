@@ -98,13 +98,34 @@ test("a pen drag on a timed chip writes nothing at phone width", async ({ page }
   await expect(page.getByRole("status")).not.toContainText("Moved to");
 });
 
-// A pen that aims like a finger earns the finger's route to the menu, scrim and all —
-// the half of the rule the resize tests below cannot see.
-test("a pen long press on a timed chip opens its menu at phone width", async ({ page }) => {
-  const chip = await openSeededChipDay(page);
-  const box = await chip.boundingBox();
+const armed = (page: Page) => page.locator('[data-armed="true"]');
+
+// The centre of the seeded chip — every armed gesture starts from the body.
+async function chipCentre(page: Page) {
+  const box = await (await findSeededChip(page)).boundingBox();
   if (!box) throw new Error("the timed chip has no bounding box");
-  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/** The first hold arms and opens nothing; the menu is a second gesture on the armed chip. */
+async function armSeededChip(page: Page) {
+  const centre = await chipCentre(page);
+  await longPress(page, centre);
+  await expect(armed(page)).toHaveCount(1);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  return centre;
+}
+
+// A pen that aims like a finger earns the finger's route to the menu, scrim and all —
+// the half of the rule the resize tests below cannot see. Two holds, like a finger's.
+test("a pen long press on a timed chip opens its menu at phone width", async ({ page }) => {
+  await openSeededChipDay(page);
+  const at = await chipCentre(page);
+
+  await penDrag(page, { from: at, to: at, durationMs: 700, steps: 7 });
+
+  await expect(armed(page)).toHaveCount(1);
+  await expect(page.getByRole("menu")).toHaveCount(0);
 
   await penDrag(page, { from: at, to: at, durationMs: 700, steps: 7 });
 
@@ -113,18 +134,62 @@ test("a pen long press on a timed chip opens its menu at phone width", async ({ 
   await expect(page.getByRole("textbox", { name: "Task title" })).toHaveCount(0);
 });
 
-test("a long press on a timed chip opens its menu and leaves the time alone", async ({ page }) => {
-  const chip = await openSeededChipDay(page);
-  const box = await chip.boundingBox();
-  if (!box) throw new Error("the timed chip has no bounding box");
+test("a long press on a timed chip arms it and opens no menu", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await chipCentre(page);
 
-  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await longPress(page, centre);
+
+  await expect(armed(page)).toHaveCount(1);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
+test("a long press on a timed chip opens its menu and leaves the time alone", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+
+  await longPress(page, centre);
 
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   for (const item of ["Copy", "Unschedule", "Delete"]) {
     await expect(menu.getByRole("menuitem", { name: item })).toBeVisible();
   }
+  await expect(armed(page)).toHaveCount(1);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
+test("a tap on empty grid disarms without creating a task", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+  const chipsBefore = await page.locator("[data-chip-id]").count();
+
+  await tap(page, { x: centre.x, y: centre.y + 160 });
+
+  await expect(armed(page)).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveCount(0);
+  await expect(page.locator("[data-chip-id]")).toHaveCount(chipsBefore);
+});
+
+test("Escape disarms an armed chip and leaves its time alone", async ({ page }) => {
+  await openSeededChipDay(page);
+  await armSeededChip(page);
+
+  await page.keyboard.press("Escape");
+
+  await expect(armed(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
+test("moving to the next day disarms an armed chip", async ({ page }) => {
+  await openSeededChipDay(page);
+  await armSeededChip(page);
+
+  await page.getByRole("button", { name: "Next day" }).click();
+
+  await expect(armed(page)).toHaveCount(0);
+  await page.getByRole("button", { name: "Previous day" }).click();
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
 });
 
@@ -161,13 +226,12 @@ test("a swipe on the chip body writes nothing at 900px", async ({ page }) => {
   await expect(page.getByRole("status")).not.toContainText("Moved to");
 });
 
+// A finger is a touch source at every width, so 900px arms on the first hold too.
 test("a long press on the chip body opens its menu at 900px", async ({ page }) => {
   await openCalendar(page, WIDE);
-  const chip = await findSeededChip(page);
-  const box = await chip.boundingBox();
-  if (!box) throw new Error("the timed chip has no bounding box");
+  const centre = await armSeededChip(page);
 
-  await longPress(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await longPress(page, centre);
 
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();

@@ -2,6 +2,7 @@ import { addMinutes } from "@/core/lib/date";
 import { ContextMenu, cx, Icon, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
+import { ARMED_CHIP_CLASS, getChipTouchActionClass } from "../chip-armed";
 import {
   type ColumnSlot,
   DRAG_THRESHOLD_PX,
@@ -20,6 +21,7 @@ export function TimedChip({
   detached,
   selected,
   provisional,
+  isArmed,
   onPointerDownBody,
   onPointerUpBody,
   onPointerCancelBody,
@@ -37,6 +39,7 @@ export function TimedChip({
   detached: boolean;
   selected: boolean;
   provisional: boolean;
+  isArmed: boolean;
   onPointerDownBody: (e: React.PointerEvent) => void;
   onPointerUpBody: (e: React.PointerEvent) => void;
   onPointerCancelBody: () => void;
@@ -61,7 +64,7 @@ export function TimedChip({
   return (
     <ContextMenu
       items={menuItems}
-      longPress
+      longPress={isArmed}
       longPressMoveTolerancePx={DRAG_THRESHOLD_PX}
       onLongPress={onLongPress}
     >
@@ -69,6 +72,7 @@ export function TimedChip({
         type="button"
         data-block
         data-chip-id={task.id}
+        data-armed={isArmed ? "true" : undefined}
         aria-pressed={selected}
         onPointerDown={onPointerDownBody}
         onPointerUp={onPointerUpBody}
@@ -83,9 +87,10 @@ export function TimedChip({
         className={cx(
           // A swipe belongs to the grid's scroller at every width — `touch-action` cannot read
           // the pointer, so a `sm:touch-none` froze the finger on a touchscreen laptop.
-          "group absolute block cursor-grab touch-manipulation select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm",
+          `group absolute block cursor-grab ${getChipTouchActionClass(isArmed)} select-none overflow-hidden rounded-[2px] border-l-[3px] px-1.5 py-1 text-left shadow-sm`,
           resolved ? "bg-surface-secondary" : "bg-surface",
           dim ? "opacity-30" : "opacity-100",
+          isArmed && ARMED_CHIP_CLASS,
           selected && "z-20 ring-2 ring-accent",
           provisional && !selected && "z-20 ring-2 ring-accent/40",
           dragging
