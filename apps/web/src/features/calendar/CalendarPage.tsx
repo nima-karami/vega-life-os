@@ -3,7 +3,15 @@ import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useTodayISO } from "@/core/lib/clock";
-import { addMinutes, formatShortDate, getWeekDays, minutesOf, weekStartOf } from "@/core/lib/date";
+import {
+  addMinutes,
+  dowIndex,
+  formatShortDate,
+  getWeekDays,
+  minutesOf,
+  todayISO,
+  weekStartOf,
+} from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   cx,
@@ -99,6 +107,14 @@ interface Preview {
   isUntimed: boolean;
 }
 
+// Today is marked with a border, not a ring: a ring paints outside the box, where the
+// strip's horizontal overflow clips it top and bottom.
+function dayChipTone(isActive: boolean, isToday: boolean): string {
+  if (isActive) return "border-accent bg-accent text-accent-foreground";
+  if (isToday) return "border-accent bg-surface text-accent";
+  return "border-border bg-surface text-foreground";
+}
+
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
   const goals = useStore((s) => s.goals);
@@ -154,7 +170,9 @@ export function CalendarPage() {
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
   const compact = useCompact();
-  const [activeDay, setActiveDay] = useState(0); // single-day index 0..6 on a phone
+  // Seeded from today so the first paint is already right — the effect below corrects
+  // only a later week change, and would otherwise flash Monday on mount.
+  const [activeDay, setActiveDay] = useState(() => dowIndex(todayISO())); // 0..6 on a phone
 
   const gridRef = useRef<HTMLDivElement>(null);
   const allDayRowRef = useRef<HTMLDivElement>(null);
@@ -1085,10 +1103,8 @@ export function CalendarPage() {
               aria-current={i === activeDay ? "date" : undefined}
               className={cx(
                 "flex min-w-[44px] flex-col items-center rounded-[12px] border px-2.5 py-1.5 transition-colors",
-                i === activeDay
-                  ? "border-accent bg-accent text-accent-foreground"
-                  : "border-border bg-surface text-foreground",
-                d.today && i !== activeDay && "ring-1 ring-accent",
+                // one arg, not two: `cx` is not tailwind-merge, so a second border-* would also land
+                dayChipTone(i === activeDay, d.today),
               )}
             >
               <span
@@ -1172,7 +1188,7 @@ export function CalendarPage() {
               {/* continuous multi-day bars, packed into lanes */}
               {spanBars.lanes > 0 && (
                 <div
-                  className="grid pt-1"
+                  className="grid gap-y-1 pt-1"
                   style={{
                     gridTemplateColumns: `${GUTTER}px repeat(${visibleDays.length}, 1fr)`,
                     gridAutoRows: "20px",
@@ -1209,7 +1225,9 @@ export function CalendarPage() {
                     <div
                       key={d.iso}
                       className={cx(
-                        "relative min-h-[28px] space-y-1 border-l border-border p-1",
+                        // gap, not space-y: a chip sits inside a `display:contents` context-menu
+                        // wrapper, and that wrapper generates no box to carry the margin.
+                        "relative flex min-h-[28px] flex-col gap-1 border-l border-border p-1",
                         isUntimedTarget && "bg-surface-secondary ring-1 ring-inset ring-accent",
                       )}
                     >

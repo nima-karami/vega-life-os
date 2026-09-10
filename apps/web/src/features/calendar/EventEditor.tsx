@@ -110,7 +110,7 @@ export function SpanBarChip({
       onClick={onOpen}
       aria-label={`${event.title}, multi-day, ${isTagged ? "tagged" : "untagged"} (from Google)`}
       className={cx(
-        "mx-px my-px flex min-w-0 items-center gap-1 overflow-hidden border-dashed bg-surface-secondary px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm",
+        "mx-px flex min-w-0 items-center gap-1 overflow-hidden border-dashed bg-surface-secondary px-1.5 py-0.5 text-left text-[10px] text-foreground shadow-sm",
         !continuesLeft && "rounded-l-[3px] border-l-[3px]",
         !continuesRight && "rounded-r-[3px]",
         !isTagged && "opacity-90",
