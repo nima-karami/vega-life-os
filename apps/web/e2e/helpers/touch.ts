@@ -112,9 +112,10 @@ export async function moveTouch(page: Page, fingers: TouchFinger | TouchFinger[]
   await dispatchTouch(page, "touchMove", asFingers(fingers));
 }
 
-/** Chromium releases whatever is missing from the list, so `[]` lifts every finger. */
-export async function endTouch(page: Page, stillDown: TouchFinger[] = []) {
-  await dispatchTouch(page, "touchEnd", stillDown);
+/** Releases the listed fingers — measured, not the state list the name once implied. `[]`
+ *  releases every finger still down, which is why every single-finger call passes nothing. */
+export async function endTouch(page: Page, release: TouchFinger[] = []) {
+  await dispatchTouch(page, "touchEnd", release);
 }
 
 /** A genuine browser-level `pointercancel` — what an OS gesture takeover produces. */

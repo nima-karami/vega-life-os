@@ -1,5 +1,15 @@
 import { expect, type Page, test } from "@playwright/test";
-import { dragAlong, endTouch, longPress, penDrag, startTouch, tap } from "./helpers/touch";
+import {
+  cancelTouch,
+  dragAlong,
+  endTouch,
+  longPress,
+  moveTouch,
+  penDrag,
+  startTouch,
+  swipe,
+  tap,
+} from "./helpers/touch";
 
 /**
  * Touch safety for the calendar's timed grid (spec
@@ -158,6 +168,105 @@ test("a long press on a timed chip opens its menu and leaves the time alone", as
   }
   await expect(armed(page)).toHaveCount(1);
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
+test("an armed chip moves when its body is swiped", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+
+  await swipe(page, {
+    from: centre,
+    to: { x: centre.x, y: centre.y + 46 },
+    durationMs: 300,
+    steps: 12,
+  });
+
+  await expect(armed(page)).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /^Update ID card, 14:00–15:00/ })).toBeVisible();
+});
+
+// 8px is about ten minutes, so the write proves the 15-minute snap, not the raw pointer.
+test("an armed body drag snaps to the quarter hour", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+
+  await swipe(page, {
+    from: centre,
+    to: { x: centre.x, y: centre.y + 8 },
+    durationMs: 200,
+    steps: 8,
+  });
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:15–14:15/ })).toBeVisible();
+});
+
+test("a tap on an armed chip opens the editor and disarms", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+
+  await tap(page, centre);
+
+  await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Update ID card");
+  await page.keyboard.press("Escape");
+  await expect(armed(page)).toHaveCount(0);
+});
+
+// The window listeners are shared, so only the pointer that started the drag may end it —
+// this is what the dropped `{ once: true }` on pointerup would otherwise break. The second
+// finger lands on the armed chip itself, the one place it does not also trip disarm edge 1.
+test("a second finger on the armed chip neither drives nor ends its drag", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+
+  await startTouch(page, { ...centre, id: 1 });
+  const held = { x: centre.x, y: centre.y + 46, id: 1 };
+  await dragAlong(page, { from: { ...centre, id: 1 }, to: held, durationMs: 250, steps: 10 });
+  // On the chip where it now sits, not where it started — a finger off it is edge 1.
+  const second = { x: centre.x - 30, y: centre.y + 46, id: 2 };
+  await startTouch(page, [held, second]);
+  await endTouch(page, [second]);
+  await expect(page.getByRole("status")).not.toContainText("Moved to");
+
+  await moveTouch(page, [{ x: centre.x, y: centre.y + 92, id: 1 }]);
+  await endTouch(page);
+
+  await expect(page.getByRole("button", { name: /^Update ID card, 15:00–16:00/ })).toBeVisible();
+  await expect(armed(page)).toHaveCount(1);
+});
+
+// The mirror case: a finger landing anywhere else is disarm edge 1, and a disarm cancels the
+// live drag rather than letting the other chip's position drive it.
+test("a finger landing off the armed chip disarms it and writes nothing", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+
+  await startTouch(page, { ...centre, id: 1 });
+  const held = { x: centre.x, y: centre.y + 46, id: 1 };
+  await dragAlong(page, { from: { ...centre, id: 1 }, to: held, durationMs: 250, steps: 10 });
+  await startTouch(page, [held, { x: centre.x, y: centre.y - 200, id: 2 }]);
+  await endTouch(page);
+
+  await expect(armed(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+  await expect(page.getByRole("status")).not.toContainText("Moved to");
+});
+
+test("a cancelled armed drag writes nothing and keeps the arm", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+
+  await startTouch(page, centre);
+  await dragAlong(page, {
+    from: centre,
+    to: { x: centre.x, y: centre.y + 46 },
+    durationMs: 250,
+    steps: 10,
+  });
+  await cancelTouch(page);
+
+  await expect(armed(page)).toHaveCount(1);
+  await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+  await expect(page.getByRole("status")).not.toContainText("Moved to");
 });
 
 test("a tap on empty grid disarms without creating a task", async ({ page }) => {

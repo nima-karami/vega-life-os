@@ -609,6 +609,21 @@ export function CalendarPage() {
     chipPressSourceRef.current = pressSourceOf(e.pointerType, compact);
     if (e.button !== 0) return;
     if (!gridRef.current || !t.time || !t.date) return;
+    // An armed chip takes the press itself. stopPropagation is load-bearing: without it a
+    // handle press bubbles to the body handler and every resize silently becomes a move.
+    if (arming.armedChipId === t.id && pressSourceOf(e.pointerType, compact) === "touch") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dragRef.current) return; // a live drag owns the chip; a second finger cannot steal it
+      arming.beginArmedPress(e.pointerId);
+      startTimedDrag(
+        { id: t.id, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId },
+        t,
+        mode,
+        "armed-press",
+      );
+      return;
+    }
     // The pointer decides, never the width: a touchscreen laptop is past `sm` and still has
     // only fingers, so a width-gated finger armed a real move drag and silently rescheduled.
     const canResize = e.pointerType === "mouse" || (e.pointerType === "pen" && !compact);
@@ -864,6 +879,8 @@ export function CalendarPage() {
   const endDrag = (d: DragState, p: Preview) => {
     if (d.mode === "allday") {
       const t = tasksRef.current.find((x) => x.id === d.id);
+      // A still arming release comes to rest armed; a moved one is a real single-gesture drag.
+      if (!d.moved && d.touchOrigin === "arm") return;
       if (!d.moved) {
         if (t) openTask(t); // a tap on an all-day chip still opens it
         return;
@@ -927,7 +944,7 @@ export function CalendarPage() {
     const onMove = (e: PointerEvent) => {
       const d = dragRef.current;
       const grid = gridRef.current;
-      if (!d || !grid) return;
+      if (!d || !grid || e.pointerId !== d.pointerId) return;
       const rect = grid.getBoundingClientRect();
       const cols = dragDaysRef.current;
 
@@ -936,6 +953,7 @@ export function CalendarPage() {
         const travelPx = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
         if (!d.moved && travelPx < DRAG_THRESHOLD_PX) return;
         d.moved = true;
+        if (d.touchOrigin != null) armingRef.current.reportTravel("move");
         // the seam is the all-day row's bottom edge; a grid-relative Y drifts as the grid scrolls
         const allDayRect = allDayRowRef.current?.getBoundingClientRect();
         // no row box = no seam to measure, so stay untimed rather than silently schedule
@@ -970,11 +988,13 @@ export function CalendarPage() {
         isUntimed: false,
       };
       d.moved = true;
+      if (d.touchOrigin != null) armingRef.current.reportTravel(d.mode);
       previewRef.current = next;
       setPreview(next);
     };
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
       const d = dragRef.current;
+      if (d && e.pointerId !== d.pointerId) return;
       const p = previewRef.current;
       if (d && p) endDragRef.current(d, p);
       dragRef.current = null;
@@ -983,12 +1003,17 @@ export function CalendarPage() {
       setPreview(null);
     };
     // Esc, or a touch interrupted by a system gesture, abandons the drag with no change.
-    const onCancel = () => cancelDragRef.current();
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerId !== dragRef.current?.pointerId) return;
+      cancelDragRef.current();
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") cancelDragRef.current();
     };
     window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp, { once: true });
+    // Not { once: true }: with pointerId filtering a foreign pointer would consume the once
+    // and strand the drag. The cleanup below already removes it.
+    window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
     window.addEventListener("keydown", onKey);
     return () => {
