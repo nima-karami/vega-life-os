@@ -190,6 +190,8 @@ export function CalendarPage() {
   const justDragged = useRef(false);
   const pasteSuppressUntil = useRef(0);
   const gestureSuppressUntil = useRef(0);
+  // Read by each chip's non-passive touchmove blocker; a leaked true freezes that chip.
+  const isTouchDragLiveRef = useRef(false);
   const columnPressSourceRef = useRef<PressSource>("none");
   const chipPressSourceRef = useRef<PressSource>("none");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -543,11 +545,13 @@ export function CalendarPage() {
       const t = tasksRef.current.find((x) => x.id === press.id);
       if (!t) return;
       chipPressRef.current = null;
+      isTouchDragLiveRef.current = true;
       clearSelection();
       setAnnounce(`${t.title} armed — drag to move, or drag an edge to resize`);
       startTimedDrag(press, t, "move", "arm");
     },
     onDisarm: () => {
+      isTouchDragLiveRef.current = false;
       if (dragRef.current) cancelDrag();
       suppressNextClick();
     },
@@ -615,6 +619,7 @@ export function CalendarPage() {
       e.preventDefault();
       e.stopPropagation();
       if (dragRef.current) return; // a live drag owns the chip; a second finger cannot steal it
+      isTouchDragLiveRef.current = true;
       arming.beginArmedPress(e.pointerId);
       startTimedDrag(
         { id: t.id, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId },
@@ -722,6 +727,7 @@ export function CalendarPage() {
 
   // Abandon an in-flight drag with no change (Esc / navigation).
   const cancelDrag = () => {
+    isTouchDragLiveRef.current = false;
     dragRef.current = null;
     previewRef.current = null;
     setDragId(null);
@@ -997,6 +1003,7 @@ export function CalendarPage() {
       if (d && e.pointerId !== d.pointerId) return;
       const p = previewRef.current;
       if (d && p) endDragRef.current(d, p);
+      isTouchDragLiveRef.current = false;
       dragRef.current = null;
       previewRef.current = null;
       setDragId(null);
@@ -1017,6 +1024,7 @@ export function CalendarPage() {
     window.addEventListener("pointercancel", onCancel);
     window.addEventListener("keydown", onKey);
     return () => {
+      isTouchDragLiveRef.current = false;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
@@ -1391,6 +1399,7 @@ export function CalendarPage() {
                           task={t}
                           dragging={dragId === t.id}
                           selected={selectedIds.has(t.id)}
+                          isTouchDragLiveRef={isTouchDragLiveRef}
                           onPointerDownBody={(e) => beginAllDayDrag(e, t)}
                           onOpen={() => openTask(t)}
                           onLongPress={cancelDrag}
@@ -1530,6 +1539,7 @@ export function CalendarPage() {
                           selected={selectedIds.has(t.id)}
                           provisional={provisional.has(t.id)}
                           isArmed={arming.armedChipId === t.id}
+                          isTouchDragLiveRef={isTouchDragLiveRef}
                           onPointerDownBody={(e) => beginDrag(e, t, "move")}
                           onPointerUpBody={endChipPress}
                           onPointerCancelBody={cancelChipPress}

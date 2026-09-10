@@ -54,13 +54,18 @@ async function findSeededChip(page: Page) {
 
 // The seeded "Update ID card" sits on the week's Thursday; the day strip is the only way
 // to reach it on a phone, and the label is derived from the week so no date is pinned.
-async function openSeededChipDay(page: Page, viewport = PHONE) {
-  await openCalendar(page, viewport);
+async function openThursday(page: Page) {
+  await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   await page
     .locator("main button")
     .filter({ hasText: /^Thu\d{2}$/ })
     .first()
     .click();
+}
+
+async function openSeededChipDay(page: Page, viewport = PHONE) {
+  await openCalendar(page, viewport);
+  await openThursday(page);
   return findSeededChip(page);
 }
 
@@ -168,6 +173,33 @@ test("a long press on a timed chip opens its menu and leaves the time alone", as
   }
   await expect(armed(page)).toHaveCount(1);
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
+});
+
+// The single-gesture path: the hold arms without lifting and the same finger keeps dragging,
+// which only survives because the chip blocks `touchmove` once the drag is live. 92px is two
+// hour rows, so 13:00 walks forward to 15:00.
+test("a hold that keeps dragging moves the chip in one gesture", async ({ page }) => {
+  await openSeededChipDay(page);
+  const centre = await chipCentre(page);
+
+  await startTouch(page, centre);
+  await page.waitForTimeout(620);
+  await dragAlong(page, {
+    from: centre,
+    to: { x: centre.x, y: centre.y + 92 },
+    durationMs: 300,
+    steps: 12,
+  });
+  await endTouch(page);
+
+  await expect(armed(page)).toHaveCount(1);
+  await expect(page.getByRole("status")).toContainText("Moved to");
+  await expect(page.getByRole("button", { name: /^Update ID card, 15:00–16:00/ })).toBeVisible();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await openThursday(page);
+  await expect(page.getByRole("button", { name: /^Update ID card, 15:00–16:00/ })).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 test("an armed chip moves when its body is swiped", async ({ page }) => {

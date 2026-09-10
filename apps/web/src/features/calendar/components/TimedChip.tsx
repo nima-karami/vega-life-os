@@ -11,6 +11,7 @@ import {
   getChipTop,
   isOffWindow,
 } from "../geometry";
+import { useTouchDragBlocker } from "../useTouchDragBlocker";
 
 export function TimedChip({
   task,
@@ -22,6 +23,7 @@ export function TimedChip({
   selected,
   provisional,
   isArmed,
+  isTouchDragLiveRef,
   onPointerDownBody,
   onPointerUpBody,
   onPointerCancelBody,
@@ -41,6 +43,7 @@ export function TimedChip({
   selected: boolean;
   provisional: boolean;
   isArmed: boolean;
+  isTouchDragLiveRef: React.RefObject<boolean>;
   onPointerDownBody: (e: React.PointerEvent) => void;
   onPointerUpBody: (e: React.PointerEvent) => void;
   onPointerCancelBody: () => void;
@@ -53,6 +56,7 @@ export function TimedChip({
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
+  const chipRef = useTouchDragBlocker(isTouchDragLiveRef);
   const top = getChipTop(eff.start);
   const height = getChipHeight(eff.durationMin);
   // side-by-side columns for overlapping chips; 2px gutters keep them distinct
@@ -72,6 +76,7 @@ export function TimedChip({
       onLongPress={onLongPress}
     >
       <button
+        ref={chipRef}
         type="button"
         data-block
         data-chip-id={task.id}

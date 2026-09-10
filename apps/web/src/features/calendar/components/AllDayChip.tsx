@@ -2,11 +2,13 @@ import { ContextMenu, cx, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
 import { DRAG_THRESHOLD_PX } from "../geometry";
+import { useTouchDragBlocker } from "../useTouchDragBlocker";
 
 export function AllDayChip({
   task,
   dragging,
   selected,
+  isTouchDragLiveRef,
   onPointerDownBody,
   onOpen,
   onLongPress,
@@ -16,6 +18,7 @@ export function AllDayChip({
   task: Task;
   dragging: boolean;
   selected: boolean;
+  isTouchDragLiveRef: React.RefObject<boolean>;
   onPointerDownBody: (e: React.PointerEvent) => void;
   onOpen: () => void;
   onLongPress: () => void;
@@ -24,6 +27,7 @@ export function AllDayChip({
   menuItems: MenuItem[];
 }) {
   const accent = useValueColor(task.valueId);
+  const chipRef = useTouchDragBlocker(isTouchDragLiveRef);
   const resolved = task.status === "done" || task.status === "skip";
   return (
     <ContextMenu
@@ -33,6 +37,7 @@ export function AllDayChip({
       onLongPress={onLongPress}
     >
       <button
+        ref={chipRef}
         type="button"
         data-block
         data-chip-id={task.id}
