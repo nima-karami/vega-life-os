@@ -73,6 +73,7 @@ import {
 } from "./grid-data";
 import { useCalendarAutoRefresh } from "./useCalendarAutoRefresh";
 import { type ChipPress, useChipArming } from "./useChipArming";
+import { useDragAutoScroll } from "./useDragAutoScroll";
 import { WriteCalendarMissingBanner } from "./WriteCalendarMissingBanner";
 
 interface DragState {
@@ -179,6 +180,7 @@ export function CalendarPage() {
   const [activeDay, setActiveDay] = useState(() => dowIndex(todayIso)); // 0..6 on a phone
 
   const gridRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const allDayRowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const previewRef = useRef<Preview | null>(null);
@@ -192,6 +194,11 @@ export function CalendarPage() {
   const gestureSuppressUntil = useRef(0);
   // Read by each chip's non-passive touchmove blocker; a leaked true freezes that chip.
   const isTouchDragLiveRef = useRef(false);
+  const applyDragAtRef = useRef<(clientX: number, clientY: number) => void>(() => {});
+  const autoScroll = useDragAutoScroll({
+    scrollerRef,
+    onScrolled: (clientX, clientY) => applyDragAtRef.current(clientX, clientY),
+  });
   const columnPressSourceRef = useRef<PressSource>("none");
   const chipPressSourceRef = useRef<PressSource>("none");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -552,11 +559,14 @@ export function CalendarPage() {
       else startAllDayDrag(press, t, "arm");
     },
     onDisarm: () => {
+      autoScroll.stop();
       isTouchDragLiveRef.current = false;
       if (dragRef.current) cancelDrag();
       suppressNextClick();
     },
   });
+  const autoScrollRef = useRef(autoScroll);
+  autoScrollRef.current = autoScroll;
   const armingRef = useRef(arming);
   armingRef.current = arming;
   const disarmRef = useRef(arming.disarm);
@@ -750,6 +760,7 @@ export function CalendarPage() {
 
   // Abandon an in-flight drag with no change (Esc / navigation).
   const cancelDrag = () => {
+    autoScroll.stop();
     isTouchDragLiveRef.current = false;
     dragRef.current = null;
     previewRef.current = null;
@@ -968,64 +979,72 @@ export function CalendarPage() {
   const dragDaysRef = useRef(dragDays);
   dragDaysRef.current = dragDays;
 
+  const applyDragAt = (clientX: number, clientY: number) => {
+    const d = dragRef.current;
+    const grid = gridRef.current;
+    if (!d || !grid) return;
+    const rect = grid.getBoundingClientRect();
+    const cols = dragDaysRef.current;
+
+    if (d.mode === "allday") {
+      // ignore sub-threshold jitter so a tap still opens the chip
+      const travelPx = Math.hypot(clientX - d.startX, clientY - d.startY);
+      if (!d.moved && travelPx < DRAG_THRESHOLD_PX) return;
+      d.moved = true;
+      if (d.touchOrigin != null) armingRef.current.reportTravel("move");
+      // the seam is the all-day row's bottom edge; a grid-relative Y drifts as the grid scrolls
+      const allDayRect = allDayRowRef.current?.getBoundingClientRect();
+      // no row box = no seam to measure, so stay untimed rather than silently schedule
+      d.zone = allDayRect ? resolveDropZone(clientY - allDayRect.bottom, d.zone) : "untimed";
+      const isUntimedZone = d.zone === "untimed";
+      const box = isUntimedZone && allDayRect ? allDayRect : rect;
+      const date = cols[getColumnIndexAt(clientX, box, cols.length)].iso;
+      const next = isUntimedZone
+        ? { date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true }
+        : {
+            date,
+            start: dropToSchedule(clientY - rect.top).startMin,
+            durationMin: DROP_DURATION,
+            isUntimed: false,
+          };
+      previewRef.current = next;
+      setPreview(next);
+      return;
+    }
+
+    // ignore sub-threshold jitter so a click still opens the chip
+    if (!d.moved && Math.hypot(clientX - d.startX, clientY - d.startY) < DRAG_THRESHOLD_PX) return;
+    const date = cols[getColumnIndexAt(clientX, rect, cols.length)].iso;
+    const pointerMin = DAY_START + ((clientY - rect.top) / HOUR_PX) * 60;
+    const next = {
+      ...resolveDrag(
+        d.mode,
+        { origDate: d.origDate, origStart: d.origStart, origDur: d.origDur },
+        { pointerMin, grabMin: d.grabMin, targetDate: date },
+      ),
+      isUntimed: false,
+    };
+    d.moved = true;
+    if (d.touchOrigin != null) armingRef.current.reportTravel(d.mode);
+    previewRef.current = next;
+    setPreview(next);
+    // Gating on touchOrigin is what keeps a desktop drag free of auto-scroll.
+    if (d.touchOrigin != null) autoScroll.track(clientX, clientY);
+  };
+  applyDragAtRef.current = applyDragAt;
+
   useEffect(() => {
     if (!dragId) return;
     const onMove = (e: PointerEvent) => {
-      const d = dragRef.current;
-      const grid = gridRef.current;
-      if (!d || !grid || e.pointerId !== d.pointerId) return;
-      const rect = grid.getBoundingClientRect();
-      const cols = dragDaysRef.current;
-
-      if (d.mode === "allday") {
-        // ignore sub-threshold jitter so a tap still opens the chip
-        const travelPx = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
-        if (!d.moved && travelPx < DRAG_THRESHOLD_PX) return;
-        d.moved = true;
-        if (d.touchOrigin != null) armingRef.current.reportTravel("move");
-        // the seam is the all-day row's bottom edge; a grid-relative Y drifts as the grid scrolls
-        const allDayRect = allDayRowRef.current?.getBoundingClientRect();
-        // no row box = no seam to measure, so stay untimed rather than silently schedule
-        d.zone = allDayRect ? resolveDropZone(e.clientY - allDayRect.bottom, d.zone) : "untimed";
-        const isUntimedZone = d.zone === "untimed";
-        const box = isUntimedZone && allDayRect ? allDayRect : rect;
-        const date = cols[getColumnIndexAt(e.clientX, box, cols.length)].iso;
-        const next = isUntimedZone
-          ? { date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true }
-          : {
-              date,
-              start: dropToSchedule(e.clientY - rect.top).startMin,
-              durationMin: DROP_DURATION,
-              isUntimed: false,
-            };
-        previewRef.current = next;
-        setPreview(next);
-        return;
-      }
-
-      // ignore sub-threshold jitter so a click still opens the chip
-      if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD_PX)
-        return;
-      const date = cols[getColumnIndexAt(e.clientX, rect, cols.length)].iso;
-      const pointerMin = DAY_START + ((e.clientY - rect.top) / HOUR_PX) * 60;
-      const next = {
-        ...resolveDrag(
-          d.mode,
-          { origDate: d.origDate, origStart: d.origStart, origDur: d.origDur },
-          { pointerMin, grabMin: d.grabMin, targetDate: date },
-        ),
-        isUntimed: false,
-      };
-      d.moved = true;
-      if (d.touchOrigin != null) armingRef.current.reportTravel(d.mode);
-      previewRef.current = next;
-      setPreview(next);
+      if (e.pointerId !== dragRef.current?.pointerId) return;
+      applyDragAtRef.current(e.clientX, e.clientY);
     };
     const onUp = (e: PointerEvent) => {
       const d = dragRef.current;
       if (d && e.pointerId !== d.pointerId) return;
       const p = previewRef.current;
       if (d && p) endDragRef.current(d, p);
+      autoScrollRef.current.stop();
       isTouchDragLiveRef.current = false;
       dragRef.current = null;
       previewRef.current = null;
@@ -1047,6 +1066,7 @@ export function CalendarPage() {
     window.addEventListener("pointercancel", onCancel);
     window.addEventListener("keydown", onKey);
     return () => {
+      autoScrollRef.current.stop();
       isTouchDragLiveRef.current = false;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -1445,7 +1465,11 @@ export function CalendarPage() {
             </div>
 
             {/* timed grid body */}
-            <ScrollShadow className="relative" style={{ maxHeight: "calc(100dvh - 360px)" }}>
+            <ScrollShadow
+              ref={scrollerRef}
+              className="relative"
+              style={{ maxHeight: "calc(100dvh - 360px)" }}
+            >
               <div
                 ref={gridRef}
                 className={cx("relative grid", (dragId || marquee) && "select-none")}

@@ -115,6 +115,54 @@ test("a pen drag on a timed chip writes nothing at phone width", async ({ page }
 
 const armed = (page: Page) => page.locator('[data-armed="true"]');
 
+/**
+ * The timed grid's own scroller is ScrollShadow's inner node, which the page exposes no handle
+ * for — walk up from the seeded chip. `HOUR_PX` is 46 and the window opens at 05:00, so the
+ * hour at its bottom edge follows from `scrollTop`.
+ */
+async function measureTimedScroller(page: Page) {
+  // Matched loosely: after a move the chip no longer carries its seeded range.
+  return page.getByRole("button", { name: /^Update ID card, / }).evaluate((el) => {
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const overflowY = getComputedStyle(node).overflowY;
+      if (
+        (overflowY === "auto" || overflowY === "scroll") &&
+        node.scrollHeight > node.clientHeight
+      ) {
+        const box = node.getBoundingClientRect();
+        return {
+          bottom: box.bottom,
+          scrollTop: node.scrollTop,
+          bottomVisibleMinute: 5 * 60 + ((node.scrollTop + node.clientHeight) / 46) * 60,
+        };
+      }
+    }
+    throw new Error("the timed grid has no scroller");
+  });
+}
+
+/**
+ * Parks the chip 120px inside the scroller, clear of both auto-scroll edge bands. Without it a
+ * 92px drag from wherever `scrollIntoViewIfNeeded` left the chip ends inside the bottom band and
+ * keeps sliding while the finger rests there — real behaviour, but not what these tests measure.
+ */
+async function parkChipClearOfEdges(page: Page) {
+  const chip = await findSeededChip(page);
+  await chip.evaluate((el) => {
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const overflowY = getComputedStyle(node).overflowY;
+      if (
+        (overflowY === "auto" || overflowY === "scroll") &&
+        node.scrollHeight > node.clientHeight
+      ) {
+        node.scrollTop += el.getBoundingClientRect().top - node.getBoundingClientRect().top - 120;
+        return;
+      }
+    }
+    throw new Error("the timed grid has no scroller");
+  });
+}
+
 // The centre of the seeded chip — every armed gesture starts from the body.
 async function chipCentre(page: Page) {
   const box = await (await findSeededChip(page)).boundingBox();
@@ -124,6 +172,7 @@ async function chipCentre(page: Page) {
 
 /** The first hold arms and opens nothing; the menu is a second gesture on the armed chip. */
 async function armSeededChip(page: Page) {
+  await parkChipClearOfEdges(page);
   const centre = await chipCentre(page);
   await longPress(page, centre);
   await expect(armed(page)).toHaveCount(1);
@@ -229,6 +278,7 @@ test("a long press on a timed chip opens its menu and leaves the time alone", as
 // hour rows, so 13:00 walks forward to 15:00.
 test("a hold that keeps dragging moves the chip in one gesture", async ({ page }) => {
   await openSeededChipDay(page);
+  await parkChipClearOfEdges(page);
   const centre = await chipCentre(page);
 
   await startTouch(page, centre);
@@ -348,6 +398,43 @@ test("a cancelled armed drag writes nothing and keeps the arm", async ({ page })
   await expect(armed(page)).toHaveCount(1);
   await expect(page.getByRole("button", { name: CHIP_LABEL })).toHaveCount(1);
   await expect(page.getByRole("status")).not.toContainText("Moved to");
+});
+
+const startMinuteOf = async (page: Page) => {
+  const label = await page
+    .getByRole("button", { name: /^Update ID card, / })
+    .getAttribute("aria-label");
+  const [, hh, mm] = /(\d{2}):(\d{2})/.exec(label ?? "") ?? [];
+  return Number(hh) * 60 + Number(mm);
+};
+
+test("an armed drag held at the bottom edge scrolls the grid and lands past it", async ({
+  page,
+}) => {
+  await openSeededChipDay(page);
+  const centre = await armSeededChip(page);
+  // The grid is 874px inside a ~480px viewport, so without auto-scroll a move cannot leave the
+  // hours already on screen.
+  const before = await measureTimedScroller(page);
+
+  // 20px inside the scroller's bottom edge band, where the rate curve is near its ceiling.
+  const band = { x: centre.x, y: before.bottom - 20 };
+  await startTouch(page, centre);
+  await dragAlong(page, { from: centre, to: band, durationMs: 250, steps: 10 });
+  // The hold is the point: a resting finger emits no pointermove, so only an rAF loop scrolls.
+  await page.waitForTimeout(700);
+  await moveTouch(page, band);
+  await endTouch(page);
+
+  const after = await measureTimedScroller(page);
+  expect(after.scrollTop, "the held drag did not scroll the grid").toBeGreaterThan(
+    before.scrollTop,
+  );
+  expect(
+    await startMinuteOf(page),
+    "the chip never left the hours visible at drag start",
+  ).toBeGreaterThan(before.bottomVisibleMinute);
+  await expect(armed(page)).toHaveCount(1);
 });
 
 test("a tap on empty grid disarms without creating a task", async ({ page }) => {
