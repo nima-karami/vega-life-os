@@ -27,6 +27,11 @@ describe("computeAutoScrollVelocity", () => {
     );
   });
 
+  it("the ceiling is the tuned 600 px/s, not whatever the ramp is expressed in", () => {
+    expect(AUTO_SCROLL_MAX_PX_PER_SEC).toBe(600);
+    expect(computeAutoScrollVelocity(BOUNDS.bottom - AUTO_SCROLL_EDGE_PX / 2, BOUNDS)).toBe(300);
+  });
+
   it("the top band scrolls up and the bottom band scrolls down", () => {
     expect(computeAutoScrollVelocity(BOUNDS.top + 1, BOUNDS)).toBeLessThan(0);
     expect(computeAutoScrollVelocity(BOUNDS.bottom - 1, BOUNDS)).toBeGreaterThan(0);

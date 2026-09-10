@@ -1,5 +1,5 @@
 export const AUTO_SCROLL_EDGE_PX = 48;
-export const AUTO_SCROLL_MAX_PX_PER_SEC = 900;
+export const AUTO_SCROLL_MAX_PX_PER_SEC = 600;
 
 const rampVelocity = (depthPx: number) =>
   Math.min(1, depthPx / AUTO_SCROLL_EDGE_PX) * AUTO_SCROLL_MAX_PX_PER_SEC;
