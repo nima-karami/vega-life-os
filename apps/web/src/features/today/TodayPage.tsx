@@ -2,10 +2,12 @@ import { Button } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { formatLongDate, formatRelativeDay, shiftISO, todayISO } from "@/core/lib/date";
+import { getZonedWallClock } from "@/core/lib/zone";
 import { useStore } from "@/core/store";
 import { CalendarPopover, Icon, IconButton, UndoBar } from "@/core/ui";
 import { EventEditor } from "@/features/calendar/EventEditor";
 import type { CalendarEvent } from "@/features/calendar-sync";
+import { useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import {
   BackfillNudge,
   GratitudeStep,
@@ -40,6 +42,10 @@ export function TodayPage() {
   // back/forward a day or jump to any date, without leaving this surface.
   const [viewDate, setViewDate] = useState(today);
   const isToday = viewDate === today;
+  // The calendar layer is expressed in the account zone, so whether an event has
+  // passed must be judged there — the rest of this page stays browser-zone.
+  const displayZone = useDisplayZone();
+  const isDisplayToday = viewDate === getZonedWallClock(Date.now(), displayZone).date;
 
   const navigate = useNavigate();
 
@@ -247,7 +253,8 @@ export function TodayPage() {
           ) : (
             <RemainingTasks
               layout={layout}
-              isToday={isToday}
+              isToday={isDisplayToday}
+              zone={displayZone}
               onOpen={setEditing}
               onOpenEvent={setEditingEvent}
               onToggleDone={handleToggleDone}

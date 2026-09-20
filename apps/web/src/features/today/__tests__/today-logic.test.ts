@@ -446,25 +446,47 @@ describe("layoutDay()", () => {
 // ─── hasEventEnded ─────────────────────────────────────────────────────────────
 
 describe("hasEventEnded()", () => {
-  const at = (time: string) => new Date(`${TODAY}T${time}`).getTime();
+  // Absolute instants, never a wall-clock string: the runner pins TZ=UTC, so a
+  // `new Date("2026-06-21T11:00")` would parse in the very zone under test and agree
+  // with any implementation by construction.
+  const utc = (h: number, m = 0) => Date.UTC(2026, 5, 21, h, m);
+  const nextDayUtc = (h: number, m = 0) => Date.UTC(2026, 5, 22, h, m);
+
+  it("gives opposite answers for one instant in two zones", () => {
+    const meeting = event({ time: "10:00", durationMin: 60 });
+    // 03:00Z is 03:00 in UTC (still ahead of the block) and 12:00 in Tokyo (past it).
+    expect(hasEventEnded(meeting, utc(3), "UTC")).toBe(false);
+    expect(hasEventEnded(meeting, utc(3), "Asia/Tokyo")).toBe(true);
+  });
 
   it("is over once start + duration has passed", () => {
     const meeting = event({ time: "10:00", durationMin: 60 });
-    expect(hasEventEnded(meeting, at("11:01"))).toBe(true);
+    expect(hasEventEnded(meeting, utc(11, 1), "UTC")).toBe(true);
   });
 
   it("is not over while it is still running", () => {
     const meeting = event({ time: "10:00", durationMin: 60 });
-    expect(hasEventEnded(meeting, at("10:30"))).toBe(false);
+    expect(hasEventEnded(meeting, utc(10, 30), "UTC")).toBe(false);
   });
 
   it("ends exactly on its end time", () => {
     const meeting = event({ time: "10:00", durationMin: 60 });
-    expect(hasEventEnded(meeting, at("11:00"))).toBe(true);
+    expect(hasEventEnded(meeting, utc(11), "UTC")).toBe(true);
   });
 
-  it("never ends an all-day event inside its own day", () => {
+  it("keeps running past midnight until its own duration is spent", () => {
+    const nightShift = event({ time: "23:00", durationMin: 120 });
+    expect(hasEventEnded(nightShift, nextDayUtc(0, 30), "UTC")).toBe(false);
+    expect(hasEventEnded(nightShift, nextDayUtc(1, 30), "UTC")).toBe(true);
+  });
+
+  it("never ends an all-day event inside its own day, in any zone", () => {
     const allDay = event({ time: null, allDay: true });
-    expect(hasEventEnded(allDay, at("23:59"))).toBe(false);
+    expect(hasEventEnded(allDay, utc(23, 59), "UTC")).toBe(false);
+    expect(hasEventEnded(allDay, utc(23, 59), "Asia/Tokyo")).toBe(false);
+  });
+
+  it("never ends a timed event that lost its time", () => {
+    expect(hasEventEnded(event({ time: null }), utc(23, 59), "UTC")).toBe(false);
   });
 });

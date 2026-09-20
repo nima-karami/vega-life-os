@@ -4,7 +4,9 @@
  * node vitest environment (no DOM). Components import these helpers.
  */
 import type { CalendarEvent } from "@vega/shared";
+import { daysBetween, minutesOf } from "@/core/lib/date";
 import { reorderByIds } from "@/core/lib/reorder";
+import { getZonedWallClock } from "@/core/lib/zone";
 import { getAllDayLivedForDay, getTimedLivedForDay } from "@/features/calendar/grid-data";
 import type { Goal } from "@/features/goals/model";
 import type { Task, TaskStatus } from "@/features/tasks/model";
@@ -175,9 +177,13 @@ export function describeDay(done: number, total: number, eventCount: number): st
 }
 
 /** Whether an event is over. An all-day event has no end until the day itself does. */
-export function hasEventEnded(event: CalendarEvent, nowMs: number): boolean {
+export function hasEventEnded(event: CalendarEvent, nowMs: number, zone: string): boolean {
   if (event.date == null || event.time == null) return false;
-  return new Date(`${event.date}T${event.time}`).getTime() + event.durationMin * 60_000 <= nowMs;
+  const { date, minutes } = getZonedWallClock(nowMs, zone);
+  // Counted in wall-clock minutes from the event's own day, so a block that runs past
+  // midnight is still running — and instant → wall clock never meets a DST gap.
+  const elapsed = daysBetween(date, event.date) * 1440 + minutes;
+  return elapsed >= minutesOf(event.time) + event.durationMin;
 }
 
 /**

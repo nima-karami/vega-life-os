@@ -13,6 +13,7 @@ import { EventCard } from "./EventCard";
 export function RemainingTasks({
   layout,
   isToday,
+  zone,
   onOpen,
   onOpenEvent,
   onToggleDone,
@@ -23,6 +24,7 @@ export function RemainingTasks({
 }: {
   layout: DayLayout;
   isToday: boolean;
+  zone: string;
   onOpen: (t: Task) => void;
   onOpenEvent: (e: CalendarEvent) => void;
   onToggleDone: (t: Task) => void;
@@ -45,13 +47,25 @@ export function RemainingTasks({
   return (
     <div className="flex flex-col gap-3">
       {layout.allDay.map((event) => (
-        <EventCard key={event.id} event={event} dimWhenPast={false} onOpen={onOpenEvent} />
+        <EventCard
+          key={event.id}
+          event={event}
+          dimWhenPast={false}
+          zone={zone}
+          onOpen={onOpenEvent}
+        />
       ))}
       {layout.timedRows.map((row) =>
         row.kind === "task" ? (
           <div key={row.id}>{card(row.task)}</div>
         ) : (
-          <EventCard key={row.id} event={row.event} dimWhenPast={isToday} onOpen={onOpenEvent} />
+          <EventCard
+            key={row.id}
+            event={row.event}
+            dimWhenPast={isToday}
+            zone={zone}
+            onOpen={onOpenEvent}
+          />
         ),
       )}
       {layout.untimed.length > 0 && (

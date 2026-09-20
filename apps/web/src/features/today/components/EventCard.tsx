@@ -18,16 +18,18 @@ import { hasEventEnded } from "../today-logic";
 export function EventCard({
   event,
   dimWhenPast,
+  zone,
   onOpen,
 }: {
   event: CalendarEvent;
   dimWhenPast: boolean;
+  zone: string;
   onOpen: (e: CalendarEvent) => void;
 }) {
   const nowMs = useNowMs();
   const value = useStore((s) => s.values.find((v) => v.id === event.valueId));
   const goal = useStore((s) => s.goals.find((g) => g.id === event.goalId));
-  const isPast = dimWhenPast && hasEventEnded(event, nowMs);
+  const isPast = dimWhenPast && hasEventEnded(event, nowMs, zone);
   const lineage = { value, goal, fromHabit: false };
   const isTimed = event.time != null;
   const span = isTimed
