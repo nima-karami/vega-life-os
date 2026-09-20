@@ -9,6 +9,7 @@ import {
   formatShortDate,
   getWeekDays,
   minutesOf,
+  weekRefFor,
   weekStartOf,
 } from "@/core/lib/date";
 import { useStore } from "@/core/store";
@@ -161,7 +162,6 @@ export function CalendarPage() {
     [calendarEvents, calendarPrefs, showGoogleEvents],
   );
 
-  const [weekRef, setWeekRef] = useState(() => new Date());
   const [selected, setSelected] = useState<Task | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   // Right-click menu for an empty slot, and the "schedule existing task" picker.
@@ -182,6 +182,9 @@ export function CalendarPage() {
   const compact = useCompact();
   const displayZone = useDisplayZone();
   const todayIso = useZonedTodayISO(displayZone);
+  // Seeded from the display-zone day, not the browser instant: the two can sit in different
+  // weeks, and a week that excludes its own today drops the now-line and the drop target.
+  const [weekRef, setWeekRef] = useState(() => weekRefFor(todayIso));
   // Seeded from today; every step from there is literal, and only the two doors that mean
   // "today" — the Today button and the `cal-today` command — come back to it.
   const [activeDay, setActiveDay] = useState(() => dowIndex(todayIso)); // 0..6 on a phone
@@ -245,7 +248,7 @@ export function CalendarPage() {
       keywords: "calendar today week",
       run: ({ close }) => {
         if (dragRef.current) cancelDrag();
-        setWeekRef(new Date());
+        setWeekRef(weekRefFor(todayIso));
         setActiveDay(dowIndex(todayIso));
         close();
       },
@@ -1208,7 +1211,7 @@ export function CalendarPage() {
   const gotoToday = () => {
     if (dragRef.current) cancelDrag();
     clearSelection();
-    setWeekRef(new Date());
+    setWeekRef(weekRefFor(todayIso));
     setActiveDay(dowIndex(todayIso));
     setAnnounce("Showing this week");
   };

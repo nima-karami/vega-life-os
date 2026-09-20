@@ -8,7 +8,9 @@ import {
   minutesOf,
   shiftISO,
   todayISO,
+  weekRefFor,
 } from "./date";
+import { getZonedWallClock } from "./zone";
 
 describe("minutesOf", () => {
   it("converts HH:mm to minutes since midnight", () => {
@@ -94,6 +96,46 @@ describe("getWeekDays / todayISO", () => {
     for (const iso of ["2026-06-17", "2026-06-19", "2026-06-21"]) {
       vi.setSystemTime(new Date(`${iso}T08:00:00`));
       expect(dowIndex(todayISO())).toBe(getWeekDays().findIndex((d) => d.today));
+    }
+  });
+});
+
+/**
+ * The calendar grid seeds a week reference from a date and flags its columns against a
+ * display-zone today. Seeding from the browser instant while flagging in the display zone
+ * lets the two land in different Mon-anchored weeks, and the grid then has no today column
+ * at all — silently dropping the highlight, aria-current, the now-line and the backlog drop
+ * target. No e2e here can reach it: it needs display zone != browser zone, which the
+ * signed-out sandbox never produces.
+ */
+describe("the calendar grid's week reference", () => {
+  // The runner pins TZ=UTC, so UTC is the browser zone and New York sits 4h behind it.
+  const instant = Date.UTC(2026, 8, 21, 2, 0);
+  const todayIn = (zone: string) => getZonedWallClock(instant, zone).date;
+
+  it("loses today entirely when the week is seeded from the browser instant", () => {
+    const todayIso = todayIn("America/New_York");
+    expect(todayIso).toBe("2026-09-20");
+    const days = getWeekDays(new Date(instant), todayIso);
+    expect(days[0].iso).toBe("2026-09-21");
+    expect(days.some((d) => d.today)).toBe(false);
+  });
+
+  it("always contains its own today when seeded from the display-zone day", () => {
+    const todayIso = todayIn("America/New_York");
+    const days = getWeekDays(weekRefFor(todayIso), todayIso);
+    expect(days.find((d) => d.today)?.iso).toBe(todayIso);
+    expect(dowIndex(todayIso)).toBe(days.findIndex((d) => d.today));
+  });
+
+  it("holds every hour of the day, either side of the browser", () => {
+    for (const zone of ["America/New_York", "Asia/Tokyo", "UTC"]) {
+      for (let hour = 0; hour < 24; hour += 1) {
+        const todayIso = getZonedWallClock(Date.UTC(2026, 8, 21, hour, 0), zone).date;
+        const days = getWeekDays(weekRefFor(todayIso), todayIso);
+        expect(days.find((d) => d.today)?.iso).toBe(todayIso);
+        expect(dowIndex(todayIso)).toBe(days.findIndex((d) => d.today));
+      }
     }
   });
 });

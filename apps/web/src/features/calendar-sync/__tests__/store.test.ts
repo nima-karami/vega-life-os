@@ -75,7 +75,6 @@ describe("editEventTime / renameEvent / markEventForDelete", () => {
       durationMin: 120,
     });
     const e = s.getState().calendarEvents[0];
-    // The stale endDate is re-derived from the block, never carried through.
     expect(e).toMatchObject({ time: "21:00", durationMin: 120, endDate: "2026-07-04" });
     expect(e.vegaEditedAt).not.toBeNull();
   });

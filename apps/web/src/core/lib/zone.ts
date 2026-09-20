@@ -1,15 +1,22 @@
+// Both caches exist because constructing an Intl.DateTimeFormat is the expensive part, and
+// these sit on per-render paths: CalendarPage re-resolves its zone on every drag frame, and
+// NowLine plus every Today event row re-read the wall clock every minute.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+const validity = new Map<string, boolean>();
+
 export function isValidTimeZone(timeZone: string): boolean {
+  const cached = validity.get(timeZone);
+  if (cached !== undefined) return cached;
+  let valid: boolean;
   try {
     new Intl.DateTimeFormat("en-CA", { timeZone });
-    return true;
+    valid = true;
   } catch {
-    return false;
+    valid = false;
   }
+  validity.set(timeZone, valid);
+  return valid;
 }
-
-// Cached because NowLine re-reads this every minute and every Today event row with it;
-// constructing the formatter is the expensive part, not formatting.
-const formatters = new Map<string, Intl.DateTimeFormat>();
 
 function formatterFor(zone: string): Intl.DateTimeFormat {
   const cached = formatters.get(zone);

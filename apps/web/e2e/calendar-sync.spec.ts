@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import {
   addDays,
   differenceInCalendarDays,
@@ -14,7 +14,7 @@ import {
  * and verifies the rendering + value-credit paths the engine feeds.
  */
 
-async function bootSandbox(page: import("@playwright/test").Page) {
+async function bootSandbox(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");
@@ -25,7 +25,7 @@ async function bootSandbox(page: import("@playwright/test").Page) {
   }
 }
 
-async function passGratitudeGate(page: import("@playwright/test").Page) {
+async function passGratitudeGate(page: Page) {
   const gate = page.getByRole("button", { name: "Continue to today" });
   if (await gate.isVisible().catch(() => false)) {
     await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
@@ -61,7 +61,7 @@ function livedEvent(over: Record<string, unknown>) {
   };
 }
 
-async function seedEvent(page: import("@playwright/test").Page, ev: Record<string, unknown>) {
+async function seedEvent(page: Page, ev: Record<string, unknown>) {
   await page.evaluate(
     (e) =>
       new Promise<void>((resolve, reject) => {
@@ -209,29 +209,42 @@ test("a jittered click on a timed chip opens the editor and moves nothing", asyn
   await expect(chip).toBeVisible();
 });
 
-// A single-day all-day event on the Monday-anchored week start + 1, so it is always inside
-// the visible week whatever day the suite runs on.
-function allDaySpanFixture() {
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+/**
+ * A single-day all-day event on the Monday-anchored week start + 1, widened to week start + 3.
+ * Both days are always inside the visible week; they are NOT always in the same month, which
+ * is the case the month-grid index has to survive.
+ */
+function allDaySpanFixture(monday: Date) {
   return {
-    starts: format(addDays(weekStart, 1), "yyyy-MM-dd"),
-    laterEnd: format(addDays(weekStart, 3), "yyyy-MM-dd"),
+    starts: format(addDays(monday, 1), "yyyy-MM-dd"),
+    laterEnd: format(addDays(monday, 3), "yyyy-MM-dd"),
   };
 }
 
-const offsiteChip = (page: import("@playwright/test").Page) =>
-  page.getByRole("button", { name: /^Offsite, all day/ });
+const offsiteChip = (page: Page) => page.getByRole("button", { name: /^Offsite, all day/ });
 
-/** Pick a date in an open CalendarPopover by its position in the month grid. */
-async function pickDateInPopover(page: import("@playwright/test").Page, iso: string) {
-  const target = parseISO(iso);
-  const gridStart = startOfWeek(startOfMonth(target), { weekStartsOn: 1 });
-  const grid = page.locator("div.grid.grid-cols-7").last();
-  await expect(grid).toBeVisible();
-  await grid.locator("button").nth(differenceInCalendarDays(target, gridStart)).click();
+/** The CalendarPopover is portalled out of the modal as the only dialog holding a month nav. */
+const monthPopover = (page: Page) =>
+  page.getByRole("dialog").filter({ has: page.getByRole("button", { name: "Previous month" }) });
+
+/**
+ * Click a day in an open CalendarPopover. The popover opens on the month of its CURRENT
+ * value, so the cell index is measured from THAT month's grid — measuring it from the
+ * target's month addresses the wrong cell whenever the two differ.
+ */
+async function pickDateInPopover(page: Page, viewIso: string, targetIso: string) {
+  const popover = monthPopover(page);
+  await expect(popover).toBeVisible();
+  const gridStart = startOfWeek(startOfMonth(parseISO(viewIso)), { weekStartsOn: 1 });
+  const index = differenceInCalendarDays(parseISO(targetIso), gridStart);
+  // Day cells are the only buttons named by a bare number; the month nav and Today/Clear are not.
+  const cells = popover.getByRole("button", { name: /^\d{1,2}$/ });
+  expect(index).toBeGreaterThanOrEqual(0);
+  expect(index).toBeLessThan(await cells.count());
+  await cells.nth(index).click();
 }
 
-async function openOffsite(page: import("@playwright/test").Page, starts: string) {
+async function openOffsite(page: Page, starts: string) {
   await bootSandbox(page);
   await passGratitudeGate(page);
   await seedEvent(
@@ -255,12 +268,26 @@ async function openOffsite(page: import("@playwright/test").Page, starts: string
   await expect(page.getByText("From Google Calendar")).toBeVisible();
 }
 
+const endsTrigger = (page: Page) => page.getByRole("button", { name: "Ends" });
+const readsDay = (iso: string) => format(parseISO(iso), "EEE · MMM d, yyyy");
+
+async function widenEndsAndVerify(page: Page, starts: string, laterEnd: string) {
+  await openOffsite(page, starts);
+  await endsTrigger(page).click();
+  await pickDateInPopover(page, starts, laterEnd);
+  // Fails loudly if the index addressed the wrong cell: a day before Starts clamps back to it.
+  await expect(endsTrigger(page)).toContainText(readsDay(laterEnd));
+  // Not a bare "Done": every resolved task chip on the grid ends its label with ", done".
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Offsite, multi-day/ })).toHaveCount(1);
+}
+
 test("an all-day Google event's dates can be changed from the editor", async ({ page }) => {
-  const { starts } = allDaySpanFixture();
+  const { starts } = allDaySpanFixture(startOfWeek(new Date(), { weekStartsOn: 1 }));
   await openOffsite(page, starts);
 
   await expect(page.getByRole("button", { name: "Starts" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ends" })).toBeVisible();
+  await expect(endsTrigger(page)).toBeVisible();
   // An all-day event has no time block to edit; the row it would occupy is the dates row.
   await expect(page.getByText("Time block")).toHaveCount(0);
 });
@@ -268,15 +295,8 @@ test("an all-day Google event's dates can be changed from the editor", async ({ 
 test("widening an all-day event's Ends turns its chip into a span bar and survives a reload", async ({
   page,
 }) => {
-  const { starts, laterEnd } = allDaySpanFixture();
-  await openOffsite(page, starts);
-
-  await page.getByRole("button", { name: "Ends" }).click();
-  await pickDateInPopover(page, laterEnd);
-  // Not a bare "Done": every resolved task chip on the grid ends its label with ", done".
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-
-  await expect(page.getByRole("button", { name: /^Offsite, multi-day/ })).toHaveCount(1);
+  const { starts, laterEnd } = allDaySpanFixture(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  await widenEndsAndVerify(page, starts, laterEnd);
 
   await bootSandbox(page);
   await passGratitudeGate(page);
@@ -286,7 +306,27 @@ test("widening an all-day event's Ends turns its chip into a span bar and surviv
 
   // Ends reads the INCLUSIVE last day, not the exclusive end Google is sent.
   await bar.click();
-  await expect(page.getByRole("button", { name: "Ends" })).toContainText(
-    format(parseISO(laterEnd), "EEE · MMM d, yyyy"),
-  );
+  await expect(endsTrigger(page)).toContainText(readsDay(laterEnd));
 });
+
+/**
+ * Weeks whose Monday+1 and Monday+3 sit in different months — the popover then renders a
+ * month that is not the target's, which used to address the wrong cell. These recur roughly
+ * quarterly, so they are pinned with page.clock rather than left to the day the suite runs.
+ */
+const MONTH_STRADDLING_MONDAYS = [
+  "2026-09-28", // Sep -> Oct
+  "2026-03-30", // Mar -> Apr, the Monday after the EU clocks change
+  "2026-06-29", // Jun -> Jul
+  "2027-03-29", // Mar -> Apr, next year
+  "2025-12-29", // Dec -> Jan, across the year boundary
+];
+
+for (const monday of MONTH_STRADDLING_MONDAYS) {
+  test(`Ends spans a month boundary in the week of ${monday}`, async ({ page }) => {
+    // Midday UTC keeps the pinned day the same calendar day in any runner zone.
+    await page.clock.install({ time: new Date(`${monday}T12:00:00Z`) });
+    const { starts, laterEnd } = allDaySpanFixture(parseISO(monday));
+    await widenEndsAndVerify(page, starts, laterEnd);
+  });
+}
