@@ -198,28 +198,65 @@ export function EventEditor({
                     </SelectField>
                   </div>
 
-                  {!event.allDay && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <DatePicker
-                        label="Date"
-                        value={event.date}
-                        onChange={(date) =>
-                          editEventTime(event.id, {
-                            date,
-                            time: event.time,
-                            durationMin: event.durationMin,
-                          })
-                        }
-                      />
-                      <TimeRange
-                        label="Time block"
-                        value={{ time: event.time, durationMin: event.durationMin }}
-                        onChange={({ time, durationMin }) =>
-                          editEventTime(event.id, { date: event.date, time, durationMin })
-                        }
-                      />
-                    </div>
-                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {event.allDay ? (
+                      <>
+                        <DatePicker
+                          label="Starts"
+                          ariaLabel="Starts"
+                          value={event.date}
+                          onChange={(date) =>
+                            editEventTime(event.id, {
+                              date,
+                              endDate: event.endDate,
+                              time: null,
+                              durationMin: event.durationMin,
+                            })
+                          }
+                        />
+                        <DatePicker
+                          label="Ends"
+                          ariaLabel="Ends"
+                          value={event.endDate ?? event.date}
+                          onChange={(endDate) =>
+                            editEventTime(event.id, {
+                              date: event.date,
+                              endDate,
+                              time: null,
+                              durationMin: event.durationMin,
+                            })
+                          }
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <DatePicker
+                          label="Date"
+                          value={event.date}
+                          onChange={(date) =>
+                            editEventTime(event.id, {
+                              date,
+                              endDate: event.endDate,
+                              time: event.time,
+                              durationMin: event.durationMin,
+                            })
+                          }
+                        />
+                        <TimeRange
+                          label="Time block"
+                          value={{ time: event.time, durationMin: event.durationMin }}
+                          onChange={({ time, durationMin }) =>
+                            editEventTime(event.id, {
+                              date: event.date,
+                              endDate: event.endDate,
+                              time,
+                              durationMin,
+                            })
+                          }
+                        />
+                      </>
+                    )}
+                  </div>
 
                   <SelectField label="Why it matters">
                     <textarea

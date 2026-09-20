@@ -6,10 +6,12 @@ import { PickerField, triggerCx } from "./picker-field";
 /** Custom calendar-grid date picker. value/onChange use ISO yyyy-mm-dd or null. */
 export function DatePicker({
   label = "date",
+  ariaLabel,
   value,
   onChange,
 }: {
   label?: string;
+  ariaLabel?: string;
   value: string | null;
   onChange: (v: string | null) => void;
 }) {
@@ -19,6 +21,7 @@ export function DatePicker({
         value={value}
         onChange={onChange}
         align="start"
+        triggerLabel={ariaLabel}
         triggerClassName={triggerCx}
         triggerContent={
           <>

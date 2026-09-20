@@ -67,11 +67,29 @@ describe("tagEvent", () => {
 
 describe("editEventTime / renameEvent / markEventForDelete", () => {
   it("stamps vegaEditedAt on a time edit", () => {
-    const s = mk([ev({})]);
-    s.getState().editEventTime("ce_1", { date: "2026-07-04", time: "21:00", durationMin: 120 });
+    const s = mk([ev({ endDate: "2026-06-30" })]);
+    s.getState().editEventTime("ce_1", {
+      date: "2026-07-04",
+      endDate: "2026-06-30",
+      time: "21:00",
+      durationMin: 120,
+    });
     const e = s.getState().calendarEvents[0];
-    expect(e).toMatchObject({ time: "21:00", durationMin: 120 });
+    // The stale endDate is re-derived from the block, never carried through.
+    expect(e).toMatchObject({ time: "21:00", durationMin: 120, endDate: "2026-07-04" });
     expect(e.vegaEditedAt).not.toBeNull();
+  });
+  it("clears the dates without queueing a push when the start is removed", () => {
+    const s = mk([ev({})]);
+    s.getState().editEventTime("ce_1", {
+      date: null,
+      endDate: "2026-07-04",
+      time: null,
+      durationMin: 0,
+    });
+    const e = s.getState().calendarEvents[0];
+    expect(e).toMatchObject({ date: null, endDate: null });
+    expect(e.vegaEditedAt).toBeNull();
   });
   it("stamps vegaEditedAt on a rename", () => {
     const s = mk([ev({})]);

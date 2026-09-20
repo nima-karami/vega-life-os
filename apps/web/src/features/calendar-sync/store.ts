@@ -4,6 +4,7 @@ import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { saveShowGoogleEvents } from "./config";
 import { filterVisibleEvents } from "./display";
+import { normalizeEventTiming } from "./event-timing";
 
 const nowISO = () => new Date().toISOString();
 
@@ -30,7 +31,7 @@ export interface CalendarEventsSlice {
   /** move/resize a lived event; queues a write-back to Google (vegaEditedAt) */
   editEventTime: (
     id: string,
-    at: { date: string | null; time: string | null; durationMin: number },
+    at: { date: string | null; endDate: string | null; time: string | null; durationMin: number },
   ) => void;
   /** rename a lived event; queues a write-back */
   renameEvent: (id: string, title: string) => void;
@@ -70,7 +71,11 @@ export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) 
     for (const e of touched) savePut("calendarEvents", e);
   },
 
-  editEventTime: (id, at) => updateOne(set, id, { ...at, vegaEditedAt: nowISO() }),
+  editEventTime: (id, at) => {
+    const timing = normalizeEventTiming(at);
+    // An undated row has no coherent start/end to patch, so there is nothing to push.
+    updateOne(set, id, timing.date == null ? timing : { ...timing, vegaEditedAt: nowISO() });
+  },
   renameEvent: (id, title) => updateOne(set, id, { title, vegaEditedAt: nowISO() }),
   markEventForDelete: (id) => updateOne(set, id, { pendingDelete: true }),
 

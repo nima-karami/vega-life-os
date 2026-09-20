@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { format } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+} from "date-fns";
 
 /**
  * Lived-event (Google Calendar) tagging proof. The OAuth/connect flow needs a real
@@ -200,4 +207,86 @@ test("a jittered click on a timed chip opens the editor and moves nothing", asyn
   await expect(page.getByRole("textbox", { name: "Task title" })).toHaveValue("Update ID card");
   await page.keyboard.press("Escape");
   await expect(chip).toBeVisible();
+});
+
+// A single-day all-day event on the Monday-anchored week start + 1, so it is always inside
+// the visible week whatever day the suite runs on.
+function allDaySpanFixture() {
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  return {
+    starts: format(addDays(weekStart, 1), "yyyy-MM-dd"),
+    laterEnd: format(addDays(weekStart, 3), "yyyy-MM-dd"),
+  };
+}
+
+const offsiteChip = (page: import("@playwright/test").Page) =>
+  page.getByRole("button", { name: /^Offsite, all day/ });
+
+/** Pick a date in an open CalendarPopover by its position in the month grid. */
+async function pickDateInPopover(page: import("@playwright/test").Page, iso: string) {
+  const target = parseISO(iso);
+  const gridStart = startOfWeek(startOfMonth(target), { weekStartsOn: 1 });
+  const grid = page.locator("div.grid.grid-cols-7").last();
+  await expect(grid).toBeVisible();
+  await grid.locator("button").nth(differenceInCalendarDays(target, gridStart)).click();
+}
+
+async function openOffsite(page: import("@playwright/test").Page, starts: string) {
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  await seedEvent(
+    page,
+    livedEvent({
+      id: "ce_allday",
+      googleId: "g_allday",
+      iCalUID: "u_allday",
+      title: "Offsite",
+      date: starts,
+      endDate: starts,
+      time: null,
+      allDay: true,
+      durationMin: 0,
+    }),
+  );
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  await offsiteChip(page).click({ timeout: 15_000 });
+  await expect(page.getByText("From Google Calendar")).toBeVisible();
+}
+
+test("an all-day Google event's dates can be changed from the editor", async ({ page }) => {
+  const { starts } = allDaySpanFixture();
+  await openOffsite(page, starts);
+
+  await expect(page.getByRole("button", { name: "Starts" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ends" })).toBeVisible();
+  // An all-day event has no time block to edit; the row it would occupy is the dates row.
+  await expect(page.getByText("Time block")).toHaveCount(0);
+});
+
+test("widening an all-day event's Ends turns its chip into a span bar and survives a reload", async ({
+  page,
+}) => {
+  const { starts, laterEnd } = allDaySpanFixture();
+  await openOffsite(page, starts);
+
+  await page.getByRole("button", { name: "Ends" }).click();
+  await pickDateInPopover(page, laterEnd);
+  // Not a bare "Done": every resolved task chip on the grid ends its label with ", done".
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+
+  await expect(page.getByRole("button", { name: /^Offsite, multi-day/ })).toHaveCount(1);
+
+  await bootSandbox(page);
+  await passGratitudeGate(page);
+  await page.goto("/calendar", { waitUntil: "domcontentloaded" });
+  const bar = page.getByRole("button", { name: /^Offsite, multi-day/ });
+  await expect(bar).toHaveCount(1, { timeout: 15_000 });
+
+  // Ends reads the INCLUSIVE last day, not the exclusive end Google is sent.
+  await bar.click();
+  await expect(page.getByRole("button", { name: "Ends" })).toContainText(
+    format(parseISO(laterEnd), "EEE · MMM d, yyyy"),
+  );
 });
