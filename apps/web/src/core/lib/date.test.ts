@@ -1,3 +1,4 @@
+import { parseISO } from "date-fns";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addMinutes,
@@ -5,10 +6,10 @@ import {
   dowIndex,
   formatRelativeDay,
   getWeekDays,
+  getWeekDaysFor,
   minutesOf,
   shiftISO,
   todayISO,
-  weekRefFor,
 } from "./date";
 import { getZonedWallClock } from "./zone";
 
@@ -101,17 +102,25 @@ describe("getWeekDays / todayISO", () => {
 });
 
 /**
- * The calendar grid seeds a week reference from a date and flags its columns against a
- * display-zone today. Seeding from the browser instant while flagging in the display zone
- * lets the two land in different Mon-anchored weeks, and the grid then has no today column
- * at all — silently dropping the highlight, aria-current, the now-line and the backlog drop
- * target. No e2e here can reach it: it needs display zone != browser zone, which the
- * signed-out sandbox never produces.
+ * The grid's columns and the day they are flagged against must come from one zone. Any week
+ * held as a snapshot breaks that: the snapshot is taken in whatever zone was resolved at the
+ * time, and the grid then has no today column at all — no highlight, no aria-current, no
+ * now-line, and a backlog drop landing on the wrong day. Holding an offset instead and
+ * deriving the week per render is what makes the whole class unrepresentable.
+ *
+ * None of this is reachable from an e2e here: it needs display zone != browser zone, which
+ * the signed-out sandbox cannot produce.
  */
-describe("the calendar grid's week reference", () => {
-  // The runner pins TZ=UTC, so UTC is the browser zone and New York sits 4h behind it.
+describe("the calendar grid's week", () => {
+  // The runner pins TZ=UTC, so UTC stands in for the browser zone and New York sits 4h behind.
   const instant = Date.UTC(2026, 8, 21, 2, 0);
   const todayIn = (zone: string) => getZonedWallClock(instant, zone).date;
+
+  // Pinned so these read the same on any day: an implementation that reached for the wall
+  // clock instead of the ISO it was handed would otherwise pass whenever the real week
+  // happened to match, which is most weeks.
+  beforeEach(() => vi.setSystemTime(new Date(instant)));
+  afterEach(() => vi.useRealTimers());
 
   it("loses today entirely when the week is seeded from the browser instant", () => {
     const todayIso = todayIn("America/New_York");
@@ -121,21 +130,48 @@ describe("the calendar grid's week reference", () => {
     expect(days.some((d) => d.today)).toBe(false);
   });
 
-  it("always contains its own today when seeded from the display-zone day", () => {
-    const todayIso = todayIn("America/New_York");
-    const days = getWeekDays(weekRefFor(todayIso), todayIso);
-    expect(days.find((d) => d.today)?.iso).toBe(todayIso);
-    expect(dowIndex(todayIso)).toBe(days.findIndex((d) => d.today));
+  /**
+   * The boot order is `ready: true` -> render -> `await refreshGcalStatus()`, so a signed-in
+   * user's first paint has no account zone and the display zone only resolves afterwards. A
+   * reference captured at mount describes the browser's week for the rest of the session.
+   */
+  it("still has a today column when the zone resolves after the first render", () => {
+    const atBoot = todayIn("UTC"); // gcalStatus still null — browser zone
+    const settled = todayIn("America/New_York"); // account zone lands
+    expect(atBoot).toBe("2026-09-21");
+    expect(settled).toBe("2026-09-20");
+
+    const snapshotTakenAtMount = getWeekDays(parseISO(atBoot), settled);
+    expect(snapshotTakenAtMount.some((d) => d.today)).toBe(false);
+
+    expect(getWeekDaysFor(settled).find((d) => d.today)?.iso).toBe(settled);
   });
 
-  it("holds every hour of the day, either side of the browser", () => {
+  it("always contains its own today, every hour, either side of the browser", () => {
     for (const zone of ["America/New_York", "Asia/Tokyo", "UTC"]) {
       for (let hour = 0; hour < 24; hour += 1) {
         const todayIso = getZonedWallClock(Date.UTC(2026, 8, 21, hour, 0), zone).date;
-        const days = getWeekDays(weekRefFor(todayIso), todayIso);
+        const days = getWeekDaysFor(todayIso);
         expect(days.find((d) => d.today)?.iso).toBe(todayIso);
         expect(dowIndex(todayIso)).toBe(days.findIndex((d) => d.today));
       }
     }
+  });
+
+  it("steps whole weeks by offset and flags today only on the current one", () => {
+    const todayIso = todayIn("America/New_York");
+    expect(getWeekDaysFor(todayIso, 0)[0].iso).toBe("2026-09-14");
+    expect(getWeekDaysFor(todayIso, -1)[0].iso).toBe("2026-09-07");
+    expect(getWeekDaysFor(todayIso, 1)[0].iso).toBe("2026-09-21");
+    expect(getWeekDaysFor(todayIso, -1).some((d) => d.today)).toBe(false);
+    expect(getWeekDaysFor(todayIso, 1).some((d) => d.today)).toBe(false);
+    // Returning to 0 restores it — the offset carries no zone of its own.
+    expect(getWeekDaysFor(todayIso, 0).some((d) => d.today)).toBe(true);
+  });
+
+  it("keeps an offset week correct across a zone change", () => {
+    // Same offset, zone resolves mid-session: the week must move with the day, not stay put.
+    expect(getWeekDaysFor(todayIn("UTC"), 1)[0].iso).toBe("2026-09-28");
+    expect(getWeekDaysFor(todayIn("America/New_York"), 1)[0].iso).toBe("2026-09-21");
   });
 });

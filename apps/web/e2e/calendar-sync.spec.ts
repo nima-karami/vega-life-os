@@ -324,7 +324,9 @@ const MONTH_STRADDLING_MONDAYS = [
 
 for (const monday of MONTH_STRADDLING_MONDAYS) {
   test(`Ends spans a month boundary in the week of ${monday}`, async ({ page }) => {
-    // Midday UTC keeps the pinned day the same calendar day in any runner zone.
+    // Load-bearing, not setup noise: these dates are fixed, so without the clock pin they
+    // stop describing the week the app is on and become real date bombs — three are already
+    // in the past. Midday UTC keeps the pinned day one calendar day in any runner zone.
     await page.clock.install({ time: new Date(`${monday}T12:00:00Z`) });
     const { starts, laterEnd } = allDaySpanFixture(parseISO(monday));
     await widenEndsAndVerify(page, starts, laterEnd);

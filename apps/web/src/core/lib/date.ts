@@ -16,13 +16,6 @@ export const isoToDate = (s: string) => parseISO(s);
 /** Monday-anchored week start for a reference date. */
 export const weekStartOf = (ref: Date = new Date()) => startOfWeek(ref, { weekStartsOn: 1 });
 
-/**
- * Week reference for a grid whose columns are flagged against `todayIso`. It must come from
- * that same day: seeding from the browser instant while flagging in a display zone lets the
- * two fall in different weeks, leaving the grid with no today column at all.
- */
-export const weekRefFor = (todayIso: string): Date => parseISO(todayIso);
-
 export interface WeekDay {
   dow: string;
   dom: number;
@@ -44,6 +37,16 @@ export function getWeekDays(ref: Date = new Date(), today: string = todayISO(ref
       index: i,
     };
   });
+}
+
+/**
+ * The Mon-anchored week `offset` weeks from the one holding `todayIso`, which offset 0 is
+ * therefore always a column of. Derived per render rather than snapshotted into state on
+ * mount: the display zone can resolve after the first paint, and a frozen reference then
+ * describes a different week than the day its columns are flagged against.
+ */
+export function getWeekDaysFor(todayIso: string, offset = 0): WeekDay[] {
+  return getWeekDays(addDays(weekStartOf(parseISO(todayIso)), offset * 7), todayIso);
 }
 
 /** Mon..Sun index (0..6) for an ISO date. */

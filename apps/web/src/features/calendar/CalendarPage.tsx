@@ -3,15 +3,7 @@ import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useZonedTodayISO } from "@/core/lib/clock";
-import {
-  addMinutes,
-  dowIndex,
-  formatShortDate,
-  getWeekDays,
-  minutesOf,
-  weekRefFor,
-  weekStartOf,
-} from "@/core/lib/date";
+import { addMinutes, dowIndex, formatShortDate, getWeekDaysFor, minutesOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   cx,
@@ -182,12 +174,14 @@ export function CalendarPage() {
   const compact = useCompact();
   const displayZone = useDisplayZone();
   const todayIso = useZonedTodayISO(displayZone);
-  // Seeded from the display-zone day, not the browser instant: the two can sit in different
-  // weeks, and a week that excludes its own today drops the now-line and the drop target.
-  const [weekRef, setWeekRef] = useState(() => weekRefFor(todayIso));
-  // Seeded from today; every step from there is literal, and only the two doors that mean
-  // "today" — the Today button and the `cal-today` command — come back to it.
-  const [activeDay, setActiveDay] = useState(() => dowIndex(todayIso)); // 0..6 on a phone
+  // Offsets, not snapshots: for a signed-in user the display zone resolves after the first
+  // paint, so a week or day captured at mount would keep describing the browser's — and a
+  // week that excludes its own today has no highlight, no now-line and a wrong drop target.
+  const [weekOffset, setWeekOffset] = useState(0);
+  // Null until the phone user picks a day; only the two doors that mean "today" — the Today
+  // button and the `cal-today` command — come back to it.
+  const [pickedDay, setPickedDay] = useState<number | null>(null);
+  const activeDay = pickedDay ?? dowIndex(todayIso); // 0..6 on a phone
 
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -237,7 +231,7 @@ export function CalendarPage() {
   const clipRef = useRef(clipboardTask);
   clipRef.current = clipboardTask;
 
-  const days = useMemo(() => getWeekDays(weekRef, todayIso), [weekRef, todayIso]);
+  const days = useMemo(() => getWeekDaysFor(todayIso, weekOffset), [todayIso, weekOffset]);
 
   // Per-view commands (calendar is reachable via the command bar; these add actions).
   useRegisterCommands([
@@ -248,8 +242,8 @@ export function CalendarPage() {
       keywords: "calendar today week",
       run: ({ close }) => {
         if (dragRef.current) cancelDrag();
-        setWeekRef(weekRefFor(todayIso));
-        setActiveDay(dowIndex(todayIso));
+        setWeekOffset(0);
+        setPickedDay(null);
         close();
       },
     },
@@ -582,7 +576,7 @@ export function CalendarPage() {
   // modal, picker or drawer, drops the arm (edges 4 and 6).
   const armContext = [
     activeDay,
-    weekRef.getTime(),
+    weekOffset,
     railOpen,
     selected?.id ?? "",
     editingEvent?.id ?? "",
@@ -1186,33 +1180,33 @@ export function CalendarPage() {
     if (dragRef.current) cancelDrag();
     clearSelection();
     if (compact) {
-      if (activeDay > 0) setActiveDay((i) => i - 1);
+      if (activeDay > 0) setPickedDay(activeDay - 1);
       else {
-        setWeekRef(addDays(weekStartOf(weekRef), -7));
-        setActiveDay(6);
+        setWeekOffset((o) => o - 1);
+        setPickedDay(6);
       }
     } else {
-      setWeekRef(addDays(weekStartOf(weekRef), -7));
+      setWeekOffset((o) => o - 1);
     }
   };
   const gotoNext = () => {
     if (dragRef.current) cancelDrag();
     clearSelection();
     if (compact) {
-      if (activeDay < 6) setActiveDay((i) => i + 1);
+      if (activeDay < 6) setPickedDay(activeDay + 1);
       else {
-        setWeekRef(addDays(weekStartOf(weekRef), 7));
-        setActiveDay(0);
+        setWeekOffset((o) => o + 1);
+        setPickedDay(0);
       }
     } else {
-      setWeekRef(addDays(weekStartOf(weekRef), 7));
+      setWeekOffset((o) => o + 1);
     }
   };
   const gotoToday = () => {
     if (dragRef.current) cancelDrag();
     clearSelection();
-    setWeekRef(weekRefFor(todayIso));
-    setActiveDay(dowIndex(todayIso));
+    setWeekOffset(0);
+    setPickedDay(null);
     setAnnounce("Showing this week");
   };
 
@@ -1317,7 +1311,7 @@ export function CalendarPage() {
             <button
               key={d.iso}
               type="button"
-              onClick={() => setActiveDay(i)}
+              onClick={() => setPickedDay(i)}
               aria-current={i === activeDay ? "date" : undefined}
               className={cx(
                 "flex min-w-[44px] flex-col items-center rounded-[12px] border px-2.5 py-1.5 transition-colors",
