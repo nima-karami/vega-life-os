@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { todayISO } from "./date";
+import { getZonedWallClock } from "./zone";
 
 /** ms remaining until the next wall-clock minute boundary (self-correcting, no drift). */
 export function msUntilNextMinute(nowMs: number): number {
@@ -52,5 +53,14 @@ export function useTodayISO(): string {
     subscribe,
     () => todayISO(new Date(nowMs)),
     () => todayISO(new Date(nowMs)),
+  );
+}
+
+/** Today's ISO date in a given zone; re-renders the caller only when that zone's day changes. */
+export function useZonedTodayISO(zone: string): string {
+  return useSyncExternalStore(
+    subscribe,
+    () => getZonedWallClock(nowMs, zone).date,
+    () => getZonedWallClock(nowMs, zone).date,
   );
 }

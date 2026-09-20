@@ -2,7 +2,7 @@ import { Button, ButtonGroup, Card, Modal, ScrollShadow, useOverlayState } from 
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
-import { useTodayISO } from "@/core/lib/clock";
+import { useZonedTodayISO } from "@/core/lib/clock";
 import {
   addMinutes,
   dowIndex,
@@ -27,6 +27,7 @@ import {
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import { filterVisibleEvents } from "@/features/calendar-sync";
+import { isForeignDisplayZone, useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import { getFocusableGoals } from "@/features/goals";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
@@ -120,6 +121,10 @@ function getDayChipTone(isActive: boolean, isToday: boolean): string {
   return "border-border bg-surface text-foreground";
 }
 
+function formatZoneCity(zone: string): string {
+  return (zone.split("/").pop() ?? zone).replace(/_/g, " ");
+}
+
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
   const goals = useStore((s) => s.goals);
@@ -175,7 +180,8 @@ export function CalendarPage() {
   const [railOpen, setRailOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
   const compact = useCompact();
-  const todayIso = useTodayISO();
+  const displayZone = useDisplayZone();
+  const todayIso = useZonedTodayISO(displayZone);
   // Seeded from today; every step from there is literal, and only the two doors that mean
   // "today" — the Today button and the `cal-today` command — come back to it.
   const [activeDay, setActiveDay] = useState(() => dowIndex(todayIso)); // 0..6 on a phone
@@ -1256,11 +1262,16 @@ export function CalendarPage() {
       {/* Stacked below sm, one guarded row above: the title is a date, so a header that
           could wrap would change height on the weekday's glyph widths alone. */}
       <header className="mb-4 flex flex-col gap-y-2 sm:flex-row sm:items-center sm:gap-x-4">
-        <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground sm:flex-1">
-          {compact
-            ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
-            : `${formatShortDate(days[0].iso)} – ${formatShortDate(days[6].iso)}`}
-        </h1>
+        <div className="min-w-0 sm:flex-1">
+          <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">
+            {compact
+              ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
+              : `${formatShortDate(days[0].iso)} – ${formatShortDate(days[6].iso)}`}
+          </h1>
+          {isForeignDisplayZone(displayZone) && (
+            <p className="truncate text-xs text-muted">{`Times in ${formatZoneCity(displayZone)}`}</p>
+          )}
+        </div>
 
         <div className="flex shrink-0 items-center justify-end gap-x-3">
           <CalendarSync />
@@ -1560,7 +1571,7 @@ export function CalendarPage() {
                           style={{ top: i * HOUR_PX }}
                         />
                       ))}
-                      {d.today && <NowLine />}
+                      {d.today && <NowLine zone={displayZone} />}
                       {isTarget && preview && isAllDayDragging && (
                         <div
                           className="pointer-events-none absolute inset-x-0.5 z-30 overflow-hidden rounded-[2px] border-l-[3px] border-accent bg-surface/80 px-1.5 py-1 shadow-md ring-1 ring-accent"
