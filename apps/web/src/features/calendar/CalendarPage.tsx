@@ -1180,7 +1180,7 @@ export function CalendarPage() {
     if (dragRef.current) cancelDrag();
     clearSelection();
     if (compact) {
-      if (activeDay > 0) setPickedDay(activeDay - 1);
+      if (activeDay > 0) setPickedDay((d) => (d ?? dowIndex(todayIso)) - 1);
       else {
         setWeekOffset((o) => o - 1);
         setPickedDay(6);
@@ -1193,7 +1193,7 @@ export function CalendarPage() {
     if (dragRef.current) cancelDrag();
     clearSelection();
     if (compact) {
-      if (activeDay < 6) setPickedDay(activeDay + 1);
+      if (activeDay < 6) setPickedDay((d) => (d ?? dowIndex(todayIso)) + 1);
       else {
         setWeekOffset((o) => o + 1);
         setPickedDay(0);

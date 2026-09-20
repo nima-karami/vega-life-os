@@ -122,18 +122,11 @@ describe("the calendar grid's week", () => {
   beforeEach(() => vi.setSystemTime(new Date(instant)));
   afterEach(() => vi.useRealTimers());
 
-  it("loses today entirely when the week is seeded from the browser instant", () => {
-    const todayIso = todayIn("America/New_York");
-    expect(todayIso).toBe("2026-09-20");
-    const days = getWeekDays(new Date(instant), todayIso);
-    expect(days[0].iso).toBe("2026-09-21");
-    expect(days.some((d) => d.today)).toBe(false);
-  });
-
   /**
    * The boot order is `ready: true` -> render -> `await refreshGcalStatus()`, so a signed-in
    * user's first paint has no account zone and the display zone only resolves afterwards. A
-   * reference captured at mount describes the browser's week for the rest of the session.
+   * reference captured at mount describes the browser's week for the rest of the session —
+   * the `snapshotTakenAtMount` line below is that defect, kept as the contrast.
    */
   it("still has a today column when the zone resolves after the first render", () => {
     const atBoot = todayIn("UTC"); // gcalStatus still null — browser zone
