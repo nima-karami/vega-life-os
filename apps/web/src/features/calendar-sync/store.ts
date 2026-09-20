@@ -1,6 +1,6 @@
 import type { CalendarEvent } from "@vega/shared";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
-import { savePut, saveRemove } from "@/core/store/persist";
+import { savePut } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { saveShowGoogleEvents } from "./config";
 import { filterVisibleEvents } from "./display";
@@ -37,8 +37,6 @@ export interface CalendarEventsSlice {
   renameEvent: (id: string, title: string) => void;
   /** flag a confirmed deletion to be pushed to Google on the next cycle */
   markEventForDelete: (id: string) => void;
-  /** replace one calendar's mirrors with reconcile output (engine pull) */
-  applyLivedSync: (calendarId: string, upserts: CalendarEvent[], dropIds: string[]) => void;
   /** deduped, display-ready lived events (per-calendar visibility applied) */
   visibleEvents: () => CalendarEvent[];
   /** server-owned connection status; null when signed out */
@@ -78,21 +76,6 @@ export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) 
   },
   renameEvent: (id, title) => updateOne(set, id, { title, vegaEditedAt: nowISO() }),
   markEventForDelete: (id) => updateOne(set, id, { pendingDelete: true }),
-
-  applyLivedSync: (_calendarId, upserts, dropIds) => {
-    // Merge by id (incremental pulls carry only changed events) and drop removals;
-    // untouched rows — including pending local edits — are preserved.
-    const drop = new Set(dropIds);
-    const byId = new Map(upserts.map((e) => [e.id, e]));
-    set((s) => {
-      const next = s.calendarEvents.filter((e) => !drop.has(e.id)).map((e) => byId.get(e.id) ?? e);
-      const existingIds = new Set(s.calendarEvents.map((e) => e.id));
-      for (const e of upserts) if (!existingIds.has(e.id)) next.push(e);
-      return { calendarEvents: next };
-    });
-    for (const e of upserts) savePut("calendarEvents", e);
-    for (const id of dropIds) saveRemove("calendarEvents", id);
-  },
 
   visibleEvents: () =>
     filterVisibleEvents(get().calendarEvents, get().gcalStatus?.calendarPrefs ?? {}),

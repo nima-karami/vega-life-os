@@ -105,23 +105,7 @@ describe("editEventTime / renameEvent / markEventForDelete", () => {
   });
 });
 
-describe("applyLivedSync / visibleEvents", () => {
-  it("replaces only the target calendar's rows and drops by id", () => {
-    const s = mk([
-      ev({ id: "ce_keep", calendarId: "other" }),
-      ev({ id: "ce_old", calendarId: "personal" }),
-    ]);
-    s.getState().applyLivedSync(
-      "personal",
-      [ev({ id: "ce_new", calendarId: "personal", googleId: "gN", iCalUID: "uN" })],
-      ["ce_old"],
-    );
-    const ids = s
-      .getState()
-      .calendarEvents.map((e) => e.id)
-      .sort();
-    expect(ids).toEqual(["ce_keep", "ce_new"]);
-  });
+describe("visibleEvents", () => {
   it("visibleEvents dedupes shared invites", () => {
     const s = mk([
       ev({ id: "ce_a", iCalUID: "shared" }),
