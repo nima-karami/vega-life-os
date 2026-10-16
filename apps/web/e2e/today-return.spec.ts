@@ -67,6 +67,8 @@ test("today: a dismissed gratitude nudge stays dismissed; only a newer miss retu
 });
 
 test("today: Back from the journal returns to the day it was opened from", async ({ page }) => {
+  // A running clock pinned to noon: no midnight rollover, and route animations still advance.
+  await page.clock.install({ time: noonToday() });
   await enterApp(page);
   const twoDaysAgo = noonToday() - 2 * DAY_MS;
   const weekday = new Date(twoDaysAgo).toLocaleDateString("en-US", { weekday: "long" });

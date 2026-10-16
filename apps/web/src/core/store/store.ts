@@ -22,7 +22,7 @@ import { createFinanceSlice } from "@/features/finance/store";
 import { createGoalsSlice } from "@/features/goals/store";
 import { normalizeHabit } from "@/features/habits/recurrence";
 import { createHabitsSlice } from "@/features/habits/store";
-import { loadGratitudeNudgeAck, readLocalGratitudeNudgeAck } from "@/features/journal/nudge-ack";
+import { readLocalGratitudeNudgeAck } from "@/features/journal/nudge-ack";
 import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
 import { createReviewSlice } from "@/features/review/store";
@@ -66,11 +66,11 @@ async function loadAccount(
     await runDataMigrations(get, set, hasMigrationSources(loaded));
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
+    get().hydrateGratitudeNudgeAck(profile?.gratitudeNudgeAckedThrough ?? null);
     set({ ready: true }); // name known — safe to render the app / ProfileStep
     await get().refreshGcalStatus(); // server-owned GCal connection status
     get().hydrateShowGoogleEvents(await loadShowGoogleEvents(uid)); // display pref (profile)
     get().hydrateStreakRules(await loadStreakRules(uid)); // user-level streak rules (cloud)
-    get().hydrateGratitudeNudgeAck(await loadGratitudeNudgeAck(uid));
     get().ensureUpcoming(14);
   } catch {
     set({ loadFailed: true, ready: true }); // hydrate-failed → full-screen retry
@@ -155,6 +155,7 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   clearLocal: async () => {
     await new DexieAdapter().clearAll();
+    get().hydrateGratitudeNudgeAck(null);
   },
 
   resetDemo: async () => {

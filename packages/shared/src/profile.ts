@@ -24,7 +24,7 @@ export const profilePatchSchema = z
     streakLongMin: z.number(),
     streakRecoveryLen: z.number(),
     streakMendCooldownDays: z.number(),
-    gratitudeNudgeAckedThrough: z.string().nullable(),
+    gratitudeNudgeAckedThrough: z.iso.date().nullable(),
   })
   .partial();
 

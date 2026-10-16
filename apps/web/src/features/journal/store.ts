@@ -64,6 +64,8 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
     hydrateGratitudeNudgeAck: (ackedThrough) => set({ gratitudeNudgeAckedThrough: ackedThrough }),
 
     acknowledgeGratitudeNudge: (ackedThrough) => {
+      const current = get().gratitudeNudgeAckedThrough;
+      if (current != null && current >= ackedThrough) return;
       set({ gratitudeNudgeAckedThrough: ackedThrough });
       saveGratitudeNudgeAck(get().authUid, ackedThrough);
     },

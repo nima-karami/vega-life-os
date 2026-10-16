@@ -96,3 +96,12 @@ describe("journal slice", () => {
     vi.useRealTimers();
   });
 });
+
+describe("gratitude nudge acknowledgement", () => {
+  it("never moves the watermark backwards", () => {
+    const { get } = makeSlice();
+    get().acknowledgeGratitudeNudge("2026-06-24");
+    get().acknowledgeGratitudeNudge("2026-06-20");
+    expect(get().gratitudeNudgeAckedThrough).toBe("2026-06-24");
+  });
+});
