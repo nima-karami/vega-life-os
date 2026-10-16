@@ -56,3 +56,12 @@ export function getWeekEntries(journal: DayEntry[], weekIsos: string[]): DayEntr
     return entry && hasContent(entry) ? [entry] : [];
   });
 }
+
+/** Missed days strictly after the dismissal watermark — a dismissed nudge stays dismissed. */
+export function filterUnacknowledgedDays(
+  missedDays: string[],
+  ackedThrough: string | null,
+): string[] {
+  if (ackedThrough == null) return missedDays;
+  return missedDays.filter((day) => day > ackedThrough);
+}

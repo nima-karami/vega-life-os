@@ -20,6 +20,16 @@ describe("profile router (real server vs emulator)", () => {
     expect(snap.data()).toMatchObject({ name: "Nima", gcalEnabled: true, workspace: "VEGA" });
   });
 
+  it("stores and clears the gratitude-nudge acknowledgement watermark", async () => {
+    await server.asUid(owner).profile.upsert.mutate({ gratitudeNudgeAckedThrough: "2026-06-24" });
+    let snap = await server.firestore.doc(`users/${owner}`).get();
+    expect(snap.data()?.gratitudeNudgeAckedThrough).toBe("2026-06-24");
+
+    await server.asUid(owner).profile.upsert.mutate({ gratitudeNudgeAckedThrough: null });
+    snap = await server.firestore.doc(`users/${owner}`).get();
+    expect(snap.data()?.gratitudeNudgeAckedThrough).toBeNull();
+  });
+
   it("strips an unknown field rather than rejecting", async () => {
     await server.asUid(owner).profile.upsert.mutate({ avatar: "a.png", bogus: 1 } as never);
     const snap = await server.firestore.doc(`users/${owner}`).get();

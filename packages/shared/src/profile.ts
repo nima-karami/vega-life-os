@@ -2,7 +2,8 @@ import { z } from "zod";
 
 /**
  * The user-level profile doc at `users/{uid}`: identity plus the cloud-mirrored
- * Google-Calendar and streak-healing config that follows the account across devices.
+ * Google-Calendar, streak-healing and nudge-acknowledgement config that follows the
+ * account across devices.
  * All fields optional — writes are merge patches and the server stamps `updatedAt`.
  * (Domain records live in `users/{uid}/{collection}` subcollections, not here.)
  */
@@ -23,6 +24,7 @@ export const profilePatchSchema = z
     streakLongMin: z.number(),
     streakRecoveryLen: z.number(),
     streakMendCooldownDays: z.number(),
+    gratitudeNudgeAckedThrough: z.string().nullable(),
   })
   .partial();
 

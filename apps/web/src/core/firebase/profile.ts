@@ -23,6 +23,7 @@ export interface CloudProfile {
   streakLongMin?: number;
   streakRecoveryLen?: number;
   streakMendCooldownDays?: number;
+  gratitudeNudgeAckedThrough?: string | null;
 }
 
 export async function getCloudProfile(uid: string): Promise<CloudProfile | null> {
@@ -52,6 +53,8 @@ export async function getCloudProfile(uid: string): Promise<CloudProfile | null>
     streakRecoveryLen: typeof d.streakRecoveryLen === "number" ? d.streakRecoveryLen : undefined,
     streakMendCooldownDays:
       typeof d.streakMendCooldownDays === "number" ? d.streakMendCooldownDays : undefined,
+    gratitudeNudgeAckedThrough:
+      typeof d.gratitudeNudgeAckedThrough === "string" ? d.gratitudeNudgeAckedThrough : null,
   };
 }
 

@@ -10,6 +10,7 @@ import {
   layoutDay,
   partitionToday,
   reorderTasksInDay,
+  resolveViewDate,
   sortDailyHabits,
   splitRemaining,
   toggleDone,
@@ -488,5 +489,22 @@ describe("hasEventEnded()", () => {
 
   it("never ends a timed event that lost its time", () => {
     expect(hasEventEnded(event({ time: null }), utc(23, 59), "UTC")).toBe(false);
+  });
+});
+
+describe("resolveViewDate", () => {
+  const today = "2026-06-25";
+
+  it("falls back to today when the param is absent", () => {
+    expect(resolveViewDate(null, today)).toBe(today);
+  });
+
+  it("uses a valid ISO date from the URL", () => {
+    expect(resolveViewDate("2026-06-23", today)).toBe("2026-06-23");
+  });
+
+  it("falls back to today on a malformed or impossible date", () => {
+    expect(resolveViewDate("yesterday", today)).toBe(today);
+    expect(resolveViewDate("2026-02-30", today)).toBe(today);
   });
 });

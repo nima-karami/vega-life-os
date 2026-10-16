@@ -1,6 +1,7 @@
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { type DayEntry, mergeDayEntry } from "./model";
+import { saveGratitudeNudgeAck } from "./nudge-ack";
 
 /** Coalesce rapid edits (typing in gratitude/journal) into one persist after a short
  *  idle. The in-memory store updates synchronously so inputs stay responsive; only the
@@ -21,6 +22,10 @@ export interface JournalSlice {
   removeDayEntry: (id: string) => void;
   /** Re-insert a previously-removed entry intact (undo). */
   restoreDayEntry: (entry: DayEntry) => void;
+  /** Missed-gratitude days on/before this date stay dismissed. */
+  gratitudeNudgeAckedThrough: string | null;
+  hydrateGratitudeNudgeAck: (ackedThrough: string | null) => void;
+  acknowledgeGratitudeNudge: (ackedThrough: string) => void;
 }
 
 export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
@@ -54,6 +59,14 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
 
   return {
     journal: [],
+    gratitudeNudgeAckedThrough: null,
+
+    hydrateGratitudeNudgeAck: (ackedThrough) => set({ gratitudeNudgeAckedThrough: ackedThrough }),
+
+    acknowledgeGratitudeNudge: (ackedThrough) => {
+      set({ gratitudeNudgeAckedThrough: ackedThrough });
+      saveGratitudeNudgeAck(get().authUid, ackedThrough);
+    },
 
     getDayEntry: (date) => get().journal.find((e) => e.date === date),
 

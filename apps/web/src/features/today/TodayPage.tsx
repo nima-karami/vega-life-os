@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { formatLongDate, formatRelativeDay, shiftISO, todayISO } from "@/core/lib/date";
+import { formatLongDate, formatRelativeDay, todayISO } from "@/core/lib/date";
 import { getZonedWallClock } from "@/core/lib/zone";
 import { useStore } from "@/core/store";
 import { CalendarPopover, Icon, IconButton, UndoBar } from "@/core/ui";
@@ -10,6 +10,7 @@ import type { CalendarEvent } from "@/features/calendar-sync";
 import { useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import {
   BackfillNudge,
+  filterUnacknowledgedDays,
   GratitudeStep,
   getEntryStatus,
   getMissedGratitudeDays,
@@ -28,6 +29,7 @@ import { DailyHabits } from "./components/DailyHabits";
 import { RemainingTasks } from "./components/RemainingTasks";
 import { describeDay, partitionToday, reorderTasksInDay, toggleDone } from "./today-logic";
 import { useDayLayout } from "./useDayLayout";
+import { useViewDate } from "./useViewDate";
 
 /**
  * Today — the calm focus surface.
@@ -38,9 +40,7 @@ import { useDayLayout } from "./useDayLayout";
  */
 export function TodayPage() {
   const today = todayISO();
-  // The day currently in view. Defaults to today; the header lets you step
-  // back/forward a day or jump to any date, without leaving this surface.
-  const [viewDate, setViewDate] = useState(today);
+  const { viewDate, setViewDate, stepViewDate } = useViewDate(today);
   const isToday = viewDate === today;
   // The calendar layer is expressed in the account zone, so whether an event has
   // passed must be judged there — the rest of this page stays browser-zone.
@@ -56,6 +56,8 @@ export function TodayPage() {
   const addTask = useStore((s) => s.addTask);
 
   const journal = useStore((s) => s.journal);
+  const nudgeAckedThrough = useStore((s) => s.gratitudeNudgeAckedThrough);
+  const acknowledgeGratitudeNudge = useStore((s) => s.acknowledgeGratitudeNudge);
 
   const todayEntry = journal.find((e) => e.date === today);
   const viewEntry = journal.find((e) => e.date === viewDate);
@@ -65,11 +67,10 @@ export function TodayPage() {
   const [announce, setAnnounce] = useState("");
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
   const [reflectSkipped, setReflectSkipped] = useState(false);
-  const [nudgeDismissed, setNudgeDismissed] = useState(false);
 
   const missedDays = useMemo(
-    () => (nudgeDismissed ? [] : getMissedGratitudeDays(journal, today)),
-    [journal, today, nudgeDismissed],
+    () => filterUnacknowledgedDays(getMissedGratitudeDays(journal, today), nudgeAckedThrough),
+    [journal, today, nudgeAckedThrough],
   );
 
   const showGratitudeGate = isToday && !hasGratitude(todayEntry);
@@ -185,7 +186,7 @@ export function TodayPage() {
           missedDays={missedDays}
           onAdd={(d) => navigate(`/journal/${d}`)}
           onReviewAll={() => navigate("/entries")}
-          onDismiss={() => setNudgeDismissed(true)}
+          onDismiss={() => acknowledgeGratitudeNudge(missedDays[0])}
         />
       )}
       <header className="space-y-1">
@@ -196,7 +197,7 @@ export function TodayPage() {
               name="chevL"
               size={18}
               label="Previous day"
-              onPress={() => setViewDate(shiftISO(viewDate, -1))}
+              onPress={() => stepViewDate(-1)}
             />
             <CalendarPopover
               value={viewDate}
@@ -207,12 +208,7 @@ export function TodayPage() {
               triggerClassName="inline-grid h-8 w-8 place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
               triggerContent={<Icon name="calendar" size={16} />}
             />
-            <IconButton
-              name="chevR"
-              size={18}
-              label="Next day"
-              onPress={() => setViewDate(shiftISO(viewDate, 1))}
-            />
+            <IconButton name="chevR" size={18} label="Next day" onPress={() => stepViewDate(1)} />
           </div>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">

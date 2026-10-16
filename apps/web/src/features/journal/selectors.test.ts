@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/features/tasks/model";
 import type { DayEntry } from "./model";
-import { getMissedGratitudeDays, getWeekEntries, isDayReflectable } from "./selectors";
+import {
+  filterUnacknowledgedDays,
+  getMissedGratitudeDays,
+  getWeekEntries,
+  isDayReflectable,
+} from "./selectors";
 
 const task = (over: Partial<Task>): Task => ({
   id: "t",
@@ -91,6 +96,23 @@ const day = (date: string, over: Partial<DayEntry> = {}): DayEntry => ({
   createdAt: "",
   updatedAt: "",
   ...over,
+});
+
+describe("filterUnacknowledgedDays", () => {
+  const missed = ["2026-06-24", "2026-06-22", "2026-06-21"];
+
+  it("keeps every missed day when nothing has been acknowledged", () => {
+    expect(filterUnacknowledgedDays(missed, null)).toEqual(missed);
+  });
+
+  it("hides everything once acknowledged through the newest missed day", () => {
+    expect(filterUnacknowledgedDays(missed, "2026-06-24")).toEqual([]);
+    expect(filterUnacknowledgedDays(missed, "2026-06-30")).toEqual([]);
+  });
+
+  it("re-surfaces only the days missed after the acknowledgement", () => {
+    expect(filterUnacknowledgedDays(missed, "2026-06-22")).toEqual(["2026-06-24"]);
+  });
 });
 
 describe("getMissedGratitudeDays", () => {

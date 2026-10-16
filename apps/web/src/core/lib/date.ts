@@ -3,6 +3,7 @@ import {
   isToday as dfnsIsToday,
   differenceInCalendarDays,
   format,
+  isValid,
   parseISO,
   startOfWeek,
 } from "date-fns";
@@ -12,6 +13,12 @@ export const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export const todayISO = (ref: Date = new Date()) => format(ref, "yyyy-MM-dd");
 
 export const isoToDate = (s: string) => parseISO(s);
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isValidISODate(date: string | null | undefined): date is string {
+  return !!date && ISO_DATE.test(date) && isValid(parseISO(date));
+}
 
 /** Monday-anchored week start for a reference date. */
 export const weekStartOf = (ref: Date = new Date()) => startOfWeek(ref, { weekStartsOn: 1 });

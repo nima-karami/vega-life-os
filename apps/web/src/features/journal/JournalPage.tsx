@@ -1,19 +1,12 @@
-import { isValid, parseISO } from "date-fns";
 import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
-import { formatLongDate, formatRelativeDay, todayISO } from "@/core/lib/date";
+import { formatLongDate, formatRelativeDay, isValidISODate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon, Label, UndoBar } from "@/core/ui";
 import { GratitudeFields } from "./components/GratitudeFields";
 import { MoodPicker } from "./components/MoodPicker";
 import { RichJournalEditor } from "./editor";
 import type { DayEntry } from "./model";
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-function isValidISODate(date: string | undefined): date is string {
-  return !!date && ISO_DATE.test(date) && isValid(parseISO(date));
-}
 
 /** Full-screen day-entry editor at /journal/:date. */
 export function JournalPage() {
