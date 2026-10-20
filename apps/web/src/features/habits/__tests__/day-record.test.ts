@@ -118,7 +118,7 @@ describe("buildHabitDayRecord", () => {
     expect(stateOn(record, resumed)).toBe("missed");
   });
 
-  it("leaves today off while it is still within the grace window", () => {
+  it("leaves today off until it is done", () => {
     expect(stateOn(buildHabitDayRecord([], daily, 30, TODAY), TODAY)).toBe("off");
   });
 });

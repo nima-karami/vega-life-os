@@ -55,8 +55,8 @@ describe("computeHabitTimeline", () => {
       instance(2, { status: "done" }), // done on its slot
       instance(4, { status: "done", date: iso(3) }), // fulfilled a day late/elsewhere → moved
       instance(5, { status: "skip" }), // neutral skip
-      // slot at back-6 never materialized → a real miss (past grace)
-      // today (back-0) unresolved → pending (within grace)
+      // slot at back-6 never materialized → a past unresolved day is a miss
+      // today (back-0) unresolved → pending
     ];
     const timeline = computeHabitTimeline(tasks, dailyHabit, 8);
     const kindAt = (back: number) => timeline.days.find((d) => d.iso === iso(back))?.kind;
@@ -67,7 +67,7 @@ describe("computeHabitTimeline", () => {
     expect(kindAt(6)).toBe("miss");
     expect(kindAt(0)).toBe("pending");
     expect(timeline.done).toBe(2); // done + moved
-    expect(timeline.missed).toBeGreaterThanOrEqual(1);
+    expect(timeline.due).toBeGreaterThan(timeline.done);
   });
 
   it("marks non-scheduled days as off (faint), not misses", () => {
@@ -110,19 +110,14 @@ describe("computeHabitTimeline windowing", () => {
     const tasks = Array.from({ length: 35 }, (_, i) => instance(i, { status: "done" }));
     const timeline = computeHabitTimeline(tasks, habit, 90);
     expect(timeline.days.length).toBeLessThanOrEqual(35);
-    // rate reflects the misses inside the 90-day window (35 done / 90 due), not the
-    // full 120-day history and not the done-heavy 35-day strip
-    expect(timeline.rate).toBeCloseTo(35 / 90, 5);
+    // the tally covers the 90-day window, not the full history or the 35-day strip
     expect(timeline.done).toBe(35);
-    expect(timeline.missed).toBe(55);
+    expect(timeline.due).toBe(90);
   });
 
-  it("keeps the streak full-stretch regardless of window", () => {
-    const habit: Habit = { ...dailyHabit, createdAt: iso(45) };
-    const tasks = Array.from({ length: 45 }, (_, i) => instance(i, { status: "done" }));
-    const narrow = computeHabitTimeline(tasks, habit, 7);
-    const wide = computeHabitTimeline(tasks, habit, 40);
-    expect(narrow.streak).toBe(wide.streak);
-    expect(narrow.streak).toBeGreaterThan(7);
+  it("reports done and due matching the shared consistency tally", () => {
+    const tasks = Array.from({ length: 4 }, (_, i) => instance(i + 1, { status: "done" }));
+    const timeline = computeHabitTimeline(tasks, dailyHabit, 7);
+    expect(timeline).toMatchObject({ done: 4, due: 6 });
   });
 });

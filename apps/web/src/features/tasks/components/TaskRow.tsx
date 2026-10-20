@@ -1,6 +1,7 @@
 import { ALIGN_LABEL, getAlignment } from "@/core/lib/align";
 import { useStore } from "@/core/store";
 import { cx, Icon, Tag } from "@/core/ui";
+import { useValueVoteToast } from "@/features/values/useValueVoteToast";
 import type { Task } from "../model";
 
 const STATUS_BOX: Record<Task["status"], { icon?: "check" | "skip"; solid: boolean }> = {
@@ -20,6 +21,7 @@ export function TaskRow({
   showDate?: boolean;
 }) {
   const cycleStatus = useStore((s) => s.cycleStatus);
+  const announceVote = useValueVoteToast();
   const value = useStore((s) => s.values.find((v) => v.id === task.valueId));
   const isResolved = task.status === "done" || task.status === "skip";
   const box = STATUS_BOX[task.status];
@@ -58,7 +60,10 @@ export function TaskRow({
       <button
         type="button"
         aria-label={`Toggle ${task.title}`}
-        onClick={() => cycleStatus(task.id)}
+        onClick={() => {
+          cycleStatus(task.id);
+          if (task.status === "todo" || task.status === "open") announceVote(task);
+        }}
         className={cx(
           "grid h-6 w-6 shrink-0 place-items-center rounded-full border transition-colors",
           box.solid

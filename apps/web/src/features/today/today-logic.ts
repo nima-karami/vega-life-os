@@ -224,11 +224,6 @@ export function sortDailyHabits(items: Task[]): Task[] {
   );
 }
 
-/** Canonical accessible name for a streak; singular only at exactly 1. */
-export function formatStreakLabel(n: number): string {
-  return `${n}-day streak`;
-}
-
 /** The day in view from the `?date=` param; absent or invalid means today. */
 export function resolveViewDate(dateParam: string | null, today: string): string {
   return isValidISODate(dateParam) ? dateParam : today;

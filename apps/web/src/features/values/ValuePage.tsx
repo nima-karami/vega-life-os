@@ -112,9 +112,10 @@ function ValueDetail({ value }: { value: Value }) {
         }
       />
 
+      <span className="mt-5 block text-muted text-xs">Why this matters</span>
       <NoteField
         value={value.desc}
-        label="What it means to you"
+        label="Why this matters"
         placeholder="A sentence on why this matters…"
         onChange={(desc) => update(value.id, { desc })}
       />

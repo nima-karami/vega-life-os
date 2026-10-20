@@ -3,7 +3,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
-import { computeHabitWindowRate } from "@/features/habits";
+import { computeHabitConsistency, groupHabitsByValue } from "@/features/habits";
 import { isHabitActive } from "@/features/habits/model";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
@@ -98,12 +98,11 @@ function AnalyticsSection() {
   const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days), [goals, days]);
   const habitRanked = useMemo(
     () =>
-      habits
-        .filter(isHabitActive)
-        .map((h) => ({ h, ...computeHabitWindowRate(tasks, h, days) }))
-        .filter((r) => r.due > 0)
-        .sort((a, b) => b.rate - a.rate),
-    [habits, tasks, days],
+      groupHabitsByValue(habits.filter(isHabitActive), values)
+        .flatMap((g) => g.habits)
+        .map((h) => ({ h, ...computeHabitConsistency(tasks, h, undefined, days) }))
+        .filter((r) => r.due > 0),
+    [habits, values, tasks, days],
   );
 
   const maxValueCount = Math.max(1, ...Object.values(byValue));
@@ -185,23 +184,23 @@ function AnalyticsSection() {
           <>
             <SectionHead title="Habits" meta={`${days}d`} />
             <div className="mt-4 space-y-1">
-              {habitRanked.map(({ h, rate, done, due }) => (
+              {habitRanked.map(({ h, kept, due }) => (
                 <button
                   key={h.id}
                   type="button"
                   onClick={() => setReportHabitId(h.id)}
                   className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
-                  aria-label={`${h.name} report — ${done} of ${due} in the last ${days} days`}
+                  aria-label={`${h.name} report — ${kept} of ${due} in the last ${days} days`}
                 >
                   <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
                   <div className="h-3 flex-1 rounded-full bg-surface-secondary">
                     <div
                       className="h-3 rounded-full"
-                      style={{ width: `${rate * 100}%`, background: CHART_PRIMARY }}
+                      style={{ width: `${(kept / due) * 100}%`, background: CHART_PRIMARY }}
                     />
                   </div>
-                  <span className="w-8 text-right text-xs tabular-nums text-muted">
-                    {Math.round(rate * 100)}%
+                  <span className="w-14 text-right text-xs tabular-nums text-muted">
+                    {kept} of {due}
                   </span>
                   <Icon name="eye" size={14} className="shrink-0 text-muted" />
                 </button>

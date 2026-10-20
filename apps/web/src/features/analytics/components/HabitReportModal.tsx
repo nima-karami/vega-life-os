@@ -2,6 +2,7 @@ import { Modal, useOverlayState } from "@heroui/react";
 import { Link } from "react-router";
 import { useStore } from "@/core/store";
 import { Icon, useCompactModal } from "@/core/ui";
+import { computeHabitConsistency } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
 import { describeRecurrence, getHabitSchedule } from "@/features/habits/recurrence";
 import { computeHabitTimeline, type TimelineKind } from "../selectors";
@@ -64,6 +65,7 @@ export function HabitReportModal({
   const tasks = useStore((s) => s.tasks);
   const responsive = useCompactModal();
   const timeline = computeHabitTimeline(tasks, habit, windowDays);
+  const lately = computeHabitConsistency(tasks, habit);
   const state = useOverlayState({
     isOpen,
     onOpenChange: (next) => {
@@ -86,15 +88,14 @@ export function HabitReportModal({
             </Modal.Header>
 
             <Modal.Body className="gap-5">
-              <div className="grid grid-cols-3 gap-3">
-                <Stat value={`${timeline.streak}`} label="day streak" />
+              <div className="grid grid-cols-2 gap-3">
                 <Stat
-                  value={`${Math.round(timeline.rate * 100)}%`}
-                  label={`follow-through · ${windowDays}d`}
+                  value={lately.due > 0 ? `${lately.kept} of last ${lately.due}` : "—"}
+                  label="lately"
                 />
                 <Stat
-                  value={`${timeline.done}/${timeline.done + timeline.missed}`}
-                  label={`done / due · ${windowDays}d`}
+                  value={`${timeline.done} of ${timeline.due}`}
+                  label={`in the last ${windowDays} days`}
                 />
               </div>
 

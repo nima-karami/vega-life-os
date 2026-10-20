@@ -23,7 +23,7 @@ export const createReviewSlice: Slice<ReviewSlice> = (set, get) => ({
       id: input.id ?? existing?.id ?? uid("rv_"),
       periodKey: input.periodKey,
       prompts: input.prompts,
-      completion: input.completion,
+      checkIns: input.checkIns,
       createdAt: input.createdAt ?? new Date().toISOString(),
     };
     set((s) => {

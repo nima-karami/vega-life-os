@@ -15,13 +15,12 @@ export function HabitSection({
   onAdd: () => void;
 }) {
   const tasks = useStore((s) => s.tasks);
-  const rules = useStore((s) => s.streakRules);
 
   return (
     <DetailSection label="Habits" caps>
       <div className="space-y-3">
         {habits.map((h) => (
-          <HabitEntityCard key={h.id} habit={h} value={value} tasks={tasks} rules={rules} />
+          <HabitEntityCard key={h.id} habit={h} value={value} tasks={tasks} />
         ))}
       </div>
       <div className="mt-1">

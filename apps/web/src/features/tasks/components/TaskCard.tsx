@@ -1,5 +1,4 @@
 import { Card } from "@heroui/react";
-import { useStore } from "@/core/store";
 import {
   cx,
   getValueStripeStyle,
@@ -8,9 +7,8 @@ import {
   Menu,
   type MenuItem,
   ROW_META_CLASS,
-  StreakBadge,
 } from "@/core/ui";
-import { getStreakState } from "@/features/habits";
+import { BackToItLine } from "@/features/habits/BackToItLine";
 import { useTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "../model";
 
@@ -39,11 +37,6 @@ export function TaskCard({
   onDelete: (t: Task) => void;
 }) {
   const lineage = useTaskLineage(task.id);
-  const tasks = useStore((s) => s.tasks);
-  const habits = useStore((s) => s.habits);
-  const rules = useStore((s) => s.streakRules);
-  const habit = task.habitId != null ? habits.find((h) => h.id === task.habitId) : undefined;
-  const streak = habit ? getStreakState(tasks, habit, undefined, rules) : null;
   const done = task.status === "done";
   const skipped = task.status === "skip";
   const isResolved = done || skipped;
@@ -109,6 +102,7 @@ export function TaskCard({
             </span>
           )}
         </span>
+        <BackToItLine task={task} />
 
         <span className={ROW_META_CLASS}>
           {lineage && <Lineage lineage={lineage} variant="card" />}
@@ -118,11 +112,6 @@ export function TaskCard({
               {task.time}
             </span>
           )}
-          <StreakBadge
-            streak={streak?.count ?? 0}
-            state={streak?.state === "healing" ? "healing" : "solid"}
-            recovery={streak?.recovery}
-          />
           {task.detached && (
             <Icon name="unlink" size={12} className="text-muted" aria-label="Detached from habit" />
           )}

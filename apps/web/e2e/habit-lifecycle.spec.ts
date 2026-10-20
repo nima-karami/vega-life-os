@@ -62,7 +62,7 @@ test("pausing moves a habit into the Paused section (not deleted)", async ({ pag
   await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
 });
 
-test("pausing keeps the streak: resuming continues it instead of restarting", async ({ page }) => {
+test("pausing is neutral: the paused days are neither kept nor due", async ({ page }) => {
   const dayMs = 86_400_000;
   const noon = new Date();
   noon.setHours(12, 0, 0, 0);
@@ -101,5 +101,5 @@ test("pausing keeps the streak: resuming continues it instead of restarting", as
 
   await page.goto("/habits", { waitUntil: "domcontentloaded" });
   const card = page.getByRole("link", { name: "Stretch", exact: true });
-  await expect(page.locator("li", { has: card })).toContainText("3d streak");
+  await expect(page.locator("li", { has: card })).toContainText("3 of last 3");
 });

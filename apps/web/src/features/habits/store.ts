@@ -1,10 +1,10 @@
-import { shiftISO, todayISO } from "@/core/lib/date";
+import { todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Task } from "@/features/tasks/model";
 import { type Habit, habitLifecycle } from "./model";
-import { getPausedSpans } from "./paused-spans";
+import { closeOpenPause } from "./paused-spans";
 
 export interface HabitsSlice {
   habits: Habit[];
@@ -110,7 +110,12 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     const habit = get().habits.find((h) => h.id === id);
     if (!habit || (habit.archivedAt ?? null) !== null) return; // idempotent
     // archived supersedes paused: clear pausedAt so unarchive returns to active
-    const next: Habit = { ...habit, archivedAt: new Date().toISOString(), pausedAt: null };
+    const next: Habit = {
+      ...habit,
+      archivedAt: new Date().toISOString(),
+      pausedAt: null,
+      pausedSpans: closeOpenPause(habit, get().tasks),
+    };
     // strip the same future-instance set a schedule change rebuilds — but DON'T
     // regenerate (archived habits have no future). Past/detached instances stay.
     const removeIds = futureUndoneInstanceIds(get, id);
@@ -151,14 +156,11 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   resumeHabit: (id) => {
     const habit = get().habits.find((h) => h.id === id);
     if (!habit || habitLifecycle(habit) !== "paused") return; // idempotent, paused only
-    const base = getPausedSpans(habit, get().tasks);
-    const from = todayISO(new Date(habit.pausedAt ?? Date.now()));
-    const to = shiftISO(todayISO(), -1);
     const next: Habit = {
       ...habit,
       pausedAt: null,
       resumedAt: new Date().toISOString(),
-      pausedSpans: from <= to ? [...base, { from, to }] : base,
+      pausedSpans: closeOpenPause(habit, get().tasks),
     };
     set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
     savePut("habits", next);

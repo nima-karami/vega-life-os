@@ -224,6 +224,22 @@ describe("pauseHabit / resumeHabit", () => {
       }
     });
 
+    it("archiving a paused habit closes the open pause into a span", () => {
+      try {
+        const { get } = makeSlice();
+        at("2026-06-08T12:00:00");
+        get().addHabit({ id: "h1", name: "Journal" });
+        at("2026-06-10T12:00:00");
+        get().pauseHabit("h1");
+        at("2026-06-14T12:00:00");
+        get().archiveHabit("h1");
+        expect(get().habits[0].pausedAt).toBeNull();
+        expect(get().habits[0].pausedSpans).toEqual([{ from: "2026-06-10", to: "2026-06-13" }]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("same-day pause and resume appends nothing", () => {
       try {
         const { get } = makeSlice();

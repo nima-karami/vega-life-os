@@ -6,7 +6,6 @@ import type { Task } from "@/features/tasks/model";
 import {
   buildTaskPatch,
   describeDay,
-  formatStreakLabel,
   getGoalsForValue,
   hasEventEnded,
   layoutDay,
@@ -379,20 +378,6 @@ describe("sortDailyHabits()", () => {
   it("orders case-only variants adjacently without throwing", () => {
     const items = [task({ id: "u", title: "Run" }), task({ id: "l", title: "run" })];
     expect(sortDailyHabits(items).map((t) => t.title)).toHaveLength(2);
-  });
-});
-
-// ─── formatStreakLabel ─────────────────────────────────────────────────────────────
-
-describe("formatStreakLabel()", () => {
-  it("is singular at exactly 1", () => {
-    expect(formatStreakLabel(1)).toBe("1-day streak");
-  });
-
-  it("is plural at every other value", () => {
-    expect(formatStreakLabel(0)).toBe("0-day streak");
-    expect(formatStreakLabel(2)).toBe("2-day streak");
-    expect(formatStreakLabel(12)).toBe("12-day streak");
   });
 });
 

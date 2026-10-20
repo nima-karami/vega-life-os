@@ -24,6 +24,7 @@ import { isForeignDisplayZone, useDisplayZone } from "@/features/calendar-sync/u
 import { getFocusableGoals } from "@/features/goals";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
+import { useValueVoteToast } from "@/features/values/useValueVoteToast";
 import { BulkActionBar } from "./BulkActionBar";
 import { CalendarFilterButton } from "./CalendarFilterButton";
 import { CalendarSync } from "./CalendarSync";
@@ -135,6 +136,7 @@ export function CalendarPage() {
   const copyTask = useStore((s) => s.copyTask);
   const clearClipboard = useStore((s) => s.clearClipboard);
   const pushToast = useStore((s) => s.pushToast);
+  const announceVote = useValueVoteToast();
   const focusGoalId = useStore((s) => s.focusGoalId);
   const setFocusGoal = useStore((s) => s.setFocusGoal);
   const focusableGoals = useMemo(() => getFocusableGoals(goals), [goals]);
@@ -470,7 +472,9 @@ export function CalendarPage() {
 
   const bulkSetStatus = (status: TaskStatus) => {
     const ids = [...selectedRef.current];
+    const pending = status === "done" ? selectedTasks().filter((t) => t.status !== "done") : [];
     bulkUpdateTasks(ids, { status });
+    for (const task of pending) announceVote(task);
     setAnnounce(`Set ${ids.length} ${ids.length === 1 ? "task" : "tasks"} to ${status}`);
     clearSelection();
   };

@@ -24,3 +24,11 @@ export function isHabitPausedOn(habit: Habit, spans: PausedSpan[], date: string)
   if (spans.some((span) => date >= span.from && date <= span.to)) return true;
   return habit.pausedAt != null && date >= todayISO(new Date(habit.pausedAt));
 }
+
+export function closeOpenPause(habit: Habit, tasks: Task[]): PausedSpan[] {
+  const base = getPausedSpans(habit, tasks);
+  if (habit.pausedAt == null) return base;
+  const from = todayISO(new Date(habit.pausedAt));
+  const to = shiftISO(todayISO(), -1);
+  return from <= to ? [...base, { from, to }] : base;
+}

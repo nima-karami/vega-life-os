@@ -122,7 +122,7 @@ export const sampleByCollection: { [C in RoutedCollection]: SampleFactory<C> } =
     id,
     periodKey: "2026-W28",
     prompts: [{ q: "How was it?", a: "Good." }],
-    completion: 1,
+    checkIns: [],
     createdAt: "2026-07-13T09:00:00.000Z",
   }),
 };

@@ -779,9 +779,12 @@ test("today: the evening card invites a reflection on an unfinished day", async 
   await expect(evening).toContainText("How did today go?");
   await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
 
-  await evening.getByRole("button", { name: "Reflect" }).click();
-  const dialog = page.getByRole("dialog", { name: "Reflect on today" });
+  await evening.getByRole("button", { name: "Close the day" }).click();
+  const dialog = page.getByRole("dialog", { name: "Close the day" });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "What you did today" })).toBeVisible();
+  const next = dialog.getByRole("button", { name: "Next" });
+  while (await next.isVisible()) await next.click();
   await expect(dialog.getByRole("button", { name: "Save reflection" })).toBeDisabled();
   await dialog.getByRole("radio").nth(3).click();
   await dialog.getByRole("button", { name: "Save reflection" }).click();
@@ -802,8 +805,8 @@ test("today: no evening card in the morning; Cancel writes nothing; 'Not tonight
   await page.goto("/today", { waitUntil: "networkidle" });
   await expect(evening).toBeVisible({ timeout: 15_000 });
 
-  await evening.getByRole("button", { name: "Reflect" }).click();
-  const dialog = page.getByRole("dialog", { name: "Reflect on today" });
+  await evening.getByRole("button", { name: "Close the day" }).click();
+  const dialog = page.getByRole("dialog", { name: "Close the day" });
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
   await expect(evening).toBeVisible();

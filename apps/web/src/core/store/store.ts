@@ -25,6 +25,7 @@ import { createHabitsSlice } from "@/features/habits/store";
 import { readLocalGratitudeNudgeAck } from "@/features/journal/nudge-ack";
 import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
+import { normalizeReview } from "@/features/review/model";
 import { createReviewSlice } from "@/features/review/store";
 import { loadStreakRules, readLocalStreakRules } from "@/features/streaks/config";
 import { createStreaksSlice } from "@/features/streaks/store";
@@ -97,7 +98,9 @@ function sortDataset(dataset: Partial<Dataset>): Partial<Dataset> {
   if (dataset.books) out.books = [...dataset.books].sort((a, b) => a.order - b.order);
   if (dataset.movies) out.movies = [...dataset.movies].sort((a, b) => a.order - b.order);
   if (dataset.reviews)
-    out.reviews = [...dataset.reviews].sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1));
+    out.reviews = dataset.reviews
+      .map(normalizeReview)
+      .sort((a, b) => (a.periodKey < b.periodKey ? 1 : -1));
   if (dataset.journal)
     out.journal = [...dataset.journal].sort((a, b) => (a.date < b.date ? 1 : -1));
   return out;

@@ -2,7 +2,7 @@ import { addDays, format, startOfWeek, subDays } from "date-fns";
 import { shiftISO, todayISO } from "@/core/lib/date";
 import { type Goal, isGoalClosed } from "@/features/goals/model";
 import { getGoalPaceBadge } from "@/features/goals/presentation";
-import { computeHabitStreak, computeHabitWindowRate } from "@/features/habits";
+import { computeHabitConsistency } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
 import { getPausedSpans, isHabitPausedOn } from "@/features/habits/paused-spans";
 import { isActiveOnSchedule } from "@/features/habits/recurrence";
@@ -205,10 +205,8 @@ export interface TimelineDay {
 }
 
 export interface HabitTimeline {
-  streak: number;
-  rate: number;
   done: number;
-  missed: number;
+  due: number;
   days: TimelineDay[];
 }
 
@@ -227,23 +225,21 @@ function mapHabitInstancesBySlot(tasks: Task[], habitId: string): Map<string, Ta
   return bySlot;
 }
 
-function classifyTimelineDay(inst: Task | undefined, iso: string, floor: string): TimelineKind {
+function classifyTimelineDay(inst: Task | undefined, iso: string, today: string): TimelineKind {
   if (inst?.status === "done") return (inst.date ?? iso) !== iso ? "moved" : "done";
   if (inst?.status === "skip" || inst?.status === "open") return "skip";
-  return iso >= floor ? "pending" : "miss";
+  return iso >= today ? "pending" : "miss";
 }
 
 /** A habit's per-day report over the last windowDays: each scheduled day classified from
- *  its task instances, plus the headline streak/rate (shared with the rest of the app). */
+ *  its task instances, plus the done/due tally (shared with the rest of the app). */
 export function computeHabitTimeline(
   tasks: Task[],
   habit: Habit,
   windowDays = 35,
   today: string = todayISO(),
-  rules: StreakRules = DEFAULT_RULES,
 ): HabitTimeline {
   const bySlot = mapHabitInstancesBySlot(tasks, habit.id);
-  const graceFloor = shiftISO(today, -rules.graceDays);
   const windowStart = shiftISO(today, -(windowDays - 1));
   const createdOn = habit.createdAt.slice(0, 10);
   const start = windowStart > createdOn ? windowStart : createdOn;
@@ -256,16 +252,10 @@ export function computeHabitTimeline(
       days.push({ iso, label, kind: "off" });
       continue;
     }
-    days.push({ iso, label, kind: classifyTimelineDay(bySlot.get(iso), iso, graceFloor) });
+    days.push({ iso, label, kind: classifyTimelineDay(bySlot.get(iso), iso, today) });
   }
-  const window = computeHabitWindowRate(tasks, habit, windowDays, today, rules);
-  return {
-    streak: computeHabitStreak(tasks, habit, today, rules),
-    rate: window.rate,
-    done: window.done,
-    missed: window.missed,
-    days: days.slice(-35),
-  };
+  const { kept, due } = computeHabitConsistency(tasks, habit, today, windowDays);
+  return { done: kept, due, days: days.slice(-35) };
 }
 
 /** A closed goal is terminal (done → Completed, else Closed) and never gets a pace

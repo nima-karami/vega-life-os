@@ -12,7 +12,6 @@ export function HabitsPage() {
   const habits = useStore((s) => s.habits);
   const values = useStore((s) => s.values);
   const tasks = useStore((s) => s.tasks);
-  const rules = useStore((s) => s.streakRules);
   const addHabit = useStore((s) => s.addHabit);
 
   const navigate = useNavigate();
@@ -54,15 +53,10 @@ export function HabitsPage() {
   const renderCard = useCallback(
     (habit: Habit) => (
       <li key={habit.id}>
-        <HabitEntityCard
-          habit={habit}
-          value={valueById.get(habit.valueId)}
-          tasks={tasks}
-          rules={rules}
-        />
+        <HabitEntityCard habit={habit} value={valueById.get(habit.valueId)} tasks={tasks} />
       </li>
     ),
-    [valueById, tasks, rules],
+    [valueById, tasks],
   );
 
   useRegisterCommands(

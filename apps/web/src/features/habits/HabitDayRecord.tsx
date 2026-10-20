@@ -9,7 +9,7 @@ export function HabitDayRecord({ days, color }: { days: HabitDay[]; color: strin
   return (
     <div
       role="img"
-      aria-label={`${kept} of ${due} due days kept in the last ${days.length} days`}
+      aria-label={`${kept} of ${due} in the last ${days.length} days`}
       className="grid grid-cols-[repeat(30,minmax(0,1fr))] gap-[3px]"
     >
       {days.map((d) => (

@@ -8,20 +8,24 @@ export function buildReviews(weekStart: Date): Dataset["reviews"] {
     {
       id: "rv1",
       periodKey: iso(addDays(weekStart, -7)),
-      completion: 0.78,
+      checkIns: [
+        { valueId: "v1", rating: 4 },
+        { valueId: "v2", rating: 3 },
+        { valueId: "v3", rating: 2 },
+      ],
       createdAt: `${iso(addDays(weekStart, -1))}T20:00`,
       prompts: [
         {
-          q: "What went well this week?",
+          q: "What are you glad you did this week?",
           a: "Nailed the reading habit every night and shipped two job applications.",
         },
         {
-          q: "What slipped, and why?",
-          a: "Skipped two morning walks — late nights crept back in.",
+          q: "What got in the way? What's one small next step?",
+          a: "Late nights crept back in and cost two morning walks. Next step: lights out by 11.",
         },
         {
-          q: "Which value got too little of you?",
-          a: "Stability. Admin piled up and I avoided it.",
+          q: "Which value do you want to give more of yourself to next week?",
+          a: "Stability — admin piled up and I avoided it.",
         },
         {
           q: "The one thing that matters most next week:",

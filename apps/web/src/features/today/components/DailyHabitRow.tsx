@@ -1,19 +1,16 @@
 import { useStore } from "@/core/store";
-import { cx, Icon, StreakBadge } from "@/core/ui";
-import { getStreakState } from "@/features/habits";
+import { cx, Icon } from "@/core/ui";
+import { BackToItLine } from "@/features/habits/BackToItLine";
 import { useTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "@/features/tasks/model";
 import { getValueColor } from "@/features/values/color";
 
-/** A single Daily-habits row — toggle, icon, title, value tag, and streak badge. */
+/** A single Daily-habits row — toggle, icon, title, value tag, and the back-to-it nudge. */
 export function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Task) => void }) {
   const habitDefs = useStore((s) => s.habits);
-  const tasks = useStore((s) => s.tasks);
-  const rules = useStore((s) => s.streakRules);
   const lineage = useTaskLineage(task.id);
   const isDone = task.status === "done";
   const habit = habitDefs.find((h) => h.id === task.habitId);
-  const streak = habit ? getStreakState(tasks, habit, undefined, rules) : null;
   const icon = habit?.icon ?? "repeat";
 
   return (
@@ -36,13 +33,16 @@ export function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Ta
           {isDone && <Icon name="check" size={12} />}
         </span>
         <Icon name={icon} size={15} className="shrink-0 text-muted" />
-        <span
-          className={cx(
-            "min-w-0 flex-1 truncate text-sm",
-            isDone ? "text-muted line-through" : "text-foreground",
-          )}
-        >
-          {task.title}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span
+            className={cx(
+              "truncate text-sm",
+              isDone ? "text-muted line-through" : "text-foreground",
+            )}
+          >
+            {task.title}
+          </span>
+          <BackToItLine task={task} />
         </span>
         {lineage?.value && (
           <span
@@ -52,11 +52,6 @@ export function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Ta
             {lineage.value.name}
           </span>
         )}
-        <StreakBadge
-          streak={streak?.count ?? 0}
-          state={streak?.state === "healing" ? "healing" : "solid"}
-          recovery={streak?.recovery}
-        />
       </button>
     </li>
   );

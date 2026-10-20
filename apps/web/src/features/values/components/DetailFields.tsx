@@ -59,7 +59,7 @@ export function NoteField({
       }}
       className={cx(
         BARE_FIELD,
-        "mt-3.5 resize-none overflow-hidden text-[16px] leading-[1.6] text-muted",
+        "mt-1.5 resize-none overflow-hidden text-[16px] leading-[1.6] text-muted",
       )}
     />
   );

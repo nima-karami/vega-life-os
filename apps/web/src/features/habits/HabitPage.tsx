@@ -5,12 +5,13 @@ import type { IconName } from "@/core/lib/icon-names";
 import { useStore } from "@/core/store";
 import { EntityBreadcrumb, Icon, IconField, Menu, type MenuItem } from "@/core/ui";
 import { getValueCardFill, getValueColor } from "@/features/values/color";
+import { ValueWhy } from "@/features/values/components/ValueWhy";
 import { ArchivedBanner } from "./ArchivedBanner";
 import { buildHabitTrail } from "./breadcrumb";
 import { DeleteHabitDialog } from "./DeleteHabitDialog";
 import { HabitDayRecord } from "./HabitDayRecord";
-import { buildHabitMeta } from "./HabitEntityCard";
 import { HabitFields } from "./HabitFields";
+import { buildHabitMeta } from "./habit-meta";
 import { HABIT_LIFECYCLE_LABEL, type Habit, type HabitLifecycle, habitLifecycle } from "./model";
 import { buildHabitDayRecord } from "./selectors";
 import { useHabitLifecycle } from "./useHabitLifecycle";
@@ -43,7 +44,6 @@ function HabitDetail({ habit }: { habit: Habit }) {
   const goals = useStore((s) => s.goals);
   const value = values.find((v) => v.id === habit.valueId);
   const tasks = useStore((s) => s.tasks);
-  const rules = useStore((s) => s.streakRules);
   const updateHabit = useStore((s) => s.updateHabit);
   const unarchiveHabit = useStore((s) => s.unarchiveHabit);
   const pushToast = useStore((s) => s.pushToast);
@@ -52,11 +52,8 @@ function HabitDetail({ habit }: { habit: Habit }) {
 
   const lifecycle = habitLifecycle(habit);
   const isArchived = lifecycle === "archived";
-  const meta = useMemo(() => buildHabitMeta(tasks, habit, rules), [tasks, habit, rules]);
-  const record = useMemo(
-    () => buildHabitDayRecord(tasks, habit, RECORD_DAYS, undefined, rules),
-    [tasks, habit, rules],
-  );
+  const meta = useMemo(() => buildHabitMeta(tasks, habit), [tasks, habit]);
+  const record = useMemo(() => buildHabitDayRecord(tasks, habit, RECORD_DAYS), [tasks, habit]);
 
   const renameHabit = (name: string) => updateHabit(habit.id, { name });
 
@@ -100,6 +97,12 @@ function HabitDetail({ habit }: { habit: Habit }) {
         </div>
         <HabitActionsMenu habit={habit} lifecycle={lifecycle} onDelete={() => setDeleting(true)} />
       </header>
+
+      {value && (
+        <div className="mt-5">
+          <ValueWhy value={value} />
+        </div>
+      )}
 
       <section className="mt-6">
         <span className="block text-muted text-xs">The last thirty days</span>

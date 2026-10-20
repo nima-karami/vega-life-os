@@ -23,6 +23,7 @@ import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
 import type { Task } from "@/features/tasks/model";
 import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
+import { useValueVoteToast } from "@/features/values/useValueVoteToast";
 import { AllDoneMarker } from "./components/AllDoneMarker";
 import { DailyHabits } from "./components/DailyHabits";
 import { EveningCard } from "./components/EveningCard";
@@ -120,9 +121,12 @@ export function TodayPage() {
     return () => clearTimeout(timerId);
   }, [pendingUndo]);
 
+  const announceVote = useValueVoteToast();
+
   function handleToggleDone(task: Task) {
     const next = toggleDone(task);
     setStatus(task.id, next);
+    if (next === "done") announceVote(task);
     setAnnounce(next === "done" ? "Marked done" : "Marked not done");
   }
 
@@ -134,6 +138,7 @@ export function TodayPage() {
   function handleToggleHabit(task: Task) {
     const next = task.status === "done" ? "todo" : "done";
     setStatus(task.id, next);
+    if (next === "done") announceVote(task);
     setAnnounce(next === "done" ? `${task.title}, done` : `${task.title}, not done`);
   }
 
@@ -301,7 +306,7 @@ export function TodayPage() {
         date={today}
         isOpen={isReflecting}
         onClose={() => setIsReflecting(false)}
-        onSaved={() => setAnnounce("Reflection saved")}
+        onSaved={() => setAnnounce("Day closed.")}
       />
     </div>
   );

@@ -15,65 +15,6 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** Circular gauge (HUD ring). */
-export function Gauge({
-  value,
-  size = 56,
-  stroke = 6,
-  hue,
-  showLabel = true,
-  sub,
-}: {
-  value: number;
-  size?: number;
-  stroke?: number;
-  hue?: string;
-  showLabel?: boolean;
-  sub?: string;
-}) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const pct = Math.round(value * 100);
-  return (
-    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="var(--color-line)"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={hue ?? "var(--color-ink)"}
-          strokeWidth={stroke}
-          strokeLinecap="butt"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - Math.min(1, Math.max(0, value)))}
-          style={{ transition: "stroke-dashoffset .6s cubic-bezier(.4,0,.1,1)" }}
-        />
-      </svg>
-      {showLabel && (
-        <div className="absolute flex flex-col items-center leading-none">
-          <span
-            className="font-semibold tracking-tight text-foreground"
-            style={{ fontSize: size < 60 ? 15 : 20 }}
-          >
-            {pct}
-            <span className="text-[0.5em] font-semibold">%</span>
-          </span>
-          {sub && <span className="mt-0.5 text-xs text-muted">{sub}</span>}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** ●●●●●○○○○○ discrete meter (matches the cockpit VALUES rows). */
 export function DotMeter({
   value,

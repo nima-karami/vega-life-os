@@ -11,6 +11,9 @@ import {
   TimeRange,
   useCompactModal,
 } from "@/core/ui";
+import { ValueWhy } from "@/features/values/components/ValueWhy";
+import { useValueVoteToast } from "@/features/values/useValueVoteToast";
+import { getTaskLineage } from "../lineage";
 import { STATUS_LABEL, type Task, type TaskStatus } from "../model";
 
 const STATUSES: TaskStatus[] = ["open", "todo", "done", "skip"];
@@ -31,6 +34,9 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
   const pushToast = useStore((s) => s.pushToast);
+  const announceVote = useValueVoteToast();
+
+  const whyValue = task ? getTaskLineage(task, { values, goals, habits }).value : undefined;
 
   // Goals scoped to the task's value (when set) — keeps the link coherent.
   const goalOptions = task?.valueId ? goals.filter((g) => g.valueId === task.valueId) : goals;
@@ -65,6 +71,8 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                     className="h-12 w-full rounded-[12px] border border-border bg-surface px-3 text-xl font-semibold text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-focus"
                   />
 
+                  {whyValue && <ValueWhy value={whyValue} onNavigate={onClose} />}
+
                   <Section label="Status">
                     <div className="grid grid-cols-4 gap-1.5">
                       {STATUSES.map((s) => (
@@ -74,7 +82,10 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
                           size="sm"
                           aria-pressed={task.status === s}
                           variant={task.status === s ? "primary" : "secondary"}
-                          onPress={() => setStatus(task.id, s)}
+                          onPress={() => {
+                            setStatus(task.id, s);
+                            if (s === "done" && task.status !== "done") announceVote(task);
+                          }}
                         >
                           {STATUS_LABEL[s]}
                         </Button>

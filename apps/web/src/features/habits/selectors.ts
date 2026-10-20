@@ -1,11 +1,4 @@
 import { getWeekDays, shiftISO, todayISO } from "@/core/lib/date";
-import {
-  DEFAULT_RULES,
-  resolveStreak,
-  type SeqItem,
-  type StreakResult,
-  type StreakRules,
-} from "@/features/streaks";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
 import { type Habit, isHabitActive } from "./model";
@@ -19,9 +12,10 @@ export const getHabitInstances = (tasks: Task[], habitId: string) =>
     .filter((t) => t.habitId === habitId && t.date)
     .sort((a, b) => ((a.date ?? "") < (b.date ?? "") ? -1 : 1));
 
-/** Per scheduled slot: done on-time, done late, a genuine miss, a neutral skip, or
- *  still-pending (today or within grace). */
-type SlotKind = "done" | "late" | "miss" | "skip" | "pending";
+export const CONSISTENCY_WINDOW_DAYS = 7;
+
+/** Per scheduled slot: done, due (past and unresolved), a neutral skip, or still-pending today. */
+type SlotKind = "done" | "due" | "skip" | "pending";
 
 const statusRank = (s: TaskStatus) => (s === "done" ? 3 : s === "skip" ? 2 : 1);
 
@@ -38,25 +32,12 @@ function mapInstancesBySlot(tasks: Task[], habitId: string): Map<string, Task> {
   return bySlot;
 }
 
-function classifySlot(
-  inst: Task | undefined,
-  date: string,
-  today: string,
-  grace: number,
-): SlotKind {
+function classifySlot(inst: Task | undefined, date: string, today: string): SlotKind {
   // "skip" (explicit) and "open" (unscheduled — the occurrence was pulled off its day)
-  // are both neutral: the user removed it from that day, so it's never a miss.
+  // are both neutral: the user removed it from that day, so it's never due.
   if (inst?.status === "skip" || inst?.status === "open") return "skip";
-  if (inst?.status === "done") {
-    const completedOn = inst.completedAt?.slice(0, 10) ?? date;
-    // a deliberately rescheduled occurrence (moved to a later day) is on-time if done by
-    // its landing date + grace — moving is intentional, unlike a forgotten late backfill
-    const landing = inst.date ?? date;
-    const deadline = shiftISO(landing > date ? landing : date, grace);
-    return completedOn <= deadline ? "done" : "late";
-  }
-  // unresolved (todo/none): pending until grace elapses, then a miss
-  return date >= shiftISO(today, -grace) ? "pending" : "miss";
+  if (inst?.status === "done") return "done";
+  return date >= today ? "pending" : "due";
 }
 
 /** Schedule-driven: every active slot date from the habit's creation to today,
@@ -65,7 +46,6 @@ function deriveSlotKinds(
   tasks: Task[],
   habit: Habit,
   today: string,
-  grace = DEFAULT_RULES.graceDays,
 ): { date: string; kind: SlotKind }[] {
   const bySlot = mapInstancesBySlot(tasks, habit.id);
   const out: { date: string; kind: SlotKind }[] = [];
@@ -78,7 +58,7 @@ function deriveSlotKinds(
       const kind =
         inst?.status !== "done" && isHabitPausedOn(habit, spans, d)
           ? "skip"
-          : classifySlot(inst, d, today, grace);
+          : classifySlot(inst, d, today);
       out.push({ date: d, kind });
     }
     d = shiftISO(d, 1);
@@ -86,94 +66,46 @@ function deriveSlotKinds(
   return out;
 }
 
-// Resolved history oldest→newest for the streak walk: "D" on-time done, "M" miss
-// (incl. a late backfill). Skips and still-pending slots are neutral / not over.
-function computeStreakSequence(
-  tasks: Task[],
-  habit: Habit,
-  today: string,
-  grace = DEFAULT_RULES.graceDays,
-): SeqItem[] {
-  return deriveSlotKinds(tasks, habit, today, grace)
-    .filter((k) => k.kind !== "skip" && k.kind !== "pending")
-    .map((k) => ({ kind: k.kind === "done" ? "D" : "M", date: k.date }));
-}
-
-/**
- * Streak with mending, driven by the shared streak engine and the active rules
- * (default = the original habit constants, so existing numbers are unchanged).
- */
-export function getStreakState(
-  tasks: Task[],
-  habit: Habit,
-  today: string = todayISO(),
-  rules: StreakRules = DEFAULT_RULES,
-): StreakResult {
-  return resolveStreak(computeStreakSequence(tasks, habit, today, rules.graceDays), rules);
-}
-
-// Consecutive completed slots, mending applied. Thin wrapper for existing call sites.
-export function computeHabitStreak(
-  tasks: Task[],
-  habit: Habit,
-  today: string = todayISO(),
-  rules: StreakRules = DEFAULT_RULES,
-): number {
-  return getStreakState(tasks, habit, today, rules).count;
-}
-
-/** Count done (incl. late backfills) vs genuine misses; optionally only slots on or
- *  after `floor`. Skips and pending slots are neutral, excluded from both tallies. */
-function tallySlotKinds(
-  kinds: { date: string; kind: SlotKind }[],
-  floor?: string,
-): { done: number; missed: number } {
-  let done = 0;
-  let missed = 0;
-  for (const k of kinds) {
-    if (floor && k.date < floor) continue;
-    if (k.kind === "done" || k.kind === "late") done++;
-    else if (k.kind === "miss") missed++;
-  }
-  return { done, missed };
-}
-
-/** done / (done + missed) over scheduled slots; a late backfill still counts as done
- *  for the rate (only the streak penalizes lateness). Skips and pending slots excluded. */
-export function computeHabitRate(
-  tasks: Task[],
-  habit: Habit,
-  today: string = todayISO(),
-  rules: StreakRules = DEFAULT_RULES,
-): number {
-  const { done, missed } = tallySlotKinds(deriveSlotKinds(tasks, habit, today, rules.graceDays));
-  const denom = done + missed;
-  return denom ? done / denom : 0;
-}
-
-export interface HabitWindowRate {
-  rate: number;
+export interface HabitConsistency {
+  kept: number;
   due: number;
-  done: number;
-  missed: number;
+  windowDays: number;
 }
 
-/** Windowed follow-through: done/(done+missed) over scheduled slots in the last
- *  windowDays only. `due` lets callers hide habits with nothing due in the window. */
-export function computeHabitWindowRate(
+/** Done vs due over the last `windowDays`; a late backfill is kept, skips, pauses and today's
+ *  unresolved slot are neutral. */
+export function computeHabitConsistency(
   tasks: Task[],
   habit: Habit,
-  windowDays: number,
   today: string = todayISO(),
-  rules: StreakRules = DEFAULT_RULES,
-): HabitWindowRate {
+  windowDays: number = CONSISTENCY_WINDOW_DAYS,
+): HabitConsistency {
   const floor = shiftISO(today, -(windowDays - 1));
-  const { done, missed } = tallySlotKinds(
-    deriveSlotKinds(tasks, habit, today, rules.graceDays),
-    floor,
+  let kept = 0;
+  let due = 0;
+  for (const { date, kind } of deriveSlotKinds(tasks, habit, today)) {
+    if (date < floor) continue;
+    if (kind === "done") {
+      kept++;
+      due++;
+    } else if (kind === "due") due++;
+  }
+  return { kept, due, windowDays };
+}
+
+/** True when the latest resolved slot before today was missed (never-miss-twice). A slot at or
+ *  before the end of the last pause is ignored: the resume starts fresh. */
+export function hasLapsedPreviousSlot(
+  tasks: Task[],
+  habit: Habit,
+  today: string = todayISO(),
+): boolean {
+  const spans = getPausedSpans(habit, tasks);
+  const floor = spans.reduce((latest, span) => (span.to > latest ? span.to : latest), "");
+  const previous = deriveSlotKinds(tasks, habit, today).filter(
+    (k) => k.date < today && k.date > floor && (k.kind === "done" || k.kind === "due"),
   );
-  const due = done + missed;
-  return { rate: due ? done / due : 0, due, done, missed };
+  return previous.at(-1)?.kind === "due";
 }
 
 export type HabitWeekState = "kept" | "due" | "off";
@@ -186,8 +118,7 @@ export interface HabitWeekDay {
 
 const WEEK_STATE_BY_KIND: Record<SlotKind, HabitWeekState> = {
   done: "kept",
-  late: "kept",
-  miss: "due",
+  due: "due",
   pending: "due",
   skip: "off",
 };
@@ -221,49 +152,14 @@ export function buildHabitDayRecord(
   habit: Habit,
   windowDays = 30,
   today: string = todayISO(),
-  rules: StreakRules = DEFAULT_RULES,
 ): HabitDay[] {
-  const kindByDate = new Map(
-    deriveSlotKinds(tasks, habit, today, rules.graceDays).map((k) => [k.date, k.kind]),
-  );
+  const kindByDate = new Map(deriveSlotKinds(tasks, habit, today).map((k) => [k.date, k.kind]));
   return Array.from({ length: windowDays }, (_, i) => {
     const date = shiftISO(today, i - windowDays + 1);
     const kind = kindByDate.get(date);
-    const state: HabitDayState =
-      kind === "done" || kind === "late" ? "kept" : kind === "miss" ? "missed" : "off";
+    const state: HabitDayState = kind === "done" ? "kept" : kind === "due" ? "missed" : "off";
     return { date, state };
   });
-}
-
-/**
- * Streak "on the line" today: today's scheduled slot is unresolved and a streak
- * worth protecting (>= threshold) is at stake. Returns the streak length, else 0.
- */
-export function isStreakAtRisk(
-  tasks: Task[],
-  habit: Habit,
-  threshold = 3,
-  rules: StreakRules = DEFAULT_RULES,
-): number {
-  const today = todayISO();
-  if (!isActiveOnSchedule(habit.schedule, today)) return 0;
-  const todaySlot = mapInstancesBySlot(tasks, habit.id).get(today);
-  if (todaySlot && (todaySlot.status === "done" || todaySlot.status === "skip")) return 0;
-  const streak = getStreakState(tasks, habit, today, rules).count;
-  return streak >= threshold ? streak : 0;
-}
-
-/** A small completion history (most recent N scheduled slots), 1=done 0=miss -1=skip. */
-export function getHabitHistory(
-  tasks: Task[],
-  habit: Habit,
-  n = 14,
-  today: string = todayISO(),
-  rules: StreakRules = DEFAULT_RULES,
-): number[] {
-  return deriveSlotKinds(tasks, habit, today, rules.graceDays)
-    .slice(-n)
-    .map((k) => (k.kind === "done" || k.kind === "late" ? 1 : k.kind === "skip" ? -1 : 0));
 }
 
 /**

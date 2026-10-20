@@ -1,7 +1,6 @@
 import { Link } from "react-router";
 import { useStore } from "@/core/store";
 import { cx, Disclosure, Icon, Menu } from "@/core/ui";
-import { computeHabitStreak } from "@/features/habits";
 import { getValueCardFill } from "../color";
 import type { Value } from "../model";
 import { splitGoals } from "../selectors";
@@ -26,8 +25,6 @@ export function ValueIndexCard({
 }: { value: Value; archived: boolean } & ValueCardActions) {
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
-  const tasks = useStore((s) => s.tasks);
-  const rules = useStore((s) => s.streakRules);
 
   const valueGoals = goals.filter((g) => g.valueId === value.id).sort((a, b) => a.order - b.order);
   const { open, closed } = splitGoals(valueGoals);
@@ -126,9 +123,6 @@ export function ValueIndexCard({
               >
                 <Icon name={h.icon} size={13} className="text-white/[.86]" />
                 {h.name}
-                <span className="text-white/[.86]">
-                  · {computeHabitStreak(tasks, h, undefined, rules)}d
-                </span>
               </Link>
             ))}
           </div>

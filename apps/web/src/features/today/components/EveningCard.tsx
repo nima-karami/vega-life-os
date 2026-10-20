@@ -20,7 +20,7 @@ export function EveningCard({
               Not tonight
             </Button>
             <Button variant="primary" onPress={onReflect}>
-              Reflect
+              Close the day
             </Button>
           </div>
         </div>
