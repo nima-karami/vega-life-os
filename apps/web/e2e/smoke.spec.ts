@@ -17,24 +17,6 @@ const IGNORE = [
   /Firebase/i, // cloud sync is gated off without config — expected
 ];
 
-/** Pass the forced morning gratitude gate so the task surface is reachable. */
-async function passGratitudeGate(page: import("@playwright/test").Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
-/** Clicks every "Mark … done" control in a region until none is left. */
-async function markRegionDone(region: import("@playwright/test").Locator) {
-  for (;;) {
-    const next = region.getByRole("button", { name: /^Mark .+ done$/ }).first();
-    if (!(await next.isVisible().catch(() => false))) break;
-    await next.click();
-  }
-}
-
 // Boot the app and dismiss onboarding once before each test.
 test.beforeEach(async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
@@ -63,7 +45,6 @@ test("boots to /today — no TopBar, no NavRow, omni trigger visible", async ({ 
   });
 
   await page.goto("/", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
 
   // No nav chrome visible on desktop. The phone-only bottom nav is sm:hidden (present
   // in the DOM but display:none here); legacy NavRow chrome stays gone.
@@ -94,9 +75,9 @@ test("onboarding: cloud-first welcome (sign-in unavailable variant in CI)", asyn
   await expect(page.getByRole("button", { name: /start empty/i })).toHaveCount(0);
   await expect(page.getByPlaceholder(/what should we call you/i)).toHaveCount(0);
 
-  // Choosing sample data seeds the sandbox and enters the app (lands on the gate).
+  // Choosing sample data seeds the sandbox and enters the app (lands on Today).
   await explore.click();
-  await expect(page.getByRole("button", { name: "Continue to today" })).toBeVisible({
+  await expect(page.getByRole("region", { name: "Gratitude" })).toBeVisible({
     timeout: 15_000,
   });
 });
@@ -119,7 +100,6 @@ for (const { path, name } of V1_ROUTES) {
       }
     });
 
-    await passGratitudeGate(page);
     await page.goto(path, { waitUntil: "networkidle" });
 
     // main content area is present
@@ -151,7 +131,6 @@ for (const path of REMOVED_ROUTES) {
       }
     });
 
-    await passGratitudeGate(page);
     await page.goto(path, { waitUntil: "networkidle" });
 
     // 404 page shows — wait for main to contain recovery text
@@ -168,19 +147,17 @@ for (const path of REMOVED_ROUTES) {
 
 // ─── Slice 1: Today view ─────────────────────────────────────────────────────
 
-test("today header shows date and an X of Y done progress read-out", async ({ page }) => {
+test("today header shows date and a planned-count read-out", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   const main = page.locator("main");
   await expect(main).toBeVisible({ timeout: 15_000 });
-  // Heading + progress copy ("N of M done" or the empty-state copy).
+  // Heading + count copy ("N planned" or the empty-state copy).
   await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
-  await expect(main).toContainText(/(\d+ of \d+ done|Nothing scheduled)/);
+  await expect(main).toContainText(/(\d+ planned|Nothing scheduled)/);
 });
 
 test("completing a remaining task moves it to Done and updates progress", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   const remaining = page.getByRole("region", { name: "Remaining" });
   await expect(remaining).toBeVisible({ timeout: 15_000 });
 
@@ -205,7 +182,6 @@ test("completing a remaining task moves it to Done and updates progress", async 
 
 test("add-a-task captures a title and the card appears in Remaining", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   // Expand the inline capture and type a title.
@@ -230,7 +206,6 @@ test("the undo bar keeps its desktop offset of 24px above the viewport bottom", 
   const viewport = { width: 1280, height: 800 };
   await page.setViewportSize(viewport);
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   await page.locator('main [aria-label^="Actions for "]').first().click();
@@ -255,8 +230,6 @@ test("the undo bar keeps its desktop offset of 24px above the viewport bottom", 
 test("the header avatar clears the search bar in the tablet band and floats right at lg", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
-
   await page.setViewportSize({ width: 700, height: 900 });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   const avatar = page.getByRole("button", { name: "Account menu" });
@@ -290,7 +263,6 @@ test("the header avatar clears the search bar in the tablet band and floats righ
 test("calendar: opening a slot then closing without naming discards the draft", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -310,7 +282,6 @@ test("calendar: opening a slot then closing without naming discards the draft", 
 });
 
 test("calendar: right-click a chip → Delete removes it", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -335,7 +306,6 @@ test("calendar: right-click a chip → Delete removes it", async ({ page }) => {
 });
 
 test("calendar: the Filter popover focuses one goal and All clears it", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -358,7 +328,6 @@ test("calendar: the Filter popover focuses one goal and All clears it", async ({
 });
 
 test("calendar: right-click an empty slot → add / schedule menu", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -379,7 +348,6 @@ test("calendar: right-click an empty slot → add / schedule menu", async ({ pag
 });
 
 test("calendar: schedule an existing task from the slot menu", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -407,7 +375,6 @@ test("calendar: schedule an existing task from the slot menu", async ({ page }) 
 test("calendar: all-day chip right-click → menu parity (Open · Copy · Delete · Schedule)", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -426,7 +393,6 @@ test("calendar: all-day chip right-click → menu parity (Open · Copy · Delete
 test("calendar: 'Schedule to time…' gives an all-day task a time (leaves the all-day row)", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -471,7 +437,6 @@ async function dragAllDayChipToColumn(
 test("calendar: dragging an all-day chip sideways changes its day and keeps it untimed", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -494,7 +459,6 @@ test("calendar: dragging an all-day chip sideways changes its day and keeps it u
 });
 
 test("calendar: the untimed drop zone survives a scrolled timed grid", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -530,7 +494,6 @@ test("calendar: the untimed drop zone survives a scrolled timed grid", async ({ 
 test("calendar: 'Move to day…' moves an all-day task, keeps it untimed, and returns focus", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -560,7 +523,6 @@ test("calendar: 'Move to day…' moves an all-day task, keeps it untimed, and re
 test("calendar: relink a detached habit instance snaps it back to the template", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -582,7 +544,6 @@ test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count
 }) => {
   const viewport = { width: 1280, height: 800 };
   await page.setViewportSize(viewport);
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -615,7 +576,6 @@ test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count
 });
 
 test("calendar: bulk delete removes the selection and Undo restores it", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -639,7 +599,6 @@ test("calendar: bulk delete removes the selection and Undo restores it", async (
 });
 
 test("calendar: bulk Set status marks the whole selection done", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -667,7 +626,6 @@ const accentOverride = (page: import("@playwright/test").Page) =>
 test("settings: choosing an accent re-tints the HeroUI accent and persists; Default reverts", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -692,7 +650,6 @@ test("settings: choosing an accent re-tints the HeroUI accent and persists; Defa
 });
 
 test("settings: About reflects the signed-out (sample data) state", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   const main = page.locator("main");
   await expect(main).toBeVisible({ timeout: 15_000 });
@@ -706,7 +663,6 @@ test("settings: About reflects the signed-out (sample data) state", async ({ pag
 
 test("today: step back/forward a day and jump back to today", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   const heading = page.getByRole("heading", { level: 1 });
   await expect(heading).toHaveText("Today", { timeout: 15_000 });
 
@@ -732,7 +688,6 @@ test("today: step back/forward a day and jump back to today", async ({ page }) =
 
 test("today: the date picker jumps to a chosen day", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Today", { timeout: 15_000 });
 
   // Pick a day of the visible month that today never is. The grid's leading cells are the tail of
@@ -747,68 +702,141 @@ test("today: the date picker jumps to a chosen day", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Jump to today" })).toBeVisible();
 });
 
-// ─── Daily reflection: morning gratitude gate ────────────────────────────────
+// ─── Daily gratitude: an optional card, never a gate ─────────────────────────
 
-test("today: gratitude gate blocks tasks until ≥1 is written, with no skip", async ({ page }) => {
-  await page.goto("/today", { waitUntil: "networkidle" });
-
-  // The gate is shown; the task surface is not reachable yet.
-  const cont = page.getByRole("button", { name: "Continue to today" });
-  await expect(cont).toBeVisible({ timeout: 15_000 });
-  await expect(cont).toBeDisabled();
-  await expect(page.getByRole("region", { name: "Remaining" })).toBeHidden();
-
-  // There is no skip control anywhere on the gate.
-  await expect(page.getByRole("button", { name: /skip/i })).toHaveCount(0);
-
-  // The shell is sealed: no search bar, and other routes bounce back to the gate.
-  await expect(page.getByTestId("omni-trigger")).toHaveCount(0);
-  await page.goto("/habits", { waitUntil: "networkidle" });
-  await expect(cont).toBeVisible();
-  await expect(page.getByTestId("omni-trigger")).toHaveCount(0);
-
-  // Writing one gratitude enables Continue, reveals the tasks, and unseals the shell.
-  await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("Sunshine");
-  await expect(cont).toBeEnabled();
-  await cont.click();
-  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+test("today: gratitude never gates — settings and ⌘K work before it is written", async ({
+  page,
+}) => {
+  await page.goto("/settings", { waitUntil: "networkidle" });
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
+  await page.keyboard.press("ControlOrMeta+K");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
 
-  // Reloading goes straight to tasks (gate satisfied, data-driven).
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+  await page.goto("/today", { waitUntil: "networkidle" });
+  const card = page.getByRole("region", { name: "Gratitude" });
+  const remaining = page.getByRole("region", { name: "Remaining" });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await expect(remaining).toBeVisible();
+  const cardBox = await card.boundingBox();
+  const remainingBox = await remaining.boundingBox();
+  expect(cardBox?.y ?? 0).toBeLessThan(remainingBox?.y ?? 0);
 });
 
-// ─── Daily reflection: end-of-day reflection step ────────────────────────────
-
-test("today: reflection step appears once all tasks are resolved, and can be skipped", async ({
+test("today: 'Not today' hides the gratitude card across a reload, until the next day", async ({
   page,
 }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
+  const card = page.getByRole("region", { name: "Gratitude" });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await expect(card.getByRole("button", { name: "Save" })).toBeDisabled();
 
-  // Reflection waits on the whole day, so both regions have to be drained: the
-  // to-do list and the Daily-habits strip, which is not inside it.
-  const remaining = page.getByRole("region", { name: "Remaining" });
-  await expect(remaining).toBeVisible({ timeout: 15_000 });
-  await markRegionDone(remaining);
-  await markRegionDone(page.getByRole("region", { name: "Daily habits" }));
+  await card.getByRole("button", { name: "Not today" }).click();
+  await expect(card).toBeHidden();
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+  await expect(card).toBeHidden();
 
-  // The full-screen reflection step now shows.
-  const reflectHeading = page.getByRole("heading", { name: "Reflect on today" });
-  await expect(reflectHeading).toBeVisible({ timeout: 10_000 });
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  await page.clock.setFixedTime(tomorrow);
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+});
 
-  // Minimal skip returns to the all-done task view and does not re-yank.
-  await page.getByRole("button", { name: "Skip reflection" }).click();
-  await expect(reflectHeading).toBeHidden();
-  await expect(page.getByText("Nothing left for today")).toBeVisible();
+test("today: saving gratitude hides the card and marks the journal entry", async ({ page }) => {
+  await page.goto("/today", { waitUntil: "networkidle" });
+  const card = page.getByRole("region", { name: "Gratitude" });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await card.getByRole("textbox", { name: "Grateful for, item 1" }).fill("Sunshine");
+  await card.getByRole("button", { name: "Save" }).click();
+  await expect(card).toBeHidden();
+  await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+  await expect(card).toBeHidden();
+});
+
+// ─── Daily reflection: the evening card ──────────────────────────────────────
+
+function todayAt(hour: number, minute = 0): Date {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
+
+test("today: the evening card invites a reflection on an unfinished day", async ({ page }) => {
+  await page.clock.install({ time: todayAt(18, 30) });
+  await page.goto("/today", { waitUntil: "networkidle" });
+
+  const evening = page.getByRole("region", { name: "This evening" });
+  await expect(evening).toBeVisible({ timeout: 15_000 });
+  await expect(evening).toContainText("How did today go?");
+  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
+
+  await evening.getByRole("button", { name: "Reflect" }).click();
+  const dialog = page.getByRole("dialog", { name: "Reflect on today" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Save reflection" })).toBeDisabled();
+  await dialog.getByRole("radio").nth(3).click();
+  await dialog.getByRole("button", { name: "Save reflection" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(evening).toBeHidden();
+});
+
+test("today: no evening card in the morning; Cancel writes nothing; 'Not tonight' dismisses", async ({
+  page,
+}) => {
+  await page.clock.install({ time: todayAt(9) });
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("region", { name: "This evening" })).toHaveCount(0);
+
+  await page.clock.setFixedTime(todayAt(19));
+  const evening = page.getByRole("region", { name: "This evening" });
+  await page.goto("/today", { waitUntil: "networkidle" });
+  await expect(evening).toBeVisible({ timeout: 15_000 });
+
+  await evening.getByRole("button", { name: "Reflect" }).click();
+  const dialog = page.getByRole("dialog", { name: "Reflect on today" });
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(evening).toBeVisible();
+
+  await evening.getByRole("button", { name: "Not tonight" }).click();
+  await expect(evening).toBeHidden();
+});
+
+// ─── Copy: no judgment language on the daily surfaces ────────────────────────
+
+test("copy: judgment wording is gone from Today, Habits, Goals and Analytics", async ({ page }) => {
+  for (const path of ["/today", "/habits", "/goals", "/analytics"]) {
+    await page.goto(path, { waitUntil: "networkidle" });
+    await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/\d+% behind/)).toHaveCount(0);
+    for (const phrase of [
+      "Overdue",
+      "How it's actually going",
+      "You missed gratitude",
+      "Your tasks are done. How did it go?",
+      "Add at least one to continue.",
+      "0-day streak",
+    ]) {
+      await expect(page.getByText(phrase)).toHaveCount(0);
+    }
+    await expect(page.getByText("Late", { exact: true })).toHaveCount(0);
+  }
 });
 
 // ─── Daily reflection: journal editor edit / delete / undo ───────────────────
 
 test("today: journal page saves a note and supports delete + undo", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
 
   // Open the full-screen journal page and write a note in the rich editor.
   await page.getByRole("button", { name: /^Journal$|^Edit entry$/ }).click();
@@ -843,7 +871,6 @@ test("today: journal page saves a note and supports delete + undo", async ({ pag
 test("settings: reset demo data is available signed-out and reloads the sandbox", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.getByRole("button", { name: "Reset demo data" })).toBeVisible({
     timeout: 15_000,
@@ -853,7 +880,6 @@ test("settings: reset demo data is available signed-out and reloads the sandbox"
 });
 
 test("settings: delete all (this device) empties the sandbox", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Delete all (this device)" }).click();
@@ -871,7 +897,6 @@ test("settings: delete all (this device) empties the sandbox", async ({ page }) 
 // deferred: Add persists immediately and navigates.
 
 test("habits: Add creates the habit and opens its page", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -898,7 +923,6 @@ test("habits: Add creates the habit and opens its page", async ({ page }) => {
 });
 
 test("values: Add creates the value and opens its page", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/values", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -923,7 +947,6 @@ test("values: Add creates the value and opens its page", async ({ page }) => {
 test("values: a held mouse press reorders a value card and the order survives a reload", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/values", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -958,7 +981,6 @@ test("values: a held mouse press reorders a value card and the order survives a 
   await dragDownPastNextRow();
   await page.mouse.up();
   await page.goto("/values", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   await expect
     .poll(valueOrder, { message: "a drag with no hold reordered the values" })
     .toEqual(before);
@@ -978,7 +1000,6 @@ test("values: a held mouse press reorders a value card and the order survives a 
   await expect(page, "the drag must not follow the card's link").toHaveURL(/\/values$/);
 
   await page.reload({ waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   await expect
     .poll(valueOrder, { message: "the new value order did not survive a reload" })
     .toEqual(swapped);
@@ -988,7 +1009,6 @@ test("values: a held mouse press reorders a value card and the order survives a 
 // drag is an explicit non-goal for this single-user app. `arrayMove` ordering is unit-tested in
 // features/goals/__tests__/store.test.ts.
 test("goal steps: inline rename", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/values", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -1026,10 +1046,8 @@ test("goal steps: inline rename", async ({ page }) => {
 test("anytime habit: shows in the Daily habits strip, not the task list or calendar", async ({
   page,
 }) => {
-  await passGratitudeGate(page);
   await page.goto("/today", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
-  await passGratitudeGate(page);
 
   // The seeded anytime habit "Drink water" lives in the Daily habits strip.
   const strip = page.getByRole("region", { name: "Daily habits" });
@@ -1052,7 +1070,6 @@ test("anytime habit: shows in the Daily habits strip, not the task list or calen
 });
 
 test("habit page: the Anytime toggle makes the habit untimed", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -1075,7 +1092,6 @@ test("habit page: the Anytime toggle makes the habit untimed", async ({ page }) 
 });
 
 test("the retired card routes redirect rather than 404", async ({ page }) => {
-  await passGratitudeGate(page);
   await page.goto("/scroll/manage", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/cards$/);
   await page.goto("/vocab", { waitUntil: "domcontentloaded" });

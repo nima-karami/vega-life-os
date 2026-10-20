@@ -26,6 +26,7 @@ const dailyHabit = (createdAt = BASE): Habit => ({
   archivedAt: null,
   pausedAt: null,
   resumedAt: null,
+  pausedSpans: [],
 });
 
 const inst = (date: string, status: TaskStatus, over: Partial<Task> = {}): Task => ({
@@ -159,6 +160,7 @@ describe("getStreakState — rescheduled occurrence is on-time by its landing da
     archivedAt: null,
     pausedAt: null,
     resumedAt: null,
+    pausedSpans: [],
   });
 
   it("counts a Friday slot done two days late on its moved (Sunday) date", () => {
@@ -238,22 +240,42 @@ describe("getStreakState — healing hold", () => {
   });
 });
 
-describe("getStreakState — resume resets the stretch (paused gap is neutral)", () => {
-  it("counts only from resumedAt, so the pre-pause run and the gap don't count", () => {
+describe("getStreakState — pauses", () => {
+  const preAndPostPause = (): Task[] => [
+    ...rep(D, 5).map((st, i) => inst(shiftISO(BASE, i), st)),
+    inst(shiftISO(BASE, 8), D),
+    inst(shiftISO(BASE, 9), D),
+    inst(shiftISO(BASE, 10), D),
+  ];
+
+  it("streak runs across a pause", () => {
     const habit = dailyHabit(BASE);
-    habit.resumedAt = shiftISO(BASE, 8); // paused after day 4, resumed day 8
-    const tasks = [
-      ...rep(D, 5).map((s, i) => inst(shiftISO(BASE, i), s)), // days 0..4 done (pre-pause)
-      // days 5,6,7 — paused gap, no instances
-      inst(shiftISO(BASE, 8), D),
-      inst(shiftISO(BASE, 9), D),
-      inst(shiftISO(BASE, 10), D),
-    ];
+    habit.resumedAt = shiftISO(BASE, 8);
+    habit.pausedSpans = [{ from: shiftISO(BASE, 5), to: shiftISO(BASE, 7) }];
     const today = shiftISO(BASE, 11);
-    // fresh stretch: 3 dones since resume, not 8; the gap contributes no misses
-    expect(getStreakState(tasks, habit, today).count).toBe(3);
-    // and the paused gap never tanks the rate
-    expect(computeHabitRate(tasks, habit, today)).toBe(1);
+    expect(getStreakState(preAndPostPause(), habit, today).count).toBe(8);
+    expect(computeHabitWindowRate(preAndPostPause(), habit, 30, today).missed).toBe(0);
+    expect(computeHabitRate(preAndPostPause(), habit, today)).toBe(1);
+  });
+
+  it("infers the span of a legacy resumed habit", () => {
+    const habit = dailyHabit(BASE);
+    habit.resumedAt = `${shiftISO(BASE, 8)}T08:00:00`;
+    expect(getStreakState(preAndPostPause(), habit, shiftISO(BASE, 11)).count).toBe(8);
+  });
+
+  it("keeps a done slot inside a span", () => {
+    const habit = dailyHabit(BASE);
+    habit.pausedSpans = [{ from: shiftISO(BASE, 2), to: shiftISO(BASE, 4) }];
+    const tasks = [0, 1, 2, 5, 6].map((i) => inst(shiftISO(BASE, i), D));
+    expect(getStreakState(tasks, habit, shiftISO(BASE, 7)).count).toBe(5);
+  });
+
+  it("freezes while paused: days from pausedAt are neutral", () => {
+    const habit = dailyHabit(BASE);
+    habit.pausedAt = `${shiftISO(BASE, 5)}T09:00:00`;
+    const tasks = rep(D, 5).map((st, i) => inst(shiftISO(BASE, i), st));
+    expect(getStreakState(tasks, habit, shiftISO(BASE, 20)).count).toBe(5);
   });
 });
 
@@ -310,15 +332,14 @@ describe("computeHabitWindowRate", () => {
     });
   });
 
-  it("clamps to the active stretch (resume inside the window)", () => {
+  it("counts the slots around a pause span, never the span itself", () => {
     const habit = dailyHabit();
-    habit.resumedAt = shiftISO(BASE, 21);
-    const tasks = [21, 22, 23, 24].map((i) => inst(shiftISO(BASE, i), D));
-    const today = shiftISO(BASE, 24);
-    // windowDays 30 reaches before the resume, but only the 4 post-resume slots count
-    const windowRate = computeHabitWindowRate(tasks, habit, 30, today);
-    expect(windowRate.due).toBe(4);
-    expect(windowRate.done).toBe(4);
+    habit.pausedSpans = [{ from: shiftISO(BASE, 5), to: shiftISO(BASE, 20) }];
+    const tasks = [0, 1, 2, 3, 4, 21, 22, 23, 24].map((i) => inst(shiftISO(BASE, i), D));
+    const windowRate = computeHabitWindowRate(tasks, habit, 30, shiftISO(BASE, 24));
+    expect(windowRate.due).toBe(9);
+    expect(windowRate.done).toBe(9);
+    expect(windowRate.missed).toBe(0);
   });
 });
 

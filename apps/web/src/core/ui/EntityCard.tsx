@@ -11,11 +11,17 @@ export type CardMeasure =
   | { kind: "week"; days: CardWeekDay[] }
   | { kind: "none" };
 
+const WEEK_BAR_CLASS: Record<CardWeekDay["state"], string> = {
+  kept: "bg-white",
+  due: "bg-white/[.22]",
+  off: "bg-transparent",
+};
+
 export interface CardWeekDay {
   /** ISO date — the key, since weekday letters repeat (T, S). */
   iso: string;
   letter: string;
-  state: "kept" | "missed";
+  state: "kept" | "due" | "off";
 }
 
 export interface CardMeta {
@@ -131,13 +137,15 @@ function CardMeasureBlock({ measure }: { measure: CardMeasure }) {
       <div className="flex gap-2">
         {measure.days.map((d) => (
           <span key={d.iso} className="flex flex-1 flex-col items-center gap-[5px]">
+            <span className={cx("h-[5px] w-full rounded-full", WEEK_BAR_CLASS[d.state])} />
             <span
               className={cx(
-                "h-[5px] w-full rounded-full",
-                d.state === "kept" ? "bg-white" : "bg-white/[.22]",
+                "text-[9.5px] leading-none",
+                d.state === "off" ? "text-white/[.5]" : "text-white/[.86]",
               )}
-            />
-            <span className="text-[9.5px] leading-none text-white/[.86]">{d.letter}</span>
+            >
+              {d.letter}
+            </span>
           </span>
         ))}
       </div>

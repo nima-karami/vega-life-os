@@ -1,9 +1,11 @@
 import type { CalendarEvent } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
+import type { DayEntry } from "@/features/journal";
 import type { Task } from "@/features/tasks/model";
 import {
   buildTaskPatch,
+  describeDay,
   formatStreakLabel,
   getGoalsForValue,
   hasEventEnded,
@@ -11,6 +13,7 @@ import {
   partitionToday,
   reorderTasksInDay,
   resolveViewDate,
+  shouldShowEveningCard,
   sortDailyHabits,
   splitRemaining,
   toggleDone,
@@ -506,5 +509,69 @@ describe("resolveViewDate", () => {
   it("falls back to today on a malformed or impossible date", () => {
     expect(resolveViewDate("yesterday", today)).toBe(today);
     expect(resolveViewDate("2026-02-30", today)).toBe(today);
+  });
+});
+
+describe("describeDay", () => {
+  it("counts planned tasks", () => {
+    expect(describeDay(6, 0)).toBe("6 planned");
+    expect(describeDay(1, 3)).toBe("1 planned");
+  });
+
+  it("falls back to events, then to nothing scheduled", () => {
+    expect(describeDay(0, 2)).toBe("2 events, no tasks");
+    expect(describeDay(0, 1)).toBe("1 event, no tasks");
+    expect(describeDay(0, 0)).toBe("Nothing scheduled");
+  });
+});
+
+describe("shouldShowEveningCard", () => {
+  const TODAY = "2026-06-22";
+  const at = (h: number, m = 0) => new Date(2026, 5, 22, h, m);
+  const open = task({ id: "open", date: TODAY, status: "todo" });
+  const finished = task({ id: "fin", date: TODAY, status: "done" });
+  const entry = (over: Partial<DayEntry>): DayEntry => ({
+    id: "e",
+    date: TODAY,
+    gratitude: [],
+    mood: null,
+    journal: "",
+    createdAt: "",
+    updatedAt: "",
+    ...over,
+  });
+
+  it("waits for 17:00 while tasks remain", () => {
+    expect(shouldShowEveningCard([open], undefined, TODAY, at(16, 59))).toBe(false);
+    expect(shouldShowEveningCard([open], undefined, TODAY, at(17, 0))).toBe(true);
+  });
+
+  it("shows early once the list is settled", () => {
+    expect(shouldShowEveningCard([finished], undefined, TODAY, at(9))).toBe(true);
+    expect(
+      shouldShowEveningCard(
+        [finished, task({ id: "s", date: TODAY, status: "skip" })],
+        undefined,
+        TODAY,
+        at(9),
+      ),
+    ).toBe(true);
+  });
+
+  it("stays hidden on a zero-task morning", () => {
+    expect(shouldShowEveningCard([], undefined, TODAY, at(9))).toBe(false);
+  });
+
+  it("ignores anytime habits when judging the day settled", () => {
+    const anytime = task({ id: "a", kind: "habit", habitId: "h1", time: null, date: TODAY });
+    expect(shouldShowEveningCard([finished, anytime], undefined, TODAY, at(9))).toBe(true);
+  });
+
+  it("hides once reflected", () => {
+    expect(shouldShowEveningCard([open], entry({ mood: 3 }), TODAY, at(18))).toBe(false);
+  });
+
+  it("only applies to today", () => {
+    expect(shouldShowEveningCard([open], undefined, "2026-06-21", at(18))).toBe(false);
   });
 });

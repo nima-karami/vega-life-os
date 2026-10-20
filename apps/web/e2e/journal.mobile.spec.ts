@@ -1,11 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
-import { enterApp } from "./helpers/app";
+import { enterApp, saveGratitude } from "./helpers/app";
 
 /**
  * `journal.spec.ts` runs only in the chromium project, so nothing there reaches the
  * `/entries` compact branch. The `.mobile.spec.ts` suffix routes this file into the
- * Pixel 7 project instead. The gratitude gate `enterApp` clears writes today's entry,
- * which is the row every assertion here reads.
+ * Pixel 7 project instead. The beforeEach writes today's gratitude, which is the row every assertion here reads.
  */
 
 const WIDTHS = [320, 360, 390, 430];
@@ -40,6 +39,7 @@ function widestInnerOverflow(page: Page): Promise<number> {
 
 test.beforeEach(async ({ page }) => {
   await enterApp(page);
+  await saveGratitude(page);
 });
 
 for (const width of WIDTHS) {

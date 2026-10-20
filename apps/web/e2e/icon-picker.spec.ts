@@ -8,14 +8,6 @@ import { expect, test } from "@playwright/test";
  * page root, so its search/grid are queried at page level.
  */
 
-async function passGratitudeGate(page: import("@playwright/test").Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 test.beforeEach(async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
@@ -28,7 +20,6 @@ test.beforeEach(async ({ page }) => {
     await expect(main).toBeVisible({ timeout: 15_000 });
   }
 
-  await passGratitudeGate(page);
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(main).toBeVisible({ timeout: 15_000 });
   // Add asks for a name first; creating routes to the habit page, where the icon field lives.

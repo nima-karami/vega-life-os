@@ -27,14 +27,6 @@ async function bootSandbox(page: import("@playwright/test").Page) {
   }
 }
 
-async function passGratitudeGate(page: import("@playwright/test").Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 /**
  * Always read through expect.poll: PageTransition animates `filter: blur()`, and a live
  * filter makes the routed page a containing block for the fixed bars it owns, so for the
@@ -132,7 +124,6 @@ const DETAIL_TRAILS: { name: string; steps: { from?: string; link: string }[] }[
 
 test.beforeEach(async ({ page }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
 });
 
 function watchErrors(page: Page): string[] {
@@ -171,7 +162,6 @@ for (const width of WIDTHS) {
 
       await page.setViewportSize({ width, height: 780 });
       await page.goto(route, { waitUntil: "domcontentloaded" });
-      await passGratitudeGate(page);
       await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
       await expectNoOverflow(page, `${route} at ${width}px`);
@@ -190,7 +180,6 @@ for (const width of WIDTHS) {
       for (const step of trail.steps) {
         if (step.from) {
           await page.goto(step.from, { waitUntil: "domcontentloaded" });
-          await passGratitudeGate(page);
         }
         await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
         await page.locator(step.link).first().click();
@@ -207,7 +196,6 @@ for (const width of WIDTHS) {
 test("phone bottom nav exposes search and account controls (360px)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
   await page.goto("/today", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   // Search + account live in the bottom nav on phones (no top header).
@@ -233,7 +221,6 @@ test("habit page opens from a card, fits the column, and the trail climbs out (3
 }) => {
   await page.setViewportSize({ width: 360, height: 720 });
   await page.goto("/habits", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   await page.locator('main a[href^="/habits/"]').first().click();
@@ -263,7 +250,6 @@ test("phone bottom nav shows the primary tabs and navigates between routes (390p
 }) => {
   await page.setViewportSize({ width: 390, height: 780 });
   await page.goto("/today", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   const nav = page.getByRole("navigation", { name: "Primary" });
@@ -298,7 +284,6 @@ test("calendar shows a single-day view with day navigation and no page overflow 
 }) => {
   await page.setViewportSize({ width: 390, height: 780 });
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   // Single-day nav controls (per-day, not per-week).
@@ -313,7 +298,6 @@ test("calendar shows a single-day view with day navigation and no page overflow 
 test("analytics charts do not overflow horizontally on mobile (360px)", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
   await page.goto("/analytics", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   // Default window must not overflow horizontally.
@@ -550,7 +534,6 @@ test("a long press opens the row menu while a tap still opens the card (390px)",
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
 
   const row = page.locator("[data-card-row]:visible").first();
   await expect(row).toBeVisible({ timeout: 15_000 });
@@ -571,7 +554,6 @@ test("a long press opens the row menu while a tap still opens the card (390px)",
 test("the cards filter opens as a centred modal on a phone (390px)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
 
   await page.getByRole("button", { name: "Filter cards" }).click();
   await expect(page.getByRole("dialog")).toContainText("Filter cards");
@@ -584,7 +566,6 @@ test("the undo bar clears the nav and a nav tab still navigates under it (390px)
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/today", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   await page.locator('main [aria-label^="Actions for "]').first().click();
@@ -608,7 +589,6 @@ test("the undo bar clears the nav and a nav tab still navigates under it (390px)
 test("a toast clears the nav band (390px)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/today", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   const nav = page.getByRole("navigation", { name: "Primary" });
@@ -677,7 +657,6 @@ const CIRCLE_DRIFT_TOLERANCE_PX = 1;
 async function openPhone(page: Page, route: string) {
   await page.setViewportSize(PHONE);
   await page.goto(route, { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 }
 
@@ -920,7 +899,6 @@ test("a long press reorders two untimed tasks and the order survives a reload (3
     .toEqual(swapped);
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect
     .poll(() => addedRowOrder(page), { message: "the new order did not survive a reload" })
     .toEqual(swapped);

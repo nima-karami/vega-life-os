@@ -19,14 +19,6 @@ async function bootSandbox(page: import("@playwright/test").Page) {
   }
 }
 
-async function passGratitudeGate(page: import("@playwright/test").Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 function todayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -34,7 +26,6 @@ function todayISO(): string {
 
 test.beforeEach(async ({ page }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
 });
 
 test("journal: opens as a full-screen page with a focused editor", async ({ page }) => {

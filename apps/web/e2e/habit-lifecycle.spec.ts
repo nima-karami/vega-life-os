@@ -6,14 +6,6 @@ import { expect, test } from "@playwright/test";
  * without deleting it.
  */
 
-async function passGratitudeGate(page: import("@playwright/test").Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 test.beforeEach(async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
@@ -23,12 +15,7 @@ test.beforeEach(async ({ page }) => {
     await explore.click();
     await expect(main).toBeVisible({ timeout: 15_000 });
   }
-  // The morning gratitude gate forces /today until passed — clear it before navigating,
-  // or /habits redirects straight back to /today.
-  await passGratitudeGate(page);
-
   await page.goto("/habits", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.getByRole("heading", { name: "Habits", exact: true })).toBeVisible({
     timeout: 15_000,
   });
@@ -73,4 +60,46 @@ test("pausing moves a habit into the Paused section (not deleted)", async ({ pag
     .first()
     .click();
   await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+});
+
+test("pausing keeps the streak: resuming continues it instead of restarting", async ({ page }) => {
+  const dayMs = 86_400_000;
+  const noon = new Date();
+  noon.setHours(12, 0, 0, 0);
+  await page.clock.install({ time: noon });
+
+  await page.getByRole("button", { name: "Add habit" }).click();
+  await page.getByRole("textbox", { name: "Habit name" }).fill("Stretch");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/habits\/[^/]+$/);
+  const habitUrl = page.url();
+
+  const markDone = async () => {
+    await page.goto("/today", { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Mark Stretch done" }).click();
+    await expect(page.getByRole("button", { name: "Mark Stretch not done" })).toBeVisible();
+  };
+  const reloadAt = async (ms: number) => {
+    await page.clock.setFixedTime(ms);
+    await page.goto("/today", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 1, name: "Today", exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+  };
+
+  await markDone();
+  await reloadAt(noon.getTime() + dayMs);
+  await markDone();
+
+  await page.goto(habitUrl, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Paused", exact: true }).click();
+
+  await reloadAt(noon.getTime() + 4 * dayMs);
+  await page.goto(habitUrl, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Active", exact: true }).click();
+  await markDone();
+
+  await page.goto("/habits", { waitUntil: "domcontentloaded" });
+  const card = page.getByRole("link", { name: "Stretch", exact: true });
+  await expect(page.locator("li", { has: card })).toContainText("3d streak");
 });

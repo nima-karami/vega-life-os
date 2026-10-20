@@ -20,6 +20,7 @@ const dailyHabit: Habit = {
   archivedAt: null,
   pausedAt: null,
   resumedAt: null,
+  pausedSpans: [],
 };
 
 function instance(back: number, patch: Partial<Task>): Task {
@@ -78,6 +79,15 @@ describe("computeHabitTimeline", () => {
     // NOW is a Wednesday → today is an off day for a Monday-only habit
     expect(timeline.days.find((d) => d.iso === iso(0))?.kind).toBe("off");
     expect(timeline.days.some((d) => d.kind === "off")).toBe(true);
+  });
+
+  it("renders a paused span as off, not miss", () => {
+    const paused: Habit = { ...dailyHabit, pausedSpans: [{ from: iso(5), to: iso(3) }] };
+    const timeline = computeHabitTimeline([], paused, 8);
+    for (const back of [5, 4, 3]) {
+      expect(timeline.days.find((d) => d.iso === iso(back))?.kind).toBe("off");
+    }
+    expect(timeline.days.find((d) => d.iso === iso(6))?.kind).toBe("miss");
   });
 
   it("caps the window at the habit's creation date", () => {

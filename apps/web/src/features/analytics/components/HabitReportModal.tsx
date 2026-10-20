@@ -19,7 +19,7 @@ const LEGEND: { kind: TimelineKind; label: string }[] = [
   { kind: "done", label: "Done" },
   { kind: "moved", label: "Moved" },
   { kind: "skip", label: "Skipped" },
-  { kind: "miss", label: "Missed" },
+  { kind: "miss", label: "Not done" },
   { kind: "pending", label: "Pending" },
 ];
 
@@ -44,7 +44,7 @@ function Cell({
 const KIND_WORD: Record<TimelineKind, string> = {
   done: "done",
   moved: "done (moved)",
-  miss: "missed",
+  miss: "not done",
   skip: "skipped",
   pending: "pending",
   off: "not scheduled",

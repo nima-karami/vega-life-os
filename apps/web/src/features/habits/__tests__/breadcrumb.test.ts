@@ -17,6 +17,7 @@ const habit = (over: Partial<Habit> = {}): Habit => ({
   archivedAt: null,
   pausedAt: null,
   resumedAt: null,
+  pausedSpans: [],
   ...over,
 });
 

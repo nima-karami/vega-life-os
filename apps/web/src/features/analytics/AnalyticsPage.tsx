@@ -46,9 +46,9 @@ export function AnalyticsPage() {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            How it's actually going
+            What you showed up for
           </h1>
-          <p className="mt-1 text-sm text-muted">Your follow-through, then time to reflect.</p>
+          <p className="mt-1 text-sm text-muted">What you did, then time to reflect.</p>
         </div>
         <ButtonGroup aria-label="Analytics sections">
           <Button
@@ -120,11 +120,11 @@ function AnalyticsSection() {
       <Panel className="p-6 text-center sm:p-8">
         <Icon name="chart" size={28} className="mx-auto text-muted" />
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
-          Nothing to chart yet
+          Nothing to show yet
         </h2>
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
-          Your follow-through, consistency, and balance show up here once you start logging tasks.
-          Open the command bar (⌘K) to add your first one.
+          What you do shows up here once you start logging tasks. Open the command bar (⌘K) to add
+          your first one.
         </p>
       </Panel>
     );
@@ -185,13 +185,13 @@ function AnalyticsSection() {
           <>
             <SectionHead title="Habits" meta={`${days}d`} />
             <div className="mt-4 space-y-1">
-              {habitRanked.map(({ h, rate }) => (
+              {habitRanked.map(({ h, rate, done, due }) => (
                 <button
                   key={h.id}
                   type="button"
                   onClick={() => setReportHabitId(h.id)}
                   className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
-                  aria-label={`${h.name} report — ${Math.round(rate * 100)}% follow-through in the last ${days} days`}
+                  aria-label={`${h.name} report — ${done} of ${due} in the last ${days} days`}
                 >
                   <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
                   <div className="h-3 flex-1 rounded-full bg-surface-secondary">

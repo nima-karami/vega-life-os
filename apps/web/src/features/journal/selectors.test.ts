@@ -1,91 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Task } from "@/features/tasks/model";
 import type { DayEntry } from "./model";
 import {
   filterUnacknowledgedDays,
   getMissedGratitudeDays,
   getWeekEntries,
-  isDayReflectable,
+  shouldShowGratitudeCard,
 } from "./selectors";
-
-const task = (over: Partial<Task>): Task => ({
-  id: "t",
-  title: "x",
-  kind: "oneoff",
-  habitId: null,
-  goalId: null,
-  valueId: null,
-  date: "2026-06-22",
-  time: null,
-  durationMin: 30,
-  status: "todo",
-  detached: false,
-  note: "",
-  order: 0,
-  ...over,
-});
-
-describe("isDayReflectable", () => {
-  it("false when the day has no tasks", () => {
-    expect(isDayReflectable([], "2026-06-22")).toBe(false);
-    expect(isDayReflectable([task({ date: "2026-06-21" })], "2026-06-22")).toBe(false);
-  });
-
-  it("false while any task is unresolved (open/todo)", () => {
-    expect(
-      isDayReflectable(
-        [task({ id: "a", status: "done" }), task({ id: "b", status: "todo" })],
-        "2026-06-22",
-      ),
-    ).toBe(false);
-    expect(isDayReflectable([task({ id: "a", status: "open" })], "2026-06-22")).toBe(false);
-  });
-
-  it("true when at least one task exists and all are done or skipped", () => {
-    expect(
-      isDayReflectable(
-        [task({ id: "a", status: "done" }), task({ id: "b", status: "skip" })],
-        "2026-06-22",
-      ),
-    ).toBe(true);
-  });
-
-  it("false while an anytime habit is unticked, even with every to-do done", () => {
-    expect(
-      isDayReflectable(
-        [
-          task({ id: "a", status: "done" }),
-          task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "todo" }),
-        ],
-        "2026-06-22",
-      ),
-    ).toBe(false);
-  });
-
-  it("true when the day's only items are anytime habits and all are ticked", () => {
-    expect(
-      isDayReflectable(
-        [
-          task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "done" }),
-          task({ id: "h2", kind: "habit", habitId: "h2", time: null, status: "skip" }),
-        ],
-        "2026-06-22",
-      ),
-    ).toBe(true);
-  });
-
-  it("false while a timed habit is unticked", () => {
-    expect(
-      isDayReflectable(
-        [
-          task({ id: "a", status: "done" }),
-          task({ id: "h", kind: "habit", habitId: "h1", time: "09:00", status: "todo" }),
-        ],
-        "2026-06-22",
-      ),
-    ).toBe(false);
-  });
-});
 
 const day = (date: string, over: Partial<DayEntry> = {}): DayEntry => ({
   id: `e-${date}`,
@@ -199,5 +119,37 @@ describe("getWeekEntries", () => {
     const journal = [...WEEK].reverse().map((iso) => day(iso, { gratitude: [`g-${iso}`] }));
     const result = getWeekEntries(journal, WEEK);
     expect(result.map((e) => e.date)).toEqual(WEEK);
+  });
+});
+
+describe("shouldShowGratitudeCard", () => {
+  const TODAY = "2026-06-22";
+  const bare = day(TODAY, { gratitude: [] });
+
+  it("shows on today with no gratitude and no acknowledgement", () => {
+    expect(shouldShowGratitudeCard(undefined, null, TODAY, TODAY)).toBe(true);
+    expect(shouldShowGratitudeCard(bare, null, TODAY, TODAY)).toBe(true);
+  });
+
+  it("hides once acknowledged through today", () => {
+    expect(shouldShowGratitudeCard(undefined, TODAY, TODAY, TODAY)).toBe(false);
+  });
+
+  it("returns on a later day than the acknowledgement", () => {
+    expect(shouldShowGratitudeCard(undefined, "2026-06-21", TODAY, TODAY)).toBe(true);
+  });
+
+  it("hides when gratitude is written", () => {
+    expect(shouldShowGratitudeCard(day(TODAY), null, TODAY, TODAY)).toBe(false);
+  });
+
+  it("treats blank-only lines as no gratitude", () => {
+    expect(shouldShowGratitudeCard(day(TODAY, { gratitude: ["  ", ""] }), null, TODAY, TODAY)).toBe(
+      true,
+    );
+  });
+
+  it("never shows for a day other than today", () => {
+    expect(shouldShowGratitudeCard(undefined, null, "2026-06-21", TODAY)).toBe(false);
   });
 });

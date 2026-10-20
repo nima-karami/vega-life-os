@@ -1,5 +1,4 @@
 import { expect, type Page, test } from "@playwright/test";
-import { passGratitudeGate } from "./helpers/app";
 
 /**
  * The calendar header must keep one height as the day changes. Its title is a
@@ -24,7 +23,6 @@ async function openCalendar(page: Page) {
     await explore.click();
     await expect(main).toBeVisible({ timeout: 15_000 });
   }
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await expect(main).toBeVisible({ timeout: 15_000 });
 }

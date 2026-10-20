@@ -3,15 +3,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useStore } from "@/core/store";
-import {
-  ConfirmDialog,
-  CreateNameDialog,
-  cx,
-  Icon,
-  IconField,
-  SegmentButton,
-  Select,
-} from "@/core/ui";
+import { ConfirmDialog, CreateNameDialog, Icon, IconField, SegmentButton, Select } from "@/core/ui";
 import { getValueColor } from "@/features/values/color";
 import { TitleField } from "@/features/values/components/DetailFields";
 import {
@@ -104,11 +96,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
               {formatPeriodLabel(goal.start, goal.end)}
             </span>
             <span className="text-xs tabular-nums text-muted">{formatGoalFigures(goal)}</span>
-            {pace && (
-              <span className={cx("text-xs", pace.isBehind ? "text-warning" : "text-success")}>
-                {pace.text}
-              </span>
-            )}
+            {pace && <span className="text-xs text-muted">{pace.text}</span>}
           </div>
         }
       />

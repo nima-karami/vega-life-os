@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { enterApp, passGratitudeGate } from "./helpers/app";
+import { enterApp } from "./helpers/app";
 
 /**
  * Category management: the owner names their own categories, budgets them in the row they are
@@ -9,7 +9,6 @@ import { enterApp, passGratitudeGate } from "./helpers/app";
 test.beforeEach(async ({ page }) => {
   await enterApp(page);
   await page.goto("/finance/categories", { waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await expect(page.getByRole("heading", { name: "Categories", exact: true })).toBeVisible({
     timeout: 15_000,
   });

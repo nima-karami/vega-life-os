@@ -113,6 +113,6 @@ export function buildHabits(weekStart: Date): Habit[] {
         durationMin: 5,
         createdAt,
       },
-    ] as Omit<Habit, "archivedAt" | "pausedAt" | "resumedAt">[]
-  ).map((h) => ({ ...h, archivedAt: null, pausedAt: null, resumedAt: null }));
+    ] as Omit<Habit, "archivedAt" | "pausedAt" | "resumedAt" | "pausedSpans">[]
+  ).map((h) => ({ ...h, archivedAt: null, pausedAt: null, resumedAt: null, pausedSpans: [] }));
 }

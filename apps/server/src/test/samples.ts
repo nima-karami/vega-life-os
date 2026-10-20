@@ -46,6 +46,7 @@ export const sampleByCollection: { [C in RoutedCollection]: SampleFactory<C> } =
     archivedAt: null,
     pausedAt: null,
     resumedAt: null,
+    pausedSpans: [],
   }),
   values: (id) => ({
     id,

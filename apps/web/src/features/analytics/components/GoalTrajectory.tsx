@@ -60,11 +60,7 @@ function GoalVerdictBadge({ verdict }: { verdict: GoalVerdict }) {
   }
   if (verdict.kind === "closed") return <span className="text-xs text-muted">Closed</span>;
   if (verdict.kind === "pace") {
-    return (
-      <span className={`text-xs ${verdict.isBehind ? "text-danger" : "text-success"}`}>
-        {verdict.text}
-      </span>
-    );
+    return <span className="text-xs text-muted">{verdict.text}</span>;
   }
   return <span className="text-xs text-muted">—</span>;
 }

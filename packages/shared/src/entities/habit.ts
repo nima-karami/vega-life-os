@@ -33,6 +33,7 @@ const { schema, createSchema } = defineEntity({
   // legacy records predate these — tolerate absence, coercing to null (not paused)
   pausedAt: nullableString.default(null),
   resumedAt: nullableString.default(null),
+  pausedSpans: z.array(z.object({ from: z.iso.date(), to: z.iso.date() }).strict()).default([]),
 });
 
 export const habitSchema = schema;

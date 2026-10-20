@@ -4,13 +4,19 @@
  * node vitest environment (no DOM). Components import these helpers.
  */
 import type { CalendarEvent } from "@vega/shared";
-import { daysBetween, isValidISODate, minutesOf } from "@/core/lib/date";
+import { daysBetween, isValidISODate, minutesOf, todayISO } from "@/core/lib/date";
 import { reorderByIds } from "@/core/lib/reorder";
 import { getZonedWallClock } from "@/core/lib/zone";
 import { getAllDayLivedForDay, getTimedLivedForDay } from "@/features/calendar/grid-data";
 import type { Goal } from "@/features/goals/model";
+import { type DayEntry, isReflected } from "@/features/journal";
 import type { Task, TaskStatus } from "@/features/tasks/model";
-import { getDayQueue, isAnytimeHabit, isResolved } from "@/features/tasks/selectors";
+import {
+  computeDayCounts,
+  getDayQueue,
+  isAnytimeHabit,
+  isResolved,
+} from "@/features/tasks/selectors";
 
 export interface TodayGroups {
   /** open | todo — still to do today, sorted by time then order */
@@ -170,10 +176,28 @@ export function layoutDay(remaining: Task[], events: CalendarEvent[], date: stri
  * The one-line read under the date. Tasks are the only thing that completes, so a
  * day of pure meetings counts them rather than claiming nothing is scheduled.
  */
-export function describeDay(done: number, total: number, eventCount: number): string {
-  if (total > 0) return `${done} of ${total} done`;
+export function describeDay(total: number, eventCount: number): string {
+  if (total > 0) return `${total} planned`;
   if (eventCount > 0) return `${eventCount} event${eventCount === 1 ? "" : "s"}, no tasks`;
   return "Nothing scheduled";
+}
+
+export const EVENING_HOUR = 17;
+
+/** Reflection is invited from the evening on, or sooner once the day's list is settled. */
+export function shouldShowEveningCard(
+  tasks: Task[],
+  entry: DayEntry | undefined,
+  date: string,
+  now: Date,
+): boolean {
+  if (date !== todayISO(now) || isReflected(entry)) return false;
+  if (now.getHours() >= EVENING_HOUR) return true;
+  const counts = computeDayCounts(
+    tasks.filter((t) => !isAnytimeHabit(t)),
+    date,
+  );
+  return counts.total > 0 && counts.todo === 0;
 }
 
 /** Whether an event is over. An all-day event has no end until the day itself does. */

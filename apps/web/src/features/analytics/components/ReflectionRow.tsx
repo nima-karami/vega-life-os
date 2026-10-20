@@ -19,7 +19,8 @@ export function ReflectionRow({
           {label}
         </span>
         <span className="text-xs tabular-nums text-muted">
-          {stat.count} of {stat.series.length} days · {stat.streak}-day streak
+          {stat.count} of {stat.series.length} days
+          {stat.streak >= 2 ? ` · ${stat.streak}-day streak` : ""}
         </span>
       </div>
       <div className="mt-2.5 flex flex-wrap gap-[3px]">

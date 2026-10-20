@@ -1,6 +1,6 @@
 export { BackfillNudge } from "./components/BackfillNudge";
-export { GratitudeStep } from "./components/GratitudeStep";
-export { ReflectionStep } from "./components/ReflectionStep";
+export { GratitudeCard } from "./components/GratitudeCard";
+export { ReflectionDialog } from "./components/ReflectionDialog";
 export { EntriesPage } from "./EntriesPage";
 export * from "./entries";
 export { JournalPage } from "./JournalPage";

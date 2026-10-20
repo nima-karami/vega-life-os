@@ -1,11 +1,9 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router";
 import { onAuth } from "@/core/auth";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { isProfileIncomplete } from "@/core/store/profile";
 import { ACCENT_VAR_KEYS, getAccentVars } from "@/core/theme/accent";
-import { isGratitudeRequired } from "@/features/journal";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { GO_SHORTCUTS } from "./keymap";
@@ -123,14 +121,6 @@ export function RootBoot() {
 
   // Global keyboard shortcuts
   useEffect(() => {
-    // While the morning gratitude gate is up, swallow every shortcut (incl. ⌘K)
-    // so there's no keyboard way around it.
-    const gateBlocksKey = (e: KeyboardEvent): boolean => {
-      if (!isGratitudeRequired(useStore.getState().journal, todayISO())) return false;
-      if (isCommandKey(e)) e.preventDefault();
-      return true;
-    };
-
     // "g" then a route key navigates; a lone "g" arms the chord for 1.5s.
     const tryGoChord = (e: KeyboardEvent, key: string): boolean => {
       if (gPending.current) {
@@ -173,7 +163,6 @@ export function RootBoot() {
     };
 
     const onKey = (e: KeyboardEvent) => {
-      if (gateBlocksKey(e)) return;
       if (isCommandKey(e)) {
         e.preventDefault();
         toggleCommand();

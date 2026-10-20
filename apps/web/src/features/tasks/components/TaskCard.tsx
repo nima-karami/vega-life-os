@@ -1,5 +1,4 @@
 import { Card } from "@heroui/react";
-import { shiftISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   cx,
@@ -48,11 +47,6 @@ export function TaskCard({
   const done = task.status === "done";
   const skipped = task.status === "skip";
   const isResolved = done || skipped;
-  // a completion logged after the slot's grace window counts for the rate, not the streak
-  const isLoggedLate =
-    done && task.completedAt != null && task.slotDate != null
-      ? task.completedAt.slice(0, 10) > shiftISO(task.slotDate, rules.graceDays)
-      : false;
 
   const checkLabel = done ? `Mark ${task.title} not done` : `Mark ${task.title} done`;
 
@@ -129,15 +123,6 @@ export function TaskCard({
             state={streak?.state === "healing" ? "healing" : "solid"}
             recovery={streak?.recovery}
           />
-          {isLoggedLate && (
-            <span
-              className="inline-flex items-center gap-1 text-xs text-muted"
-              title="Logged after its day — counts toward your rate, not the streak"
-            >
-              <Icon name="clock" size={11} />
-              Late
-            </span>
-          )}
           {task.detached && (
             <Icon name="unlink" size={12} className="text-muted" aria-label="Detached from habit" />
           )}

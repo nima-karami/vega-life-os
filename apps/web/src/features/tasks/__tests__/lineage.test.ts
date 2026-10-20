@@ -45,6 +45,7 @@ const habit: Habit = {
   archivedAt: null,
   pausedAt: null,
   resumedAt: null,
+  pausedSpans: [],
 };
 
 function makeTask(patch: Partial<Task> = {}): Task {

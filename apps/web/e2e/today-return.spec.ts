@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { enterApp, passGratitudeGate } from "./helpers/app";
+import { enterApp, saveGratitude } from "./helpers/app";
 
 /**
  * Today keeps its place: a dismissed missed-gratitude nudge stays dismissed across
@@ -32,13 +32,10 @@ const todayHeading = (page: Page) =>
 
 async function reloadToToday(page: Page) {
   await page.goto("/today");
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  await expect(gate.or(todayHeading(page))).toBeVisible({ timeout: 20_000 });
-  await passGratitudeGate(page);
-  await expect(todayHeading(page)).toBeVisible();
+  await expect(todayHeading(page)).toBeVisible({ timeout: 20_000 });
 }
 
-const nudge = (page: Page) => page.getByText(/You missed gratitude/);
+const nudge = (page: Page) => page.getByText(/haven't written gratitude for/);
 
 test("today: a dismissed gratitude nudge stays dismissed; only a newer miss returns", async ({
   page,
@@ -46,12 +43,14 @@ test("today: a dismissed gratitude nudge stays dismissed; only a newer miss retu
   const today = noonToday();
   await page.clock.setFixedTime(today - 2 * DAY_MS);
   await enterApp(page);
+  await saveGratitude(page);
 
   await page.clock.setFixedTime(today);
   await reloadToToday(page);
   await expect(nudge(page)).toHaveText(
-    `You missed gratitude on ${toLongDate(today - DAY_MS)} — add it?`,
+    `You haven't written gratitude for ${toLongDate(today - DAY_MS)} — add it?`,
   );
+  await saveGratitude(page);
 
   await page.getByRole("button", { name: "Dismiss reminder" }).click();
   await expect(nudge(page)).toBeHidden();
@@ -62,8 +61,29 @@ test("today: a dismissed gratitude nudge stays dismissed; only a newer miss retu
   await page.clock.setFixedTime(today + 2 * DAY_MS);
   await reloadToToday(page);
   await expect(nudge(page)).toHaveText(
-    `You missed gratitude on ${toLongDate(today + DAY_MS)} — add it?`,
+    `You haven't written gratitude for ${toLongDate(today + DAY_MS)} — add it?`,
   );
+});
+
+test("today: 'Not today' covers the day, so it is never reported missed later", async ({
+  page,
+}) => {
+  const today = noonToday();
+  await page.clock.setFixedTime(today - DAY_MS);
+  await enterApp(page);
+  await saveGratitude(page);
+
+  await page.clock.setFixedTime(today);
+  await reloadToToday(page);
+  const card = page.getByRole("region", { name: "Gratitude" });
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "Not today" }).click();
+  await expect(card).toBeHidden();
+
+  await page.clock.setFixedTime(today + DAY_MS);
+  await reloadToToday(page);
+  await expect(card).toBeVisible();
+  await expect(nudge(page)).toBeHidden();
 });
 
 test("today: Back from the journal returns to the day it was opened from", async ({ page }) => {

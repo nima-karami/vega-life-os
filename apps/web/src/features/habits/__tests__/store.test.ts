@@ -191,7 +191,7 @@ describe("pauseHabit / resumeHabit", () => {
     expect(get().habits[0].pausedAt).toBe(firstTs);
   });
 
-  it("resumes: clears pausedAt, anchors a fresh stretch (resumedAt), and regenerates", () => {
+  it("resumes: clears pausedAt, stamps resumedAt, and regenerates", () => {
     const { get } = makeSlice();
     get().addHabit({ id: "h1", name: "Journal" });
     get().pauseHabit("h1");
@@ -200,6 +200,64 @@ describe("pauseHabit / resumeHabit", () => {
     expect(get().habits[0].pausedAt).toBeNull();
     expect(get().habits[0].resumedAt).toBeTruthy();
     expect(get().ensureUpcoming).toHaveBeenCalled();
+  });
+
+  describe("paused spans", () => {
+    const at = (iso: string) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(iso));
+    };
+
+    it("resumes: appends {from: pause date, to: yesterday} and keeps resumedAt", () => {
+      try {
+        const { get } = makeSlice();
+        at("2026-06-08T12:00:00");
+        get().addHabit({ id: "h1", name: "Journal" });
+        at("2026-06-10T12:00:00");
+        get().pauseHabit("h1");
+        at("2026-06-14T12:00:00");
+        get().resumeHabit("h1");
+        expect(get().habits[0].pausedSpans).toEqual([{ from: "2026-06-10", to: "2026-06-13" }]);
+        expect(get().habits[0].resumedAt).toBeTruthy();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("same-day pause and resume appends nothing", () => {
+      try {
+        const { get } = makeSlice();
+        at("2026-06-10T09:00:00");
+        get().addHabit({ id: "h1", name: "Journal" });
+        get().pauseHabit("h1");
+        at("2026-06-10T18:00:00");
+        get().resumeHabit("h1");
+        expect(get().habits[0].pausedSpans).toEqual([]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps the inferred legacy span when a later pause resumes", () => {
+      try {
+        const slots = ["2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04"];
+        const { get } = makeSlice({
+          tasks: slots.map((d) => inst({ id: d, date: d, slotDate: d, status: "done" })),
+        });
+        at("2026-06-08T12:00:00");
+        get().addHabit({ id: "h1", name: "Journal", resumedAt: "2026-06-08T08:00:00" });
+        at("2026-06-10T12:00:00");
+        get().pauseHabit("h1");
+        at("2026-06-14T12:00:00");
+        get().resumeHabit("h1");
+        expect(get().habits[0].pausedSpans).toEqual([
+          { from: "2026-06-05", to: "2026-06-07" },
+          { from: "2026-06-10", to: "2026-06-13" },
+        ]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("resume is idempotent (a no-op on an active habit)", () => {

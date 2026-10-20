@@ -29,6 +29,10 @@ export interface UiSlice {
   closeCommand: () => void;
   toggleCommand: () => void;
 
+  /** the date the evening card was dismissed for ("Not tonight"); memory only */
+  eveningDismissedFor: string | null;
+  dismissEvening: (date: string) => void;
+
   shortcutsOpen: boolean;
   setShortcutsOpen: (v: boolean) => void;
 
@@ -147,6 +151,8 @@ function writeSettings(s: Partial<StoredSettings>) {
 
 export const createUiSlice: Slice<UiSlice> = (set, get) => ({
   commandOpen: false,
+  eveningDismissedFor: null,
+  dismissEvening: (date) => set({ eveningDismissedFor: date }),
   openCommand: () => set({ commandOpen: true }),
   closeCommand: () => set({ commandOpen: false }),
   toggleCommand: () => set((s) => ({ commandOpen: !s.commandOpen })),

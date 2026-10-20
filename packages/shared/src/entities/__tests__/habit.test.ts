@@ -17,6 +17,7 @@ describeEntityContract("habit", {
     archivedAt: null,
     pausedAt: null,
     resumedAt: null,
+    pausedSpans: [],
     updatedAt: "2026-07-13T10:00:00.000Z",
     fieldUpdatedAt: { name: "2026-07-13T10:00:00.000Z" },
   },

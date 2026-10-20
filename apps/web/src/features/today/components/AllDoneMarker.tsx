@@ -12,7 +12,7 @@ export function AllDoneMarker({ isToday }: { isToday: boolean }) {
           <p className="text-sm font-medium text-foreground">
             {isToday ? "Nothing left for today" : "Nothing left for this day"}
           </p>
-          <p className="text-xs text-muted">Everything is resolved. Add another if you like.</p>
+          <p className="text-xs text-muted">Everything on today's list is settled.</p>
         </div>
       </div>
     </Card>

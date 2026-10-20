@@ -165,9 +165,9 @@ export class LocalIntentAgent implements Agent {
     }
     if (/overdue|behind|late|missed/i.test(lower)) {
       out.push({
-        id: "q-overdue",
+        id: "q-still-open",
         icon: "alert",
-        label: "Show: overdue tasks",
+        label: "Show: still-open tasks",
         run: () => {
           const recent = format(subDays(new Date(), 14), "yyyy-MM-dd");
           const overdue = state.tasks
@@ -181,8 +181,8 @@ export class LocalIntentAgent implements Agent {
             )
             .sort((a, b) => ((a.date ?? "") < (b.date ?? "") ? 1 : -1));
           state.setEphemeral({
-            title: "Overdue",
-            subtitle: `${overdue.length} unresolved · last 14 days`,
+            title: "Still open",
+            subtitle: `${overdue.length} still open · last 14 days`,
             taskIds: overdue.map((t) => t.id),
             createdAt: Date.now(),
           });

@@ -1,5 +1,4 @@
 import { expect, type Page, test } from "@playwright/test";
-import { passGratitudeGate } from "./helpers/app";
 import {
   cancelTouch,
   dragAlong,
@@ -154,14 +153,12 @@ async function bootSandbox(page: Page) {
     await explore.click();
     await expect(main).toBeVisible({ timeout: 15_000 });
   }
-  await passGratitudeGate(page);
 }
 
 async function openBrainWrite(page: Page) {
   await bootSandbox(page);
   await seedDeck(page);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await passGratitudeGate(page);
   await page.goto("/brainwrite", { waitUntil: "domcontentloaded" });
   await expect(page.locator(DECK)).toBeVisible({ timeout: 15_000 });
   await expect(cardAt(page, 0)).toBeVisible({ timeout: 15_000 });

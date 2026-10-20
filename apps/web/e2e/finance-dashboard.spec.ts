@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { format, startOfMonth, subMonths } from "date-fns";
-import { enterApp, passGratitudeGate } from "./helpers/app";
+import { enterApp } from "./helpers/app";
 
 /**
  * The finance overview against the synthetic sandbox seed. The seed anchors its settled month
@@ -17,7 +17,6 @@ const QUIET = { id: "fcat_e2e_quiet", name: "E2E quiet", order: 91 };
 
 async function gotoDashboard(page: Page) {
   await page.goto("/finance", { waitUntil: "networkidle" });
-  await passGratitudeGate(page);
   if (!/\/finance$/.test(page.url())) await page.goto("/finance", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({
     timeout: 10_000,

@@ -3,7 +3,8 @@ import { shiftISO, todayISO } from "@/core/lib/date";
 import { type Goal, isGoalClosed } from "@/features/goals/model";
 import { getGoalPaceBadge } from "@/features/goals/presentation";
 import { computeHabitStreak, computeHabitWindowRate } from "@/features/habits";
-import { type Habit, habitStretchStart } from "@/features/habits/model";
+import type { Habit } from "@/features/habits/model";
+import { getPausedSpans, isHabitPausedOn } from "@/features/habits/paused-spans";
 import { isActiveOnSchedule } from "@/features/habits/recurrence";
 import { type DayEntry, hasGratitude } from "@/features/journal/model";
 import { DEFAULT_RULES, resolveStreak, type SeqItem, type StreakRules } from "@/features/streaks";
@@ -244,14 +245,14 @@ export function computeHabitTimeline(
   const bySlot = mapHabitInstancesBySlot(tasks, habit.id);
   const graceFloor = shiftISO(today, -rules.graceDays);
   const windowStart = shiftISO(today, -(windowDays - 1));
-  // Clamp to the current active stretch so a paused-then-resumed habit's report starts
-  // fresh at the resume (paused days aren't shown as misses).
-  const stretchStart = habitStretchStart(habit);
-  const start = windowStart > stretchStart ? windowStart : stretchStart;
+  const createdOn = habit.createdAt.slice(0, 10);
+  const start = windowStart > createdOn ? windowStart : createdOn;
+  const spans = getPausedSpans(habit, tasks);
   const days: TimelineDay[] = [];
   for (let iso = start; iso <= today; iso = shiftISO(iso, 1)) {
     const label = format(new Date(`${iso}T00:00:00`), "MMM d");
-    if (!isActiveOnSchedule(habit.schedule, iso)) {
+    const isPausedUndone = isHabitPausedOn(habit, spans, iso) && bySlot.get(iso)?.status !== "done";
+    if (!isActiveOnSchedule(habit.schedule, iso) || isPausedUndone) {
       days.push({ iso, label, kind: "off" });
       continue;
     }

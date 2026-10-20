@@ -1,14 +1,13 @@
 import type { ReactNode } from "react";
-import { getWeekDays, todayISO } from "@/core/lib/date";
 import type { IconName } from "@/core/lib/icon-names";
-import { type CardMeta, type CardTone, type CardWeekDay, EntityCard } from "@/core/ui";
+import { type CardMeta, type CardTone, EntityCard } from "@/core/ui";
 import type { StreakRules } from "@/features/streaks";
 import type { Task } from "@/features/tasks/model";
 import { getValueCardFill } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
 import { HABIT_LIFECYCLE_LABEL, type Habit, type HabitLifecycle, habitLifecycle } from "./model";
 import { describeRecurrence } from "./recurrence";
-import { computeHabitStreak, computeHabitWindowRate, getHabitInstances } from "./selectors";
+import { buildHabitWeek, computeHabitStreak, computeHabitWindowRate } from "./selectors";
 
 const RATE_WINDOW_DAYS = 30;
 
@@ -23,22 +22,6 @@ const STATUS_TONE: Record<HabitLifecycle, CardTone> = {
   paused: "paused",
   archived: "archived",
 };
-
-/** The current Mon–Sun week as the card's measure: kept days solid, everything else
- *  the track. A day the habit isn't scheduled on reads the same as a missed one —
- *  the card is a glance, and the meta line carries the cadence. */
-export function buildHabitWeek(tasks: Task[], habit: Habit, today = todayISO()): CardWeekDay[] {
-  const done = new Set(
-    getHabitInstances(tasks, habit.id)
-      .filter((t) => t.status === "done")
-      .map((t) => t.slotDate ?? t.date),
-  );
-  return getWeekDays(new Date(today), today).map((d) => ({
-    iso: d.iso,
-    letter: d.dow.charAt(0),
-    state: done.has(d.iso) ? "kept" : "missed",
-  }));
-}
 
 export function buildHabitMeta(tasks: Task[], habit: Habit, rules: StreakRules): CardMeta[] {
   const meta: CardMeta[] = [{ text: describeRecurrence(habit.schedule) }];

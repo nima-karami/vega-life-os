@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Habit, habitLifecycle, habitStretchStart, isHabitActive } from "../model";
+import { type Habit, habitLifecycle, isHabitActive } from "../model";
 
 const base: Habit = {
   id: "h1",
@@ -14,6 +14,7 @@ const base: Habit = {
   archivedAt: null,
   pausedAt: null,
   resumedAt: null,
+  pausedSpans: [],
 };
 
 describe("habitLifecycle", () => {
@@ -41,15 +42,5 @@ describe("habitLifecycle", () => {
   it("treats a legacy record (undefined timestamps) as active", () => {
     const legacy = { ...base, pausedAt: undefined, archivedAt: undefined } as unknown as Habit;
     expect(habitLifecycle(legacy)).toBe("active");
-  });
-});
-
-describe("habitStretchStart", () => {
-  it("falls back to createdAt when never resumed", () => {
-    expect(habitStretchStart(base)).toBe("2026-01-01");
-  });
-
-  it("uses the resume date once resumed (date portion only)", () => {
-    expect(habitStretchStart({ ...base, resumedAt: "2026-06-15T09:30:00Z" })).toBe("2026-06-15");
   });
 });

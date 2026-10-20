@@ -86,16 +86,16 @@ describe("getGoalPaceBadge", () => {
       baseGoal({ start: "2026-01-01", end: "2026-12-31", progress: 1, status: "active" }),
       "2026-07-02",
     );
-    expect(badge).toEqual({ isBehind: false, text: "on pace" });
+    expect(badge).toEqual({ isBehind: false, text: "On pace" });
   });
 
-  it("reports how far behind when progress trails elapsed time", () => {
-    // ~50% elapsed, 0 progress => 50% behind
+  it("reports a slower pace when progress trails elapsed time", () => {
+    // ~50% elapsed, 0 progress => behind
     const badge = getGoalPaceBadge(
       baseGoal({ start: "2026-01-01", end: "2026-12-31", progress: 0, status: "active" }),
       "2026-07-02",
     );
-    expect(badge).toEqual({ isBehind: true, text: "50% behind" });
+    expect(badge).toEqual({ isBehind: true, text: "Slower than planned — still want this?" });
   });
 });
 
@@ -147,12 +147,12 @@ describe("getGoalScheduleBadge", () => {
     );
     expect(badge).toEqual({ kind: "ready", text: "Ready to start" });
   });
-  it("shows Overdue for an ended goal that is not closed", () => {
+  it("shows Ended for an ended goal that is not closed", () => {
     const badge = getGoalScheduleBadge(
       baseGoal({ start: "2020-01-01", end: "2020-12-31", status: "active" }),
       "2026-07-02",
     );
-    expect(badge).toEqual({ kind: "overdue", text: "Overdue" });
+    expect(badge).toEqual({ kind: "ended", text: "Ended — close it, extend it, or let it go?" });
   });
   it("shows no badge for a current active goal, or a closed ended goal", () => {
     expect(

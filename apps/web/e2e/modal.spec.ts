@@ -12,14 +12,6 @@ import { expect, test } from "@playwright/test";
  * button must actually be clickable (not pointer-intercepted) and close the modal.
  */
 
-async function passGratitudeGate(page: import("@playwright/test").Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 test.beforeEach(async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
@@ -65,7 +57,6 @@ test("desktop: confirm modal is centered, on-screen, and its buttons are clickab
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await passGratitudeGate(page);
   await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
@@ -98,7 +89,6 @@ async function openHabitDeleteDialog(page: import("@playwright/test").Page) {
 
 test("desktop: a modal stays on-screen even when the page behind is tall", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await passGratitudeGate(page);
   // The habit page is tall and scrollable — the bug pushed the dialog below the fold here.
   await openHabitDeleteDialog(page);
 
@@ -114,7 +104,6 @@ test("mobile: confirm renders as a centered dialog inset from the phone edges", 
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 850 });
-  await passGratitudeGate(page);
   await openHabitDeleteDialog(page);
 
   await assertOverlayIsFixed(page);
@@ -136,7 +125,6 @@ test("mobile: the create-name dialog is centered and inset from the phone edges"
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 850 });
-  await passGratitudeGate(page);
   await page.goto("/values", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 

@@ -22,6 +22,7 @@ const habitOn = (schedule: HabitSchedule, over: Partial<Habit> = {}): Habit => (
   archivedAt: null,
   pausedAt: null,
   resumedAt: null,
+  pausedSpans: [],
   ...over,
 });
 
@@ -99,14 +100,20 @@ describe("buildHabitDayRecord", () => {
     expect(stateOn(record, pulled)).toBe("off");
   });
 
-  it("leaves days before the current active stretch off (a resume starts fresh)", () => {
+  it("reads days inside a pause span off and the resume day missed when undone", () => {
     const resumed = shiftISO(TODAY, -3);
     const record = buildHabitDayRecord(
-      [],
-      habitOn(weekly([1, 1, 1, 1, 1, 1, 1]), { resumedAt: `${resumed}T08:00:00` }),
+      [inst(shiftISO(TODAY, -6), "done")],
+      habitOn(weekly([1, 1, 1, 1, 1, 1, 1]), {
+        createdAt: shiftISO(TODAY, -6),
+        resumedAt: `${resumed}T08:00:00`,
+        pausedSpans: [{ from: shiftISO(TODAY, -5), to: shiftISO(TODAY, -4) }],
+      }),
       30,
       TODAY,
     );
+    expect(stateOn(record, shiftISO(TODAY, -6))).toBe("kept");
+    expect(stateOn(record, shiftISO(TODAY, -5))).toBe("off");
     expect(stateOn(record, shiftISO(TODAY, -4))).toBe("off");
     expect(stateOn(record, resumed)).toBe("missed");
   });

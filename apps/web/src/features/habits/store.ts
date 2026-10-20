@@ -1,9 +1,10 @@
-import { todayISO } from "@/core/lib/date";
+import { shiftISO, todayISO } from "@/core/lib/date";
 import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Task } from "@/features/tasks/model";
 import { type Habit, habitLifecycle } from "./model";
+import { getPausedSpans } from "./paused-spans";
 
 export interface HabitsSlice {
   habits: Habit[];
@@ -19,8 +20,8 @@ export interface HabitsSlice {
   /** pause a habit non-destructively: set pausedAt = now and strip its future undone,
    *  non-detached instances (history preserved). No regenerate. Active habits only. */
   pauseHabit: (id: string) => void;
-  /** resume a paused habit: clear pausedAt, anchor a fresh streak/rate stretch
-   *  (resumedAt = now), and regenerate upcoming instances. Paused habits only. */
+  /** resume a paused habit: clear pausedAt, record the paused days as a neutral
+   *  span (resumedAt = now), and regenerate upcoming instances. Paused habits only. */
   resumeHabit: (id: string) => void;
 }
 
@@ -53,6 +54,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       archivedAt: patch.archivedAt ?? null,
       pausedAt: patch.pausedAt ?? null,
       resumedAt: patch.resumedAt ?? null,
+      pausedSpans: patch.pausedSpans ?? [],
       schedule: patch.schedule ?? {
         type: "weekly",
         days: [1, 1, 1, 1, 1, 1, 1],
@@ -149,9 +151,15 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   resumeHabit: (id) => {
     const habit = get().habits.find((h) => h.id === id);
     if (!habit || habitLifecycle(habit) !== "paused") return; // idempotent, paused only
-    // fresh stretch: streak/rate anchor moves to now, so the paused gap is neither
-    // a run of misses nor a bridged streak.
-    const next: Habit = { ...habit, pausedAt: null, resumedAt: new Date().toISOString() };
+    const base = getPausedSpans(habit, get().tasks);
+    const from = todayISO(new Date(habit.pausedAt ?? Date.now()));
+    const to = shiftISO(todayISO(), -1);
+    const next: Habit = {
+      ...habit,
+      pausedAt: null,
+      resumedAt: new Date().toISOString(),
+      pausedSpans: from <= to ? [...base, { from, to }] : base,
+    };
     set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
     savePut("habits", next);
     get().ensureUpcoming();

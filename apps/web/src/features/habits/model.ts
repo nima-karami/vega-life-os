@@ -4,6 +4,12 @@ export type HabitSchedule =
   | { type: "weekly"; days: number[]; interval: number; anchor: string }
   | { type: "monthly"; daysOfMonth: number[]; lastDay: boolean };
 
+/** Inclusive local ISO date range. */
+export interface PausedSpan {
+  from: string;
+  to: string;
+}
+
 export interface Habit {
   id: string;
   name: string;
@@ -30,6 +36,8 @@ export interface Habit {
    *  paused. Anchors the streak/rate window so a resume starts fresh (no phantom misses
    *  across the paused gap). Legacy → null (falls back to createdAt). */
   resumedAt: string | null;
+  /** Neutral date ranges from past pauses; legacy -> [] */
+  pausedSpans: PausedSpan[];
 }
 
 /** Three lifecycle states, derived from the two timestamps (archived supersedes paused). */
@@ -49,8 +57,3 @@ export function habitLifecycle(h: Habit): HabitLifecycle {
 
 /** Only active habits generate instances and count toward streaks/analytics. */
 export const isHabitActive = (h: Habit): boolean => habitLifecycle(h) === "active";
-
-/** Start of the current active stretch (yyyy-mm-dd) — the resume date if the habit has
- *  been resumed, else its creation date. The streak/rate walk anchors here so a paused
- *  gap contributes neither misses nor streak continuity. */
-export const habitStretchStart = (h: Habit): string => (h.resumedAt ?? h.createdAt).slice(0, 10);

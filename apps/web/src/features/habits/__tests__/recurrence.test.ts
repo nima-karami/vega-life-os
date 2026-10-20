@@ -132,6 +132,22 @@ describe("getWeeklyMask", () => {
 });
 
 describe("normalizeHabit", () => {
+  it("defaults pausedSpans to [] on a legacy record", () => {
+    const out = normalizeHabit({
+      id: "h1",
+      name: "x",
+      goalId: null,
+      valueId: "v",
+      icon: "repeat",
+      time: null,
+      durationMin: 30,
+      archivedAt: null,
+      createdAt: "2026-01-05T08:00:00.000Z",
+      days: [1, 1, 1, 1, 1, 1, 1],
+    } as never);
+    expect(out.pausedSpans).toEqual([]);
+  });
+
   it("backfills schedule from a legacy habit's days and strips dead fields", () => {
     const out = normalizeHabit({
       id: "h1",

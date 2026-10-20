@@ -26,7 +26,7 @@ export function isGoalProgressDerived(goal: Goal): boolean {
 }
 
 export interface PaceBadge {
-  /** true → behind schedule (danger), false → on/ahead of pace (success). */
+  /** true → behind schedule, false → on/ahead of pace. */
   isBehind: boolean;
   text: string;
 }
@@ -34,14 +34,14 @@ export interface PaceBadge {
 /**
  * Pace badge text + tone. Shown only while the goal's period is current and the
  * goal is open — an upcoming goal is never "on pace" and an ended one is never
- * usefully "% behind"; the schedule badge carries the meaning instead.
+ * usefully "behind"; the schedule badge carries the meaning instead.
  */
 export function getGoalPaceBadge(goal: Goal, today: string = todayISO()): PaceBadge | null {
   if (isGoalClosed(goal.status)) return null;
   if (getGoalPhase(goal, today) !== "current") return null;
   const pace = computeGoalPace(goal, today);
-  if (pace >= 0) return { isBehind: false, text: "on pace" };
-  return { isBehind: true, text: `${Math.round(-pace * 100)}% behind` };
+  if (pace >= 0) return { isBehind: false, text: "On pace" };
+  return { isBehind: true, text: "Slower than planned — still want this?" };
 }
 
 /** A future-scheduled goal cannot be activated until its period begins. */
@@ -56,11 +56,11 @@ export function coerceStatus(status: GoalStatus, phase: GoalPhase): GoalStatus {
 }
 
 export interface ScheduleBadge {
-  kind: "scheduled" | "ready" | "overdue";
+  kind: "scheduled" | "ready" | "ended";
   text: string;
 }
 
-/** Schedule cue for the goal card: queued, ready to start, or overdue (else none). */
+/** Schedule cue for the goal card: queued, ready to start, or ended (else none). */
 export function getGoalScheduleBadge(goal: Goal, today: string = todayISO()): ScheduleBadge | null {
   const phase = getGoalPhase(goal, today);
   if (phase === "upcoming") {
@@ -68,7 +68,8 @@ export function getGoalScheduleBadge(goal: Goal, today: string = todayISO()): Sc
   }
   if (phase === "current" && goal.status === "backlog")
     return { kind: "ready", text: "Ready to start" };
-  if (phase === "ended" && !isGoalClosed(goal.status)) return { kind: "overdue", text: "Overdue" };
+  if (phase === "ended" && !isGoalClosed(goal.status))
+    return { kind: "ended", text: "Ended — close it, extend it, or let it go?" };
   return null;
 }
 

@@ -5,7 +5,7 @@ import { Icon, IconButton } from "@/core/ui";
 /**
  * A quiet, non-blocking reminder that recent days are missing gratitude. It never
  * gates navigation — it only surfaces the gap and deep-links to backfill it. Anchored
- * on gratitude (the enforced daily ritual); adding the entry repairs the streak.
+ * on gratitude (the daily ritual); adding the entry repairs the streak.
  */
 export function BackfillNudge({
   missedDays,
@@ -32,8 +32,8 @@ export function BackfillNudge({
         <Icon name="notebook-pen" size={18} className="shrink-0 text-muted" />
         <p className="min-w-0 flex-1 text-sm text-foreground">
           {hasMultiple
-            ? `You missed gratitude on ${missedDays.length} recent days.`
-            : `You missed gratitude on ${formatLongDate(recent)} — add it?`}
+            ? `${missedDays.length} recent days without gratitude.`
+            : `You haven't written gratitude for ${formatLongDate(recent)} — add it?`}
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button

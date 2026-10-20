@@ -25,14 +25,6 @@ async function bootSandbox(page: Page) {
   }
 }
 
-async function passGratitudeGate(page: Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 // Local date, matching the app's own `todayISO()` (core/lib/date.ts) — a UTC slice
 // drifts a day off local "today" for half the clock, in either direction by tz.
 function livedEvent(over: Record<string, unknown>) {
@@ -82,11 +74,9 @@ async function seedEvent(page: Page, ev: Record<string, unknown>) {
 
 test("a tagged lived event shows on the calendar", async ({ page }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
   // v2 (Presence) exists in the seed dataset.
   await seedEvent(page, livedEvent({ valueId: "v2" }));
   await bootSandbox(page); // reload + re-enter so the store hydrates the seeded row
-  await passGratitudeGate(page);
 
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await expect(page.locator('[data-event-id="ce_e2e"]')).toBeVisible({ timeout: 15_000 });
@@ -94,7 +84,6 @@ test("a tagged lived event shows on the calendar", async ({ page }) => {
 
 test("a multi-day Google event spans every day it covers in the all-day row", async ({ page }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
   // A 7-day all-day span centred on today, so several covered days are always in the
   // visible week regardless of where today sits in it.
   const day = (offset: number) => {
@@ -117,7 +106,6 @@ test("a multi-day Google event spans every day it covers in the all-day row", as
     }),
   );
   await bootSandbox(page);
-  await passGratitudeGate(page);
 
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   const bar = page.getByRole("button", { name: /Roadtrip, multi-day/ });
@@ -129,10 +117,8 @@ test("a multi-day Google event spans every day it covers in the all-day row", as
 
 test("clicking an untagged lived event opens the editor", async ({ page }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
   await seedEvent(page, livedEvent({ valueId: null }));
   await bootSandbox(page);
-  await passGratitudeGate(page);
 
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await page.locator('[data-event-id="ce_e2e"]').click({ timeout: 15_000 });
@@ -146,7 +132,6 @@ test("lived events land on Today in clock order and never touch the day's count"
   page,
 }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
   const summaryBefore = await page.locator("header p").nth(1).textContent();
 
   await seedEvent(page, livedEvent({ id: "ce_late", time: "20:00", title: "Late event" }));
@@ -161,7 +146,6 @@ test("lived events land on Today in clock order and never touch the day's count"
     }),
   );
   await bootSandbox(page);
-  await passGratitudeGate(page);
 
   const rows = page.locator("[data-event-id]");
   await expect(rows).toHaveCount(2, { timeout: 15_000 });
@@ -173,10 +157,8 @@ test("lived events land on Today in clock order and never touch the day's count"
 
 test("clicking a lived event on Today opens the event editor", async ({ page }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
   await seedEvent(page, livedEvent({ valueId: null }));
   await bootSandbox(page);
-  await passGratitudeGate(page);
 
   await page.locator('[data-event-id="ce_e2e"]').click({ timeout: 15_000 });
   await expect(page.getByText("From Google Calendar")).toBeVisible();
@@ -189,7 +171,6 @@ test("clicking a lived event on Today opens the event editor", async ({ page }) 
 // `moved` flag and swallow the tap — the chip looked dead.
 test("a jittered click on a timed chip opens the editor and moves nothing", async ({ page }) => {
   await bootSandbox(page);
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
 
   const chip = page.getByRole("button", { name: /^Update ID card, 13:00–14:00/ });
@@ -246,7 +227,6 @@ async function pickDateInPopover(page: Page, viewIso: string, targetIso: string)
 
 async function openOffsite(page: Page, starts: string) {
   await bootSandbox(page);
-  await passGratitudeGate(page);
   await seedEvent(
     page,
     livedEvent({
@@ -262,7 +242,6 @@ async function openOffsite(page: Page, starts: string) {
     }),
   );
   await bootSandbox(page);
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await offsiteChip(page).click({ timeout: 15_000 });
   await expect(page.getByText("From Google Calendar")).toBeVisible();
@@ -299,7 +278,6 @@ test("widening an all-day event's Ends turns its chip into a span bar and surviv
   await widenEndsAndVerify(page, starts, laterEnd);
 
   await bootSandbox(page);
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   const bar = page.getByRole("button", { name: /^Offsite, multi-day/ });
   await expect(bar).toHaveCount(1, { timeout: 15_000 });

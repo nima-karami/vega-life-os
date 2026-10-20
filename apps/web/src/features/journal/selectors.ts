@@ -1,27 +1,20 @@
 import { shiftISO } from "@/core/lib/date";
-import type { Task } from "@/features/tasks/model";
-import { computeDayCounts } from "@/features/tasks/selectors";
 import { type DayEntry, hasContent, hasGratitude } from "./model";
 
-/**
- * A day is "reflectable" once everything scheduled on it — one-offs, timed habits
- * and anytime habits alike — is resolved (done or skip). Nothing on the day's list
- * may be left open. Zero-task days are never reflectable.
- */
-export function isDayReflectable(tasks: Task[], date: string): boolean {
-  const counts = computeDayCounts(tasks, date);
-  return counts.total > 0 && counts.todo === 0;
-}
-
-/** True while today's entry has no gratitude — the hard morning gate is up. */
-export function isGratitudeRequired(journal: DayEntry[], today: string): boolean {
-  return !hasGratitude(journal.find((e) => e.date === today));
+/** Today's optional gratitude card: nothing written yet and not dismissed for today. */
+export function shouldShowGratitudeCard(
+  entry: DayEntry | undefined,
+  ackedThrough: string | null,
+  date: string,
+  today: string,
+): boolean {
+  return date === today && !hasGratitude(entry) && (ackedThrough == null || ackedThrough < today);
 }
 
 /**
  * Recently missed gratitude days still worth backfilling: within the lookback window,
  * before today, on/after the first-ever entry (never nag pre-existence days), lacking
- * gratitude. Most-recent first. Anchored on gratitude — the enforced daily ritual — so
+ * gratitude. Most-recent first. Anchored on gratitude — the daily ritual — so
  * the nudge and the gratitude streak use the same predicate and never disagree.
  */
 export function getMissedGratitudeDays(

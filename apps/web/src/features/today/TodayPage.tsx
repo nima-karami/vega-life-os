@@ -1,6 +1,7 @@
 import { Button } from "@heroui/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { useNowMs } from "@/core/lib/clock";
 import { formatLongDate, formatRelativeDay, todayISO } from "@/core/lib/date";
 import { getZonedWallClock } from "@/core/lib/zone";
 import { useStore } from "@/core/store";
@@ -11,13 +12,11 @@ import { useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import {
   BackfillNudge,
   filterUnacknowledgedDays,
-  GratitudeStep,
+  GratitudeCard,
   getEntryStatus,
   getMissedGratitudeDays,
-  hasGratitude,
-  isDayReflectable,
-  isReflected,
-  ReflectionStep,
+  ReflectionDialog,
+  shouldShowGratitudeCard,
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
@@ -26,8 +25,15 @@ import type { Task } from "@/features/tasks/model";
 import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
 import { AllDoneMarker } from "./components/AllDoneMarker";
 import { DailyHabits } from "./components/DailyHabits";
+import { EveningCard } from "./components/EveningCard";
 import { RemainingTasks } from "./components/RemainingTasks";
-import { describeDay, partitionToday, reorderTasksInDay, toggleDone } from "./today-logic";
+import {
+  describeDay,
+  partitionToday,
+  reorderTasksInDay,
+  shouldShowEveningCard,
+  toggleDone,
+} from "./today-logic";
 import { useDayLayout } from "./useDayLayout";
 import { useViewDate } from "./useViewDate";
 
@@ -58,6 +64,9 @@ export function TodayPage() {
   const journal = useStore((s) => s.journal);
   const nudgeAckedThrough = useStore((s) => s.gratitudeNudgeAckedThrough);
   const acknowledgeGratitudeNudge = useStore((s) => s.acknowledgeGratitudeNudge);
+  const eveningDismissedFor = useStore((s) => s.eveningDismissedFor);
+  const dismissEvening = useStore((s) => s.dismissEvening);
+  const nowMs = useNowMs();
 
   const todayEntry = journal.find((e) => e.date === today);
   const viewEntry = journal.find((e) => e.date === viewDate);
@@ -66,16 +75,17 @@ export function TodayPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [announce, setAnnounce] = useState("");
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
-  const [reflectSkipped, setReflectSkipped] = useState(false);
+  const [isReflecting, setIsReflecting] = useState(false);
 
   const missedDays = useMemo(
     () => filterUnacknowledgedDays(getMissedGratitudeDays(journal, today), nudgeAckedThrough),
     [journal, today, nudgeAckedThrough],
   );
 
-  const showGratitudeGate = isToday && !hasGratitude(todayEntry);
-  const showReflection =
-    isToday && !reflectSkipped && !isReflected(todayEntry) && isDayReflectable(tasks, today);
+  const showGratitudeCard = shouldShowGratitudeCard(todayEntry, nudgeAckedThrough, viewDate, today);
+  const showEvening =
+    eveningDismissedFor !== today &&
+    shouldShowEveningCard(tasks, todayEntry, viewDate, new Date(nowMs));
 
   const { remaining, done, habits } = useMemo(
     () => partitionToday(tasks, viewDate),
@@ -153,32 +163,6 @@ export function TodayPage() {
     setPendingUndo(null);
   }
 
-  if (showGratitudeGate) {
-    return (
-      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center px-4 py-6 sm:py-10">
-        <div aria-live="polite" className="sr-only">
-          {announce}
-        </div>
-        <GratitudeStep date={today} onContinue={() => setAnnounce("Gratitude saved")} />
-      </div>
-    );
-  }
-
-  if (showReflection) {
-    return (
-      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
-        <div aria-live="polite" className="sr-only">
-          {announce}
-        </div>
-        <ReflectionStep
-          date={today}
-          onSave={() => setAnnounce("Reflection saved")}
-          onSkip={() => setReflectSkipped(true)}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
       {isToday && (
@@ -215,7 +199,7 @@ export function TodayPage() {
           {formatRelativeDay(viewDate, today)}
         </h1>
         <div className="flex items-center gap-2">
-          <p className="text-sm text-muted">{describeDay(counts.done, counts.total, eventCount)}</p>
+          <p className="text-sm text-muted">{describeDay(counts.total, eventCount)}</p>
           {!isToday && (
             <button
               type="button"
@@ -231,6 +215,12 @@ export function TodayPage() {
       <div aria-live="polite" className="sr-only">
         {announce}
       </div>
+
+      {showGratitudeCard && (
+        <div className="mt-6">
+          <GratitudeCard date={today} onSaved={() => setAnnounce("Gratitude saved")} />
+        </div>
+      )}
 
       <div className="mt-8 flex flex-col gap-8">
         <section aria-label="Remaining" className="flex flex-col gap-3">
@@ -282,6 +272,15 @@ export function TodayPage() {
         )}
       </div>
 
+      {showEvening && (
+        <div className="mt-8">
+          <EveningCard
+            onReflect={() => setIsReflecting(true)}
+            onDismiss={() => dismissEvening(today)}
+          />
+        </div>
+      )}
+
       <div className="mt-8 flex justify-center">
         <Button variant="secondary" onPress={() => navigate(`/journal/${viewDate}`)}>
           <Icon name="note" size={15} />
@@ -297,6 +296,13 @@ export function TodayPage() {
       <TaskDrawer task={editingTask} onClose={() => setEditing(null)} />
 
       <EventEditor event={liveEvent} onClose={() => setEditingEvent(null)} />
+
+      <ReflectionDialog
+        date={today}
+        isOpen={isReflecting}
+        onClose={() => setIsReflecting(false)}
+        onSaved={() => setAnnounce("Reflection saved")}
+      />
     </div>
   );
 }

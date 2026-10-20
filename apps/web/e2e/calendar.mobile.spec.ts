@@ -22,14 +22,6 @@ const WIDE = { width: 900, height: 900 };
 // Both ends of the range, so one read covers the start time and the duration.
 const CHIP_LABEL = /^Update ID card, 13:00–14:00/;
 
-async function passGratitudeGate(page: Page) {
-  const gate = page.getByRole("button", { name: "Continue to today" });
-  if (await gate.isVisible().catch(() => false)) {
-    await page.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-    await gate.click();
-  }
-}
-
 async function openCalendar(page: Page, viewport: { width: number; height: number }) {
   await page.setViewportSize(viewport);
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -40,7 +32,6 @@ async function openCalendar(page: Page, viewport: { width: number; height: numbe
     await explore.click();
     await expect(main).toBeVisible({ timeout: 15_000 });
   }
-  await passGratitudeGate(page);
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
   await expect(main).toBeVisible({ timeout: 15_000 });
 }

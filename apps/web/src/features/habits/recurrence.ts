@@ -31,6 +31,7 @@ export function normalizeHabit(raw: LegacyHabit): Habit {
     archivedAt: rest.archivedAt ?? null,
     pausedAt: rest.pausedAt ?? null,
     resumedAt: rest.resumedAt ?? null,
+    pausedSpans: rest.pausedSpans ?? [],
   };
 }
 

@@ -1,4 +1,4 @@
-import { shiftISO, todayISO } from "@/core/lib/date";
+import { getWeekDays, shiftISO, todayISO } from "@/core/lib/date";
 import {
   DEFAULT_RULES,
   resolveStreak,
@@ -8,7 +8,8 @@ import {
 } from "@/features/streaks";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
-import { type Habit, habitStretchStart, isHabitActive } from "./model";
+import { type Habit, isHabitActive } from "./model";
+import { getPausedSpans, isHabitPausedOn } from "./paused-spans";
 import { getWeeklyMask, isActiveOnSchedule } from "./recurrence";
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
@@ -68,12 +69,17 @@ function deriveSlotKinds(
 ): { date: string; kind: SlotKind }[] {
   const bySlot = mapInstancesBySlot(tasks, habit.id);
   const out: { date: string; kind: SlotKind }[] = [];
-  // Anchor at the current active stretch: a resume starts a fresh streak/rate window,
-  // so the paused gap contributes neither misses nor bridged continuity.
-  let d = habitStretchStart(habit);
+  const spans = getPausedSpans(habit, tasks);
+  let d = habit.createdAt.slice(0, 10);
   while (d <= today) {
     if (isActiveOnSchedule(habit.schedule, d)) {
-      out.push({ date: d, kind: classifySlot(bySlot.get(d), d, today, grace) });
+      const inst = bySlot.get(d);
+      // a pause makes undone days neutral; a slot actually completed keeps its credit
+      const kind =
+        inst?.status !== "done" && isHabitPausedOn(habit, spans, d)
+          ? "skip"
+          : classifySlot(inst, d, today, grace);
+      out.push({ date: d, kind });
     }
     d = shiftISO(d, 1);
   }
@@ -168,6 +174,36 @@ export function computeHabitWindowRate(
   );
   const due = done + missed;
   return { rate: due ? done / due : 0, due, done, missed };
+}
+
+export type HabitWeekState = "kept" | "due" | "off";
+
+export interface HabitWeekDay {
+  iso: string;
+  letter: string;
+  state: HabitWeekState;
+}
+
+const WEEK_STATE_BY_KIND: Record<SlotKind, HabitWeekState> = {
+  done: "kept",
+  late: "kept",
+  miss: "due",
+  pending: "due",
+  skip: "off",
+};
+
+/** The current Mon–Sun week for the habit card: the same slot walk as the streak, so an
+ *  unscheduled, skipped, paused, future or pre-creation day is neutral ("off"), never a miss. */
+export function buildHabitWeek(tasks: Task[], habit: Habit, today = todayISO()): HabitWeekDay[] {
+  const kindByDate = new Map(deriveSlotKinds(tasks, habit, today).map((k) => [k.date, k.kind]));
+  return getWeekDays(new Date(today), today).map((d) => {
+    const kind = kindByDate.get(d.iso);
+    return {
+      iso: d.iso,
+      letter: d.dow.charAt(0),
+      state: kind ? WEEK_STATE_BY_KIND[kind] : "off",
+    };
+  });
 }
 
 /** A day on the habit's record: kept, genuinely missed, or never due (skips and
