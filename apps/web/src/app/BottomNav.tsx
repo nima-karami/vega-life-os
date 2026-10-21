@@ -1,11 +1,21 @@
 import { useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
 import type { IconName } from "@/core/lib/icon-names";
-import { useStore } from "@/core/store";
+import { useQuietMode, useStore } from "@/core/store";
 import { cx, Icon, publishNavBandHeight } from "@/core/ui";
 import { AccountMenu } from "./AccountMenu";
 
-const TABS: { label: string; to: string; icon: IconName; match: (p: string) => boolean }[] = [
+type Tab = { label: string; to: string; icon: IconName; match: (p: string) => boolean };
+
+// Quiet mode hides Analytics; its slot keeps the weekly review, which shares that page.
+const REVIEW_TAB: Tab = {
+  label: "Weekly review",
+  to: "/analytics?tab=review",
+  icon: "calendar-check",
+  match: (p) => p.startsWith("/analytics"),
+};
+
+const TABS: Tab[] = [
   { label: "Today", to: "/today", icon: "home", match: (p) => p === "/" || p === "/today" },
   { label: "Calendar", to: "/calendar", icon: "calendar", match: (p) => p.startsWith("/calendar") },
   { label: "Habits", to: "/habits", icon: "repeat", match: (p) => p.startsWith("/habits") },
@@ -33,7 +43,7 @@ const AVATAR_CELL = cx(
 
 /** Phone-only primary navigation — the dissolved nav: bare glyphs sitting on the canvas
  *  with no pill or container, the glyph itself carrying state (accent at stroke 2.5 when
- *  current). Carries the six destinations plus the search (⌘K) and account controls that
+ *  current). Carries the primary destinations plus the search (⌘K) and account controls that
  *  live in the desktop header, so phones need no top chrome. Overlaid at the base of the
  *  app shell on every route, painting its own opaque band so no page ever shows through
  *  it; the shell reserves that band's height below the content. Hidden at sm+. */
@@ -41,6 +51,7 @@ export function BottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const openCommand = useStore((s) => s.openCommand);
+  const isQuiet = useQuietMode();
   const bandRef = useRef<HTMLDivElement>(null);
 
   // Measured rather than queried, so unmounting (the gratitude card) and sm:hidden report.
@@ -64,7 +75,7 @@ export function BottomNav() {
       className="pointer-events-none bg-canvas px-4 pb-[calc(env(safe-area-inset-bottom)_+_0.875rem)] sm:hidden"
     >
       <nav aria-label="Primary" className="flex w-full items-center">
-        {TABS.map((t) => {
+        {TABS.map((tab) => (isQuiet && tab.to === "/analytics" ? REVIEW_TAB : tab)).map((t) => {
           const active = t.match(pathname);
           return (
             <button

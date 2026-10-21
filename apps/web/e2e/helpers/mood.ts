@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { turnQuietModeOff } from "./app";
 
 /** Mood-chart fixtures. The sandbox seeds no journal rows, so every point is logged here. */
 
@@ -17,6 +18,7 @@ async function logMood(page: Page, iso: string) {
 }
 
 export async function openMoodChart(page: Page, daysAgo: number[]) {
+  await turnQuietModeOff(page);
   for (const days of daysAgo) await logMood(page, isoDaysAgo(days));
   await page.goto("/analytics", { waitUntil: "domcontentloaded" });
   await expect(page.locator("[data-iso]").first()).toBeVisible({ timeout: 15_000 });

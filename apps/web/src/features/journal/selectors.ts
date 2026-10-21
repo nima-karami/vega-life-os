@@ -50,6 +50,24 @@ export function getWeekEntries(journal: DayEntry[], weekIsos: string[]): DayEntr
   });
 }
 
+interface GratitudeDay {
+  date: string;
+  items: { slot: number; text: string }[];
+}
+
+/** The week's written gratitude, Monday to Sunday, for the review's read-only recap. */
+export function listWeekGratitude(journal: DayEntry[], weekStartISO: string): GratitudeDay[] {
+  const byDate = new Map(journal.map((e) => [e.date, e]));
+  return Array.from({ length: 7 }, (_, offset) => shiftISO(weekStartISO, offset)).flatMap(
+    (date) => {
+      const items = (byDate.get(date)?.gratitude ?? [])
+        .map((text, slot) => ({ slot, text }))
+        .filter((item) => item.text.trim() !== "");
+      return items.length > 0 ? [{ date, items }] : [];
+    },
+  );
+}
+
 /** Missed days strictly after the dismissal watermark — a dismissed nudge stays dismissed. */
 export function filterUnacknowledgedDays(
   missedDays: string[],

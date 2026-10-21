@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { turnQuietModeOff } from "./helpers/app";
 import { expectMenuClearOf, expectMenuOpenAndInert } from "./helpers/menu";
 import { dragAlong, endTouch, longPress, startTouch, swipe, tap } from "./helpers/touch";
 
@@ -163,6 +164,7 @@ for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 780 });
       const evening = new Date();
       evening.setHours(19, 0, 0, 0);
+      if (route.startsWith("/analytics")) await turnQuietModeOff(page);
       await page.clock.install({ time: evening });
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
@@ -251,6 +253,7 @@ test("habit page opens from a card, fits the column, and the trail climbs out (3
 test("phone bottom nav shows the primary tabs and navigates between routes (390px)", async ({
   page,
 }) => {
+  await turnQuietModeOff(page);
   await page.setViewportSize({ width: 390, height: 780 });
   await page.goto("/today", { waitUntil: "domcontentloaded" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
@@ -299,6 +302,7 @@ test("calendar shows a single-day view with day navigation and no page overflow 
 });
 
 test("analytics charts do not overflow horizontally on mobile (360px)", async ({ page }) => {
+  await turnQuietModeOff(page);
   await page.setViewportSize({ width: 360, height: 780 });
   await page.goto("/analytics", { waitUntil: "domcontentloaded" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });

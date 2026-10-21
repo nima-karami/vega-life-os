@@ -14,3 +14,11 @@ describe("profilePatchSchema gratitude-nudge watermark", () => {
       expect(profilePatchSchema.safeParse({ gratitudeNudgeAckedThrough: bad }).success).toBe(false);
   });
 });
+
+describe("profilePatchSchema quiet mode", () => {
+  it("accepts a boolean and rejects anything else", () => {
+    expect(profilePatchSchema.safeParse({ quietMode: false }).success).toBe(true);
+    expect(profilePatchSchema.safeParse({ quietMode: true }).success).toBe(true);
+    expect(profilePatchSchema.safeParse({ quietMode: "off" }).success).toBe(false);
+  });
+});

@@ -1,5 +1,6 @@
 import { Link } from "react-router";
-import { cx, Icon } from "@/core/ui";
+import { useQuietMode } from "@/core/store";
+import { CardMetaLine, cx, Icon } from "@/core/ui";
 import { buildGoalMeta } from "@/features/goals/components/GoalEntityCard";
 import {
   GOAL_STATUS_ICON,
@@ -12,6 +13,7 @@ import {
  *  Loosened rather than shrunk on a phone — more air where there is no room to rest. */
 export function ValueGoalRow({ goal }: { goal: Goal }) {
   const closed = isGoalClosed(goal.status);
+  const isQuiet = useQuietMode();
   return (
     <Link
       to={`/goals/${goal.id}`}
@@ -40,20 +42,17 @@ export function ValueGoalRow({ goal }: { goal: Goal }) {
             {GOAL_STATUS_LABEL[goal.status]}
           </span>
         </span>
-        <span className="block h-1 overflow-hidden rounded-full bg-white/[.22]">
-          <span
-            className="block h-full rounded-full bg-white"
-            style={{ width: `${Math.round(Math.min(1, Math.max(0, goal.progress)) * 100)}%` }}
-          />
+        <span
+          className={cx("block h-1 overflow-hidden rounded-full", !isQuiet && "bg-white/[.22]")}
+        >
+          {!isQuiet && (
+            <span
+              className="block h-full rounded-full bg-white"
+              style={{ width: `${Math.round(Math.min(1, Math.max(0, goal.progress)) * 100)}%` }}
+            />
+          )}
         </span>
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-[3px] text-[12px] text-white/[.86]">
-          {buildGoalMeta(goal).map((part, i) => (
-            <span key={part.text} className="contents">
-              {i > 0 && <span aria-hidden>·</span>}
-              <span className={cx(part.live && "text-white")}>{part.text}</span>
-            </span>
-          ))}
-        </span>
+        <CardMetaLine meta={buildGoalMeta(goal, isQuiet)} />
       </span>
     </Link>
   );

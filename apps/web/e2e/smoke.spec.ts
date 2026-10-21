@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { turnQuietModeOff } from "./helpers/app";
 
 /**
  * Smoke suite for the vapor redesign shell (slice 0).
@@ -100,6 +101,7 @@ for (const { path, name } of V1_ROUTES) {
       }
     });
 
+    if (path === "/analytics") await turnQuietModeOff(page);
     await page.goto(path, { waitUntil: "networkidle" });
 
     // main content area is present
@@ -817,6 +819,7 @@ test("today: no evening card in the morning; Cancel writes nothing; 'Not tonight
 // ─── Copy: no judgment language on the daily surfaces ────────────────────────
 
 test("copy: judgment wording is gone from Today, Habits, Goals and Analytics", async ({ page }) => {
+  await turnQuietModeOff(page);
   const evening = new Date();
   evening.setHours(19, 0, 0, 0);
   await page.clock.install({ time: evening });

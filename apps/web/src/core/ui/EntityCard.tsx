@@ -109,15 +109,26 @@ export function EntityCard({
         <CardMeasureBlock measure={measure} />
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-white/[.86]">
-        {meta.map((m, i) => (
-          <span key={m.text} className="contents">
-            {i > 0 && <span aria-hidden>·</span>}
-            <span className={cx(m.live && "text-white")}>{m.text}</span>
-          </span>
-        ))}
-      </div>
+      <CardMetaLine meta={meta} className="mt-2.5" />
     </div>
+  );
+}
+
+/** One truncating line, never a wrap — a quiet-mode toggle must not reflow the list. */
+export function CardMetaLine({ meta, className }: { meta: CardMeta[]; className?: string }) {
+  return (
+    <span className={cx("block truncate text-[12px] leading-[18px] text-white/[.86]", className)}>
+      {meta.map((m, i) => (
+        <span key={m.text}>
+          {i > 0 && (
+            <span aria-hidden className="mx-2">
+              ·
+            </span>
+          )}
+          <span className={cx(m.live && "text-white")}>{m.text}</span>
+        </span>
+      ))}
+    </span>
   );
 }
 

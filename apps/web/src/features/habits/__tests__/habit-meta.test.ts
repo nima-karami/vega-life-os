@@ -65,4 +65,10 @@ describe("buildHabitMeta", () => {
         .join(" "),
     ).not.toContain("of last");
   });
+
+  it("omits the consistency line in quiet mode but keeps the schedule", () => {
+    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), habit, true).map((m) => m.text);
+    expect(texts.join(" ")).not.toContain("of last");
+    expect(texts.length).toBe(2);
+  });
 });

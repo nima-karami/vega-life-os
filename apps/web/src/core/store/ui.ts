@@ -2,6 +2,7 @@ import { RefreshCw } from "lucide-react";
 import type { ComponentType } from "react";
 import { setCloudProfile } from "@/core/firebase/profile";
 import type { Task } from "@/features/tasks";
+import { readLocalQuietMode, saveQuietMode } from "./quiet-mode";
 import type { Slice } from "./slice";
 
 export type ThemeMode = "paper" | "void";
@@ -50,6 +51,11 @@ export interface UiSlice {
   setOperatorWorkspace: (v: string) => void;
   setOperatorEmail: (v: string) => void;
   setOperatorAvatar: (v: string) => void;
+
+  /** hides scores, counts and Analytics; on unless the user turns it off */
+  quietMode: boolean;
+  setQuietMode: (isQuiet: boolean) => void;
+  hydrateQuietMode: (isQuiet: boolean) => void;
 
   /** the household partner's display name, shown on Finance's settlement screens */
   partnerName: string;
@@ -170,6 +176,13 @@ export const createUiSlice: Slice<UiSlice> = (set, get) => ({
     set({ theme });
   },
   toggleTheme: () => get().setTheme(get().theme === "paper" ? "void" : "paper"),
+
+  quietMode: readLocalQuietMode(),
+  setQuietMode: (quietMode) => {
+    set({ quietMode });
+    saveQuietMode(get().authUid, quietMode);
+  },
+  hydrateQuietMode: (quietMode) => set({ quietMode }),
 
   ...(() => readSettings())(),
   setOperatorName: (operatorName) => {

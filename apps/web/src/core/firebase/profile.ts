@@ -17,6 +17,7 @@ export interface CloudProfile {
   gcalReadCalendarIds?: string[];
   gcalShowEvents?: boolean;
   gratitudeNudgeAckedThrough?: string | null;
+  quietMode?: boolean;
 }
 
 const readString = (value: unknown) => (typeof value === "string" ? value : undefined);
@@ -42,6 +43,7 @@ export async function getCloudProfile(uid: string): Promise<CloudProfile | null>
     gcalReadCalendarIds: readStringArray(d.gcalReadCalendarIds),
     gcalShowEvents: readBoolean(d.gcalShowEvents),
     gratitudeNudgeAckedThrough: readISODate(d.gratitudeNudgeAckedThrough),
+    quietMode: readBoolean(d.quietMode),
   };
 }
 

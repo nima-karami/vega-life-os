@@ -46,17 +46,21 @@ export function FractionSlider({
   value,
   onChange,
   isDisabled,
+  showValue = true,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   isDisabled?: boolean;
+  showValue?: boolean;
 }) {
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted">{label}</span>
-        <span className="text-xs tabular-nums text-foreground">{Math.round(value * 100)}%</span>
+        {showValue && (
+          <span className="text-xs tabular-nums text-foreground">{Math.round(value * 100)}%</span>
+        )}
       </div>
       <Slider
         aria-label={label}

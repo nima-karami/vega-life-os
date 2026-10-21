@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "@/core/store";
+import { useQuietMode, useStore } from "@/core/store";
 import { cx, FIELD_CLASS, Icon, SortableList } from "@/core/ui";
 import { DetailSection } from "@/features/values/components/DetailPage";
 import type { Goal } from "../model";
@@ -15,7 +15,11 @@ export function GoalSteps({ goal }: { goal: Goal }) {
   const [draft, setDraft] = useState("");
 
   const done = goal.subgoals.filter((s) => s.done).length;
-  const label = goal.subgoals.length ? `Steps · ${done} of ${goal.subgoals.length} done` : "Steps";
+  const isQuiet = useQuietMode();
+  const label =
+    goal.subgoals.length > 0 && !isQuiet
+      ? `Steps · ${done} of ${goal.subgoals.length} done`
+      : "Steps";
 
   const commit = () => {
     const name = draft.trim();

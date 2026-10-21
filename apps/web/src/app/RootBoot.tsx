@@ -10,6 +10,7 @@ import { GO_SHORTCUTS } from "./keymap";
 import { Onboarding } from "./Onboarding";
 import { ProfileStep } from "./ProfileStep";
 import { PwaUpdater } from "./PwaUpdater";
+import { filterQuietRoutes } from "./quiet-routes";
 import { Shortcuts } from "./Shortcuts";
 import { SignInGate } from "./SignInGate";
 import { Toast } from "./Toast";
@@ -125,7 +126,9 @@ export function RootBoot() {
     const tryGoChord = (e: KeyboardEvent, key: string): boolean => {
       if (gPending.current) {
         gPending.current = false;
-        const target = GO_SHORTCUTS.find((entry) => entry.key === key.toLowerCase());
+        const target = filterQuietRoutes(GO_SHORTCUTS, useStore.getState().quietMode).find(
+          (entry) => entry.key === key.toLowerCase(),
+        );
         if (target) {
           e.preventDefault();
           navigate(target.to);

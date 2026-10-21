@@ -1,7 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
-import { enterApp } from "./helpers/app";
+import { enterApp, turnQuietModeOff } from "./helpers/app";
 
 async function open(page: Page, path: string) {
+  await turnQuietModeOff(page);
   await enterApp(page);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });

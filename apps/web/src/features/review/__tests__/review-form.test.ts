@@ -5,6 +5,7 @@ import {
   haveCheckInsChanged,
   listCheckInValues,
   mergePromptsForSave,
+  setCheckIn,
   splitReviewPrompts,
   toggleCheckIn,
 } from "../review-form";
@@ -53,6 +54,25 @@ describe("mergePromptsForSave", () => {
   });
 });
 
+describe("setCheckIn", () => {
+  it("places, moves and clears a value without toggling", () => {
+    const placed = setCheckIn([], "v1", 5);
+    expect(placed).toEqual([{ valueId: "v1", rating: 5 }]);
+    expect(setCheckIn(placed, "v1", 5)).toEqual(placed);
+    expect(setCheckIn(placed, "v1", 2)).toEqual([{ valueId: "v1", rating: 2 }]);
+    expect(setCheckIn(placed, "v1", null)).toEqual([]);
+  });
+
+  it("keeps the other values and their order", () => {
+    const both = setCheckIn(setCheckIn([], "v1", 1), "v2", 3);
+    expect(setCheckIn(both, "v1", 4)).toEqual([
+      { valueId: "v1", rating: 4 },
+      { valueId: "v2", rating: 3 },
+    ]);
+    expect(setCheckIn(both, "v3", null)).toEqual(both);
+  });
+});
+
 describe("toggleCheckIn", () => {
   it("adds, replaces and clears a rating", () => {
     const first = toggleCheckIn([], "v1", 4);
@@ -71,24 +91,30 @@ describe("toggleCheckIn", () => {
 describe("listCheckInValues", () => {
   it("hides a resting value that has no check-in", () => {
     const values = [valueWith("v1"), valueWith("v2", null, "2026-10-01")];
-    expect(listCheckInValues(values, []).map((v) => v.id)).toEqual(["v1"]);
+    expect(listCheckInValues(values, [], []).map((v) => v.id)).toEqual(["v1"]);
   });
 
   it("keeps a resting value that already has a check-in", () => {
     const values = [valueWith("v1"), valueWith("v2", null, "2026-10-01")];
-    const listed = listCheckInValues(values, [{ valueId: "v2", rating: 4 }]);
+    const listed = listCheckInValues(values, [{ valueId: "v2", rating: 4 }], []);
     expect(listed.map((v) => v.id)).toEqual(["v1", "v2"]);
   });
 
   it("keeps an archived value that already has a check-in", () => {
     const values = [valueWith("v1", "2026-01-01", "2026-10-01")];
-    expect(listCheckInValues(values, [{ valueId: "v1", rating: 2 }])).toHaveLength(1);
+    expect(listCheckInValues(values, [{ valueId: "v1", rating: 2 }], [])).toHaveLength(1);
   });
 
   it("hides an archived value unless it has a check-in", () => {
     const values = [valueWith("v1"), valueWith("v2", "2026-01-01"), valueWith("v3", "2026-01-01")];
-    const listed = listCheckInValues(values, [{ valueId: "v3", rating: 3 }]);
+    const listed = listCheckInValues(values, [{ valueId: "v3", rating: 3 }], []);
     expect(listed.map((v) => v.id)).toEqual(["v1", "v3"]);
+  });
+
+  it("keeps a saved resting value listed after its rating is cleared", () => {
+    const values = [valueWith("v1"), valueWith("v2", null, "2026-10-01")];
+    const listed = listCheckInValues(values, [], [{ valueId: "v2", rating: 4 }]);
+    expect(listed.map((v) => v.id)).toEqual(["v1", "v2"]);
   });
 });
 

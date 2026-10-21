@@ -28,4 +28,15 @@ describe("getCloudProfile", () => {
     stubProfileDoc({ gratitudeNudgeAckedThrough: "garbage" });
     expect((await getCloudProfile("u1"))?.gratitudeNudgeAckedThrough).toBeNull();
   });
+
+  it("reads quiet mode as a boolean, leaving it unset when absent or mistyped", async () => {
+    stubProfileDoc({ quietMode: false });
+    expect((await getCloudProfile("u1"))?.quietMode).toBe(false);
+
+    stubProfileDoc({});
+    expect((await getCloudProfile("u1"))?.quietMode).toBeUndefined();
+
+    stubProfileDoc({ quietMode: "no" });
+    expect((await getCloudProfile("u1"))?.quietMode).toBeUndefined();
+  });
 });

@@ -30,6 +30,12 @@ describe("profile router (real server vs emulator)", () => {
     expect(snap.data()?.gratitudeNudgeAckedThrough).toBeNull();
   });
 
+  it("stores the quiet-mode preference", async () => {
+    await server.asUid(owner).profile.upsert.mutate({ quietMode: false });
+    const snap = await server.firestore.doc(`users/${owner}`).get();
+    expect(snap.data()?.quietMode).toBe(false);
+  });
+
   it("strips an unknown field rather than rejecting", async () => {
     await server.asUid(owner).profile.upsert.mutate({ avatar: "a.png", bogus: 1 } as never);
     const snap = await server.firestore.doc(`users/${owner}`).get();

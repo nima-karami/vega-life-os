@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { enterApp } from "./helpers/app";
+import { enterApp, turnQuietModeOff } from "./helpers/app";
 
 function at(iso: string, hour: number): Date {
   const [y, m, d] = iso.split("-").map(Number);
@@ -7,6 +7,7 @@ function at(iso: string, hour: number): Date {
 }
 
 async function boot(page: Page, time: Date, path = "/today") {
+  await turnQuietModeOff(page);
   await page.clock.install({ time });
   await enterApp(page);
   await page.goto(path, { waitUntil: "domcontentloaded" });

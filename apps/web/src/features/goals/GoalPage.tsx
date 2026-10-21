@@ -2,7 +2,7 @@
  *  trail names the values index and that value; every field autosaves as you touch it. */
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { useStore } from "@/core/store";
+import { useQuietMode, useStore } from "@/core/store";
 import { ConfirmDialog, CreateNameDialog, Icon, IconField, SegmentButton, Select } from "@/core/ui";
 import { TitleField } from "@/features/values/components/DetailFields";
 import {
@@ -58,7 +58,8 @@ function GoalDetail({ goal }: { goal: Goal }) {
 
   const value = values.find((v) => v.id === goal.valueId);
   const goalHabits = habits.filter((h) => h.goalId === goal.id);
-  const pace = getGoalPaceBadge(goal);
+  const isQuiet = useQuietMode();
+  const pace = isQuiet ? null : getGoalPaceBadge(goal);
   const canStart = canActivate(goal);
 
   return (
@@ -95,18 +96,22 @@ function GoalDetail({ goal }: { goal: Goal }) {
               <Icon name="calendar" size={11} />
               {formatPeriodLabel(goal.start, goal.end)}
             </span>
-            <span className="text-xs tabular-nums text-muted">{formatGoalFigures(goal)}</span>
+            {!isQuiet && (
+              <span className="text-xs tabular-nums text-muted">{formatGoalFigures(goal)}</span>
+            )}
             {pace && <span className="text-xs text-muted">{pace.text}</span>}
           </div>
         }
       />
 
-      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-secondary">
-        <span
-          className="block h-full rounded-full bg-accent"
-          style={{ width: `${computeGoalProgressPercent(goal)}%` }}
-        />
-      </div>
+      {!isQuiet && (
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-secondary">
+          <span
+            className="block h-full rounded-full bg-accent"
+            style={{ width: `${computeGoalProgressPercent(goal)}%` }}
+          />
+        </div>
+      )}
 
       <div className="mt-8 flex flex-col gap-6">
         <DetailSection label="Status">
@@ -145,6 +150,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
         {!isGoalProgressDerived(goal) && (
           <FractionSlider
             label="Progress"
+            showValue={!isQuiet}
             value={goal.progress}
             onChange={(progress) => update(goal.id, { progress })}
           />

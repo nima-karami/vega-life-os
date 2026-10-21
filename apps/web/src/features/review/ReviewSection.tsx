@@ -5,6 +5,7 @@ import { useStore } from "@/core/store";
 import { Button, ConfirmDialog, IconButton, Label, Panel, SectionHead } from "@/core/ui";
 import { splitValuesBySeason } from "@/features/values/selectors";
 import { DoneThisWeekPanel } from "./DoneThisWeekPanel";
+import { GratitudeWeekPanel } from "./GratitudeWeekPanel";
 import { HabitsWeekPanel } from "./HabitsWeekPanel";
 import { JournalWeekPanel } from "./JournalWeekPanel";
 import { MoodWeekPanel } from "./MoodWeekPanel";
@@ -94,7 +95,10 @@ export function ReviewSection() {
   const isThisWeek = periodKey === thisWeekKey;
   const isFuture = periodKey > thisWeekKey;
   const hasResting = useMemo(() => splitValuesBySeason(values).resting.length > 0, [values]);
-  const checkInValues = useMemo(() => listCheckInValues(values, checkIns), [values, checkIns]);
+  const checkInValues = useMemo(
+    () => listCheckInValues(values, checkIns, baseline.checkIns),
+    [values, checkIns, baseline.checkIns],
+  );
 
   return (
     <div className="w-full">
@@ -126,6 +130,7 @@ export function ReviewSection() {
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="space-y-5">
           <DoneThisWeekPanel groups={rollup.doneByValue} isThisWeek={isThisWeek} />
+          <GratitudeWeekPanel journal={journal} weekStartISO={periodKey} />
           <MoodWeekPanel week={moodWeek} />
           <HabitsWeekPanel rows={rollup.habitRows} />
         </div>

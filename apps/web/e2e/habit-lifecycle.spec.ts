@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { turnQuietModeOff } from "./helpers/app";
 
 type Stamps = { pausedAt: string | null; resumedAt: string | null };
 
@@ -86,6 +87,7 @@ test("pausing moves a habit into the Paused section (not deleted)", async ({ pag
 });
 
 test("pausing is neutral: the paused days are neither kept nor due", async ({ page }) => {
+  await turnQuietModeOff(page);
   const dayMs = 86_400_000;
   const noon = new Date();
   noon.setHours(12, 0, 0, 0);

@@ -13,7 +13,7 @@ export { CalendarPopover, DatePicker, DurationStepper, TimePicker, TimeRange } f
 export { EditorField } from "./EditorField";
 export { EmptyState } from "./EmptyState";
 export type { CardMeasure, CardMeta, CardTone, CardWeekDay } from "./EntityCard";
-export { EntityCard } from "./EntityCard";
+export { CardMetaLine, EntityCard } from "./EntityCard";
 export type { ChipGroup, SearchBox } from "./FilterBar";
 export { FilterBar } from "./FilterBar";
 export { FIELD_CLASS } from "./field-styles";

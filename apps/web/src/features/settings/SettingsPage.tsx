@@ -5,6 +5,7 @@ import { ConfirmDialog, cx, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
 import { AgentSettings } from "./components/AgentSettings";
 import { CalendarSettings } from "./components/CalendarSettings";
+import { QuietModeSettings } from "./components/QuietModeSettings";
 import { SettingsCard } from "./SettingsCard";
 
 const FIELD =
@@ -207,6 +208,8 @@ export function SettingsPage() {
             </div>
           </div>
         </SettingsCard>
+
+        <QuietModeSettings />
 
         <AgentSettings />
 

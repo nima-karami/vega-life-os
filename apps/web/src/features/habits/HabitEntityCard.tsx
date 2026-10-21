@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { IconName } from "@/core/lib/icon-names";
+import { useQuietMode } from "@/core/store";
 import { type CardTone, EntityCard } from "@/core/ui";
 import type { Task } from "@/features/tasks/model";
 import { getValueCardFill } from "@/features/values/color";
@@ -32,6 +33,7 @@ export function HabitEntityCard({
   actions?: ReactNode;
 }) {
   const lifecycle = habitLifecycle(habit);
+  const isQuiet = useQuietMode();
   return (
     <EntityCard
       fill={getValueCardFill(value)}
@@ -42,7 +44,7 @@ export function HabitEntityCard({
       measure={
         habit.tracked ? { kind: "week", days: buildHabitWeek(tasks, habit) } : { kind: "none" }
       }
-      meta={buildHabitMeta(tasks, habit)}
+      meta={buildHabitMeta(tasks, habit, isQuiet)}
       tone={STATUS_TONE[lifecycle]}
       actions={actions}
     />

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { IconName } from "@/core/lib/icon-names";
+import { useQuietMode } from "@/core/store";
 import { type CardMeta, type CardTone, EntityCard } from "@/core/ui";
 import { getValueCardFill } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
@@ -21,7 +22,8 @@ const STATUS_TONE: Partial<Record<GoalStatus, CardTone>> = {
   abandoned: "archived",
 };
 
-export function buildGoalMeta(goal: Goal): CardMeta[] {
+export function buildGoalMeta(goal: Goal, isQuiet: boolean): CardMeta[] {
+  if (isQuiet) return [{ text: formatPeriodLabel(goal.start, goal.end) }];
   const meta: CardMeta[] = [
     { text: `${computeGoalProgressPercent(goal)}%` },
     { text: `${goal.subgoals.filter((s) => s.done).length} of ${goal.subgoals.length} steps` },
@@ -42,6 +44,7 @@ export function GoalEntityCard({
   value: Value | undefined;
   actions?: ReactNode;
 }) {
+  const isQuiet = useQuietMode();
   return (
     <EntityCard
       fill={getValueCardFill(value)}
@@ -49,8 +52,8 @@ export function GoalEntityCard({
       title={goal.name}
       to={`/goals/${goal.id}`}
       status={{ label: GOAL_STATUS_LABEL[goal.status], icon: STATUS_ICON[goal.status] }}
-      measure={{ kind: "progress", fraction: goal.progress }}
-      meta={buildGoalMeta(goal)}
+      measure={isQuiet ? { kind: "none" } : { kind: "progress", fraction: goal.progress }}
+      meta={buildGoalMeta(goal, isQuiet)}
       tone={STATUS_TONE[goal.status] ?? "full"}
       struck={goal.status === "done"}
       actions={actions}

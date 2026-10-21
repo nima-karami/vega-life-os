@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { Link } from "react-router";
+import { useQuietMode } from "@/core/store";
 import { Panel, SectionHead } from "@/core/ui";
 import { MOOD_LABEL } from "@/features/journal/model";
 import { describeMoodDelta, type MoodWeek } from "./mood";
@@ -20,17 +21,16 @@ const moodTint = (mood: number) => ({
 });
 
 export function MoodWeekPanel({ week }: { week: MoodWeek }) {
+  const isQuiet = useQuietMode();
   const delta = describeMoodDelta(week);
   const nearestLabel = week.weekAvg != null ? MOOD_LABEL[Math.round(week.weekAvg)] : null;
   const summary = `Mood this week: ${week.loggedCount} of 7 days logged${
     week.weekAvg != null ? `, average ${week.weekAvg.toFixed(1)}` : ""
   }`;
+  const loggedMeta = week.loggedCount ? `${week.loggedCount} of 7 days` : "empty";
   return (
     <Panel className="p-4 sm:p-5">
-      <SectionHead
-        title="Mood"
-        meta={week.loggedCount ? `${week.loggedCount} of 7 days` : "empty"}
-      />
+      <SectionHead title="Mood" meta={isQuiet ? "this week" : loggedMeta} />
       <p className="sr-only">{summary}</p>
       <div className="mt-3 flex items-center gap-0 sm:gap-1.5">
         {week.days.map(({ iso, mood }) => {

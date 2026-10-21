@@ -39,7 +39,7 @@ vi.mock("./persist", () => ({
 
 import { useStore } from "./store";
 
-describe("account load hydrates the gratitude-nudge watermark", () => {
+describe("account load hydrates the nudge watermark and quiet mode", () => {
   beforeEach(() => {
     getCloudProfile.mockReset();
     getCloudProfile.mockResolvedValue({ gratitudeNudgeAckedThrough: "2026-06-20" });
@@ -66,5 +66,19 @@ describe("account load hydrates the gratitude-nudge watermark", () => {
   it("drops the previous account's watermark when local state is cleared", async () => {
     await useStore.getState().clearLocal();
     expect(useStore.getState().gratitudeNudgeAckedThrough).toBeNull();
+  });
+
+  it("has the account's quiet mode before the app renders, defaulting to on", async () => {
+    getCloudProfile.mockResolvedValue({ quietMode: false });
+    let quietWhenReady: boolean | undefined;
+    const unsubscribe = useStore.subscribe((state, prev) => {
+      if (state.ready && !prev.ready) quietWhenReady = state.quietMode;
+    });
+    await useStore.getState().onAuthChange("account-b");
+    unsubscribe();
+    expect(quietWhenReady).toBe(false);
+
+    await useStore.getState().clearLocal();
+    expect(useStore.getState().quietMode).toBe(true);
   });
 });

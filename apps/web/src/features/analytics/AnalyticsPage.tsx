@@ -1,7 +1,7 @@
 import { Button, ButtonGroup } from "@heroui/react";
 import { type ReactNode, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
-import { useStore } from "@/core/store";
+import { Navigate, useSearchParams } from "react-router";
+import { useQuietMode, useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
 import { computeHabitConsistency, groupHabitsByValue } from "@/features/habits";
 import { isHabitActive } from "@/features/habits/model";
@@ -40,6 +40,8 @@ export function AnalyticsPage() {
     else p.set("tab", next);
     setParams(p, { replace: true });
   };
+  const isQuiet = useQuietMode();
+  if (isQuiet && section === "analytics") return <Navigate to="/today" replace />;
 
   return (
     <div className="mx-auto max-w-6xl p-4">
@@ -50,24 +52,26 @@ export function AnalyticsPage() {
           </h1>
           <p className="mt-1 text-sm text-muted">What you did, then time to reflect.</p>
         </div>
-        <ButtonGroup aria-label="Analytics sections">
-          <Button
-            size="sm"
-            variant={section === "analytics" ? "primary" : "secondary"}
-            aria-pressed={section === "analytics"}
-            onPress={() => setSection("analytics")}
-          >
-            Analytics
-          </Button>
-          <Button
-            size="sm"
-            variant={section === "review" ? "primary" : "secondary"}
-            aria-pressed={section === "review"}
-            onPress={() => setSection("review")}
-          >
-            Review
-          </Button>
-        </ButtonGroup>
+        {!isQuiet && (
+          <ButtonGroup aria-label="Analytics sections">
+            <Button
+              size="sm"
+              variant={section === "analytics" ? "primary" : "secondary"}
+              aria-pressed={section === "analytics"}
+              onPress={() => setSection("analytics")}
+            >
+              Analytics
+            </Button>
+            <Button
+              size="sm"
+              variant={section === "review" ? "primary" : "secondary"}
+              aria-pressed={section === "review"}
+              onPress={() => setSection("review")}
+            >
+              Review
+            </Button>
+          </ButtonGroup>
+        )}
       </header>
 
       {section === "analytics" ? <AnalyticsSection /> : <ReviewSection />}

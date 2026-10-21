@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useStore } from "@/core/store";
+import { useQuietMode, useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
-import { GLOBAL_SHORTCUTS, GO_SHORTCUTS } from "./keymap";
+import { GO_SHORTCUTS } from "./keymap";
+import { filterQuietRoutes, listHelpShortcuts } from "./quiet-routes";
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
 export function Shortcuts() {
   const open = useStore((s) => s.shortcutsOpen);
   const close = () => useStore.getState().setShortcutsOpen(false);
+  const isQuiet = useQuietMode();
 
   return (
     <AnimatePresence>
@@ -51,7 +53,7 @@ export function Shortcuts() {
               <div>
                 <GroupLabel>Go to · press G then</GroupLabel>
                 <div className="mt-2.5 space-y-1.5">
-                  {GO_SHORTCUTS.map((s) => (
+                  {filterQuietRoutes(GO_SHORTCUTS, isQuiet).map((s) => (
                     <div key={s.key} className="flex items-center justify-between">
                       <span className="text-sm text-foreground">{s.label}</span>
                       <span className="flex items-center gap-1">
@@ -66,7 +68,7 @@ export function Shortcuts() {
               <div>
                 <GroupLabel>Global</GroupLabel>
                 <div className="mt-2.5 space-y-1.5">
-                  {GLOBAL_SHORTCUTS.map((s) => (
+                  {listHelpShortcuts(isQuiet).map((s) => (
                     <div key={s.keys} className="flex items-center justify-between">
                       <span className="text-sm text-foreground">{s.label}</span>
                       <Key>{s.keys}</Key>

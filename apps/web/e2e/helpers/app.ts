@@ -21,3 +21,19 @@ export async function saveGratitude(page: Page) {
   await card.getByRole("button", { name: "Save" }).click();
   await expect(card).toBeHidden();
 }
+
+/** Quiet mode is on by default; specs that assert on scores or Analytics turn it off first.
+ *  Applies from the next navigation on. */
+export async function turnQuietModeOff(page: Page) {
+  await page.addInitScript(() => localStorage.setItem("vega.quietMode", "off"));
+}
+
+export const DAY_MS = 86_400_000;
+
+/** Noon on the next Monday after the real today — derived, so no month is ever pinned. */
+export function upcomingMondayNoon(): Date {
+  const noon = new Date();
+  noon.setHours(12, 0, 0, 0);
+  const daysAhead = (8 - noon.getDay()) % 7 || 7;
+  return new Date(noon.getTime() + daysAhead * DAY_MS);
+}

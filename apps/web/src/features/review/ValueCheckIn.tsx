@@ -4,6 +4,7 @@ import type { Value } from "@/features/values/model";
 import { useValueColor } from "@/features/values/useValueColor";
 import { CHECK_IN_LABELS, type ReviewCheckIn } from "./model";
 import { toggleCheckIn } from "./review-form";
+import { ValueBullseye } from "./ValueBullseye";
 
 function CheckInRow({
   value,
@@ -16,46 +17,29 @@ function CheckInRow({
 }) {
   const color = useValueColor(value.id);
   return (
-    <div className="flex flex-col gap-2">
-      <div className="min-w-0">
-        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <span
-            aria-hidden
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ background: color }}
-          />
-          {value.name}
+    <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+      <span className="flex min-w-0 max-w-full items-center gap-2 text-sm text-foreground">
+        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+        <span className="truncate">{value.name}</span>
+        <span className="shrink-0 text-xs text-muted">
+          {rating != null ? CHECK_IN_LABELS[rating - 1] : "—"}
         </span>
-        {value.desc.trim() !== "" && (
-          <p className="mt-0.5 truncate text-xs text-muted">{value.desc}</p>
-        )}
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="flex flex-col gap-1">
-          <ButtonGroup aria-label={value.name}>
-            {CHECK_IN_LABELS.map((label, i) => (
-              <Button
-                key={label}
-                size="sm"
-                className="min-h-11 min-w-11 sm:min-h-8 sm:min-w-8"
-                variant={rating === i + 1 ? "primary" : "secondary"}
-                aria-pressed={rating === i + 1}
-                aria-label={label}
-                onPress={() => onChange(i + 1)}
-              >
-                {i + 1}
-              </Button>
-            ))}
-          </ButtonGroup>
-          <div className="flex justify-between text-[11px] text-muted">
-            <span>{CHECK_IN_LABELS[0]}</span>
-            <span>{CHECK_IN_LABELS[4]}</span>
-          </div>
-        </div>
-        {rating != null && (
-          <span className="text-xs text-muted">{CHECK_IN_LABELS[rating - 1]}</span>
-        )}
-      </div>
+      </span>
+      <ButtonGroup aria-label={value.name}>
+        {CHECK_IN_LABELS.map((label, i) => (
+          <Button
+            key={label}
+            size="sm"
+            className="h-8 min-w-8 px-0"
+            variant={rating === i + 1 ? "primary" : "secondary"}
+            aria-pressed={rating === i + 1}
+            aria-label={label}
+            onPress={() => onChange(i + 1)}
+          >
+            {i + 1}
+          </Button>
+        ))}
+      </ButtonGroup>
     </div>
   );
 }
@@ -82,16 +66,23 @@ export function ValueCheckIn({
           Nothing in season right now — bring a value back when you&apos;re ready.
         </p>
       )}
-      <div className="mt-4 flex flex-col gap-5">
-        {values.map((value) => (
-          <CheckInRow
-            key={value.id}
-            value={value}
-            rating={checkIns.find((c) => c.valueId === value.id)?.rating}
-            onChange={(rating) => onChange(toggleCheckIn(checkIns, value.id, rating))}
-          />
-        ))}
-      </div>
+      {values.length > 0 && (
+        <>
+          <div className="mt-4">
+            <ValueBullseye values={values} checkIns={checkIns} onChange={onChange} />
+          </div>
+          <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4">
+            {values.map((value) => (
+              <CheckInRow
+                key={value.id}
+                value={value}
+                rating={checkIns.find((c) => c.valueId === value.id)?.rating}
+                onChange={(rating) => onChange(toggleCheckIn(checkIns, value.id, rating))}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </Panel>
   );
 }

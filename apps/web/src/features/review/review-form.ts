@@ -16,19 +16,32 @@ export function mergePromptsForSave(answers: string[], legacy: ReviewPrompt[]): 
   return [...REVIEW_PROMPTS.map((q, i) => ({ q, a: answers[i] })), ...legacy];
 }
 
+export function setCheckIn(
+  checkIns: ReviewCheckIn[],
+  valueId: string,
+  rating: number | null,
+): ReviewCheckIn[] {
+  if (rating == null) return checkIns.filter((c) => c.valueId !== valueId);
+  if (checkIns.some((c) => c.valueId === valueId))
+    return checkIns.map((c) => (c.valueId === valueId ? { valueId, rating } : c));
+  return [...checkIns, { valueId, rating }];
+}
+
 export function toggleCheckIn(
   checkIns: ReviewCheckIn[],
   valueId: string,
   rating: number,
 ): ReviewCheckIn[] {
   const current = checkIns.find((c) => c.valueId === valueId);
-  if (current?.rating === rating) return checkIns.filter((c) => c.valueId !== valueId);
-  if (current) return checkIns.map((c) => (c.valueId === valueId ? { valueId, rating } : c));
-  return [...checkIns, { valueId, rating }];
+  return setCheckIn(checkIns, valueId, current?.rating === rating ? null : rating);
 }
 
-export function listCheckInValues(values: Value[], checkIns: ReviewCheckIn[]): Value[] {
-  const rated = new Set(checkIns.map((c) => c.valueId));
+export function listCheckInValues(
+  values: Value[],
+  checkIns: ReviewCheckIn[],
+  savedCheckIns: ReviewCheckIn[],
+): Value[] {
+  const rated = new Set([...savedCheckIns, ...checkIns].map((c) => c.valueId));
   return values.filter((v) => (v.archivedAt == null && v.restingAt == null) || rated.has(v.id));
 }
 

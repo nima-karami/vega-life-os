@@ -33,6 +33,7 @@ import { createValuesSlice } from "@/features/values/store";
 import { authTransition } from "./auth-transition";
 import { bindPersistStore, pendingWriteCollections, setPersistAuth } from "./persist";
 import { resolveProfile } from "./profile";
+import { readLocalQuietMode } from "./quiet-mode";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
 
@@ -67,6 +68,7 @@ async function loadAccount(
     const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
     get().hydrateGratitudeNudgeAck(profile?.gratitudeNudgeAckedThrough ?? null);
+    get().hydrateQuietMode(profile?.quietMode ?? true);
     set({ ready: true }); // name known — safe to render the app / ProfileStep
     await get().refreshGcalStatus(); // server-owned GCal connection status
     get().hydrateShowGoogleEvents(await loadShowGoogleEvents(uid)); // display pref (profile)
@@ -138,6 +140,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     set({ ...toStatePatch(loaded), ready: true });
     get().hydrateGcalStatus(null); // signed-out sandbox: no Google Calendar connection
     clearLegacyStreakRules();
+    get().hydrateQuietMode(readLocalQuietMode());
     get().hydrateGratitudeNudgeAck(readLocalGratitudeNudgeAck());
     await runDataMigrations(get, set, hasMigrationSources(loaded));
     get().ensureUpcoming(14);
@@ -156,6 +159,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   clearLocal: async () => {
     await new DexieAdapter().clearAll();
     get().hydrateGratitudeNudgeAck(null);
+    get().hydrateQuietMode(true);
   },
 
   resetDemo: async () => {
@@ -338,6 +342,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       void setSandboxDirty(false);
       get().hydrateGcalStatus(null); // clear the account's Google Calendar status
       get().hydrateShowGoogleEvents(true); // back to the default display pref
+      get().hydrateQuietMode(readLocalQuietMode());
       get().hydrateGratitudeNudgeAck(readLocalGratitudeNudgeAck());
       get().setOnboarded(false);
       get().hydrateProfile({

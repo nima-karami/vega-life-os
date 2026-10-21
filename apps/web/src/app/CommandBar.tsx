@@ -3,17 +3,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { type AgentAction, runAgent } from "@/core/agent";
-import { useStore } from "@/core/store";
+import { useQuietMode, useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import {
   ACTION_COMMANDS,
   type ActionCommand,
+  buildQuietModeCommand,
   type CommandApi,
   getRegistryVersion,
   getViewCommands,
   NAV_COMMANDS,
   subscribeRegistry,
 } from "./commands";
+import { filterQuietRoutes } from "./quiet-routes";
 
 /**
  * Vapor command bar — the sole navigation surface.
@@ -22,6 +24,7 @@ import {
 export function CommandBar() {
   const open = useStore((s) => s.commandOpen);
   const close = useStore((s) => s.closeCommand);
+  const isQuiet = useQuietMode();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [smart, setSmart] = useState<AgentAction[]>([]);
@@ -37,7 +40,7 @@ export function CommandBar() {
 
   // Snapshot view commands on each re-render triggered by version bump
   const viewCommands = getViewCommands();
-  const allActions = [...ACTION_COMMANDS, ...viewCommands];
+  const allActions = [...ACTION_COMMANDS, buildQuietModeCommand(isQuiet), ...viewCommands];
 
   // Agent debounce
   useEffect(() => {
@@ -232,7 +235,7 @@ export function CommandBar() {
                     heading="Navigate"
                     className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted"
                   >
-                    {NAV_COMMANDS.map((n) => (
+                    {filterQuietRoutes(NAV_COMMANDS, isQuiet).map((n) => (
                       <CmdItem
                         key={n.id}
                         onSelect={() => go(n.to)}

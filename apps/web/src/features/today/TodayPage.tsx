@@ -27,6 +27,7 @@ import { useValueVoteToast } from "@/features/values/useValueVoteToast";
 import { AllDoneMarker } from "./components/AllDoneMarker";
 import { DailyHabits } from "./components/DailyHabits";
 import { EveningCard } from "./components/EveningCard";
+import { FreshStartCard } from "./components/FreshStartCard";
 import { RemainingTasks } from "./components/RemainingTasks";
 import {
   describeDay,
@@ -36,6 +37,7 @@ import {
   toggleDone,
 } from "./today-logic";
 import { useDayLayout } from "./useDayLayout";
+import { useFreshStart } from "./useFreshStart";
 import { useViewDate } from "./useViewDate";
 
 /**
@@ -83,6 +85,7 @@ export function TodayPage() {
     [journal, today, nudgeAckedThrough],
   );
 
+  const { isFreshStartVisible, dismissForWeek } = useFreshStart(today, viewDate);
   const showGratitudeCard = shouldShowGratitudeCard(todayEntry, nudgeAckedThrough, viewDate, today);
   const showEvening =
     eveningDismissedFor !== today &&
@@ -220,6 +223,12 @@ export function TodayPage() {
       <div aria-live="polite" className="sr-only">
         {announce}
       </div>
+
+      {isFreshStartVisible && (
+        <div className="mt-6">
+          <FreshStartCard onDismiss={dismissForWeek} />
+        </div>
+      )}
 
       {showGratitudeCard && (
         <div className="mt-6">

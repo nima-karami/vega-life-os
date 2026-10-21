@@ -81,6 +81,14 @@ export const NAV_COMMANDS: NavCommand[] = [
     keywords: "analytics review insights",
   },
   {
+    id: "nav-review",
+    label: "Weekly review",
+    sublabel: "Reflect on the week",
+    icon: "calendar-check",
+    to: "/analytics?tab=review",
+    keywords: "weekly review reflect week check-in",
+  },
+  {
     id: "nav-entries",
     label: "Entries",
     sublabel: "Journal · gratitude log",
@@ -119,6 +127,20 @@ export const NAV_COMMANDS: NavCommand[] = [
       "finance money spending dashboard overview transactions ledger expenses rows import statements bank csv tsv upload categories budgets limits settlement split share partner owed household",
   },
 ];
+
+export function buildQuietModeCommand(isQuiet: boolean): ActionCommand {
+  return {
+    id: "action-quiet-mode",
+    label: isQuiet ? "Turn quiet mode off" : "Turn quiet mode on",
+    icon: isQuiet ? "eye" : "eye-off",
+    keywords: "quiet mode scores counts analytics hide show",
+    run: ({ store, close }) => {
+      store.getState().setQuietMode(!isQuiet);
+      store.getState().pushToast(isQuiet ? "Quiet mode off" : "Quiet mode on");
+      close();
+    },
+  };
+}
 
 export const ACTION_COMMANDS: ActionCommand[] = [
   {

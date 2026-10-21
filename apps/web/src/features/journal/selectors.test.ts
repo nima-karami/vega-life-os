@@ -5,6 +5,7 @@ import {
   filterUnacknowledgedDays,
   getMissedGratitudeDays,
   getWeekEntries,
+  listWeekGratitude,
   shouldShowGratitudeCard,
 } from "./selectors";
 
@@ -176,5 +177,48 @@ describe("countDayRun", () => {
   it("does not bridge a one-day gap", () => {
     const run = logged("2026-06-21", "2026-06-19", "2026-06-18", "2026-06-17");
     expect(countDayRun(run, "2026-06-21")).toBe(1);
+  });
+});
+
+describe("listWeekGratitude", () => {
+  const MONDAY = "2026-06-15";
+
+  it("lists the week's gratitude days in date order with every item", () => {
+    const entries = [
+      day("2026-06-17", { gratitude: ["tea", "a walk"] }),
+      day("2026-06-15", { gratitude: ["sun"] }),
+    ];
+    expect(listWeekGratitude(entries, MONDAY)).toEqual([
+      { date: "2026-06-15", items: [{ slot: 0, text: "sun" }] },
+      {
+        date: "2026-06-17",
+        items: [
+          { slot: 0, text: "tea" },
+          { slot: 1, text: "a walk" },
+        ],
+      },
+    ]);
+  });
+
+  it("covers Monday through Sunday only", () => {
+    const entries = [day("2026-06-14"), day("2026-06-15"), day("2026-06-21"), day("2026-06-22")];
+    expect(listWeekGratitude(entries, MONDAY).map((d) => d.date)).toEqual([
+      "2026-06-15",
+      "2026-06-21",
+    ]);
+  });
+
+  it("skips days with only a journal or blank gratitude", () => {
+    const entries = [
+      day("2026-06-16", { gratitude: [], journal: "wrote" }),
+      day("2026-06-18", { gratitude: ["  ", "kept"] }),
+    ];
+    expect(listWeekGratitude(entries, MONDAY)).toEqual([
+      { date: "2026-06-18", items: [{ slot: 1, text: "kept" }] },
+    ]);
+  });
+
+  it("is empty for a week with no gratitude", () => {
+    expect(listWeekGratitude([], MONDAY)).toEqual([]);
   });
 });
