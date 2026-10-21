@@ -182,7 +182,7 @@ export function describeDay(total: number, eventCount: number): string {
   return "Nothing scheduled";
 }
 
-export const EVENING_HOUR = 17;
+const EVENING_HOUR = 17;
 
 /** Reflection is invited from the evening on, or sooner once the day's list is settled. */
 export function shouldShowEveningCard(

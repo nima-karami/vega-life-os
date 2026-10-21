@@ -161,6 +161,9 @@ for (const width of WIDTHS) {
       const errors = watchErrors(page);
 
       await page.setViewportSize({ width, height: 780 });
+      const evening = new Date();
+      evening.setHours(19, 0, 0, 0);
+      await page.clock.install({ time: evening });
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 

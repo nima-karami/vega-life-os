@@ -231,7 +231,7 @@ export function computeHabitTimeline(
 export type GoalVerdict =
   | { kind: "completed" }
   | { kind: "closed" }
-  | { kind: "pace"; text: string; isBehind: boolean }
+  | { kind: "pace"; text: string }
   | { kind: "none" };
 
 export function computeGoalVerdict(goal: Goal, today: string = todayISO()): GoalVerdict {
@@ -239,7 +239,7 @@ export function computeGoalVerdict(goal: Goal, today: string = todayISO()): Goal
     return goal.status === "done" ? { kind: "completed" } : { kind: "closed" };
   }
   const badge = getGoalPaceBadge(goal, today);
-  return badge ? { kind: "pace", text: badge.text, isBehind: badge.isBehind } : { kind: "none" };
+  return badge ? { kind: "pace", text: badge.text } : { kind: "none" };
 }
 
 /** Goals whose [start, end] overlaps the last `days` window ending today; a goal

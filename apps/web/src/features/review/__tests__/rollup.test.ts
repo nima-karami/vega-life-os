@@ -32,6 +32,25 @@ function value(order: number, id: string, name: string): Value {
   };
 }
 
+const makeHabit = (over: Partial<Habit> = {}): Habit => ({
+  id: "h1",
+  name: "Run",
+  goalId: null,
+  valueId: "v1",
+  icon: "repeat",
+  time: "09:00",
+  schedule: { type: "weekly", days: [1, 1, 1, 0, 0, 0, 0], interval: 1, anchor: "2026-01-01" },
+  durationMin: 30,
+  createdAt: "2026-01-01",
+  archivedAt: null,
+  pausedAt: null,
+  resumedAt: null,
+  pausedSpans: [],
+  tracked: true,
+  plan: "",
+  ...over,
+});
+
 const ctxOf = (values: Value[] = [], habits: Habit[] = []) => ({ values, goals: [], habits });
 
 // Week of Mon 2026-06-08 .. Sun 2026-06-14
@@ -75,7 +94,7 @@ describe("computeWeekRollup", () => {
   });
 
   it("computes per-habit done/total for the week, skips excluded", () => {
-    const habits: Habit[] = [{ id: "h1", name: "Run", tracked: true } as Habit];
+    const habits = [makeHabit()];
     const tasks = [
       task({ date: "2026-06-08", status: "done", habitId: "h1" }),
       task({ date: "2026-06-09", status: "todo", habitId: "h1" }),
@@ -87,7 +106,7 @@ describe("computeWeekRollup", () => {
 });
 
 describe("computeWeekRollup untracked habits", () => {
-  const walk: Habit[] = [{ id: "h1", name: "Walk", tracked: false } as Habit];
+  const walk = [makeHabit({ name: "Walk", tracked: false })];
   const tasks = [task({ date: "2026-06-08", status: "done", habitId: "h1", valueId: "v1" })];
   const r = computeWeekRollup(tasks, ctxOf([value(0, "v1", "Health")], walk), WEEK, "2026-06-20");
 
@@ -101,41 +120,68 @@ describe("computeWeekRollup untracked habits", () => {
 });
 
 describe("computeWeekRollup habitRows filtering", () => {
-  const run: Habit[] = [{ id: "h1", name: "Run", tracked: true } as Habit];
+  const run = [makeHabit()];
+  const slot = (date: string, status: Task["status"]) =>
+    task({ date, slotDate: date, status, habitId: "h1" });
 
-  it("omits a habit with no instances in the week", () => {
-    const tasks = [task({ date: "2026-06-08", status: "done", habitId: "other" })];
+  it("omits a habit with no slot due yet this week", () => {
+    expect(computeWeekRollup([], ctxOf([], run), WEEK, "2026-06-07").habitRows).toEqual([]);
+  });
+
+  it("keeps a habit archived mid-week that has counted slots", () => {
+    const habits = [makeHabit({ name: "Stretch", archivedAt: "2026-06-11" })];
+    const r = computeWeekRollup(
+      [slot("2026-06-10", "done")],
+      ctxOf([], habits),
+      WEEK,
+      "2026-06-20",
+    );
+    expect(r.habitRows).toEqual([{ h: habits[0], done: 1, total: 3 }]);
+  });
+
+  it("omits a habit whose every week slot was skipped", () => {
+    const tasks = ["2026-06-08", "2026-06-09", "2026-06-10"].map((d) => slot(d, "skip"));
     expect(computeWeekRollup(tasks, ctxOf([], run), WEEK, "2026-06-20").habitRows).toEqual([]);
   });
 
-  it("keeps a habit archived mid-week that has counted instances", () => {
-    const habits: Habit[] = [
-      { id: "h1", name: "Stretch", tracked: true, archivedAt: "2026-06-11" } as unknown as Habit,
-    ];
-    const tasks = [task({ date: "2026-06-10", status: "done", habitId: "h1" })];
-    const r = computeWeekRollup(tasks, ctxOf([], habits), WEEK, "2026-06-20");
-    expect(r.habitRows).toEqual([{ h: habits[0], done: 1, total: 1 }]);
+  it("ignores slots dated after today", () => {
+    const tasks = [slot("2026-06-12", "todo"), slot("2026-06-13", "todo")];
+    expect(computeWeekRollup(tasks, ctxOf([], run), WEEK, "2026-06-08").habitRows).toEqual([]);
   });
 
-  it("omits a habit whose only week instances are skips", () => {
-    const tasks = [task({ date: "2026-06-09", status: "skip", habitId: "h1" })];
-    expect(computeWeekRollup(tasks, ctxOf([], run), WEEK, "2026-06-20").habitRows).toEqual([]);
-  });
-
-  it("ignores instances dated after today", () => {
-    const tasks = [
-      task({ date: "2026-06-12", status: "todo", habitId: "h1" }),
-      task({ date: "2026-06-13", status: "todo", habitId: "h1" }),
-    ];
-    expect(computeWeekRollup(tasks, ctxOf([], run), WEEK, "2026-06-10").habitRows).toEqual([]);
-  });
-
-  it("counts only up-to-today instances toward a shown row", () => {
-    const tasks = [
-      task({ date: "2026-06-08", status: "done", habitId: "h1" }),
-      task({ date: "2026-06-12", status: "todo", habitId: "h1" }),
-    ];
+  it("counts only up-to-today slots toward a shown row", () => {
+    const tasks = [slot("2026-06-08", "done"), slot("2026-06-12", "todo")];
     const r = computeWeekRollup(tasks, ctxOf([], run), WEEK, "2026-06-10");
-    expect(r.habitRows).toEqual([{ h: run[0], done: 1, total: 1 }]);
+    expect(r.habitRows).toEqual([{ h: run[0], done: 1, total: 2 }]);
+  });
+});
+
+describe("computeWeekRollup matches habit consistency", () => {
+  const daily = makeHabit({
+    schedule: { type: "weekly", days: [1, 1, 1, 1, 1, 1, 1], interval: 1, anchor: "2026-01-01" },
+  });
+  const slot = (date: string, status: Task["status"]) =>
+    task({ date, slotDate: date, status, habitId: "h1" });
+
+  it("does not count an unscheduled (open) instance as due", () => {
+    const tasks = [slot("2026-06-08", "done"), slot("2026-06-09", "open")];
+    const r = computeWeekRollup(tasks, ctxOf([], [daily]), WEEK, "2026-06-09");
+    expect(r.habitRows).toEqual([{ h: daily, done: 1, total: 1 }]);
+  });
+
+  it("does not count today's unresolved instance as due", () => {
+    const tasks = [slot("2026-06-08", "done"), slot("2026-06-09", "todo")];
+    const r = computeWeekRollup(tasks, ctxOf([], [daily]), WEEK, "2026-06-09");
+    expect(r.habitRows).toEqual([{ h: daily, done: 1, total: 1 }]);
+  });
+
+  it("counts a past slot that never materialized as due, today pending", () => {
+    const r = computeWeekRollup(
+      [slot("2026-06-08", "done")],
+      ctxOf([], [daily]),
+      WEEK,
+      "2026-06-10",
+    );
+    expect(r.habitRows).toEqual([{ h: daily, done: 1, total: 2 }]);
   });
 });

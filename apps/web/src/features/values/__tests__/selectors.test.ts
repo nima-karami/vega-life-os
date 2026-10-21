@@ -7,6 +7,7 @@ import {
   getActiveValues,
   getArchivedValues,
   isValueResting,
+  RESTING_HEADING_ID,
   splitGoals,
   splitValuesBySeason,
 } from "../selectors";
@@ -117,7 +118,7 @@ describe("seasons", () => {
 
   it("buildValueOptions puts resting values under a disabled Resting heading", () => {
     const options = buildValueOptions([value("a", 0, null), resting("b", 1)]);
-    expect(options.map((o) => o.value)).toEqual(["a", "__heading:resting", "b"]);
+    expect(options.map((o) => o.value)).toEqual(["a", RESTING_HEADING_ID, "b"]);
     expect(options[1].heading).toBe(true);
   });
 

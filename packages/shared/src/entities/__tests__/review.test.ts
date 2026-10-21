@@ -36,13 +36,22 @@ describe("review check-ins", () => {
   });
 
   it("accepts ratings 1 to 5", () => {
-    const checkIns = [1, 2, 3, 4, 5].map((rating) => ({ valueId: "v", rating }));
+    const checkIns = [1, 2, 3, 4, 5].map((rating) => ({ valueId: `v${rating}`, rating }));
     expect(reviewSchema.safeParse({ ...base, checkIns }).success).toBe(true);
   });
 
   it.each([0, 6, 2.5])("rejects rating %s", (rating) => {
     const checkIns = [{ valueId: "v", rating }];
     expect(reviewSchema.safeParse({ ...base, checkIns }).success).toBe(false);
+  });
+
+  it("rejects two check-ins for the same value", () => {
+    const checkIns = [
+      { valueId: "v", rating: 3 },
+      { valueId: "v", rating: 4 },
+    ];
+    expect(reviewSchema.safeParse({ ...base, checkIns }).success).toBe(false);
+    expect(reviewCreateSchema.safeParse({ ...base, checkIns }).success).toBe(false);
   });
 
   it("rejects an unknown key inside a check-in", () => {

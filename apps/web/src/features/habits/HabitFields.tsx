@@ -11,6 +11,7 @@ import {
   countDetached,
   formatConflictNote,
   MAX_PLAN_LENGTH,
+  PLAN_COUNTER_THRESHOLD,
   resetGoalForValue,
 } from "./editor";
 import { buildDraftFromHabit, buildSchedule, type Draft } from "./habit-draft";
@@ -214,12 +215,15 @@ function PlanField({ habit, isDisabled }: { habit: Habit; isDisabled: boolean })
         disabled={isDisabled}
         placeholder="When I pour my morning coffee, I'll stretch for two minutes."
         onChange={(e) => setText(e.target.value)}
-        onBlur={() => updateHabit(habit.id, { plan: clampPlan(text) })}
+        onBlur={() => {
+          const plan = clampPlan(text);
+          if (plan !== habit.plan) updateHabit(habit.id, { plan });
+        }}
         className="w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-base text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm"
       />
       <p className="flex justify-between text-xs text-muted">
         <span>Name the moment, then the action.</span>
-        {text.length >= 180 && (
+        {text.length >= PLAN_COUNTER_THRESHOLD && (
           <span>
             {text.length}/{MAX_PLAN_LENGTH}
           </span>

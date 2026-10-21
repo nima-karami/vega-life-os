@@ -1,4 +1,27 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+type Stamps = { pausedAt: string | null; resumedAt: string | null };
+
+async function readStamps(page: Page, name: string): Promise<Stamps | null> {
+  return page.evaluate(
+    (habitName) =>
+      new Promise<Stamps | null>((resolve, reject) => {
+        const req = indexedDB.open("vega-life-os");
+        req.onsuccess = () => {
+          const all = req.result.transaction("habits").objectStore("habits").getAll();
+          all.onsuccess = () => {
+            const row = all.result.find((h: { name: string }) => h.name === habitName);
+            resolve(
+              row ? { pausedAt: row.pausedAt ?? null, resumedAt: row.resumedAt ?? null } : null,
+            );
+          };
+          all.onerror = () => reject(all.error);
+        };
+        req.onerror = () => reject(req.error);
+      }),
+    name,
+  );
+}
 
 /**
  * Habit lifecycle (Active / Paused / Archived). Proves the state control is reachable
@@ -93,11 +116,22 @@ test("pausing is neutral: the paused days are neither kept nor due", async ({ pa
   await markDone();
 
   await page.goto(habitUrl, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Paused", exact: true }).click();
+  const paused = page.getByRole("button", { name: "Paused", exact: true });
+  await paused.click();
+  await expect(paused).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => (await readStamps(page, "Stretch"))?.pausedAt).not.toBeNull();
 
   await reloadAt(noon.getTime() + 4 * dayMs);
   await page.goto(habitUrl, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Active", exact: true }).click();
+  const active = page.getByRole("button", { name: "Active", exact: true });
+  await active.click();
+  await expect(active).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(async () => {
+      const stamps = await readStamps(page, "Stretch");
+      return stamps?.pausedAt === null && stamps.resumedAt !== null;
+    })
+    .toBe(true);
   await markDone();
 
   await page.goto("/habits", { waitUntil: "domcontentloaded" });

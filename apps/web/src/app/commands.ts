@@ -78,7 +78,7 @@ export const NAV_COMMANDS: NavCommand[] = [
     sublabel: "Patterns & review",
     icon: "chart",
     to: "/analytics",
-    keywords: "analytics review follow-through insights",
+    keywords: "analytics review insights",
   },
   {
     id: "nav-entries",

@@ -13,7 +13,7 @@ export interface JournalSlice {
   getDayEntry: (date: string) => DayEntry | undefined;
   /** Upsert the entry for `date`. Returns the entry, or null if it was empty-discarded.
    *  Persistence is debounced (coalesces rapid edits); pass `{ immediate: true }` for a
-   *  discrete one-shot save that must land now (e.g. the morning gratitude gate). */
+   *  discrete one-shot save that must land now (e.g. the daily gratitude card). */
   upsertDayEntry: (
     date: string,
     patch: Partial<Pick<DayEntry, "gratitude" | "mood" | "journal">>,

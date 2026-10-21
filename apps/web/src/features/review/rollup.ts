@@ -1,5 +1,5 @@
 import type { Habit } from "@/features/habits/model";
-import { isHabitTracked } from "@/features/habits/selectors";
+import { countHabitSlots } from "@/features/habits/selectors";
 import { type DoneContext, type DoneGroup, groupDoneByValue } from "@/features/tasks/done-groups";
 import type { Task } from "@/features/tasks/model";
 
@@ -25,18 +25,10 @@ export function computeWeekRollup(
   today: string,
 ): WeekRollup {
   const pastIsos = weekIsos.filter((iso) => iso <= today);
-  const weekTasks = tasks.filter((t) => t.date && pastIsos.includes(t.date));
 
   const habitRows = ctx.habits
-    .filter(isHabitTracked)
-    .map((h) => {
-      const scheduled = weekTasks.filter((t) => t.habitId === h.id && t.status !== "skip");
-      return {
-        h,
-        done: scheduled.filter((t) => t.status === "done").length,
-        total: scheduled.length,
-      };
-    })
+    .filter((habit) => habit.tracked)
+    .map((h) => ({ h, ...countHabitSlots(tasks, h, pastIsos, today) }))
     .filter((row) => row.total > 0);
 
   return { doneByValue: groupDoneByValue(tasks, ctx, pastIsos), habitRows };

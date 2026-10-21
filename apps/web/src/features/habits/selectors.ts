@@ -14,8 +14,6 @@ export const getHabitInstances = (tasks: Task[], habitId: string) =>
 
 export const CONSISTENCY_WINDOW_DAYS = 7;
 
-export const isHabitTracked = (habit: Habit): boolean => habit.tracked;
-
 /** Per scheduled slot: done, due (past and unresolved), a neutral skip, or still-pending today. */
 type SlotKind = "done" | "due" | "skip" | "pending";
 
@@ -95,6 +93,26 @@ export function computeHabitConsistency(
   return { kept, due, windowDays };
 }
 
+/** Kept vs due across the given days, by the same slot walk as `computeHabitConsistency`. */
+export function countHabitSlots(
+  tasks: Task[],
+  habit: Habit,
+  isos: string[],
+  today: string = todayISO(),
+): { done: number; total: number } {
+  const days = new Set(isos);
+  let done = 0;
+  let total = 0;
+  for (const { date, kind } of deriveSlotKinds(tasks, habit, today)) {
+    if (!days.has(date)) continue;
+    if (kind === "done") {
+      done++;
+      total++;
+    } else if (kind === "due") total++;
+  }
+  return { done, total };
+}
+
 /** True when the latest resolved slot before today was missed (never-miss-twice). A slot at or
  *  before the end of the last pause is ignored: the resume starts fresh. */
 export function hasLapsedPreviousSlot(
@@ -110,9 +128,9 @@ export function hasLapsedPreviousSlot(
   return previous.at(-1)?.kind === "due";
 }
 
-export type HabitWeekState = "kept" | "due" | "off";
+type HabitWeekState = "kept" | "due" | "off";
 
-export interface HabitWeekDay {
+interface HabitWeekDay {
   iso: string;
   letter: string;
   state: HabitWeekState;

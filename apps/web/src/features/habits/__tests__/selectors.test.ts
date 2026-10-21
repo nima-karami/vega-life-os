@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Value } from "@/features/values/model";
 import type { Habit } from "../model";
-import {
-  findConflictingHabits,
-  groupHabitsByValue,
-  isHabitTracked,
-  sortArchived,
-} from "../selectors";
+import { findConflictingHabits, groupHabitsByValue, sortArchived } from "../selectors";
 
 const weekly = (days: number[]): Habit["schedule"] => ({
   type: "weekly",
@@ -162,12 +157,5 @@ describe("sortArchived", () => {
       habit({ id: "mid", archivedAt: "2026-03-01T00:00:00Z" }),
     ];
     expect(sortArchived(habits).map((h) => h.id)).toEqual(["new", "mid", "old"]);
-  });
-});
-
-describe("isHabitTracked", () => {
-  it("reads the tracked flag", () => {
-    expect(isHabitTracked({ tracked: true } as Habit)).toBe(true);
-    expect(isHabitTracked({ tracked: false } as Habit)).toBe(false);
   });
 });

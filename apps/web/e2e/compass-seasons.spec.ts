@@ -50,6 +50,12 @@ test("a resting value shows its status on its page and sits under Resting in pic
   await page.getByRole("link", { name: "Presence" }).first().click();
   await expect(page.getByText("In season", { exact: true })).toBeVisible();
 
+  await page.goto("/values", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Show resting \(1\)/ }).click();
+  await expect(page.locator('[aria-label="Resting"]')).toHaveCount(1);
+  await page.getByRole("link", { name: "Courage" }).first().click();
+  await expect(page.getByText("Resting", { exact: true })).toBeVisible();
+
   await page.goto("/habits", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Add habit" }).click();
   await page.getByRole("textbox", { name: "Habit name" }).fill("Stretch");

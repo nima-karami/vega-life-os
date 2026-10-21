@@ -41,10 +41,10 @@ describe("computeGoalVerdict", () => {
   it("an in-progress goal keeps a pace verdict", () => {
     const behind = computeGoalVerdict(goal({ status: "active", progress: 0.1 }), TODAY);
     expect(behind.kind).toBe("pace");
-    if (behind.kind === "pace") expect(behind.isBehind).toBe(true);
+    if (behind.kind === "pace") expect(behind.text).toBe("Slower than planned — still want this?");
 
     const onPace = computeGoalVerdict(goal({ status: "active", progress: 0.9 }), TODAY);
     expect(onPace.kind).toBe("pace");
-    if (onPace.kind === "pace") expect(onPace.isBehind).toBe(false);
+    if (onPace.kind === "pace") expect(onPace.text).toBe("On pace");
   });
 });

@@ -73,6 +73,7 @@ test("completing valued tasks toasts each value once a day", async ({ page }) =>
   for (let i = 0; i < total; i++) await pending.first().click();
   const votes = await page.evaluate(() => (window as unknown as { __votes: string[] }).__votes);
   expect(votes.length).toBeGreaterThan(0);
+  expect(votes.length).toBeLessThan(total);
   const names = votes.map((v) =>
     v
       .replace(/^A vote for /, "")

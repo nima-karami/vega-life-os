@@ -62,10 +62,12 @@ function CheckInRow({
 
 export function ValueCheckIn({
   values,
+  hasResting,
   checkIns,
   onChange,
 }: {
   values: Value[];
+  hasResting: boolean;
   checkIns: ReviewCheckIn[];
   onChange: (next: ReviewCheckIn[]) => void;
 }) {
@@ -75,7 +77,7 @@ export function ValueCheckIn({
         How consistently did you live each value this week?
       </h3>
       <p className="mt-1 text-xs text-muted">Your own sense of it — no right answer.</p>
-      {values.length === 0 && (
+      {values.length === 0 && hasResting && (
         <p className="mt-4 text-sm text-muted">
           Nothing in season right now — bring a value back when you&apos;re ready.
         </p>

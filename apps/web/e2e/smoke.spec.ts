@@ -818,6 +818,9 @@ test("today: no evening card in the morning; Cancel writes nothing; 'Not tonight
 // ─── Copy: no judgment language on the daily surfaces ────────────────────────
 
 test("copy: judgment wording is gone from Today, Habits, Goals and Analytics", async ({ page }) => {
+  const evening = new Date();
+  evening.setHours(19, 0, 0, 0);
+  await page.clock.install({ time: evening });
   for (const path of ["/today", "/habits", "/goals", "/analytics"]) {
     await page.goto(path, { waitUntil: "networkidle" });
     await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });

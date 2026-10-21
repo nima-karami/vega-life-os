@@ -84,7 +84,7 @@ describe("journal slice", () => {
     vi.useRealTimers();
   });
 
-  it("persists immediately with { immediate: true } (the gratitude gate)", () => {
+  it("persists immediately with { immediate: true } (the gratitude card)", () => {
     vi.useFakeTimers();
     vi.mocked(savePut).mockClear();
     const { get } = makeSlice();

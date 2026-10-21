@@ -79,7 +79,7 @@ describe("computeHabitConsistency", () => {
   });
 
   it("lets a miss fade once it is older than the window", () => {
-    const tasks = [...doneOn(0, 1, 2, 3, 4, 5, 6)];
+    const tasks = [...doneOn(0, 1, 2, 3, 4, 5, 6), inst(back(7), "todo")];
     expect(computeHabitConsistency(tasks, daily, TODAY)).toMatchObject({ kept: 7, due: 7 });
   });
 
@@ -143,6 +143,11 @@ describe("hasLapsedPreviousSlot", () => {
   it("passes over a skipped yesterday and finds the miss before it", () => {
     const tasks = [inst(back(1), "skip")];
     expect(hasLapsedPreviousSlot(tasks, daily, TODAY)).toBe(true);
+  });
+
+  it("is false when the slot before a skipped yesterday was done", () => {
+    const tasks = [inst(back(2), "done"), inst(back(1), "skip")];
+    expect(hasLapsedPreviousSlot(tasks, daily, TODAY)).toBe(false);
   });
 
   it("is false for a habit with no earlier slot", () => {

@@ -26,8 +26,6 @@ export function isGoalProgressDerived(goal: Goal): boolean {
 }
 
 export interface PaceBadge {
-  /** true → behind schedule, false → on/ahead of pace. */
-  isBehind: boolean;
   text: string;
 }
 
@@ -40,8 +38,8 @@ export function getGoalPaceBadge(goal: Goal, today: string = todayISO()): PaceBa
   if (isGoalClosed(goal.status)) return null;
   if (getGoalPhase(goal, today) !== "current") return null;
   const pace = computeGoalPace(goal, today);
-  if (pace >= 0) return { isBehind: false, text: "On pace" };
-  return { isBehind: true, text: "Slower than planned — still want this?" };
+  if (pace >= 0) return { text: "On pace" };
+  return { text: "Slower than planned — still want this?" };
 }
 
 /** A future-scheduled goal cannot be activated until its period begins. */

@@ -11,7 +11,18 @@ const { schema, createSchema } = defineEntity({
   id: z.string(),
   periodKey: z.string(),
   prompts: z.array(reviewPromptSchema),
-  checkIns: z.array(reviewCheckInSchema).default([]),
+  checkIns: z
+    .array(reviewCheckInSchema)
+    .superRefine((checkIns, ctx) => {
+      const seen = new Set<string>();
+      checkIns.forEach(({ valueId }, index) => {
+        if (seen.has(valueId)) {
+          ctx.addIssue({ code: "custom", path: [index, "valueId"], message: "Duplicate valueId" });
+        }
+        seen.add(valueId);
+      });
+    })
+    .default([]),
   completion: z.number().optional(),
   createdAt: z.string(),
 });

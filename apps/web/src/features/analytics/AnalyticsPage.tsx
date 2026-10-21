@@ -3,7 +3,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
-import { computeHabitConsistency, groupHabitsByValue, isHabitTracked } from "@/features/habits";
+import { computeHabitConsistency, groupHabitsByValue } from "@/features/habits";
 import { isHabitActive } from "@/features/habits/model";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
@@ -94,7 +94,10 @@ function AnalyticsSection() {
   const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days), [goals, days]);
   const habitRanked = useMemo(
     () =>
-      groupHabitsByValue(habits.filter(isHabitActive).filter(isHabitTracked), values)
+      groupHabitsByValue(
+        habits.filter(isHabitActive).filter((habit) => habit.tracked),
+        values,
+      )
         .flatMap((g) => g.habits)
         .map((h) => ({ h, ...computeHabitConsistency(tasks, h, undefined, days) }))
         .filter((r) => r.due > 0),

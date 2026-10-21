@@ -5,9 +5,12 @@ import { isHabitActive } from "./model";
 import { hasLapsedPreviousSlot } from "./selectors";
 
 export function BackToItLine({ task }: { task: Task }) {
-  const habit = useStore((s) =>
-    task.habitId == null ? undefined : s.habits.find((h) => h.id === task.habitId),
-  );
+  if (task.habitId == null) return null;
+  return <BackToItHabitLine task={task} habitId={task.habitId} />;
+}
+
+function BackToItHabitLine({ task, habitId }: { task: Task; habitId: string }) {
+  const habit = useStore((s) => s.habits.find((h) => h.id === habitId));
   const tasks = useStore((s) => s.tasks);
   if (!habit?.tracked || !isHabitActive(habit)) return null;
   if (task.date !== todayISO() || task.status !== "todo") return null;

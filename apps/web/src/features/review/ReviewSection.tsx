@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatShortDate, getWeekDays, todayISO, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Button, ConfirmDialog, IconButton, Label, Panel, SectionHead } from "@/core/ui";
+import { splitValuesBySeason } from "@/features/values/selectors";
 import { DoneThisWeekPanel } from "./DoneThisWeekPanel";
 import { HabitsWeekPanel } from "./HabitsWeekPanel";
 import { JournalWeekPanel } from "./JournalWeekPanel";
@@ -92,6 +93,7 @@ export function ReviewSection() {
   const thisWeekKey = format(weekStartOf(new Date()), "yyyy-MM-dd");
   const isThisWeek = periodKey === thisWeekKey;
   const isFuture = periodKey > thisWeekKey;
+  const hasResting = useMemo(() => splitValuesBySeason(values).resting.length > 0, [values]);
   const checkInValues = useMemo(() => listCheckInValues(values, checkIns), [values, checkIns]);
 
   return (
@@ -129,7 +131,12 @@ export function ReviewSection() {
         </div>
 
         <div className="space-y-5">
-          <ValueCheckIn values={checkInValues} checkIns={checkIns} onChange={setCheckIns} />
+          <ValueCheckIn
+            values={checkInValues}
+            hasResting={hasResting}
+            checkIns={checkIns}
+            onChange={setCheckIns}
+          />
 
           <Panel className="p-4 sm:p-6">
             <div className="flex items-center justify-between">

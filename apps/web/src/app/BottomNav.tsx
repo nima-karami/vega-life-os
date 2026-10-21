@@ -43,7 +43,7 @@ export function BottomNav() {
   const openCommand = useStore((s) => s.openCommand);
   const bandRef = useRef<HTMLDivElement>(null);
 
-  // Measured rather than queried, so unmounting (the gratitude gate) and sm:hidden report.
+  // Measured rather than queried, so unmounting (the gratitude card) and sm:hidden report.
   useLayoutEffect(() => {
     const band = bandRef.current;
     if (band === null) return;

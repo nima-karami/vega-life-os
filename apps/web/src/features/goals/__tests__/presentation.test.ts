@@ -86,7 +86,7 @@ describe("getGoalPaceBadge", () => {
       baseGoal({ start: "2026-01-01", end: "2026-12-31", progress: 1, status: "active" }),
       "2026-07-02",
     );
-    expect(badge).toEqual({ isBehind: false, text: "On pace" });
+    expect(badge).toEqual({ text: "On pace" });
   });
 
   it("reports a slower pace when progress trails elapsed time", () => {
@@ -95,7 +95,7 @@ describe("getGoalPaceBadge", () => {
       baseGoal({ start: "2026-01-01", end: "2026-12-31", progress: 0, status: "active" }),
       "2026-07-02",
     );
-    expect(badge).toEqual({ isBehind: true, text: "Slower than planned — still want this?" });
+    expect(badge).toEqual({ text: "Slower than planned — still want this?" });
   });
 });
 

@@ -31,6 +31,7 @@ export function resetGoalForValue(
 }
 
 export const MAX_PLAN_LENGTH = 200;
+export const PLAN_COUNTER_THRESHOLD = MAX_PLAN_LENGTH - 20;
 
 /** Trim a pasted plan and cap it at the stored limit; whitespace-only becomes empty. */
 export function clampPlan(raw: string): string {
