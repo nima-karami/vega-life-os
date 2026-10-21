@@ -42,6 +42,11 @@ export function DailyHabitRow({ task, onToggle }: { task: Task; onToggle: (t: Ta
           >
             {task.title}
           </span>
+          {habit?.plan ? (
+            <span className="truncate text-xs text-muted" title={habit.plan}>
+              {habit.plan}
+            </span>
+          ) : null}
           <BackToItLine task={task} />
         </span>
         {lineage?.value && (

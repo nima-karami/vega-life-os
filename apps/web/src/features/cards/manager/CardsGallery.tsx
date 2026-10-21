@@ -1,7 +1,7 @@
 import type { Card } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
-import { GalleryTile } from "./GalleryTile";
 import type { CardRowActions } from "./card-row-actions";
+import { GalleryTile } from "./GalleryTile";
 
 const GRID_CLASS = "mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5";
 

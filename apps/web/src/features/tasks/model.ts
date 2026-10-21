@@ -24,8 +24,7 @@ export interface Task {
   /** The original scheduled date a habit occurrence fulfils — immutable across moves,
    *  so a rescheduled instance keeps claiming its slot (no phantom). Absent for one-offs. */
   slotDate?: string | null;
-  /** ISO datetime stamped when marked done, cleared otherwise. Drives on-time-vs-late
-   *  streak classification (a backfill past the grace window doesn't heal the streak). */
+  /** ISO datetime stamped when marked done, cleared otherwise. */
   completedAt?: string | null;
   /** "HH:mm" or null */
   time: string | null;

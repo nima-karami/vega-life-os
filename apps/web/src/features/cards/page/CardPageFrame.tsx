@@ -1,8 +1,8 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Icon, IconButton, useBelowLarge } from "@/core/ui";
-import type { SampledCard } from "./card-sample";
 import { CardPreviewOverlay } from "./CardPreviewOverlay";
+import type { SampledCard } from "./card-sample";
 import { LiveCardPane } from "./LiveCardPane";
 
 /**

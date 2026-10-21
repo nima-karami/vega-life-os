@@ -11,6 +11,7 @@ import {
   persistence,
   type RoutingAdapter,
 } from "@/core/persistence";
+import { clearLegacyStreakRules } from "@/core/persistence/legacy-keys";
 import { hasMigrationSources, runDataMigrations } from "@/core/persistence/migrations";
 import { getSandboxDirty, isSandboxDirty, setSandboxDirty } from "@/core/persistence/sandbox-meta";
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
@@ -27,8 +28,6 @@ import { createJournalSlice } from "@/features/journal/store";
 import { createLibrarySlice } from "@/features/library/store";
 import { normalizeReview } from "@/features/review/model";
 import { createReviewSlice } from "@/features/review/store";
-import { loadStreakRules, readLocalStreakRules } from "@/features/streaks/config";
-import { createStreaksSlice } from "@/features/streaks/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
 import { authTransition } from "./auth-transition";
@@ -71,7 +70,6 @@ async function loadAccount(
     set({ ready: true }); // name known — safe to render the app / ProfileStep
     await get().refreshGcalStatus(); // server-owned GCal connection status
     get().hydrateShowGoogleEvents(await loadShowGoogleEvents(uid)); // display pref (profile)
-    get().hydrateStreakRules(await loadStreakRules(uid)); // user-level streak rules (cloud)
     get().ensureUpcoming(14);
   } catch {
     set({ loadFailed: true, ready: true }); // hydrate-failed → full-screen retry
@@ -85,7 +83,7 @@ function sortDataset(dataset: Partial<Dataset>): Partial<Dataset> {
   // (undefined); coerce to null so they classify as active, not archived.
   if (dataset.values)
     out.values = dataset.values
-      .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null }))
+      .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null, restingAt: v.restingAt ?? null }))
       .sort((a, b) => a.order - b.order);
   if (dataset.habits)
     out.habits = dataset.habits.map((h) =>
@@ -125,7 +123,6 @@ export const useStore = create<RootState>((set, get, api) => ({
   ...createCalendarEventsSlice(set, get, api),
   ...createCardsSlice(set, get, api),
   ...createCardsBulkSlice(set, get, api),
-  ...createStreaksSlice(set, get, api),
   ...createFinanceSlice(set, get, api),
   ...createUiSlice(set, get, api),
 
@@ -140,7 +137,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     const loaded = await persistence.loadAll();
     set({ ...toStatePatch(loaded), ready: true });
     get().hydrateGcalStatus(null); // signed-out sandbox: no Google Calendar connection
-    get().hydrateStreakRules(readLocalStreakRules());
+    clearLegacyStreakRules();
     get().hydrateGratitudeNudgeAck(readLocalGratitudeNudgeAck());
     await runDataMigrations(get, set, hasMigrationSources(loaded));
     get().ensureUpcoming(14);
@@ -341,7 +338,6 @@ export const useStore = create<RootState>((set, get, api) => ({
       void setSandboxDirty(false);
       get().hydrateGcalStatus(null); // clear the account's Google Calendar status
       get().hydrateShowGoogleEvents(true); // back to the default display pref
-      get().hydrateStreakRules(readLocalStreakRules()); // back to the device-local sandbox rules
       get().hydrateGratitudeNudgeAck(readLocalGratitudeNudgeAck());
       get().setOnboarded(false);
       get().hydrateProfile({

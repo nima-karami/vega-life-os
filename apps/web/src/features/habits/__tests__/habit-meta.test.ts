@@ -19,6 +19,8 @@ const habit: Habit = {
   pausedAt: null,
   resumedAt: null,
   pausedSpans: [],
+  tracked: true,
+  plan: "",
 };
 
 const doneTask = (offset: number): Task => {
@@ -47,6 +49,12 @@ describe("buildHabitMeta", () => {
     const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), habit).map((m) => m.text);
     expect(texts).toContain("4 of last 6");
     expect(texts.join(" ")).not.toMatch(/streak|%/);
+  });
+
+  it("omits the consistency line for an untracked habit", () => {
+    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), { ...habit, tracked: false });
+    expect(texts.map((m) => m.text).join(" ")).not.toContain("of last");
+    expect(texts.length).toBeGreaterThan(0);
   });
 
   it("omits the consistency line when nothing was due", () => {

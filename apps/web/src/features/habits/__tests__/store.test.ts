@@ -9,9 +9,14 @@ vi.mock("@/core/store/persist", () => ({
 
 /** Minimal harness: drive the slice with a local state object, stubbing the
  *  cross-slice bits the habit actions reach for (values + tasks + ensureUpcoming). */
-function makeSlice(seed: { tasks?: Task[] } = {}) {
+function makeSlice(
+  seed: {
+    tasks?: Task[];
+    values?: { id: string; archivedAt: string | null; restingAt: string | null }[];
+  } = {},
+) {
   type State = HabitsSlice & {
-    values: { id: string }[];
+    values: { id: string; archivedAt: string | null; restingAt: string | null }[];
     tasks: Task[];
     ensureUpcoming: () => void;
   };
@@ -21,7 +26,7 @@ function makeSlice(seed: { tasks?: Task[] } = {}) {
   };
   const get = () => state;
   state = {
-    values: [{ id: "v1" }],
+    values: seed.values ?? [{ id: "v1", archivedAt: null, restingAt: null }],
     tasks: seed.tasks ?? [],
     ensureUpcoming: vi.fn(),
     // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
@@ -48,6 +53,39 @@ const inst = (over: Partial<Task> = {}): Task =>
     order: 0,
     ...over,
   }) as Task;
+
+describe("addHabit — compass defaults", () => {
+  it("is untracked with an empty plan by default", () => {
+    const { get } = makeSlice();
+    const h = get().addHabit({ name: "Stretch" });
+    expect(h.tracked).toBe(false);
+    expect(h.plan).toBe("");
+  });
+
+  it("honours an explicit tracked/plan", () => {
+    const { get } = makeSlice();
+    const h = get().addHabit({ tracked: true, plan: "When I wake, I stretch." });
+    expect(h.tracked).toBe(true);
+    expect(h.plan).toBe("When I wake, I stretch.");
+  });
+
+  it("defaults the value to the first in-season one, not a resting one", () => {
+    const { get } = makeSlice({
+      values: [
+        { id: "v1", archivedAt: null, restingAt: "2026-10-01T00:00:00.000Z" },
+        { id: "v2", archivedAt: null, restingAt: null },
+      ],
+    });
+    expect(get().addHabit({ name: "x" }).valueId).toBe("v2");
+  });
+
+  it("falls back to a resting value when none is in season", () => {
+    const { get } = makeSlice({
+      values: [{ id: "v1", archivedAt: null, restingAt: "2026-10-01T00:00:00.000Z" }],
+    });
+    expect(get().addHabit({ name: "x" }).valueId).toBe("v1");
+  });
+});
 
 describe("addHabit — time handling", () => {
   it("defaults to 09:00 when time is omitted", () => {

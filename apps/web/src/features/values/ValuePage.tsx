@@ -20,6 +20,7 @@ import {
 import { HuePicker } from "./components/editor-bits";
 import { HabitSection } from "./components/HabitSection";
 import type { Value } from "./model";
+import { useValueSeason } from "./useValueSeason";
 
 export function ValuePage() {
   const { valueId } = useParams();
@@ -46,6 +47,7 @@ function ValueDetail({ value }: { value: Value }) {
   const archiveValue = useStore((s) => s.archiveValue);
   const unarchiveValue = useStore((s) => s.unarchiveValue);
   const pushToast = useStore((s) => s.pushToast);
+  const { toggleSeason } = useValueSeason();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Naming it is the save — a stray tap must not leave a nameless goal or habit behind.
@@ -54,6 +56,7 @@ function ValueDetail({ value }: { value: Value }) {
   const valueGoals = goals.filter((g) => g.valueId === value.id).sort((a, b) => a.order - b.order);
   const valueHabits = habits.filter((h) => h.valueId === value.id);
   const isArchived = value.archivedAt !== null;
+  const isResting = !isArchived && value.restingAt !== null;
 
   const reorderGoals = (activeId: string, overId: string) => {
     for (const c of reorderByIds(valueGoals, activeId, overId))
@@ -88,6 +91,14 @@ function ValueDetail({ value }: { value: Value }) {
             onChange={(name) => update(value.id, { name })}
           />
         }
+        meta={
+          isArchived ? undefined : (
+            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-accent/10 px-[9px] py-[3px] text-accent text-xs">
+              <Icon name={isResting ? "moon" : "sparkles"} size={11} aria-hidden />
+              {isResting ? "Resting" : "In season"}
+            </span>
+          )
+        }
         actions={
           <Menu
             align="end"
@@ -96,6 +107,15 @@ function ValueDetail({ value }: { value: Value }) {
             triggerLabel="Value actions"
             triggerContent={<Icon name="dots" size={16} />}
             items={[
+              ...(isArchived
+                ? []
+                : [
+                    {
+                      label: isResting ? "Bring into season" : "Rest this value",
+                      icon: "moon" as const,
+                      onSelect: () => toggleSeason(value),
+                    },
+                  ]),
               {
                 label: isArchived ? "Unarchive value" : "Archive value",
                 icon: "archive",

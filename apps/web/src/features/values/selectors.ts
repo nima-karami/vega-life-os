@@ -1,8 +1,10 @@
 import { getWeekDays } from "@/core/lib/date";
+import type { SelectOption } from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
 import { isGoalClosed } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { Task } from "@/features/tasks/model";
+import { getValueColor } from "./color";
 import type { Value } from "./model";
 
 export interface ValueRollup {
@@ -44,6 +46,39 @@ export const getArchivedValues = (values: Value[]): Value[] =>
   values
     .filter((v) => (v.archivedAt ?? null) !== null)
     .sort((a, b) => ((a.archivedAt ?? "") < (b.archivedAt ?? "") ? 1 : -1));
+
+/** Resting = the user stepped it out of season. Archived supersedes resting. */
+export const isValueResting = (v: Value): boolean => v.archivedAt == null && v.restingAt != null;
+
+/** Unarchived values split by season, each group by display order. */
+export function splitValuesBySeason(values: Value[]): { inSeason: Value[]; resting: Value[] } {
+  const live = getActiveValues(values);
+  return {
+    inSeason: live.filter((v) => !isValueResting(v)),
+    resting: live.filter(isValueResting),
+  };
+}
+
+export const RESTING_HEADING_ID = "__heading:resting";
+
+/** Picker options: in-season values, then resting ones under a "Resting" heading.
+ *  An archived value stays listed only while it is the current selection. */
+export function buildValueOptions(values: Value[], selectedId?: string): SelectOption[] {
+  const { inSeason, resting } = splitValuesBySeason(values);
+  const toOption = (v: Value): SelectOption => ({
+    value: v.id,
+    label: v.name,
+    hue: getValueColor(v),
+  });
+  const selected = values.find((v) => v.id === selectedId && v.archivedAt != null);
+  return [
+    ...inSeason.map(toOption),
+    ...(resting.length > 0
+      ? [{ value: RESTING_HEADING_ID, label: "Resting", heading: true }, ...resting.map(toOption)]
+      : []),
+    ...(selected ? [toOption(selected)] : []),
+  ];
+}
 
 /** Split a value's goals into open (active/backlog/paused) and closed (done/abandoned). */
 export function splitGoals(goals: Goal[]): { open: Goal[]; closed: Goal[] } {

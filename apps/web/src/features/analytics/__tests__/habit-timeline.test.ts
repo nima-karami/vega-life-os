@@ -21,6 +21,8 @@ const dailyHabit: Habit = {
   pausedAt: null,
   resumedAt: null,
   pausedSpans: [],
+  tracked: true,
+  plan: "",
 };
 
 function instance(back: number, patch: Partial<Task>): Task {

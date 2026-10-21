@@ -18,6 +18,8 @@ const habit = (over: Partial<Habit> = {}): Habit => ({
   pausedAt: null,
   resumedAt: null,
   pausedSpans: [],
+  tracked: true,
+  plan: "",
   ...over,
 });
 
@@ -31,6 +33,7 @@ const value = (over: Partial<Value> = {}): Value => ({
   desc: "",
   order: 0,
   archivedAt: null,
+  restingAt: null,
   ...over,
 });
 

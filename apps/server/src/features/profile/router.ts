@@ -4,7 +4,7 @@ import { protectedProcedure, router } from "../../trpc/trpc";
 
 /**
  * The user-level profile doc at `users/{uid}` — the one document outside the
- * per-collection repository (identity + cloud-mirrored gcal/streak config).
+ * per-collection repository (identity + cloud-mirrored gcal config).
  * Merge-patched via Admin so the client never writes Firestore directly.
  */
 export const profileRouter = router({

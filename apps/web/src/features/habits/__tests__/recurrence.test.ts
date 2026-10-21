@@ -132,6 +132,31 @@ describe("getWeeklyMask", () => {
 });
 
 describe("normalizeHabit", () => {
+  const legacy = {
+    id: "h9",
+    name: "x",
+    goalId: null,
+    valueId: "v",
+    icon: "repeat",
+    time: null,
+    durationMin: 30,
+    archivedAt: null,
+    createdAt: "2026-01-05",
+    days: [1, 1, 1, 1, 1, 1, 1],
+  };
+
+  it("loads a legacy habit as tracked with an empty plan", () => {
+    const out = normalizeHabit(legacy as never);
+    expect(out.tracked).toBe(true);
+    expect(out.plan).toBe("");
+  });
+
+  it("keeps an explicit untracked flag and plan", () => {
+    const out = normalizeHabit({ ...legacy, tracked: false, plan: "When X, Y." } as never);
+    expect(out.tracked).toBe(false);
+    expect(out.plan).toBe("When X, Y.");
+  });
+
   it("defaults pausedSpans to [] on a legacy record", () => {
     const out = normalizeHabit({
       id: "h1",

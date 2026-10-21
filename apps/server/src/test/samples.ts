@@ -47,6 +47,8 @@ export const sampleByCollection: { [C in RoutedCollection]: SampleFactory<C> } =
     pausedAt: null,
     resumedAt: null,
     pausedSpans: [],
+    tracked: true,
+    plan: "",
   }),
   values: (id) => ({
     id,
@@ -58,6 +60,7 @@ export const sampleByCollection: { [C in RoutedCollection]: SampleFactory<C> } =
     desc: "",
     order: 0,
     archivedAt: null,
+    restingAt: null,
   }),
   goals: (id) => ({
     id,

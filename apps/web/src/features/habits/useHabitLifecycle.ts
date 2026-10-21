@@ -2,7 +2,7 @@ import { useStore } from "@/core/store";
 import type { Habit, HabitLifecycle } from "./model";
 
 /** Move a habit between Active / Paused / Archived. Applies immediately — the
- *  transitions carry side effects (instance regeneration, the resume streak anchor)
+ *  transitions carry side effects (instance regeneration, the resume anchor)
  *  a buffered draft would lose. */
 export function useHabitLifecycle(habit: Habit, lifecycle: HabitLifecycle) {
   const archiveHabit = useStore((s) => s.archiveHabit);

@@ -32,6 +32,8 @@ export function normalizeHabit(raw: LegacyHabit): Habit {
     pausedAt: rest.pausedAt ?? null,
     resumedAt: rest.resumedAt ?? null,
     pausedSpans: rest.pausedSpans ?? [],
+    tracked: rest.tracked ?? true,
+    plan: rest.plan ?? "",
   };
 }
 

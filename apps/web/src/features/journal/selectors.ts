@@ -58,3 +58,14 @@ export function filterUnacknowledgedDays(
   if (ackedThrough == null) return missedDays;
   return missedDays.filter((day) => day > ackedThrough);
 }
+
+/** Consecutive logged days ending today; an unlogged today is still open, so the run ends yesterday. */
+export function countDayRun(isLogged: (iso: string) => boolean, today: string): number {
+  let day = isLogged(today) ? today : shiftISO(today, -1);
+  let run = 0;
+  while (isLogged(day)) {
+    run += 1;
+    day = shiftISO(day, -1);
+  }
+  return run;
+}

@@ -53,6 +53,7 @@ const value = (over: Partial<Value> = {}): Value => ({
   desc: "",
   order: 0,
   archivedAt: null,
+  restingAt: null,
   ...over,
 });
 
@@ -61,6 +62,11 @@ describe("addValue", () => {
     const { get } = makeSlice();
     const v = get().addValue();
     expect(v.archivedAt).toBeNull();
+  });
+
+  it("defaults restingAt to null (in season)", () => {
+    const { get } = makeSlice();
+    expect(get().addValue().restingAt).toBeNull();
   });
 });
 

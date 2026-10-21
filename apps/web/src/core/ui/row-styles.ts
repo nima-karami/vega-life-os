@@ -1,5 +1,5 @@
 /**
- * The metadata line under a row's title — lineage, time, streak. Its floor is the
+ * The metadata line under a row's title — lineage, time, consistency. Its floor is the
  * height of a `Habit` pill, so a row keeps the same height whether or not it carries
  * one and Today's list holds one rhythm across tasks, habit instances and events.
  */

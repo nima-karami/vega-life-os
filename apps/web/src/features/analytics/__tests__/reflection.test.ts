@@ -1,7 +1,6 @@
 import { format, subDays } from "date-fns";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DayEntry } from "@/features/journal/model";
-import { DEFAULT_RULES, PRESETS } from "@/features/streaks";
 import { computeReflectionStats } from "../selectors";
 
 const NOW = new Date("2026-06-25T12:00:00");
@@ -58,7 +57,7 @@ describe("computeReflectionStats", () => {
   });
 });
 
-describe("computeReflectionStats — healing via the shared streak engine", () => {
+describe("computeReflectionStats — plain run, no healing", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -66,15 +65,15 @@ describe("computeReflectionStats — healing via the shared streak engine", () =
   afterEach(() => vi.useRealTimers());
 
   const j = (back: number) => entry(back, { journal: "wrote" });
-  // 9-day run (14..6), a single miss at day 5, then 3 comebacks (4,3,2)
-  const oneSlipOnLongRun = [14, 13, 12, 11, 10, 9, 8, 7, 6, 4, 3, 2].map(j);
 
-  it("bridges a single slip on a long journaling run (Balanced)", () => {
-    expect(computeReflectionStats(oneSlipOnLongRun, 28, DEFAULT_RULES).journaled.streak).toBe(12);
+  it("reports only the run since a slip, not the healed chain", () => {
+    // 9-day run (14..6), a miss at day 5, then 4,3,2 logged and yesterday (1) missed
+    const slipped = [14, 13, 12, 11, 10, 9, 8, 7, 6, 4, 3, 2].map(j);
+    expect(computeReflectionStats(slipped, 28).journaled.streak).toBe(0);
   });
 
-  it("does not heal that gap under Strict rules", () => {
-    // grace 0 → an unlogged yesterday is a hard miss; no bridging → chain broken
-    expect(computeReflectionStats(oneSlipOnLongRun, 28, PRESETS.strict).journaled.streak).toBe(0);
+  it("counts back to the slip when the run is current", () => {
+    const current = [14, 13, 12, 11, 10, 9, 8, 7, 6, 3, 2, 1, 0].map(j);
+    expect(computeReflectionStats(current, 28).journaled.streak).toBe(4);
   });
 });

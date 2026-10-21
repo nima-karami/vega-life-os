@@ -20,6 +20,8 @@ export interface SelectOption {
   label: ReactNode;
   /** optional color dot (value hue, status, …) */
   hue?: string;
+  /** a non-selectable group label */
+  heading?: boolean;
 }
 
 /** Dropdown on HeroUI v3 Select; shares the overlay system with Modal so it works nested in one. */
@@ -61,7 +63,11 @@ export function Select({
             <ListBox.Item
               id={option.value}
               key={option.value}
-              className="rounded-[var(--radius-floating-row)]"
+              className={cx(
+                "rounded-[var(--radius-floating-row)]",
+                option.heading && "text-xs text-muted",
+              )}
+              isDisabled={option.heading}
               textValue={typeof option.label === "string" ? option.label : String(option.value)}
             >
               {/* flex row so the hue dot keeps its size in the trigger too (Select.Value renders this node) */}
@@ -74,7 +80,7 @@ export function Select({
                 ) : null}
                 {option.label}
               </span>
-              <ListBox.Item.Indicator />
+              {option.heading ? null : <ListBox.Item.Indicator />}
             </ListBox.Item>
           )}
         </ListBox>

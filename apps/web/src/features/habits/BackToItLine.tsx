@@ -9,7 +9,7 @@ export function BackToItLine({ task }: { task: Task }) {
     task.habitId == null ? undefined : s.habits.find((h) => h.id === task.habitId),
   );
   const tasks = useStore((s) => s.tasks);
-  if (!habit || !isHabitActive(habit)) return null;
+  if (!habit?.tracked || !isHabitActive(habit)) return null;
   if (task.date !== todayISO() || task.status !== "todo") return null;
   if (!hasLapsedPreviousSlot(tasks, habit)) return null;
   return (

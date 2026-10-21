@@ -29,7 +29,7 @@ export function toggleCheckIn(
 
 export function listCheckInValues(values: Value[], checkIns: ReviewCheckIn[]): Value[] {
   const rated = new Set(checkIns.map((c) => c.valueId));
-  return values.filter((v) => v.archivedAt == null || rated.has(v.id));
+  return values.filter((v) => (v.archivedAt == null && v.restingAt == null) || rated.has(v.id));
 }
 
 export function haveCheckInsChanged(a: ReviewCheckIn[], b: ReviewCheckIn[]): boolean {

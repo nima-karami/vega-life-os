@@ -7,7 +7,7 @@ import type { Habit } from "@/features/habits/model";
 import { getPausedSpans, isHabitPausedOn } from "@/features/habits/paused-spans";
 import { isActiveOnSchedule } from "@/features/habits/recurrence";
 import { type DayEntry, hasGratitude } from "@/features/journal/model";
-import { DEFAULT_RULES, resolveStreak, type SeqItem, type StreakRules } from "@/features/streaks";
+import { countDayRun } from "@/features/journal/selectors";
 import type { Task } from "@/features/tasks/model";
 
 /** Any scheduled task dated within the last n days (inclusive, no future) — gates the
@@ -31,10 +31,6 @@ export function countCompletedByValue(tasks: Task[], n = 30): Record<string, num
   return out;
 }
 
-export function getCurrentStreakTotal(tasks: Task[]): number {
-  return tasks.filter((t) => t.status === "done").length;
-}
-
 export interface ReflectionStat {
   /** Per-day flags over the window, oldest first. */
   series: { iso: string; on: boolean }[];
@@ -52,35 +48,10 @@ export interface ReflectionStats {
 
 const hasJournalEntry = (entry?: DayEntry): boolean => !!entry && entry.journal.trim() !== "";
 
-/**
- * Streak over FULL history (floored at the first-ever entry, like a habit's createdAt),
- * healed through the shared engine and the active rules. A day within the grace window
- * that isn't logged yet is pending (not a miss); older empty days are misses.
- */
-function reflectionStreak(
-  byDate: Map<string, DayEntry>,
-  pred: (e?: DayEntry) => boolean,
-  rules: StreakRules,
-  today: string,
-): number {
-  let earliest: string | null = null;
-  for (const d of byDate.keys()) if (earliest === null || d < earliest) earliest = d;
-  if (earliest === null) return 0;
-  const graceFloor = shiftISO(today, -rules.graceDays);
-  const seq: SeqItem[] = [];
-  for (let d = earliest; d <= today; d = shiftISO(d, 1)) {
-    if (pred(byDate.get(d))) seq.push({ kind: "D", date: d });
-    else if (d < graceFloor) seq.push({ kind: "M", date: d });
-    // within grace and not yet logged → pending, neither counts nor breaks
-  }
-  return resolveStreak(seq, rules).count;
-}
-
 function reflectionStat(
   byDate: Map<string, DayEntry>,
   n: number,
   pred: (e?: DayEntry) => boolean,
-  rules: StreakRules,
   today: string,
 ): ReflectionStat {
   const series = Array.from({ length: n }, (_, i) => {
@@ -91,22 +62,18 @@ function reflectionStat(
   return {
     series,
     count,
-    streak: reflectionStreak(byDate, pred, rules, today),
+    streak: countDayRun((iso) => pred(byDate.get(iso)), today),
     rate: n ? count / n : 0,
   };
 }
 
-/** Journaling + gratitude tracking: an n-day display window, but streaks over full history. */
-export function computeReflectionStats(
-  journal: DayEntry[],
-  n = 28,
-  rules: StreakRules = DEFAULT_RULES,
-): ReflectionStats {
+/** Journaling + gratitude tracking: an n-day display window, but runs over full history. */
+export function computeReflectionStats(journal: DayEntry[], n = 28): ReflectionStats {
   const byDate = new Map(journal.map((e) => [e.date, e]));
   const today = format(new Date(), "yyyy-MM-dd");
   return {
-    journaled: reflectionStat(byDate, n, hasJournalEntry, rules, today),
-    gratitude: reflectionStat(byDate, n, hasGratitude, rules, today),
+    journaled: reflectionStat(byDate, n, hasJournalEntry, today),
+    gratitude: reflectionStat(byDate, n, hasGratitude, today),
   };
 }
 

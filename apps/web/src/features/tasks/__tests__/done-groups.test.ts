@@ -14,6 +14,7 @@ const value = (id: string, order: number): Value => ({
   desc: "",
   order,
   archivedAt: null,
+  restingAt: null,
 });
 
 const habit: Habit = {
@@ -30,6 +31,8 @@ const habit: Habit = {
   pausedAt: null,
   resumedAt: null,
   pausedSpans: [],
+  tracked: true,
+  plan: "",
 };
 
 const task = (patch: Partial<Task>): Task =>

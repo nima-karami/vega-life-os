@@ -14,4 +14,6 @@ export interface Value {
   order: number;
   /** ISO-8601 timestamp when archived; null = active (non-destructive lifecycle) */
   archivedAt: string | null;
+  /** ISO-8601 timestamp the value began resting; null = in season. Archived supersedes it. */
+  restingAt: string | null;
 }

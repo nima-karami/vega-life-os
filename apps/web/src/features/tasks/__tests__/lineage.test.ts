@@ -17,6 +17,7 @@ const value: Value = {
   desc: "Health",
   order: 0,
   archivedAt: null,
+  restingAt: null,
 };
 
 const goal: Goal = {
@@ -46,6 +47,8 @@ const habit: Habit = {
   pausedAt: null,
   resumedAt: null,
   pausedSpans: [],
+  tracked: true,
+  plan: "",
 };
 
 function makeTask(patch: Partial<Task> = {}): Task {

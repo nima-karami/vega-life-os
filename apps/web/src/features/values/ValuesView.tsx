@@ -14,8 +14,9 @@ import { AddButton, CreateNameDialog, Disclosure, SortableList } from "@/core/ui
 import { DeleteValueDialog } from "./components/DeleteValueDialog";
 import { ValueIndexCard } from "./components/ValueIndexCard";
 import type { Value } from "./model";
-import { getActiveValues, getArchivedValues } from "./selectors";
+import { getArchivedValues, splitValuesBySeason } from "./selectors";
 import { useAnnouncer } from "./useAnnouncer";
+import { useValueSeason } from "./useValueSeason";
 
 export function ValuesView() {
   const navigate = useNavigate();
@@ -30,9 +31,10 @@ export function ValuesView() {
   const [confirmValue, setConfirmValue] = useState<Value | null>(null);
 
   const { announce, region } = useAnnouncer();
+  const { toggleSeason } = useValueSeason();
   const addBtnRef = useRef<HTMLButtonElement>(null);
 
-  const active = useMemo(() => getActiveValues(values), [values]);
+  const { inSeason, resting } = useMemo(() => splitValuesBySeason(values), [values]);
   const archived = useMemo(() => getArchivedValues(values), [values]);
 
   // Naming it is the save: a mis-tapped button must not leave a nameless row behind.
@@ -85,12 +87,20 @@ export function ValuesView() {
     },
   ]);
 
-  const reorderValues = useCallback(
-    (activeId: string, overId: string) => {
-      for (const c of reorderByIds(active, activeId, overId)) updateValue(c.id, { order: c.order });
+  const reorderGroup = useCallback(
+    (group: Value[]) => (activeId: string, overId: string) => {
+      for (const c of reorderByIds(group, activeId, overId)) updateValue(c.id, { order: c.order });
       announce("Values reordered");
     },
-    [active, updateValue, announce],
+    [updateValue, announce],
+  );
+
+  const toggleValueSeason = useCallback(
+    (value: Value) => {
+      const message = toggleSeason(value);
+      if (message) announce(message);
+    },
+    [toggleSeason, announce],
   );
 
   const toggleArchive = useCallback(
@@ -106,9 +116,11 @@ export function ValuesView() {
   );
 
   const emptyMessage =
-    archived.length > 0
-      ? `No active values — ${archived.length} archived.`
-      : 'No values yet — the "why" behind every goal and task downstream.';
+    resting.length > 0
+      ? "Nothing in season right now — bring a value back when you're ready."
+      : archived.length > 0
+        ? `No active values — ${archived.length} archived.`
+        : 'No values yet — the "why" behind every goal and task downstream.';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
@@ -126,14 +138,14 @@ export function ValuesView() {
       <div className="mt-8 flex flex-col gap-5">
         <AddButton ref={addBtnRef} label="Add value" onPress={createValue} />
 
-        {active.length === 0 ? (
+        {inSeason.length === 0 ? (
           <p className="text-sm text-muted">{emptyMessage}</p>
         ) : (
           <SortableList
-            items={active}
+            items={inSeason}
             getId={(v) => v.id}
             getLabel={(v) => v.name}
-            onReorder={reorderValues}
+            onReorder={reorderGroup(inSeason)}
             className="space-y-5"
             longPress
             renderItem={(v) => (
@@ -142,12 +154,44 @@ export function ValuesView() {
                 archived={false}
                 onAddGoal={() => createGoal(v.id)}
                 onArchiveToggle={() => toggleArchive(v)}
+                onSeasonToggle={() => toggleValueSeason(v)}
                 onDelete={() => setConfirmValue(v)}
                 onAnnounce={announce}
               />
             )}
           />
         )}
+
+        <Disclosure
+          label="resting"
+          count={resting.length}
+          onToggle={(open) => announce(open ? "Showing resting values" : "Resting values hidden")}
+        >
+          <p className="mb-3 text-xs text-muted">
+            Resting values keep their goals and habits — they just step out of the weekly check-in
+            for now.
+          </p>
+          <SortableList
+            items={resting}
+            getId={(v) => v.id}
+            getLabel={(v) => v.name}
+            onReorder={reorderGroup(resting)}
+            className="space-y-5"
+            longPress
+            renderItem={(v) => (
+              <ValueIndexCard
+                value={v}
+                archived={false}
+                resting
+                onAddGoal={() => createGoal(v.id)}
+                onArchiveToggle={() => toggleArchive(v)}
+                onSeasonToggle={() => toggleValueSeason(v)}
+                onDelete={() => setConfirmValue(v)}
+                onAnnounce={announce}
+              />
+            )}
+          />
+        </Disclosure>
 
         <Disclosure
           label="archived"
@@ -162,6 +206,7 @@ export function ValuesView() {
                 archived
                 onAddGoal={() => {}}
                 onArchiveToggle={() => toggleArchive(v)}
+                onSeasonToggle={() => {}}
                 onDelete={() => setConfirmValue(v)}
                 onAnnounce={announce}
               />

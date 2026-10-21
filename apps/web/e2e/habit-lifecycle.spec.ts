@@ -72,6 +72,7 @@ test("pausing is neutral: the paused days are neither kept nor due", async ({ pa
   await page.getByRole("textbox", { name: "Habit name" }).fill("Stretch");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/habits\/[^/]+$/);
+  await page.getByText("Track how often I keep it").click();
   const habitUrl = page.url();
 
   const markDone = async () => {

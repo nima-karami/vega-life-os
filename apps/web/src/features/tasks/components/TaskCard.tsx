@@ -1,4 +1,5 @@
 import { Card } from "@heroui/react";
+import { useStore } from "@/core/store";
 import {
   cx,
   getValueStripeStyle,
@@ -37,6 +38,9 @@ export function TaskCard({
   onDelete: (t: Task) => void;
 }) {
   const lineage = useTaskLineage(task.id);
+  const plan = useStore((s) =>
+    task.habitId == null ? "" : (s.habits.find((h) => h.id === task.habitId)?.plan ?? ""),
+  );
   const done = task.status === "done";
   const skipped = task.status === "skip";
   const isResolved = done || skipped;
@@ -102,6 +106,11 @@ export function TaskCard({
             </span>
           )}
         </span>
+        {plan !== "" && (
+          <span className="max-w-full truncate text-xs text-muted" title={plan}>
+            {plan}
+          </span>
+        )}
         <BackToItLine task={task} />
 
         <span className={ROW_META_CLASS}>

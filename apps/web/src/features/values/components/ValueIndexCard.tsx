@@ -9,6 +9,7 @@ import { ValueGoalRow } from "./ValueGoalRow";
 export interface ValueCardActions {
   onAddGoal: () => void;
   onArchiveToggle: () => void;
+  onSeasonToggle: () => void;
   onDelete: () => void;
   onAnnounce: (message: string) => void;
 }
@@ -18,11 +19,13 @@ export interface ValueCardActions {
 export function ValueIndexCard({
   value,
   archived,
+  resting = false,
   onAddGoal,
   onArchiveToggle,
+  onSeasonToggle,
   onDelete,
   onAnnounce,
-}: { value: Value; archived: boolean } & ValueCardActions) {
+}: { value: Value; archived: boolean; resting?: boolean } & ValueCardActions) {
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
 
@@ -33,7 +36,11 @@ export function ValueIndexCard({
 
   return (
     <div
-      className={cx("rounded-[16px] border p-[22px] sm:p-5", archived && "opacity-60")}
+      className={cx(
+        "rounded-[16px] border p-[22px] sm:p-5",
+        archived && "opacity-60",
+        resting && "opacity-80",
+      )}
       style={{ background: fill, borderColor: fill }}
     >
       <div className="flex items-start gap-4">
@@ -41,8 +48,9 @@ export function ValueIndexCard({
           <Icon name={value.icon} size={18} />
         </span>
         <Link to={`/values/${value.id}`} className="min-w-0 flex-1 outline-none">
-          <span className="block text-[19px] font-semibold leading-[1.25] text-white sm:text-[18px]">
+          <span className="flex items-center gap-1.5 text-[19px] font-semibold leading-[1.25] text-white sm:text-[18px]">
             {value.name}
+            {resting && <Icon name="moon" size={14} aria-label="Resting" />}
           </span>
           <span className="mt-1 block break-words text-[14px] leading-[1.6] text-white/[.86] sm:leading-[1.5]">
             {value.desc || "No description yet."}
@@ -64,6 +72,11 @@ export function ValueIndexCard({
                 ]
               : [
                   { label: "Add goal", icon: "plus", onSelect: onAddGoal },
+                  {
+                    label: resting ? "Bring into season" : "Rest this value",
+                    icon: "moon",
+                    onSelect: onSeasonToggle,
+                  },
                   { label: "Archive", icon: "archive", onSelect: onArchiveToggle },
                   { label: "Delete value", icon: "trash", danger: true, onSelect: onDelete },
                 ]

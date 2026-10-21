@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
-import { countDetached, formatConflictNote, resetGoalForValue } from "../editor";
+import { clampPlan, countDetached, formatConflictNote, resetGoalForValue } from "../editor";
 import type { Habit } from "../model";
 import { formatWeekdayLabel } from "../recurrence";
 
@@ -98,5 +98,19 @@ describe("formatConflictNote", () => {
   it("summarizes multiple conflicts with a count and names", () => {
     const note = formatConflictNote([h("A", sun), h("B", sun)], sun);
     expect(note).toBe("Overlaps 2 habits on these days: A and B.");
+  });
+});
+
+describe("clampPlan", () => {
+  it("saves a whitespace-only plan as empty", () => {
+    expect(clampPlan("   ")).toBe("");
+  });
+
+  it("trims surrounding spaces", () => {
+    expect(clampPlan("  When I wake, I stretch.  ")).toBe("When I wake, I stretch.");
+  });
+
+  it("clamps to 200 characters", () => {
+    expect(clampPlan("x".repeat(250))).toHaveLength(200);
   });
 });

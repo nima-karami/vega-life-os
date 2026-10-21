@@ -3,7 +3,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
-import { computeHabitConsistency, groupHabitsByValue } from "@/features/habits";
+import { computeHabitConsistency, groupHabitsByValue, isHabitTracked } from "@/features/habits";
 import { isHabitActive } from "@/features/habits/model";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
@@ -81,7 +81,6 @@ function AnalyticsSection() {
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);
   const journal = useStore((s) => s.journal);
-  const rules = useStore((s) => s.streakRules);
 
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
   const [reportHabitId, setReportHabitId] = useState<string | null>(null);
@@ -91,14 +90,11 @@ function AnalyticsSection() {
   const moodSeries = useMemo(() => computeMoodSeries(journal, days), [journal, days]);
   const byValue = useMemo(() => countCompletedByValue(tasks, days), [tasks, days]);
   const grid = useMemo(() => buildConsistencyGrid(tasks, weeks), [tasks, weeks]);
-  const reflection = useMemo(
-    () => computeReflectionStats(journal, days, rules),
-    [journal, days, rules],
-  );
+  const reflection = useMemo(() => computeReflectionStats(journal, days), [journal, days]);
   const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days), [goals, days]);
   const habitRanked = useMemo(
     () =>
-      groupHabitsByValue(habits.filter(isHabitActive), values)
+      groupHabitsByValue(habits.filter(isHabitActive).filter(isHabitTracked), values)
         .flatMap((g) => g.habits)
         .map((h) => ({ h, ...computeHabitConsistency(tasks, h, undefined, days) }))
         .filter((r) => r.due > 0),

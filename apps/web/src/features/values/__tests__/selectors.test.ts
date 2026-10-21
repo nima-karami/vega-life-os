@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Goal, GoalStatus } from "@/features/goals/model";
 import type { Value } from "../model";
-import { computeGoalCounts, getActiveValues, getArchivedValues, splitGoals } from "../selectors";
+import {
+  buildValueOptions,
+  computeGoalCounts,
+  getActiveValues,
+  getArchivedValues,
+  isValueResting,
+  splitGoals,
+  splitValuesBySeason,
+} from "../selectors";
 
 const value = (id: string, order: number, archivedAt: string | null): Value => ({
   id,
@@ -13,6 +21,7 @@ const value = (id: string, order: number, archivedAt: string | null): Value => (
   desc: "",
   order,
   archivedAt,
+  restingAt: null,
 });
 
 const goal = (id: string, status: GoalStatus): Goal => ({
@@ -79,5 +88,51 @@ describe("splitGoals / computeGoalCounts", () => {
 
   it("handles an empty list", () => {
     expect(computeGoalCounts([])).toEqual({ active: 0, closed: 0 });
+  });
+});
+
+describe("seasons", () => {
+  const RESTING_AT = "2026-10-01T10:00:00.000Z";
+  const resting = (id: string, order: number, archivedAt: string | null = null): Value => ({
+    ...value(id, order, archivedAt),
+    restingAt: RESTING_AT,
+  });
+
+  it("isValueResting is true only for an unarchived value with restingAt set", () => {
+    expect(isValueResting(resting("a", 0))).toBe(true);
+    expect(isValueResting(value("b", 0, null))).toBe(false);
+    expect(isValueResting(resting("c", 0, "2026-09-01T00:00:00.000Z"))).toBe(false);
+  });
+
+  it("splitValuesBySeason separates in-season from resting, each by order", () => {
+    const { inSeason, resting: rest } = splitValuesBySeason([
+      value("a", 2, null),
+      resting("b", 1),
+      value("c", 0, null),
+      resting("d", 0),
+    ]);
+    expect(inSeason.map((v) => v.id)).toEqual(["c", "a"]);
+    expect(rest.map((v) => v.id)).toEqual(["d", "b"]);
+  });
+
+  it("buildValueOptions puts resting values under a disabled Resting heading", () => {
+    const options = buildValueOptions([value("a", 0, null), resting("b", 1)]);
+    expect(options.map((o) => o.value)).toEqual(["a", "__heading:resting", "b"]);
+    expect(options[1].heading).toBe(true);
+  });
+
+  it("buildValueOptions omits the heading when nothing rests and keeps a selected archived value", () => {
+    const values = [value("a", 0, null), value("z", 1, "2026-09-01T00:00:00.000Z")];
+    expect(buildValueOptions(values).map((o) => o.value)).toEqual(["a"]);
+    expect(buildValueOptions(values, "z").map((o) => o.value)).toEqual(["a", "z"]);
+  });
+
+  it("an archived value is in neither list, resting or not", () => {
+    const { inSeason, resting: rest } = splitValuesBySeason([
+      value("a", 0, "2026-09-01T00:00:00.000Z"),
+      resting("b", 1, "2026-09-01T00:00:00.000Z"),
+    ]);
+    expect(inSeason).toEqual([]);
+    expect(rest).toEqual([]);
   });
 });

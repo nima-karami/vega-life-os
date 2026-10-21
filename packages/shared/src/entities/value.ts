@@ -11,6 +11,7 @@ const { schema, createSchema } = defineEntity({
   desc: z.string(),
   order: z.number(),
   archivedAt: nullableString,
+  restingAt: nullableString.default(null),
 });
 
 export const valueSchema = schema;

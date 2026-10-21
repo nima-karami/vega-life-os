@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DayEntry } from "./model";
 import {
+  countDayRun,
   filterUnacknowledgedDays,
   getMissedGratitudeDays,
   getWeekEntries,
@@ -151,5 +152,29 @@ describe("shouldShowGratitudeCard", () => {
 
   it("never shows for a day other than today", () => {
     expect(shouldShowGratitudeCard(undefined, null, "2026-06-21", TODAY)).toBe(false);
+  });
+});
+
+describe("countDayRun", () => {
+  const logged =
+    (...days: string[]) =>
+    (iso: string) =>
+      days.includes(iso);
+
+  it("counts consecutive logged days ending today", () => {
+    expect(countDayRun(logged("2026-06-21", "2026-06-20"), "2026-06-21")).toBe(2);
+  });
+
+  it("an unlogged today does not break a run ending yesterday", () => {
+    expect(countDayRun(logged("2026-06-20", "2026-06-19"), "2026-06-21")).toBe(2);
+  });
+
+  it("is zero when today and yesterday are both unlogged", () => {
+    expect(countDayRun(logged("2026-06-19", "2026-06-18"), "2026-06-21")).toBe(0);
+  });
+
+  it("does not bridge a one-day gap", () => {
+    const run = logged("2026-06-21", "2026-06-19", "2026-06-18", "2026-06-17");
+    expect(countDayRun(run, "2026-06-21")).toBe(1);
   });
 });

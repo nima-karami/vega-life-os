@@ -12,6 +12,7 @@ export function buildValues(): Value[] {
       order: 0,
       desc: "Act on what scares me, lean into hard conversations.",
       archivedAt: null,
+      restingAt: null,
     },
     {
       id: "v2",
@@ -23,6 +24,7 @@ export function buildValues(): Value[] {
       order: 1,
       desc: "Be here. Less screen, more attention.",
       archivedAt: null,
+      restingAt: null,
     },
     {
       id: "v3",
@@ -34,6 +36,7 @@ export function buildValues(): Value[] {
       order: 2,
       desc: "Protect sleep, body and mind so the rest holds.",
       archivedAt: null,
+      restingAt: null,
     },
     {
       id: "v4",
@@ -45,6 +48,7 @@ export function buildValues(): Value[] {
       order: 3,
       desc: "Keep the foundations steady — money, home, admin.",
       archivedAt: null,
+      restingAt: null,
     },
     {
       id: "v5",
@@ -56,6 +60,7 @@ export function buildValues(): Value[] {
       order: 4,
       desc: "Move daily, eat well, keep the engine running.",
       archivedAt: null,
+      restingAt: null,
     },
   ];
 }

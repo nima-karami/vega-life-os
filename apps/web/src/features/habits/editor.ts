@@ -30,6 +30,13 @@ export function resetGoalForValue(
   return goal && goal.valueId === valueId ? goalId : null;
 }
 
+export const MAX_PLAN_LENGTH = 200;
+
+/** Trim a pasted plan and cap it at the stored limit; whitespace-only becomes empty. */
+export function clampPlan(raw: string): string {
+  return raw.trim().slice(0, MAX_PLAN_LENGTH).trimEnd();
+}
+
 /**
  * Count of this habit's customized (detached) instances — surfaced as an
  * editor advisory because they are immutable to a template edit.

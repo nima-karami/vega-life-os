@@ -36,6 +36,7 @@ test("never miss twice: a lapsed daily habit shows the nudge until it is done", 
   await page.getByRole("textbox", { name: "Habit name" }).fill("Stretch");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/habits\/[^/]+$/);
+  await page.getByText("Track how often I keep it").click();
 
   const nudge = page.getByText("Back to it today — even a small version counts.");
   await page.goto("/today", { waitUntil: "domcontentloaded" });

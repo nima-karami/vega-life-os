@@ -28,6 +28,7 @@ function value(order: number, id: string, name: string): Value {
     desc: "",
     order,
     archivedAt: null,
+    restingAt: null,
   };
 }
 
@@ -74,7 +75,7 @@ describe("computeWeekRollup", () => {
   });
 
   it("computes per-habit done/total for the week, skips excluded", () => {
-    const habits: Habit[] = [{ id: "h1", name: "Run" } as Habit];
+    const habits: Habit[] = [{ id: "h1", name: "Run", tracked: true } as Habit];
     const tasks = [
       task({ date: "2026-06-08", status: "done", habitId: "h1" }),
       task({ date: "2026-06-09", status: "todo", habitId: "h1" }),
@@ -85,8 +86,22 @@ describe("computeWeekRollup", () => {
   });
 });
 
+describe("computeWeekRollup untracked habits", () => {
+  const walk: Habit[] = [{ id: "h1", name: "Walk", tracked: false } as Habit];
+  const tasks = [task({ date: "2026-06-08", status: "done", habitId: "h1", valueId: "v1" })];
+  const r = computeWeekRollup(tasks, ctxOf([value(0, "v1", "Health")], walk), WEEK, "2026-06-20");
+
+  it("gives an untracked habit no row", () => {
+    expect(r.habitRows).toEqual([]);
+  });
+
+  it("still lists its done instance", () => {
+    expect(r.doneByValue.flatMap((g) => g.tasks)).toHaveLength(1);
+  });
+});
+
 describe("computeWeekRollup habitRows filtering", () => {
-  const run: Habit[] = [{ id: "h1", name: "Run" } as Habit];
+  const run: Habit[] = [{ id: "h1", name: "Run", tracked: true } as Habit];
 
   it("omits a habit with no instances in the week", () => {
     const tasks = [task({ date: "2026-06-08", status: "done", habitId: "other" })];
@@ -95,7 +110,7 @@ describe("computeWeekRollup habitRows filtering", () => {
 
   it("keeps a habit archived mid-week that has counted instances", () => {
     const habits: Habit[] = [
-      { id: "h1", name: "Stretch", archivedAt: "2026-06-11" } as unknown as Habit,
+      { id: "h1", name: "Stretch", tracked: true, archivedAt: "2026-06-11" } as unknown as Habit,
     ];
     const tasks = [task({ date: "2026-06-10", status: "done", habitId: "h1" })];
     const r = computeWeekRollup(tasks, ctxOf([], habits), WEEK, "2026-06-20");

@@ -104,11 +104,19 @@ function HabitDetail({ habit }: { habit: Habit }) {
         </div>
       )}
 
+      {habit.plan !== "" && <p className="mt-4 text-muted text-sm">Plan: {habit.plan}</p>}
+
       <section className="mt-6">
-        <span className="block text-muted text-xs">The last thirty days</span>
-        <div className="mt-2.5">
-          <HabitDayRecord days={record} color={getValueCardFill(value)} />
-        </div>
+        {habit.tracked ? (
+          <>
+            <span className="block text-muted text-xs">The last thirty days</span>
+            <div className="mt-2.5">
+              <HabitDayRecord days={record} color={getValueCardFill(value)} />
+            </div>
+          </>
+        ) : (
+          <p className="text-muted text-sm">Not tracked — just do it when it fits.</p>
+        )}
       </section>
 
       <div className="mt-8 flex flex-col gap-6">

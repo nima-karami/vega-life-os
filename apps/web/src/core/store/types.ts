@@ -7,7 +7,6 @@ import type { HabitsSlice } from "@/features/habits/store";
 import type { JournalSlice } from "@/features/journal/store";
 import type { LibrarySlice } from "@/features/library/store";
 import type { ReviewSlice } from "@/features/review/store";
-import type { StreaksSlice } from "@/features/streaks/store";
 import type { TasksSlice } from "@/features/tasks/store";
 import type { ValuesSlice } from "@/features/values/store";
 import type { UiSlice } from "./ui";
@@ -24,7 +23,6 @@ export interface RootState
     CardsSlice,
     CardsBulkSlice,
     RetiredMindState,
-    StreaksSlice,
     FinanceSlice,
     UiSlice {
   ready: boolean;

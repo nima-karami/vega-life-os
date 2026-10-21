@@ -39,7 +39,9 @@ export function HabitEntityCard({
       title={habit.name}
       to={`/habits/${habit.id}`}
       status={{ label: HABIT_LIFECYCLE_LABEL[lifecycle], icon: STATUS_ICON[lifecycle] }}
-      measure={{ kind: "week", days: buildHabitWeek(tasks, habit) }}
+      measure={
+        habit.tracked ? { kind: "week", days: buildHabitWeek(tasks, habit) } : { kind: "none" }
+      }
       meta={buildHabitMeta(tasks, habit)}
       tone={STATUS_TONE[lifecycle]}
       actions={actions}

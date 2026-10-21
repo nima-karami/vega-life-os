@@ -14,7 +14,7 @@ const NAV_FADE_RAMP_PX = 32;
 export function AppShell() {
   // Subscribing to the live date here re-renders the whole routed subtree at the
   // day rollover, so every todayISO()-derived surface (goal phase, today labels,
-  // habit/streak "today") refreshes without per-page wiring.
+  // habit "today") refreshes without per-page wiring.
   useTodayISO();
   const { pathname } = useLocation();
   // /brainwrite bleeds its card under the overlaid nav and insets its own text off the

@@ -14,9 +14,9 @@ function stubProfileDoc(data: Record<string, unknown>) {
 
 describe("getCloudProfile", () => {
   it("keeps well-typed fields and drops mistyped ones", async () => {
-    stubProfileDoc({ name: "Nima", streakGraceDays: 2, gcalEnabled: "yes", avatar: 4 });
+    stubProfileDoc({ name: "Nima", workspace: "Home", gcalEnabled: "yes", avatar: 4 });
     const profile = await getCloudProfile("u1");
-    expect(profile).toMatchObject({ name: "Nima", streakGraceDays: 2 });
+    expect(profile).toMatchObject({ name: "Nima", workspace: "Home" });
     expect(profile?.gcalEnabled).toBeUndefined();
     expect(profile?.avatar).toBeUndefined();
   });

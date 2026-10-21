@@ -1,12 +1,18 @@
-import { Button, ButtonGroup } from "@heroui/react";
-import { useMemo } from "react";
+import { Button, ButtonGroup, Switch } from "@heroui/react";
+import { useEffect, useMemo, useState } from "react";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, DurationStepper, EditorField, NONE, Select, TimePicker } from "@/core/ui";
 import { getGoalsForValue } from "@/features/goals/selectors";
-import { getValueColor } from "@/features/values/color";
+import { buildValueOptions } from "@/features/values/selectors";
 import { ConflictNote } from "./ConflictNote";
-import { countDetached, formatConflictNote, resetGoalForValue } from "./editor";
+import {
+  clampPlan,
+  countDetached,
+  formatConflictNote,
+  MAX_PLAN_LENGTH,
+  resetGoalForValue,
+} from "./editor";
 import { buildDraftFromHabit, buildSchedule, type Draft } from "./habit-draft";
 import { HABIT_LIFECYCLE_LABEL, type Habit, type HabitLifecycle, habitLifecycle } from "./model";
 import { type RepeatMode, RepeatPicker } from "./RepeatPicker";
@@ -70,7 +76,7 @@ export function HabitFields({ habit }: { habit: Habit }) {
             onValueChange={(v) => setValue(v === NONE ? "" : v)}
             options={[
               { value: NONE, label: "No value" },
-              ...values.map((v) => ({ value: v.id, label: v.name, hue: getValueColor(v) })),
+              ...buildValueOptions(values, habit.valueId),
             ]}
           />
         </EditorField>
@@ -160,6 +166,28 @@ export function HabitFields({ habit }: { habit: Habit }) {
         </div>
       )}
 
+      <div className={cx("flex flex-col gap-6", isArchived && "pointer-events-none opacity-50")}>
+        <Switch
+          aria-label="Track how often I keep it"
+          className="w-full items-start justify-between gap-4"
+          isSelected={habit.tracked}
+          isDisabled={isArchived}
+          onChange={(tracked) => updateHabit(habit.id, { tracked })}
+        >
+          <Switch.Content className="min-w-0">
+            <span className="block text-sm text-foreground">Track how often I keep it</span>
+            <span className="mt-0.5 block text-xs text-muted">
+              Shows a gentle &apos;of last N&apos; count. Off keeps this habit unmeasured.
+            </span>
+          </Switch.Content>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+        </Switch>
+
+        <PlanField habit={habit} isDisabled={isArchived} />
+      </div>
+
       <ConflictNote text={formatConflictNote(conflicts, draft.days)} />
 
       {detached > 0 && (
@@ -168,6 +196,36 @@ export function HabitFields({ habit }: { habit: Habit }) {
         </p>
       )}
     </div>
+  );
+}
+
+function PlanField({ habit, isDisabled }: { habit: Habit; isDisabled: boolean }) {
+  const updateHabit = useStore((s) => s.updateHabit);
+  const [text, setText] = useState(habit.plan);
+  useEffect(() => setText(habit.plan), [habit.plan]);
+
+  return (
+    <EditorField label="If–then plan">
+      <input
+        type="text"
+        aria-label="If–then plan"
+        value={text}
+        maxLength={MAX_PLAN_LENGTH}
+        disabled={isDisabled}
+        placeholder="When I pour my morning coffee, I'll stretch for two minutes."
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => updateHabit(habit.id, { plan: clampPlan(text) })}
+        className="w-full rounded-[12px] border border-border bg-surface px-3 py-2 text-base text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm"
+      />
+      <p className="flex justify-between text-xs text-muted">
+        <span>Name the moment, then the action.</span>
+        {text.length >= 180 && (
+          <span>
+            {text.length}/{MAX_PLAN_LENGTH}
+          </span>
+        )}
+      </p>
+    </EditorField>
   );
 }
 

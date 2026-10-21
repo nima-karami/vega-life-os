@@ -15,6 +15,8 @@ const base: Habit = {
   pausedAt: null,
   resumedAt: null,
   pausedSpans: [],
+  tracked: true,
+  plan: "",
 };
 
 describe("habitLifecycle", () => {

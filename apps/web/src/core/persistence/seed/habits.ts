@@ -23,6 +23,7 @@ export function buildHabits(weekStart: Date): Habit[] {
         schedule: wk([1, 1, 1, 1, 1, 1, 1]),
         durationMin: 60,
         createdAt,
+        plan: "When I get into bed, I will read for an hour.",
       },
       {
         id: "h2",
@@ -45,6 +46,7 @@ export function buildHabits(weekStart: Date): Habit[] {
         schedule: wk([1, 1, 1, 1, 1, 1, 1]),
         durationMin: 30,
         createdAt,
+        plan: "When the clock hits 22:00, I will put the phone in another room.",
       },
       {
         id: "h4",
@@ -56,6 +58,7 @@ export function buildHabits(weekStart: Date): Habit[] {
         schedule: wk([1, 0, 1, 0, 1, 0, 0]),
         durationMin: 45,
         createdAt,
+        tracked: false,
       },
       {
         id: "h5",
@@ -113,6 +116,18 @@ export function buildHabits(weekStart: Date): Habit[] {
         durationMin: 5,
         createdAt,
       },
-    ] as Omit<Habit, "archivedAt" | "pausedAt" | "resumedAt" | "pausedSpans">[]
-  ).map((h) => ({ ...h, archivedAt: null, pausedAt: null, resumedAt: null, pausedSpans: [] }));
+    ] as (Omit<
+      Habit,
+      "archivedAt" | "pausedAt" | "resumedAt" | "pausedSpans" | "tracked" | "plan"
+    > &
+      Partial<Pick<Habit, "tracked" | "plan">>)[]
+  ).map((h) => ({
+    tracked: true,
+    plan: "",
+    ...h,
+    archivedAt: null,
+    pausedAt: null,
+    resumedAt: null,
+    pausedSpans: [],
+  }));
 }

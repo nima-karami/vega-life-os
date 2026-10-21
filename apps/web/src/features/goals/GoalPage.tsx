@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, CreateNameDialog, Icon, IconField, SegmentButton, Select } from "@/core/ui";
-import { getValueColor } from "@/features/values/color";
 import { TitleField } from "@/features/values/components/DetailFields";
 import {
   DetailAction,
@@ -16,6 +15,7 @@ import {
 } from "@/features/values/components/DetailPage";
 import { FractionSlider } from "@/features/values/components/editor-bits";
 import { HabitSection } from "@/features/values/components/HabitSection";
+import { buildValueOptions } from "@/features/values/selectors";
 import { GoalSteps } from "./components/GoalSteps";
 import { GoalTimeframeField } from "./components/GoalTimeframeField";
 import { GOAL_STATUS_ICON, GOAL_STATUS_LABEL, GOAL_STATUSES, type Goal } from "./model";
@@ -134,7 +134,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
             ariaLabel="Value"
             value={goal.valueId}
             onValueChange={(valueId) => update(goal.id, { valueId })}
-            options={values.map((v) => ({ value: v.id, label: v.name, hue: getValueColor(v) }))}
+            options={buildValueOptions(values, goal.valueId)}
           />
         </DetailSection>
 

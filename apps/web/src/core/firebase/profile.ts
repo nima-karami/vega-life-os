@@ -16,19 +16,10 @@ export interface CloudProfile {
   gcalWriteCalendarId?: string | null;
   gcalReadCalendarIds?: string[];
   gcalShowEvents?: boolean;
-  // Streak-healing rules — user-level (follows the account). `streakRulesConfigured`
-  // marks that the cloud holds rules, so first sign-in migrates any device-local set once.
-  streakRulesConfigured?: boolean;
-  streakGraceDays?: number;
-  streakBridgeEnabled?: boolean;
-  streakLongMin?: number;
-  streakRecoveryLen?: number;
-  streakMendCooldownDays?: number;
   gratitudeNudgeAckedThrough?: string | null;
 }
 
 const readString = (value: unknown) => (typeof value === "string" ? value : undefined);
-const readNumber = (value: unknown) => (typeof value === "number" ? value : undefined);
 const readBoolean = (value: unknown) => (typeof value === "boolean" ? value : undefined);
 const readStringArray = (value: unknown) =>
   Array.isArray(value) ? (value as string[]) : undefined;
@@ -50,12 +41,6 @@ export async function getCloudProfile(uid: string): Promise<CloudProfile | null>
     gcalWriteCalendarId: readString(d.gcalWriteCalendarId),
     gcalReadCalendarIds: readStringArray(d.gcalReadCalendarIds),
     gcalShowEvents: readBoolean(d.gcalShowEvents),
-    streakRulesConfigured: readBoolean(d.streakRulesConfigured),
-    streakGraceDays: readNumber(d.streakGraceDays),
-    streakBridgeEnabled: readBoolean(d.streakBridgeEnabled),
-    streakLongMin: readNumber(d.streakLongMin),
-    streakRecoveryLen: readNumber(d.streakRecoveryLen),
-    streakMendCooldownDays: readNumber(d.streakMendCooldownDays),
     gratitudeNudgeAckedThrough: readISODate(d.gratitudeNudgeAckedThrough),
   };
 }

@@ -17,8 +17,8 @@ const review = (prompts: Review["prompts"]): Review => ({
   createdAt: "2026-06-14T10:00:00",
 });
 
-const valueWith = (id: string, archivedAt: string | null = null) =>
-  ({ id, name: id, archivedAt }) as Value;
+const valueWith = (id: string, archivedAt: string | null = null, restingAt: string | null = null) =>
+  ({ id, name: id, archivedAt, restingAt }) as Value;
 
 describe("splitReviewPrompts", () => {
   it("separates legacy prompts from the current ones", () => {
@@ -69,6 +69,22 @@ describe("toggleCheckIn", () => {
 });
 
 describe("listCheckInValues", () => {
+  it("hides a resting value that has no check-in", () => {
+    const values = [valueWith("v1"), valueWith("v2", null, "2026-10-01")];
+    expect(listCheckInValues(values, []).map((v) => v.id)).toEqual(["v1"]);
+  });
+
+  it("keeps a resting value that already has a check-in", () => {
+    const values = [valueWith("v1"), valueWith("v2", null, "2026-10-01")];
+    const listed = listCheckInValues(values, [{ valueId: "v2", rating: 4 }]);
+    expect(listed.map((v) => v.id)).toEqual(["v1", "v2"]);
+  });
+
+  it("keeps an archived value that already has a check-in", () => {
+    const values = [valueWith("v1", "2026-01-01", "2026-10-01")];
+    expect(listCheckInValues(values, [{ valueId: "v1", rating: 2 }])).toHaveLength(1);
+  });
+
   it("hides an archived value unless it has a check-in", () => {
     const values = [valueWith("v1"), valueWith("v2", "2026-01-01"), valueWith("v3", "2026-01-01")];
     const listed = listCheckInValues(values, [{ valueId: "v3", rating: 3 }]);

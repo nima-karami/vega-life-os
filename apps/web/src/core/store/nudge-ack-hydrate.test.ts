@@ -60,7 +60,7 @@ describe("account load hydrates the gratitude-nudge watermark", () => {
     unsubscribe();
 
     expect(watermarkWhenReady).toBe("2026-06-20");
-    expect(getCloudProfile).toHaveBeenCalledTimes(3);
+    expect(getCloudProfile).toHaveBeenCalledTimes(2);
   });
 
   it("drops the previous account's watermark when local state is cleared", async () => {

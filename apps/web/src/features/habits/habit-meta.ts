@@ -11,6 +11,7 @@ export function buildHabitMeta(tasks: Task[], habit: Habit): CardMeta[] {
       ? `${habit.time} · ${habit.durationMin} min`
       : `Anytime · ${habit.durationMin} min`,
   });
+  if (!habit.tracked) return meta;
   const { kept, due } = computeHabitConsistency(tasks, habit);
   if (due > 0) meta.push({ text: `${kept} of last ${due}`, live: true });
   return meta;

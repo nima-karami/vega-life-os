@@ -14,6 +14,8 @@ export const getHabitInstances = (tasks: Task[], habitId: string) =>
 
 export const CONSISTENCY_WINDOW_DAYS = 7;
 
+export const isHabitTracked = (habit: Habit): boolean => habit.tracked;
+
 /** Per scheduled slot: done, due (past and unresolved), a neutral skip, or still-pending today. */
 type SlotKind = "done" | "due" | "skip" | "pending";
 
@@ -123,7 +125,7 @@ const WEEK_STATE_BY_KIND: Record<SlotKind, HabitWeekState> = {
   skip: "off",
 };
 
-/** The current Mon–Sun week for the habit card: the same slot walk as the streak, so an
+/** The current Mon–Sun week for the habit card: the same slot walk as consistency, so an
  *  unscheduled, skipped, paused, future or pre-creation day is neutral ("off"), never a miss. */
 export function buildHabitWeek(tasks: Task[], habit: Habit, today = todayISO()): HabitWeekDay[] {
   const kindByDate = new Map(deriveSlotKinds(tasks, habit, today).map((k) => [k.date, k.kind]));

@@ -1,4 +1,5 @@
 import type { Habit } from "@/features/habits/model";
+import { isHabitTracked } from "@/features/habits/selectors";
 import { type DoneContext, type DoneGroup, groupDoneByValue } from "@/features/tasks/done-groups";
 import type { Task } from "@/features/tasks/model";
 
@@ -27,6 +28,7 @@ export function computeWeekRollup(
   const weekTasks = tasks.filter((t) => t.date && pastIsos.includes(t.date));
 
   const habitRows = ctx.habits
+    .filter(isHabitTracked)
     .map((h) => {
       const scheduled = weekTasks.filter((t) => t.habitId === h.id && t.status !== "skip");
       return {

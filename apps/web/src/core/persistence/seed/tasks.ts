@@ -29,7 +29,7 @@ export function buildTasks(habits: Habit[], ref: Date, weekStart: Date): Task[] 
     return "todo";
   };
 
-  // generate ~12 weeks of history + the current week (drives streaks/analytics/heatmap)
+  // generate ~12 weeks of history + the current week (drives analytics/heatmap)
   const FROM = -84;
   const TO = 6;
   for (const h of habits) {

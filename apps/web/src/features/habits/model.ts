@@ -33,11 +33,15 @@ export interface Habit {
    *  instances but keep their history. archivedAt supersedes it. Legacy → null. */
   pausedAt: string | null;
   /** ISO-8601 timestamp the current active stretch began (set on resume); null = never
-   *  paused. Anchors the streak/rate window so a resume starts fresh (no phantom misses
+   *  paused. Anchors the consistency window so a resume starts fresh (no phantom misses
    *  across the paused gap). Legacy → null (falls back to createdAt). */
   resumedAt: string | null;
   /** Neutral date ranges from past pauses; legacy -> [] */
   pausedSpans: PausedSpan[];
+  /** Opt-in measurement: false hides consistency everywhere. Legacy -> true. */
+  tracked: boolean;
+  /** One-line if-then plan, max 200 chars. Legacy -> "". */
+  plan: string;
 }
 
 /** Three lifecycle states, derived from the two timestamps (archived supersedes paused). */
@@ -55,5 +59,5 @@ export function habitLifecycle(h: Habit): HabitLifecycle {
   return "active";
 }
 
-/** Only active habits generate instances and count toward streaks/analytics. */
+/** Only active habits generate instances and count toward consistency/analytics. */
 export const isHabitActive = (h: Habit): boolean => habitLifecycle(h) === "active";
