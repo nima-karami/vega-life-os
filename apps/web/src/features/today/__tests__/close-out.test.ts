@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/features/tasks/model";
-import { applyCloseOut, listStillOpenTasks } from "../close-out";
+import { applyCloseOut, listStillOpenTasks, planCloseOutSave } from "../close-out";
 
 const TODAY = "2026-10-20";
 
@@ -82,6 +82,29 @@ describe("applyCloseOut", () => {
     const two = [task({ id: "a", date: "2026-12-31" })];
     expect(applyCloseOut(two, { a: "tomorrow" }, "2026-12-31")[0]).toMatchObject({
       date: "2027-01-01",
+    });
+  });
+});
+
+describe("planCloseOutSave", () => {
+  const none = { choiceCount: 0, mood: null, journal: "  " };
+
+  it("is a silent no-op with nothing staged", () => {
+    expect(planCloseOutSave(none)).toEqual({ shouldWriteEntry: false, didChange: false });
+  });
+
+  it("writes the entry for a mood or journal text", () => {
+    expect(planCloseOutSave({ ...none, mood: 3 })).toEqual({
+      shouldWriteEntry: true,
+      didChange: true,
+    });
+    expect(planCloseOutSave({ ...none, journal: "x" }).shouldWriteEntry).toBe(true);
+  });
+
+  it("reports a change for choices alone without writing an entry", () => {
+    expect(planCloseOutSave({ ...none, choiceCount: 2 })).toEqual({
+      shouldWriteEntry: false,
+      didChange: true,
     });
   });
 });

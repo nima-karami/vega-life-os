@@ -1,6 +1,6 @@
 import { addDays, format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
-import { formatShortDate, getWeekDays, todayISO, weekStartOf } from "@/core/lib/date";
+import { formatShortDate, getWeekDays, localDayOf, todayISO, weekStartOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Button, ConfirmDialog, IconButton, Label, Panel, SectionHead } from "@/core/ui";
 import { splitValuesBySeason } from "@/features/values/selectors";
@@ -144,7 +144,7 @@ export function ReviewSection() {
               {dirty ? (
                 <span className="text-xs text-danger">Unsaved changes</span>
               ) : (
-                existing && <Label>Saved {existing.createdAt.slice(5, 10)}</Label>
+                existing && <Label>Saved {localDayOf(existing.createdAt).slice(5)}</Label>
               )}
             </div>
             {legacy.length > 0 && (

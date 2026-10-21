@@ -140,7 +140,7 @@ test("closing the close-out dialog writes nothing", async ({ page }) => {
   await expect(evening).toBeVisible();
 });
 
-test("close-out with no open tasks is two steps and Save needs something", async ({ page }) => {
+test("close-out with no open tasks is two steps", async ({ page }) => {
   await boot(page, at("2026-12-30", 19));
   const evening = page.getByRole("region", { name: "This evening" });
   await evening.getByRole("button", { name: "Close the day" }).click();
@@ -152,11 +152,20 @@ test("close-out with no open tasks is two steps and Save needs something", async
   await dialog.getByRole("button", { name: "Save reflection" }).click();
   await expect(dialog).toBeHidden();
 
-  await expect(evening).toBeVisible();
+  await expect(evening).toBeHidden();
+});
+
+test("an empty close-out save closes silently and hides the evening card", async ({ page }) => {
+  await boot(page, at("2026-12-30", 19));
+  const evening = page.getByRole("region", { name: "This evening" });
   await evening.getByRole("button", { name: "Close the day" }).click();
-  await expect(dialog.getByText("1 of 2")).toBeVisible();
-  await dialog.getByRole("button", { name: "Next" }).click();
-  await expect(dialog.getByRole("button", { name: "Save reflection" })).toBeDisabled();
+  const dialog = page.getByRole("dialog", { name: "Close the day" });
+  const save = dialog.getByRole("button", { name: "Save reflection" });
+  while (!(await save.isVisible())) await dialog.getByRole("button", { name: "Next" }).click();
+  await save.click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Day closed.")).toHaveCount(0);
+  await expect(evening).toBeHidden();
 });
 
 test("weekly review leads with the done list and stores check-ins", async ({ page }) => {

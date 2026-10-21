@@ -37,3 +37,12 @@ export function applyCloseOut(
     return [];
   });
 }
+
+export function planCloseOutSave(staged: {
+  choiceCount: number;
+  mood: number | null;
+  journal: string;
+}): { shouldWriteEntry: boolean; didChange: boolean } {
+  const shouldWriteEntry = staged.mood != null || staged.journal.trim() !== "";
+  return { shouldWriteEntry, didChange: shouldWriteEntry || staged.choiceCount > 0 };
+}

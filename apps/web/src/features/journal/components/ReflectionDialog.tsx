@@ -8,6 +8,7 @@ import {
   type CarryChoice,
   type CarryChoices,
   listStillOpenTasks,
+  planCloseOutSave,
 } from "@/features/today/close-out";
 import { DoneTodayStep } from "@/features/today/components/DoneTodayStep";
 import { StillOpenStep } from "@/features/today/components/StillOpenStep";
@@ -54,8 +55,7 @@ function ReflectionForm({ date, onClose, onSaved }: Omit<ReflectionDialogProps, 
   const [choices, setChoices] = useState<CarryChoices>({});
   const [mood, setMood] = useState<number | null>(existing?.mood ?? null);
   const [journal, setJournal] = useState(existing?.journal ?? "");
-  const hasReflection = mood != null || journal.trim() !== "";
-  const canSave = hasReflection || Object.keys(choices).length > 0;
+  const dismissEvening = useStore((s) => s.dismissEvening);
   const step = steps[stepIndex];
 
   const choose = (taskId: string, next: CarryChoice | null) =>
@@ -65,16 +65,19 @@ function ReflectionForm({ date, onClose, onSaved }: Omit<ReflectionDialogProps, 
     });
 
   const save = () => {
-    if (!canSave) return;
+    const plan = planCloseOutSave({ choiceCount: Object.keys(choices).length, mood, journal });
     try {
       applyUpdates(applyCloseOut(useStore.getState().tasks, choices, openDate));
     } catch {
       pushToast("Couldn't finish closing the day — try again");
       return;
     }
-    if (hasReflection) upsertDayEntry(openDate, { mood, journal });
-    pushToast("Day closed.");
-    onSaved();
+    if (plan.shouldWriteEntry) upsertDayEntry(openDate, { mood, journal });
+    dismissEvening(openDate);
+    if (plan.didChange) {
+      pushToast("Day closed.");
+      onSaved();
+    }
     onClose();
   };
 
@@ -123,7 +126,7 @@ function ReflectionForm({ date, onClose, onSaved }: Omit<ReflectionDialogProps, 
           {stepIndex === 0 ? "Cancel" : "Back"}
         </Button>
         {step === "reflect" ? (
-          <Button variant="primary" isDisabled={!canSave} onPress={save}>
+          <Button variant="primary" onPress={save}>
             Save reflection
           </Button>
         ) : (

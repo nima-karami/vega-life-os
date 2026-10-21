@@ -785,7 +785,6 @@ test("today: the evening card invites a reflection on an unfinished day", async 
   await expect(dialog.getByRole("heading", { name: "What you did today" })).toBeVisible();
   const next = dialog.getByRole("button", { name: "Next" });
   while (await next.isVisible()) await next.click();
-  await expect(dialog.getByRole("button", { name: "Save reflection" })).toBeDisabled();
   await dialog.getByRole("radio").nth(3).click();
   await dialog.getByRole("button", { name: "Save reflection" }).click();
   await expect(dialog).toBeHidden();
