@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { enterApp } from "./helpers/app";
 import { openDeck } from "./helpers/deck";
+import { readStoredRows } from "./helpers/stored-rows";
 
 /**
  * The desktop `card-editor.spec.ts` runs only in the chromium project, so nothing there
@@ -298,6 +299,12 @@ test("saving twice writes one card", async ({ page }) => {
     el.click();
   });
   await expect(page).toHaveURL(/\/cards\/[^/]+$/);
+  await expect
+    .poll(async () => {
+      const cards = await readStoredRows<{ title: string }>(page, "cards");
+      return cards.filter((card) => card.title === uniqueTitle).length;
+    })
+    .toBe(1);
 
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
   await expect(page.locator("[data-card-row]", { hasText: uniqueTitle })).toHaveCount(1);

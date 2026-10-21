@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { readStoredRows } from "./stored-rows";
 
 /** Boot the signed-out sandbox; every route is reachable from here. */
 export async function enterApp(page: Page) {
@@ -20,6 +21,12 @@ export async function saveGratitude(page: Page) {
   await card.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
   await card.getByRole("button", { name: "Save" }).click();
   await expect(card).toBeHidden();
+  await expect
+    .poll(async () => {
+      const entries = await readStoredRows<{ gratitude: string[] }>(page, "journal");
+      return entries.some((entry) => entry.gratitude.includes("e2e gratitude"));
+    })
+    .toBe(true);
 }
 
 /** Quiet mode is on by default; specs that assert on scores or Analytics turn it off first.

@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { turnQuietModeOff } from "./app";
+import { readStoredRows } from "./stored-rows";
 
 /** Mood-chart fixtures. The sandbox seeds no journal rows, so every point is logged here. */
 
@@ -15,6 +16,12 @@ async function logMood(page: Page, iso: string) {
   const pip = page.getByRole("radio", { name: /^Mood 4 of 5/ });
   await expect(pip).toBeVisible({ timeout: 15_000 });
   await pip.click();
+  await expect
+    .poll(async () => {
+      const entries = await readStoredRows<{ date: string; mood: number | null }>(page, "journal");
+      return entries.find((entry) => entry.date === iso)?.mood;
+    })
+    .toBe(4);
 }
 
 export async function openMoodChart(page: Page, daysAgo: number[]) {

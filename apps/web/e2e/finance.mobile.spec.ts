@@ -44,6 +44,7 @@ async function openPhone(page: Page, route: string) {
 }
 
 // The view strip is left out on purpose: it is deliberately scrollable and bleeds into the shell.
+// An ellipsised run is excused: inline text in a `truncate` keeps its whole font-dependent run as its box.
 async function tooWideInside(page: Page, selector: string): Promise<string[]> {
   return page.evaluate((sel) => {
     const root = document.querySelector(sel);
@@ -51,10 +52,18 @@ async function tooWideInside(page: Page, selector: string): Promise<string[]> {
     const strip = document.querySelector('nav[aria-label="Finance views"]');
     const limit = document.documentElement.clientWidth + 1;
 
+    const paintedWidth = (element: Element) => {
+      const box = element.getBoundingClientRect();
+      const ellipsis = element.parentElement?.closest(".truncate") ?? null;
+      if (ellipsis === null) return box.width;
+      const bounds = ellipsis.getBoundingClientRect();
+      return Math.max(0, Math.min(box.right, bounds.right) - Math.max(box.left, bounds.left));
+    };
+
     const wide: string[] = [];
     for (const element of root.querySelectorAll("*")) {
       if (strip !== null && (element.contains(strip) || strip.contains(element))) continue;
-      if (element.getBoundingClientRect().width > limit) {
+      if (paintedWidth(element) > limit) {
         wide.push(`${element.tagName}[${element.getAttribute("class") ?? ""}]`);
       }
     }

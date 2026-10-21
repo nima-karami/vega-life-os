@@ -7,6 +7,7 @@ import {
   MENU_EDGE_PAD_PX,
   type Point,
 } from "./helpers/menu";
+import { readStoredRows } from "./helpers/stored-rows";
 import { cancelTouch, endTouch, longPress, startTouch, swipe, tap } from "./helpers/touch";
 
 /**
@@ -1074,6 +1075,12 @@ test("the view toggle keeps aria-pressed and the choice survives a reload (390px
   await gallery.click();
   await expect(gallery).toHaveAttribute("aria-pressed", "true");
   await expect(table).toHaveAttribute("aria-pressed", "false");
+  await expect
+    .poll(async () => {
+      const prefs = await readStoredRows<{ id: string; view: string }>(page, "cardPrefs");
+      return prefs.find((row) => row.id === "feed")?.view;
+    })
+    .toBe("gallery");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: "Gallery view" })).toHaveAttribute(
