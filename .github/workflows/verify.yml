@@ -17,6 +17,9 @@ jobs:
   static:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # tsc -b over three projects can exceed the default heap on the 7 GB runner.
+      NODE_OPTIONS: --max-old-space-size=6144
     permissions:
       contents: read
       pull-requests: read
