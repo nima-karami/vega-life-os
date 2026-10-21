@@ -50,11 +50,12 @@ export type GcalAccount = {
 };
 
 const ALGORITHM = "aes-256-gcm";
+const AUTH_TAG_LENGTH = 16;
 
 export function encryptSecret(plaintext: string, keyBase64: string): string {
   const key = readKey(keyBase64);
   const iv = randomBytes(12);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
+  const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return [iv, tag, ciphertext].map((part) => part.toString("base64")).join(":");
@@ -63,7 +64,7 @@ export function encryptSecret(plaintext: string, keyBase64: string): string {
 export function decryptSecret(payload: string, keyBase64: string): string {
   const key = readKey(keyBase64);
   const [iv, tag, ciphertext] = payload.split(":").map((part) => Buffer.from(part, "base64"));
-  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
