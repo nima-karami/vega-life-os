@@ -90,7 +90,7 @@ export function FinanceCategoriesPage() {
         isEmpty={financeCategories.length === 0}
         empty={{
           title: "No categories yet",
-          body: "Categories are yours to name — start with the handful you actually budget against.",
+          body: "Categories are yours to name. Start with the handful you actually budget against.",
           cta: newCategoryButton,
         }}
       >

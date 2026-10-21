@@ -26,7 +26,7 @@ function OfflineBanner() {
     <FinanceNotice
       tone="warning"
       title="You're offline."
-      body="These figures are the last ones loaded, and anything you change now lives only in this tab — it is lost on reload."
+      body="These figures are the last ones loaded, and anything you change now lives only in this tab. It is lost on reload."
     />
   );
 }

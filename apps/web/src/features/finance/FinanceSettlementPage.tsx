@@ -171,7 +171,7 @@ export function FinanceSettlementPage() {
       isEmpty={!hasAnyData}
       empty={{
         title: "Nothing to settle yet",
-        body: "Mark expenses as household and give each a share — the period's balance builds from there.",
+        body: "Mark expenses as household and give each a share. The period's balance builds from there.",
       }}
       hasNoMatches={figures.householdRowCount === 0 && settlementRecord === undefined}
       noMatches={{

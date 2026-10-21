@@ -6,7 +6,7 @@ export function ArchivedBanner({ onUnarchive }: { onUnarchive: () => void }) {
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] bg-surface-secondary px-3 py-2">
       <span className="flex items-center gap-1.5 text-xs text-muted">
         <Icon name="clipboard" size={13} />
-        Archived — unarchive to edit and resume scheduling.
+        Archived. Unarchive to edit and resume scheduling.
       </span>
       <Button size="sm" variant="secondary" onPress={onUnarchive}>
         Unarchive to edit

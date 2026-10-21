@@ -80,7 +80,7 @@ test("an entry row shows its date, status, gratitude and journal, and opens that
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(row).toContainText("Started");
   await expect(row).toContainText("e2e gratitude");
-  await expect(row).toContainText("—");
+  await expect(row).toContainText("None");
 
   await row.click();
   await expect(page).toHaveURL(new RegExp(`/journal/${TODAY}$`));

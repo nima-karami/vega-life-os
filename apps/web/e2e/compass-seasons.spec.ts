@@ -19,7 +19,7 @@ test("resting a value groups it apart and bringing it back restores it", async (
   await expect(page.getByText("Courage is resting.").last()).toBeVisible();
 
   await page.getByRole("button", { name: /Show resting \(1\)/ }).click();
-  await expect(page.getByText(/they just step out of the weekly check-in/)).toBeVisible();
+  await expect(page.getByText(/They just step out of the weekly check-in/)).toBeVisible();
   await page.getByRole("button", { name: "Courage actions" }).click();
   await page.getByRole("menuitem", { name: "Bring into season" }).click();
   await expect(page.getByText("Courage is in season.").last()).toBeVisible();
@@ -77,10 +77,10 @@ test("a new habit is unmeasured and tracking can be switched on", async ({ page 
 
   const tracking = page.getByRole("switch", { name: "Track how often I keep it" });
   await expect(tracking).not.toBeChecked();
-  await expect(page.getByText("Not tracked — just do it when it fits.")).toBeVisible();
+  await expect(page.getByText("Not tracked. Just do it when it fits.")).toBeVisible();
   await page.getByText("Track how often I keep it").click();
   await expect(tracking).toBeChecked();
-  await expect(page.getByText("Not tracked — just do it when it fits.")).toHaveCount(0);
+  await expect(page.getByText("Not tracked. Just do it when it fits.")).toHaveCount(0);
   await page.getByText("Track how often I keep it").click();
   await expect(tracking).not.toBeChecked();
 
@@ -111,7 +111,7 @@ test("the seeded tracked habit shows its count and the untracked one does not", 
 test("an if-then plan shows on Today and clears when emptied", async ({ page }) => {
   await open(page, "/habits");
   await page.getByRole("link", { name: "Drink water", exact: true }).click();
-  const plan = page.getByRole("textbox", { name: "If–then plan" });
+  const plan = page.getByRole("textbox", { name: "If-then plan" });
   await plan.fill("When I pour coffee, I'll stretch");
   await plan.blur();
 
@@ -119,8 +119,8 @@ test("an if-then plan shows on Today and clears when emptied", async ({ page }) 
   await expect(page.getByText("When I pour coffee, I'll stretch").first()).toBeVisible();
 
   await page.goBack();
-  await page.getByRole("textbox", { name: "If–then plan" }).fill("");
-  await page.getByRole("textbox", { name: "If–then plan" }).blur();
+  await page.getByRole("textbox", { name: "If-then plan" }).fill("");
+  await page.getByRole("textbox", { name: "If-then plan" }).blur();
   await page.goto("/today", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("When I pour coffee, I'll stretch")).toHaveCount(0);
 });

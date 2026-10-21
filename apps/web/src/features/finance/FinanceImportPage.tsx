@@ -12,7 +12,7 @@ import { useAccountManager } from "./useAccountManager";
 import { NEW_ACCOUNT_OPTION, useImportView } from "./useImportView";
 
 const NO_ACCOUNT_BODY =
-  "An account has to exist first — its slug is baked into every row’s duplicate key.";
+  "An account has to exist first. Its slug is baked into every row’s duplicate key.";
 
 /** Drop a file, see what it would do to every row, then write it — in that order, always. */
 export function FinanceImportPage() {

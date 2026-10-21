@@ -8,13 +8,13 @@ describe("formatVoteMessage", () => {
 
   it("quotes the desc", () => {
     expect(formatVoteMessage({ name: "Health", desc: "Move daily" })).toBe(
-      "A vote for Health — “Move daily”",
+      "A vote for Health: “Move daily”",
     );
   });
 
   it("truncates a long desc with an ellipsis", () => {
     const message = formatVoteMessage({ name: "Health", desc: "x".repeat(2000) });
-    expect(message).toBe(`A vote for Health — “${"x".repeat(VOTE_DESC_MAX)}…”`);
+    expect(message).toBe(`A vote for Health: “${"x".repeat(VOTE_DESC_MAX)}…”`);
   });
 
   it("treats a whitespace-only desc as empty", () => {

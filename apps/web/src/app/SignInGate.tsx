@@ -51,7 +51,7 @@ export function SignInGate() {
             <Modal.Body>
               <p className="text-sm leading-relaxed text-muted">
                 Signing in switches to your account. The sample data currently on this device stays
-                local and will be cleared — it is not uploaded. Export a backup first if you want to
+                local and will be cleared. It is not uploaded. Export a backup first if you want to
                 keep it.
               </p>
             </Modal.Body>

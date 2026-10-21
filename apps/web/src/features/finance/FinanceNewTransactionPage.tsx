@@ -37,7 +37,7 @@ export function FinanceNewTransactionPage() {
     const added = addFinanceTransaction(patch);
     // Filing it here is what teaches the merchant, so the next row like it files itself.
     if (patch.categoryId != null) fileTransaction(added.id, { categoryId: patch.categoryId });
-    pushToast(`Added ${added.title} — ${formatCents(Math.abs(added.amountCents))}`);
+    pushToast(`Added ${added.title} (${formatCents(Math.abs(added.amountCents))})`);
     navigate("/finance/transactions");
   };
 
@@ -54,7 +54,7 @@ export function FinanceNewTransactionPage() {
           className={TITLE_CLASS}
         />
       }
-      subLine="The title is the handle — the ledger, the omni field and search all use it."
+      subLine="The title is the handle: the ledger, the omni field and search all use it."
       width="regular"
       backLink={BACK_LINK}
       headerAction={

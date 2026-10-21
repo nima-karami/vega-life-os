@@ -120,7 +120,7 @@ export interface SettlementHistoryRow {
   settledLabel: string;
 }
 
-const NO_DATE = "—";
+const NO_DATE = "No date";
 
 /** The closed periods, newest first, each at the figure it was settled at rather than today's. */
 export function buildSettlementHistory(

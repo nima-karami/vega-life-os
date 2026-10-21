@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test && playwright test --project=pwa"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.69.0",

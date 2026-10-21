@@ -35,7 +35,7 @@ export function PastReviewsPanel({
               Week of {formatShortDate(r.periodKey)}
             </span>
             <span className="ml-auto truncate text-xs text-muted">
-              {r.prompts.find((p) => p.a)?.a ?? "—"}
+              {r.prompts.find((p) => p.a)?.a ?? "No answers"}
             </span>
           </button>
         ))}

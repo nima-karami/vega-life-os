@@ -70,7 +70,7 @@ export function CalendarSync() {
       setHasError(!outcome.synced && reason === "needs_reauth");
     } catch {
       setHasError(true);
-      const message = "Sync failed — check your connection";
+      const message = "Sync failed. Check your connection";
       pushToast(message);
       setAnnounce(message);
     } finally {

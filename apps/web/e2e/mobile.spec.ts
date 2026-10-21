@@ -516,7 +516,7 @@ test("calendar: a touch while a chip's menu is open only dismisses it, and the n
   const allDay = page.getByRole("button", { name: "Pick up dry cleaning, all day" });
   await expect(allDay).toBeVisible({ timeout: 10_000 });
 
-  const timed = page.getByRole("button", { name: /, \d{2}:\d{2}–\d{2}:\d{2}/ }).first();
+  const timed = page.getByRole("button", { name: /, \d{2}:\d{2} to \d{2}:\d{2}/ }).first();
   await expect(timed).toBeVisible({ timeout: 10_000 });
   await timed.scrollIntoViewIfNeeded();
 

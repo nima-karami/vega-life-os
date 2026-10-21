@@ -247,8 +247,8 @@ export function TodayPage() {
           {isEmpty ? (
             <p className="text-sm text-muted">
               {isToday
-                ? "Nothing scheduled yet — add a task above, or press ⌘K to ask VEGA."
-                : "Nothing scheduled for this day — add a task above, or press ⌘K."}
+                ? "Nothing scheduled yet. Add a task above, or press ⌘K to ask VEGA."
+                : "Nothing scheduled for this day. Add a task above, or press ⌘K."}
             </p>
           ) : (
             <RemainingTasks

@@ -38,7 +38,7 @@ import { useTransactionSelection } from "./useTransactionSelection";
 
 const PAGE_SIZE = 200;
 const MONTH_PARAM = "month";
-const LEDGER_SUBLINE = "Every row from every statement — the ledger you work in.";
+const LEDGER_SUBLINE = "Every row from every statement: the ledger you work in.";
 
 type LedgerLens = "all" | "flagged" | "shared" | "mine";
 

@@ -5,7 +5,7 @@ import { describeAccountMeta } from "./account-copy";
 import { StateChip, TOUCH_SMALL_SECONDARY_BUTTON_CLASS } from "./primitives";
 import { SidebarCard } from "./SidebarCard";
 
-const EMPTY_LINE = "No accounts yet — a statement needs one to import into.";
+const EMPTY_LINE = "No accounts yet. A statement needs one to import into.";
 
 export interface FinanceAccountsCardProps {
   /** every account, archived included, in store order — the card groups them itself */

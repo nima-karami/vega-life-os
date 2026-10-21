@@ -55,7 +55,7 @@ export function FinanceImportPhasePanel({ flow }: FinanceImportPhasePanelProps) 
         <FinanceNotice
           tone="info"
           title={`Imported ${phase.inserted} transactions, ${phase.skipped} skipped as duplicates`}
-          body="They are waiting in Transactions under needs review — clearing them is what makes the next import cheaper than this one."
+          body="They are waiting in Transactions under needs review. Clearing them is what makes the next import cheaper than this one."
           actions={
             <Link to={NEEDS_REVIEW_LINK} className={LINK_CLASS}>
               Review them

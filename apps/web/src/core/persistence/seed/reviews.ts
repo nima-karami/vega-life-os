@@ -25,7 +25,7 @@ export function buildReviews(weekStart: Date): Dataset["reviews"] {
         },
         {
           q: "Which value do you want to give more of yourself to next week?",
-          a: "Stability — admin piled up and I avoided it.",
+          a: "Stability: admin piled up and I avoided it.",
         },
         {
           q: "The one thing that matters most next week:",

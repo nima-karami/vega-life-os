@@ -2,8 +2,8 @@ const KEY = "vega.anthropicKey";
 const MODEL = "vega.anthropicModel";
 
 export const AGENT_MODELS = [
-  { id: "claude-opus-4-8", label: "Opus 4.8 — smartest" },
-  { id: "claude-haiku-4-5", label: "Haiku 4.5 — fastest" },
+  { id: "claude-opus-4-8", label: "Opus 4.8 (smartest)" },
+  { id: "claude-haiku-4-5", label: "Haiku 4.5 (fastest)" },
 ] as const;
 
 export const DEFAULT_MODEL = AGENT_MODELS[0].id;

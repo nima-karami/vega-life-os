@@ -243,7 +243,7 @@ export function CommandBar() {
                         value={`go ${n.label} ${n.sublabel ?? ""} ${n.keywords ?? ""}`}
                       >
                         {n.label}
-                        {n.sublabel && <span className="ml-2 text-muted">— {n.sublabel}</span>}
+                        {n.sublabel && <span className="ml-2 text-muted">{n.sublabel}</span>}
                       </CmdItem>
                     ))}
                   </Command.Group>

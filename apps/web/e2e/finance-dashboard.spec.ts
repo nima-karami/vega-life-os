@@ -117,7 +117,7 @@ test("the overview leads with three cash figures and the budget list", async ({ 
   await expect(statCards(page)).toContainText("Net on your accounts");
   await expect(statCards(page)).toContainText("$2,142.50");
 
-  await expect(budgetCard(page)).toContainText("— your share");
+  await expect(budgetCard(page)).toContainText("(your share)");
   await expect(paceBar(page, "Groceries")).toHaveAttribute("aria-valuetext", "$71.25 of $500.00");
   await expect(paceBar(page, "Home & rent")).toHaveAttribute(
     "aria-valuetext",

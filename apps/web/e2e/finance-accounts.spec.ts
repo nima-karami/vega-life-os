@@ -157,7 +157,7 @@ test("a colliding name takes the next slug, and a rename never moves it", async 
 
   await chooseRowAction(page, "E2E Rainy Day", "Rename…");
   await expect(page.getByText("e2e-savings-2")).toBeVisible();
-  await expect(page.getByText("Used in duplicate keys — fixed")).toBeVisible();
+  await expect(page.getByText("Used in duplicate keys, so it can’t change")).toBeVisible();
 });
 
 test("the row menu moves an account to business and says so", async ({ page }) => {

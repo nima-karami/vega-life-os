@@ -8,7 +8,7 @@ import { hasUnresolvedFlags } from "./review-flags";
 import { monthOfTransaction, resolveTransactionTitle } from "./transactions-query";
 
 export const PICK_CATEGORY_LABEL = "Pick category";
-export const NO_FIGURE = "—";
+export const NO_FIGURE = "Not set";
 const DEFAULT_PARTNER_NAME = "Partner";
 
 /** An annual charge repeats about a year apart — a month either side of twelve is still annual. */
@@ -143,7 +143,7 @@ function resolveCategoryCell(
       suggestionId: suggestion.id,
     };
 
-  if (txn.isInternal) return { tone: "exempt", label: NO_FIGURE, color: null, suggestionId: null };
+  if (txn.isInternal) return { tone: "exempt", label: "None", color: null, suggestionId: null };
   return { tone: "missing", label: PICK_CATEGORY_LABEL, color: null, suggestionId: null };
 }
 

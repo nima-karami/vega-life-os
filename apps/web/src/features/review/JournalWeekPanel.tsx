@@ -6,12 +6,12 @@ import { type DayEntry, MOOD_LABEL } from "@/features/journal/model";
 import { getWeekEntries } from "@/features/journal/selectors";
 
 function describeJournalDay(entry: DayEntry, dayLabel: string): string {
-  if (entry.mood != null) return `${dayLabel} — ${MOOD_LABEL[entry.mood]}`;
+  if (entry.mood != null) return `${dayLabel}: ${MOOD_LABEL[entry.mood]}`;
   const gratitudeCount = entry.gratitude.filter((g) => g.trim() !== "").length;
   if (gratitudeCount > 0) {
-    return `${dayLabel} — ${gratitudeCount} gratitude item${gratitudeCount === 1 ? "" : "s"}`;
+    return `${dayLabel}: ${gratitudeCount} gratitude item${gratitudeCount === 1 ? "" : "s"}`;
   }
-  return `${dayLabel} — journal entry`;
+  return `${dayLabel}: journal entry`;
 }
 
 export function JournalWeekPanel({

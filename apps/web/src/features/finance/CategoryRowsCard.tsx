@@ -12,7 +12,7 @@ const MIN_WIDTH = "min-w-[42rem]";
 const HEADERS = ["Date", "Title", "Split", "Full", "Your share"];
 const RIGHT_ALIGNED = new Set(["Full", "Your share"]);
 
-const NO_FIGURE = "—";
+const NO_FIGURE = "Not set";
 
 /**
  * The ledger's language minus the columns this page already answers — no checkbox, no category, and

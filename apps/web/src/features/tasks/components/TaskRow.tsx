@@ -28,7 +28,7 @@ export function TaskRow({
 
   return (
     <div className={cx("group flex items-center gap-3 py-2.5", isResolved && "opacity-55")}>
-      <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{task.time ?? "—"}</span>
+      <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{task.time ?? ""}</span>
 
       <button
         type="button"

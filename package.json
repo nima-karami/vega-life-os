@@ -23,14 +23,19 @@
     "knip:all": "knip",
     "test": "npm test --workspaces --if-present",
     "dupes": "jscpd apps/web/src apps/server/src packages/shared/src --threshold 5 --reporters console",
+    "check:lockfile": "node scripts/check-lockfile-platforms.mjs",
+    "check:suppressions": "node scripts/check-suppressions.mjs",
     "audit:deps": "npm audit --audit-level=high && osv-scanner scan source --lockfile package-lock.json",
     "scan:secrets": "gitleaks git . --no-banner --redact",
-    "sast": "semgrep ci",
+    "sast": "semgrep scan --error --metrics off --config p/javascript --config p/typescript --config p/react --config p/nodejs",
     "e2e": "npm run e2e --workspace @vega/web",
-    "deploy": "npm run build && npx -y firebase-tools@15 deploy --only hosting --project vega-life-os --non-interactive",
+    "deploy": "npm run release:guard && npm run check:live-schema && npm run build && npx -y firebase-tools@15 deploy --only hosting --project vega-life-os --non-interactive",
     "deploy:preview": "npm run build && npx -y firebase-tools@15 hosting:channel:deploy preview --expires 7d --project vega-life-os --non-interactive",
-    "deploy:rollback": "npx -y firebase-tools@15 hosting:rollback --project vega-life-os",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deadcode && npm run test && npm run dupes && npm run scan:secrets && npm run audit:deps && npm run e2e",
+    "deploy:rollback": "npx -y firebase-tools@15 hosting:clone --project vega-life-os",
+    "release:guard": "node scripts/release-guard.mjs",
+    "check:live-schema": "node scripts/check-live-schema.mjs",
+    "deploy:server": "bash scripts/deploy-server.sh",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deadcode && npm run check:lockfile && npm run check:suppressions && npm run test && npm run dupes && npm run scan:secrets && npm run audit:deps && npm run e2e",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -47,11 +52,10 @@
     "typescript": "^5.6.3"
   },
   "overrides": {
-    "uuid": "^11.1.1",
     "brace-expansion": "^5.0.8",
-    "googleapis-common": {
-      "uuid": "^11.1.1"
-    },
-    "smol-toml": "^1.7.1"
+    "smol-toml": "^1.7.1",
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "^1.14.6"
+    }
   }
 }

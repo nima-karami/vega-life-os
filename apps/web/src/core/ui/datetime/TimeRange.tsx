@@ -86,7 +86,7 @@ export function TimeRange({
         triggerContent={
           <>
             <span className={value.time ? "" : "text-[var(--color-muted)]"}>
-              {value.time && end != null ? `${value.time} – ${formatMinutes(end)}` : "No time"}
+              {value.time && end != null ? `${value.time}-${formatMinutes(end)}` : "No time"}
             </span>
             <span className="flex items-center gap-1.5 shrink-0">
               {value.time && (

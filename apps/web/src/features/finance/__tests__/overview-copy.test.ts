@@ -62,7 +62,7 @@ describe("describeTrendCaption", () => {
         month(70000, true),
         month(24010, false, true),
       ]),
-    ).toBe("Red dots are breaches — 2 in 3 months · average $683/mo");
+    ).toBe("Red dots are breaches: 2 in 3 months · average $683/mo");
   });
 
   it("leads with the clean record when no month breached", () => {
@@ -73,7 +73,7 @@ describe("describeTrendCaption", () => {
 
   it("refuses to average a window with nothing completed in it", () => {
     expect(describeTrendCaption([month(1000, false, true)])).toBe(
-      "No completed month on file yet — nothing to average against.",
+      "No completed month on file yet, so nothing to average against.",
     );
   });
 
@@ -92,7 +92,7 @@ describe("describeBurnCaption", () => {
       { monthEnd: "Aug 31", driftCategory: "Dining out" },
     );
     expect(caption).toEqual({
-      text: "Tracking $1,847 by Aug 31 — $347 over the $1,500 plan. Dining out is the drift.",
+      text: "Tracking $1,847 by Aug 31, $347 over the $1,500 plan. Dining out is the drift.",
       isWarning: true,
     });
   });
@@ -103,7 +103,7 @@ describe("describeBurnCaption", () => {
       { monthEnd: "Aug 31", driftCategory: null },
     );
     expect(caption.isWarning).toBe(false);
-    expect(caption.text).toBe("Tracking $1,400 by Aug 31 — $100 under the $1,500 plan.");
+    expect(caption.text).toBe("Tracking $1,400 by Aug 31, $100 under the $1,500 plan.");
   });
 
   it("says there is no plan rather than dividing by one that does not exist", () => {
@@ -132,10 +132,10 @@ describe("describeExclusions", () => {
   it("states the rows left out beside the figure they would have changed", () => {
     expect(describeExclusions(0, 0)).toBe("");
     expect(describeExclusions(1, 4499)).toBe(
-      "1 row left out — $44.99 still needs a category or a split.",
+      "1 row left out: $44.99 still needs a category or a split.",
     );
     expect(describeExclusions(3, 12000)).toBe(
-      "3 rows left out — $120.00 still needs a category or a split.",
+      "3 rows left out: $120.00 still needs a category or a split.",
     );
   });
 });

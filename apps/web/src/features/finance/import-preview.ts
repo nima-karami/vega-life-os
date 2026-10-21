@@ -143,7 +143,7 @@ export const describePriorImport = (
   if (batch === null) return undefined;
   const when = formatDateLabel((batch.committedAt ?? batch.startedAt).slice(0, 10));
   if (batch.accountId === stagingAccountId) {
-    return `You already imported this exact file on ${when} — ${batch.rowsInserted} rows landed then.`;
+    return `You already imported this exact file on ${when}, and ${batch.rowsInserted} rows landed then.`;
   }
   return `This same file went into ${priorAccountName} on ${when}. Its rows are new here, because a duplicate key carries the account it was read under.`;
 };
@@ -154,7 +154,7 @@ export const describeAccountMismatch = (
 ): string | undefined =>
   mismatch === null
     ? undefined
-    : `${mismatch.unmatched} of ${mismatch.parsed} rows are merchants ${accountName} has never seen — check the file belongs to it.`;
+    : `${mismatch.unmatched} of ${mismatch.parsed} rows are merchants ${accountName} has never seen. Check the file belongs to it.`;
 
 /**
  * The DD/MM↔MM/DD guard, as one line: a misread format shifts a third of the rows across month

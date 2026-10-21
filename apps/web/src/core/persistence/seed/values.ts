@@ -46,7 +46,7 @@ export function buildValues(): Value[] {
       spectrum: "stability",
       energy: 0.34,
       order: 3,
-      desc: "Keep the foundations steady — money, home, admin.",
+      desc: "Keep the foundations steady: money, home, admin.",
       archivedAt: null,
       restingAt: null,
     },

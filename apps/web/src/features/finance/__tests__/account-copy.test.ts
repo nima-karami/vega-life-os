@@ -36,19 +36,19 @@ describe("the accounts card's second line", () => {
 describe("the archive confirm's body", () => {
   it("says there is nothing filed against an empty account", () => {
     expect(describeAccountArchive(0)).toBe(
-      "Nothing is filed against it yet — it just stops being offered as an import target.",
+      "Nothing is filed against it yet; it just stops being offered as an import target.",
     );
   });
 
   it("agrees its verb with a single transaction", () => {
     expect(describeAccountArchive(1)).toBe(
-      "Its 1 transaction stays exactly where it is — it just stops being offered as an import target.",
+      "Its 1 transaction stays exactly where it is; it just stops being offered as an import target.",
     );
   });
 
   it("agrees its verb with many transactions", () => {
     expect(describeAccountArchive(412)).toBe(
-      "Its 412 transactions stay exactly where they are — it just stops being offered as an import target.",
+      "Its 412 transactions stay exactly where they are; it just stops being offered as an import target.",
     );
   });
 });

@@ -115,7 +115,7 @@ describe("describeBulkLearning", () => {
   });
 
   it("reads as a skip when nothing could be put in review", () => {
-    expect(describeBulkLearning(0, 2)).toBe("2 cards skipped — nothing to recall yet");
+    expect(describeBulkLearning(0, 2)).toBe("2 cards skipped, nothing to recall yet");
   });
 });
 

@@ -27,7 +27,7 @@ function ShareSentence({
   if (amountCents === null || shareBps === null)
     return (
       <p className="text-[13px] text-muted">
-        An amount and a share make the sentence — it is derived, never typed.
+        An amount and a share make the sentence. It is derived, never typed.
       </p>
     );
 
@@ -123,7 +123,7 @@ export function TransactionSharedBlock({
         <ShareSentence values={values} partnerName={partnerName} />
       ) : (
         <p className="text-[13px] text-muted">
-          Not shared — the whole charge is yours, and it stays out of the settle-up.
+          Not shared: the whole charge is yours, and it stays out of the settle-up.
         </p>
       )}
     </section>

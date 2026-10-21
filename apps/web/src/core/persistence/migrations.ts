@@ -222,7 +222,7 @@ async function runCardsMigration(
   savePut("cardPrefs", stamped);
 
   if (pending.length > 0)
-    get().pushToast("Card bodies are now plain text — the earlier versions are kept");
+    get().pushToast("Card bodies are now plain text. The earlier versions are kept");
   return "complete";
 }
 

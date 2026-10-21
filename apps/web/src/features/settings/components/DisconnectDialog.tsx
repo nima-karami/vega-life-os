@@ -27,10 +27,10 @@ export function DisconnectDialog({ open, onClose }: { open: boolean; onClose: ()
     try {
       await getTrpcClient().calendar.disconnect.mutate();
       await refreshGcalStatus();
-      pushToast("Disconnected — your VEGA calendar stays in Google");
+      pushToast("Disconnected. Your VEGA calendar stays in Google");
       onClose();
     } catch {
-      pushToast("Couldn’t disconnect — try again");
+      pushToast("Couldn’t disconnect. Try again");
     } finally {
       setBusy(false);
     }

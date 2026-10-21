@@ -48,7 +48,7 @@ export function AccountSettings() {
         <div className="flex flex-col gap-5">
           <p className="max-w-md text-sm text-muted">
             Sign in to sync your data to your account across devices. Sample data on this device
-            stays local and is never uploaded — export a backup first if you want to keep it.
+            stays local and is never uploaded. Export a backup first if you want to keep it.
           </p>
           <AuthForm />
         </div>

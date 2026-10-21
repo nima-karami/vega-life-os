@@ -91,7 +91,7 @@ export function FinanceViewNav() {
               })}
             </ButtonGroup>
             <span aria-live="polite" aria-atomic="true" className="sr-only">
-              {currentView ? `${currentView.label} — finance` : ""}
+              {currentView ? `${currentView.label}, finance` : ""}
             </span>
           </nav>
           {hasMoreRight && (

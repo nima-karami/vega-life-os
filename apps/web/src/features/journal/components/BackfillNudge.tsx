@@ -33,7 +33,7 @@ export function BackfillNudge({
         <p className="min-w-0 flex-1 text-sm text-foreground">
           {hasMultiple
             ? `${missedDays.length} recent days without gratitude.`
-            : `You haven't written gratitude for ${formatLongDate(recent)} — add it?`}
+            : `You haven't written gratitude for ${formatLongDate(recent)}. Add it?`}
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button

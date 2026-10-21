@@ -1,4 +1,5 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { SCHEMA_HASH } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -26,7 +27,9 @@ export function buildApp(deps: AppDeps): Hono {
     webhookUrl: deps.calendar.webhookUrl,
   };
 
-  app.get("/health", (c) => c.json({ ok: true }));
+  app.get("/health", (c) =>
+    c.json({ ok: true, sha: process.env.GIT_SHA ?? "dev", schemaHash: SCHEMA_HASH }),
+  );
 
   // The web client is a different origin (Firebase Hosting) than this API (Cloud Run),
   // so the browser needs CORS. Origins are configurable; default to prod + local dev.

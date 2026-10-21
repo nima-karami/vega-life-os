@@ -21,6 +21,8 @@ COPY --from=deps /repo/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY packages/shared ./packages/shared
 COPY apps/server ./apps/server
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA
 WORKDIR /repo/apps/server
 EXPOSE 8080
 CMD ["npx", "tsx", "src/index.ts"]

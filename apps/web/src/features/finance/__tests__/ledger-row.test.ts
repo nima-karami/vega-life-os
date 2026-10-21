@@ -153,7 +153,7 @@ describe("a ledger row's split, in both registers", () => {
     expect(buildLedgerRowView(txn, lookups()).metaPhrase).toBe("spread ×12");
   });
 
-  it("prints the em dash and no share at all while the row is unreviewed", () => {
+  it("prints Not set and no share at all while the row is unreviewed", () => {
     const txn = row("2026-08-09", -12999, { categoryId: null });
     const view = buildLedgerRowView(txn, lookups());
     expect(view.splitPhrase).toBe(NO_FIGURE);

@@ -62,5 +62,5 @@ function GoalVerdictBadge({ verdict }: { verdict: GoalVerdict }) {
   if (verdict.kind === "pace") {
     return <span className="text-xs text-muted">{verdict.text}</span>;
   }
-  return <span className="text-xs text-muted">—</span>;
+  return <span className="text-xs text-muted">No pace yet</span>;
 }

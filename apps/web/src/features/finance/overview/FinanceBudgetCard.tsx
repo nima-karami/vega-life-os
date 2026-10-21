@@ -77,7 +77,7 @@ export function FinanceBudgetCard({
         qualifier={
           <span className="tabular-nums">
             <strong className="font-semibold text-foreground">{formatCents(spentCents)}</strong> of{" "}
-            {formatCents(budgetCents)} — your share
+            {formatCents(budgetCents)} (your share)
           </span>
         }
       />

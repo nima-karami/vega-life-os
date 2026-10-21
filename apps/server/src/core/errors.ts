@@ -33,7 +33,7 @@ export type PartialCommitDetail = {
 export class PartialCommitError extends Error {
   constructor(readonly detail: PartialCommitDetail) {
     super(
-      `partial commit: ${detail.writtenChunks} chunk(s) written, chunk ${detail.failedChunk} failed — ${detail.reason}`,
+      `partial commit: ${detail.writtenChunks} chunk(s) written, chunk ${detail.failedChunk} failed: ${detail.reason}`,
     );
     this.name = "PartialCommitError";
   }

@@ -28,7 +28,7 @@ const CHIP_BASE =
 const CHIP_ON = "border-accent font-medium text-foreground";
 const CHIP_OFF = "border-border font-normal text-muted";
 
-const NO_FIGURE = "—";
+const NO_FIGURE = "Not set";
 
 interface PayerChip {
   key: SettlementRowFilter;

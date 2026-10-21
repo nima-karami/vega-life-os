@@ -68,11 +68,11 @@ export function formatSyncStatus(phase: SyncPhase): string {
     case "syncing":
       return "Syncing…";
     case "backing-off":
-      return "Sync paused — will retry";
+      return "Sync paused, will retry";
     case "error":
       return "Sync failed";
     case "needs-reconnect":
-      return "Session expired — reconnect";
+      return "Session expired, reconnect";
     case "write-calendar-missing":
       return "VEGA calendar was removed in Google";
     case "connected":

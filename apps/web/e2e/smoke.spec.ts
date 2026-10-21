@@ -414,7 +414,7 @@ test("calendar: 'Schedule to time…' gives an all-day task a time (leaves the a
   // It is now a 60-min timed block and no longer in the all-day row.
   await expect(page.getByRole("button", { name: "Pick up dry cleaning, all day" })).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: /Pick up dry cleaning, 10:00–11:00/ }),
+    page.getByRole("button", { name: /Pick up dry cleaning, 10:00 to 11:00/ }),
   ).toBeVisible();
 });
 
@@ -529,7 +529,7 @@ test("calendar: relink a detached habit instance snaps it back to the template",
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
   // Seed has a detached h1 instance ("Read — finish 'Sapiens' ch.9", Wed 20:00).
-  const detached = page.getByRole("button", { name: /Read — finish 'Sapiens' ch.9, .*detached/ });
+  const detached = page.getByRole("button", { name: /Read: finish 'Sapiens' ch.9, .*detached/ });
   await expect(detached).toBeVisible({ timeout: 10_000 });
 
   await detached.click({ button: "right" });
@@ -538,7 +538,7 @@ test("calendar: relink a detached habit instance snaps it back to the template",
   // Confirms the action ran; the custom title is gone (snapped back to the template,
   // which renders identically to h1's other daily instances).
   await expect(page.getByText("Relinked to habit").first()).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: /Read — finish 'Sapiens'/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Read: finish 'Sapiens'/ })).toHaveCount(0);
 });
 
 test("calendar: ⌘-click multi-selects chips and the bulk bar reports the count", async ({

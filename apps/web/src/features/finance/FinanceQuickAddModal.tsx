@@ -167,7 +167,7 @@ export function FinanceQuickAddModal({
     });
     // Filing it is what teaches the merchant, so a hand-entered row files itself next time too.
     if (categoryId !== null) fileTransaction(added.id, { categoryId });
-    pushToast(`Added ${description} — ${formatCents(amountCents)}`);
+    pushToast(`Added ${description} (${formatCents(amountCents)})`);
     onClose();
   };
 

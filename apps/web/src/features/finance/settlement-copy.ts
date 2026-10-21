@@ -80,19 +80,19 @@ export interface SettlementNote {
 
 const describeMissingSplitNote = (figures: SettlementFigures): SettlementNote => ({
   icon: "alert",
-  text: `${countRows(figures.excludedCount)} still ${figures.excludedCount === 1 ? "has" : "have"} no split — ${formatCents(figures.excludedCents)} counts at its current split until you set one.`,
+  text: `${countRows(figures.excludedCount)} still ${figures.excludedCount === 1 ? "has" : "have"} no split. ${formatCents(figures.excludedCents)} counts at its current split until you set one.`,
   isBlocking: true,
 });
 
 const describeAmendedNote = (figures: SettlementFigures): SettlementNote => ({
   icon: "alert",
-  text: `The figure moved to ${formatCents(Math.abs(figures.currentBalanceCents))} after this period settled — a difference of ${formatCents(Math.abs(figures.differenceCents))}. Re-settle at the new figure, or carry the difference forward.`,
+  text: `The figure moved to ${formatCents(Math.abs(figures.currentBalanceCents))} after this period settled, a difference of ${formatCents(Math.abs(figures.differenceCents))}. Re-settle at the new figure, or carry the difference forward.`,
   isBlocking: true,
 });
 
 const describeSettledNote = (figures: SettlementFigures, frozenCents: number): SettlementNote => ({
   icon: "check",
-  text: `Settled at ${formatCents(Math.abs(frozenCents))}${figures.settledAt === null ? "" : ` on ${formatDayLabel(figures.settledAt)}`} — later edits amend the period, they never rewrite that figure.`,
+  text: `Settled at ${formatCents(Math.abs(frozenCents))}${figures.settledAt === null ? "" : ` on ${formatDayLabel(figures.settledAt)}`}. Later edits amend the period; they never rewrite that figure.`,
   isBlocking: false,
 });
 
@@ -159,13 +159,13 @@ export function describeSettlementConfirmCopy(
     return {
       title: "Reopen this period for editing?",
       confirmLabel: "Reopen",
-      body: `${formatMonthLabel(figures.month)} unlocks so its rows can be edited again. The ${formatCents(Math.abs(figures.frozenBalanceCents ?? 0))} it was settled at is kept on record — settle again when you're done.`,
+      body: `${formatMonthLabel(figures.month)} unlocks so its rows can be edited again. The ${formatCents(Math.abs(figures.frozenBalanceCents ?? 0))} it was settled at is kept on record. Settle again when you're done.`,
     };
   }
   return {
     title: "Freeze this period's figure?",
     confirmLabel: action === "resettle" ? "Re-settle" : "Record settlement",
-    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))} — ${describeBalance(figures.currentBalanceCents, "now", partnerName).toLowerCase()}. Later edits to these rows amend the period; they never rewrite this figure.`,
+    body: `${formatMonthLabel(figures.month)} settles at ${formatCents(Math.abs(figures.currentBalanceCents))}: ${describeBalance(figures.currentBalanceCents, "now", partnerName).toLowerCase()}. Later edits to these rows amend the period; they never rewrite this figure.`,
   };
 }
 
@@ -179,5 +179,5 @@ export function describeSettlementOutcome(
     return { name: partner, phrase: " sent you", amount: formatCents(balanceCents) };
   if (balanceCents < 0)
     return { name: null, phrase: `You sent ${partner}`, amount: formatCents(-balanceCents) };
-  return { name: null, phrase: "Square — nothing changed hands", amount: "" };
+  return { name: null, phrase: "Square: nothing changed hands", amount: "" };
 }

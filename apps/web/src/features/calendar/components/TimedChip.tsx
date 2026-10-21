@@ -84,7 +84,7 @@ export function TimedChip({
   const resolved = task.status === "done" || task.status === "skip";
   const off = isOffWindow(eff.start);
   const timeLabel = dragging
-    ? `${formatMinutes(eff.start)}–${addMinutes(formatMinutes(eff.start), eff.durationMin)}`
+    ? `${formatMinutes(eff.start)}-${addMinutes(formatMinutes(eff.start), eff.durationMin)}`
     : task.time;
 
   return (
@@ -113,7 +113,7 @@ export function TimedChip({
               onOpen();
             }
           }}
-          aria-label={`${task.title}, ${task.time}–${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
+          aria-label={`${task.title}, ${task.time} to ${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
           className={cx(
             // A swipe belongs to the grid's scroller at every width — `touch-action` cannot read
             // the pointer, so a `sm:touch-none` froze the finger on a touchscreen laptop.

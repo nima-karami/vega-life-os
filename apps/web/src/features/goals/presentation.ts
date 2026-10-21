@@ -39,7 +39,7 @@ export function getGoalPaceBadge(goal: Goal, today: string = todayISO()): PaceBa
   if (getGoalPhase(goal, today) !== "current") return null;
   const pace = computeGoalPace(goal, today);
   if (pace >= 0) return { text: "On pace" };
-  return { text: "Slower than planned — still want this?" };
+  return { text: "Slower than planned. Still want this?" };
 }
 
 /** A future-scheduled goal cannot be activated until its period begins. */
@@ -67,7 +67,7 @@ export function getGoalScheduleBadge(goal: Goal, today: string = todayISO()): Sc
   if (phase === "current" && goal.status === "backlog")
     return { kind: "ready", text: "Ready to start" };
   if (phase === "ended" && !isGoalClosed(goal.status))
-    return { kind: "ended", text: "Ended — close it, extend it, or let it go?" };
+    return { kind: "ended", text: "Ended. Close it, extend it, or let it go?" };
   return null;
 }
 

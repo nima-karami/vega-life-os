@@ -5,7 +5,7 @@ import { SettlementSplitCell } from "../SettlementSplitCell";
 import type { SettlementRowView } from "../settlement-rows";
 import { CompactRow } from "./CompactRow";
 
-const NO_FIGURE = "—";
+const NO_FIGURE = "Not set";
 
 /** The period's shared rows on a phone, led by what each one leaves owing between the two of you. */
 export function CompactSettlementRows({

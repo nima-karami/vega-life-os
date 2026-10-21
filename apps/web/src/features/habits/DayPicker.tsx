@@ -81,7 +81,7 @@ export function DayPicker({
       {!hasActiveDays && (
         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
           <Icon name="alert" size={13} />
-          No active days — this won&apos;t create any tasks.
+          No active days. This won&apos;t create any tasks.
         </p>
       )}
     </fieldset>

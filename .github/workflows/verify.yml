@@ -4,38 +4,37 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  # Deterministic checks + runtime QA + the fast security layers (deps, secrets).
-  verify:
+  static:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # gitleaks scans history
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-      # The Firestore/Auth emulator that apps/server integration tests boot needs a JRE 11+.
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
       - run: npm ci
+      - run: node scripts/check-lockfile-platforms.mjs
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run deadcode
-      # apps/server's own test script wraps vitest in `firebase emulators:exec`,
-      # so this step spins the Firestore + Auth emulator up and down in CI.
-      - run: npm run test
       - run: npm run dupes
-      - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
+      - run: node scripts/check-suppressions.mjs
       - name: Dependency audit (npm)
         run: npm audit --audit-level=high
       - name: Dependency audit (OSV)
@@ -48,12 +47,87 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # SAST is the slowest layer — kept in CI only, still gates merges.
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: ["@vega/web", "@vega/server", "@vega/shared"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      # The server suite boots the Firestore/Auth emulator, which needs a JRE 11+.
+      - if: matrix.workspace == '@vega/server'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test --workspace ${{ matrix.workspace }}
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: chromium, shardIndex: 1, shardTotal: 3 }
+          - { project: chromium, shardIndex: 2, shardTotal: 3 }
+          - { project: chromium, shardIndex: 3, shardTotal: 3 }
+          - { project: mobile-chromium, shardIndex: 1, shardTotal: 2 }
+          - { project: mobile-chromium, shardIndex: 2, shardTotal: 2 }
+          - { project: pwa, shardIndex: 1, shardTotal: 1, pwa: "1" }
+    env:
+      E2E_PWA: ${{ matrix.pwa }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Playwright
+        working-directory: apps/web
+        run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      - if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-${{ matrix.project }}-${{ matrix.shardIndex }}of${{ matrix.shardTotal }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
   sast:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep:1.181.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Semgrep
-        run: semgrep scan --config auto --error --metrics off
+        run: semgrep scan --error --metrics off --config p/javascript --config p/typescript --config p/react --config p/nodejs

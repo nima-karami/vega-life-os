@@ -279,7 +279,7 @@ describe("direction copy", () => {
     expect(describeDirection(500, "now", "")).toBe("Partner owes you");
     expect(describeDirection(-500, "now", "")).toBe("You owe Partner");
     expect(describeDirection(-500, "still", "")).toBe("You still owe Partner");
-    expect(describeDirection(0, "now", "")).toBe("Square — nothing owed either way");
+    expect(describeDirection(0, "now", "")).toBe("Square: nothing owed either way");
     expect(describeDirection(0, "still", "")).toBe("Nothing left to settle");
   });
 

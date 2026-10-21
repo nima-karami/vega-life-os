@@ -17,9 +17,9 @@ export function WriteCalendarMissingBanner() {
       await getTrpcClient().calendar.recreateWriteCalendar.mutate();
       await useStore.getState().refreshGcalStatus();
       await useStore.getState().refetchAll();
-      pushToast("VEGA calendar recreated — tasks re-synced");
+      pushToast("VEGA calendar recreated, tasks re-synced");
     } catch {
-      pushToast("Couldn’t recreate the calendar — try again");
+      pushToast("Couldn’t recreate the calendar. Try again");
     } finally {
       setBusy(false);
     }

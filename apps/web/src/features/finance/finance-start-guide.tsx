@@ -7,7 +7,7 @@ const NEW_TRANSACTION_ROUTE = "/finance/transactions/new";
 
 const NO_ACCOUNT_TITLE = "Set up your first account";
 const NO_ACCOUNT_BODY =
-  "Statements import into an account, so name the first one — a chequing account, a card, whatever you actually file.";
+  "Statements import into an account, so name the first one: a chequing account, a card, whatever you actually file.";
 
 const SURFACE_COPY = {
   overview: {

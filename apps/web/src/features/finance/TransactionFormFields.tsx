@@ -267,7 +267,7 @@ function InternalTransferToggle({
       <div className="min-w-0">
         <span className="block font-medium text-[14px] text-foreground">Internal transfer</span>
         <span className="mt-0.5 block text-[12.5px] text-muted">
-          Money moving between your own accounts — kept out of spend, budgets and the settle-up.
+          Money moving between your own accounts, kept out of spend, budgets and the settle-up.
         </span>
       </div>
       <Switch

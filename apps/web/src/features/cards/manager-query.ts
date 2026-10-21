@@ -82,7 +82,7 @@ export function queryCards(
 }
 
 export function describeBulkLearning(applied: number, skipped: number): string {
-  if (applied === 0) return `${pluralize(skipped, "card")} skipped — nothing to recall yet`;
+  if (applied === 0) return `${pluralize(skipped, "card")} skipped, nothing to recall yet`;
   const head = `${pluralize(applied, "card")} in review`;
   return skipped === 0 ? head : `${head} · ${skipped} skipped, nothing to recall`;
 }

@@ -132,7 +132,7 @@ describe("the notes beside the action", () => {
 
     expect(blocker.isBlocking).toBe(true);
     expect(blocker.text).toBe(
-      "1 row still has no split — $214.47 counts at its current split until you set one.",
+      "1 row still has no split. $214.47 counts at its current split until you set one.",
     );
   });
 
@@ -195,7 +195,7 @@ describe("the confirm-dialog copy", () => {
   it("previews what settling now would freeze, in the direction sentence", () => {
     const copy = describeSettlementConfirmCopy("settle", figures, "2026-04", "Robin");
     expect(copy.confirmLabel).toBe("Record settlement");
-    expect(copy.body).toContain("settles at $500.00 — robin owes you $500.00");
+    expect(copy.body).toContain("settles at $500.00: robin owes you $500.00");
   });
 
   it("labels a re-settle differently from a first settlement", () => {
@@ -231,7 +231,7 @@ describe("a closed period's outcome", () => {
   it("has a sentence for a period that came out square", () => {
     expect(describeSettlementOutcome(0, "Robin")).toEqual({
       name: null,
-      phrase: "Square — nothing changed hands",
+      phrase: "Square: nothing changed hands",
       amount: "",
     });
   });

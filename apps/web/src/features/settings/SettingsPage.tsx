@@ -67,7 +67,7 @@ export function SettingsPage() {
   const doImport = async (file: File) => {
     const text = await file.text();
     const ok = await state.importJSON(text);
-    state.pushToast(ok ? "Data restored from backup" : "Import failed — bad file");
+    state.pushToast(ok ? "Data restored from backup" : "Import failed: bad file");
   };
 
   return (
@@ -178,7 +178,7 @@ export function SettingsPage() {
             <div>
               <span className="text-sm font-medium text-foreground">Accent</span>
               <p className="mt-1 text-xs text-muted">
-                Sets the app's primary color — buttons, highlights, the calendar now-line, and other
+                Sets the app's primary color: buttons, highlights, the calendar now-line, and other
                 accents.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -279,7 +279,7 @@ export function SettingsPage() {
           </div>
           <p className="mt-4 text-xs leading-relaxed text-muted">
             Cross-device sync is live when you sign in. Live AI and Google Calendar import are
-            architected behind swappable adapters — drop in keys to enable.
+            architected behind swappable adapters. Drop in keys to enable.
           </p>
         </SettingsCard>
         <ConfirmDialog

@@ -82,3 +82,10 @@ column); each was version-checked and pinned before install.
 - Follow-up (not blocking): pin CI action `uses:` to commit SHAs (supply-chain
   hardening); consider code-splitting the three.js lab bundle (>500 kB chunk warning,
   pre-existing).
+
+## Correction (2026-10-21)
+
+- SAST does not "gate merges": branch protection is unavailable on a private free-plan
+  repo, so a red CI job blocks nothing by itself.
+- `verify` is not run in pre-commit. Pre-commit runs lint-staged + gitleaks; pre-push runs
+  the gate minus e2e; CI runs everything. See `docs/plans/2026-10-21-gate-hardening.md`.

@@ -95,7 +95,7 @@ describe("getGoalPaceBadge", () => {
       baseGoal({ start: "2026-01-01", end: "2026-12-31", progress: 0, status: "active" }),
       "2026-07-02",
     );
-    expect(badge).toEqual({ text: "Slower than planned — still want this?" });
+    expect(badge).toEqual({ text: "Slower than planned. Still want this?" });
   });
 });
 
@@ -152,7 +152,7 @@ describe("getGoalScheduleBadge", () => {
       baseGoal({ start: "2020-01-01", end: "2020-12-31", status: "active" }),
       "2026-07-02",
     );
-    expect(badge).toEqual({ kind: "ended", text: "Ended — close it, extend it, or let it go?" });
+    expect(badge).toEqual({ kind: "ended", text: "Ended. Close it, extend it, or let it go?" });
   });
   it("shows no badge for a current active goal, or a closed ended goal", () => {
     expect(

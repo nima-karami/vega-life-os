@@ -32,7 +32,7 @@ export function queryEntries(
   return rows;
 }
 
-export const EMPTY_FIELD = "—";
+export const EMPTY_FIELD = "None";
 
 export const ENTRY_STATUS_LABEL: Record<EntryStatus, string> = {
   none: "Empty",

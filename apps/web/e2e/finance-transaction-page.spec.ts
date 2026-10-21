@@ -88,7 +88,7 @@ test("a settled month still edits, and the strip says the edit amends it", async
   await openPage(page, `/finance/transactions/${SETTLED_ROW}`);
 
   await expect(
-    page.getByText(/part of the settled \w+ settle-up — an edit here amends that month/),
+    page.getByText(/part of the settled \w+ settle-up, so an edit here amends that month/),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Amount" })).toBeEditable();
 });

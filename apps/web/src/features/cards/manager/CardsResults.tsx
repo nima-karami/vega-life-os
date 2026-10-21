@@ -55,7 +55,7 @@ export function CardsResults({
     return (
       <EmptyState
         title="Nothing matches those filters"
-        body="The deck still holds every card — this search and these filters just leave none of them showing."
+        body="The deck still holds every card. This search and these filters just leave none of them showing."
         cta={<Button onPress={onClearFilters}>Clear filters</Button>}
       />
     );

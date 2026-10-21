@@ -11,7 +11,7 @@ const KINDS: FinanceAccountKind[] = ["chequing", "savings", "credit_card"];
 
 const BUSINESS_HELPER =
   "Kept out of personal budgets unless the dashboard is switched to With business.";
-const SLUG_CAPTION = "Used in duplicate keys — fixed";
+const SLUG_CAPTION = "Used in duplicate keys, so it can’t change";
 const NAME_MAX_LENGTH = 60;
 const FOOTER_BUTTON_CLASS = "h-11 sm:h-9";
 

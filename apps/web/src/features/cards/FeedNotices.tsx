@@ -17,7 +17,7 @@ export function FeedRecovery({ onRetry }: { onRetry: () => void }) {
   return (
     <FeedNotice
       title="Couldn't load your cards"
-      body="Nothing was lost — they just haven't reached this screen yet."
+      body="Nothing was lost. They just haven't reached this screen yet."
       cta={
         <Button variant="primary" onPress={onRetry}>
           Retry

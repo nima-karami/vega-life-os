@@ -39,7 +39,7 @@ test("never miss twice: a lapsed daily habit shows the nudge until it is done", 
   await expect(page).toHaveURL(/\/habits\/[^/]+$/);
   await page.getByText("Track how often I keep it").click();
 
-  const nudge = page.getByText("Back to it today — even a small version counts.");
+  const nudge = page.getByText("Back to it today. Even a small version counts.");
   await page.goto("/today", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: "Mark Stretch done" })).toBeVisible();
   await expect(nudge).toHaveCount(0);
@@ -47,7 +47,7 @@ test("never miss twice: a lapsed daily habit shows the nudge until it is done", 
   await page.clock.setFixedTime(at("2026-12-31", 12));
   await page.goto("/today", { waitUntil: "domcontentloaded" });
   const card = page.getByRole("button", { name: /^Stretch/ });
-  await expect(card).toContainText("Back to it today — even a small version counts.");
+  await expect(card).toContainText("Back to it today. Even a small version counts.");
 
   await page.getByRole("button", { name: "Mark Stretch done" }).click();
   await expect(card).not.toContainText("Back to it today");
@@ -78,7 +78,7 @@ test("completing valued tasks toasts each value once a day", async ({ page }) =>
   const names = votes.map((v) =>
     v
       .replace(/^A vote for /, "")
-      .split(/[.—]/)[0]
+      .split(/[.:]/)[0]
       .trim(),
   );
   expect(new Set(names).size).toBe(names.length);

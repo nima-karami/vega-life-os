@@ -9,7 +9,7 @@ import { formatCents } from "../money";
 import { PaceBar } from "../primitives";
 import { type CompactMetaItem, CompactRow } from "./CompactRow";
 
-const NO_FIGURE = "—";
+const NO_FIGURE = "None";
 const OVER_BUDGET_AMOUNT = "font-medium text-[14px] text-danger tabular-nums";
 const OPEN_LINK_CLASS =
   "grid h-11 w-11 place-items-center outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent";

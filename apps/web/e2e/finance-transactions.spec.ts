@@ -83,7 +83,7 @@ test("the review lens triages the row in place and empties the queue", async ({ 
   await openLedger(page, "?review=flagged");
 
   // The queue opens on its first row, triage already expanded — no extra click to start work.
-  const done = page.getByRole("button", { name: "Done — next row" });
+  const done = page.getByRole("button", { name: "Done, next row" });
   await expect(done).toBeVisible();
 
   await page.getByRole("button", { name: `File ${UNREVIEWED_DESCRIPTION} under` }).click();

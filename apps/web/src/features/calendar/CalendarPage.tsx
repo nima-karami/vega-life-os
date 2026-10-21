@@ -556,7 +556,7 @@ export function CalendarPage() {
       if (!t) return;
       chipPressRef.current = null;
       clearSelection();
-      setAnnounce(`${t.title} armed — drag to move, or drag an edge to resize`);
+      setAnnounce(`${t.title} armed. Drag to move, or drag an edge to resize`);
       if (t.time) startTimedDrag(press, t, "move", "arm");
       else startAllDayDrag(press, t, "arm");
       // Either starter can bail; a flag left true freezes chip scrolling until the next disarm.
@@ -950,7 +950,7 @@ export function CalendarPage() {
         ...(t.status === "open" ? { status: "todo" } : {}),
       });
       setAnnounce(
-        `Scheduled ${t.title} on ${p.date}, ${formatMinutes(p.start)}–${addMinutes(formatMinutes(p.start), DROP_DURATION)}`,
+        `Scheduled ${t.title} on ${p.date}, ${formatMinutes(p.start)} to ${addMinutes(formatMinutes(p.start), DROP_DURATION)}`,
       );
       return;
     }
@@ -971,7 +971,7 @@ export function CalendarPage() {
         durationMin: p.durationMin,
       });
       setAnnounce(
-        `Moved to ${p.date}, ${formatMinutes(p.start)}–${addMinutes(formatMinutes(p.start), p.durationMin)}`,
+        `Moved to ${p.date}, ${formatMinutes(p.start)} to ${addMinutes(formatMinutes(p.start), p.durationMin)}`,
       );
       markJustDragged();
       return;
@@ -1083,7 +1083,6 @@ export function CalendarPage() {
       window.removeEventListener("pointercancel", onCancel);
       window.removeEventListener("keydown", onKey);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragId]);
 
   // Selection keyboard: Ctrl/Cmd+A (grid hovered) select-all, Esc clear, Delete remove.
@@ -1142,7 +1141,7 @@ export function CalendarPage() {
   const copyToClipboard = (t: Task) => {
     copyTask(t);
     pasteSuppressUntil.current = Date.now() + 400;
-    pushToast("Copied — click a slot or chip to paste");
+    pushToast("Copied. Click a slot or chip to paste");
   };
   const deleteTask = (t: Task) => {
     removeTask(t.id);
@@ -1267,7 +1266,7 @@ export function CalendarPage() {
           <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">
             {compact
               ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
-              : `${formatShortDate(days[0].iso)} – ${formatShortDate(days[6].iso)}`}
+              : `${formatShortDate(days[0].iso)}-${formatShortDate(days[6].iso)}`}
           </h1>
           {isForeignDisplayZone(displayZone) && (
             <p className="truncate text-xs text-muted">{`Times in ${formatZoneCity(displayZone)}`}</p>
@@ -1343,7 +1342,7 @@ export function CalendarPage() {
               Copied “{clipboardTask.title}”
             </span>
             <span className="hidden shrink-0 text-sm text-muted sm:inline">
-              — click an empty slot to place it, or a chip to replace
+              Click an empty slot to place it, or a chip to replace
             </span>
             <Button
               size="sm"
@@ -1592,7 +1591,7 @@ export function CalendarPage() {
                           style={{ top: getChipTop(preview.start) }}
                         >
                           <span className="-translate-y-1/2 rounded-[12px] bg-foreground px-1.5 py-0.5 text-[9px] tabular-nums leading-none text-background shadow-sm">
-                            {formatMinutes(preview.start)}–
+                            {formatMinutes(preview.start)}-
                             {addMinutes(formatMinutes(preview.start), preview.durationMin)}
                           </span>
                           <span className="h-px flex-1 bg-foreground/60" />
@@ -1642,7 +1641,7 @@ export function CalendarPage() {
               {visibleDays.every((d) => getTimedTasksForDay(tasks, d.iso).length === 0) && (
                 <div className="pointer-events-none absolute inset-x-0 top-1/3 text-center">
                   <p className="text-sm text-muted">
-                    Nothing scheduled {compact ? "this day" : "this week"} — click a slot to add
+                    Nothing scheduled {compact ? "this day" : "this week"}. Click a slot to add.
                   </p>
                 </div>
               )}
@@ -1840,7 +1839,7 @@ export function CalendarPage() {
               </Modal.Header>
               <Modal.Body className="pb-6">
                 <p className="text-sm text-muted">
-                  Pick a day this week. It stays an all-day item — no time is assigned.
+                  Pick a day this week. It stays an all-day item, with no time assigned.
                 </p>
                 <ButtonGroup fullWidth>
                   {days.map((d) => (

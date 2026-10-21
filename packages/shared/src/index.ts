@@ -23,4 +23,5 @@ export * from "./entities/task";
 export * from "./entities/value";
 export * from "./entities/vocab";
 export * from "./profile";
+export * from "./schema-hash";
 export * from "./sync";

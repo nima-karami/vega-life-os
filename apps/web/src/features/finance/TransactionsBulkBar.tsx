@@ -100,7 +100,7 @@ export function TransactionsBulkBar({
         </span>
         {lockedCount > 0 && (
           <span className="text-[12px] text-background/70 tabular-nums">
-            {lockedCount} settled — left untouched
+            {lockedCount} settled, left untouched
           </span>
         )}
         <span aria-hidden className="h-[18px] w-px bg-background/20" />

@@ -34,7 +34,7 @@ import {
 
 const IDLE_SUB_LINE =
   "Drop a statement and read what it would do. Nothing is written until you import.";
-const OFFLINE_REASON = "You’re offline — a signed-in import has nowhere to land until you’re back.";
+const OFFLINE_REASON = "You’re offline. A signed-in import has nowhere to land until you’re back.";
 const RECENT_LIMIT = 6;
 const NO_ACCOUNT_HINT = "Add an account first.";
 

@@ -193,7 +193,7 @@ function AnalyticsSection() {
                   type="button"
                   onClick={() => setReportHabitId(h.id)}
                   className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
-                  aria-label={`${h.name} report — ${kept} of ${due} in the last ${days} days`}
+                  aria-label={`${h.name} report: ${kept} of ${due} in the last ${days} days`}
                 >
                   <span className="w-24 shrink-0 truncate text-xs text-muted">{h.name}</span>
                   <div className="h-3 flex-1 rounded-full bg-surface-secondary">
@@ -241,7 +241,7 @@ function AnalyticsSection() {
 
       {!tasksInRange && (
         <Panel className="mb-6 p-4 text-center sm:p-6">
-          <p className="text-sm text-muted">No activity in this range — try a wider one.</p>
+          <p className="text-sm text-muted">No activity in this range. Try a wider one.</p>
         </Panel>
       )}
 

@@ -139,7 +139,7 @@ export function HabitFields({ habit }: { habit: Habit }) {
         </ButtonGroup>
         {habit.time == null && (
           <p className="mt-1.5 text-xs text-muted">
-            No set time — tracked in your daily habits, off the calendar.
+            No set time: tracked in your daily habits, off the calendar.
           </p>
         )}
       </div>
@@ -206,10 +206,10 @@ function PlanField({ habit, isDisabled }: { habit: Habit; isDisabled: boolean })
   useEffect(() => setText(habit.plan), [habit.plan]);
 
   return (
-    <EditorField label="If–then plan">
+    <EditorField label="If-then plan">
       <input
         type="text"
-        aria-label="If–then plan"
+        aria-label="If-then plan"
         value={text}
         maxLength={MAX_PLAN_LENGTH}
         disabled={isDisabled}
@@ -254,7 +254,7 @@ function LifecycleControl({ habit, lifecycle }: { habit: Habit; lifecycle: Habit
       </ButtonGroup>
       {lifecycle === "paused" && (
         <p className="mt-1.5 text-xs text-muted">
-          Paused — not generating new instances. Set Active to pick it back up.
+          Paused: not generating new instances. Set Active to pick it back up.
         </p>
       )}
     </div>

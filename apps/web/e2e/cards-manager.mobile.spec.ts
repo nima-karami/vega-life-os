@@ -48,7 +48,7 @@ const BULK_BAR_CONTROLS = [
 ];
 
 const rows = (page: Page) => page.locator("[data-card-row]");
-const tileFace = (page: Page) => page.getByRole("button", { name: /— face$/ }).first();
+const tileFace = (page: Page) => page.getByRole("button", { name: /, face$/ }).first();
 
 interface WidthProbe {
   widestPx: number;
@@ -263,7 +263,7 @@ async function openGallery(page: Page, width: number) {
 async function probeTiles(page: Page): Promise<TileProbe[]> {
   return page.evaluate(() => {
     const tiles = Array.from(document.querySelectorAll("[aria-label]")).filter((el) =>
-      / — (face|reveal)$/.test(el.getAttribute("aria-label") ?? ""),
+      /, (face|reveal)$/.test(el.getAttribute("aria-label") ?? ""),
     );
     return tiles.map((tile) => {
       const box = tile.getBoundingClientRect();
@@ -343,7 +343,7 @@ test("a long vocabulary term is fitted inside its gallery tile (390px)", async (
 
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Gallery view" }).click();
-  const tile = page.locator(`[aria-label="${LONG_TERM} — face"]`);
+  const tile = page.locator(`[aria-label="${LONG_TERM}, face"]`);
   await expect(tile).toBeVisible({ timeout: 15_000 });
 
   // The inked text, not the paragraph box — an unfitted term overflows a full-width <p>.
@@ -371,11 +371,11 @@ test("a long vocabulary term wraps instead of spilling the reveal face (320px)",
 
   await page.goto("/cards", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Gallery view" }).click();
-  const tile = page.locator(`[aria-label="${LONG_TERM} — face"]`);
+  const tile = page.locator(`[aria-label="${LONG_TERM}, face"]`);
   await expect(tile).toBeVisible({ timeout: 15_000 });
   await tile.click();
 
-  const reveal = page.locator(`[aria-label="${LONG_TERM} — reveal"]`);
+  const reveal = page.locator(`[aria-label="${LONG_TERM}, reveal"]`);
   await expect(reveal).toBeVisible();
   const spillPx = await reveal.evaluate((el) => {
     const box = el.getBoundingClientRect();

@@ -90,7 +90,7 @@ export function HabitReportModal({
             <Modal.Body className="gap-5">
               <div className="grid grid-cols-2 gap-3">
                 <Stat
-                  value={lately.due > 0 ? `${lately.kept} of last ${lately.due}` : "—"}
+                  value={lately.due > 0 ? `${lately.kept} of last ${lately.due}` : "None"}
                   label="lately"
                 />
                 <Stat

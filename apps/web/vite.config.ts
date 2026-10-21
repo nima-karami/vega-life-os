@@ -1,17 +1,44 @@
+import { execSync } from "node:child_process";
 import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { SCHEMA_HASH } from "../../packages/shared/src/schema-hash";
 
 const BACKGROUND = "#f7f7f6"; // --color-canvas: matches the app surface, no white flash
 
+function readBuildSha(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+  } catch {
+    return "dev";
+  }
+}
+
+const BUILD_SHA = readBuildSha();
+
+function buildStampPlugin(): Plugin {
+  return {
+    name: "vega-build-stamp",
+    transformIndexHtml: () => [
+      { tag: "meta", attrs: { name: "vega-build", content: BUILD_SHA }, injectTo: "head" },
+      { tag: "meta", attrs: { name: "vega-schema", content: SCHEMA_HASH }, injectTo: "head" },
+    ],
+  };
+}
+
 export default defineConfig({
+  define: {
+    __BUILD_SHA__: JSON.stringify(BUILD_SHA),
+    __SCHEMA_HASH__: JSON.stringify(SCHEMA_HASH),
+  },
   // .env.local lives at the repo root (not the app dir), so read env from there.
   envDir: path.resolve(__dirname, "..", ".."),
   plugins: [
     react(),
     tailwindcss(),
+    buildStampPlugin(),
     VitePWA({
       registerType: "prompt",
       includeAssets: ["vega.svg", "apple-touch-icon-180.png"],

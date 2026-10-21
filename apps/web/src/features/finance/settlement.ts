@@ -171,7 +171,7 @@ export function describeDirection(
   const partner = partnerName.trim() === "" ? "Partner" : partnerName.trim();
   if (cents > 0) return `${partner} ${qualifier}owes you`;
   if (cents < 0) return `You ${qualifier}owe ${partner}`;
-  return tense === "still" ? "Nothing left to settle" : "Square — nothing owed either way";
+  return tense === "still" ? "Nothing left to settle" : "Square: nothing owed either way";
 }
 
 export function describeBalance(

@@ -82,7 +82,7 @@ export function FinanceImportMapper({
 
             <Modal.Body className="space-y-5">
               <p className="text-xs text-muted">
-                This layout isn’t one we know yet. Point out the columns once — the account
+                This layout isn’t one we know yet. Point out the columns once and the account
                 remembers them for every import after this.
               </p>
               {retryReason && <p className="text-xs text-danger">{retryReason}</p>}

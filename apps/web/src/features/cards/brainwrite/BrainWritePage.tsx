@@ -258,7 +258,7 @@ export function BrainWritePage() {
     return (
       <BrainWriteNotice
         title="Nothing to review right now"
-        body="Your cards are all still here — what you've asked the deck to show is narrowing it to nothing."
+        body="Your cards are all still here. What you've asked the deck to show is narrowing it to nothing."
         cta={{ label: "Show everything", onPress: () => setCardPrefs(EVERYTHING) }}
       />
     );

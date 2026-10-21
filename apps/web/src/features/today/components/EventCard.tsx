@@ -33,7 +33,7 @@ export function EventCard({
   const lineage = { value, goal, fromHabit: false };
   const isTimed = event.time != null;
   const span = isTimed
-    ? `${event.time} – ${addMinutes(event.time ?? "", event.durationMin)}`
+    ? `${event.time}-${addMinutes(event.time ?? "", event.durationMin)}`
     : "All day";
 
   return (

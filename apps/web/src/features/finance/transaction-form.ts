@@ -117,7 +117,7 @@ export interface TransactionFormErrors {
 export function describeFormErrors(values: TransactionFormValues): TransactionFormErrors {
   const magnitude = parseAmountToCents(values.amountInput);
   return {
-    title: values.title.trim() === "" ? "Give it a title — the ledger reads by it" : null,
+    title: values.title.trim() === "" ? "Give it a title. The ledger reads by it" : null,
     amount:
       values.amountInput.trim() === ""
         ? "An amount is required"

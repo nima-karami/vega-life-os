@@ -234,7 +234,7 @@ export function buildVocab(ref: Date, weekStart: Date): VocabEntry[] {
       examples: [
         "The cracked bowl had a wabi-sabi grace.",
         "Their weathered cabin embodied wabi-sabi.",
-        "She left the seam visible — a wabi-sabi choice.",
+        "She left the seam visible: a wabi-sabi choice.",
       ],
       synonyms: ["imperfect beauty"],
       language: "Japanese",

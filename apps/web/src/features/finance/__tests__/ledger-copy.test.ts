@@ -113,7 +113,7 @@ describe("the phone's stacked money and meta lines", () => {
 
   it("names no category on an internal transfer, which never earns one", () => {
     const transfer = view({
-      category: { tone: "exempt", label: "—", color: null, suggestionId: null },
+      category: { tone: "exempt", label: "None", color: null, suggestionId: null },
       metaPhrase: "mine",
     });
     expect(describeMobileMeta(transfer)).toBe("mine");

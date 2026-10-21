@@ -145,7 +145,7 @@ test("bulk learning skips what has nothing to recall and says how many", async (
   await page.getByRole("button", { name: "Filter cards" }).click();
   await check(page.getByRole("checkbox", { name: "Prompt", exact: true }));
   await page.keyboard.press("Escape");
-  test.skip((await rows(page).count()) === 0, "the sample deck holds no prompt cards");
+  expect(await rows(page).count(), "the sample deck holds prompt cards").toBeGreaterThan(0);
 
   await check(page.getByRole("checkbox", { name: "Select every card in view" }));
   await page.getByRole("button", { name: "Set learning for selection" }).click();
@@ -212,12 +212,12 @@ test("the gallery shows real faces and a tile turns", async ({ page }) => {
   await openDeck(page);
   await page.getByRole("button", { name: "Gallery view" }).click();
 
-  const tile = page.getByRole("button", { name: /— face$/ }).first();
+  const tile = page.getByRole("button", { name: /, face$/ }).first();
   await expect(tile).toBeVisible();
   const label = (await tile.getAttribute("aria-label")) ?? "";
   await tile.click();
   await expect(
-    page.getByRole("button", { name: label.replace("— face", "— reveal") }),
+    page.getByRole("button", { name: label.replace(", face", ", reveal") }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/cards$/);
 });
@@ -352,7 +352,7 @@ test("a gallery tile's context menu opens without flipping the card, on both a f
   await openDeck(page);
   await page.getByRole("button", { name: "Gallery view" }).click();
 
-  const flippable = page.getByRole("button", { name: /— face$/ }).first();
+  const flippable = page.getByRole("button", { name: /, face$/ }).first();
   await expect(flippable).toBeVisible();
   const faceLabel = (await flippable.getAttribute("aria-label")) ?? "";
 
@@ -364,7 +364,7 @@ test("a gallery tile's context menu opens without flipping the card, on both a f
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
 
-  const plain = page.getByRole("figure", { name: /— face$/ }).first();
+  const plain = page.getByRole("figure", { name: /, face$/ }).first();
   await expect(plain).toBeVisible();
   await plain.click({ button: "right" });
   await expect(menu.getByRole("menuitem")).toHaveCount(5);
@@ -377,12 +377,12 @@ test("an excerpt tile shows its title and turns to the passage and its source", 
   await page.getByRole("button", { name: "Gallery view" }).click();
 
   // Before excerpts folded this tile was a figure with no back at all, so the role is the assertion.
-  const tile = page.getByRole("button", { name: "The cost of a switch — face" });
+  const tile = page.getByRole("button", { name: "The cost of a switch, face" });
   await expect(tile).toBeVisible();
   await expect(tile.locator('[aria-hidden="true"]')).toContainText("Deep Work · p. 41");
 
   await tile.click();
-  const turned = page.getByRole("button", { name: "The cost of a switch — reveal" });
+  const turned = page.getByRole("button", { name: "The cost of a switch, reveal" });
   await expect(turned).toBeVisible();
   await expect(turned.locator('[aria-hidden="true"]')).toContainText("The cost of a switch");
   await expect(turned.locator('[aria-hidden="true"]')).not.toContainText("Deep Work");

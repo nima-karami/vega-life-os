@@ -5,7 +5,7 @@ export function DoneTodayStep({ groups }: { groups: DoneGroup[] }) {
   if (groups.length === 0) {
     return (
       <p className="text-sm text-muted">
-        Nothing ticked off today — that's allowed. Rest and the unplanned count too.
+        Nothing ticked off today. That's allowed. Rest and the unplanned count too.
       </p>
     );
   }

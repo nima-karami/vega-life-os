@@ -6,7 +6,7 @@ import { Icon } from "@/core/ui";
 import { AuthForm } from "./AuthForm";
 
 const STEPS = [
-  { v: "Value", d: "What you stand for — your gravitational centers." },
+  { v: "Value", d: "What you stand for: your gravitational centers." },
   { v: "Goal", d: "A finish line that serves a value." },
   { v: "Habit", d: "The repeated act that moves a goal, or just keeps a value alive." },
   { v: "Task", d: "The atom you actually check off today." },

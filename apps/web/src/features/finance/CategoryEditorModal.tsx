@@ -84,8 +84,8 @@ export function CategoryEditorModal({
 
       <p className="text-xs text-muted">
         {kind === "spend"
-          ? "Set the monthly budget in the categories table — it writes against that month only, so earlier months keep the figure they were judged against."
-          : "Income categories carry no budget — they show up in the month's in/out strip instead."}
+          ? "Set the monthly budget in the categories table. It writes against that month only, so earlier months keep the figure they were judged against."
+          : "Income categories carry no budget. They show up in the month's in/out strip instead."}
       </p>
     </FinanceModalFrame>
   );

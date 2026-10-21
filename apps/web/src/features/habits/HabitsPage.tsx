@@ -91,7 +91,7 @@ export function HabitsPage() {
 
         {active.length === 0 ? (
           <p className="text-muted text-sm">
-            No habits yet — they repeat on a schedule and auto-create your daily tasks.
+            No habits yet. They repeat on a schedule and auto-create your daily tasks.
           </p>
         ) : (
           <div className="flex flex-col gap-6">

@@ -107,7 +107,7 @@ describe("describeDroppedBudgets", () => {
 
   it("names what merge removes rather than moves", () => {
     expect(describeDroppedBudgets(refs(5, 0, 3))).toBe(
-      "Removes 3 monthly budgets set on it — merge never adds two budgets together.",
+      "Removes 3 monthly budgets set on it. Merge never adds two budgets together.",
     );
   });
 });

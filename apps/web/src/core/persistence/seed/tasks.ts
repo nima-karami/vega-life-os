@@ -58,14 +58,14 @@ export function buildTasks(habits: Habit[], ref: Date, weekStart: Date): Task[] 
   // a detached habit instance (moved earlier + note) — Wed reading
   const wedRead = tasks.find((t) => t.habitId === "h1" && t.date === dayISO(2));
   if (wedRead) {
-    wedRead.title = "Read — finish 'Sapiens' ch.9";
+    wedRead.title = "Read: finish 'Sapiens' ch.9";
     wedRead.time = "20:00";
     wedRead.detached = true;
-    wedRead.note = "Moved earlier — dinner plans. Reading Sapiens, not the new stack.";
+    wedRead.note = "Moved earlier for dinner plans. Reading Sapiens, not the new stack.";
   }
   // a meaningful note on a done apply
   const monApply = tasks.find((t) => t.habitId === "h2" && t.date === dayISO(0));
-  if (monApply) monApply.note = "Sent to Northwind — analyst role.";
+  if (monApply) monApply.note = "Sent to Northwind for the analyst role.";
 
   // one-off scheduled tasks
   tasks.push({
@@ -214,7 +214,7 @@ export function buildTasks(habits: Habit[], ref: Date, weekStart: Date): Task[] 
   // energy lens (charge / drain) by activity — what lifts vs. costs you
   const ENERGY_BY_TITLE: Record<string, "charge" | "drain" | "neutral"> = {
     "Read 1h before bed": "charge",
-    "Read — finish 'Sapiens' ch.9": "charge",
+    "Read: finish 'Sapiens' ch.9": "charge",
     "Apply to 1 role": "drain",
     "Lights out by 22:30": "neutral",
     "Morning walk": "charge",

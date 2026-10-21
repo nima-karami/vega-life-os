@@ -47,7 +47,7 @@ export function GalleryTile({
   if (!canTurn) {
     return (
       <ContextMenu items={menuItems} longPress>
-        <figure className={SLOT} aria-label={`${card.title} — face`}>
+        <figure className={SLOT} aria-label={`${card.title}, face`}>
           {face}
         </figure>
       </ContextMenu>
@@ -62,7 +62,7 @@ export function GalleryTile({
           SLOT,
           "rounded-[13px] outline-none focus-visible:ring-2 focus-visible:ring-accent",
         )}
-        aria-label={`${card.title} — ${isTurned ? "reveal" : "face"}`}
+        aria-label={`${card.title}, ${isTurned ? "reveal" : "face"}`}
         onClick={() => setIsTurned((current) => !current)}
       >
         {face}

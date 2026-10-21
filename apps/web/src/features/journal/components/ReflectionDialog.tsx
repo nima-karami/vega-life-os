@@ -69,7 +69,7 @@ function ReflectionForm({ date, onClose, onSaved }: Omit<ReflectionDialogProps, 
     try {
       applyUpdates(applyCloseOut(useStore.getState().tasks, choices, openDate));
     } catch {
-      pushToast("Couldn't finish closing the day — try again");
+      pushToast("Couldn't finish closing the day. Try again");
       return;
     }
     if (plan.shouldWriteEntry) upsertDayEntry(openDate, { mood, journal });

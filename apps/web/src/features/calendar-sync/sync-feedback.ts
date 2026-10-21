@@ -7,14 +7,14 @@ export type SyncFailureReason = Extract<SyncNowResult, { reason: string }>["reas
 export function describeSyncFailure(reason: SyncFailureReason | undefined): string {
   switch (reason) {
     case "backing_off":
-      return "Google is rate-limiting — will retry automatically";
+      return "Google is rate-limiting, retrying automatically";
     case "locked":
-      return "A sync is already running — try again in a moment";
+      return "A sync is already running. Try again in a moment";
     case "needs_reauth":
       return "Reconnect Google Calendar to keep syncing";
     case "write_calendar_missing":
-      return "Sync is paused — use the calendar banner to recreate it";
+      return "Sync is paused. Use the calendar banner to recreate it";
     default:
-      return "Couldn’t sync right now — try again";
+      return "Couldn’t sync right now. Try again";
   }
 }

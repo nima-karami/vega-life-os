@@ -301,7 +301,7 @@ export function MoodChart({
       <p className="mt-3 text-xs text-muted">
         {logged.length === 0
           ? "No mood logged in this range."
-          : `${logged.length} ${granularity === "week" ? "week" : "day"}${logged.length === 1 ? "" : "s"} logged — ${anyCoarsePointer ? "tap a point to see the day, tap again to open its journal" : "tap a point to open that day's journal"}. Gaps are unrecorded ${granularity === "week" ? "weeks" : "days"}.`}
+          : `${logged.length} ${granularity === "week" ? "week" : "day"}${logged.length === 1 ? "" : "s"} logged: ${anyCoarsePointer ? "tap a point to see the day, tap again to open its journal" : "tap a point to open that day's journal"}. Gaps are unrecorded ${granularity === "week" ? "weeks" : "days"}.`}
       </p>
     </div>
   );

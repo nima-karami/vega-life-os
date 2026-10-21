@@ -39,8 +39,8 @@ export function MoodWeekPanel({ week }: { week: MoodWeek }) {
             <Link
               key={iso}
               to={`/journal/${iso}`}
-              title={`${dayLabel} — ${MOOD_LABEL[mood]} (${mood})`}
-              aria-label={`${dayLabel} — ${MOOD_LABEL[mood]} (${mood})`}
+              title={`${dayLabel}: ${MOOD_LABEL[mood]} (${mood})`}
+              aria-label={`${dayLabel}: ${MOOD_LABEL[mood]} (${mood})`}
               className={DAY_LINK}
             >
               <span className="h-4 w-4 rounded-full" style={moodTint(mood)} />

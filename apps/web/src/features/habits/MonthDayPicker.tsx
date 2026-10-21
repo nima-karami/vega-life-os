@@ -59,7 +59,7 @@ export function MonthDayPicker({
       {!days.length && !lastDay && (
         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
           <Icon name="alert" size={13} />
-          No days selected — this won&apos;t create any tasks.
+          No days selected. This won&apos;t create any tasks.
         </p>
       )}
     </fieldset>

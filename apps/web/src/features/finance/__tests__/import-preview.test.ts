@@ -229,7 +229,7 @@ describe("the prior-import warning", () => {
 
   it("says you already imported it when the same account took it", () => {
     expect(describePriorImport(PRIOR, "acc_card_a", "Card A")).toBe(
-      "You already imported this exact file on 29 July 2026 — 9 rows landed then.",
+      "You already imported this exact file on 29 July 2026, and 9 rows landed then.",
     );
   });
 

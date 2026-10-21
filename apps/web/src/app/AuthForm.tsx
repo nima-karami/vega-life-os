@@ -20,7 +20,7 @@ export function AuthForm({ autoFocus = false }: { autoFocus?: boolean }) {
     setBusy(true);
     try {
       await signInWithGoogle();
-      pushToast("Signed in — syncing");
+      pushToast("Signed in, syncing");
     } catch {
       pushToast("Sign-in cancelled");
     } finally {
@@ -38,10 +38,10 @@ export function AuthForm({ autoFocus = false }: { autoFocus?: boolean }) {
     try {
       if (mode === "up") {
         await signUpWithEmail(email, form.password);
-        pushToast("Account created — syncing");
+        pushToast("Account created, syncing");
       } else {
         await signInWithEmail(email, form.password);
-        pushToast("Signed in — syncing");
+        pushToast("Signed in, syncing");
       }
       setForm({ email: "", password: "" });
     } catch (err) {

@@ -41,7 +41,7 @@ function buildCategoryChoices(categories: FinanceCategory[]): SelectOption[] {
 }
 
 /**
- * The whole triage for one row, inline under it. Nothing is written until `Done — next row`, so a
+ * The whole triage for one row, inline under it. Nothing is written until `Done, next row`, so a
  * half-set split never lands as a figure the owner did not agree to.
  */
 export function LedgerTriage({
@@ -125,7 +125,7 @@ export function LedgerTriage({
       </p>
 
       <Button variant="primary" onPress={commit}>
-        Done — next row
+        Done, next row
       </Button>
     </div>
   );

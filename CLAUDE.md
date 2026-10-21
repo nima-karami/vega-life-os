@@ -27,11 +27,13 @@ here, not optional context.
 
 `npm run verify` is the single gate. It runs, in order:
 `format:check → lint → typecheck → deadcode → test → dupes → scan:secrets → audit:deps → e2e`.
-It runs on every commit (pre-commit hook via husky/lint-staged) and in CI.
+Enforcement is layered: **pre-commit** runs lint-staged (Biome on staged files) +
+gitleaks only; **pre-push** runs the gate minus e2e; **CI** runs everything, including
+sharded e2e and SAST. Run the full gate locally with `npm run verify`.
 
 - **Never disable, downgrade, narrow, baseline-away, or mock-out a check to make
   progress.** Fix the code so the check passes. "It's only local/dev" is not a
-  reason to relax it — the same gate runs identically in dev, pre-commit, and CI.
+  reason to relax it — the same checks run in every layer; the hooks just run a subset.
 - **No inline suppressions** to pass a check: no `biome-ignore`, `eslint-disable`,
   `@ts-ignore`, `@ts-expect-error`, or `jscpd:ignore`. Fix the root cause. If you
   reach for one, you're solving the wrong problem.

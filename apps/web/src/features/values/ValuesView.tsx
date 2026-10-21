@@ -117,10 +117,10 @@ export function ValuesView() {
 
   const emptyMessage =
     resting.length > 0
-      ? "Nothing in season right now — bring a value back when you're ready."
+      ? "Nothing in season right now. Bring a value back when you're ready."
       : archived.length > 0
-        ? `No active values — ${archived.length} archived.`
-        : 'No values yet — the "why" behind every goal and task downstream.';
+        ? `No active values. ${archived.length} archived.`
+        : 'No values yet: the "why" behind every goal and task downstream.';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
@@ -131,7 +131,7 @@ export function ValuesView() {
           What you're building toward
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Goals ladder up to a value — each with a timeframe and a state. Habits keep them moving.
+          Goals ladder up to a value, each with a timeframe and a state. Habits keep them moving.
         </p>
       </header>
 
@@ -168,7 +168,7 @@ export function ValuesView() {
           onToggle={(open) => announce(open ? "Showing resting values" : "Resting values hidden")}
         >
           <p className="mb-3 text-xs text-muted">
-            Resting values keep their goals and habits — they just step out of the weekly check-in
+            Resting values keep their goals and habits. They just step out of the weekly check-in
             for now.
           </p>
           <SortableList

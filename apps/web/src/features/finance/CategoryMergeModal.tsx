@@ -53,7 +53,7 @@ export function CategoryMergeModal({
     >
       {targets.length === 0 ? (
         <p className="text-sm text-muted">
-          There is no other active category to merge into — create one first.
+          There is no other active category to merge into. Create one first.
         </p>
       ) : (
         <>

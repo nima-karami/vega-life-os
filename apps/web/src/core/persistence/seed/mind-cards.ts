@@ -38,7 +38,7 @@ export function buildMindCards(): MindCard[] {
       true,
       "mental models",
       "Inversion",
-      "**Solve the problem backward.** Instead of asking how to succeed, ask what would guarantee failure — then avoid those things. Removing the obvious blunders often beats chasing clever wins.",
+      "**Solve the problem backward.** Instead of asking how to succeed, ask what would guarantee failure, then avoid those things. Removing the obvious blunders often beats chasing clever wins.",
       30,
     ),
     card(
@@ -56,7 +56,7 @@ export function buildMindCards(): MindCard[] {
       true,
       "mental models",
       "Circle of competence",
-      "**Know the edge of what you know.** You don't have to be an expert in everything — you have to be honest about where your expertise ends. Staying inside the circle beats wandering confidently outside it.",
+      "**Know the edge of what you know.** You don't have to be an expert in everything; you have to be honest about where your expertise ends. Staying inside the circle beats wandering confidently outside it.",
       24,
     ),
     card(
@@ -65,7 +65,7 @@ export function buildMindCards(): MindCard[] {
       true,
       "mental models",
       "Opportunity cost",
-      "**Every yes is a no to something else.** The true cost of a choice is the best alternative you gave up to make it. Time and attention spent here cannot be spent there — price the road not taken.",
+      "**Every yes is a no to something else.** The true cost of a choice is the best alternative you gave up to make it. Time and attention spent here cannot be spent there. Price the road not taken.",
       21,
     ),
     card(
@@ -92,7 +92,7 @@ export function buildMindCards(): MindCard[] {
       true,
       "negotiation",
       "Mirroring",
-      "**Repeat their last few words, then go quiet.** Mirroring signals you're listening and nudges the other side to expand and clarify. The silence after does the work — resist filling it.",
+      "**Repeat their last few words, then go quiet.** Mirroring signals you're listening and nudges the other side to expand and clarify. The silence after does the work. Resist filling it.",
       10,
     ),
     card(

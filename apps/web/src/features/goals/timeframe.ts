@@ -69,5 +69,5 @@ export function formatPeriodLabel(start: string, end: string): string {
   if (tf === "quarter") return `Q${getQuarter(s)} ${getYear(s)}`;
   if (tf === "month") return format(s, "MMM yyyy");
   if (tf === "year") return String(getYear(s));
-  return `${format(s, "MMM d")} – ${format(parseISO(end), "MMM d")}`;
+  return `${format(s, "MMM d")}-${format(parseISO(end), "MMM d")}`;
 }

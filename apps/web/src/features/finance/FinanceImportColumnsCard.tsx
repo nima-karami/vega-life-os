@@ -3,10 +3,10 @@ import type { MappingWorkedExample } from "./import/types";
 import { describeWorkedExample } from "./import-preview";
 import { SelectField, type SelectFieldOption } from "./primitives";
 
-const HELPER = "Mapping is remembered per account — the next file from it skips this step.";
+const HELPER = "Mapping is remembered per account, so the next file from it skips this step.";
 const AWAITING =
-  "Pick the account first — the duplicate check keys on it, so a file read against the wrong one duplicates every row.";
-const UNSET = "—";
+  "Pick the account first. The duplicate check keys on it, so a file read against the wrong one duplicates every row.";
+const UNSET = "Not set";
 
 export interface FinanceImportColumnsCardProps {
   /** the file's own header names; empty until a statement is staged */

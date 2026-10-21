@@ -117,7 +117,7 @@ export function CardsPage() {
         {header}
         <EmptyState
           title="Couldn't load your cards"
-          body="Nothing was lost — the deck just hasn't reached this screen yet."
+          body="Nothing was lost. The deck just hasn't reached this screen yet."
           cta={
             <Button solid onPress={() => void bootstrap()}>
               Retry

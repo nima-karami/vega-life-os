@@ -172,7 +172,7 @@ export function IconField({
         open={open}
         onOpenChange={setOpen}
         align="start"
-        triggerLabel={`${label}: ${value} — change`}
+        triggerLabel={`${label}: ${value}, change`}
         triggerClassName={cx(TRIGGER_BASE, triggerClassName ?? TRIGGER_DEFAULT)}
         triggerStyle={triggerStyle}
         triggerContent={<Icon name={value} size={iconSize} className={iconClassName} />}

@@ -116,7 +116,7 @@ function HabitDetail({ habit }: { habit: Habit }) {
             </div>
           </>
         ) : (
-          <p className="text-muted text-sm">Not tracked — just do it when it fits.</p>
+          <p className="text-muted text-sm">Not tracked. Just do it when it fits.</p>
         )}
       </section>
 

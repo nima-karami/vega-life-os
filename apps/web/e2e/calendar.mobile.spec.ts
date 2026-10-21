@@ -20,7 +20,7 @@ import {
 const PHONE = { width: 390, height: 844 };
 const WIDE = { width: 900, height: 900 };
 // Both ends of the range, so one read covers the start time and the duration.
-const CHIP_LABEL = /^Update ID card, 13:00–14:00/;
+const CHIP_LABEL = /^Update ID card, 13:00 to 14:00/;
 
 async function openCalendar(page: Page, viewport: { width: number; height: number }) {
   await page.setViewportSize(viewport);
@@ -226,7 +226,7 @@ test("dragging an armed chip's bottom handle lengthens it", async ({ page }) => 
 
   await dragChipEdge(page, "bottom", 46);
 
-  await expect(page.getByRole("button", { name: /^Update ID card, 13:00–15:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:00 to 15:00/ })).toBeVisible();
   await expect(armed(page)).toHaveCount(1);
 });
 
@@ -236,7 +236,7 @@ test("dragging an armed chip's top handle moves its start and pins its end", asy
 
   await dragChipEdge(page, "top", -46);
 
-  await expect(page.getByRole("button", { name: /^Update ID card, 12:00–14:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 12:00 to 14:00/ })).toBeVisible();
   await expect(armed(page)).toHaveCount(1);
 });
 
@@ -246,7 +246,7 @@ test("a bottom handle dragged past the start floors at one snap step", async ({ 
 
   await dragChipEdge(page, "bottom", -200);
 
-  await expect(page.getByRole("button", { name: /^Update ID card, 13:00–13:15/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:00 to 13:15/ })).toBeVisible();
 });
 
 test("a long press on a timed chip opens its menu and leaves the time alone", async ({ page }) => {
@@ -284,10 +284,10 @@ test("a hold that keeps dragging moves the chip in one gesture", async ({ page }
 
   await expect(armed(page)).toHaveCount(1);
   await expect(page.getByRole("status")).toContainText("Moved to");
-  await expect(page.getByRole("button", { name: /^Update ID card, 15:00–16:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 15:00 to 16:00/ })).toBeVisible();
   await page.reload({ waitUntil: "domcontentloaded" });
   await openThursday(page);
-  await expect(page.getByRole("button", { name: /^Update ID card, 15:00–16:00/ })).toBeVisible({
+  await expect(page.getByRole("button", { name: /^Update ID card, 15:00 to 16:00/ })).toBeVisible({
     timeout: 15_000,
   });
 });
@@ -304,7 +304,7 @@ test("an armed chip moves when its body is swiped", async ({ page }) => {
   });
 
   await expect(armed(page)).toHaveCount(1);
-  await expect(page.getByRole("button", { name: /^Update ID card, 14:00–15:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 14:00 to 15:00/ })).toBeVisible();
 });
 
 // 8px is about ten minutes, so the write proves the 15-minute snap, not the raw pointer.
@@ -319,7 +319,7 @@ test("an armed body drag snaps to the quarter hour", async ({ page }) => {
     steps: 8,
   });
 
-  await expect(page.getByRole("button", { name: /^Update ID card, 13:15–14:15/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 13:15 to 14:15/ })).toBeVisible();
 });
 
 test("a tap on an armed chip opens the editor and disarms", async ({ page }) => {
@@ -352,7 +352,7 @@ test("a second finger on the armed chip neither drives nor ends its drag", async
   await moveTouch(page, [{ x: centre.x, y: centre.y + 92, id: 1 }]);
   await endTouch(page);
 
-  await expect(page.getByRole("button", { name: /^Update ID card, 15:00–16:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 15:00 to 16:00/ })).toBeVisible();
   await expect(armed(page)).toHaveCount(1);
 });
 
@@ -577,7 +577,7 @@ test("a pen drag on the top grip resizes the chip at 900px", async ({ page }) =>
     steps: 12,
   });
 
-  await expect(page.getByRole("button", { name: /^Update ID card, 11:00–14:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 11:00 to 14:00/ })).toBeVisible();
 });
 
 // A touchscreen laptop still has a mouse, and only the mouse branch of the grip guard
@@ -594,7 +594,7 @@ test("a mouse drag on the top grip resizes the chip at 900px", async ({ page }) 
   await page.mouse.move(grip.x, grip.y - 92, { steps: 12 });
   await page.mouse.up();
 
-  await expect(page.getByRole("button", { name: /^Update ID card, 11:00–14:00/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update ID card, 11:00 to 14:00/ })).toBeVisible();
 });
 
 // The pixels either side of the breakpoint: the widest single-day column still covers the

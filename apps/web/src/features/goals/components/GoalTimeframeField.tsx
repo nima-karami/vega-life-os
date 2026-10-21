@@ -96,7 +96,7 @@ export function GoalTimeframeField({ goal }: { goal: Goal }) {
       )}
 
       {coercedTo && (
-        <p className="mt-2 text-xs text-warning">Moved to Backlog — starts {coercedTo}.</p>
+        <p className="mt-2 text-xs text-warning">Moved to Backlog. Starts {coercedTo}.</p>
       )}
     </DetailSection>
   );

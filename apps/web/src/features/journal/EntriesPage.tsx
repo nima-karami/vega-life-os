@@ -164,7 +164,7 @@ function EntryRow({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
             {entry.mood}/5
           </span>
         ) : (
-          "—"
+          "None"
         )}
       </span>
       <span className="truncate text-sm text-muted">{summarizeGratitude(entry)}</span>

@@ -60,7 +60,7 @@ export function CalendarEventChip({
       data-block
       data-event-id={event.id}
       onClick={onOpen}
-      aria-label={`${event.title}, ${event.time}–${addMinutes(event.time ?? "00:00", event.durationMin)}, ${isTagged ? "tagged" : "untagged"} (from Google)`}
+      aria-label={`${event.title}, ${event.time} to ${addMinutes(event.time ?? "00:00", event.durationMin)}, ${isTagged ? "tagged" : "untagged"} (from Google)`}
       className={cx(
         "group absolute block cursor-pointer select-none overflow-hidden rounded-[2px] border-l-[3px] border-dashed bg-surface-secondary px-1.5 py-1 text-left shadow-sm",
         !isTagged && "opacity-90",

@@ -264,6 +264,5 @@ export function useRegisterCommands(commands: ActionCommand[]): void {
   // biome-ignore lint/correctness/useExhaustiveDependencies: commands identity changes on every render; key on ids
   useEffect(() => {
     return registerCommands(commands);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

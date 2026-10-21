@@ -38,7 +38,7 @@ function buildRecoveryCopy(authUid: string | null, onRetry: () => void): EmptyCo
     title: "Couldn't load your finances",
     body:
       authUid === null
-        ? "Nothing was lost — the figures just haven't reached this screen yet."
+        ? "Nothing was lost. The figures just haven't reached this screen yet."
         : "Nothing was lost. Retry first; if it keeps failing, signing in again is worth a try.",
     cta: (
       <div className="flex flex-wrap items-center justify-center gap-2">

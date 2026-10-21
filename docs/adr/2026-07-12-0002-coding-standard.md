@@ -55,3 +55,10 @@ human↔agent collaboration that tacit knowledge is a liability; each new contri
   so no new gate failures are introduced by this pass.
 - Two gate improvements (SAST, complexity-as-error) and one refactor (CalendarPage
   split) remain open follow-ups, recorded above.
+
+## Correction (2026-10-21)
+
+"Wired into both pre-commit and CI" overstated it: pre-commit runs lint-staged + gitleaks
+only; pre-push runs the gate minus e2e; CI runs everything. Knip currently checks files,
+dependencies and unlisted deps (not exports), and complexity is warn-only; both are planned
+ratchets.

@@ -193,7 +193,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
   const importedOn = iso(addDays(referenceDate, -2));
 
   const transactions = [
-    buildTransaction("ftxn_rent", iso(addDays(settledStart, 1)), "PROPERTY MGMT — RENT", -200000, {
+    buildTransaction("ftxn_rent", iso(addDays(settledStart, 1)), "PROPERTY MGMT RENT", -200000, {
       dedupeKey: "7f3a1c02d4e59b60:0",
       title: "Rent",
       categoryId: HOME_ID,
@@ -232,13 +232,13 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
         source: "manual",
         enteredBy: "partner-reported",
         importBatchId: null,
-        note: "Her card — split evenly",
+        note: "Her card, split evenly",
       },
     ),
     buildTransaction(
       "ftxn_salary",
       iso(addDays(referenceDate, -25)),
-      "PAYROLL DEPOSIT — ACMEWORKS",
+      "PAYROLL DEPOSIT ACMEWORKS",
       480000,
       {
         dedupeKey: "2c4419fd6a03e785:0",
@@ -280,7 +280,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
     buildTransaction(
       "ftxn_transfer_in",
       iso(addDays(referenceDate, -8)),
-      "PAYMENT RECEIVED — THANK YOU",
+      "PAYMENT RECEIVED THANK YOU",
       50000,
       {
         dedupeKey: "e60c8b1379af245d:0",
@@ -325,7 +325,7 @@ export function buildFinance(referenceDate: Date): FinanceSeed {
     buildTransaction(
       "ftxn_market_partner",
       iso(addDays(referenceDate, -3)),
-      "Green Market — her run",
+      "Green Market, her run",
       -11200,
       {
         accountId: null,

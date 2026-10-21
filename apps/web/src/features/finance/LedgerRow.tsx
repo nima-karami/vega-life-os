@@ -91,7 +91,7 @@ export function LedgerRow({
         {view.isLocked && (
           <span
             role="img"
-            aria-label="Read-only — this month is settled"
+            aria-label="Read-only: this month is settled"
             className="ml-2 text-muted"
           >
             <Icon name="shield" size={13} />

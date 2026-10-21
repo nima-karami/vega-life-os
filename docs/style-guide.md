@@ -12,8 +12,9 @@ rules). Where this conflicts with habit, this file wins; where it conflicts with
 ## 1. The gate is the standard
 
 `npm run verify` decides whether code is acceptable — format, lint, typecheck, dead code,
-tests, duplication, secret scan, dep audit, e2e. It runs on every commit and in CI,
-identically.
+tests, duplication, secret scan, dep audit, e2e. Enforcement is layered: pre-commit runs
+lint-staged (Biome on staged files) and gitleaks; pre-push runs the gate minus e2e; CI runs
+everything, including sharded e2e and SAST. The full local gate is `npm run verify`.
 
 **Never disable, downgrade, narrow, baseline-away, or suppress a check to make progress.**
 No `biome-ignore`, `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `jscpd:ignore`, or
@@ -143,10 +144,12 @@ slices; relative paths only within the same slice.
 
 ## 7. Cleanliness (what the gate already watches)
 
-- **Dead code** (Knip): unused files, exports, and deps fail. Don't leave orphans.
+- **Dead code** (Knip): unused files, dependencies, and unlisted deps fail. Unused exports
+  are not yet checked; enabling them is a planned ratchet. Don't leave orphans anyway.
 - **Duplication** (jscpd, 5%): copy-pasted logic fails — extract the shared piece into
   `core/lib/` or the slice. AI-generated code clones heavily; watch for it.
-- **Complexity** (Biome): untangle a flagged function, don't suppress it.
+- **Complexity** (Biome): currently warn-only, so it does not fail the gate; promoting it to
+  an error is a planned ratchet. Untangle a flagged function, don't suppress it.
 - **Dormant-by-design code stays.** Firebase sync, the ⌘K agent, GCal sync, and the inert
   energy-model fields are gated, not dead — don't "tidy them away" (`CLAUDE.md §4, §7`).
 

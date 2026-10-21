@@ -22,7 +22,7 @@ function CheckInRow({
         <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
         <span className="truncate">{value.name}</span>
         <span className="shrink-0 text-xs text-muted">
-          {rating != null ? CHECK_IN_LABELS[rating - 1] : "—"}
+          {rating != null ? CHECK_IN_LABELS[rating - 1] : "Not rated"}
         </span>
       </span>
       <ButtonGroup aria-label={value.name}>
@@ -60,10 +60,10 @@ export function ValueCheckIn({
       <h3 className="text-sm font-medium text-foreground">
         How consistently did you live each value this week?
       </h3>
-      <p className="mt-1 text-xs text-muted">Your own sense of it — no right answer.</p>
+      <p className="mt-1 text-xs text-muted">Your own sense of it. No right answer.</p>
       {values.length === 0 && hasResting && (
         <p className="mt-4 text-sm text-muted">
-          Nothing in season right now — bring a value back when you&apos;re ready.
+          Nothing in season right now. Bring a value back when you&apos;re ready.
         </p>
       )}
       {values.length > 0 && (

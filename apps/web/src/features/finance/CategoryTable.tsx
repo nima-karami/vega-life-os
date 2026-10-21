@@ -14,7 +14,7 @@ const MIN_WIDTH = "min-w-[58rem]";
 /** The pace column needs air on both sides — the money cell to its left is right-aligned. */
 const PACE_CELL = "px-4";
 
-const NO_FIGURE = "—";
+const NO_FIGURE = "None";
 
 function HeaderRow({ month }: { month: string }) {
   const labels = [

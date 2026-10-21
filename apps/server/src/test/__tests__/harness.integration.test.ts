@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { SCHEMA_HASH } from "@vega/shared";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createRepository, type WritableEntity } from "../../core/repository";
 import { bootTestServer, type TestServer } from "../harness";
 
@@ -31,10 +32,25 @@ function sampleTask(id: string): WritableEntity<"tasks"> {
 }
 
 describe("runtime harness (real server vs Firestore emulator)", () => {
-  it("serves GET /health with 200", async () => {
-    const res = await fetch(`${server.url}/health`);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+  it("serves GET /health with the build sha and the shared schema hash", async () => {
+    vi.stubEnv("GIT_SHA", "abc1234");
+    try {
+      const res = await fetch(`${server.url}/health`);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, sha: "abc1234", schemaHash: SCHEMA_HASH });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("reports sha dev when the image was built without GIT_SHA", async () => {
+    vi.stubEnv("GIT_SHA", undefined);
+    try {
+      const res = await fetch(`${server.url}/health`);
+      expect(await res.json()).toMatchObject({ sha: "dev" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("resolves the uid for a signed request to health.whoami", async () => {

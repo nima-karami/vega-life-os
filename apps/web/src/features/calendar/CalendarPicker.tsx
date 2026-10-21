@@ -49,7 +49,7 @@ export function CalendarPicker() {
   };
 
   if (hasFailed)
-    return <p className="text-sm text-muted">Couldn’t load your calendars — try Sync now.</p>;
+    return <p className="text-sm text-muted">Couldn’t load your calendars. Try Sync now.</p>;
   if (!calendars) return <p className="text-sm text-muted">Loading your calendars…</p>;
 
   return (

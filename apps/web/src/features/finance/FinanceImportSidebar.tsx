@@ -14,7 +14,7 @@ const RULES: { icon: IconName; tone: string; body: string }[] = [
   {
     icon: "minus-circle",
     tone: "text-muted",
-    body: "Card payments and transfers land as internal — they move money, they don’t spend it, so no figure counts them.",
+    body: "Card payments and transfers land as internal: they move money, they don’t spend it, so no figure counts them.",
   },
 ];
 
@@ -29,14 +29,14 @@ export interface FinanceImportSidebarProps {
   onCreateAccount: () => void;
 }
 
-const NOTHING_LANDS = "Nothing new lands — every row in this file is already in Transactions.";
+const NOTHING_LANDS = "Nothing new lands. Every row in this file is already in Transactions.";
 
 function AfterImportBody({ newRows }: { newRows: number | null }) {
   if (newRows === 0) return <>{NOTHING_LANDS}</>;
   return (
     <>
       {newRows === null ? "The rows" : `The ${newRows} rows`} land in Transactions marked{" "}
-      <em>needs review</em> — categories guessed, splits left empty. The badge on the sub-nav
+      <em>needs review</em>, with categories guessed and splits left empty. The badge on the sub-nav
       carries the count, so the weekly pass is: import, then clear the badge.
     </>
   );

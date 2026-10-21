@@ -125,8 +125,8 @@ export function SettlementPaymentEditor({
               {isValid && residualCents !== 0 && (
                 <p className="text-xs text-muted tabular-nums">
                   {formatCents(Math.abs(residualCents))} of{" "}
-                  {formatCents(Math.abs(figures.headlineBalanceCents))} would still be outstanding —
-                  carry it forward from the month card.
+                  {formatCents(Math.abs(figures.headlineBalanceCents))} would still be outstanding.
+                  Carry it forward from the month card.
                 </p>
               )}
             </Modal.Body>

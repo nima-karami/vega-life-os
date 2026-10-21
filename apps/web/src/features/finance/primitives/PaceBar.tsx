@@ -29,7 +29,7 @@ export function PaceBar({
   const spent = formatCents(spentCents);
   const valueText =
     budgetCents > 0
-      ? `${spent} of ${formatCents(budgetCents)}${isOverBudget ? " — over budget" : ""}`
+      ? `${spent} of ${formatCents(budgetCents)}${isOverBudget ? ", over budget" : ""}`
       : `${spent} spent, no budget set`;
 
   return (

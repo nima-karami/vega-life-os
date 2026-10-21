@@ -173,7 +173,7 @@ test("a jittered click on a timed chip opens the editor and moves nothing", asyn
   await bootSandbox(page);
   await page.goto("/calendar", { waitUntil: "domcontentloaded" });
 
-  const chip = page.getByRole("button", { name: /^Update ID card, 13:00–14:00/ });
+  const chip = page.getByRole("button", { name: /^Update ID card, 13:00 to 14:00/ });
   await expect(chip).toBeVisible({ timeout: 15_000 });
   // hover() scrolls the chip inside the grid's own scroller first; a raw box read there
   // points at a clipped position the mouse would miss.

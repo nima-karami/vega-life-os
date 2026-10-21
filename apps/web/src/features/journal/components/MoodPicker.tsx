@@ -20,7 +20,7 @@ export function MoodPicker({
             key={m}
             role="radio"
             aria-checked={isSelected}
-            aria-label={`Mood ${m} of 5 — ${MOOD_LABEL[m]}`}
+            aria-label={`Mood ${m} of 5: ${MOOD_LABEL[m]}`}
             title={MOOD_LABEL[m]}
             onClick={() => onChange(m)}
             className={cx(

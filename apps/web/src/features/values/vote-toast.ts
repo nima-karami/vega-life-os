@@ -6,7 +6,7 @@ export function formatVoteMessage(value: Pick<Value, "name" | "desc">): string {
   const desc = value.desc.trim();
   if (desc === "") return `A vote for ${value.name}.`;
   const shown = desc.length > VOTE_DESC_MAX ? `${desc.slice(0, VOTE_DESC_MAX)}…` : desc;
-  return `A vote for ${value.name} — “${shown}”`;
+  return `A vote for ${value.name}: “${shown}”`;
 }
 
 export function claimVoteToast(seen: Set<string>, valueId: string, date: string): boolean {

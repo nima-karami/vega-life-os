@@ -17,10 +17,10 @@ export function describeAccountMeta(account: FinanceAccount): string {
 
 export function describeAccountArchive(rowCount: number): string {
   const tail = "it just stops being offered as an import target.";
-  if (rowCount === 0) return `Nothing is filed against it yet — ${tail}`;
+  if (rowCount === 0) return `Nothing is filed against it yet; ${tail}`;
   const rows =
     rowCount === 1
       ? "Its 1 transaction stays exactly where it is"
       : `Its ${rowCount} transactions stay exactly where they are`;
-  return `${rows} — ${tail}`;
+  return `${rows}; ${tail}`;
 }

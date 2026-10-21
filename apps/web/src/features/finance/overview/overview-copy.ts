@@ -57,14 +57,15 @@ const pluralizeMonths = (count: number) => `${count} ${count === 1 ? "month" : "
 /** The average counts completed months only — a month still running would drag it down. */
 export function describeTrendCaption(samples: TrendCaptionSample[]): string {
   const completed = samples.filter((sample) => !sample.isOpen);
-  if (completed.length === 0) return "No completed month on file yet — nothing to average against.";
+  if (completed.length === 0)
+    return "No completed month on file yet, so nothing to average against.";
 
   const total = completed.reduce((sum, sample) => sum + sample.cents, 0);
   const averageCents = roundToCents(createCentsFraction(BigInt(total), BigInt(completed.length)));
   const average = `average ${formatWholeDollars(averageCents)}/mo`;
   const breaches = completed.filter((sample) => sample.isBreach).length;
   if (breaches === 0) return `No month breached its budget · ${average}`;
-  return `Red dots are breaches — ${breaches} in ${pluralizeMonths(completed.length)} · ${average}`;
+  return `Red dots are breaches: ${breaches} in ${pluralizeMonths(completed.length)} · ${average}`;
 }
 
 export interface BurnCaption {
@@ -93,13 +94,13 @@ export function describeBurnCaption(
   const gap = figures.projectedCents - figures.planEndCents;
   if (gap <= 0)
     return {
-      text: `${tracking} — ${formatWholeDollars(-gap)} under the ${plan} plan.`,
+      text: `${tracking}, ${formatWholeDollars(-gap)} under the ${plan} plan.`,
       isWarning: false,
     };
 
   const drift = labels.driftCategory === null ? "" : ` ${labels.driftCategory} is the drift.`;
   return {
-    text: `${tracking} — ${formatWholeDollars(gap)} over the ${plan} plan.${drift}`,
+    text: `${tracking}, ${formatWholeDollars(gap)} over the ${plan} plan.${drift}`,
     isWarning: true,
   };
 }
@@ -120,5 +121,5 @@ export function describePaceNote(figures: BurnCaptionFigures): BurnCaption {
 export function describeExclusions(excludedCount: number, excludedCents: number): string {
   if (excludedCount === 0) return "";
   const rows = excludedCount === 1 ? "1 row" : `${excludedCount} rows`;
-  return `${rows} left out — ${formatCents(excludedCents)} still needs a category or a split.`;
+  return `${rows} left out: ${formatCents(excludedCents)} still needs a category or a split.`;
 }

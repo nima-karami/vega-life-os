@@ -53,7 +53,7 @@ export function describeSpreadPreview(entries: SpreadRecognitionEntry[]): string
   const monthly = `${formatCents(rest.cents)}/mo across ${entries.length} months from ${start}`;
   return first.cents === rest.cents
     ? `${monthly}. Cash still shows the full charge on its own date.`
-    : `${monthly} — the first month carries ${formatCents(first.cents)}. Cash still shows the full charge on its own date.`;
+    : `${monthly}; the first month carries ${formatCents(first.cents)}. Cash still shows the full charge on its own date.`;
 }
 
 /**
@@ -68,7 +68,7 @@ export interface TransactionProvenance {
 
 const describeSettleUp = (txnDate: string, isSettled: boolean): string =>
   isSettled
-    ? `part of the settled ${monthNameOf(txnDate)} settle-up — an edit here amends that month`
+    ? `part of the settled ${monthNameOf(txnDate)} settle-up, so an edit here amends that month`
     : `part of the open ${monthNameOf(txnDate)} settle-up`;
 
 export function describeTransactionProvenance(

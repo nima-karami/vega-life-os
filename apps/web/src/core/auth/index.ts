@@ -49,13 +49,13 @@ export function formatAuthError(err: unknown): string {
     case "auth/weak-password":
       return "Password must be at least 6 characters.";
     case "auth/email-already-in-use":
-      return "That email already has an account — try signing in.";
+      return "That email already has an account. Try signing in.";
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
       return "Wrong email or password.";
     case "auth/too-many-requests":
-      return "Too many attempts — wait a minute and retry.";
+      return "Too many attempts. Wait a minute and retry.";
     default:
       return "Sign-in failed. Check the details and try again.";
   }

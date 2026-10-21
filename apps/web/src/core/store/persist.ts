@@ -87,7 +87,7 @@ function undoRemove<C extends CollectionName>(col: C, prior: Dataset[C][number] 
 }
 
 function raiseRetry(retry: () => void) {
-  store?.getState().pushRetryToast("Couldn’t save your change — check your connection", retry);
+  store?.getState().pushRetryToast("Couldn’t save your change. Check your connection", retry);
 }
 
 /**

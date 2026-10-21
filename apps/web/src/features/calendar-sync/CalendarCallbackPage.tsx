@@ -73,7 +73,7 @@ export function CalendarCallbackPage() {
               Couldn’t connect your calendar
             </p>
             <p className="text-sm text-muted">
-              The Google handoff didn’t complete. Try again — you’ll be asked to grant access once
+              The Google handoff didn’t complete. Try again. You’ll be asked to grant access once
               more.
             </p>
             <Button

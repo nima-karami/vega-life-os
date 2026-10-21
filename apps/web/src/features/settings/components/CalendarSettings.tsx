@@ -54,7 +54,7 @@ export function CalendarSettings() {
           : describeSyncFailure("reason" in result ? result.reason : undefined),
       );
     } catch {
-      pushToast("Sync failed — reconnect?");
+      pushToast("Sync failed. Reconnect?");
     } finally {
       setBusy(false);
     }
@@ -72,7 +72,7 @@ export function CalendarSettings() {
           <>
             <p className="flex items-start gap-1.5 text-sm text-warning">
               <Icon name="alert" size={15} className="mt-0.5 shrink-0" />
-              <span>Google access expired — reconnect to resume syncing.</span>
+              <span>Google access expired. Reconnect to resume syncing.</span>
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="primary" isDisabled={busy} onPress={() => void connect()}>

@@ -241,7 +241,7 @@ export const BrainWriteCardView = forwardRef<BrainWriteCardViewHandle, BrainWrit
       const label = formatGradeChip(box, correct, today);
       setGradeChipLabel(label);
       later(() => setGradeChipLabel(null), GRADE_CHIP_MS);
-      onAnnounce(`${correct ? "Remembered" : "Not remembered"} — ${label}`);
+      onAnnounce(`${correct ? "Remembered" : "Not remembered"}. ${label}`);
       onGrade(correct);
       if (shouldReduceMotion) {
         settle();

@@ -15,7 +15,5 @@ function BackToItHabitLine({ task, habitId }: { task: Task; habitId: string }) {
   if (!habit?.tracked || !isHabitActive(habit)) return null;
   if (task.date !== todayISO() || task.status !== "todo") return null;
   if (!hasLapsedPreviousSlot(tasks, habit)) return null;
-  return (
-    <span className="text-xs text-muted">Back to it today — even a small version counts.</span>
-  );
+  return <span className="text-xs text-muted">Back to it today. Even a small version counts.</span>;
 }

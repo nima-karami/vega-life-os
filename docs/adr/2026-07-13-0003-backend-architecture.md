@@ -107,3 +107,9 @@ extends to cover the server workspace.
 - **Framework/mechanism specifics** still open in the spec (Hono vs Fastify was settled
   as Hono here; deletion retention window, webhook-registry location, write-failure UX)
   land in the implementation plan.
+
+## Correction (2026-10-21)
+
+Full-stack e2e does not run inside `npm run verify`: the two full-stack specs skip unless
+`VEGA_FULLSTACK_E2E=1`. Server tests run against the emulator; the signed-in path through a
+real server remains a manual smoke.

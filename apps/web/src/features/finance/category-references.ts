@@ -63,5 +63,5 @@ export function describeCategoryReferences(references: CategoryReferences): stri
 /** Merge never adds two budgets together, so the source's own rows go rather than move. */
 export function describeDroppedBudgets(references: CategoryReferences): string | null {
   if (references.budgets.length === 0) return null;
-  return `Removes ${pluralize(references.budgets.length, "monthly budget")} set on it — merge never adds two budgets together.`;
+  return `Removes ${pluralize(references.budgets.length, "monthly budget")} set on it. Merge never adds two budgets together.`;
 }

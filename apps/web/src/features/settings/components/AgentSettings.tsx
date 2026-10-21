@@ -18,7 +18,7 @@ export function AgentSettings() {
 
   const save = () => {
     setAnthropicKey(key.trim());
-    pushToast(key.trim() ? "Claude agent enabled" : "Key cleared — local agent");
+    pushToast(key.trim() ? "Claude agent enabled" : "Key cleared. Using the local agent");
   };
   const pick = (m: string) => {
     setModel(m);

@@ -129,7 +129,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
           </div>
           {!canStart && (
             <p className="mt-2 text-xs text-muted">
-              Starts {formatPeriodLabel(goal.start, goal.end)} — activate when its period begins.
+              Starts {formatPeriodLabel(goal.start, goal.end)}. Activate when its period begins.
             </p>
           )}
         </DetailSection>

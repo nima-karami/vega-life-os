@@ -48,7 +48,7 @@ test("today: a dismissed gratitude nudge stays dismissed; only a newer miss retu
   await page.clock.setFixedTime(today);
   await reloadToToday(page);
   await expect(nudge(page)).toHaveText(
-    `You haven't written gratitude for ${toLongDate(today - DAY_MS)} — add it?`,
+    `You haven't written gratitude for ${toLongDate(today - DAY_MS)}. Add it?`,
   );
   await saveGratitude(page);
 
@@ -61,7 +61,7 @@ test("today: a dismissed gratitude nudge stays dismissed; only a newer miss retu
   await page.clock.setFixedTime(today + 2 * DAY_MS);
   await reloadToToday(page);
   await expect(nudge(page)).toHaveText(
-    `You haven't written gratitude for ${toLongDate(today + DAY_MS)} — add it?`,
+    `You haven't written gratitude for ${toLongDate(today + DAY_MS)}. Add it?`,
   );
 });
 

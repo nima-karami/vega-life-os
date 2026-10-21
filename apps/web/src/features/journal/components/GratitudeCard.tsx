@@ -24,7 +24,7 @@ export function GratitudeCard({ date, onSaved }: { date: string; onSaved: () => 
             <h2 className="text-sm font-medium text-foreground">
               What are you grateful for today?
             </h2>
-            <p className="text-xs text-muted">Optional — one line is plenty.</p>
+            <p className="text-xs text-muted">Optional. One line is plenty.</p>
           </div>
           <GratitudeFields value={slots} onChange={setSlots} />
           <div className="flex items-center justify-end gap-2">

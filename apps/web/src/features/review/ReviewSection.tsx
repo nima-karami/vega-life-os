@@ -85,7 +85,7 @@ export function ReviewSection() {
       setBaseline({ answers, checkIns });
       pushToast(existing ? "Reflection updated" : "Reflection saved");
     } catch {
-      pushToast("Couldn't save your reflection — try again");
+      pushToast("Couldn't save your reflection. Try again");
     } finally {
       setSaving(false);
     }
@@ -106,7 +106,7 @@ export function ReviewSection() {
         <div className="min-w-0">
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">Weekly review</h2>
           <p className="mt-1 text-sm text-muted">
-            {formatShortDate(days[0].iso)} – {formatShortDate(days[6].iso)}
+            {formatShortDate(days[0].iso)}-{formatShortDate(days[6].iso)}
             {isThisWeek && " · in progress"}
             {isFuture && " · upcoming"}
           </p>
@@ -158,7 +158,9 @@ export function ReviewSection() {
                 {legacy.map((p) => (
                   <div key={p.q} className="space-y-0.5">
                     <span className="block text-xs text-muted">{p.q}</span>
-                    <p className="whitespace-pre-wrap text-sm text-foreground">{p.a || "—"}</p>
+                    <p className="whitespace-pre-wrap text-sm text-foreground">
+                      {p.a || "No answer"}
+                    </p>
                   </div>
                 ))}
               </div>

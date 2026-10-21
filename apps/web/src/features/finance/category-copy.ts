@@ -55,7 +55,7 @@ export function describeTablePace(
 
 export function describeCarryForward(month: string): string {
   const previous = formatMonthName(shiftMonthKey(month, -1));
-  return `${formatMonthName(month)}'s numbers are the ${previous} numbers until you change one. Editing a budget writes a row for this month only — earlier months keep what they were judged against.`;
+  return `${formatMonthName(month)}'s numbers are the ${previous} numbers until you change one. Editing a budget writes a row for this month only; earlier months keep what they were judged against.`;
 }
 
 export function describeUncategorised(figures: UncategorisedFigures): string {
@@ -80,16 +80,16 @@ export interface CategoryHeadlineFigures {
 export function describeCategoryHeadline(figures: CategoryHeadlineFigures): CategoryHeadline {
   const spent = formatCents(figures.spentCents);
   if (figures.budgetCents === null)
-    return { text: `${spent} this month — no budget set`, isOver: false };
+    return { text: `${spent} this month, no budget set`, isOver: false };
 
   const against = `${spent} of ${formatCents(figures.budgetCents)} this month`;
   if (figures.spentCents > figures.budgetCents) {
     const over = `over by ${formatCents(figures.spentCents - figures.budgetCents)}`;
     const since = figures.breachedOn === null ? "" : ` since ${figures.breachedOn}`;
-    return { text: `${against} — ${over}${since}`, isOver: true };
+    return { text: `${against}, ${over}${since}`, isOver: true };
   }
   return {
-    text: `${against} — under by ${formatCents(figures.budgetCents - figures.spentCents)}`,
+    text: `${against}, under by ${formatCents(figures.budgetCents - figures.spentCents)}`,
     isOver: false,
   };
 }
@@ -100,7 +100,7 @@ export function describeCategoryHeadline(figures: CategoryHeadlineFigures): Cate
  */
 export function describeCategoryCaption(figures: CategoryCaptionFigures): string {
   if (figures.completedCount === 0)
-    return "No completed month on file yet — nothing to average against.";
+    return "No completed month on file yet, so nothing to average against.";
 
   const average = `average ${formatWholeDollars(figures.averageCents)}/mo`;
   const worst =

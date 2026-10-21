@@ -46,7 +46,7 @@ describe("the total row's pace read", () => {
 describe("the carry-forward explainer", () => {
   it("names this month and the one it inherited from", () => {
     expect(describeCarryForward("2026-08")).toBe(
-      "August's numbers are the July numbers until you change one. Editing a budget writes a row for this month only — earlier months keep what they were judged against.",
+      "August's numbers are the July numbers until you change one. Editing a budget writes a row for this month only; earlier months keep what they were judged against.",
     );
   });
 });
@@ -70,7 +70,7 @@ describe("the category headline", () => {
     expect(
       describeCategoryHeadline({ spentCents: 19630, budgetCents: 18000, breachedOn: "Aug 9" }),
     ).toEqual({
-      text: "$196.30 of $180.00 this month — over by $16.30 since Aug 9",
+      text: "$196.30 of $180.00 this month, over by $16.30 since Aug 9",
       isOver: true,
     });
   });
@@ -78,13 +78,13 @@ describe("the category headline", () => {
   it("states what is left when the month is still inside its budget", () => {
     expect(
       describeCategoryHeadline({ spentCents: 8450, budgetCents: 16000, breachedOn: null }),
-    ).toEqual({ text: "$84.50 of $160.00 this month — under by $75.50", isOver: false });
+    ).toEqual({ text: "$84.50 of $160.00 this month, under by $75.50", isOver: false });
   });
 
   it("says no budget is set rather than judging spend against zero", () => {
     expect(
       describeCategoryHeadline({ spentCents: 8450, budgetCents: null, breachedOn: null }),
-    ).toEqual({ text: "$84.50 this month — no budget set", isOver: false });
+    ).toEqual({ text: "$84.50 this month, no budget set", isOver: false });
   });
 });
 
@@ -110,7 +110,7 @@ describe("the chart caption", () => {
         worstMonth: null,
         worstCents: 0,
       }),
-    ).toBe("No completed month on file yet — nothing to average against.");
+    ).toBe("No completed month on file yet, so nothing to average against.");
   });
 });
 

@@ -36,8 +36,7 @@ export function HouseholdSplitCard({
         {describeBalance(figures.headlineBalanceCents, "now", partnerName)}
       </p>
       <p className="text-[13px] text-muted">
-        {formatCents(figures.householdTotalCents)} in shared purchases so far — settles at month
-        end.
+        {formatCents(figures.householdTotalCents)} in shared purchases so far. Settles at month end.
       </p>
       {exclusions !== "" && <p className="mt-1 text-[12px] text-warning">{exclusions}</p>}
 

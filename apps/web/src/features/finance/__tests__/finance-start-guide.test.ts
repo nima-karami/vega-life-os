@@ -35,7 +35,7 @@ describe("a book with no open account", () => {
       const { copy } = buildGuide(surface, false);
       expect(copy.title).toBe("Set up your first account");
       expect(copy.body).toBe(
-        "Statements import into an account, so name the first one — a chequing account, a card, whatever you actually file.",
+        "Statements import into an account, so name the first one: a chequing account, a card, whatever you actually file.",
       );
     }
   });

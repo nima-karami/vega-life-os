@@ -91,7 +91,7 @@ describe("the provenance strip", () => {
     const strip = describeTransactionProvenance(imported, [batch()], true);
     expect(strip.reference).toBe("statement-a.csv");
     expect(strip.trail).toContain(
-      "part of the settled August settle-up — an edit here amends that month",
+      "part of the settled August settle-up, so an edit here amends that month",
     );
   });
 
