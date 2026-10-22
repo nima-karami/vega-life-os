@@ -1,121 +1,123 @@
 import { Card } from "@heroui/react";
+import { useLayoutEffect, useRef } from "react";
 import { useStore } from "@/core/store";
-import { cx, getValueStripeStyle, Icon, Lineage, Menu, ROW_META_CLASS } from "@/core/ui";
+import { Icon, Lineage, Menu, ROW_META_CLASS } from "@/core/ui";
 import { BackToItLine } from "@/features/habits/BackToItLine";
 import { useTaskLineage } from "@/features/tasks/lineage";
+import { getValueColor } from "@/features/values/color";
+import { buildVoteMessage } from "@/features/values/vote-message";
 import type { Task } from "../model";
-import { buildTaskMenuItems, getCheckLabel, getCheckToneClass } from "../task-card";
+import { buildCardStateAttributes, buildTaskMenuItems, type TaskCardMotion } from "../task-card";
+import { DoneCheck } from "./DoneCheck";
+import { VoteTakeover } from "./VoteTakeover";
+import "./task-card-motion.css";
 
-/**
- * TaskCard — the Today-view card.
- *
- * Composition: a value-colored leading stripe, a binary done-toggle control,
- * the title, the lineage row (value name · → goal · Habit pill), and the
- * optional time metadata. Resolved tasks (done/skip) are visually
- * de-emphasised. A hover/keyboard overflow menu provides the non-pointer paths
- * for skip and delete. (Reorder handle, for Remaining rows, is owned by SortableList.)
- */
-export function TaskCard({
-  task,
-  onOpen,
-  onToggleDone,
-  onSkip,
-  onUnskip,
-  onDelete,
-}: {
+interface TaskCardProps {
   task: Task;
+  /** the done moment's state on Today; absent everywhere else, so the card renders at rest */
+  motion?: TaskCardMotion;
   onOpen: (t: Task) => void;
   onToggleDone: (t: Task) => void;
   onSkip: (t: Task) => void;
   onUnskip: (t: Task) => void;
   onDelete: (t: Task) => void;
-}) {
+}
+
+/**
+ * TaskCard — the Today-view card: a value-coloured stripe, the done check, the title,
+ * the lineage row and the optional time. A valued complete floods the card with the
+ * value's colour and shows the vote; `task-card-motion.css` owns every beat.
+ */
+export function TaskCard({
+  task,
+  motion,
+  onOpen,
+  onToggleDone,
+  onSkip,
+  onUnskip,
+  onDelete,
+}: TaskCardProps) {
   const lineage = useTaskLineage(task.id);
   const plan = useStore((s) =>
     task.habitId == null ? "" : (s.habits.find((h) => h.id === task.habitId)?.plan ?? ""),
   );
-  const done = task.status === "done";
-  const skipped = task.status === "skip";
-  const isResolved = done || skipped;
+  const value = lineage?.value;
+  const hue = value ? getValueColor(value) : null;
+  const travel = motion?.travel ?? null;
+
+  const rowRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (travel && row) row.style.setProperty("--row-h", `${row.scrollHeight}px`);
+  }, [travel]);
 
   const menuItems = buildTaskMenuItems(task, { onOpen, onSkip, onUnskip, onDelete });
 
   return (
-    <Card
-      className={cx(
-        "group relative flex flex-row items-start gap-3 rounded-[16px] border border-border bg-surface py-3 pe-3 ps-4",
-        isResolved && "opacity-60",
-      )}
-      style={getValueStripeStyle(lineage ?? { fromHabit: false })}
-    >
-      {/* aria-pressed toggle so SR exposes the on/off state */}
-      <button
-        type="button"
-        aria-pressed={done}
-        aria-label={getCheckLabel(task)}
-        onClick={() => onToggleDone(task)}
-        className="-mt-2.5 -mb-3 -ms-3 -me-3 grid h-11 w-11 shrink-0 place-items-center sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:h-5 sm:w-5"
+    <div ref={rowRef} className="task-row" data-travel={travel ?? undefined}>
+      <Card
+        className="task-card group relative flex flex-row items-start gap-3 rounded-[16px] bg-surface py-[13px] pe-[13px] ps-[19px]"
+        style={{ "--hue": hue ?? "var(--accent)", "--stripe": hue ?? "var(--color-line)" }}
+        {...buildCardStateAttributes(task.status, motion, value !== undefined)}
       >
-        <span
-          className={cx(
-            "grid h-5 w-5 place-items-center rounded-full border transition-colors",
-            getCheckToneClass(task.status),
-          )}
+        {value && <VoteTakeover message={buildVoteMessage(value)} />}
+        <DoneCheck task={task} onToggle={onToggleDone} />
+
+        <button
+          type="button"
+          onClick={() => onOpen(task)}
+          className="task-card__body flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
         >
-          {done && <Icon name="check" size={12} />}
-          {skipped && <Icon name="skip" size={12} />}
-        </span>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onOpen(task)}
-        className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
-      >
-        <span className="flex w-full items-center gap-2">
-          <span
-            className={cx(
-              "min-w-0 truncate text-sm text-foreground",
-              done && "line-through decoration-1",
+          <span className="flex w-full items-center gap-2">
+            <span className="task-card__title relative min-w-0">
+              <span className="task-card__title-text block truncate text-sm text-foreground">
+                {task.title}
+              </span>
+              <span className="task-card__strike" />
+            </span>
+            {task.status === "skip" && (
+              <span className="shrink-0 rounded-full bg-surface-secondary px-1.5 py-0.5 text-xs font-medium text-muted">
+                Skipped
+              </span>
             )}
-          >
-            {task.title}
           </span>
-          {skipped && (
-            <span className="shrink-0 rounded-full bg-surface-secondary px-1.5 py-0.5 text-xs font-medium text-muted">
-              Skipped
+          {plan !== "" && (
+            <span className="max-w-full truncate text-xs text-muted" title={plan}>
+              {plan}
             </span>
           )}
-        </span>
-        {plan !== "" && (
-          <span className="max-w-full truncate text-xs text-muted" title={plan}>
-            {plan}
+          <BackToItLine task={task} />
+
+          <span className={ROW_META_CLASS}>
+            {lineage && <Lineage lineage={lineage} variant="card" />}
+            {task.time && (
+              <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted">
+                <Icon name="clock" size={11} />
+                {task.time}
+              </span>
+            )}
+            {task.detached && (
+              <Icon
+                name="unlink"
+                size={12}
+                className="text-muted"
+                aria-label="Detached from habit"
+              />
+            )}
           </span>
-        )}
-        <BackToItLine task={task} />
+        </button>
 
-        <span className={ROW_META_CLASS}>
-          {lineage && <Lineage lineage={lineage} variant="card" />}
-          {task.time && (
-            <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted">
-              <Icon name="clock" size={11} />
-              {task.time}
-            </span>
-          )}
-          {task.detached && (
-            <Icon name="unlink" size={12} className="text-muted" aria-label="Detached from habit" />
-          )}
+        <span className="task-card__menu flex shrink-0">
+          <Menu
+            isIconOnly
+            touchTarget
+            triggerLabel={`Actions for ${task.title}`}
+            triggerClassName="-mt-1 -mb-1.5 -ms-1.5 -me-1.5 sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
+            triggerContent={<Icon name="dots" size={16} />}
+            items={menuItems}
+          />
         </span>
-      </button>
-
-      <Menu
-        isIconOnly
-        touchTarget
-        triggerLabel={`Actions for ${task.title}`}
-        triggerClassName="-mt-1 -mb-1.5 -ms-1.5 -me-1.5 sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
-        triggerContent={<Icon name="dots" size={16} />}
-        items={menuItems}
-      />
-    </Card>
+      </Card>
+    </div>
   );
 }

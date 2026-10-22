@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Task, TaskStatus } from "../model";
-import { buildTaskMenuItems, getCheckLabel, getCheckToneClass } from "../task-card";
+import {
+  buildCardStateAttributes,
+  buildTaskMenuItems,
+  getCheckLabel,
+  type TaskCardMotion,
+} from "../task-card";
 
 function task(status: TaskStatus): Task {
   return {
@@ -24,14 +29,34 @@ function actions() {
   return { onOpen: vi.fn(), onSkip: vi.fn(), onUnskip: vi.fn(), onDelete: vi.fn() };
 }
 
-describe("getCheckToneClass", () => {
-  it.each([
-    ["done", "border-accent bg-accent text-accent-foreground"],
-    ["skip", "border-border text-muted"],
-    ["todo", "border-border text-transparent hover:border-accent"],
-    ["open", "border-border text-transparent hover:border-accent"],
-  ] as const)("styles a %s check", (status, expected) => {
-    expect(getCheckToneClass(status)).toBe(expected);
+describe("buildCardStateAttributes", () => {
+  const voting: TaskCardMotion = { anim: "complete", isVoting: true, travel: null };
+
+  it("marks a valued done card that is voting", () => {
+    expect(buildCardStateAttributes("done", voting, true)).toEqual({
+      "data-status": "done",
+      "data-anim": "complete",
+      "data-valued": "",
+      "data-vote": "",
+    });
+  });
+
+  it("never votes for an unvalued, skipped, open or motionless card", () => {
+    expect(buildCardStateAttributes("done", voting, false)["data-vote"]).toBeUndefined();
+    expect(buildCardStateAttributes("skip", voting, true)["data-vote"]).toBeUndefined();
+    expect(buildCardStateAttributes("todo", voting, true)["data-vote"]).toBeUndefined();
+    expect(buildCardStateAttributes("done", undefined, true)["data-vote"]).toBeUndefined();
+  });
+
+  it("passes the animation through and leaves it off at rest", () => {
+    const undo: TaskCardMotion = { anim: "undo", isVoting: false, travel: "arrive" };
+    expect(buildCardStateAttributes("todo", undo, false)).toEqual({
+      "data-status": "todo",
+      "data-anim": "undo",
+      "data-valued": undefined,
+      "data-vote": undefined,
+    });
+    expect(buildCardStateAttributes("done", undefined, true)["data-anim"]).toBeUndefined();
   });
 });
 

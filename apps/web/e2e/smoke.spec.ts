@@ -173,10 +173,10 @@ test("completing a remaining task moves it to Done and updates progress", async 
 
   await firstComplete.click();
 
-  // The Done group now exists and contains that task.
+  // The row holds for its done moment, then the Done group exists and contains that task.
   const doneGroup = page.getByRole("region", { name: "Done" });
-  await expect(doneGroup).toBeVisible();
-  await expect(doneGroup).toContainText(title);
+  await expect(doneGroup).toBeVisible({ timeout: 10_000 });
+  await expect(doneGroup).toContainText(title, { timeout: 10_000 });
 
   // Reload — the change persisted.
   await page.reload({ waitUntil: "networkidle" });

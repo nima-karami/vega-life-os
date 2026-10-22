@@ -15,11 +15,11 @@ import {
   ReflectionDialog,
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
-import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
 import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
 import { AllDoneMarker } from "./components/AllDoneMarker";
 import { DailyHabits } from "./components/DailyHabits";
+import { DoneTasks } from "./components/DoneTasks";
 import { EveningCard } from "./components/EveningCard";
 import { FreshStartCard } from "./components/FreshStartCard";
 import { JournalEntryButton } from "./components/JournalEntryButton";
@@ -68,6 +68,8 @@ export function TodayPage() {
     handleUnskip,
     handleReorderTasks,
     handleDelete,
+    settlingIds,
+    getMotion,
   } = useTodayTaskActions(tasks, viewDate);
 
   const journal = useStore((s) => s.journal);
@@ -94,8 +96,8 @@ export function TodayPage() {
     shouldShowEveningCard(tasks, todayEntry, viewDate, new Date(nowMs));
 
   const { remaining, done, habits } = useMemo(
-    () => partitionToday(tasks, viewDate),
-    [tasks, viewDate],
+    () => partitionToday(tasks, viewDate, settlingIds),
+    [tasks, viewDate, settlingIds],
   );
 
   const { layout, eventCount } = useDayLayout(remaining, viewDate);
@@ -173,6 +175,7 @@ export function TodayPage() {
               onUnskip={handleUnskip}
               onDelete={handleDelete}
               onReorder={handleReorderTasks}
+              getMotion={getMotion}
             />
           )}
         </section>
@@ -180,20 +183,15 @@ export function TodayPage() {
         {habits.length > 0 && <DailyHabits items={habits} onToggle={handleToggleHabit} />}
 
         {done.length > 0 && (
-          <section aria-label="Done" className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium text-muted">Done</h2>
-            {done.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onOpen={setEditing}
-                onToggleDone={handleToggleDone}
-                onSkip={handleSkip}
-                onUnskip={handleUnskip}
-                onDelete={handleDelete}
-              />
-            ))}
-          </section>
+          <DoneTasks
+            tasks={done}
+            getMotion={getMotion}
+            onOpen={setEditing}
+            onToggleDone={handleToggleDone}
+            onSkip={handleSkip}
+            onUnskip={handleUnskip}
+            onDelete={handleDelete}
+          />
         )}
       </div>
 

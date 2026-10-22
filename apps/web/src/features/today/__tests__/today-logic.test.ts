@@ -159,6 +159,29 @@ describe("partitionToday()", () => {
     expect(remaining.map((t) => t.id)).toEqual(["o"]);
     expect(habits).toEqual([]);
   });
+
+  it("holds a settling resolved task in remaining, in its time→order slot", () => {
+    const tasks = [
+      task({ id: "late", time: "15:00", status: "todo" }),
+      task({ id: "early", time: "08:00", status: "done" }),
+      task({ id: "untimed", time: null, status: "todo" }),
+      task({ id: "other", time: "09:00", status: "done" }),
+    ];
+    const { remaining, done } = partitionToday(tasks, TODAY, new Set(["early"]));
+    expect(remaining.map((t) => t.id)).toEqual(["early", "late", "untimed"]);
+    expect(done.map((t) => t.id)).toEqual(["other"]);
+  });
+
+  it("ignores settling ids for open tasks and anytime habits", () => {
+    const tasks = [
+      task({ id: "open", status: "todo" }),
+      task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "done" }),
+    ];
+    const { remaining, done, habits } = partitionToday(tasks, TODAY, new Set(["open", "h"]));
+    expect(remaining.map((t) => t.id)).toEqual(["open"]);
+    expect(done).toEqual([]);
+    expect(habits.map((t) => t.id)).toEqual(["h"]);
+  });
 });
 
 // ─── buildTaskPatch ──────────────────────────────────────────────────────────

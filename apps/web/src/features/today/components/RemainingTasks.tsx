@@ -1,7 +1,9 @@
+import { Fragment } from "react";
 import { SortableList } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import type { Task } from "@/features/tasks/model";
+import type { TaskCardMotion } from "@/features/tasks/task-card";
 import type { DayLayout } from "../today-logic";
 import { EventCard } from "./EventCard";
 
@@ -21,6 +23,7 @@ export function RemainingTasks({
   onUnskip,
   onDelete,
   onReorder,
+  getMotion,
 }: {
   layout: DayLayout;
   isToday: boolean;
@@ -32,10 +35,12 @@ export function RemainingTasks({
   onUnskip: (t: Task) => void;
   onDelete: (t: Task) => void;
   onReorder: (activeId: string, overId: string) => void;
+  getMotion: (taskId: string) => TaskCardMotion | undefined;
 }) {
   const card = (task: Task) => (
     <TaskCard
       task={task}
+      motion={getMotion(task.id)}
       onOpen={onOpen}
       onToggleDone={onToggleDone}
       onSkip={onSkip}
@@ -57,7 +62,7 @@ export function RemainingTasks({
       ))}
       {layout.timedRows.map((row) =>
         row.kind === "task" ? (
-          <div key={row.id}>{card(row.task)}</div>
+          <Fragment key={row.id}>{card(row.task)}</Fragment>
         ) : (
           <EventCard
             key={row.id}

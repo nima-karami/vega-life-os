@@ -17,6 +17,9 @@ import {
   isAnytimeHabit,
   isResolved,
 } from "@/features/tasks/selectors";
+import type { VoteMessage } from "@/features/values/vote-message";
+
+const NO_SETTLING: ReadonlySet<string> = new Set();
 
 export interface TodayGroups {
   /** open | todo — still to do today, sorted by time then order */
@@ -31,16 +34,21 @@ export interface TodayGroups {
  * Partition today's queue into Remaining (open|todo), Done (done|skip), and the
  * anytime-habit strip. Anytime habits are pulled out first so they never appear
  * in the task lists or the day's "X of Y" count. Reuses `getDayQueue` for the
- * canonical time→order sort and `isResolved` for the Remaining/Done boundary.
+ * canonical time→order sort and `isResolved` for the Remaining/Done boundary. A resolved
+ * task in `settlingIds` stays in Remaining until its done moment has played out.
  */
-export function partitionToday(tasks: Task[], date: string): TodayGroups {
+export function partitionToday(
+  tasks: Task[],
+  date: string,
+  settlingIds: ReadonlySet<string> = NO_SETTLING,
+): TodayGroups {
   const queue = getDayQueue(tasks, date);
   const remaining: Task[] = [];
   const done: Task[] = [];
   const habits: Task[] = [];
   for (const t of queue) {
     if (isAnytimeHabit(t)) habits.push(t);
-    else if (isResolved(t)) done.push(t);
+    else if (isResolved(t) && !settlingIds.has(t.id)) done.push(t);
     else remaining.push(t);
   }
   return { remaining, done, habits };
@@ -89,8 +97,13 @@ export function toggleDone(task: Task): TaskStatus {
   return task.status === "done" ? "todo" : "done";
 }
 
-export function describeTaskToggle(next: TaskStatus): string {
-  return next === "done" ? "Marked done" : "Marked not done";
+export function describeTaskCompletion(
+  title: string,
+  next: TaskStatus,
+  vote: VoteMessage | null,
+): string {
+  if (next !== "done") return `${title}, not done`;
+  return vote ? vote.announcement : "Done.";
 }
 
 export function describeEmptyDay(isToday: boolean): string {

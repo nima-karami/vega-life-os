@@ -53,37 +53,6 @@ test("never miss twice: a lapsed daily habit shows the nudge until it is done", 
   await expect(card).not.toContainText("Back to it today");
 });
 
-test("completing valued tasks toasts each value once a day", async ({ page }) => {
-  await boot(page, at("2026-12-30", 12));
-  await page.evaluate(() => {
-    const votes: string[] = [];
-    (window as unknown as { __votes: string[] }).__votes = votes;
-    new MutationObserver((records) => {
-      for (const record of records)
-        for (const node of record.addedNodes) {
-          const text = node.textContent ?? "";
-          if (text.startsWith("A vote for ")) votes.push(text);
-        }
-    }).observe(document.body, { childList: true, subtree: true });
-  });
-  const pending = page.locator(
-    "button[aria-label^='Mark '][aria-label$=' done']:not([aria-label$=' not done']):visible",
-  );
-  const total = await pending.count();
-  expect(total).toBeGreaterThan(2);
-  for (let i = 0; i < total; i++) await pending.first().click();
-  const votes = await page.evaluate(() => (window as unknown as { __votes: string[] }).__votes);
-  expect(votes.length).toBeGreaterThan(0);
-  expect(votes.length).toBeLessThan(total);
-  const names = votes.map((v) =>
-    v
-      .replace(/^A vote for /, "")
-      .split(/[.:]/)[0]
-      .trim(),
-  );
-  expect(new Set(names).size).toBe(names.length);
-});
-
 test("task editor shows the value's why", async ({ page }) => {
   await boot(page, at("2026-12-30", 12));
   await page.getByRole("button", { name: /^Tidy 15 min/ }).click();

@@ -1,15 +1,30 @@
 import type { MenuItem } from "@/core/ui";
 import type { Task, TaskStatus } from "./model";
 
-const UNRESOLVED_CHECK_CLASS = "border-border text-transparent hover:border-accent";
+export type CardAnim = "complete" | "undo";
+type CardTravel = "leave" | "arrive";
 
-const RESOLVED_CHECK_CLASS: Partial<Record<TaskStatus, string>> = {
-  done: "border-accent bg-accent text-accent-foreground",
-  skip: "border-border text-muted",
-};
+export interface TaskCardMotion {
+  anim: CardAnim | null;
+  isVoting: boolean;
+  travel: CardTravel | null;
+}
 
-export function getCheckToneClass(status: TaskStatus): string {
-  return RESOLVED_CHECK_CLASS[status] ?? UNRESOLVED_CHECK_CLASS;
+type CardStateAttributes = Record<`data-${string}`, string | undefined>;
+
+/** The card's motion is pure CSS keyed off these attributes. */
+export function buildCardStateAttributes(
+  status: TaskStatus,
+  motion: TaskCardMotion | undefined,
+  isValued: boolean,
+): CardStateAttributes {
+  const isVoting = isValued && status === "done" && motion?.isVoting === true;
+  return {
+    "data-status": status,
+    "data-anim": motion?.anim ?? undefined,
+    "data-valued": isValued ? "" : undefined,
+    "data-vote": isVoting ? "" : undefined,
+  };
 }
 
 export function getCheckLabel(task: Task): string {

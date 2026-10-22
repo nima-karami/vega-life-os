@@ -1,15 +1,28 @@
 import { describe, expect, it } from "vitest";
+import { buildVoteMessage } from "@/features/values/vote-message";
 import {
   describeEmptyDay,
   describeHabitToggle,
-  describeTaskToggle,
+  describeTaskCompletion,
   findLiveCopy,
 } from "../today-logic";
 
-describe("describeTaskToggle", () => {
-  it("announces the new done state", () => {
-    expect(describeTaskToggle("done")).toBe("Marked done");
-    expect(describeTaskToggle("todo")).toBe("Marked not done");
+describe("describeTaskCompletion", () => {
+  const vote = buildVoteMessage({ name: "Health", identity: "You're someone who moves." });
+
+  it("announces the vote on a valued complete", () => {
+    expect(describeTaskCompletion("Run", "done", vote)).toBe(
+      "Done. A vote for Health. You're someone who moves.",
+    );
+  });
+
+  it("announces a plain complete", () => {
+    expect(describeTaskCompletion("Run", "done", null)).toBe("Done.");
+  });
+
+  it("names the task on undo, vote or not", () => {
+    expect(describeTaskCompletion("Run", "todo", vote)).toBe("Run, not done");
+    expect(describeTaskCompletion("Run", "todo", null)).toBe("Run, not done");
   });
 });
 
