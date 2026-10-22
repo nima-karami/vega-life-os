@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { skipGratitudePage } from "./helpers/app";
 
 /**
  * The calendar header must keep one height as the day changes. Its title is a
@@ -15,6 +16,7 @@ const SWEEP_WIDTHS = [...Array.from({ length: 15 }, (_, i) => 320 + i * 8), 390,
 );
 
 async function openCalendar(page: Page) {
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");

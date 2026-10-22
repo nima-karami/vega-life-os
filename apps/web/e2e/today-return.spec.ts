@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { enterApp, saveGratitude } from "./helpers/app";
+import { enterApp, gratitudePage, saveGratitude } from "./helpers/app";
 
 /**
  * Today keeps its place: a dismissed missed-gratitude nudge stays dismissed across
@@ -42,15 +42,15 @@ test("today: a dismissed gratitude nudge stays dismissed; only a newer miss retu
 }) => {
   const today = noonToday();
   await page.clock.setFixedTime(today - 2 * DAY_MS);
-  await enterApp(page);
+  await enterApp(page, { keepGratitudePage: true });
   await saveGratitude(page);
 
   await page.clock.setFixedTime(today);
-  await reloadToToday(page);
+  await page.goto("/today");
+  await saveGratitude(page);
   await expect(nudge(page)).toHaveText(
     `You haven't written gratitude for ${toLongDate(today - DAY_MS)}. Add it?`,
   );
-  await saveGratitude(page);
 
   await page.getByRole("button", { name: "Dismiss reminder" }).click();
   await expect(nudge(page)).toBeHidden();
@@ -59,30 +59,28 @@ test("today: a dismissed gratitude nudge stays dismissed; only a newer miss retu
   await expect(nudge(page)).toBeHidden();
 
   await page.clock.setFixedTime(today + 2 * DAY_MS);
-  await reloadToToday(page);
+  await page.goto("/today");
+  await saveGratitude(page);
   await expect(nudge(page)).toHaveText(
     `You haven't written gratitude for ${toLongDate(today + DAY_MS)}. Add it?`,
   );
 });
 
-test("today: 'Not today' covers the day, so it is never reported missed later", async ({
-  page,
-}) => {
+test("today: a skipped day is never reported missed later", async ({ page }) => {
   const today = noonToday();
   await page.clock.setFixedTime(today - DAY_MS);
-  await enterApp(page);
+  await enterApp(page, { keepGratitudePage: true });
   await saveGratitude(page);
 
   await page.clock.setFixedTime(today);
-  await reloadToToday(page);
-  const card = page.getByRole("region", { name: "Gratitude" });
-  await expect(card).toBeVisible();
-  await card.getByRole("button", { name: "Not today" }).click();
-  await expect(card).toBeHidden();
+  await page.goto("/today");
+  await gratitudePage(page).getByRole("button", { name: "Skip for today" }).click();
+  await expect(todayHeading(page)).toBeVisible();
 
   await page.clock.setFixedTime(today + DAY_MS);
-  await reloadToToday(page);
-  await expect(card).toBeVisible();
+  await page.goto("/today");
+  await saveGratitude(page);
+  await expect(todayHeading(page)).toBeVisible();
   await expect(nudge(page)).toBeHidden();
 });
 

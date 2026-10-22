@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { gratitudePage } from "./helpers/app";
 
 /**
  * Full-stack online-first revert proof.
@@ -25,6 +26,7 @@ test.describe("backend-down reverts the optimistic write", () => {
     await page.getByRole("textbox", { name: /email/i }).fill("e2e@vega.test");
     await page.getByRole("textbox", { name: /password/i }).fill("password123");
     await page.getByRole("button", { name: /^sign in$/i }).click();
+    await gratitudePage(page).getByRole("button", { name: "Skip for today" }).click();
 
     // Simulate the backend being unreachable by failing every tRPC request.
     await page.route("**/trpc/**", (route) => route.abort());

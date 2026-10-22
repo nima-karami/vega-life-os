@@ -1,8 +1,18 @@
 import { expect, type Page } from "@playwright/test";
 import { readStoredRows } from "./stored-rows";
 
-/** Boot the signed-out sandbox; every route is reachable from here. */
-export async function enterApp(page: Page) {
+/** Pre-skips the daily gratitude page on every day, which also silences the missed-gratitude
+ *  nudge. Applies from the next navigation on. */
+export async function skipGratitudePage(page: Page) {
+  await page.addInitScript(() =>
+    localStorage.setItem("vega.gratitudeNudgeAckedThrough", "9999-12-31"),
+  );
+}
+
+/** Boot the signed-out sandbox past the gratitude page; every route is reachable from here.
+ *  `keepGratitudePage` leaves the page up, for specs that answer it. */
+export async function enterApp(page: Page, { keepGratitudePage = false } = {}) {
+  if (!keepGratitudePage) await skipGratitudePage(page);
   // Not `networkidle`: the service worker keeps connections alive, so it never settles
   // under load — the explicit wait below is both stronger and deterministic.
   await page.goto("/");
@@ -15,12 +25,15 @@ export async function enterApp(page: Page) {
   }
 }
 
-/** Write today's gratitude through the Today card, so today has a journal entry. */
+export const gratitudePage = (page: Page) =>
+  page.getByRole("region", { name: "Morning gratitude" });
+
+/** Answer today's gratitude page, so today has a journal entry. */
 export async function saveGratitude(page: Page) {
-  const card = page.getByRole("region", { name: "Gratitude" });
-  await card.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-  await card.getByRole("button", { name: "Save" }).click();
-  await expect(card).toBeHidden();
+  const prompt = gratitudePage(page);
+  await prompt.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
+  await prompt.getByRole("button", { name: "Continue to today" }).click();
+  await expect(prompt).toBeHidden();
   await expect
     .poll(async () => {
       const entries = await readStoredRows<{ gratitude: string[] }>(page, "journal");

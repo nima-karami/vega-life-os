@@ -6,7 +6,7 @@ import {
   getMissedGratitudeDays,
   getWeekEntries,
   listWeekGratitude,
-  shouldShowGratitudeCard,
+  shouldShowGratitudePage,
 } from "./selectors";
 
 const day = (date: string, over: Partial<DayEntry> = {}): DayEntry => ({
@@ -124,35 +124,33 @@ describe("getWeekEntries", () => {
   });
 });
 
-describe("shouldShowGratitudeCard", () => {
+describe("shouldShowGratitudePage", () => {
   const TODAY = "2026-06-22";
   const bare = day(TODAY, { gratitude: [] });
 
-  it("shows on today with no gratitude and no acknowledgement", () => {
-    expect(shouldShowGratitudeCard(undefined, null, TODAY, TODAY)).toBe(true);
-    expect(shouldShowGratitudeCard(bare, null, TODAY, TODAY)).toBe(true);
+  it("shows with no gratitude today and no skip", () => {
+    expect(shouldShowGratitudePage(undefined, null, TODAY)).toBe(true);
+    expect(shouldShowGratitudePage(bare, null, TODAY)).toBe(true);
   });
 
-  it("hides once acknowledged through today", () => {
-    expect(shouldShowGratitudeCard(undefined, TODAY, TODAY, TODAY)).toBe(false);
+  it("hides once today is skipped", () => {
+    expect(shouldShowGratitudePage(undefined, TODAY, TODAY)).toBe(false);
   });
 
-  it("returns on a later day than the acknowledgement", () => {
-    expect(shouldShowGratitudeCard(undefined, "2026-06-21", TODAY, TODAY)).toBe(true);
+  it("hides when the watermark is past today", () => {
+    expect(shouldShowGratitudePage(undefined, "2026-06-23", TODAY)).toBe(false);
+  });
+
+  it("returns on a day after the skip", () => {
+    expect(shouldShowGratitudePage(undefined, "2026-06-21", TODAY)).toBe(true);
   });
 
   it("hides when gratitude is written", () => {
-    expect(shouldShowGratitudeCard(day(TODAY), null, TODAY, TODAY)).toBe(false);
+    expect(shouldShowGratitudePage(day(TODAY), null, TODAY)).toBe(false);
   });
 
   it("treats blank-only lines as no gratitude", () => {
-    expect(shouldShowGratitudeCard(day(TODAY, { gratitude: ["  ", ""] }), null, TODAY, TODAY)).toBe(
-      true,
-    );
-  });
-
-  it("never shows for a day other than today", () => {
-    expect(shouldShowGratitudeCard(undefined, null, "2026-06-21", TODAY)).toBe(false);
+    expect(shouldShowGratitudePage(day(TODAY, { gratitude: ["  ", ""] }), null, TODAY)).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { saveGratitude } from "./helpers/app";
+import { enterApp, saveGratitude, turnQuietModeOff } from "./helpers/app";
 import {
   belowTarget,
   bullseyeTarget,
@@ -70,13 +70,11 @@ test("tap a value, then a ring, and the buttons stay in step", async ({ page }) 
 });
 
 test("the gratitude recap appears only for a week with gratitude", async ({ page }) => {
-  await openReview(page);
-  const recap = page.getByRole("region", { name: "Grateful for this week" });
-  await expect(recap).toHaveCount(0);
-
-  await page.goto("/today", { waitUntil: "domcontentloaded" });
+  await turnQuietModeOff(page);
+  await enterApp(page, { keepGratitudePage: true });
   await saveGratitude(page);
   await page.goto("/analytics?tab=review", { waitUntil: "domcontentloaded" });
+  const recap = page.getByRole("region", { name: "Grateful for this week" });
   await expect(recap).toContainText("e2e gratitude");
 
   await page.getByRole("button", { name: "Next week" }).click();

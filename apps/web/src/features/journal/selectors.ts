@@ -1,14 +1,13 @@
 import { shiftISO } from "@/core/lib/date";
 import { type DayEntry, hasContent, hasGratitude } from "./model";
 
-/** Today's optional gratitude card: nothing written yet and not dismissed for today. */
-export function shouldShowGratitudeCard(
-  entry: DayEntry | undefined,
+/** The daily gratitude page: nothing written today and today not skipped. */
+export function shouldShowGratitudePage(
+  todayEntry: DayEntry | undefined,
   ackedThrough: string | null,
-  date: string,
   today: string,
 ): boolean {
-  return date === today && !hasGratitude(entry) && (ackedThrough == null || ackedThrough < today);
+  return !hasGratitude(todayEntry) && (ackedThrough == null || ackedThrough < today);
 }
 
 /**

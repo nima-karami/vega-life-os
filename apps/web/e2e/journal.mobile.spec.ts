@@ -38,7 +38,7 @@ function widestInnerOverflow(page: Page): Promise<number> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await enterApp(page);
+  await enterApp(page, { keepGratitudePage: true });
   await saveGratitude(page);
 });
 

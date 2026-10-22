@@ -11,10 +11,8 @@ import { useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import {
   BackfillNudge,
   filterUnacknowledgedDays,
-  GratitudeCard,
   getMissedGratitudeDays,
   ReflectionDialog,
-  shouldShowGratitudeCard,
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
@@ -91,7 +89,6 @@ export function TodayPage() {
   );
 
   const { isFreshStartVisible, dismissForWeek } = useFreshStart(today, viewDate);
-  const showGratitudeCard = shouldShowGratitudeCard(todayEntry, nudgeAckedThrough, viewDate, today);
   const showEvening =
     eveningDismissedFor !== today &&
     shouldShowEveningCard(tasks, todayEntry, viewDate, new Date(nowMs));
@@ -148,12 +145,6 @@ export function TodayPage() {
       {isFreshStartVisible && (
         <div className="mt-6">
           <FreshStartCard onDismiss={dismissForWeek} />
-        </div>
-      )}
-
-      {showGratitudeCard && (
-        <div className="mt-6">
-          <GratitudeCard date={today} onSaved={() => setAnnounce("Gratitude saved")} />
         </div>
       )}
 

@@ -7,6 +7,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import { skipGratitudePage } from "./helpers/app";
 
 /**
  * Lived-event (Google Calendar) tagging proof. The OAuth/connect flow needs a real
@@ -15,6 +16,7 @@ import {
  */
 
 async function bootSandbox(page: Page) {
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");

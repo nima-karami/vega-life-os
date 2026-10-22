@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { turnQuietModeOff } from "./helpers/app";
+import { skipGratitudePage, turnQuietModeOff } from "./helpers/app";
 import { expectMenuClearOf, expectMenuOpenAndInert } from "./helpers/menu";
 import { dragAlong, endTouch, longPress, startTouch, swipe, tap } from "./helpers/touch";
 
@@ -14,6 +14,7 @@ const IGNORE = [/Download the React DevTools/i, /\[vite\]/i, /Firebase/i];
 const WIDTHS = [320, 360, 390, 430];
 
 async function bootSandbox(page: import("@playwright/test").Page) {
+  await skipGratitudePage(page);
   // domcontentloaded (not networkidle) — networkidle is flaky under the full
   // suite's parallel load + the eager editor chunk + SW; the explicit element
   // waits below are the real synchronization.

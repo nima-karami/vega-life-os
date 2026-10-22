@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { skipGratitudePage } from "./helpers/app";
 import {
   cancelTouch,
   dragAlong,
@@ -24,6 +25,7 @@ const CHIP_LABEL = /^Update ID card, 13:00 to 14:00/;
 
 async function openCalendar(page: Page, viewport: { width: number; height: number }) {
   await page.setViewportSize(viewport);
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");

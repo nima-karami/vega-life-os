@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { skipGratitudePage } from "./helpers/app";
 
 /**
  * Full-screen journal editor (Notion-style) E2E. Drives the real app: the
@@ -9,6 +10,7 @@ import { expect, test } from "@playwright/test";
 const IGNORE = [/Download the React DevTools/i, /\[vite\]/i, /Firebase/i];
 
 async function bootSandbox(page: import("@playwright/test").Page) {
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "networkidle" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");

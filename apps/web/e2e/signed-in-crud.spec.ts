@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { gratitudePage } from "./helpers/app";
 
 /**
  * Full-stack signed-in CRUD proof (online-first).
@@ -30,6 +31,7 @@ test.describe("signed-in CRUD persists via the backend", () => {
     await page.getByRole("textbox", { name: /email/i }).fill("e2e@vega.test");
     await page.getByRole("textbox", { name: /password/i }).fill("password123");
     await page.getByRole("button", { name: /^sign in$/i }).click();
+    await gratitudePage(page).getByRole("button", { name: "Skip for today" }).click();
 
     await page
       .getByRole("button", { name: /new task|add task/i })

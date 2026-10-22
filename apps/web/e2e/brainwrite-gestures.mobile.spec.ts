@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { skipGratitudePage } from "./helpers/app";
 import {
   cancelTouch,
   dragAlong,
@@ -145,6 +146,7 @@ async function readDeckState(page: Page): Promise<DeckCardState[]> {
  * mobile.spec.ts already boots on element waits for the same reason.
  */
 async function bootSandbox(page: Page) {
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { turnQuietModeOff } from "./helpers/app";
+import { skipGratitudePage, turnQuietModeOff } from "./helpers/app";
 
 type Stamps = { pausedAt: string | null; resumedAt: string | null };
 
@@ -31,6 +31,7 @@ async function readStamps(page: Page, name: string): Promise<Stamps | null> {
  */
 
 test.beforeEach(async ({ page }) => {
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const explore = page.getByRole("button", { name: /explore with sample data/i });
   const main = page.locator("main");

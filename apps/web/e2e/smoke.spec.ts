@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { turnQuietModeOff } from "./helpers/app";
+import { skipGratitudePage, turnQuietModeOff } from "./helpers/app";
 
 /**
  * Smoke suite for the vapor redesign shell (slice 0).
@@ -20,6 +20,7 @@ const IGNORE = [
 
 // Boot the app and dismiss onboarding once before each test.
 test.beforeEach(async ({ page }) => {
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "networkidle" });
 
   // The app settles into EITHER onboarding or the booted shell.
@@ -78,7 +79,7 @@ test("onboarding: cloud-first welcome (sign-in unavailable variant in CI)", asyn
 
   // Choosing sample data seeds the sandbox and enters the app (lands on Today).
   await explore.click();
-  await expect(page.getByRole("region", { name: "Gratitude" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Today", level: 1, exact: true })).toBeVisible({
     timeout: 15_000,
   });
 });
@@ -702,66 +703,6 @@ test("today: the date picker jumps to a chosen day", async ({ page }) => {
 
   // We've left "today" — the jump-back affordance is now shown.
   await expect(page.getByRole("button", { name: "Jump to today" })).toBeVisible();
-});
-
-// ─── Daily gratitude: an optional card, never a gate ─────────────────────────
-
-test("today: gratitude never gates — settings and ⌘K work before it is written", async ({
-  page,
-}) => {
-  await page.goto("/settings", { waitUntil: "networkidle" });
-  await expect(page).toHaveURL(/\/settings$/);
-  await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
-  await page.keyboard.press("ControlOrMeta+K");
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-
-  await page.goto("/today", { waitUntil: "networkidle" });
-  const card = page.getByRole("region", { name: "Gratitude" });
-  const remaining = page.getByRole("region", { name: "Remaining" });
-  await expect(card).toBeVisible({ timeout: 15_000 });
-  await expect(remaining).toBeVisible();
-  const cardBox = await card.boundingBox();
-  const remainingBox = await remaining.boundingBox();
-  expect(cardBox?.y ?? 0).toBeLessThan(remainingBox?.y ?? 0);
-});
-
-test("today: 'Not today' hides the gratitude card across a reload, until the next day", async ({
-  page,
-}) => {
-  await page.goto("/today", { waitUntil: "networkidle" });
-  const card = page.getByRole("region", { name: "Gratitude" });
-  await expect(card).toBeVisible({ timeout: 15_000 });
-  await expect(card.getByRole("button", { name: "Save" })).toBeDisabled();
-
-  await card.getByRole("button", { name: "Not today" }).click();
-  await expect(card).toBeHidden();
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
-  await expect(card).toBeHidden();
-
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(9, 0, 0, 0);
-  await page.clock.setFixedTime(tomorrow);
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(card).toBeVisible({ timeout: 15_000 });
-});
-
-test("today: saving gratitude hides the card and marks the journal entry", async ({ page }) => {
-  await page.goto("/today", { waitUntil: "networkidle" });
-  const card = page.getByRole("region", { name: "Gratitude" });
-  await expect(card).toBeVisible({ timeout: 15_000 });
-  await card.getByRole("textbox", { name: "Grateful for, item 1" }).fill("Sunshine");
-  await card.getByRole("button", { name: "Save" }).click();
-  await expect(card).toBeHidden();
-  await expect(page.getByRole("button", { name: "Edit entry" })).toBeVisible();
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("region", { name: "Remaining" })).toBeVisible();
-  await expect(card).toBeHidden();
 });
 
 // ─── Daily reflection: the evening card ──────────────────────────────────────

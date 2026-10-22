@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { skipGratitudePage } from "./helpers/app";
 
 /**
  * Runtime proof for the expanded icon picker. Drives the real habit page:
@@ -9,6 +10,7 @@ import { expect, test } from "@playwright/test";
  */
 
 test.beforeEach(async ({ page }) => {
+  await skipGratitudePage(page);
   await page.goto("/", { waitUntil: "networkidle" });
 
   const explore = page.getByRole("button", { name: /explore with sample data/i });
