@@ -12,9 +12,13 @@ function closeSentence(text: string): string {
   return CLOSING_PUNCTUATION.test(text) ? text : `${text}.`;
 }
 
-export function buildVoteMessage(value: Pick<Value, "name" | "identity">): VoteMessage {
-  const headline = `A vote for ${value.name}`;
-  const identity = value.identity.trim() || null;
+/** A repeat is a vote for a value whose message is still on screen: brief, no identity line. */
+export function buildVoteMessage(
+  value: Pick<Value, "name" | "identity">,
+  isRepeat = false,
+): VoteMessage {
+  const headline = `${isRepeat ? "Another vote" : "A vote"} for ${value.name}`;
+  const identity = isRepeat ? null : value.identity.trim() || null;
   const announcement = identity
     ? `Done. ${headline}. ${closeSentence(identity)}`
     : `Done. ${headline}.`;

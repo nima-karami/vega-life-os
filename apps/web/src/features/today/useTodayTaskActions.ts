@@ -4,22 +4,28 @@ import { useStore } from "@/core/store";
 import { getTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "@/features/tasks/model";
 import { isResolved } from "@/features/tasks/selectors";
-import { useValueVoteToast } from "@/features/values/useValueVoteToast";
-import { buildVoteMessage, type VoteMessage } from "@/features/values/vote-message";
+import type { Value } from "@/features/values/model";
+import { buildVoteMessage } from "@/features/values/vote-message";
 import {
-  describeHabitToggle,
   describeTaskCompletion,
+  getTaskDensity,
   reorderTasksInDay,
   toggleDone,
 } from "./today-logic";
-import { useDoneSettle } from "./useDoneSettle";
+import { type DoneSettle, useDoneSettle } from "./useDoneSettle";
 
 const UNDO_WINDOW_MS = 6000;
 
-function resolveVote(task: Task): VoteMessage | null {
+function resolveValue(task: Task): Value | undefined {
   const { values, goals, habits } = useStore.getState();
-  const { value } = getTaskLineage(task, { values, goals, habits });
-  return value ? buildVoteMessage(value) : null;
+  return getTaskLineage(task, { values, goals, habits }).value;
+}
+
+/** Holds a fresh complete for its done moment and returns the vote it showed, if any. */
+function holdCompletion(settle: DoneSettle, task: Task) {
+  const value = resolveValue(task);
+  const vote = settle.complete(task.id, value?.id ?? null, getTaskDensity(task));
+  return value && vote ? buildVoteMessage(value, vote.isRepeat) : null;
 }
 
 /** The Today page's task writes, with the screen-reader announcement and delete-undo they drive. */
@@ -28,7 +34,6 @@ export function useTodayTaskActions(tasks: Task[], viewDate: string) {
   const updateTask = useStore((s) => s.updateTask);
   const removeTask = useStore((s) => s.removeTask);
   const addTask = useStore((s) => s.addTask);
-  const announceVote = useValueVoteToast();
   const settle = useDoneSettle(viewDate);
 
   const [editing, setEditing] = useState<Task | null>(null);
@@ -49,20 +54,12 @@ export function useTodayTaskActions(tasks: Task[], viewDate: string) {
   function handleToggleDone(task: Task) {
     const next = toggleDone(task);
     setStatus(task.id, next);
-    // a skipped row is already in Done, so it completes in place with no hold and no vote
-    const isHeld = next === "done" && !isResolved(task);
-    const vote = isHeld ? resolveVote(task) : null;
     if (next !== "done") settle.undo(task.id);
     else pulseHaptic();
-    if (isHeld) settle.complete(task.id, vote !== null);
+    // a skipped row is already in Done, so it completes in place with no hold and no vote
+    const isHeld = next === "done" && !isResolved(task);
+    const vote = isHeld ? holdCompletion(settle, task) : null;
     setAnnounce(describeTaskCompletion(task.title, next, vote));
-  }
-
-  function handleToggleHabit(task: Task) {
-    const next = toggleDone(task);
-    setStatus(task.id, next);
-    if (next === "done") announceVote(task);
-    setAnnounce(describeHabitToggle(task.title, next));
   }
 
   function handleSkip(task: Task) {
@@ -108,7 +105,6 @@ export function useTodayTaskActions(tasks: Task[], viewDate: string) {
     settlingIds: settle.settlingIds,
     getMotion: settle.getMotion,
     handleToggleDone,
-    handleToggleHabit,
     handleSkip,
     handleUnskip,
     handleReorderTasks,

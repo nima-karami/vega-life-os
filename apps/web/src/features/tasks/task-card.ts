@@ -3,10 +3,14 @@ import type { Task, TaskStatus } from "./model";
 
 export type CardAnim = "complete" | "undo";
 type CardTravel = "leave" | "arrive";
+/** `compact` is the slim Anytime row: same takeover, shorter travel and hold. */
+export type CardDensity = "card" | "compact";
 
 export interface TaskCardMotion {
   anim: CardAnim | null;
   isVoting: boolean;
+  /** another row of the same value was mid-vote: "Another vote for …", no identity line */
+  isRepeatVote: boolean;
   travel: CardTravel | null;
 }
 

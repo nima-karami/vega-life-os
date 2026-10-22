@@ -3,17 +3,20 @@ import { SortableList } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import type { Task } from "@/features/tasks/model";
-import type { TaskCardMotion } from "@/features/tasks/task-card";
+import type { CardDensity, TaskCardMotion } from "@/features/tasks/task-card";
 import type { DayLayout } from "../today-logic";
+import { AnytimeLabel } from "./AnytimeLabel";
 import { EventCard } from "./EventCard";
 
 /**
- * The day still ahead, in three zones: all-day events, then timed tasks and timed
- * events interleaved by the clock, then the untimed tasks. Only the last zone is
- * draggable — everything above it is placed by its time, not by `order`.
+ * The day still ahead: all-day events, then timed tasks and timed events interleaved
+ * by the clock, then the untimed tasks, then the slim "Anytime today" habit rows. Only
+ * the untimed tasks and the anytime rows are draggable, each within its own group.
  */
 export function RemainingTasks({
   layout,
+  anytime,
+  hasAnytimeHabits,
   isToday,
   zone,
   onOpen,
@@ -26,6 +29,9 @@ export function RemainingTasks({
   getMotion,
 }: {
   layout: DayLayout;
+  anytime: Task[];
+  /** any anytime habit on this day, done or not: keeps the label mounted so it can fold */
+  hasAnytimeHabits: boolean;
   isToday: boolean;
   zone: string;
   onOpen: (t: Task) => void;
@@ -37,9 +43,10 @@ export function RemainingTasks({
   onReorder: (activeId: string, overId: string) => void;
   getMotion: (taskId: string) => TaskCardMotion | undefined;
 }) {
-  const card = (task: Task) => (
+  const renderCard = (density: CardDensity) => (task: Task) => (
     <TaskCard
       task={task}
+      density={density}
       motion={getMotion(task.id)}
       onOpen={onOpen}
       onToggleDone={onToggleDone}
@@ -48,40 +55,56 @@ export function RemainingTasks({
       onDelete={onDelete}
     />
   );
+  const card = renderCard("card");
+  const isAnytimeStaying = anytime.some((t) => getMotion(t.id)?.travel !== "leave");
 
   return (
-    <div className="flex flex-col gap-3">
-      {layout.allDay.map((event) => (
-        <EventCard
-          key={event.id}
-          event={event}
-          dimWhenPast={false}
-          zone={zone}
-          onOpen={onOpenEvent}
-        />
-      ))}
-      {layout.timedRows.map((row) =>
-        row.kind === "task" ? (
-          <Fragment key={row.id}>{card(row.task)}</Fragment>
-        ) : (
+    <div className="flex flex-col">
+      <div className="flex flex-col gap-3">
+        {layout.allDay.map((event) => (
           <EventCard
-            key={row.id}
-            event={row.event}
-            dimWhenPast={isToday}
+            key={event.id}
+            event={event}
+            dimWhenPast={false}
             zone={zone}
             onOpen={onOpenEvent}
           />
-        ),
-      )}
-      {layout.untimed.length > 0 && (
+        ))}
+        {layout.timedRows.map((row) =>
+          row.kind === "task" ? (
+            <Fragment key={row.id}>{card(row.task)}</Fragment>
+          ) : (
+            <EventCard
+              key={row.id}
+              event={row.event}
+              dimWhenPast={isToday}
+              zone={zone}
+              onOpen={onOpenEvent}
+            />
+          ),
+        )}
+        {layout.untimed.length > 0 && (
+          <SortableList
+            items={layout.untimed}
+            getId={(t) => t.id}
+            getLabel={(t) => t.title}
+            onReorder={onReorder}
+            longPress="compact"
+            className="flex flex-col gap-3"
+            renderItem={card}
+          />
+        )}
+      </div>
+      {hasAnytimeHabits && <AnytimeLabel isCollapsed={!isAnytimeStaying} />}
+      {anytime.length > 0 && (
         <SortableList
-          items={layout.untimed}
+          items={anytime}
           getId={(t) => t.id}
           getLabel={(t) => t.title}
           onReorder={onReorder}
           longPress="compact"
-          className="flex flex-col gap-3"
-          renderItem={card}
+          className="flex flex-col gap-1.5"
+          renderItem={renderCard("compact")}
         />
       )}
     </div>

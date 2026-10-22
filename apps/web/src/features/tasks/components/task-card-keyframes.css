@@ -35,12 +35,28 @@
   overflow: hidden;
 }
 
+.task-row[data-density="compact"],
+li:has(> .task-row[data-density="compact"]) {
+  --row-gap: 6px;
+  --travel-leave: 240ms;
+  --travel-arrive: 280ms;
+}
+
+/* Slim rows sit 6px apart in a list whose gap is the cards' 12px. */
+.task-row[data-density="compact"] + .task-row[data-density="compact"] {
+  margin-top: -6px;
+}
+
+.task-row:not([data-density="compact"]) + .task-row[data-density="compact"] {
+  --row-gap: 12px;
+}
+
 .task-row[data-travel="leave"] {
-  animation: done-leave 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: done-leave var(--travel-leave, 260ms) cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 .task-row[data-travel="arrive"] {
-  animation: done-arrive 300ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  animation: done-arrive var(--travel-arrive, 300ms) cubic-bezier(0.2, 0, 0, 1) backwards;
 }
 
 /* In a sortable <li> the li's margin moves: only a flex item's margin cancels the list gap. */
@@ -53,11 +69,11 @@ li > .task-row[data-travel="arrive"] {
 }
 
 li:has(> .task-row[data-travel="leave"]) {
-  animation: done-gap-close 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: done-gap-close var(--travel-leave, 260ms) cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 li:has(> .task-row[data-travel="arrive"]) {
-  animation: done-gap-open 300ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  animation: done-gap-open var(--travel-arrive, 300ms) cubic-bezier(0.2, 0, 0, 1) backwards;
 }
 
 @keyframes done-pop {
@@ -146,7 +162,7 @@ li:has(> .task-row[data-travel="arrive"]) {
   }
   to {
     max-height: 0;
-    margin-bottom: -12px;
+    margin-bottom: calc(-1 * var(--row-gap, 12px));
     opacity: 0;
     transform: translateY(-4px);
   }
@@ -155,7 +171,7 @@ li:has(> .task-row[data-travel="arrive"]) {
 @keyframes done-arrive {
   from {
     max-height: 0;
-    margin-bottom: -12px;
+    margin-bottom: calc(-1 * var(--row-gap, 12px));
     opacity: 0;
     transform: translateY(-6px);
   }
@@ -198,13 +214,13 @@ li:has(> .task-row[data-travel="arrive"]) {
     margin-bottom: 0;
   }
   to {
-    margin-bottom: -12px;
+    margin-bottom: calc(-1 * var(--row-gap, 12px));
   }
 }
 
 @keyframes done-gap-open {
   from {
-    margin-bottom: -12px;
+    margin-bottom: calc(-1 * var(--row-gap, 12px));
   }
   to {
     margin-bottom: 0;

@@ -6,31 +6,94 @@ import {
   dropStaleSettles,
   EMPTY_SETTLE,
   endVoteHold,
+  extendSettleDeadline,
   finishLeaving,
   getCardMotion,
   getSettleDelay,
   getSettlingIds,
+  getVoteHold,
+  isVoteShowing,
   planSettle,
-  SETTLE_AFTER_PLAIN_MS,
-  SETTLE_AFTER_VOTE_MS,
   type SettleState,
   startComplete,
   startLeaving,
   startUndo,
+  type VoteMark,
 } from "../done-settle";
 
 const allDone = () => true;
+const vote = (valueId = "v1", isRepeat = false): VoteMark => ({ valueId, isRepeat });
 
 function completed(...entries: Array<[string, boolean]>): SettleState {
-  return entries.reduce((state, [id, hasVote]) => startComplete(state, id, hasVote), EMPTY_SETTLE);
+  return entries.reduce(
+    (state, [id, hasVote]) => startComplete(state, id, hasVote ? vote() : null),
+    EMPTY_SETTLE,
+  );
 }
 
 describe("getSettleDelay", () => {
-  it("waits longer when a vote is showing", () => {
-    expect(getSettleDelay(true)).toBe(SETTLE_AFTER_VOTE_MS);
-    expect(getSettleDelay(false)).toBe(SETTLE_AFTER_PLAIN_MS);
-    expect(SETTLE_AFTER_VOTE_MS).toBe(2900);
-    expect(SETTLE_AFTER_PLAIN_MS).toBe(1200);
+  it("waits longer when a vote is showing, and a card longer than a slim row", () => {
+    expect(getSettleDelay(true, "card")).toBe(2900);
+    expect(getSettleDelay(true, "compact")).toBe(2100);
+    expect(getSettleDelay(false, "card")).toBe(1200);
+    expect(getSettleDelay(false, "compact")).toBe(1200);
+  });
+});
+
+describe("getVoteHold", () => {
+  it("holds a card's message 2.1s and a slim row's 1.5s", () => {
+    expect(getVoteHold("card")).toBe(2100);
+    expect(getVoteHold("compact")).toBe(1500);
+  });
+});
+
+describe("extendSettleDeadline", () => {
+  it("starts a deadline when none is pending", () => {
+    expect(extendSettleDeadline(null, 1000, 2100)).toBe(3100);
+  });
+
+  it("waits for the slowest row: a quicker complete never pulls the batch earlier", () => {
+    expect(extendSettleDeadline(2900, 500, 2100)).toBe(2900);
+    expect(extendSettleDeadline(2900, 1000, 2900)).toBe(3900);
+  });
+});
+
+describe("isVoteShowing", () => {
+  it("is true while a row of that value is in its vote", () => {
+    const state = startComplete(EMPTY_SETTLE, "a", vote("health"));
+    expect(isVoteShowing(state, "health")).toBe(true);
+    expect(isVoteShowing(state, "growth")).toBe(false);
+  });
+
+  it("is false once that vote has ended or was undone", () => {
+    const state = startComplete(EMPTY_SETTLE, "a", vote("health"));
+    expect(isVoteShowing(endVoteHold(state, "a"), "health")).toBe(false);
+    expect(isVoteShowing(startUndo(state, "a"), "health")).toBe(false);
+  });
+});
+
+describe("repeat votes", () => {
+  const repeat = startComplete(EMPTY_SETTLE, "b", vote("health", true));
+
+  it("marks the row's motion as a repeat", () => {
+    expect(getCardMotion(repeat, "b")?.isRepeatVote).toBe(true);
+  });
+
+  it("keeps the mark through the vote's end and an undo, so the headline holds while it fades", () => {
+    expect(getCardMotion(endVoteHold(repeat, "b"), "b")?.isRepeatVote).toBe(true);
+    expect(getCardMotion(startUndo(repeat, "b"), "b")?.isRepeatVote).toBe(true);
+  });
+
+  it("forgets the mark once the row lands, is cancelled, or its undo settles", () => {
+    const ended = endVoteHold(repeat, "b");
+    const landed = finishLeaving(startLeaving(ended, ["b"]), ["b"]);
+    expect(getCardMotion(landed, "b")?.isRepeatVote).toBe(false);
+    expect(cancelSettle(ended, "b").votes.has("b")).toBe(false);
+    expect(clearAnim(startUndo(ended, "b"), "b", "undo").votes.has("b")).toBe(false);
+  });
+
+  it("drops the mark when the row completes again with no vote", () => {
+    expect(startComplete(startUndo(repeat, "b"), "b", null).votes.has("b")).toBe(false);
   });
 });
 
@@ -38,7 +101,12 @@ describe("startComplete", () => {
   it("holds a valued complete in its vote and plays the complete animation", () => {
     const state = completed(["a", true]);
     expect(state.phases.get("a")).toBe("vote");
-    expect(getCardMotion(state, "a")).toEqual({ anim: "complete", isVoting: true, travel: null });
+    expect(getCardMotion(state, "a")).toEqual({
+      anim: "complete",
+      isVoting: true,
+      isRepeatVote: false,
+      travel: null,
+    });
   });
 
   it("holds an unvalued complete straight in post", () => {
@@ -50,12 +118,12 @@ describe("startComplete", () => {
   it("stops an arriving row's arrival", () => {
     const arriving = startUndo(EMPTY_SETTLE, "a");
     expect(arriving.arriving.has("a")).toBe(true);
-    expect(startComplete(arriving, "a", false).arriving.has("a")).toBe(false);
+    expect(startComplete(arriving, "a", null).arriving.has("a")).toBe(false);
   });
 
   it("does not mutate the previous state", () => {
     const before = completed(["a", true]);
-    startComplete(before, "b", true);
+    startComplete(before, "b", vote());
     expect(before.phases.has("b")).toBe(false);
   });
 });
@@ -80,12 +148,22 @@ describe("startUndo", () => {
   it("releases a row undone during its vote, in place", () => {
     const state = startUndo(completed(["a", true]), "a");
     expect(state.phases.has("a")).toBe(false);
-    expect(getCardMotion(state, "a")).toEqual({ anim: "undo", isVoting: false, travel: null });
+    expect(getCardMotion(state, "a")).toEqual({
+      anim: "undo",
+      isVoting: false,
+      isRepeatVote: false,
+      travel: null,
+    });
   });
 
   it("brings a row undone from Done back with the arrive animation", () => {
     const state = startUndo(EMPTY_SETTLE, "a");
-    expect(getCardMotion(state, "a")).toEqual({ anim: "undo", isVoting: false, travel: "arrive" });
+    expect(getCardMotion(state, "a")).toEqual({
+      anim: "undo",
+      isVoting: false,
+      isRepeatVote: false,
+      travel: "arrive",
+    });
   });
 });
 
@@ -102,7 +180,7 @@ describe("clearAnim", () => {
   it("clears only the animation it was scheduled for", () => {
     const undone = startUndo(EMPTY_SETTLE, "a");
     expect(clearAnim(undone, "a", "undo").anims.has("a")).toBe(false);
-    const recompleted = startComplete(undone, "a", false);
+    const recompleted = startComplete(undone, "a", null);
     expect(clearAnim(recompleted, "a", "undo")).toBe(recompleted);
   });
 });
@@ -162,7 +240,12 @@ describe("leaving and arriving", () => {
 
     const moved = finishLeaving(leaving, ["a"]);
     expect(getSettlingIds(moved).has("a")).toBe(false);
-    expect(getCardMotion(moved, "a")).toEqual({ anim: null, isVoting: false, travel: "arrive" });
+    expect(getCardMotion(moved, "a")).toEqual({
+      anim: null,
+      isVoting: false,
+      isRepeatVote: false,
+      travel: "arrive",
+    });
 
     expect(getCardMotion(clearArrival(moved, ["a"]), "a")).toBeUndefined();
   });
@@ -171,7 +254,12 @@ describe("leaving and arriving", () => {
     const leaving = startLeaving(completed(["a", false]), ["a"]);
     const undone = startUndo(leaving, "a");
     const moved = finishLeaving(undone, ["a"]);
-    expect(getCardMotion(moved, "a")).toEqual({ anim: "undo", isVoting: false, travel: null });
+    expect(getCardMotion(moved, "a")).toEqual({
+      anim: "undo",
+      isVoting: false,
+      isRepeatVote: false,
+      travel: null,
+    });
   });
 });
 

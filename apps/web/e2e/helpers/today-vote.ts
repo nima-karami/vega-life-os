@@ -3,7 +3,7 @@ import { enterApp } from "./app";
 import { readStoredRows } from "./stored-rows";
 
 const OPEN_VALUED_CARD =
-  "main .task-card[data-valued]:not([data-status=done]):not([data-status=skip])";
+  "main .task-card[data-density=card][data-valued]:not([data-status=done]):not([data-status=skip])";
 const HOLD_LANDS_WITHIN_MS = 10_000;
 
 interface StoredTask {
@@ -302,12 +302,6 @@ export function describeVoteMoment() {
     await expect(card).toHaveAttribute("data-status", "done");
     await expect(announcer(page)).toHaveText("Done.");
     await expect(card).not.toHaveAttribute("data-vote");
-  });
-
-  test("the Daily-habits strip keeps its vote toast", async ({ page }) => {
-    const strip = page.getByRole("region", { name: "Daily habits" });
-    await strip.getByRole("button", { name: "Mark Drink water done" }).click();
-    await expect(voteToasts(page)).toHaveText(/A vote for Self-care/);
   });
 
   test("a complete pulses the haptic at most once per 80ms, and undo never does", async ({

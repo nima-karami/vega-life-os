@@ -7,13 +7,14 @@ import {
   buildTaskPatch,
   describeDay,
   getGoalsForValue,
+  getTaskDensity,
   hasEventEnded,
+  isDayCleared,
   layoutDay,
   partitionToday,
   reorderTasksInDay,
   resolveViewDate,
   shouldShowEveningCard,
-  sortDailyHabits,
   splitRemaining,
   toggleDone,
 } from "../today-logic";
@@ -128,36 +129,48 @@ describe("partitionToday()", () => {
   });
 
   it("returns empty groups for a day with no tasks", () => {
-    const { remaining, done, habits } = partitionToday([], TODAY);
-    expect(remaining).toEqual([]);
-    expect(done).toEqual([]);
-    expect(habits).toEqual([]);
+    expect(partitionToday([], TODAY)).toEqual({
+      remaining: [],
+      done: [],
+      anytime: [],
+      anytimeDone: [],
+    });
   });
 
-  it("routes anytime-habit instances to the habits strip, excluded from remaining/done", () => {
+  it("routes anytime-habit instances to the Anytime group, resolved ones to its Done rows", () => {
     const tasks = [
       task({ id: "task", status: "todo" }),
       task({ id: "h-todo", kind: "habit", habitId: "h1", time: null, status: "todo" }),
       task({ id: "h-done", kind: "habit", habitId: "h2", time: null, status: "done" }),
+      task({ id: "h-skip", kind: "habit", habitId: "h3", time: null, status: "skip" }),
     ];
-    const { remaining, done, habits } = partitionToday(tasks, TODAY);
+    const { remaining, done, anytime, anytimeDone } = partitionToday(tasks, TODAY);
     expect(remaining.map((t) => t.id)).toEqual(["task"]);
-    expect(done.map((t) => t.id)).toEqual([]);
-    expect(habits.map((t) => t.id)).toEqual(["h-todo", "h-done"]);
+    expect(done).toEqual([]);
+    expect(anytime.map((t) => t.id)).toEqual(["h-todo"]);
+    expect(anytimeDone.map((t) => t.id)).toEqual(["h-done", "h-skip"]);
   });
 
-  it("keeps a timed habit instance in the task lists, not the strip", () => {
+  it("orders anytime habits by the user's order, not alphabetically", () => {
+    const tasks = [
+      task({ id: "z", title: "Zazen", kind: "habit", habitId: "h1", order: 0 }),
+      task({ id: "a", title: "Apple", kind: "habit", habitId: "h2", order: 1 }),
+    ];
+    expect(partitionToday(tasks, TODAY).anytime.map((t) => t.id)).toEqual(["z", "a"]);
+  });
+
+  it("keeps a timed habit instance in the card lists, not the Anytime group", () => {
     const tasks = [task({ id: "h", kind: "habit", habitId: "h1", time: "08:00", status: "todo" })];
-    const { remaining, habits } = partitionToday(tasks, TODAY);
+    const { remaining, anytime } = partitionToday(tasks, TODAY);
     expect(remaining.map((t) => t.id)).toEqual(["h"]);
-    expect(habits).toEqual([]);
+    expect(anytime).toEqual([]);
   });
 
-  it("keeps an untimed one-off in remaining (only habit-kind untimed go to the strip)", () => {
+  it("keeps an untimed one-off in remaining (only habit-kind untimed go to Anytime)", () => {
     const tasks = [task({ id: "o", kind: "oneoff", time: null, status: "todo" })];
-    const { remaining, habits } = partitionToday(tasks, TODAY);
+    const { remaining, anytime } = partitionToday(tasks, TODAY);
     expect(remaining.map((t) => t.id)).toEqual(["o"]);
-    expect(habits).toEqual([]);
+    expect(anytime).toEqual([]);
   });
 
   it("holds a settling resolved task in remaining, in its time→order slot", () => {
@@ -172,15 +185,50 @@ describe("partitionToday()", () => {
     expect(done.map((t) => t.id)).toEqual(["other"]);
   });
 
-  it("ignores settling ids for open tasks and anytime habits", () => {
+  it("holds a settling anytime habit in the Anytime group", () => {
     const tasks = [
       task({ id: "open", status: "todo" }),
       task({ id: "h", kind: "habit", habitId: "h1", time: null, status: "done" }),
+      task({ id: "h2", kind: "habit", habitId: "h2", time: null, status: "done" }),
     ];
-    const { remaining, done, habits } = partitionToday(tasks, TODAY, new Set(["open", "h"]));
+    const { remaining, done, anytime, anytimeDone } = partitionToday(
+      tasks,
+      TODAY,
+      new Set(["open", "h"]),
+    );
     expect(remaining.map((t) => t.id)).toEqual(["open"]);
     expect(done).toEqual([]);
-    expect(habits.map((t) => t.id)).toEqual(["h"]);
+    expect(anytime.map((t) => t.id)).toEqual(["h"]);
+    expect(anytimeDone.map((t) => t.id)).toEqual(["h2"]);
+  });
+});
+
+describe("isDayCleared()", () => {
+  const habit = (id: string, status: Task["status"]) =>
+    task({ id, kind: "habit", habitId: id, time: null, status });
+
+  it("waits for the anytime habits too", () => {
+    const tasks = [task({ id: "a", status: "done" }), habit("h", "todo")];
+    expect(isDayCleared(partitionToday(tasks, TODAY))).toBe(false);
+    const settled = [task({ id: "a", status: "done" }), habit("h", "done")];
+    expect(isDayCleared(partitionToday(settled, TODAY))).toBe(true);
+  });
+
+  it("waits while a row is still settling", () => {
+    const tasks = [habit("h", "done")];
+    expect(isDayCleared(partitionToday(tasks, TODAY, new Set(["h"])))).toBe(false);
+  });
+
+  it("is false on an empty day", () => {
+    expect(isDayCleared(partitionToday([], TODAY))).toBe(false);
+  });
+});
+
+describe("getTaskDensity()", () => {
+  it("draws an anytime habit as a slim row and everything else as a card", () => {
+    expect(getTaskDensity(task({ kind: "habit", habitId: "h", time: null }))).toBe("compact");
+    expect(getTaskDensity(task({ kind: "habit", habitId: "h", time: "08:00" }))).toBe("card");
+    expect(getTaskDensity(task({ kind: "oneoff", time: null }))).toBe("card");
   });
 });
 
@@ -313,6 +361,28 @@ describe("reorderTasksInDay()", () => {
     expect(updates.every((u) => u.id !== "b")).toBe(true);
     expect(updates.length).toBeGreaterThan(0);
   });
+
+  it("reorders anytime habits within their own group", () => {
+    const habit = (id: string, order: number) =>
+      task({ id, kind: "habit", habitId: id, time: null, order });
+    const tasks = [task({ id: "t", order: 0 }), habit("x", 5), habit("y", 6), habit("z", 7)];
+    const updates = reorderTasksInDay(tasks, TODAY, "z", "x");
+    expect(updates).toEqual([
+      { id: "z", order: 0 },
+      { id: "x", order: 1 },
+      { id: "y", order: 2 },
+    ]);
+    expect(updates.some((u) => u.id === "t")).toBe(false);
+  });
+
+  it("never reorders across the card and Anytime groups", () => {
+    const tasks = [
+      task({ id: "t", order: 0 }),
+      task({ id: "h", kind: "habit", habitId: "h", time: null, order: 1 }),
+    ];
+    expect(reorderTasksInDay(tasks, TODAY, "h", "t")).toEqual([]);
+    expect(reorderTasksInDay(tasks, TODAY, "t", "h")).toEqual([]);
+  });
 });
 
 // ─── splitRemaining ──────────────────────────────────────────────────────────
@@ -360,47 +430,6 @@ describe("splitRemaining()", () => {
     const { timed, untimed } = splitRemaining([]);
     expect(timed).toEqual([]);
     expect(untimed).toEqual([]);
-  });
-});
-
-// ─── sortDailyHabits ─────────────────────────────────────────────────────────
-
-describe("sortDailyHabits()", () => {
-  it("sorts alphabetically, case-insensitively", () => {
-    const items = [
-      task({ id: "z", title: "Zazen" }),
-      task({ id: "a", title: "apple" }),
-      task({ id: "b", title: "Breathe" }),
-    ];
-    expect(sortDailyHabits(items).map((t) => t.title)).toEqual(["apple", "Breathe", "Zazen"]);
-  });
-
-  it("breaks ties by order, then id", () => {
-    const items = [
-      task({ id: "x2", title: "Stretch", order: 2 }),
-      task({ id: "x1", title: "Stretch", order: 1 }),
-    ];
-    expect(sortDailyHabits(items).map((t) => t.id)).toEqual(["x1", "x2"]);
-  });
-
-  it("breaks ties by id when order is equal", () => {
-    const items = [
-      task({ id: "bbb", title: "Stretch", order: 0 }),
-      task({ id: "aaa", title: "Stretch", order: 0 }),
-    ];
-    expect(sortDailyHabits(items).map((t) => t.id)).toEqual(["aaa", "bbb"]);
-  });
-
-  it("does not mutate the input array", () => {
-    const items = [task({ id: "z", title: "Z" }), task({ id: "a", title: "A" })];
-    const before = items.map((t) => t.id);
-    sortDailyHabits(items);
-    expect(items.map((t) => t.id)).toEqual(before);
-  });
-
-  it("orders case-only variants adjacently without throwing", () => {
-    const items = [task({ id: "u", title: "Run" }), task({ id: "l", title: "run" })];
-    expect(sortDailyHabits(items).map((t) => t.title)).toHaveLength(2);
   });
 });
 
@@ -570,9 +599,11 @@ describe("shouldShowEveningCard", () => {
     expect(shouldShowEveningCard([], undefined, TODAY, at(9))).toBe(false);
   });
 
-  it("ignores anytime habits when judging the day settled", () => {
+  it("counts anytime habits when judging the day settled", () => {
     const anytime = task({ id: "a", kind: "habit", habitId: "h1", time: null, date: TODAY });
-    expect(shouldShowEveningCard([finished, anytime], undefined, TODAY, at(9))).toBe(true);
+    expect(shouldShowEveningCard([finished, anytime], undefined, TODAY, at(9))).toBe(false);
+    const kept = { ...anytime, status: "done" as const };
+    expect(shouldShowEveningCard([finished, kept], undefined, TODAY, at(9))).toBe(true);
   });
 
   it("hides once reflected", () => {

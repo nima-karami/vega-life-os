@@ -30,7 +30,12 @@ function actions() {
 }
 
 describe("buildCardStateAttributes", () => {
-  const voting: TaskCardMotion = { anim: "complete", isVoting: true, travel: null };
+  const voting: TaskCardMotion = {
+    anim: "complete",
+    isVoting: true,
+    isRepeatVote: false,
+    travel: null,
+  };
 
   it("marks a valued done card that is voting", () => {
     expect(buildCardStateAttributes("done", voting, true)).toEqual({
@@ -49,7 +54,12 @@ describe("buildCardStateAttributes", () => {
   });
 
   it("passes the animation through and leaves it off at rest", () => {
-    const undo: TaskCardMotion = { anim: "undo", isVoting: false, travel: "arrive" };
+    const undo: TaskCardMotion = {
+      anim: "undo",
+      isVoting: false,
+      isRepeatVote: false,
+      travel: "arrive",
+    };
     expect(buildCardStateAttributes("todo", undo, false)).toEqual({
       "data-status": "todo",
       "data-anim": "undo",
@@ -60,8 +70,18 @@ describe("buildCardStateAttributes", () => {
   });
 
   it("plays an animation only while the status still matches it", () => {
-    const complete: TaskCardMotion = { anim: "complete", isVoting: false, travel: null };
-    const undo: TaskCardMotion = { anim: "undo", isVoting: false, travel: null };
+    const complete: TaskCardMotion = {
+      anim: "complete",
+      isVoting: false,
+      isRepeatVote: false,
+      travel: null,
+    };
+    const undo: TaskCardMotion = {
+      anim: "undo",
+      isVoting: false,
+      isRepeatVote: false,
+      travel: null,
+    };
     expect(buildCardStateAttributes("done", complete, true)["data-anim"]).toBe("complete");
     expect(buildCardStateAttributes("todo", complete, true)["data-anim"]).toBeUndefined();
     expect(buildCardStateAttributes("skip", complete, true)["data-anim"]).toBeUndefined();

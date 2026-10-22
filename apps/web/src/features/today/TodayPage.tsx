@@ -16,9 +16,8 @@ import {
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
-import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
+import { computeDayCounts } from "@/features/tasks/selectors";
 import { AllDoneMarker } from "./components/AllDoneMarker";
-import { DailyHabits } from "./components/DailyHabits";
 import { DoneTasks } from "./components/DoneTasks";
 import { EveningCard } from "./components/EveningCard";
 import { FreshStartCard } from "./components/FreshStartCard";
@@ -28,6 +27,7 @@ import { TodayHeader } from "./components/TodayHeader";
 import {
   describeEmptyDay,
   findLiveCopy,
+  isDayCleared,
   partitionToday,
   shouldShowEveningCard,
 } from "./today-logic";
@@ -63,7 +63,6 @@ export function TodayPage() {
     pendingUndo,
     undoDelete,
     handleToggleDone,
-    handleToggleHabit,
     handleSkip,
     handleUnskip,
     handleReorderTasks,
@@ -95,26 +94,19 @@ export function TodayPage() {
     eveningDismissedFor !== today &&
     shouldShowEveningCard(tasks, todayEntry, viewDate, new Date(nowMs));
 
-  const { remaining, done, habits } = useMemo(
+  const groups = useMemo(
     () => partitionToday(tasks, viewDate, settlingIds),
     [tasks, viewDate, settlingIds],
   );
+  const { remaining, done, anytime, anytimeDone } = groups;
 
   const { layout, eventCount } = useDayLayout(remaining, viewDate);
 
-  // Anytime habits live in their own strip and don't count toward the day's task progress.
-  // Events never count either — attendance is not completion.
-  const counts = useMemo(
-    () =>
-      computeDayCounts(
-        tasks.filter((t) => !isAnytimeHabit(t)),
-        viewDate,
-      ),
-    [tasks, viewDate],
-  );
+  // Events never count: attendance is not completion.
+  const counts = useMemo(() => computeDayCounts(tasks, viewDate), [tasks, viewDate]);
 
   const isEmpty = counts.total === 0 && eventCount === 0;
-  const allDone = counts.total > 0 && remaining.length === 0;
+  const allDone = isDayCleared(groups);
 
   // Keep the open editors in sync with the store (handles remote edits / deletes).
   const calendarEvents = useStore((s) => s.calendarEvents);
@@ -166,6 +158,8 @@ export function TodayPage() {
           ) : (
             <RemainingTasks
               layout={layout}
+              anytime={anytime}
+              hasAnytimeHabits={anytime.length + anytimeDone.length > 0}
               isToday={isDisplayToday}
               zone={displayZone}
               onOpen={setEditing}
@@ -180,11 +174,10 @@ export function TodayPage() {
           )}
         </section>
 
-        {habits.length > 0 && <DailyHabits items={habits} onToggle={handleToggleHabit} />}
-
-        {done.length > 0 && (
+        {done.length + anytimeDone.length > 0 && (
           <DoneTasks
             tasks={done}
+            anytime={anytimeDone}
             getMotion={getMotion}
             onOpen={setEditing}
             onToggleDone={handleToggleDone}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/core/store";
-import type { TaskCardMotion } from "@/features/tasks/task-card";
+import type { CardDensity, TaskCardMotion } from "@/features/tasks/task-card";
 import {
   ARRIVE_MS,
   cancelSettle,
@@ -9,10 +9,13 @@ import {
   dropStaleSettles,
   EMPTY_SETTLE,
   endVoteHold,
+  extendSettleDeadline,
   finishLeaving,
   getCardMotion,
   getSettleDelay,
   getSettlingIds,
+  getVoteHold,
+  isVoteShowing,
   LEAVE_MS,
   planSettle,
   SETTLE_RETRY_MS,
@@ -21,13 +24,14 @@ import {
   startLeaving,
   startUndo,
   UNDO_ANIM_MS,
-  VOTE_HOLD_MS,
+  type VoteMark,
 } from "./done-settle";
 
 export interface DoneSettle {
   settlingIds: ReadonlySet<string>;
   getMotion: (taskId: string) => TaskCardMotion | undefined;
-  complete: (taskId: string, hasVote: boolean) => void;
+  /** holds the row; a valued complete returns its vote, marked as a repeat when one shows */
+  complete: (taskId: string, valueId: string | null, density: CardDensity) => VoteMark | null;
   undo: (taskId: string) => void;
   cancel: (taskId: string) => void;
 }
@@ -61,6 +65,7 @@ export function useDoneSettle(viewDate: string): DoneSettle {
   const [state, setState] = useState<SettleState>(EMPTY_SETTLE);
   const stateRef = useRef(state);
   const timersRef = useRef<Timers>(new Map());
+  const settleAtRef = useRef<number | null>(null);
   const refocusIdRef = useRef<string | null>(null);
   const tasks = useStore((s) => s.tasks);
 
@@ -107,6 +112,7 @@ export function useDoneSettle(viewDate: string): DoneSettle {
   );
 
   const runSettle = useCallback(() => {
+    settleAtRef.current = null;
     const plan = planSettle(stateRef.current, isStoredDone);
     if (plan.retry) {
       schedule("settle", SETTLE_RETRY_MS, runSettle);
@@ -117,13 +123,22 @@ export function useDoneSettle(viewDate: string): DoneSettle {
   }, [commit, schedule, moveToDone]);
 
   const complete = useCallback(
-    (taskId: string, hasVote: boolean) => {
-      commit((current) => startComplete(current, taskId, hasVote));
-      if (hasVote)
-        schedule(`vote:${taskId}`, VOTE_HOLD_MS, () =>
+    (taskId: string, valueId: string | null, density: CardDensity) => {
+      const vote =
+        valueId === null ? null : { valueId, isRepeat: isVoteShowing(stateRef.current, valueId) };
+      commit((current) => startComplete(current, taskId, vote));
+      if (vote)
+        schedule(`vote:${taskId}`, getVoteHold(density), () =>
           commit((current) => endVoteHold(current, taskId)),
         );
-      schedule("settle", getSettleDelay(hasVote), runSettle);
+      const now = Date.now();
+      settleAtRef.current = extendSettleDeadline(
+        settleAtRef.current,
+        now,
+        getSettleDelay(vote !== null, density),
+      );
+      schedule("settle", settleAtRef.current - now, runSettle);
+      return vote;
     },
     [commit, schedule, runSettle],
   );
@@ -176,6 +191,7 @@ export function useDoneSettle(viewDate: string): DoneSettle {
     if (settledDateRef.current === viewDate) return;
     settledDateRef.current = viewDate;
     clearTimers(timersRef.current);
+    settleAtRef.current = null;
     commit(() => EMPTY_SETTLE);
   }, [viewDate, commit]);
 

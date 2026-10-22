@@ -3,9 +3,15 @@
  * vote and drain play, then the whole batch leaves for Done together. Pure state
  * transitions; `useDoneSettle` owns the timers.
  */
-import type { CardAnim, TaskCardMotion } from "@/features/tasks/task-card";
+import type { CardAnim, CardDensity, TaskCardMotion } from "@/features/tasks/task-card";
 
 type SettlePhase = "vote" | "post" | "leaving";
+
+/** The value a row voted for, and whether it repeated a vote still on screen. */
+export interface VoteMark {
+  valueId: string;
+  isRepeat: boolean;
+}
 
 export interface SettleState {
   /** ids held in Remaining */
@@ -14,6 +20,8 @@ export interface SettleState {
   anims: ReadonlyMap<string, CardAnim>;
   /** ids playing the arrive animation */
   arriving: ReadonlySet<string>;
+  /** kept until the row lands, so a fading headline never changes its words */
+  votes: ReadonlyMap<string, VoteMark>;
 }
 
 export interface SettlePlan {
@@ -26,18 +34,32 @@ export const EMPTY_SETTLE: SettleState = {
   phases: new Map(),
   anims: new Map(),
   arriving: new Set(),
+  votes: new Map(),
 };
 
-export const VOTE_HOLD_MS = 2100;
-export const SETTLE_AFTER_VOTE_MS = 2900;
-export const SETTLE_AFTER_PLAIN_MS = 1200;
+const VOTE_HOLD_MS: Record<CardDensity, number> = { card: 2100, compact: 1500 };
+const SETTLE_AFTER_VOTE_MS: Record<CardDensity, number> = { card: 2900, compact: 2100 };
+const SETTLE_AFTER_PLAIN_MS = 1200;
 export const SETTLE_RETRY_MS = 400;
 export const LEAVE_MS = 280;
 export const ARRIVE_MS = 320;
 export const UNDO_ANIM_MS = 600;
 
-export function getSettleDelay(hasVote: boolean): number {
-  return hasVote ? SETTLE_AFTER_VOTE_MS : SETTLE_AFTER_PLAIN_MS;
+export function getVoteHold(density: CardDensity): number {
+  return VOTE_HOLD_MS[density];
+}
+
+export function getSettleDelay(hasVote: boolean, density: CardDensity): number {
+  return hasVote ? SETTLE_AFTER_VOTE_MS[density] : SETTLE_AFTER_PLAIN_MS;
+}
+
+/** The shared batch waits for its slowest row, so a quicker complete never pulls it earlier. */
+export function extendSettleDeadline(
+  deadline: number | null,
+  now: number,
+  delayMs: number,
+): number {
+  return Math.max(deadline ?? 0, now + delayMs);
 }
 
 function withEntry<V>(map: ReadonlyMap<string, V>, id: string, entry: V | null): Map<string, V> {
@@ -54,11 +76,18 @@ function withMember(set: ReadonlySet<string>, id: string, isMember: boolean): Se
   return next;
 }
 
-export function startComplete(state: SettleState, id: string, hasVote: boolean): SettleState {
+export function isVoteShowing(state: SettleState, valueId: string): boolean {
+  for (const [id, phase] of state.phases)
+    if (phase === "vote" && state.votes.get(id)?.valueId === valueId) return true;
+  return false;
+}
+
+export function startComplete(state: SettleState, id: string, vote: VoteMark | null): SettleState {
   return {
-    phases: withEntry(state.phases, id, hasVote ? "vote" : "post"),
+    phases: withEntry(state.phases, id, vote ? "vote" : "post"),
     anims: withEntry(state.anims, id, "complete"),
     arriving: withMember(state.arriving, id, false),
+    votes: withEntry(state.votes, id, vote),
   };
 }
 
@@ -71,6 +100,7 @@ export function endVoteHold(state: SettleState, id: string): SettleState {
 export function startUndo(state: SettleState, id: string): SettleState {
   const wasInDone = !state.phases.has(id);
   return {
+    ...state,
     phases: withEntry(state.phases, id, null),
     anims: withEntry(state.anims, id, "undo"),
     arriving: withMember(state.arriving, id, wasInDone),
@@ -82,12 +112,17 @@ export function cancelSettle(state: SettleState, id: string): SettleState {
     phases: withEntry(state.phases, id, null),
     anims: withEntry(state.anims, id, null),
     arriving: withMember(state.arriving, id, false),
+    votes: withEntry(state.votes, id, null),
   };
 }
 
 export function clearAnim(state: SettleState, id: string, anim: CardAnim): SettleState {
   if (state.anims.get(id) !== anim) return state;
-  return { ...state, anims: withEntry(state.anims, id, null) };
+  return {
+    ...state,
+    anims: withEntry(state.anims, id, null),
+    votes: withEntry(state.votes, id, null),
+  };
 }
 
 /** Nothing leaves while any row is mid-vote, so rows never shift under a showing message. */
@@ -118,13 +153,15 @@ export function finishLeaving(state: SettleState, ids: string[]): SettleState {
   const phases = new Map(state.phases);
   const anims = new Map(state.anims);
   const arriving = new Set(state.arriving);
+  const votes = new Map(state.votes);
   for (const id of ids) {
     if (phases.get(id) !== "leaving") continue;
     phases.delete(id);
     anims.delete(id);
+    votes.delete(id);
     arriving.add(id);
   }
-  return { phases, anims, arriving };
+  return { phases, anims, arriving, votes };
 }
 
 export function clearArrival(state: SettleState, ids: string[]): SettleState {
@@ -148,6 +185,7 @@ export function getCardMotion(state: SettleState, id: string): TaskCardMotion | 
   return {
     anim: state.anims.get(id) ?? null,
     isVoting: state.phases.get(id) === "vote",
+    isRepeatVote: state.votes.get(id)?.isRepeat ?? false,
     travel: getTravel(state, id),
   };
 }

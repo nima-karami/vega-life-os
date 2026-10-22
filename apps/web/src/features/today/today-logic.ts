@@ -17,41 +17,49 @@ import {
   isAnytimeHabit,
   isResolved,
 } from "@/features/tasks/selectors";
+import type { CardDensity } from "@/features/tasks/task-card";
 import type { VoteMessage } from "@/features/values/vote-message";
 
 const NO_SETTLING: ReadonlySet<string> = new Set();
 
 export interface TodayGroups {
-  /** open | todo — still to do today, sorted by time then order */
+  /** open | todo cards — still to do today, sorted by time then order */
   remaining: Task[];
-  /** done | skip — resolved today, sorted by time then order */
+  /** done | skip cards — resolved today, sorted by time then order */
   done: Task[];
-  /** anytime habit instances — shown in the Daily-habits strip, excluded from the task lists */
-  habits: Task[];
+  /** anytime habits still to do — the slim rows under "Anytime today", in the user's order */
+  anytime: Task[];
+  /** resolved anytime habits — slim rows under the Done cards */
+  anytimeDone: Task[];
 }
 
 /**
- * Partition today's queue into Remaining (open|todo), Done (done|skip), and the
- * anytime-habit strip. Anytime habits are pulled out first so they never appear
- * in the task lists or the day's "X of Y" count. Reuses `getDayQueue` for the
- * canonical time→order sort and `isResolved` for the Remaining/Done boundary. A resolved
- * task in `settlingIds` stays in Remaining until its done moment has played out.
+ * Partition today's queue into the card groups and the Anytime groups, each split at
+ * `isResolved` and sorted by `getDayQueue` (time, then order). A resolved task in
+ * `settlingIds` stays in its to-do group until its done moment has played out.
  */
 export function partitionToday(
   tasks: Task[],
   date: string,
   settlingIds: ReadonlySet<string> = NO_SETTLING,
 ): TodayGroups {
-  const queue = getDayQueue(tasks, date);
-  const remaining: Task[] = [];
-  const done: Task[] = [];
-  const habits: Task[] = [];
-  for (const t of queue) {
-    if (isAnytimeHabit(t)) habits.push(t);
-    else if (isResolved(t) && !settlingIds.has(t.id)) done.push(t);
-    else remaining.push(t);
+  const groups: TodayGroups = { remaining: [], done: [], anytime: [], anytimeDone: [] };
+  for (const t of getDayQueue(tasks, date)) {
+    const isDone = isResolved(t) && !settlingIds.has(t.id);
+    if (isAnytimeHabit(t)) (isDone ? groups.anytimeDone : groups.anytime).push(t);
+    else (isDone ? groups.done : groups.remaining).push(t);
   }
-  return { remaining, done, habits };
+  return groups;
+}
+
+/** Nothing left to do, and something was on the list: the day is settled. */
+export function isDayCleared(groups: TodayGroups): boolean {
+  const left = groups.remaining.length + groups.anytime.length;
+  return left === 0 && groups.done.length + groups.anytimeDone.length > 0;
+}
+
+export function getTaskDensity(task: Task): CardDensity {
+  return isAnytimeHabit(task) ? "compact" : "card";
 }
 
 /** Local draft state for the inline "Add a task" capture flow. */
@@ -121,23 +129,19 @@ export function findLiveCopy<T extends { id: string }>(
   return items.find((item) => item.id === id) ?? null;
 }
 
-export function describeHabitToggle(title: string, next: TaskStatus): string {
-  return next === "done" ? `${title}, done` : `${title}, not done`;
-}
-
 export interface OrderUpdate {
   id: string;
   order: number;
 }
 
 /**
- * Drag-and-drop reorder within the day's Remaining group: move `activeId` onto
- * `overId`'s slot, renumbering the group to its new visual sequence. Returns the
- * minimal {id, order} updates to apply, or an empty array for a no-op.
+ * Drag-and-drop reorder within the day's to-do group that holds `activeId` (the cards,
+ * or the Anytime rows): move it onto `overId`'s slot, renumbering the group to its new
+ * visual sequence. Returns the minimal {id, order} updates to apply, or an empty array
+ * for a no-op — including a drop across the two groups.
  *
- * Only the Remaining group of `date` participates — resolved tasks and other
- * days are never touched. (Tasks still sort by time first, so `order` is the
- * tiebreaker among same-time tasks.)
+ * Resolved tasks and other days are never touched. (Tasks still sort by time first, so
+ * `order` is the tiebreaker among same-time tasks.)
  */
 export function reorderTasksInDay(
   tasks: Task[],
@@ -145,8 +149,9 @@ export function reorderTasksInDay(
   activeId: string,
   overId: string,
 ): OrderUpdate[] {
-  const { remaining } = partitionToday(tasks, date);
-  return reorderByIds(remaining, activeId, overId);
+  const { remaining, anytime } = partitionToday(tasks, date);
+  const group = anytime.some((t) => t.id === activeId) ? anytime : remaining;
+  return reorderByIds(group, activeId, overId);
 }
 
 /**
@@ -229,10 +234,7 @@ export function shouldShowEveningCard(
 ): boolean {
   if (date !== todayISO(now) || isReflected(entry)) return false;
   if (now.getHours() >= EVENING_HOUR) return true;
-  const counts = computeDayCounts(
-    tasks.filter((t) => !isAnytimeHabit(t)),
-    date,
-  );
+  const counts = computeDayCounts(tasks, date);
   return counts.total > 0 && counts.todo === 0;
 }
 
@@ -244,20 +246,6 @@ export function hasEventEnded(event: CalendarEvent, nowMs: number, zone: string)
   // midnight is still running — and instant → wall clock never meets a DST gap.
   const elapsed = daysBetween(date, event.date) * 1440 + minutes;
   return elapsed >= minutesOf(event.time) + event.durationMin;
-}
-
-/**
- * Daily-habits strip ordering: alphabetical by title (locale-aware,
- * case-insensitive), ties broken by `order` then `id`. Returns a sorted copy —
- * never mutates the input.
- */
-export function sortDailyHabits(items: Task[]): Task[] {
-  return [...items].sort(
-    (a, b) =>
-      a.title.localeCompare(b.title, undefined, { sensitivity: "base" }) ||
-      a.order - b.order ||
-      a.id.localeCompare(b.id),
-  );
 }
 
 /** The day in view from the `?date=` param; absent or invalid means today. */

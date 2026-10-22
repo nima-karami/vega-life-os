@@ -992,25 +992,20 @@ test("goal steps: inline rename", async ({ page }) => {
   expect(await stepOrder()).toEqual(["Alpha renamed", "Bravo", "Charlie"]);
 });
 
-test("anytime habit: shows in the Daily habits strip, not the task list or calendar", async ({
-  page,
-}) => {
+test("anytime habit: a slim row under Anytime today, off the calendar", async ({ page }) => {
   await page.goto("/today", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 
-  // The seeded anytime habit "Drink water" lives in the Daily habits strip.
-  const strip = page.getByRole("region", { name: "Daily habits" });
-  await expect(strip).toBeVisible();
-  await expect(strip.getByText("Drink water")).toBeVisible();
-
-  // It is not duplicated into the Remaining task list.
-  await expect(
-    page.getByRole("region", { name: "Remaining" }).getByText("Drink water"),
-  ).toHaveCount(0);
+  // The seeded anytime habit "Drink water" is one slim row in Remaining, under its sub-label.
+  const remaining = page.getByRole("region", { name: "Remaining" });
+  await expect(remaining.getByRole("heading", { name: "Anytime today" })).toBeVisible();
+  const row = remaining.locator(".task-card[data-density=compact]", { hasText: "Drink water" });
+  await expect(row).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Daily habits" })).toHaveCount(0);
 
   // Checking it toggles its state.
-  await strip.getByRole("button", { name: "Mark Drink water done" }).click();
-  await expect(strip.getByRole("button", { name: "Mark Drink water not done" })).toBeVisible();
+  await row.getByRole("button", { name: "Mark Drink water done" }).click();
+  await expect(page.getByRole("button", { name: "Mark Drink water not done" })).toBeVisible();
 
   // It never appears on the calendar (off-calendar by design).
   await page.goto("/calendar", { waitUntil: "networkidle" });

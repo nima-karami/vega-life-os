@@ -25,6 +25,13 @@ describe("buildVoteMessage", () => {
     );
   });
 
+  it("says 'Another vote' with no identity line for a repeat", () => {
+    const repeat = buildVoteMessage({ name: "Health", identity: "You move." }, true);
+    expect(repeat.headline).toBe("Another vote for Health");
+    expect(repeat.identity).toBeNull();
+    expect(repeat.announcement).toBe("Done. Another vote for Health.");
+  });
+
   it("appends the identity line, keeping its own closing punctuation", () => {
     const announce = (identity: string) =>
       buildVoteMessage({ name: "Health", identity }).announcement;
