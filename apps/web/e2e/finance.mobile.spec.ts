@@ -96,43 +96,45 @@ async function measureBudgetChips(page: Page): Promise<BudgetChipPlacement[]> {
   return page.evaluate(() => {
     const describe = (node: Element) => `${node.tagName}[${node.getAttribute("class") ?? ""}]`;
 
+    const findAmount = (chip: Element): Element | null => {
+      for (let node = chip.parentElement; node !== null; node = node.parentElement) {
+        const amount = node.querySelector('[data-testid="compact-amount"]');
+        if (amount !== null) return amount;
+      }
+      return null;
+    };
+
+    const isCutHorizontally = (box: DOMRect, node: Element) => {
+      const style = getComputedStyle(node);
+      if (style.overflowX === "visible" && style.overflowY === "visible") return false;
+      const bounds = node.getBoundingClientRect();
+      return box.left < bounds.left - 0.5 || box.right > bounds.right + 0.5;
+    };
+
+    const findClippingAncestor = (chip: Element, box: DOMRect): string | null => {
+      for (let node = chip.parentElement; node !== null; node = node.parentElement) {
+        if (isCutHorizontally(box, node)) return describe(node);
+      }
+      return null;
+    };
+
+    const intersects = (box: DOMRect, other: DOMRect) =>
+      Math.min(box.right, other.right) - Math.max(box.left, other.left) > 0 &&
+      Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > 0;
+
     return Array.from(document.querySelectorAll('[aria-label^="Monthly budget for"]')).map(
       (chip) => {
         const box = chip.getBoundingClientRect();
-
-        let amount: Element | null = null;
-        for (
-          let node = chip.parentElement;
-          node !== null && amount === null;
-          node = node.parentElement
-        ) {
-          amount = node.querySelector('[data-testid="compact-amount"]');
-        }
+        const amount = findAmount(chip);
         const amountBox = amount?.getBoundingClientRect() ?? null;
-
-        let clippedBy: string | null = null;
-        for (
-          let node = chip.parentElement;
-          node !== null && clippedBy === null;
-          node = node.parentElement
-        ) {
-          const style = getComputedStyle(node);
-          if (style.overflowX === "visible" && style.overflowY === "visible") continue;
-          const bounds = node.getBoundingClientRect();
-          if (box.left < bounds.left - 0.5 || box.right > bounds.right + 0.5) {
-            clippedBy = describe(node);
-          }
-        }
-
-        const overlaps =
-          amountBox !== null &&
-          Math.min(box.right, amountBox.right) - Math.max(box.left, amountBox.left) > 0 &&
-          Math.min(box.bottom, amountBox.bottom) - Math.max(box.top, amountBox.top) > 0;
 
         return {
           label: chip.getAttribute("aria-label") ?? "",
-          overprints: overlaps ? `over ${amount?.textContent ?? ""}` : null,
-          clippedBy,
+          overprints:
+            amountBox !== null && intersects(box, amountBox)
+              ? `over ${amount?.textContent ?? ""}`
+              : null,
+          clippedBy: findClippingAncestor(chip, box),
           startsBelowAmount: amountBox !== null && box.top >= amountBox.bottom - 0.5,
           width: box.width,
         };
@@ -439,13 +441,15 @@ async function measurePeriodCard(page: Page) {
     const past: string[] = [];
     const clipped: string[] = [];
     const cut: string[] = [];
+    const bucketOverflow = (element: Element, text: string) => {
+      if (element.scrollWidth <= element.clientWidth + 1) return;
+      if (getComputedStyle(element).textOverflow === "ellipsis") cut.push(text);
+      else clipped.push(text);
+    };
     for (const element of card.querySelectorAll("*")) {
       const text = (element.textContent ?? "").slice(0, 60);
       if (element.getBoundingClientRect().right > limit) past.push(text);
-      if (element.scrollWidth > element.clientWidth + 1) {
-        if (getComputedStyle(element).textOverflow === "ellipsis") cut.push(text);
-        else clipped.push(text);
-      }
+      bucketOverflow(element, text);
     }
     return { past, clipped, cut };
   });
@@ -531,13 +535,12 @@ async function measureSettleUpCard(page: Page) {
     }
 
     const limit = document.documentElement.clientWidth + 1;
-    const past: string[] = [];
-    const clipped: string[] = [];
-    for (const node of measured) {
-      if (node.getBoundingClientRect().right > limit) past.push(describe(node));
-      const isCut = node.scrollWidth > node.clientWidth + 1;
-      if (isCut && getComputedStyle(node).textOverflow !== "ellipsis") clipped.push(describe(node));
-    }
+    const isClippedText = (node: Element) =>
+      node.scrollWidth > node.clientWidth + 1 && getComputedStyle(node).textOverflow !== "ellipsis";
+    const past = measured
+      .filter((node) => node.getBoundingClientRect().right > limit)
+      .map(describe);
+    const clipped = measured.filter(isClippedText).map(describe);
     return {
       text: headline.textContent ?? "",
       past,
