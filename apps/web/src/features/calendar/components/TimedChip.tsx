@@ -1,5 +1,5 @@
 import { addMinutes } from "@/core/lib/date";
-import { ContextMenu, cx, Icon, type MenuItem } from "@/core/ui";
+import { ContextMenu, cx, type MenuItem } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
 import {
@@ -9,6 +9,7 @@ import {
   getChipTouchActionClass,
   getChipZIndexClass,
 } from "../chip-armed";
+import { buildTimedChipLabel, isResolvedStatus } from "../chip-label";
 import {
   type ColumnSlot,
   DRAG_THRESHOLD_PX,
@@ -19,6 +20,7 @@ import {
 } from "../geometry";
 import { useTouchDragBlocker } from "../useTouchDragBlocker";
 import { ArmedResizeHandle } from "./ArmedResizeHandle";
+import { ChipStatusBadges } from "./ChipStatusBadges";
 
 export function TimedChip({
   task,
@@ -81,8 +83,7 @@ export function TimedChip({
     isProvisional: provisional,
     isDragging: dragging,
   };
-  const resolved = task.status === "done" || task.status === "skip";
-  const off = isOffWindow(eff.start);
+  const resolved = isResolvedStatus(task.status);
   const timeLabel = dragging
     ? `${formatMinutes(eff.start)}-${addMinutes(formatMinutes(eff.start), eff.durationMin)}`
     : task.time;
@@ -113,7 +114,7 @@ export function TimedChip({
               onOpen();
             }
           }}
-          aria-label={`${task.title}, ${task.time} to ${addMinutes(task.time ?? "00:00", task.durationMin)}${detached ? ", detached" : ""}${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
+          aria-label={buildTimedChipLabel({ task, isDetached: detached, isSelected: selected })}
           className={cx(
             // A swipe belongs to the grid's scroller at every width — `touch-action` cannot read
             // the pointer, so a `sm:touch-none` froze the finger on a touchscreen laptop.
@@ -134,20 +135,7 @@ export function TimedChip({
             borderColor: accent,
           }}
         >
-          {(off || detached) && (
-            <span className="absolute right-1 top-1 flex items-center gap-0.5 text-muted">
-              {detached && (
-                <span title="Edited away from its habit" aria-hidden="true">
-                  <Icon name="unlink" size={10} />
-                </span>
-              )}
-              {off && (
-                <span title="Outside the visible hours" aria-hidden="true">
-                  <Icon name="alert" size={10} />
-                </span>
-              )}
-            </span>
-          )}
+          <ChipStatusBadges isDetached={detached} isOffWindow={isOffWindow(eff.start)} />
           <span
             onPointerDown={onPointerDownTop}
             className="absolute inset-x-0 top-0 z-10 flex h-1.5 cursor-ns-resize items-start justify-center opacity-0 group-hover:opacity-100"

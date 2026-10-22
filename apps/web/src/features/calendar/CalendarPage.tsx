@@ -1,4 +1,4 @@
-import { Button, ButtonGroup, Card, Modal, ScrollShadow, useOverlayState } from "@heroui/react";
+import { Card, ScrollShadow } from "@heroui/react";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
@@ -7,32 +7,42 @@ import { addMinutes, dowIndex, formatShortDate, getWeekDaysFor, minutesOf } from
 import { useStore } from "@/core/store";
 import {
   cx,
-  FloatingMenu,
-  Icon,
   isTouchPress,
   type MenuItem,
   type PressSource,
   pressSourceOf,
-  TimePicker,
   UndoBar,
   useCompact,
-  useCompactModal,
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import { filterVisibleEvents } from "@/features/calendar-sync";
-import { isForeignDisplayZone, useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
+import { useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import { getFocusableGoals } from "@/features/goals";
 import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { useValueVoteToast } from "@/features/values/useValueVoteToast";
 import { BulkActionBar } from "./BulkActionBar";
-import { CalendarFilterButton } from "./CalendarFilterButton";
-import { CalendarSync } from "./CalendarSync";
+import {
+  type ChipPressAction,
+  classifyAllDayChipPress,
+  classifyTimedChipPress,
+} from "./chip-press";
 import { AllDayChip } from "./components/AllDayChip";
-import { BacklogItem } from "./components/BacklogItem";
+import { CalendarHeader } from "./components/CalendarHeader";
+import { DayStrip } from "./components/DayStrip";
+import { EmptyScheduleHint } from "./components/EmptyScheduleHint";
+import { MarqueeBox } from "./components/MarqueeBox";
+import { MoveToDayModal } from "./components/MoveToDayModal";
 import { NowLine } from "./components/NowLine";
-import { ScheduleRow } from "./components/ScheduleRow";
+import { PasteBanner } from "./components/PasteBanner";
+import { ScheduleSlotModal } from "./components/ScheduleSlotModal";
+import { ScheduleTimeModal } from "./components/ScheduleTimeModal";
+import { SlotActionsMenu, type SlotMenuState } from "./components/SlotActionsMenu";
 import { TimedChip } from "./components/TimedChip";
+import { UnscheduledRail } from "./components/UnscheduledRail";
+import { getTravelMode, isPastDragThreshold, placeDragAt } from "./drag-preview";
+import { resolveDragRelease } from "./drag-release";
+import type { DragPreview, DragState, GroupMember } from "./drag-state";
 import { CalendarEventChip, EventEditor, SpanBarChip } from "./EventEditor";
 import {
   type Box,
@@ -41,21 +51,16 @@ import {
   DRAG_THRESHOLD_PX,
   DROP_DURATION,
   type DragMode,
-  type DropZone,
-  dropToSchedule,
   formatMinutes,
   GUTTER,
   getChipHeight,
   getChipTop,
-  getColumnIndexAt,
   getMarqueeHits,
   getMinuteAtOffset,
   HOUR_PX,
   HOURS,
   isOffWindow,
   layoutColumns,
-  resolveDrag,
-  resolveDropZone,
   shiftSelection,
 } from "./geometry";
 import {
@@ -66,58 +71,15 @@ import {
   getUntimedTasksForDay,
   layoutSpanBars,
 } from "./grid-data";
+import { isTextEntryElement, resolveSelectionKey } from "./selection-keys";
+import { formatTaskCount } from "./task-labels";
 import { useCalendarAutoRefresh } from "./useCalendarAutoRefresh";
 import { type ChipPress, useChipArming } from "./useChipArming";
 import { useDragAutoScroll } from "./useDragAutoScroll";
 import { WriteCalendarMissingBanner } from "./WriteCalendarMissingBanner";
 
-interface DragState {
-  id: string;
-  /** "allday" = a drag that began on an all-day chip; it can stay untimed or take a time. */
-  mode: DragMode | "allday";
-  origDate: string;
-  origStart: number;
-  origDur: number;
-  grabMin: number;
-  moved: boolean;
-  /** pointer origin for the all-day drag threshold (allday mode only). */
-  startX: number;
-  startY: number;
-  /** sticky untimed-vs-timed zone, carried across pointermoves (allday mode only). */
-  zone: DropZone;
-  /** when set, the move shifts a whole selection by the anchor's delta. */
-  group?: GroupMember[];
-  /** How a touch drag was entered; `undefined` for a mouse or a pen past `sm`. */
-  touchOrigin?: "arm" | "armed-press";
-  /** The pointer that owns this drag — the window listeners ignore every other one. */
-  pointerId: number;
-}
-
-interface GroupMember {
-  id: string;
-  date: string;
-  start: number;
-  durationMin: number;
-  allDay: boolean;
-}
-interface Preview {
-  date: string;
-  start: number;
-  durationMin: number;
-  /** the release keeps the task untimed — start/durationMin are then inert */
-  isUntimed: boolean;
-}
-
-// A border, not a ring: the strip's horizontal overflow clips a ring top and bottom.
-function getDayChipTone(isActive: boolean, isToday: boolean): string {
-  if (isActive) return "border-accent bg-accent text-accent-foreground";
-  if (isToday) return "border-accent bg-surface text-accent";
-  return "border-border bg-surface text-foreground";
-}
-
-function formatZoneCity(zone: string): string {
-  return (zone.split("/").pop() ?? zone).replace(/_/g, " ");
-}
+const findById = <T extends { id: string }>(items: T[], id: string | undefined): T | null =>
+  items.find((item) => item.id === id) ?? null;
 
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
@@ -159,13 +121,7 @@ export function CalendarPage() {
   const [selected, setSelected] = useState<Task | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   // Right-click menu for an empty slot, and the "schedule existing task" picker.
-  const [slotMenu, setSlotMenu] = useState<{
-    x: number;
-    y: number;
-    date: string;
-    time: string;
-    scrim: boolean;
-  } | null>(null);
+  const [slotMenu, setSlotMenu] = useState<SlotMenuState | null>(null);
   const [scheduleSlot, setScheduleSlot] = useState<{ date: string; time: string } | null>(null);
   // "Schedule to time…" — the keyboard path that gives an all-day chip a time.
   const [scheduleTask, setScheduleTask] = useState<Task | null>(null);
@@ -189,7 +145,7 @@ export function CalendarPage() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const allDayRowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const previewRef = useRef<Preview | null>(null);
+  const previewRef = useRef<DragPreview | null>(null);
   // A phone press on a timed chip, which arms no drag — only a still release is a tap.
   const chipPressRef = useRef<{ id: string; x: number; y: number } | null>(null);
   // Id of a task freshly created by clicking an empty slot — discarded on close
@@ -208,7 +164,7 @@ export function CalendarPage() {
   const columnPressSourceRef = useRef<PressSource>("none");
   const chipPressSourceRef = useRef<PressSource>("none");
   const [dragId, setDragId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<DragPreview | null>(null);
 
   // ── Multi-select ──────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -441,7 +397,7 @@ export function CalendarPage() {
         commit(m.id, { date: format(addDays(parseISO(m.date), dayDelta), "yyyy-MM-dd") });
       }
     }
-    setAnnounce(`Moved ${members.length} ${members.length === 1 ? "task" : "tasks"}`);
+    setAnnounce(`Moved ${formatTaskCount(members.length)}`);
   };
 
   const selectedTasks = () => tasksRef.current.filter((t) => selectedRef.current.has(t.id));
@@ -475,7 +431,7 @@ export function CalendarPage() {
     const pending = status === "done" ? selectedTasks().filter((t) => t.status !== "done") : [];
     bulkUpdateTasks(ids, { status });
     for (const task of pending) announceVote(task);
-    setAnnounce(`Set ${ids.length} ${ids.length === 1 ? "task" : "tasks"} to ${status}`);
+    setAnnounce(`Set ${formatTaskCount(ids.length)} to ${status}`);
     clearSelection();
   };
 
@@ -491,7 +447,7 @@ export function CalendarPage() {
     const removed = bulkRemoveTasks(ids);
     clearSelection();
     setPendingUndo(removed);
-    setAnnounce(`${removed.length} ${removed.length === 1 ? "task" : "tasks"} deleted`);
+    setAnnounce(`${formatTaskCount(removed.length)} deleted`);
   };
   const bulkDeleteRef = useRef(bulkDelete);
   bulkDeleteRef.current = bulkDelete;
@@ -499,7 +455,7 @@ export function CalendarPage() {
   const undoBulkDelete = () => {
     if (!pendingUndo) return;
     for (const t of pendingUndo) addTask(t);
-    setAnnounce(`Restored ${pendingUndo.length} ${pendingUndo.length === 1 ? "task" : "tasks"}`);
+    setAnnounce(`Restored ${formatTaskCount(pendingUndo.length)}`);
     setPendingUndo(null);
   };
 
@@ -582,12 +538,12 @@ export function CalendarPage() {
     activeDay,
     weekOffset,
     railOpen,
-    selected?.id ?? "",
-    editingEvent?.id ?? "",
-    scheduleSlot?.time ?? "",
-    scheduleTask?.id ?? "",
-    dayMoveTask?.id ?? "",
-    slotMenu?.time ?? "",
+    selected?.id,
+    editingEvent?.id,
+    scheduleSlot?.time,
+    scheduleTask?.id,
+    dayMoveTask?.id,
+    slotMenu?.time,
   ].join("|");
   const armContextRef = useRef(armContext);
   useEffect(() => {
@@ -630,79 +586,87 @@ export function CalendarPage() {
     chipPressSourceRef.current = "none";
   };
 
-  const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
-    chipPressSourceRef.current = pressSourceOf(e.pointerType, compact);
-    if (e.button !== 0) return;
-    if (!gridRef.current || !t.time || !t.date) return;
-    // An armed chip takes the press itself. stopPropagation is load-bearing: without it a
-    // handle press bubbles to the body handler and every resize silently becomes a move.
-    if (arming.armedChipId === t.id && pressSourceOf(e.pointerType, compact) === "touch") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (dragRef.current) return; // a live drag owns the chip; a second finger cannot steal it
-      isTouchDragLiveRef.current = true;
-      arming.beginArmedPress(e.pointerId);
-      startTimedDrag(
-        { id: t.id, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId },
-        t,
-        mode,
-        "armed-press",
-      );
-      return;
-    }
-    // The pointer decides, never the width: a touchscreen laptop is past `sm` and still has
-    // only fingers, so a width-gated finger armed a real move drag and silently rescheduled.
-    const canResize = e.pointerType === "mouse" || (e.pointerType === "pen" && !compact);
-    const canMove = e.pointerType === "mouse" || (e.pointerType !== "touch" && !compact);
-    if (!(mode === "move" ? canMove : canResize)) {
-      // Remembered only so a still release still counts as a tap. Nothing is swallowed here:
-      // the press must reach the chip's ContextMenu wrapper, touch's only route to the menu.
-      chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
-      const isArmable =
-        mode === "move" &&
-        arming.armedChipId !== t.id &&
-        pressSourceOf(e.pointerType, compact) === "touch" &&
-        !isOffWindow(minutesOf(t.time));
-      if (isArmable) {
-        arming.beginPress({
-          id: t.id,
-          clientX: e.clientX,
-          clientY: e.clientY,
-          pointerId: e.pointerId,
-        });
-      }
-      return;
-    }
-    // Selection via modifier-click (desktop only; resize edges ignore it).
-    if (mode === "move" && !compact) {
-      if (e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        rangeSelect(t, "timed");
-        return;
-      }
-      if (e.metaKey || e.ctrlKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleSelect(t, "timed");
-        return;
-      }
-    }
+  const toChipPress = (e: React.PointerEvent, t: Task): ChipPress => ({
+    id: t.id,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    pointerId: e.pointerId,
+  });
+
+  // Remembered only so a still release still counts as a tap. Nothing is swallowed here:
+  // the press must reach the chip's ContextMenu wrapper, touch's only route to the menu.
+  const rememberChipPress = (e: React.PointerEvent, t: Task, shouldArm: boolean) => {
+    chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
+    if (shouldArm) arming.beginPress(toChipPress(e, t));
+  };
+
+  // An armed chip takes the press itself. stopPropagation is load-bearing: without it a
+  // handle press bubbles to the body handler and every resize silently becomes a move.
+  const beginArmedDrag = (e: React.PointerEvent, startDrag: () => void) => {
     e.preventDefault();
     e.stopPropagation();
-    // Group move when dragging a member of a multi-selection; otherwise a lone
-    // chip drag clears any selection first.
+    if (dragRef.current) return; // a live drag owns the chip; a second finger cannot steal it
+    isTouchDragLiveRef.current = true;
+    arming.beginArmedPress(e.pointerId);
+    startDrag();
+  };
+
+  // Group move when dragging a member of a multi-selection; otherwise a lone
+  // chip drag clears any selection first.
+  const startTimedSelectionDrag = (press: ChipPress, t: Task, mode: DragMode) => {
     const inSelection = selectedRef.current.has(t.id);
     const group =
       mode === "move" && inSelection && selectedRef.current.size > 1 ? captureGroup() : undefined;
     if (mode === "move" && !inSelection) clearSelection();
-    startTimedDrag(
-      { id: t.id, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId },
-      t,
+    startTimedDrag(press, t, mode, undefined, group);
+  };
+
+  // A plain drag swallows only the default; modifier-select also stops propagation.
+  const runChipPressAction = (
+    action: ChipPressAction,
+    e: React.PointerEvent,
+    t: Task,
+    zone: "timed" | "allday",
+    drags: { startArmedDrag: () => void; startDrag: () => void },
+  ) => {
+    if (action === "ignore") return;
+    if (action === "arm" || action === "tap") {
+      rememberChipPress(e, t, action === "arm");
+      return;
+    }
+    if (action === "armed-drag") {
+      beginArmedDrag(e, drags.startArmedDrag);
+      return;
+    }
+    e.preventDefault();
+    if (action === "drag") {
+      drags.startDrag();
+      return;
+    }
+    e.stopPropagation();
+    if (action === "range-select") rangeSelect(t, zone);
+    else toggleSelect(t, zone);
+  };
+
+  const beginDrag = (e: React.PointerEvent, t: Task, mode: DragMode) => {
+    const source = pressSourceOf(e.pointerType, compact);
+    chipPressSourceRef.current = source;
+    if (!gridRef.current || !t.time || !t.date) return;
+    const action = classifyTimedChipPress(e, {
       mode,
-      undefined,
-      group,
-    );
+      compact,
+      source,
+      isArmed: arming.armedChipId === t.id,
+      isOffWindow: isOffWindow(minutesOf(t.time)),
+    });
+    const press = toChipPress(e, t);
+    runChipPressAction(action, e, t, "timed", {
+      startArmedDrag: () => startTimedDrag(press, t, mode, "armed-press"),
+      startDrag: () => {
+        e.stopPropagation();
+        startTimedSelectionDrag(press, t, mode);
+      },
+    });
   };
 
   const startAllDayDrag = (press: ChipPress, t: Task, touchOrigin?: "arm" | "armed-press") => {
@@ -729,43 +693,22 @@ export function CalendarPage() {
 
   // Begin dragging an all-day chip: sideways keeps it untimed, down onto the grid schedules it.
   const beginAllDayDrag = (e: React.PointerEvent, t: Task) => {
-    chipPressSourceRef.current = pressSourceOf(e.pointerType, compact);
-    if (e.button !== 0) return;
+    const source = pressSourceOf(e.pointerType, compact);
+    chipPressSourceRef.current = source;
     if (!gridRef.current || !t.date) return;
-    const press = { id: t.id, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId };
-    // A finger arms first and drags second, exactly as it does on a timed chip.
-    if (pressSourceOf(e.pointerType, compact) === "touch") {
-      if (arming.armedChipId !== t.id) {
-        chipPressRef.current = { id: t.id, x: e.clientX, y: e.clientY };
-        arming.beginPress(press);
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      if (dragRef.current) return;
-      isTouchDragLiveRef.current = true;
-      arming.beginArmedPress(e.pointerId);
-      startAllDayDrag(press, t, "armed-press");
-      return;
-    }
-    // Selection via modifier-click (desktop only).
-    if (!compact) {
-      if (e.shiftKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        rangeSelect(t, "allday");
-        return;
-      }
-      if (e.metaKey || e.ctrlKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleSelect(t, "allday");
-        return;
-      }
-    }
-    e.preventDefault();
-    if (!selectedRef.current.has(t.id)) clearSelection();
-    startAllDayDrag(press, t);
+    const press = toChipPress(e, t);
+    const action = classifyAllDayChipPress(e, {
+      compact,
+      source,
+      isArmed: arming.armedChipId === t.id,
+    });
+    runChipPressAction(action, e, t, "allday", {
+      startArmedDrag: () => startAllDayDrag(press, t, "armed-press"),
+      startDrag: () => {
+        if (!selectedRef.current.has(t.id)) clearSelection();
+        startAllDayDrag(press, t);
+      },
+    });
   };
 
   // Abandon an in-flight drag with no change (Esc / navigation).
@@ -835,7 +778,7 @@ export function CalendarPage() {
         return next;
       });
       anchorRef.current = null;
-      setAnnounce(`${lastHits.length} ${lastHits.length === 1 ? "task" : "tasks"} selected`);
+      setAnnounce(`${formatTaskCount(lastHits.length)} selected`);
       markJustDragged();
     };
     window.addEventListener("pointermove", onMove);
@@ -925,121 +868,62 @@ export function CalendarPage() {
     handleChipTap(press.id);
   };
 
-  // Resolve a drag release: commit a real change, or treat a no-move as a tap.
-  const endDrag = (d: DragState, p: Preview) => {
-    if (d.mode === "allday") {
-      const t = tasksRef.current.find((x) => x.id === d.id);
-      // A still arming release comes to rest armed; a moved one is a real single-gesture drag.
-      if (!d.moved && d.touchOrigin === "arm") return;
-      if (!d.moved) {
-        if (t) openTask(t); // a tap on an all-day chip still opens it
+  const endDrag = (d: DragState, p: DragPreview) => {
+    const task = tasksRef.current.find((x) => x.id === d.id);
+    const release = resolveDragRelease(d, p, task);
+    switch (release.kind) {
+      case "tap":
+        handleChipTapRef.current(d.id);
+        return;
+      case "open":
+        if (task) openTask(task);
+        return;
+      case "commit":
+        commitRef.current(d.id, release.patch);
+        setAnnounce(release.announcement);
+        markJustDragged();
+        return;
+      case "group-shift": {
+        const members = tasksRef.current.filter((t) => d.group?.some((g) => g.id === t.id));
+        applyGroupShift(members, release.dayDelta, release.minDelta);
+        markJustDragged();
         return;
       }
-      markJustDragged();
-      if (!t) return; // vanished under a mid-drag refetch
-      if (p.isUntimed) {
-        if (p.date === d.origDate) return; // released over its own bucket: write nothing
-        commitRef.current(d.id, { date: p.date });
-        setAnnounce(`Moved ${t.title} to ${formatShortDate(p.date)}`);
+      case "dropped":
+        markJustDragged();
         return;
-      }
-      commitRef.current(d.id, {
-        date: p.date,
-        time: formatMinutes(p.start),
-        durationMin: DROP_DURATION,
-        ...(t.status === "open" ? { status: "todo" } : {}),
-      });
-      setAnnounce(
-        `Scheduled ${t.title} on ${p.date}, ${formatMinutes(p.start)} to ${addMinutes(formatMinutes(p.start), DROP_DURATION)}`,
-      );
-      return;
+      default:
+        return;
     }
-    // Group move: shift every selected member by the anchor's delta.
-    if (d.group && d.moved) {
-      const dayDelta = differenceInCalendarDays(parseISO(p.date), parseISO(d.origDate));
-      const minDelta = p.start - d.origStart;
-      const members = tasksRef.current.filter((t) => d.group?.some((g) => g.id === t.id));
-      applyGroupShift(members, dayDelta, minDelta);
-      markJustDragged();
-      return;
-    }
-    const changed = p.date !== d.origDate || p.start !== d.origStart || p.durationMin !== d.origDur;
-    if (changed) {
-      commitRef.current(d.id, {
-        date: p.date,
-        time: formatMinutes(p.start),
-        durationMin: p.durationMin,
-      });
-      setAnnounce(
-        `Moved to ${p.date}, ${formatMinutes(p.start)} to ${addMinutes(formatMinutes(p.start), p.durationMin)}`,
-      );
-      markJustDragged();
-      return;
-    }
-    // An arming release must not also count as a tap; every other term reduces to the
-    // pre-touch expression when `touchOrigin` is undefined.
-    if (d.moved || d.touchOrigin === "arm") return;
-    if (d.mode === "move" || d.touchOrigin === "armed-press") handleChipTapRef.current(d.id);
   };
   const endDragRef = useRef(endDrag);
   endDragRef.current = endDrag;
 
   // columns the move-drag can land on (on a phone, just the active day)
-  const dragDays = compact ? [days[activeDay]] : days;
-  const dragDaysRef = useRef(dragDays);
-  dragDaysRef.current = dragDays;
+  const visibleDays = compact ? [days[activeDay]] : days;
+  const dragDaysRef = useRef(visibleDays);
+  dragDaysRef.current = visibleDays;
 
   const applyDragAt = (clientX: number, clientY: number) => {
     const d = dragRef.current;
     const grid = gridRef.current;
-    if (!d || !grid) return;
-    const rect = grid.getBoundingClientRect();
-    const cols = dragDaysRef.current;
-
-    if (d.mode === "allday") {
-      // ignore sub-threshold jitter so a tap still opens the chip
-      const travelPx = Math.hypot(clientX - d.startX, clientY - d.startY);
-      if (!d.moved && travelPx < DRAG_THRESHOLD_PX) return;
-      d.moved = true;
-      if (d.touchOrigin != null) armingRef.current.reportTravel("move");
-      // the seam is the all-day row's bottom edge; a grid-relative Y drifts as the grid scrolls
-      const allDayRect = allDayRowRef.current?.getBoundingClientRect();
-      // no row box = no seam to measure, so stay untimed rather than silently schedule
-      d.zone = allDayRect ? resolveDropZone(clientY - allDayRect.bottom, d.zone) : "untimed";
-      const isUntimedZone = d.zone === "untimed";
-      const box = isUntimedZone && allDayRect ? allDayRect : rect;
-      const date = cols[getColumnIndexAt(clientX, box, cols.length)].iso;
-      const next = isUntimedZone
-        ? { date, start: DAY_START, durationMin: DROP_DURATION, isUntimed: true }
-        : {
-            date,
-            start: dropToSchedule(clientY - rect.top).startMin,
-            durationMin: DROP_DURATION,
-            isUntimed: false,
-          };
-      previewRef.current = next;
-      setPreview(next);
-      return;
-    }
-
-    // ignore sub-threshold jitter so a click still opens the chip
-    if (!d.moved && Math.hypot(clientX - d.startX, clientY - d.startY) < DRAG_THRESHOLD_PX) return;
-    const date = cols[getColumnIndexAt(clientX, rect, cols.length)].iso;
-    const pointerMin = DAY_START + ((clientY - rect.top) / HOUR_PX) * 60;
-    const next = {
-      ...resolveDrag(
-        d.mode,
-        { origDate: d.origDate, origStart: d.origStart, origDur: d.origDur },
-        { pointerMin, grabMin: d.grabMin, targetDate: date },
-      ),
-      isUntimed: false,
-    };
+    if (!d || !grid || !isPastDragThreshold(d, clientX, clientY)) return;
+    const isAllDay = d.mode === "allday";
+    const placed = placeDragAt(d, {
+      clientX,
+      clientY,
+      gridRect: grid.getBoundingClientRect(),
+      allDayRect: isAllDay ? allDayRowRef.current?.getBoundingClientRect() : undefined,
+      columns: dragDaysRef.current,
+    });
     d.moved = true;
-    if (d.touchOrigin != null) armingRef.current.reportTravel(d.mode);
-    previewRef.current = next;
-    setPreview(next);
+    d.zone = placed.zone;
+    const isTouchDrag = d.touchOrigin != null;
+    if (isTouchDrag) armingRef.current.reportTravel(getTravelMode(d.mode));
+    previewRef.current = placed.preview;
+    setPreview(placed.preview);
     // Gating on touchOrigin is what keeps a desktop drag free of auto-scroll.
-    if (d.touchOrigin != null) autoScroll.track(clientX, clientY);
+    if (isTouchDrag && !isAllDay) autoScroll.track(clientX, clientY);
   };
   applyDragAtRef.current = applyDragAt;
 
@@ -1087,30 +971,30 @@ export function CalendarPage() {
 
   // Selection keyboard: Ctrl/Cmd+A (grid hovered) select-all, Esc clear, Delete remove.
   useEffect(() => {
+    const selectAllVisible = () => {
+      const ids = dragDaysRef.current
+        .flatMap((d) => [
+          ...getTimedTasksForDay(tasksRef.current, d.iso),
+          ...getUntimedTasksForDay(tasksRef.current, d.iso),
+        ])
+        .map((t) => t.id);
+      setSelectedIds(new Set(ids));
+      anchorRef.current = null;
+      setAnnounce(`${formatTaskCount(ids.length)} selected`);
+    };
     const onKey = (e: KeyboardEvent) => {
-      const el = document.activeElement as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) {
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && gridHoverRef.current) {
+      if (isTextEntryElement(document.activeElement as HTMLElement | null)) return;
+      const action = resolveSelectionKey(e, {
+        isGridHovered: gridHoverRef.current,
+        hasSelection: selectedRef.current.size > 0,
+      });
+      if (action === "select-all") {
         e.preventDefault();
-        const ids = dragDaysRef.current
-          .flatMap((d) => [
-            ...getTimedTasksForDay(tasksRef.current, d.iso),
-            ...getUntimedTasksForDay(tasksRef.current, d.iso),
-          ])
-          .map((t) => t.id);
-        setSelectedIds(new Set(ids));
-        anchorRef.current = null;
-        setAnnounce(`${ids.length} ${ids.length === 1 ? "task" : "tasks"} selected`);
-        return;
-      }
-      if (e.key === "Escape" && selectedRef.current.size > 0) {
+        selectAllVisible();
+      } else if (action === "clear") {
         setSelectedIds(new Set());
         anchorRef.current = null;
-        return;
-      }
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedRef.current.size > 0) {
+      } else if (action === "delete") {
         e.preventDefault();
         bulkDeleteRef.current();
       }
@@ -1213,7 +1097,6 @@ export function CalendarPage() {
     setAnnounce("Showing this week");
   };
 
-  const visibleDays = compact ? [days[activeDay]] : days;
   const spanBars = useMemo(
     () =>
       layoutSpanBars(
@@ -1223,26 +1106,6 @@ export function CalendarPage() {
     [livedEvents, visibleDays],
   );
   const backlog = useMemo(() => getUnscheduledTasks(tasks), [tasks]);
-  const modalResponsive = useCompactModal();
-  const scheduleSlotState = useOverlayState({
-    isOpen: !!scheduleSlot,
-    onOpenChange: (next) => {
-      if (!next) setScheduleSlot(null);
-    },
-  });
-  const scheduleTaskState = useOverlayState({
-    isOpen: !!scheduleTask,
-    onOpenChange: (next) => {
-      if (!next) setScheduleTask(null);
-    },
-  });
-  const dayMoveState = useOverlayState({
-    isOpen: !!dayMoveTask,
-    onOpenChange: (next) => {
-      if (!next) setDayMoveTask(null);
-    },
-  });
-
   // assign a backlog task to a day (non-drag keyboard/menu pathway)
   const scheduleBacklog = (t: Task, dayIso: string) => {
     updateTask(t.id, { date: dayIso, time: "09:00", status: "todo" });
@@ -1258,105 +1121,20 @@ export function CalendarPage() {
 
       {writeCalendarMissing && <WriteCalendarMissingBanner />}
 
-      {/* ── Nav header — quiet, like Today (keeps the grid in view) ── */}
-      {/* Stacked below sm, one guarded row above: the title is a date, so a header that
-          could wrap would change height on the weekday's glyph widths alone. */}
-      <header className="mb-4 flex flex-col gap-y-2 sm:flex-row sm:items-center sm:gap-x-4">
-        <div className="min-w-0 sm:flex-1">
-          <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground">
-            {compact
-              ? `${visibleDays[0].dow} · ${formatShortDate(visibleDays[0].iso)}`
-              : `${formatShortDate(days[0].iso)}-${formatShortDate(days[6].iso)}`}
-          </h1>
-          {isForeignDisplayZone(displayZone) && (
-            <p className="truncate text-xs text-muted">{`Times in ${formatZoneCity(displayZone)}`}</p>
-          )}
-        </div>
+      <CalendarHeader
+        compact={compact}
+        days={days}
+        activeDay={days[activeDay]}
+        displayZone={displayZone}
+        focusableGoals={focusableGoals}
+        onPrev={gotoPrev}
+        onToday={gotoToday}
+        onNext={gotoNext}
+      />
 
-        <div className="flex shrink-0 items-center justify-end gap-x-3">
-          <CalendarSync />
-          <CalendarFilterButton focusableGoals={focusableGoals} />
-          <div className="flex items-center gap-1.5">
-            <Button
-              isIconOnly
-              size="sm"
-              variant="ghost"
-              aria-label={compact ? "Previous day" : "Previous week"}
-              onPress={gotoPrev}
-            >
-              <Icon name="chevL" size={16} />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onPress={gotoToday}
-              aria-current={days.some((d) => d.today) ? "date" : undefined}
-            >
-              Today
-            </Button>
-            <Button
-              isIconOnly
-              size="sm"
-              variant="ghost"
-              aria-label={compact ? "Next day" : "Next week"}
-              onPress={gotoNext}
-            >
-              <Icon name="chevR" size={16} />
-            </Button>
-          </div>
-        </div>
-      </header>
+      {compact && <DayStrip days={days} activeDay={activeDay} onPick={setPickedDay} />}
 
-      {/* ── Mobile day strip ─────────────────────────────────────── */}
-      {compact && (
-        <div className="mb-4 flex gap-1.5 overflow-x-auto no-scrollbar">
-          {days.map((d, i) => (
-            <button
-              key={d.iso}
-              type="button"
-              onClick={() => setPickedDay(i)}
-              aria-current={i === activeDay ? "date" : undefined}
-              className={cx(
-                "flex min-w-[44px] flex-col items-center rounded-[12px] border px-2.5 py-1.5 transition-colors",
-                // one arg, not two: `cx` is not tailwind-merge, so a second border-* would also land
-                getDayChipTone(i === activeDay, d.today),
-              )}
-            >
-              <span
-                className={cx("text-xs", i === activeDay ? "text-accent-foreground" : "text-muted")}
-              >
-                {d.dow}
-              </span>
-              <span className="text-sm font-semibold">{String(d.dom).padStart(2, "0")}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ── Paste banner ─────────────────────────────────────────── */}
-      {clipboardTask && (
-        <Card className="mb-4 rounded-[16px] border border-border bg-surface">
-          <div className="flex items-center gap-x-3 px-4 py-3">
-            <Icon name="clipboard" size={15} className="shrink-0 text-muted" />
-            <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-              Copied “{clipboardTask.title}”
-            </span>
-            <span className="hidden shrink-0 text-sm text-muted sm:inline">
-              Click an empty slot to place it, or a chip to replace
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onPress={clearClipboard}
-              aria-label="Cancel paste"
-              className="ml-auto shrink-0 text-muted"
-            >
-              <Icon name="close" size={12} />
-              Cancel · Esc
-            </Button>
-          </div>
-        </Card>
-      )}
+      {clipboardTask && <PasteBanner title={clipboardTask.title} onCancel={clearClipboard} />}
 
       {/* ── Week grid ────────────────────────────────────────────── */}
       <Card
@@ -1509,18 +1287,7 @@ export function CalendarPage() {
                   ))}
                 </div>
 
-                {/* marquee rubber-band */}
-                {marquee && (
-                  <div
-                    className="pointer-events-none absolute z-40 rounded-[2px] border border-accent/40 bg-accent/10"
-                    style={{
-                      left: marquee.left,
-                      top: marquee.top,
-                      width: marquee.right - marquee.left,
-                      height: marquee.bottom - marquee.top,
-                    }}
-                  />
-                )}
+                <MarqueeBox box={marquee} />
 
                 {/* day columns */}
                 {visibleDays.map((d) => {
@@ -1639,60 +1406,25 @@ export function CalendarPage() {
 
               {/* empty-week hint */}
               {visibleDays.every((d) => getTimedTasksForDay(tasks, d.iso).length === 0) && (
-                <div className="pointer-events-none absolute inset-x-0 top-1/3 text-center">
-                  <p className="text-sm text-muted">
-                    Nothing scheduled {compact ? "this day" : "this week"}. Click a slot to add.
-                  </p>
-                </div>
+                <EmptyScheduleHint compact={compact} />
               )}
             </ScrollShadow>
           </div>
         </div>
       </Card>
 
-      {/* ── Unscheduled rail ─────────────────────────────────────── */}
-      <Card className="mt-5 rounded-[16px] border border-border bg-surface">
-        <button
-          type="button"
-          onClick={() => setRailOpen((o) => !o)}
-          aria-expanded={railOpen}
-          aria-controls="unscheduled-rail"
-          className="flex w-full items-center gap-2 px-5 py-3.5 text-left"
-        >
-          <Icon name={railOpen ? "chevD" : "chevR"} size={14} className="text-muted" />
-          <span className="text-sm font-medium text-foreground">
-            Unscheduled ({backlog.length})
-          </span>
-        </button>
-        {railOpen && (
-          <div id="unscheduled-rail" className="border-t border-border p-4">
-            {backlog.length === 0 ? (
-              <p className="text-sm text-muted">No unscheduled tasks</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {backlog.map((t) => (
-                  <BacklogItem
-                    key={t.id}
-                    task={t}
-                    onOpen={() => openTask(t)}
-                    onSchedule={() =>
-                      scheduleBacklog(t, (days.find((d) => d.today) ?? days[0]).iso)
-                    }
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </Card>
-
-      <TaskDrawer
-        task={selected ? (tasks.find((t) => t.id === selected.id) ?? null) : null}
-        onClose={closeEditor}
+      <UnscheduledRail
+        isOpen={railOpen}
+        backlog={backlog}
+        onToggle={() => setRailOpen((o) => !o)}
+        onOpenTask={openTask}
+        onScheduleTask={(t) => scheduleBacklog(t, (days.find((d) => d.today) ?? days[0]).iso)}
       />
 
+      <TaskDrawer task={findById(tasks, selected?.id)} onClose={closeEditor} />
+
       <EventEditor
-        event={editingEvent ? (calendarEvents.find((e) => e.id === editingEvent.id) ?? null) : null}
+        event={findById(calendarEvents, editingEvent?.id)}
         onClose={() => setEditingEvent(null)}
       />
 
@@ -1712,161 +1444,51 @@ export function CalendarPage() {
 
       {pendingUndo && (
         <UndoBar
-          message={`${pendingUndo.length} ${pendingUndo.length === 1 ? "task" : "tasks"} deleted`}
+          message={`${formatTaskCount(pendingUndo.length)} deleted`}
           onUndo={undoBulkDelete}
         />
       )}
 
-      {/* Right-click an empty slot → add / paste / schedule */}
       {slotMenu && (
-        <FloatingMenu
-          pos={{ x: slotMenu.x, y: slotMenu.y }}
+        <SlotActionsMenu
+          menu={slotMenu}
+          clipboardTitle={clipboardTask?.title}
+          hasBacklog={backlog.length > 0}
+          onAdd={() => createDraftAt(slotMenu.date, slotMenu.time)}
+          onPaste={() => pasteAt(slotMenu.date, slotMenu.time)}
+          onScheduleExisting={() => setScheduleSlot({ date: slotMenu.date, time: slotMenu.time })}
           onClose={() => setSlotMenu(null)}
-          label="Slot actions"
-          dismissScrim={slotMenu.scrim}
-          items={[
-            {
-              label: "Add task here",
-              icon: "plus",
-              onSelect: () => createDraftAt(slotMenu.date, slotMenu.time),
-            },
-            ...(clipboardTask
-              ? [
-                  {
-                    label: `Paste "${clipboardTask.title}"`,
-                    icon: "clipboard",
-                    onSelect: () => pasteAt(slotMenu.date, slotMenu.time),
-                  } as MenuItem,
-                ]
-              : []),
-            {
-              label: "Schedule existing task…",
-              icon: "calendar",
-              disabled: backlog.length === 0,
-              onSelect: () => setScheduleSlot({ date: slotMenu.date, time: slotMenu.time }),
-            },
-          ]}
         />
       )}
 
-      {/* Schedule-existing-task picker (from the slot menu) */}
-      <Modal state={scheduleSlotState}>
-        <Modal.Backdrop variant="blur">
-          <Modal.Container {...modalResponsive}>
-            <Modal.Dialog aria-label="Schedule an existing task">
-              <Modal.Header className="flex-col items-start gap-0.5">
-                <Modal.Heading className="text-base font-semibold text-foreground">
-                  Schedule a task
-                </Modal.Heading>
-                {scheduleSlot && (
-                  <span className="text-sm font-normal text-muted">
-                    {formatShortDate(scheduleSlot.date)} · {scheduleSlot.time}
-                  </span>
-                )}
-              </Modal.Header>
-              <Modal.Body className="pb-6">
-                {backlog.length === 0 ? (
-                  <p className="text-sm text-muted">No unscheduled tasks.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {backlog.map((t) => (
-                      <li key={t.id}>
-                        <ScheduleRow
-                          task={t}
-                          onPick={() => {
-                            if (scheduleSlot) scheduleAt(t, scheduleSlot.date, scheduleSlot.time);
-                            setScheduleSlot(null);
-                          }}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Modal.Body>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
+      <ScheduleSlotModal
+        slot={scheduleSlot}
+        backlog={backlog}
+        onPick={(t) => {
+          if (scheduleSlot) scheduleAt(t, scheduleSlot.date, scheduleSlot.time);
+          setScheduleSlot(null);
+        }}
+        onClose={() => setScheduleSlot(null)}
+      />
 
-      {/* "Schedule to time…" — give an all-day chip a time without dragging */}
-      <Modal state={scheduleTaskState}>
-        <Modal.Backdrop variant="blur">
-          <Modal.Container {...modalResponsive}>
-            <Modal.Dialog aria-label="Schedule to a time">
-              <Modal.Header className="flex-col items-start gap-0.5">
-                <Modal.Heading className="text-base font-semibold text-foreground">
-                  Schedule to a time
-                </Modal.Heading>
-                {scheduleTask?.date && (
-                  <span className="text-sm font-normal text-muted">
-                    {scheduleTask.title} · {formatShortDate(scheduleTask.date)}
-                  </span>
-                )}
-              </Modal.Header>
-              <Modal.Body className="pb-6">
-                <p className="text-sm text-muted">
-                  Pick a start time. It becomes a {DROP_DURATION}-minute block.
-                </p>
-                <TimePicker
-                  label="time"
-                  value={scheduleTask?.time ?? "09:00"}
-                  clearable={false}
-                  onChange={(time) => {
-                    if (scheduleTask && time) scheduleToTime(scheduleTask, time);
-                    setScheduleTask(null);
-                  }}
-                />
-              </Modal.Body>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
+      <ScheduleTimeModal
+        task={scheduleTask}
+        onPick={(time) => {
+          if (scheduleTask && time) scheduleToTime(scheduleTask, time);
+          setScheduleTask(null);
+        }}
+        onClose={() => setScheduleTask(null)}
+      />
 
-      {/* "Move to day…" — change an all-day chip's day without dragging */}
-      <Modal state={dayMoveState}>
-        <Modal.Backdrop variant="blur">
-          <Modal.Container {...modalResponsive}>
-            <Modal.Dialog aria-label="Move to a day">
-              <Modal.Header className="flex-col items-start gap-0.5">
-                <Modal.Heading className="text-base font-semibold text-foreground">
-                  Move to a day
-                </Modal.Heading>
-                {dayMoveTask?.date && (
-                  <span className="text-sm font-normal text-muted">
-                    {dayMoveTask.title} · {formatShortDate(dayMoveTask.date)}
-                  </span>
-                )}
-              </Modal.Header>
-              <Modal.Body className="pb-6">
-                <p className="text-sm text-muted">
-                  Pick a day this week. It stays an all-day item, with no time assigned.
-                </p>
-                <ButtonGroup fullWidth>
-                  {days.map((d) => (
-                    <Button
-                      key={d.iso}
-                      size="sm"
-                      aria-label={`${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
-                      aria-pressed={dayMoveTask?.date === d.iso}
-                      variant={dayMoveTask?.date === d.iso ? "primary" : "outline"}
-                      className={cx("flex-col gap-0 px-1 py-1.5", d.today && "ring-1 ring-accent")}
-                      onPress={() => {
-                        if (dayMoveTask) moveToDay(dayMoveTask.id, d.iso);
-                        setDayMoveTask(null);
-                      }}
-                    >
-                      <span className="text-[10px] leading-none opacity-70">{d.dow}</span>
-                      <span className="text-sm font-semibold leading-none tabular-nums">
-                        {String(d.dom).padStart(2, "0")}
-                      </span>
-                    </Button>
-                  ))}
-                </ButtonGroup>
-              </Modal.Body>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
+      <MoveToDayModal
+        task={dayMoveTask}
+        days={days}
+        onPick={(dayIso) => {
+          if (dayMoveTask) moveToDay(dayMoveTask.id, dayIso);
+          setDayMoveTask(null);
+        }}
+        onClose={() => setDayMoveTask(null)}
+      />
     </div>
   );
 }
