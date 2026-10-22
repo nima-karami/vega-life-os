@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { defineEntity, nullableString } from "./base";
 import { isSignatureFolding } from "./card-rules";
-import { CARD_TYPE_IDS, CARD_TYPES, type CardTypeDef, type SlotId } from "./card-types";
+import {
+  CARD_TYPE_IDS,
+  CARD_TYPES,
+  type CardTypeDef,
+  type SlotDef,
+  type SlotId,
+} from "./card-types";
 
 const CATEGORY_MAX = 60;
 
@@ -66,42 +72,40 @@ const readSlot = (card: RefinedCard, slot: SlotId): SlotValue => card[slot];
 const isEmptySlot = (value: SlotValue): boolean =>
   value === null || value === "" || (Array.isArray(value) && value.length === 0);
 
-function findSlotIssues(card: RefinedCard, def: CardTypeDef): CardIssue[] {
+function findListSlotIssues(slot: SlotId, slotDef: SlotDef, items: string[]): CardIssue[] {
   const issues: CardIssue[] = [];
-  for (const slot of SLOT_IDS) {
-    const slotDef = def.slots[slot];
-    const value = readSlot(card, slot);
-    if (!slotDef) {
-      if (!isEmptySlot(value))
-        issues.push({ path: [slot], message: `a ${def.label} has no ${slot}` });
-      continue;
-    }
-    if (Array.isArray(value)) {
-      if (slotDef.maxItems !== undefined && value.length > slotDef.maxItems)
-        issues.push({
-          path: [slot],
-          message: `${slotDef.label} holds at most ${slotDef.maxItems}`,
-        });
-      if (value.some((item) => item.length > slotDef.max))
-        issues.push({
-          path: [slot],
-          message: `each ${slotDef.label} entry is at most ${slotDef.max} characters`,
-        });
-    } else {
-      const text = value ?? "";
-      if (slotDef.required === true && text.trim() === "")
-        issues.push({ path: [slot], message: `${slotDef.label} is required` });
-      if (text.length > slotDef.max)
-        issues.push({
-          path: [slot],
-          message: `${slotDef.label} is at most ${slotDef.max} characters`,
-        });
-    }
-    if (slotDef.required === true && Array.isArray(value) && value.length === 0)
-      issues.push({ path: [slot], message: `${slotDef.label} is required` });
-  }
+  if (slotDef.maxItems !== undefined && items.length > slotDef.maxItems)
+    issues.push({ path: [slot], message: `${slotDef.label} holds at most ${slotDef.maxItems}` });
+  if (items.some((item) => item.length > slotDef.max))
+    issues.push({
+      path: [slot],
+      message: `each ${slotDef.label} entry is at most ${slotDef.max} characters`,
+    });
+  if (slotDef.required === true && items.length === 0)
+    issues.push({ path: [slot], message: `${slotDef.label} is required` });
   return issues;
 }
+
+function findTextSlotIssues(slot: SlotId, slotDef: SlotDef, text: string): CardIssue[] {
+  const issues: CardIssue[] = [];
+  if (slotDef.required === true && text.trim() === "")
+    issues.push({ path: [slot], message: `${slotDef.label} is required` });
+  if (text.length > slotDef.max)
+    issues.push({ path: [slot], message: `${slotDef.label} is at most ${slotDef.max} characters` });
+  return issues;
+}
+
+function findIssuesInSlot(card: RefinedCard, def: CardTypeDef, slot: SlotId): CardIssue[] {
+  const slotDef = def.slots[slot];
+  const value = readSlot(card, slot);
+  if (!slotDef)
+    return isEmptySlot(value) ? [] : [{ path: [slot], message: `a ${def.label} has no ${slot}` }];
+  if (Array.isArray(value)) return findListSlotIssues(slot, slotDef, value);
+  return findTextSlotIssues(slot, slotDef, value ?? "");
+}
+
+const findSlotIssues = (card: RefinedCard, def: CardTypeDef): CardIssue[] =>
+  SLOT_IDS.flatMap((slot) => findIssuesInSlot(card, def, slot));
 
 export function findCardIssues(card: RefinedCard, types: Record<string, CardTypeDef>): CardIssue[] {
   const def = types[card.type];

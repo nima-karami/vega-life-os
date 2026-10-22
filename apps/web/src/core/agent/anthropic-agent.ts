@@ -1,6 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { todayISO } from "@/core/lib/date";
-import { useStore } from "@/core/store";
+import { type RootState, useStore } from "@/core/store";
+import {
+  buildCloseTaskAction,
+  buildFocusGoalAction,
+  buildPlanWeekAction,
+  formatAddTaskLabel,
+} from "./agent-actions";
 import { getAgentModel, getAnthropicKey } from "./config";
 import type { Agent, AgentAction, AgentResult } from "./types";
 import { parseWhen } from "./when";
@@ -92,98 +98,71 @@ function buildAgentContext(): string {
   });
 }
 
-function toAction(name: string, input: Record<string, unknown>, idx: number): AgentAction | null {
-  const state = useStore.getState();
-  const id = `ai-${idx}`;
-  switch (name) {
-    case "add_task": {
-      const title = String(input.title ?? "").trim();
-      if (!title) return null;
-      const when = parseWhen(title);
-      const date = (input.date as string) ?? when.date ?? null;
-      const time = (input.time as string) ?? when.time ?? null;
-      return {
-        id,
-        icon: "plus",
-        label: `Add task: "${title}"${date ? ` · ${date === todayISO() ? "today" : date.slice(5)}` : " · backlog"}${time ? ` ${time}` : ""}`,
-        run: () => {
-          state.addTask({
-            title,
-            date,
-            time,
-            valueId: (input.valueId as string) ?? null,
-            goalId: (input.goalId as string) ?? null,
-          });
-          state.pushToast(`Added "${title}"`);
-        },
-      };
-    }
-    case "complete_task": {
-      const task = state.tasks.find((x) => x.id === input.taskId);
-      if (!task) return null;
-      return {
-        id,
-        icon: "check",
-        label: `Complete: ${task.title}`,
-        run: () => {
-          state.setStatus(task.id, "done");
-          state.pushToast(`Completed "${task.title}"`);
-        },
-      };
-    }
-    case "skip_task": {
-      const task = state.tasks.find((x) => x.id === input.taskId);
-      if (!task) return null;
-      return {
-        id,
-        icon: "skip",
-        label: `Skip: ${task.title}`,
-        run: () => {
-          state.setStatus(task.id, "skip");
-          state.pushToast(`Skipped "${task.title}"`);
-        },
-      };
-    }
-    case "plan_week":
-      return {
-        id,
-        icon: "flash",
-        label: "Plan this week (fill habit blocks)",
-        run: () => {
-          const n = state.planWeek();
-          state.pushToast(n ? `Planned ${n} blocks` : "Week already full");
-        },
-      };
-    case "focus_goal": {
+type ToolInput = Record<string, unknown>;
+type ActionBuilder = (state: RootState, input: ToolInput, id: string) => AgentAction | null;
+
+const buildCloseTaskBuilder =
+  (status: "done" | "skip"): ActionBuilder =>
+  (state, input, id) => {
+    const task = state.tasks.find((x) => x.id === input.taskId);
+    return task ? buildCloseTaskAction(state, task, status, id) : null;
+  };
+
+function buildAddTaskAction(state: RootState, input: ToolInput, id: string): AgentAction | null {
+  const title = String(input.title ?? "").trim();
+  if (!title) return null;
+  const when = parseWhen(title);
+  const date = (input.date as string) ?? when.date ?? null;
+  const time = (input.time as string) ?? when.time ?? null;
+  return {
+    id,
+    icon: "plus",
+    label: formatAddTaskLabel(title, date, time),
+    run: () => {
+      state.addTask({
+        title,
+        date,
+        time,
+        valueId: (input.valueId as string) ?? null,
+        goalId: (input.goalId as string) ?? null,
+      });
+      state.pushToast(`Added "${title}"`);
+    },
+  };
+}
+
+const buildShowAction: ActionBuilder = (state, input, id) => ({
+  id,
+  icon: "calendar",
+  label: `Show: ${String(input.title ?? "view")}`,
+  run: () =>
+    state.setEphemeral({
+      title: String(input.title ?? "View"),
+      subtitle: input.subtitle as string | undefined,
+      taskIds: (input.taskIds as string[]) ?? undefined,
+      lines: (input.lines as string[]) ?? undefined,
+      createdAt: Date.now(),
+    }),
+});
+
+const ACTION_BUILDERS = new Map<string, ActionBuilder>([
+  ["add_task", buildAddTaskAction],
+  ["complete_task", buildCloseTaskBuilder("done")],
+  ["skip_task", buildCloseTaskBuilder("skip")],
+  ["plan_week", (state, _input, id) => buildPlanWeekAction(state, id)],
+  [
+    "focus_goal",
+    (state, input, id) => {
       const goal = state.goals.find((x) => x.id === input.goalId);
-      if (!goal) return null;
-      return {
-        id,
-        icon: goal.icon,
-        label: `Focus: ${goal.name}`,
-        run: () => {
-          state.setFocusGoal(goal.id);
-          state.pushToast(`Focused on ${goal.name}`);
-        },
-      };
-    }
-    case "show":
-      return {
-        id,
-        icon: "calendar",
-        label: `Show: ${String(input.title ?? "view")}`,
-        run: () =>
-          state.setEphemeral({
-            title: String(input.title ?? "View"),
-            subtitle: input.subtitle as string | undefined,
-            taskIds: (input.taskIds as string[]) ?? undefined,
-            lines: (input.lines as string[]) ?? undefined,
-            createdAt: Date.now(),
-          }),
-      };
-    default:
-      return null;
-  }
+      return goal ? buildFocusGoalAction(state, goal, id, goal.icon) : null;
+    },
+  ],
+  ["show", buildShowAction],
+]);
+
+function toAction(name: string, input: ToolInput, idx: number): AgentAction | null {
+  const build = ACTION_BUILDERS.get(name);
+  return build ? build(useStore.getState(), input, `ai-${idx}`) : null;
 }
 
 export class AnthropicAgent implements Agent {

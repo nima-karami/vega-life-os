@@ -36,29 +36,32 @@ interface Failure {
   reason: string;
 }
 
+const findPlacementFault = (
+  press: { x: number; y: number },
+  size: MenuSize,
+  viewport: MenuSize,
+): string | null => {
+  const placed = placeMenu(press, size, viewport);
+  if (placed.x < 0 || placed.y < 0) return "the menu overflows the top or left edge";
+  if (placed.x + size.width > viewport.width || placed.y + size.height > viewport.height)
+    return "the menu overflows the bottom or right edge";
+  const clearance = Math.max(
+    clearanceOn(placed.x, size.width, press.x),
+    clearanceOn(placed.y, size.height, press.y),
+  );
+  if (clearance < TOUCH_ADJUSTMENT_PX)
+    return "the menu sits within a touch adjustment of the press";
+  return null;
+};
+
 const failuresAt = (viewport: MenuSize, size: MenuSize): Failure[] => {
-  const failures: Failure[] = [];
   for (let x = 0; x < viewport.width; x += 1) {
     for (let y = 0; y < viewport.height; y += 1) {
-      const placed = placeMenu({ x, y }, size, viewport);
-      const origin = `(${x},${y})`;
-      if (placed.x < 0 || placed.y < 0) {
-        failures.push({ origin, reason: "the menu overflows the top or left edge" });
-      } else if (
-        placed.x + size.width > viewport.width ||
-        placed.y + size.height > viewport.height
-      ) {
-        failures.push({ origin, reason: "the menu overflows the bottom or right edge" });
-      } else if (
-        Math.max(clearanceOn(placed.x, size.width, x), clearanceOn(placed.y, size.height, y)) <
-        TOUCH_ADJUSTMENT_PX
-      ) {
-        failures.push({ origin, reason: "the menu sits within a touch adjustment of the press" });
-      }
-      if (failures.length > 0) return failures;
+      const reason = findPlacementFault({ x, y }, size, viewport);
+      if (reason) return [{ origin: `(${x},${y})`, reason }];
     }
   }
-  return failures;
+  return [];
 };
 
 const PORTRAIT_VIEWPORTS: MenuSize[] = PHONE_WIDTHS.flatMap((width) =>

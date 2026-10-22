@@ -30,7 +30,7 @@ import { normalizeReview } from "@/features/review/model";
 import { createReviewSlice } from "@/features/review/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
-import { authTransition } from "./auth-transition";
+import { type AuthTransition, authTransition } from "./auth-transition";
 import { bindPersistStore, pendingWriteCollections, setPersistAuth } from "./persist";
 import { resolveProfile } from "./profile";
 import { readLocalQuietMode } from "./quiet-mode";
@@ -75,6 +75,60 @@ async function loadAccount(
     get().ensureUpcoming(14);
   } catch {
     set({ loadFailed: true, ready: true }); // hydrate-failed → full-screen retry
+  }
+}
+
+async function hasDirtySandbox(): Promise<boolean> {
+  const hasRows = !(await new DexieAdapter().isEmpty());
+  return isSandboxDirty(await getSandboxDirty(), hasRows);
+}
+
+async function resetToSignedOut(set: (p: Partial<RootState>) => void, get: () => RootState) {
+  (persistence as RoutingAdapter).setDelegate(new DexieAdapter());
+  await get().clearLocal();
+  void setSandboxDirty(false);
+  get().hydrateGcalStatus(null);
+  get().hydrateShowGoogleEvents(true);
+  get().hydrateQuietMode(readLocalQuietMode());
+  get().hydrateGratitudeNudgeAck(readLocalGratitudeNudgeAck());
+  get().setOnboarded(false);
+  get().hydrateProfile({
+    name: "Operator",
+    email: "",
+    avatar: "",
+    workspace: "Personal workspace",
+    partnerName: "",
+  });
+  set({
+    ...createEmptyDataset(),
+    cardPrefs: DEFAULT_CARD_PREFS,
+    pendingSignIn: null,
+    loadFailed: false,
+    ready: true,
+  });
+}
+
+async function applyAuthTransition(
+  transition: AuthTransition,
+  uid: string | null,
+  set: (p: Partial<RootState>) => void,
+  get: () => RootState,
+) {
+  switch (transition) {
+    case "initial-sandbox":
+      (persistence as RoutingAdapter).setDelegate(new DexieAdapter());
+      await get().bootstrap();
+      return;
+    case "initial-account":
+    case "switch-account":
+    case "sign-in":
+      if (uid) await loadAccount(uid, set, get);
+      return;
+    case "sign-out":
+      await resetToSignedOut(set, get);
+      return;
+    case "noop":
+      return;
   }
 }
 
@@ -302,64 +356,16 @@ export const useStore = create<RootState>((set, get, api) => ({
   },
 
   onAuthChange: async (uid: string | null) => {
-    const routing = persistence as RoutingAdapter;
-    const t = authTransition(get().authUid, uid, get().authResolved);
-
-    // Dirty-sandbox sign-in: park WITHOUT committing auth state or switching the
-    // delegate, so cancelling (which signs back out → onAuthChange(null)) classifies
-    // as a noop and leaves the sandbox fully intact. Auth is committed only in
-    // confirmPendingSignIn once the user chooses to continue.
-    if (t === "sign-in" && uid) {
-      const hasRows = !(await new DexieAdapter().isEmpty());
-      if (isSandboxDirty(await getSandboxDirty(), hasRows)) {
-        set({ authResolved: true, pendingSignIn: uid });
-        return;
-      }
+    const transition = authTransition(get().authUid, uid, get().authResolved);
+    // Dirty-sandbox sign-in parks WITHOUT committing auth or switching the delegate, so a
+    // cancel (sign-out → onAuthChange(null)) is a noop; confirmPendingSignIn commits it.
+    if (transition === "sign-in" && uid && (await hasDirtySandbox())) {
+      set({ authResolved: true, pendingSignIn: uid });
+      return;
     }
-
     setPersistAuth(uid);
     set({ authUid: uid, authResolved: true });
-
-    if (t === "noop") return;
-
-    if (t === "initial-sandbox") {
-      routing.setDelegate(new DexieAdapter());
-      await get().bootstrap();
-      return;
-    }
-    if (t === "initial-account" || t === "switch-account") {
-      if (uid) await loadAccount(uid, set, get);
-      return;
-    }
-    if (t === "sign-in" && uid) {
-      // clean (non-dirty) sign-in — the gate above already handled the dirty case
-      await loadAccount(uid, set, get);
-      return;
-    }
-    if (t === "sign-out") {
-      routing.setDelegate(new DexieAdapter());
-      await get().clearLocal();
-      void setSandboxDirty(false);
-      get().hydrateGcalStatus(null); // clear the account's Google Calendar status
-      get().hydrateShowGoogleEvents(true); // back to the default display pref
-      get().hydrateQuietMode(readLocalQuietMode());
-      get().hydrateGratitudeNudgeAck(readLocalGratitudeNudgeAck());
-      get().setOnboarded(false);
-      get().hydrateProfile({
-        name: "Operator",
-        email: "",
-        avatar: "",
-        workspace: "Personal workspace",
-        partnerName: "",
-      });
-      set({
-        ...createEmptyDataset(),
-        cardPrefs: DEFAULT_CARD_PREFS,
-        pendingSignIn: null,
-        loadFailed: false,
-        ready: true,
-      });
-    }
+    await applyAuthTransition(transition, uid, set, get);
   },
 }));
 

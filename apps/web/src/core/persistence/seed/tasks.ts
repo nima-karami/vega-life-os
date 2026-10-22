@@ -4,6 +4,18 @@ import { isActiveOn } from "@/features/habits/recurrence";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import { iso, mulberry32 } from "./helpers";
 
+function rollPastStatus(roll: number): TaskStatus {
+  if (roll < 0.12) return "skip";
+  if (roll < 0.2) return "todo"; // a few honest misses
+  return "done";
+}
+
+// anytime habit stays unchecked so it can be ticked; timed ones before 14:00 count as done
+function resolveTodayStatus(time: string | null): TaskStatus {
+  if (!time) return "todo";
+  return parseInt(time.slice(0, 2), 10) < 14 ? "done" : "todo";
+}
+
 export function buildTasks(habits: Habit[], ref: Date, weekStart: Date): Task[] {
   const rng = mulberry32(0x7e6a17);
   const dayISO = (i: number) => iso(addDays(weekStart, i));
@@ -12,20 +24,10 @@ export function buildTasks(habits: Habit[], ref: Date, weekStart: Date): Task[] 
   let order = 0;
   const tid = () => `t${String(++order).padStart(3, "0")}`;
 
-  // morning-ish tasks (time < 14:00) on `today` count as done; later ones todo
   const today = iso(ref);
   const statusForDate = (dateStr: string, time: string | null): TaskStatus => {
-    if (dateStr < today) {
-      const r = rng();
-      if (r < 0.12) return "skip";
-      if (r < 0.2) return "todo"; // a few honest misses
-      return "done";
-    }
-    if (dateStr === today) {
-      if (!time) return "todo"; // anytime habit: leave today's unchecked so it can be ticked
-      const hour = parseInt(time.slice(0, 2), 10);
-      return hour < 14 ? "done" : "todo";
-    }
+    if (dateStr < today) return rollPastStatus(rng());
+    if (dateStr === today) return resolveTodayStatus(time);
     return "todo";
   };
 
