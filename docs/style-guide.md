@@ -144,9 +144,9 @@ slices; relative paths only within the same slice.
 
 ## 7. Cleanliness (what the gate already watches)
 
-- **Dead code** (Knip): unused files, dependencies, and unlisted deps fail. Unused exports
-  are not yet checked; enabling them is a planned ratchet. Don't leave orphans anyway.
-- **Duplication** (jscpd, 5%): copy-pasted logic fails — extract the shared piece into
+- **Dead code** (Knip): unused files, exports, exported types, duplicate exports, dependencies
+  and unlisted deps all fail.
+- **Duplication** (jscpd, 2%): copy-pasted logic fails — extract the shared piece into
   `core/lib/` or the slice. AI-generated code clones heavily; watch for it.
 - **Complexity** (Biome): currently warn-only, so it does not fail the gate; promoting it to
   an error is a planned ratchet. Untangle a flagged function, don't suppress it.
