@@ -37,7 +37,7 @@ export function buildValues(): Value[] {
       energy: 0.66,
       order: 2,
       desc: "Protect sleep, body and mind so the rest holds.",
-      identity: "You're someone who looks after yourself.",
+      identity: "You take care of yourself.",
       archivedAt: null,
       restingAt: null,
     },

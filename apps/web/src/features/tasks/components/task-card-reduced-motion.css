@@ -1,0 +1,68 @@
+@media (prefers-reduced-motion: reduce) {
+  .task-card__check:active .task-card__ring {
+    transform: none;
+  }
+
+  .task-card[data-anim="complete"] .task-card__ring,
+  .task-card[data-anim="complete"] .task-card__halo,
+  .task-card[data-anim="undo"] .task-card__tick path,
+  .task-card[data-anim="undo"] .task-card__strike {
+    animation: none;
+  }
+
+  .task-card[data-anim="complete"] .task-card__disc,
+  .task-card[data-anim="complete"] .task-card__tick path,
+  .task-card[data-anim="complete"] .task-card__strike {
+    animation: done-fade 120ms linear both;
+  }
+
+  .task-card[data-anim="undo"] .task-card__disc {
+    animation: done-fade-out-disc 120ms linear both;
+  }
+
+  .task-card__flood {
+    clip-path: none;
+    opacity: 0;
+    transition: opacity 120ms linear 120ms;
+  }
+
+  .task-card[data-vote] .task-card__flood {
+    clip-path: none;
+    opacity: 1;
+    transition: opacity 120ms linear;
+  }
+
+  .task-card__headline,
+  .task-card__identity,
+  .task-card[data-vote] .task-card__headline,
+  .task-card[data-vote] .task-card__identity {
+    transform: none;
+    filter: none;
+  }
+
+  .task-card[data-vote] .task-card__headline,
+  .task-card[data-vote] .task-card__identity {
+    transition: opacity 120ms linear 120ms;
+  }
+
+  .task-card__body,
+  .task-card__menu,
+  .task-card[data-vote] .task-card__body,
+  .task-card[data-vote] .task-card__menu {
+    transform: none;
+  }
+
+  .task-row[data-travel="leave"],
+  li > .task-row[data-travel="leave"] {
+    animation: done-fade-out 120ms linear both;
+  }
+
+  .task-row[data-travel="arrive"],
+  li > .task-row[data-travel="arrive"] {
+    animation: done-fade 120ms linear backwards;
+  }
+
+  li:has(> .task-row[data-travel]) {
+    animation: none;
+  }
+}

@@ -12,6 +12,13 @@ export interface TaskCardMotion {
 
 type CardStateAttributes = Record<`data-${string}`, string | undefined>;
 
+function resolveCardAnim(status: TaskStatus, anim: CardAnim | null | undefined) {
+  const isDone = status === "done";
+  if (anim === "complete" && isDone) return anim;
+  if (anim === "undo" && !isDone) return anim;
+  return undefined;
+}
+
 /** The card's motion is pure CSS keyed off these attributes. */
 export function buildCardStateAttributes(
   status: TaskStatus,
@@ -21,7 +28,7 @@ export function buildCardStateAttributes(
   const isVoting = isValued && status === "done" && motion?.isVoting === true;
   return {
     "data-status": status,
-    "data-anim": motion?.anim ?? undefined,
+    "data-anim": resolveCardAnim(status, motion?.anim),
     "data-valued": isValued ? "" : undefined,
     "data-vote": isVoting ? "" : undefined,
   };

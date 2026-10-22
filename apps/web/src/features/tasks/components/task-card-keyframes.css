@@ -1,0 +1,223 @@
+.task-card[data-anim="complete"] .task-card__ring {
+  animation: done-pop 280ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+
+.task-card[data-anim="complete"] .task-card__disc {
+  animation: done-fill 180ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.task-card[data-anim="complete"]:not([data-valued]) .task-card__halo {
+  animation: done-halo 420ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+.task-card[data-anim="complete"] .task-card__tick path {
+  animation: done-draw 220ms cubic-bezier(0.65, 0, 0.35, 1) 120ms both;
+}
+
+.task-card[data-anim="complete"] .task-card__strike {
+  animation: done-strike 280ms cubic-bezier(0.65, 0, 0.35, 1) 200ms both;
+}
+
+.task-card[data-anim="undo"] .task-card__disc {
+  animation: done-unfill 160ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.task-card[data-anim="undo"] .task-card__tick path {
+  animation: done-undraw 100ms linear both;
+}
+
+.task-card[data-anim="undo"] .task-card__strike {
+  transform-origin: right center;
+  animation: done-unstrike 160ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.task-row[data-travel] {
+  overflow: hidden;
+}
+
+.task-row[data-travel="leave"] {
+  animation: done-leave 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.task-row[data-travel="arrive"] {
+  animation: done-arrive 300ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+
+/* In a sortable <li> the li's margin moves: only a flex item's margin cancels the list gap. */
+li > .task-row[data-travel="leave"] {
+  animation-name: done-leave-in-item;
+}
+
+li > .task-row[data-travel="arrive"] {
+  animation-name: done-arrive-in-item;
+}
+
+li:has(> .task-row[data-travel="leave"]) {
+  animation: done-gap-close 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+li:has(> .task-row[data-travel="arrive"]) {
+  animation: done-gap-open 300ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+
+@keyframes done-pop {
+  0% {
+    transform: scale(0.86);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes done-fill {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes done-unfill {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0);
+  }
+}
+
+@keyframes done-halo {
+  from {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  to {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes done-draw {
+  from {
+    stroke-dashoffset: -23;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes done-undraw {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -23;
+  }
+}
+
+@keyframes done-strike {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes done-unstrike {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes done-leave {
+  from {
+    max-height: var(--row-h);
+    margin-bottom: 0;
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    max-height: 0;
+    margin-bottom: -12px;
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes done-arrive {
+  from {
+    max-height: 0;
+    margin-bottom: -12px;
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    max-height: var(--row-h);
+    margin-bottom: 0;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes done-leave-in-item {
+  from {
+    max-height: var(--row-h);
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes done-arrive-in-item {
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    max-height: var(--row-h);
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes done-gap-close {
+  from {
+    margin-bottom: 0;
+  }
+  to {
+    margin-bottom: -12px;
+  }
+}
+
+@keyframes done-gap-open {
+  from {
+    margin-bottom: -12px;
+  }
+  to {
+    margin-bottom: 0;
+  }
+}
+
+@keyframes done-fade-out-disc {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1);
+  }
+}

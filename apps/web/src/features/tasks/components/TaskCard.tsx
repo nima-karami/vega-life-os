@@ -11,6 +11,8 @@ import { buildCardStateAttributes, buildTaskMenuItems, type TaskCardMotion } fro
 import { DoneCheck } from "./DoneCheck";
 import { VoteTakeover } from "./VoteTakeover";
 import "./task-card-motion.css";
+import "./task-card-keyframes.css";
+import "./task-card-reduced-motion.css";
 
 interface TaskCardProps {
   task: Task;
@@ -24,7 +26,7 @@ interface TaskCardProps {
 }
 
 /**
- * TaskCard — the Today-view card: a value-coloured stripe, the done check, the title,
+ * TaskCard is the Today-view card: a value-coloured stripe, the done check, the title,
  * the lineage row and the optional time. A valued complete floods the card with the
  * value's colour and shows the vote; `task-card-motion.css` owns every beat.
  */
@@ -54,7 +56,7 @@ export function TaskCard({
   const menuItems = buildTaskMenuItems(task, { onOpen, onSkip, onUnskip, onDelete });
 
   return (
-    <div ref={rowRef} className="task-row" data-travel={travel ?? undefined}>
+    <div ref={rowRef} className="task-row" data-task-id={task.id} data-travel={travel ?? undefined}>
       <Card
         className="task-card group relative flex flex-row items-start gap-3 rounded-[16px] bg-surface py-[13px] pe-[13px] ps-[19px]"
         style={{ "--hue": hue ?? "var(--accent)", "--stripe": hue ?? "var(--color-line)" }}

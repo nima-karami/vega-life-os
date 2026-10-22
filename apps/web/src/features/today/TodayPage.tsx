@@ -144,7 +144,7 @@ export function TodayPage() {
       />
 
       <div aria-live="polite" className="sr-only">
-        {announce}
+        <span key={announce.key}>{announce.text}</span>
       </div>
 
       {isFreshStartVisible && (

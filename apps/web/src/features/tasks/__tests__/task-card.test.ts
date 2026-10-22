@@ -58,6 +58,16 @@ describe("buildCardStateAttributes", () => {
     });
     expect(buildCardStateAttributes("done", undefined, true)["data-anim"]).toBeUndefined();
   });
+
+  it("plays an animation only while the status still matches it", () => {
+    const complete: TaskCardMotion = { anim: "complete", isVoting: false, travel: null };
+    const undo: TaskCardMotion = { anim: "undo", isVoting: false, travel: null };
+    expect(buildCardStateAttributes("done", complete, true)["data-anim"]).toBe("complete");
+    expect(buildCardStateAttributes("todo", complete, true)["data-anim"]).toBeUndefined();
+    expect(buildCardStateAttributes("skip", complete, true)["data-anim"]).toBeUndefined();
+    expect(buildCardStateAttributes("done", undo, true)["data-anim"]).toBeUndefined();
+    expect(buildCardStateAttributes("skip", undo, true)["data-anim"]).toBe("undo");
+  });
 });
 
 describe("getCheckLabel", () => {

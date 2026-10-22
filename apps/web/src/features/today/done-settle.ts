@@ -102,6 +102,12 @@ export function planSettle(state: SettleState, isDone: (id: string) => boolean):
   };
 }
 
+/** A held row set back to To do or skipped elsewhere stops settling at once; same state if none. */
+export function dropStaleSettles(state: SettleState, isDone: (id: string) => boolean): SettleState {
+  const staleIds = [...state.phases.keys()].filter((id) => !isDone(id));
+  return staleIds.length === 0 ? state : staleIds.reduce(cancelSettle, state);
+}
+
 export function startLeaving(state: SettleState, ids: string[]): SettleState {
   const phases = new Map(state.phases);
   for (const id of ids) phases.set(id, "leaving");

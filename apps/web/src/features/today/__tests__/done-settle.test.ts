@@ -3,6 +3,7 @@ import {
   cancelSettle,
   clearAnim,
   clearArrival,
+  dropStaleSettles,
   EMPTY_SETTLE,
   endVoteHold,
   finishLeaving,
@@ -136,6 +137,20 @@ describe("planSettle", () => {
   it("does not leave a row twice", () => {
     const leaving = startLeaving(completed(["a", false]), ["a"]);
     expect(planSettle(leaving, allDone).leavingIds).toEqual([]);
+  });
+});
+
+describe("dropStaleSettles", () => {
+  it("releases a held row whose stored status is no longer done", () => {
+    const state = completed(["a", true], ["b", false]);
+    const dropped = dropStaleSettles(state, (id) => id === "b");
+    expect(getCardMotion(dropped, "a")).toBeUndefined();
+    expect([...getSettlingIds(dropped)]).toEqual(["b"]);
+  });
+
+  it("returns the same state when every held row is still done", () => {
+    const state = completed(["a", true]);
+    expect(dropStaleSettles(state, allDone)).toBe(state);
   });
 });
 

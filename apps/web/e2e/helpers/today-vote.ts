@@ -83,6 +83,18 @@ async function setIdentityLine(page: Page, valueName: string, identity: string) 
   await page.goto("/today", { waitUntil: "domcontentloaded" });
 }
 
+async function setStatusFromEditor(page: Page, card: Locator, status: string) {
+  await card.locator(".task-card__body").click();
+  const dialog = page.getByRole("dialog", { name: "Edit task" });
+  await dialog.getByRole("button", { name: status, exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+}
+
+async function readFocusedLabel(page: Page): Promise<string | null> {
+  return page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null);
+}
+
 /** Registers the done-moment specs; one file per Playwright project runs them. */
 export function describeVoteMoment() {
   test.beforeEach(async ({ page }) => {
@@ -206,6 +218,92 @@ export function describeVoteMoment() {
     await expect(voteToasts(page)).toHaveCount(0);
   });
 
+  test("setting To do from the editor mid-hold stops the card reading as done", async ({
+    page,
+  }) => {
+    const [title] = await openValuedTitles(page, 1);
+    const card = cardTitled(page, title);
+    await card.getByRole("button", { name: `Mark ${title} done` }).click();
+    await expect(card).toHaveAttribute("data-vote", "");
+
+    await setStatusFromEditor(page, card, "To do");
+    await expect(card).toHaveAttribute("data-status", "todo", { timeout: 500 });
+    await expect(card).not.toHaveAttribute("data-anim", { timeout: 500 });
+    await expect(card).not.toHaveAttribute("data-vote", { timeout: 500 });
+    await expect(card.locator(".task-card__disc")).toHaveCSS(
+      "transform",
+      "matrix(0, 0, 0, 0, 0, 0)",
+    );
+    await page.waitForTimeout(3500);
+    await expect(titleIn(remaining(page), title)).toHaveCount(1);
+    expect(await storedStatus(page, title)).toBe("todo");
+  });
+
+  test("skipping from the editor mid-hold sends the row to Done at once", async ({ page }) => {
+    const [title] = await openValuedTitles(page, 1);
+    const card = cardTitled(page, title);
+    await card.getByRole("button", { name: `Mark ${title} done` }).click();
+    await expect(card).toHaveAttribute("data-vote", "");
+
+    await setStatusFromEditor(page, card, "Skipped");
+    await expect(titleIn(doneSection(page), title)).toHaveCount(1, { timeout: 1000 });
+    await expect(titleIn(remaining(page), title)).toHaveCount(0);
+    await expect(card).toHaveAttribute("data-status", "skip");
+    await expect(card).not.toHaveAttribute("data-anim");
+  });
+
+  test("the check keeps keyboard focus as its row moves to Done and back", async ({ page }) => {
+    const [title] = await openValuedTitles(page, 1);
+    const card = cardTitled(page, title);
+    await card.getByRole("button", { name: `Mark ${title} done` }).focus();
+    await page.keyboard.press("Space");
+    await expect(card).toHaveAttribute("data-vote", "");
+
+    await expectLandsInDone(page, title);
+    await expect.poll(() => readFocusedLabel(page)).toBe(`Mark ${title} not done`);
+
+    await page.keyboard.press("Space");
+    await expect(titleIn(remaining(page), title)).toHaveCount(1);
+    await expect.poll(() => readFocusedLabel(page)).toBe(`Mark ${title} done`);
+  });
+
+  test("two identical announcements in a row are both announced", async ({ page }) => {
+    const titles = ["Water the plants", "Post the letter"];
+    await addTodayTask(page, titles[0]);
+    await page.getByRole("textbox", { name: "Task title" }).fill(titles[1]);
+    await page.keyboard.press("Enter");
+    await expect(cardTitled(page, titles[1])).toBeVisible();
+    await announcer(page).evaluate((region) => {
+      const heard: string[] = [];
+      (window as unknown as { __heard: string[] }).__heard = heard;
+      new MutationObserver((records) => {
+        for (const record of records)
+          for (const node of record.addedNodes) heard.push(node.textContent ?? "");
+      }).observe(region, { childList: true, subtree: true, characterData: true });
+    });
+
+    for (const title of titles)
+      await cardTitled(page, title)
+        .getByRole("button", { name: `Mark ${title} done` })
+        .click();
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __heard: string[] }).__heard))
+      .toEqual(["Done.", "Done."]);
+  });
+
+  test("completing a skipped valued task in place announces no vote", async ({ page }) => {
+    const [title] = await openValuedTitles(page, 1);
+    const card = cardTitled(page, title);
+    await card.getByRole("button", { name: `Actions for ${title}` }).click();
+    await page.getByRole("menuitem", { name: "Skip" }).click();
+    await expect(titleIn(doneSection(page), title)).toHaveCount(1);
+
+    await card.getByRole("button", { name: `Mark ${title} done` }).click();
+    await expect(card).toHaveAttribute("data-status", "done");
+    await expect(announcer(page)).toHaveText("Done.");
+    await expect(card).not.toHaveAttribute("data-vote");
+  });
+
   test("the Daily-habits strip keeps its vote toast", async ({ page }) => {
     const strip = page.getByRole("region", { name: "Daily habits" });
     await strip.getByRole("button", { name: "Mark Drink water done" }).click();
@@ -245,6 +343,7 @@ export function describeVoteMoment() {
       .click();
     expect(await pulses()).toBe(2);
 
+    await page.waitForTimeout(200);
     await cardTitled(page, third)
       .getByRole("button", { name: `Mark ${third} not done` })
       .click();

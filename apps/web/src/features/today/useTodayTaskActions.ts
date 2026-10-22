@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { pulseHaptic } from "@/core/lib/haptics";
 import { useStore } from "@/core/store";
 import { getTaskLineage } from "@/features/tasks/lineage";
@@ -32,7 +32,12 @@ export function useTodayTaskActions(tasks: Task[], viewDate: string) {
   const settle = useDoneSettle(viewDate);
 
   const [editing, setEditing] = useState<Task | null>(null);
-  const [announce, setAnnounce] = useState("");
+  const [announce, setAnnouncement] = useState({ text: "", key: 0 });
+  // a fresh node per announcement, so a repeat of the same text is still read
+  const setAnnounce = useCallback(
+    (text: string) => setAnnouncement((prev) => ({ text, key: prev.key + 1 })),
+    [],
+  );
   const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
 
   useEffect(() => {
@@ -44,13 +49,12 @@ export function useTodayTaskActions(tasks: Task[], viewDate: string) {
   function handleToggleDone(task: Task) {
     const next = toggleDone(task);
     setStatus(task.id, next);
-    const vote = next === "done" ? resolveVote(task) : null;
+    // a skipped row is already in Done, so it completes in place with no hold and no vote
+    const isHeld = next === "done" && !isResolved(task);
+    const vote = isHeld ? resolveVote(task) : null;
     if (next !== "done") settle.undo(task.id);
-    else {
-      pulseHaptic();
-      // a skipped row is already in Done, so it completes in place with no hold
-      if (!isResolved(task)) settle.complete(task.id, vote !== null);
-    }
+    else pulseHaptic();
+    if (isHeld) settle.complete(task.id, vote !== null);
     setAnnounce(describeTaskCompletion(task.title, next, vote));
   }
 
