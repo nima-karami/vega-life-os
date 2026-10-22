@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isGreenCheckRun } from "../lib/check-runs.mjs";
+import { isGreenCheckRun, isReleaseCheckRun } from "../lib/check-runs.mjs";
 
 function checkRun(name, conclusion, status = "completed") {
   return { name, status, conclusion };
@@ -26,5 +26,16 @@ describe("isGreenCheckRun", () => {
   it("failures and unfinished runs are not green", () => {
     assert.equal(isGreenCheckRun(checkRun("e2e", "failure")), false);
     assert.equal(isGreenCheckRun(checkRun("unit-server", null, "in_progress")), false);
+  });
+});
+
+describe("isReleaseCheckRun", () => {
+  it("names release.yml's jobs, not verify.yml's", () => {
+    for (const name of ["gate", "plan", "server", "hosting", "rollback"]) {
+      assert.equal(isReleaseCheckRun(checkRun(name, "skipped")), true, name);
+    }
+    for (const name of ["static", "unit-server", "e2e", "sast", "changes"]) {
+      assert.equal(isReleaseCheckRun(checkRun(name, "success")), false, name);
+    }
   });
 });

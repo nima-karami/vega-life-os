@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Refuses a release from a tree that is not exactly the pushed, CI-checked origin/main.
 import { execFileSync } from "node:child_process";
-import { isGreenCheckRun } from "./lib/check-runs.mjs";
+import { isGreenCheckRun, isReleaseCheckRun } from "./lib/check-runs.mjs";
 
 const allowRedCi =
   process.argv.includes("--allow-red-ci") || process.env.RELEASE_ALLOW_RED_CI === "1";
@@ -56,8 +56,9 @@ function findCiProblems(sha) {
   } catch (error) {
     return [`could not read check-runs via gh (${error.message.split("\n")[0]})`];
   }
-  if (checkRuns.length === 0) return ["no CI check-runs exist for this commit"];
-  return checkRuns
+  const verifyRuns = checkRuns.filter((check) => !isReleaseCheckRun(check));
+  if (verifyRuns.length === 0) return ["no CI check-runs exist for this commit"];
+  return verifyRuns
     .filter((check) => !isGreenCheckRun(check))
     .map((check) => `${check.name}: ${check.status}/${check.conclusion ?? "pending"}`);
 }
