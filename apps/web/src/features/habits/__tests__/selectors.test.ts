@@ -40,6 +40,7 @@ const value = (over: Partial<Value> = {}): Value => ({
   order: 0,
   archivedAt: null,
   restingAt: null,
+  identity: "",
   ...over,
 });
 

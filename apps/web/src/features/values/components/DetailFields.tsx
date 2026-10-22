@@ -64,3 +64,29 @@ export function NoteField({
     />
   );
 }
+
+export function LineField({
+  value,
+  label,
+  placeholder,
+  maxLength,
+  onChange,
+}: {
+  value: string;
+  label: string;
+  placeholder: string;
+  maxLength: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <input
+      type="text"
+      aria-label={label}
+      placeholder={placeholder}
+      maxLength={maxLength}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={cx(BARE_FIELD, "mt-1.5 text-[16px] leading-[1.6] text-muted")}
+    />
+  );
+}

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { defineEntity, nullableString } from "./base";
 
+export const VALUE_IDENTITY_MAX = 120;
+
 const { schema, createSchema } = defineEntity({
   id: z.string(),
   name: z.string(),
@@ -12,6 +14,7 @@ const { schema, createSchema } = defineEntity({
   order: z.number(),
   archivedAt: nullableString,
   restingAt: nullableString.default(null),
+  identity: z.string().max(VALUE_IDENTITY_MAX).default(""),
 });
 
 export const valueSchema = schema;

@@ -54,6 +54,7 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
       order: patch.order ?? order,
       archivedAt: patch.archivedAt ?? null,
       restingAt: patch.restingAt ?? null,
+      identity: patch.identity ?? "",
     };
     set((s) => ({ values: [...s.values, value] }));
     savePut("values", value);

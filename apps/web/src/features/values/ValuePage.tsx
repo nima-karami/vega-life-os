@@ -1,5 +1,7 @@
 /** /values/:valueId — the value itself is the editor: the title is the name field,
  *  and its goals and habits stand as cards in its own colour. */
+
+import { VALUE_IDENTITY_MAX } from "@vega/shared";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { reorderByIds } from "@/core/lib/reorder";
@@ -8,7 +10,7 @@ import { CreateNameDialog, Icon, IconField, Menu, SortableList } from "@/core/ui
 import { GoalEntityCard } from "@/features/goals/components/GoalEntityCard";
 import { getValueColor, VALUE_HUES } from "./color";
 import { DeleteValueDialog } from "./components/DeleteValueDialog";
-import { NoteField, TitleField } from "./components/DetailFields";
+import { LineField, NoteField, TitleField } from "./components/DetailFields";
 import {
   DetailAction,
   DetailFooter,
@@ -138,6 +140,15 @@ function ValueDetail({ value }: { value: Value }) {
         label="Why this matters"
         placeholder="A sentence on why this matters…"
         onChange={(desc) => update(value.id, { desc })}
+      />
+
+      <span className="mt-5 block text-muted text-xs">Identity line</span>
+      <LineField
+        value={value.identity}
+        label="Identity line"
+        placeholder="You're someone who moves."
+        maxLength={VALUE_IDENTITY_MAX}
+        onChange={(identity) => update(value.id, { identity })}
       />
 
       <div className="mt-8 flex flex-col gap-6">

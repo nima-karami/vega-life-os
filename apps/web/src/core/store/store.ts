@@ -139,7 +139,12 @@ function sortDataset(dataset: Partial<Dataset>): Partial<Dataset> {
   // (undefined); coerce to null so they classify as active, not archived.
   if (dataset.values)
     out.values = dataset.values
-      .map((v) => ({ ...v, archivedAt: v.archivedAt ?? null, restingAt: v.restingAt ?? null }))
+      .map((v) => ({
+        ...v,
+        archivedAt: v.archivedAt ?? null,
+        restingAt: v.restingAt ?? null,
+        identity: v.identity ?? "",
+      }))
       .sort((a, b) => a.order - b.order);
   if (dataset.habits)
     out.habits = dataset.habits.map((h) =>

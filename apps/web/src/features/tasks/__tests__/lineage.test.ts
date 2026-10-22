@@ -18,6 +18,7 @@ const value: Value = {
   order: 0,
   archivedAt: null,
   restingAt: null,
+  identity: "",
 };
 
 const goal: Goal = {

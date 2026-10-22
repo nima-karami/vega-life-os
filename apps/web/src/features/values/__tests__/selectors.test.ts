@@ -23,6 +23,7 @@ const value = (id: string, order: number, archivedAt: string | null): Value => (
   order,
   archivedAt,
   restingAt: null,
+  identity: "",
 });
 
 const goal = (id: string, status: GoalStatus): Goal => ({

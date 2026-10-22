@@ -29,6 +29,7 @@ function value(order: number, id: string, name: string): Value {
     order,
     archivedAt: null,
     restingAt: null,
+    identity: "",
   };
 }
 

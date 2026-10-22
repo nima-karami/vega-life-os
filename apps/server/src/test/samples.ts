@@ -61,6 +61,7 @@ export const sampleByCollection: { [C in RoutedCollection]: SampleFactory<C> } =
     order: 0,
     archivedAt: null,
     restingAt: null,
+    identity: "",
   }),
   goals: (id) => ({
     id,

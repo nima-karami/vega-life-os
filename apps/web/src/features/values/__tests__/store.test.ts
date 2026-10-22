@@ -54,6 +54,7 @@ const value = (over: Partial<Value> = {}): Value => ({
   order: 0,
   archivedAt: null,
   restingAt: null,
+  identity: "",
   ...over,
 });
 
@@ -67,6 +68,14 @@ describe("addValue", () => {
   it("defaults restingAt to null (in season)", () => {
     const { get } = makeSlice();
     expect(get().addValue().restingAt).toBeNull();
+  });
+
+  it("defaults the identity line to empty and keeps a given one", () => {
+    const { get } = makeSlice();
+    expect(get().addValue().identity).toBe("");
+    expect(get().addValue({ identity: "You're someone who moves." }).identity).toBe(
+      "You're someone who moves.",
+    );
   });
 });
 

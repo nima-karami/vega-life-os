@@ -15,6 +15,7 @@ const value = (id: string, order: number): Value => ({
   order,
   archivedAt: null,
   restingAt: null,
+  identity: "",
 });
 
 const habit: Habit = {

@@ -16,4 +16,6 @@ export interface Value {
   archivedAt: string | null;
   /** ISO-8601 timestamp the value began resting; null = in season. Archived supersedes it. */
   restingAt: string | null;
+  /** one line on who this value makes you; "" = none */
+  identity: string;
 }
