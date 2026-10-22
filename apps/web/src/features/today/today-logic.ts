@@ -89,6 +89,29 @@ export function toggleDone(task: Task): TaskStatus {
   return task.status === "done" ? "todo" : "done";
 }
 
+export function describeTaskToggle(next: TaskStatus): string {
+  return next === "done" ? "Marked done" : "Marked not done";
+}
+
+export function describeEmptyDay(isToday: boolean): string {
+  return isToday
+    ? "Nothing scheduled yet. Add a task above, or press ⌘K to ask VEGA."
+    : "Nothing scheduled for this day. Add a task above, or press ⌘K.";
+}
+
+/** The store's current copy of an item being edited, or null once it is gone. */
+export function findLiveCopy<T extends { id: string }>(
+  items: T[],
+  id: string | undefined,
+): T | null {
+  if (id === undefined) return null;
+  return items.find((item) => item.id === id) ?? null;
+}
+
+export function describeHabitToggle(title: string, next: TaskStatus): string {
+  return next === "done" ? `${title}, done` : `${title}, not done`;
+}
+
 export interface OrderUpdate {
   id: string;
   order: number;

@@ -24,7 +24,7 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
-        "noExcessiveCognitiveComplexity": "warn"
+        "noExcessiveCognitiveComplexity": "error"
       },
       "suspicious": {
         "noCommentText": "off"

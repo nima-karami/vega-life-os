@@ -1,11 +1,10 @@
-import { Button } from "@heroui/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useNowMs } from "@/core/lib/clock";
-import { formatLongDate, formatRelativeDay, todayISO } from "@/core/lib/date";
+import { todayISO } from "@/core/lib/date";
 import { getZonedWallClock } from "@/core/lib/zone";
 import { useStore } from "@/core/store";
-import { CalendarPopover, Icon, IconButton, UndoBar } from "@/core/ui";
+import { UndoBar } from "@/core/ui";
 import { EventEditor } from "@/features/calendar/EventEditor";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import { useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
@@ -13,7 +12,6 @@ import {
   BackfillNudge,
   filterUnacknowledgedDays,
   GratitudeCard,
-  getEntryStatus,
   getMissedGratitudeDays,
   ReflectionDialog,
   shouldShowGratitudeCard,
@@ -21,23 +19,23 @@ import {
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
-import type { Task } from "@/features/tasks/model";
 import { computeDayCounts, isAnytimeHabit } from "@/features/tasks/selectors";
-import { useValueVoteToast } from "@/features/values/useValueVoteToast";
 import { AllDoneMarker } from "./components/AllDoneMarker";
 import { DailyHabits } from "./components/DailyHabits";
 import { EveningCard } from "./components/EveningCard";
 import { FreshStartCard } from "./components/FreshStartCard";
+import { JournalEntryButton } from "./components/JournalEntryButton";
 import { RemainingTasks } from "./components/RemainingTasks";
+import { TodayHeader } from "./components/TodayHeader";
 import {
-  describeDay,
+  describeEmptyDay,
+  findLiveCopy,
   partitionToday,
-  reorderTasksInDay,
   shouldShowEveningCard,
-  toggleDone,
 } from "./today-logic";
 import { useDayLayout } from "./useDayLayout";
 import { useFreshStart } from "./useFreshStart";
+import { useTodayTaskActions } from "./useTodayTaskActions";
 import { useViewDate } from "./useViewDate";
 
 /**
@@ -59,10 +57,20 @@ export function TodayPage() {
   const navigate = useNavigate();
 
   const tasks = useStore((s) => s.tasks);
-  const setStatus = useStore((s) => s.setStatus);
-  const updateTask = useStore((s) => s.updateTask);
-  const removeTask = useStore((s) => s.removeTask);
-  const addTask = useStore((s) => s.addTask);
+  const {
+    editing,
+    setEditing,
+    announce,
+    setAnnounce,
+    pendingUndo,
+    undoDelete,
+    handleToggleDone,
+    handleToggleHabit,
+    handleSkip,
+    handleUnskip,
+    handleReorderTasks,
+    handleDelete,
+  } = useTodayTaskActions(tasks, viewDate);
 
   const journal = useStore((s) => s.journal);
   const nudgeAckedThrough = useStore((s) => s.gratitudeNudgeAckedThrough);
@@ -74,10 +82,7 @@ export function TodayPage() {
   const todayEntry = journal.find((e) => e.date === today);
   const viewEntry = journal.find((e) => e.date === viewDate);
 
-  const [editing, setEditing] = useState<Task | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [announce, setAnnounce] = useState("");
-  const [pendingUndo, setPendingUndo] = useState<Task | null>(null);
   const [isReflecting, setIsReflecting] = useState(false);
 
   const missedDays = useMemo(
@@ -114,62 +119,8 @@ export function TodayPage() {
 
   // Keep the open editors in sync with the store (handles remote edits / deletes).
   const calendarEvents = useStore((s) => s.calendarEvents);
-  const editingTask = editing ? (tasks.find((t) => t.id === editing.id) ?? null) : null;
-  const liveEvent = calendarEvents.find((e) => e.id === editingEvent?.id) ?? null;
-
-  // Auto-dismiss the undo bar after a few seconds.
-  useEffect(() => {
-    if (!pendingUndo) return;
-    const timerId = setTimeout(() => setPendingUndo(null), 6000);
-    return () => clearTimeout(timerId);
-  }, [pendingUndo]);
-
-  const announceVote = useValueVoteToast();
-
-  function handleToggleDone(task: Task) {
-    const next = toggleDone(task);
-    setStatus(task.id, next);
-    if (next === "done") announceVote(task);
-    setAnnounce(next === "done" ? "Marked done" : "Marked not done");
-  }
-
-  function handleSkip(task: Task) {
-    setStatus(task.id, "skip");
-    setAnnounce("Skipped");
-  }
-
-  function handleToggleHabit(task: Task) {
-    const next = task.status === "done" ? "todo" : "done";
-    setStatus(task.id, next);
-    if (next === "done") announceVote(task);
-    setAnnounce(next === "done" ? `${task.title}, done` : `${task.title}, not done`);
-  }
-
-  function handleUnskip(task: Task) {
-    setStatus(task.id, "todo");
-    setAnnounce("Marked not done");
-  }
-
-  function handleReorderTasks(activeId: string, overId: string) {
-    const updates = reorderTasksInDay(tasks, viewDate, activeId, overId);
-    if (updates.length === 0) return;
-    for (const u of updates) updateTask(u.id, { order: u.order });
-    setAnnounce("Tasks reordered");
-  }
-
-  function handleDelete(task: Task) {
-    removeTask(task.id);
-    if (editing?.id === task.id) setEditing(null);
-    setAnnounce("Task deleted");
-    setPendingUndo(task);
-  }
-
-  function undoDelete() {
-    if (!pendingUndo) return;
-    addTask({ ...pendingUndo });
-    setAnnounce("Restored task");
-    setPendingUndo(null);
-  }
+  const editingTask = findLiveCopy(tasks, editing?.id);
+  const liveEvent = findLiveCopy(calendarEvents, editingEvent?.id);
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:py-10">
@@ -181,44 +132,14 @@ export function TodayPage() {
           onDismiss={() => acknowledgeGratitudeNudge(missedDays[0])}
         />
       )}
-      <header className="space-y-1">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted">{formatLongDate(viewDate)}</p>
-          <div className="flex items-center gap-0.5">
-            <IconButton
-              name="chevL"
-              size={18}
-              label="Previous day"
-              onPress={() => stepViewDate(-1)}
-            />
-            <CalendarPopover
-              value={viewDate}
-              onChange={(v) => v && setViewDate(v)}
-              showClear={false}
-              align="end"
-              triggerLabel="Pick a date"
-              triggerClassName="inline-grid h-8 w-8 place-items-center rounded-[8px] text-muted outline-none transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
-              triggerContent={<Icon name="calendar" size={16} />}
-            />
-            <IconButton name="chevR" size={18} label="Next day" onPress={() => stepViewDate(1)} />
-          </div>
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {formatRelativeDay(viewDate, today)}
-        </h1>
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-muted">{describeDay(counts.total, eventCount)}</p>
-          {!isToday && (
-            <button
-              type="button"
-              onClick={() => setViewDate(today)}
-              className="text-sm text-accent underline-offset-2 hover:underline"
-            >
-              Jump to today
-            </button>
-          )}
-        </div>
-      </header>
+      <TodayHeader
+        viewDate={viewDate}
+        today={today}
+        taskCount={counts.total}
+        eventCount={eventCount}
+        onViewDateChange={setViewDate}
+        onStepViewDate={stepViewDate}
+      />
 
       <div aria-live="polite" className="sr-only">
         {announce}
@@ -245,11 +166,7 @@ export function TodayPage() {
           )}
           <AddTaskInline date={viewDate} onAdded={(t) => setAnnounce(`Added ${t}`)} />
           {isEmpty ? (
-            <p className="text-sm text-muted">
-              {isToday
-                ? "Nothing scheduled yet. Add a task above, or press ⌘K to ask VEGA."
-                : "Nothing scheduled for this day. Add a task above, or press ⌘K."}
-            </p>
+            <p className="text-sm text-muted">{describeEmptyDay(isToday)}</p>
           ) : (
             <RemainingTasks
               layout={layout}
@@ -296,13 +213,7 @@ export function TodayPage() {
       )}
 
       <div className="mt-8 flex justify-center">
-        <Button variant="secondary" onPress={() => navigate(`/journal/${viewDate}`)}>
-          <Icon name="note" size={15} />
-          {getEntryStatus(viewEntry) === "none" ? "Journal" : "Edit entry"}
-          {getEntryStatus(viewEntry) !== "none" && (
-            <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-          )}
-        </Button>
+        <JournalEntryButton entry={viewEntry} onPress={() => navigate(`/journal/${viewDate}`)} />
       </div>
 
       {pendingUndo && <UndoBar message="Task deleted" onUndo={undoDelete} />}

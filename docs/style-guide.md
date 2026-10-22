@@ -148,8 +148,8 @@ slices; relative paths only within the same slice.
   and unlisted deps all fail.
 - **Duplication** (jscpd, 2%): copy-pasted logic fails — extract the shared piece into
   `core/lib/` or the slice. AI-generated code clones heavily; watch for it.
-- **Complexity** (Biome): currently warn-only, so it does not fail the gate; promoting it to
-  an error is a planned ratchet. Untangle a flagged function, don't suppress it.
+- **Complexity** (Biome `noExcessiveCognitiveComplexity`, max 15): an error, so it fails the
+  gate. Untangle a flagged function into pure, named helpers; don't suppress it.
 - **Dormant-by-design code stays.** Firebase sync, the ⌘K agent, GCal sync, and the inert
   energy-model fields are gated, not dead — don't "tidy them away" (`CLAUDE.md §4, §7`).
 

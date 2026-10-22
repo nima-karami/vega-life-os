@@ -1,17 +1,10 @@
 import { Card } from "@heroui/react";
 import { useStore } from "@/core/store";
-import {
-  cx,
-  getValueStripeStyle,
-  Icon,
-  Lineage,
-  Menu,
-  type MenuItem,
-  ROW_META_CLASS,
-} from "@/core/ui";
+import { cx, getValueStripeStyle, Icon, Lineage, Menu, ROW_META_CLASS } from "@/core/ui";
 import { BackToItLine } from "@/features/habits/BackToItLine";
 import { useTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "../model";
+import { buildTaskMenuItems, getCheckLabel, getCheckToneClass } from "../task-card";
 
 /**
  * TaskCard — the Today-view card.
@@ -45,15 +38,7 @@ export function TaskCard({
   const skipped = task.status === "skip";
   const isResolved = done || skipped;
 
-  const checkLabel = done ? `Mark ${task.title} not done` : `Mark ${task.title} done`;
-
-  const menuItems: MenuItem[] = [
-    skipped
-      ? { label: "Unskip", icon: "check", onSelect: () => onUnskip(task) }
-      : { label: "Skip", icon: "skip", onSelect: () => onSkip(task) },
-    { label: "Edit", icon: "edit", onSelect: () => onOpen(task) },
-    { label: "Delete", icon: "trash", danger: true, onSelect: () => onDelete(task) },
-  ];
+  const menuItems = buildTaskMenuItems(task, { onOpen, onSkip, onUnskip, onDelete });
 
   return (
     <Card
@@ -67,18 +52,14 @@ export function TaskCard({
       <button
         type="button"
         aria-pressed={done}
-        aria-label={checkLabel}
+        aria-label={getCheckLabel(task)}
         onClick={() => onToggleDone(task)}
         className="-mt-2.5 -mb-3 -ms-3 -me-3 grid h-11 w-11 shrink-0 place-items-center sm:mt-0.5 sm:mb-0 sm:ms-0 sm:me-0 sm:h-5 sm:w-5"
       >
         <span
           className={cx(
             "grid h-5 w-5 place-items-center rounded-full border transition-colors",
-            done
-              ? "border-accent bg-accent text-accent-foreground"
-              : skipped
-                ? "border-border text-muted"
-                : "border-border text-transparent hover:border-accent",
+            getCheckToneClass(task.status),
           )}
         >
           {done && <Icon name="check" size={12} />}

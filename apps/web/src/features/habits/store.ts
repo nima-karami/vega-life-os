@@ -1,9 +1,8 @@
 import { todayISO } from "@/core/lib/date";
-import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Task } from "@/features/tasks/model";
-import { splitValuesBySeason } from "@/features/values/selectors";
+import { buildHabit } from "./build-habit";
 import { type Habit, habitLifecycle } from "./model";
 import { closeOpenPause } from "./paused-spans";
 
@@ -42,33 +41,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   habits: [],
 
   addHabit: (patch = {}) => {
-    const habit: Habit = {
-      id: patch.id ?? uid("h_"),
-      name: patch.name ?? "New habit",
-      goalId: patch.goalId ?? null,
-      valueId:
-        patch.valueId ??
-        splitValuesBySeason(get().values).inSeason[0]?.id ??
-        get().values[0]?.id ??
-        "",
-      icon: patch.icon ?? "repeat",
-      // preserve an explicit null (anytime); only default when time is omitted
-      time: patch.time === undefined ? "09:00" : patch.time,
-      durationMin: patch.durationMin ?? 30,
-      createdAt: patch.createdAt ?? todayISO(),
-      archivedAt: patch.archivedAt ?? null,
-      pausedAt: patch.pausedAt ?? null,
-      resumedAt: patch.resumedAt ?? null,
-      pausedSpans: patch.pausedSpans ?? [],
-      tracked: patch.tracked ?? false,
-      plan: patch.plan ?? "",
-      schedule: patch.schedule ?? {
-        type: "weekly",
-        days: [1, 1, 1, 1, 1, 1, 1],
-        interval: 1,
-        anchor: (patch.createdAt ?? todayISO()).slice(0, 10),
-      },
-    };
+    const habit = buildHabit(patch, get().values);
     // newest first, so a freshly added habit is visible at the top (not buried below the fold)
     set((s) => ({ habits: [habit, ...s.habits] }));
     savePut("habits", habit);

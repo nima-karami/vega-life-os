@@ -1,37 +1,14 @@
 import { addDays, format } from "date-fns";
 import { getWeekDays } from "@/core/lib/date";
-import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import { type Habit, isHabitActive } from "@/features/habits/model";
-import { findSlotOnOrBefore, isActiveOn } from "@/features/habits/recurrence";
+import { findSlotOnOrBefore } from "@/features/habits/recurrence";
+import { buildTask, normalizeSchedule } from "./build-task";
+import { buildMissingInstances, findStaleInstances, getGeneratingHabits } from "./habit-instances";
 import type { Task, TaskStatus } from "./model";
-
-/** Enforce the invariant: a task with no date can't carry a time. */
-function normalizeSchedule(task: Task): Task {
-  return task.date === null && task.time !== null ? { ...task, time: null } : task;
-}
 
 /** Local-time stamp for a completion (the app reasons about dates in local time). */
 const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
-
-/** Values carry `archivedAt`; an archived or missing parent value never generates. */
-type SchedulableValue = { id: string; archivedAt?: string | null };
-
-/**
- * Habits that may generate future instances: the habit itself is active (not paused
- * or archived) AND its parent value is active. A missing/dangling parent value never
- * generates. This folds together the habit-lifecycle and value-archive rules so the
- * engine can't miss either.
- */
-function getGeneratingHabits(habits: Habit[], values: SchedulableValue[]): Habit[] {
-  const valueById = new Map(values.map((v) => [v.id, v]));
-  return habits.filter((h) => {
-    if (!isHabitActive(h)) return false;
-    const value = valueById.get(h.valueId);
-    return value != null && (value.archivedAt ?? null) === null;
-  });
-}
 
 export interface TasksSlice {
   tasks: Task[];
@@ -66,26 +43,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   tasks: [],
 
   addTask: (patch = {}) => {
-    const order = get().tasks.length;
-    const task: Task = normalizeSchedule({
-      id: patch.id ?? uid("t_"),
-      title: patch.title ?? "New task",
-      kind: patch.kind ?? "oneoff",
-      habitId: patch.habitId ?? null,
-      goalId: patch.goalId ?? null,
-      valueId: patch.valueId ?? null,
-      date: patch.date ?? null,
-      // habit instances anchor to the slot they're generated for; one-offs have none
-      slotDate: patch.slotDate ?? (patch.habitId ? (patch.date ?? null) : null),
-      completedAt: patch.completedAt ?? null,
-      time: patch.time ?? null,
-      durationMin: patch.durationMin ?? 30,
-      // unscheduled tasks start "open" (inbox); scheduled ones start "todo"
-      status: patch.status ?? (patch.date ? "todo" : "open"),
-      detached: patch.detached ?? false,
-      note: patch.note ?? "",
-      order: patch.order ?? order,
-    });
+    const task = buildTask(patch, get().tasks.length);
     set((s) => ({ tasks: [...s.tasks, task] }));
     savePut("tasks", task, { kind: "insert" });
     return task;
@@ -247,29 +205,10 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   planWeek: (ref = new Date()) => {
     const { tasks, habits, addTask } = get();
     const generating = getGeneratingHabits(habits, get().values);
-    const existing = new Set(
-      tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.slotDate ?? t.date}`),
-    );
-    let made = 0;
-    for (const d of getWeekDays(ref)) {
-      for (const h of generating) {
-        if (!isActiveOn(h, d.iso)) continue;
-        if (existing.has(`${h.id}@${d.iso}`)) continue;
-        addTask({
-          title: h.name,
-          kind: "habit",
-          habitId: h.id,
-          goalId: h.goalId,
-          valueId: h.valueId,
-          date: d.iso,
-          time: h.time,
-          durationMin: h.durationMin,
-          status: "todo",
-        });
-        made++;
-      }
-    }
-    return made;
+    const isoDates = getWeekDays(ref).map((d) => d.iso);
+    const missing = buildMissingInstances(tasks, generating, isoDates);
+    for (const instance of missing) addTask(instance);
+    return missing.length;
   },
 
   ensureUpcoming: (daysAhead = 14) => {
@@ -279,55 +218,18 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     const today = format(start, "yyyy-MM-dd");
     const end = format(addDays(start, daysAhead), "yyyy-MM-dd");
 
-    // Self-heal: drop future undone non-detached instances whose *slot* no longer
-    // matches the habit's schedule (e.g. a daily instance left behind after the habit
-    // was switched to monthly). Keyed on slotDate so a moved-but-still-active instance
-    // survives. Past, done, skipped, and detached stay untouched.
-    const habitById = new Map(generating.map((h) => [h.id, h]));
-    const stale = tasks.filter((t) => {
-      const slot = t.slotDate ?? t.date;
-      return (
-        t.habitId != null &&
-        habitById.has(t.habitId) &&
-        slot != null &&
-        slot >= today &&
-        slot <= end &&
-        t.status === "todo" &&
-        !t.detached &&
-        !isActiveOn(habitById.get(t.habitId) as Habit, slot)
-      );
-    });
+    const stale = findStaleInstances(tasks, generating, today, end);
     if (stale.length) {
       const drop = new Set(stale.map((t) => t.id));
       set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
       for (const t of stale) saveRemove("tasks", t.id, t);
     }
 
-    const existing = new Set(
-      get()
-        .tasks.filter((t) => t.habitId)
-        .map((t) => `${t.habitId}@${t.slotDate ?? t.date}`),
+    const isoDates = Array.from({ length: Math.max(daysAhead + 1, 0) }, (_, i) =>
+      format(addDays(start, i), "yyyy-MM-dd"),
     );
-    let made = 0;
-    for (let i = 0; i <= daysAhead; i++) {
-      const iso = format(addDays(start, i), "yyyy-MM-dd");
-      for (const h of generating) {
-        if (!isActiveOn(h, iso)) continue;
-        if (existing.has(`${h.id}@${iso}`)) continue;
-        addTask({
-          title: h.name,
-          kind: "habit",
-          habitId: h.id,
-          goalId: h.goalId,
-          valueId: h.valueId,
-          date: iso,
-          time: h.time,
-          durationMin: h.durationMin,
-          status: "todo",
-        });
-        made++;
-      }
-    }
-    return made;
+    const missing = buildMissingInstances(get().tasks, generating, isoDates);
+    for (const instance of missing) addTask(instance);
+    return missing.length;
   },
 });
