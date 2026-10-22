@@ -29,7 +29,9 @@ here, not optional context.
 `format:check → lint → typecheck → deadcode → test → dupes → scan:secrets → audit:deps → e2e`.
 Enforcement is layered: **pre-commit** runs lint-staged (Biome on staged files) +
 gitleaks only; **pre-push** runs the gate minus e2e; **CI** runs everything, including
-sharded e2e and SAST. Run the full gate locally with `npm run verify`.
+sharded e2e and SAST — except that, by explicit user decision (2026-10-22), it skips the
+server suite for a web-only change and e2e + the server suite for a docs-only change
+(`docs/release-process.md §3`). Run the full gate locally with `npm run verify`.
 
 - **Never disable, downgrade, narrow, baseline-away, or mock-out a check to make
   progress.** Fix the code so the check passes. "It's only local/dev" is not a

@@ -14,6 +14,41 @@ permissions:
   contents: read
 
 jobs:
+  # docs-only → skip e2e and the server suite; web-only → skip the server suite; else everything.
+  # User decision 2026-10-22. Any detection doubt resolves to "full".
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      scope: ${{ steps.detect.outputs.scope }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      # A push only narrows when its base was itself verified green, so a docs commit
+      # can never turn a red predecessor into a releasable sha.
+      - id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}
+        run: |
+          base="$BASE_SHA"
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -n "$base" ]; then
+            base_verify="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify.yml/runs?head_sha=$base&per_page=1" \
+              --jq '.workflow_runs[0].conclusion // "missing"' || echo "unreadable")"
+            if [ "$base_verify" != "success" ]; then
+              echo "verify for base $base is '$base_verify' — running everything"
+              base=""
+            fi
+          fi
+          node scripts/ci-scope.mjs "$base" >> "$GITHUB_OUTPUT" || echo "scope=full" >> "$GITHUB_OUTPUT"
+
   static:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -39,6 +74,7 @@ jobs:
       - run: npm run deadcode
       - run: npm run dupes
       - run: node scripts/check-suppressions.mjs
+      - run: npm run test:scripts
       - name: Dependency audit (npm)
         run: npm audit --audit-level=high
       - name: Dependency audit (OSV)
@@ -59,7 +95,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        workspace: ["@vega/web", "@vega/server", "@vega/shared"]
+        workspace: ["@vega/web", "@vega/shared"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test --workspace ${{ matrix.workspace }}
+
+  unit-server:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.scope != 'docs' && needs.changes.outputs.scope != 'web' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -67,15 +119,16 @@ jobs:
           node-version: 24
           cache: npm
       # The server suite boots the Firestore/Auth emulator, which needs a JRE 11+.
-      - if: matrix.workspace == '@vega/server'
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
       - run: npm ci
-      - run: npm test --workspace ${{ matrix.workspace }}
+      - run: npm test --workspace @vega/server
 
   e2e:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.scope != 'docs' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

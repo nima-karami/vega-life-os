@@ -2,6 +2,8 @@
 // Refuses a release from a tree that is not exactly the pushed, CI-checked origin/main.
 import { execFileSync } from "node:child_process";
 
+// A job skipped by CI's change detection (verify.yml) is green, not pending.
+const GREEN_CONCLUSIONS = ["success", "skipped"];
 const allowRedCi =
   process.argv.includes("--allow-red-ci") || process.env.RELEASE_ALLOW_RED_CI === "1";
 
@@ -57,7 +59,9 @@ function findCiProblems(sha) {
   }
   if (checkRuns.length === 0) return ["no CI check-runs exist for this commit"];
   return checkRuns
-    .filter((check) => check.status !== "completed" || check.conclusion !== "success")
+    .filter(
+      (check) => check.status !== "completed" || !GREEN_CONCLUSIONS.includes(check.conclusion),
+    )
     .map((check) => `${check.name}: ${check.status}/${check.conclusion ?? "pending"}`);
 }
 

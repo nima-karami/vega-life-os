@@ -1,10 +1,17 @@
 name: release
 
 # Push-button release of main: server first (no-traffic revision, tag smoke, then traffic),
-# then hosting. Any failure after a cutover rolls hosting back first, then server traffic.
+# then hosting — each only when its inputs changed since what is live (scripts/release.mjs).
+# Any failure after a cutover rolls hosting back first, then server traffic.
 # One-time setup: infra/setup-ci-release.sh. Runbook: docs/release-process.md.
 on:
   workflow_dispatch:
+    inputs:
+      targets:
+        description: "auto = only what changed since live; or force server / hosting / both"
+        type: choice
+        default: auto
+        options: [auto, both, server, hosting]
 
 permissions:
   contents: read
@@ -52,8 +59,39 @@ jobs:
           fi
           echo "verify succeeded for $GITHUB_SHA"
 
-  server:
+  plan:
     needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      server: ${{ steps.plan.outputs.server }}
+      hosting: ${{ steps.plan.outputs.hosting }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the plan diffs the live shas against HEAD
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Plan the targets
+        id: plan
+        env:
+          VEGA_API_URL: ${{ vars.VITE_API_URL }}
+          TARGETS: ${{ inputs.targets }}
+        run: |
+          plan_args=(--plan-json)
+          if [ -n "$TARGETS" ] && [ "$TARGETS" != "auto" ]; then plan_args+=("--only=$TARGETS"); fi
+          plan="$(node scripts/release.mjs "${plan_args[@]}")"
+          jq -r '.targets[] | "\(.target): \(if .shouldDeploy then "DEPLOY" else "skip" end) — \(.reason)"' <<<"$plan"
+          for target in server hosting; do
+            echo "$target=$(jq -r --arg target "$target" '.targets[] | select(.target == $target) | .shouldDeploy' <<<"$plan")" >> "$GITHUB_OUTPUT"
+          done
+
+  server:
+    needs: [gate, plan]
+    if: needs.plan.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -134,7 +172,9 @@ jobs:
           fi
 
   hosting:
-    needs: [gate, server]
+    needs: [gate, plan, server]
+    # Runs after a successful server deploy, or alone when the plan skipped the server.
+    if: ${{ !cancelled() && needs.plan.outputs.hosting == 'true' && (needs.server.result == 'success' || needs.server.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -166,7 +206,7 @@ jobs:
       - name: Check the live server schema
         run: node scripts/check-live-schema.mjs
         env:
-          VEGA_API_URL: ${{ needs.server.outputs.service_url }}
+          VEGA_API_URL: ${{ needs.server.outputs.service_url || vars.VITE_API_URL }}
       - uses: google-github-actions/auth@v3
         with:
           project_id: ${{ secrets.GCP_PROJECT }}
@@ -203,8 +243,9 @@ jobs:
           echo "::error::$SITE_URL is not serving vega-build $SHORT_SHA"
           exit 1
 
+  # A skipped server or hosting job leaves its outputs empty, so rollback never touches it.
   rollback:
-    needs: [gate, server, hosting]
+    needs: [gate, plan, server, hosting]
     if: (failure() || cancelled()) && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10

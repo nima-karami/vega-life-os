@@ -52,10 +52,31 @@ Each layer runs a different slice of it:
 |---|---|
 | **pre-commit** (husky) | `lint-staged` (Biome on staged files) + `gitleaks` on the staged diff |
 | **pre-push** (husky) | the gate minus e2e and the audits: format, lint, typecheck, deadcode, test, dupes. Needs JDK 21 first on `PATH` (server tests boot the Firestore emulator) |
-| **CI** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | `static`: format, lint, typecheck, deadcode, dupes, lockfile-platform check, suppression check, npm audit, OSV, gitleaks · `unit`: web / server (with Java 21) / shared · `e2e`: chromium in 3 shards, mobile-chromium in 2, the PWA project · `sast`: Semgrep |
+| **CI** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | `changes`: scope detection (below) · `static`: format, lint, typecheck, deadcode, dupes, lockfile-platform check, suppression check, script tests, npm audit, OSV, gitleaks · `unit`: web / shared · `unit-server`: server (with Java 21) · `e2e`: chromium in 3 shards, mobile-chromium in 2, the PWA project · `sast`: Semgrep |
 
 The full e2e suite only runs locally on `npm run verify` and in CI, so a release is gated
 on CI being green for the exact commit (§5).
+
+### CI change scope
+
+By explicit user decision (2026-10-22), CI skips work a change cannot affect.
+`scripts/ci-scope.mjs` diffs the push's `before` sha (or the PR's base) against `HEAD`:
+
+| Changed files | Scope | Skipped |
+|---|---|---|
+| only `docs/**`, `*.md`, `.claude/**` | `docs` | `e2e`, `unit-server` |
+| only those plus `apps/web/**` | `web` | `unit-server` |
+| anything else | `full` | nothing |
+
+`static`, `unit` (web, shared) and `sast` always run. A push narrows **only when its base
+commit's own verify run succeeded** — otherwise a docs commit on top of a red one would be
+green and releasable. No base, an all-zero base (new branch), an unknown sha,
+`workflow_dispatch` or any detection error → `full`. Skipped jobs report `skipped`, which
+the release guard and the `release` gate treat as green.
+
+**The risk, stated:** a web-only commit ships without the server suite having run on it,
+and a docs-only commit without e2e. That is sound only while `apps/web/**` cannot change
+server behaviour. Anything shared lives in `packages/shared/`, which forces `full`.
 
 ## 4. PR & merge
 
@@ -65,12 +86,46 @@ is `npm run deploy:preview` (a 7-day Hosting channel), run from the laptop.
 ## 5. Release — server first, then hosting
 
 The normal path is the `release` workflow ([Releasing from CI](#releasing-from-ci), end of
-this section); the laptop commands are the fallback. Either way the order is fixed:
+this section); `npm run release` is the laptop path. Both **deploy only the targets that
+changed since what is live**, server always before hosting:
+
+```bash
+npm run release -- --dry-run   # print the plan, deploy nothing
+npm run release                # guard → plan → deploy:server and/or deploy, as needed
+```
+
+The two deploys stay as manual overrides that always ship their target:
 
 ```bash
 npm run deploy:server   # guard → Cloud Build from HEAD → Cloud Run → /health sha + schema check
 npm run deploy          # guard → live-schema check → vite build → Firebase Hosting
 ```
+
+### How `npm run release` picks targets
+
+`scripts/release.mjs` runs the release guard, then reads what is live: the server sha from
+`GET /health` (URL resolved as in [Schema hash and `/health`](#schema-hash-and-health)) and
+the hosting sha from the `vega-build` meta on https://vega-life-os.web.app/ (cache-busted).
+It diffs each against `HEAD` and classifies every changed file
+(`scripts/lib/change-scope.mjs`, tested by `npm run test:scripts`):
+
+| Path | Deploys |
+|---|---|
+| `apps/web/**`, `firebase.json`, `.firebaserc` | hosting |
+| `apps/server/**`, `cloudbuild.server.yaml` | server |
+| `packages/shared/**`, `package.json`, `package-lock.json`, `apps/web/package.json` | both |
+| `docs/**`, `*.md`, `.claude/**` | nothing |
+| tooling: `scripts/`, `.github/`, `.husky/`, `infra/`, `biome.json`, `knip.json`, `tsconfig.json`, `firestore.rules`, `.gitignore`, `.gitattributes`, `.gcloudignore`, `.env.example` | nothing |
+| **anything else** | **both** |
+
+`apps/web/package.json` ships both because the server image installs every workspace
+manifest. **Fail safe:** a live sha that is missing, unreachable, `dev`, or not in git
+history deploys that target. Nothing needed → it says so and exits 0.
+
+Flags: `--dry-run` (plan only, skips the guard), `--plan-json` (the plan as JSON, for CI),
+`--only=server|hosting|both` (force), `--allow-red-ci` (passed to both deploys).
+`check:live-schema` still runs inside `deploy`, so a hosting-only release refuses if the
+live server lags the build's schema.
 
 ### Why the server goes first
 
@@ -90,8 +145,9 @@ the build's.
 
 - the working tree is dirty (`git status --porcelain`);
 - `HEAD` is not `origin/main` after a `git fetch` — only pushed `main` ships;
-- any GitHub check-run for `HEAD` is not `completed`/`success` (read with `gh api`; needs
-  `gh auth login`).
+- any GitHub check-run for `HEAD` is not `completed` with `success` or `skipped` (read
+  with `gh api`; needs `gh auth login`). `skipped` is green because CI skips jobs a
+  change cannot affect ([CI change scope](#ci-change-scope)).
 
 `--allow-red-ci` (or `RELEASE_ALLOW_RED_CI=1`) downgrades only the CI check to a loud
 warning — it exists until CI is green and is always passed explicitly:
@@ -150,13 +206,17 @@ Then every release is:
 gh workflow run release.yml --ref main && sleep 5 && gh run watch "$(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
 ```
 
+To force targets: `gh workflow run release.yml --ref main -f targets=both` (or `server`,
+`hosting`; the default `auto` ships only what changed).
+
 `release.yml` (`workflow_dispatch`, one release at a time, never cancelled by a newer one):
 
 | Job | Does |
 |---|---|
 | `gate` | Refuses unless the ref is `refs/heads/main` and the latest `verify` run for this exact sha concluded `success`. |
-| `server` | `docker build` with `GIT_SHA=<short>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
-| `hosting` | `npm ci` → `npm run build` with the `VITE_*` repo variables → `check-live-schema` against the service URL → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
+| `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting`. |
+| `server` | Only when `plan` says so. `docker build` with `GIT_SHA=<short>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
+| `hosting` | Only when `plan` says so, after `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
 | `rollback` | Runs only if `server` or `hosting` failed or the run was cancelled. |
 
 **Rollback** runs in reverse release order:
@@ -165,12 +225,13 @@ gh workflow run release.yml --ref main && sleep 5 && gh run watch "$(gh run list
 2. If server traffic was moved, `update-traffic --to-revisions <recorded split>`.
 3. If the `c-<short>` tag was created, remove it.
 
-A failure before traffic moves leaves production untouched: the new revision gets no
+Each step keys off outputs the job set as it went, so a target the plan skipped is never
+rolled back. A failure before traffic moves leaves production untouched: the new revision gets no
 traffic and only its tag is cleaned up. After a server rollback, traffic is **pinned** to
 the old revision, so un-pin it after the fix ships (step 3 of §6). The release workflow's
 own `--to-latest` does that for you on the next successful run.
 
-The laptop path (`npm run deploy:server`, then `npm run deploy`, described above) stays as
+The laptop path (`npm run release`, or the two deploys by hand, described above) stays as
 the fallback.
 
 ## 6. Rollback runbook
