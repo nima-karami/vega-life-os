@@ -16,7 +16,7 @@ const ANNUAL_GAP_MIN_MONTHS = 10;
 const ANNUAL_GAP_MAX_MONTHS = 14;
 
 /** `exempt` is an internal transfer: it never earns a category, so it is never asked for one. */
-export type LedgerCategoryTone = "assigned" | "guess" | "missing" | "exempt";
+type LedgerCategoryTone = "assigned" | "guess" | "missing" | "exempt";
 
 export interface LedgerCategoryCell {
   tone: LedgerCategoryTone;

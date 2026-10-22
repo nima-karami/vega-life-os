@@ -39,7 +39,7 @@ function HeaderLabel({
   );
 }
 
-export function FaceHeaderRow({
+function FaceHeaderRow({
   typeLabel,
   category,
   fontSize,

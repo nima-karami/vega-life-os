@@ -13,7 +13,7 @@ const MID_Y = 120;
 const MAX_BAR_WIDTH = 30;
 const MIN_BAR_WIDTH = 6;
 
-export interface CategoryBar {
+interface CategoryBar {
   month: string;
   x: number;
   y: number;

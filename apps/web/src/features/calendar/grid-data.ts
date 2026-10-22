@@ -35,7 +35,7 @@ export function getUnscheduledTasks(tasks: Task[]): Task[] {
  * covering >1 day, or a timed block lasting ≥24h. A short timed block that merely
  * crosses midnight stays a single-day timed chip on its start day.
  */
-export function isMultiDay(e: CalendarEvent): boolean {
+function isMultiDay(e: CalendarEvent): boolean {
   if (e.endDate == null || e.date == null || e.endDate === e.date) return false;
   return e.time == null || e.durationMin >= 1440;
 }

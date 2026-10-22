@@ -10,7 +10,7 @@ export interface MenuSize {
 
 // The gap between the press and the menu's nearest *clickable* box: the panel's own 4px padding
 // sits inside it, and Blink's touch adjustment reaches ~9px from the contact point.
-export const MENU_EDGE_PAD_PX = 16;
+const MENU_EDGE_PAD_PX = 16;
 
 export const computeWidthCap = (viewportWidth: number): number =>
   viewportWidth - 2 * MENU_EDGE_PAD_PX;

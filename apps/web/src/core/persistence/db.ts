@@ -21,7 +21,7 @@ import type { Review } from "@/features/review/model";
 import type { Task } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
 
-export class VegaDB extends Dexie {
+class VegaDB extends Dexie {
   values!: Table<Value, string>;
   goals!: Table<Goal, string>;
   habits!: Table<Habit, string>;

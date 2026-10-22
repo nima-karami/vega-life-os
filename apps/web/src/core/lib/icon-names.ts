@@ -51,7 +51,7 @@ export const CHROME_ICON_NAMES = [
  * Pickable names: the curated catalog a user can choose for a value/goal/habit.
  * Grouped by category in icon-catalog.ts. Names are stable (persisted on entities).
  */
-export const PICKABLE_ICON_NAMES = [
+const PICKABLE_ICON_NAMES = [
   // Focus & goals
   "target",
   "compass",
@@ -239,6 +239,6 @@ export const PICKABLE_ICON_NAMES = [
   "alert",
 ] as const;
 
-export const ICON_NAMES = [...CHROME_ICON_NAMES, ...PICKABLE_ICON_NAMES] as const;
+const ICON_NAMES = [...CHROME_ICON_NAMES, ...PICKABLE_ICON_NAMES] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];

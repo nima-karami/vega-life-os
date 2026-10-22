@@ -247,5 +247,3 @@ export class LocalIntentAgent implements Agent {
     return { actions: out };
   }
 }
-
-export const agent: Agent = new LocalIntentAgent();

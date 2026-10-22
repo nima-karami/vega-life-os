@@ -4,8 +4,11 @@
  *
  * Swatches are ≥ 4.5:1 on white (text use); fills clear 7.6–10.2:1 against white
  * (the card's own type), and no two fills are closer than ΔE 16 in CIELAB.
+ *
+ * The palette is the whole picker set; there are no neutrals: as a flooded card, grey
+ * reads as "no colour" and ink as broken blue.
  */
-export const VALUE_PALETTE = [
+export const VALUE_HUES = [
   "#3B82C4", // blue
   "#2F9E74", // green
   "#C2622E", // rust
@@ -16,9 +19,6 @@ export const VALUE_PALETTE = [
   "#5E7A3A", // olive
 ] as const;
 
-/** Every colour offered in the picker. The palette is the whole set — there are no
- *  neutrals: as a flooded card, grey reads as "no colour" and ink as broken blue. */
-export const VALUE_HUES = VALUE_PALETTE;
 const PICKABLE = new Set<string>(VALUE_HUES);
 
 const CARD_FILL: Record<string, string> = {
@@ -55,7 +55,7 @@ export function getValueColor(value: { hue?: string; order?: number } | undefine
   const retired = value.hue ? RETIRED_HUE_REPLACEMENT[value.hue.toLowerCase()] : undefined;
   if (retired) return retired;
   if (value.hue && PICKABLE.has(value.hue)) return value.hue;
-  if (typeof value.order === "number") return VALUE_PALETTE[value.order % VALUE_PALETTE.length];
+  if (typeof value.order === "number") return VALUE_HUES[value.order % VALUE_HUES.length];
   return VALUE_COLOR_FALLBACK;
 }
 

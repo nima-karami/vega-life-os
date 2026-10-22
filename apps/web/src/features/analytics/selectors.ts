@@ -165,7 +165,7 @@ export function downsampleMoodWeekly(series: MoodPoint[]): MoodPoint[] {
  *  or a non-scheduled off-day (shown faint for rhythm). */
 export type TimelineKind = "done" | "moved" | "skip" | "miss" | "pending" | "off";
 
-export interface TimelineDay {
+interface TimelineDay {
   iso: string;
   label: string;
   kind: TimelineKind;

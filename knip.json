@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreDependencies": ["tailwindcss", "@heroui/styles"],
   "workspaces": {
     ".": {
       "entry": [],
@@ -8,14 +7,12 @@
     },
     "apps/web": {
       "entry": ["src/**/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx,css}"]
     },
     "apps/server": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "packages/shared": {
-      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     }
   }

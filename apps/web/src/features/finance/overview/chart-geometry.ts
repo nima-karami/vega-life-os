@@ -142,7 +142,7 @@ export function buildBurnGeometry(
   };
 }
 
-export interface StackedBarSegment {
+interface StackedBarSegment {
   categoryId: string;
   cents: number;
   heightPx: number;

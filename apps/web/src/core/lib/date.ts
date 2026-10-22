@@ -1,6 +1,5 @@
 import {
   addDays,
-  isToday as dfnsIsToday,
   differenceInCalendarDays,
   format,
   isValid,
@@ -11,8 +10,6 @@ import {
 export const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export const todayISO = (ref: Date = new Date()) => format(ref, "yyyy-MM-dd");
-
-export const isoToDate = (s: string) => parseISO(s);
 
 export const localDayOf = (timestamp: string) => todayISO(new Date(timestamp));
 
@@ -67,8 +64,6 @@ export function dowIndex(isoDate: string): number {
 export const formatShortDate = (isoDate: string) => format(parseISO(isoDate), "MMM d");
 
 export const formatLongDate = (isoDate: string) => format(parseISO(isoDate), "EEE · MMM d · yyyy");
-
-export const isToday = (isoDate: string) => dfnsIsToday(parseISO(isoDate));
 
 export const daysBetween = (a: string, b: string) =>
   differenceInCalendarDays(parseISO(a), parseISO(b));

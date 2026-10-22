@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Server-owned stamps present on every stored record, absent from create input. */
-export const recordMetaFields = {
+const recordMetaFields = {
   updatedAt: z.string(),
   fieldUpdatedAt: z.record(z.string(), z.string()),
 };

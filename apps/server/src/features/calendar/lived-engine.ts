@@ -86,7 +86,7 @@ function buildMeaningIndex(rows: CalendarEvent[]): Map<string, MeaningFields> {
   return index;
 }
 
-export type LivedReconcile = { upserts: LivedRow[]; dropIds: string[] };
+type LivedReconcile = { upserts: LivedRow[]; dropIds: string[] };
 
 type LivedOutcome = { upsert?: LivedRow; dropId?: string };
 
@@ -130,7 +130,7 @@ function reconcileLivedEvent(
 }
 
 /** Merge one calendar's pulled events into the mirror; a tombstoned googleId is never resurrected. */
-export function reconcileLived(
+function reconcileLived(
   existing: CalendarEvent[],
   incoming: GEvent[],
   calendarId: string,

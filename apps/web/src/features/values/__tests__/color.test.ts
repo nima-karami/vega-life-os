@@ -5,23 +5,22 @@ import {
   RETIRED_HUE_REPLACEMENT,
   VALUE_COLOR_FALLBACK,
   VALUE_HUES,
-  VALUE_PALETTE,
 } from "../color";
 
 describe("getValueColor", () => {
   it("returns a color from the palette for order 0", () => {
-    expect(getValueColor({ order: 0 })).toBe(VALUE_PALETTE[0]);
+    expect(getValueColor({ order: 0 })).toBe(VALUE_HUES[0]);
   });
 
   it("returns a color from the palette for order 1", () => {
-    expect(getValueColor({ order: 1 })).toBe(VALUE_PALETTE[1]);
+    expect(getValueColor({ order: 1 })).toBe(VALUE_HUES[1]);
   });
 
   it("wraps modulo when order exceeds palette length", () => {
-    const len = VALUE_PALETTE.length;
-    expect(getValueColor({ order: len })).toBe(VALUE_PALETTE[0]);
-    expect(getValueColor({ order: len + 1 })).toBe(VALUE_PALETTE[1]);
-    expect(getValueColor({ order: len * 3 + 2 })).toBe(VALUE_PALETTE[2]);
+    const len = VALUE_HUES.length;
+    expect(getValueColor({ order: len })).toBe(VALUE_HUES[0]);
+    expect(getValueColor({ order: len + 1 })).toBe(VALUE_HUES[1]);
+    expect(getValueColor({ order: len * 3 + 2 })).toBe(VALUE_HUES[2]);
   });
 
   it("is deterministic — same order always returns same color", () => {
@@ -48,9 +47,9 @@ describe("getValueColor", () => {
 
   it("falls back to the order-based palette for legacy/unset hues", () => {
     // legacy monochrome seed grays are not pickable → order-based, not gray
-    expect(getValueColor({ hue: "#1f1f19", order: 1 })).toBe(VALUE_PALETTE[1]);
-    expect(getValueColor({ hue: "", order: 2 })).toBe(VALUE_PALETTE[2]);
-    expect(getValueColor({ hue: "#55554c", order: 0 })).toBe(VALUE_PALETTE[0]);
+    expect(getValueColor({ hue: "#1f1f19", order: 1 })).toBe(VALUE_HUES[1]);
+    expect(getValueColor({ hue: "", order: 2 })).toBe(VALUE_HUES[2]);
+    expect(getValueColor({ hue: "#55554c", order: 0 })).toBe(VALUE_HUES[0]);
   });
 
   it("every pickable hue is a valid hex color", () => {
@@ -60,11 +59,11 @@ describe("getValueColor", () => {
   });
 
   it("palette has at least 6 hues", () => {
-    expect(VALUE_PALETTE.length).toBeGreaterThanOrEqual(6);
+    expect(VALUE_HUES.length).toBeGreaterThanOrEqual(6);
   });
 
   it("all palette entries are valid hex colors", () => {
-    for (const hex of VALUE_PALETTE) {
+    for (const hex of VALUE_HUES) {
       expect(hex).toMatch(/^#[0-9A-Fa-f]{6}$/);
     }
   });

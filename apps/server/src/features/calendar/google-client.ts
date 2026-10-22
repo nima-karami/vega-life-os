@@ -1,9 +1,9 @@
 import { google } from "googleapis";
 import type { GEvent } from "./event-map";
 
-export type ListWindow = { backDays: number; fwdDays: number };
+type ListWindow = { backDays: number; fwdDays: number };
 
-export type ListEventsOptions = { window: ListWindow } | { syncToken: string };
+type ListEventsOptions = { window: ListWindow } | { syncToken: string };
 
 export type ListEventsResult = { events: GEvent[]; nextSyncToken: string | null };
 
@@ -28,7 +28,7 @@ export type WatchRequest = {
   address: string;
 };
 
-export type WatchResult = { resourceId: string; expiration: string };
+type WatchResult = { resourceId: string; expiration: string };
 
 /** A Google Calendar API fault carrying its HTTP status — the engines classify push failures on it. */
 export class GoogleHttpError extends Error {

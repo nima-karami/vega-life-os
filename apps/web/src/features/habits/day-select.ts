@@ -1,6 +1,6 @@
 /** Pure weekday-mask helpers for the habit day picker (days[7], Mon..Sun, 0|1). */
 
-export const DAY_COUNT = 7;
+const DAY_COUNT = 7;
 
 /** Toggle a single day on/off. */
 export function toggleDay(days: number[], i: number): number[] {

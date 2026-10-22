@@ -24,7 +24,7 @@ const SPELLED_COUNTS = [
 /** Small counts read as words in a sentence; past twelve the digits are easier to take in. */
 const spellCount = (count: number): string => SPELLED_COUNTS[count] ?? String(count);
 
-export const formatMonthName = (month: string): string => format(parseISO(`${month}-01`), "MMMM");
+const formatMonthName = (month: string): string => format(parseISO(`${month}-01`), "MMMM");
 
 export const formatShortMonth = (month: string): string => format(parseISO(`${month}-01`), "MMM");
 

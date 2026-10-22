@@ -128,7 +128,7 @@ export function splitRemaining(remaining: Task[]): { timed: Task[]; untimed: Tas
 }
 
 /** A clock-ordered row on Today: something you decided, or something that arrived. */
-export type DayRow =
+type DayRow =
   | { kind: "task"; id: string; task: Task }
   | { kind: "event"; id: string; event: CalendarEvent };
 

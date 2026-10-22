@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 import type { OauthConfig } from "../../core/config";
 
-export const GCAL_SCOPES = [
+const GCAL_SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
   "https://www.googleapis.com/auth/calendar.app.created",

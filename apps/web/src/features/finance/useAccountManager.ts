@@ -7,7 +7,7 @@ import { describeAccountArchive } from "./account-copy";
 const NOW_BUSINESS = "is now a business account";
 const NOW_PERSONAL = "is now a personal account";
 
-export interface AccountArchivePrompt {
+interface AccountArchivePrompt {
   account: FinanceAccount;
   title: string;
   body: string;

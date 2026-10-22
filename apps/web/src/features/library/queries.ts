@@ -2,7 +2,7 @@ import type { ColumnSort } from "@/core/ui";
 import type { VocabEntry } from "./model";
 
 export type VocabFilter = "all" | "due";
-export type VocabSortColumn = "term" | "language" | "box" | "due" | "addedAt";
+type VocabSortColumn = "term" | "language" | "box" | "due" | "addedAt";
 export type VocabSort = ColumnSort<VocabSortColumn>;
 
 export const DEFAULT_VOCAB_SORT: VocabSort = { column: "addedAt", direction: "desc" };

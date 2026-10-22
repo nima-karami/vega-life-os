@@ -10,7 +10,7 @@ import { setPersistAuth } from "@/core/store/persist";
 import type { FinanceSlice } from "../store";
 
 /** One write the fake backend saw — what the "one call, not one per row" assertions read. */
-export interface WriteCall {
+interface WriteCall {
   op: "put" | "bulkPut" | "remove" | "bulkRemove";
   collection: CollectionName;
   rowCount: number;

@@ -6,7 +6,7 @@ import type { CardsBulkResult } from "../bulk-store";
 import { describeBulkLearning } from "../manager-query";
 import type { UndoBarController } from "../useUndoBar";
 
-export interface BulkFailure {
+interface BulkFailure {
   failedCount: number;
   totalCount: number;
   retry: () => void;

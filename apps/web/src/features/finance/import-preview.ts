@@ -12,7 +12,7 @@ import { formatCents } from "./money";
  */
 export type ImportOutcome = "will-add" | "internal" | "already-here";
 
-export interface ImportCategoryGuess {
+interface ImportCategoryGuess {
   name: string;
   color: string;
 }

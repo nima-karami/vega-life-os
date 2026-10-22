@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cx } from "@/core/ui";
 
 /** The card turns over; it does not cross-fade. Half the duration is each side's swing. */
-export const FLIP_MS = 460;
+const FLIP_MS = 460;
 
 const SIDE = "absolute inset-0 [backface-visibility:hidden] overflow-hidden";
 

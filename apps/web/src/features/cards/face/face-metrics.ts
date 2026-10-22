@@ -23,7 +23,7 @@ const MIN_TYPE_PX = 8;
 const RULE = { width: 34, marginY: 22 };
 const CARD_PADDING = { top: 44, sides: 30, bottom: 44 };
 
-export const FACE_HEADER = { gap: 10, size: 9.5, tracking: ".06em" };
+const FACE_HEADER = { gap: 10, size: 9.5, tracking: ".06em" };
 
 const WIDE_FULL_BLEED_PADDING = { top: 64, left: 30, right: 30, bottom: 78 };
 
@@ -268,7 +268,7 @@ const FACE_METRICS: Record<SignatureId, { face: SideMetrics; reveal?: SideMetric
   },
 };
 
-export type FaceQuoteMarkPlan = { fontSize: number; top: number; letterSpacing: string };
+type FaceQuoteMarkPlan = { fontSize: number; top: number; letterSpacing: string };
 
 export type FaceTextPlan = {
   key: string;
@@ -287,7 +287,7 @@ export type FaceTextPlan = {
   isSample?: true;
 };
 
-export type FaceRulePlan = {
+type FaceRulePlan = {
   key: string;
   kind: "rule";
   width: number;

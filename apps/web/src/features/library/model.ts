@@ -3,7 +3,7 @@
  * Vocabulary ride the same shape so new collections are cheap to add.
  */
 
-export type BookStatus = "queued" | "reading" | "finished" | "abandoned";
+type BookStatus = "queued" | "reading" | "finished" | "abandoned";
 
 export interface Book {
   id: string;
@@ -21,7 +21,7 @@ export interface Book {
   order: number;
 }
 
-export type MovieStatus = "queued" | "watched";
+type MovieStatus = "queued" | "watched";
 
 export interface Movie {
   id: string;

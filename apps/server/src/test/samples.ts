@@ -1,6 +1,6 @@
 import type { WritableEntity } from "../core/repository";
 
-export const routedCollections = [
+const routedCollections = [
   "tasks",
   "habits",
   "values",

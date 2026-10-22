@@ -13,7 +13,7 @@ import { FinanceViewNav } from "./FinanceViewNav";
 
 const MEASURE = { wide: "max-w-6xl", regular: "max-w-3xl" } as const;
 
-export interface FinanceBackLink {
+interface FinanceBackLink {
   to: string;
   label: string;
 }

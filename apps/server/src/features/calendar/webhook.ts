@@ -18,7 +18,7 @@ export function readWebhookHeaders(req: Request): WebhookHeaders {
 }
 
 /** Resolve an inbound notification to its uid, only for a channel whose id+token match the registry. */
-export async function verifyWatchChannel(
+async function verifyWatchChannel(
   firestore: Firestore,
   headers: WebhookHeaders,
 ): Promise<{ uid: string; calendarId: string } | null> {

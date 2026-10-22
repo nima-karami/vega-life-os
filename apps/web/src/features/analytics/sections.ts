@@ -5,7 +5,7 @@
 
 export type SectionId = "mood" | "reflection" | "heatmap" | "balance" | "habits" | "goals";
 
-export type SectionSpan = "full" | "half";
+type SectionSpan = "full" | "half";
 
 export interface PackSection {
   id: SectionId;

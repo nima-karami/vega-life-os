@@ -48,12 +48,6 @@ export function deriveSection<T>(derive: () => T): FinanceSection<T> {
   }
 }
 
-/** How full the bar reads, 0–100. With no budget in force, any spend at all reads full. */
-export function computeUsedPercent(spentCents: number, budgetCents: number): number {
-  if (budgetCents <= 0) return spentCents > 0 ? 100 : 0;
-  return Math.min(100, Math.max(0, (spentCents / budgetCents) * 100));
-}
-
 interface SpendAgainstBudget {
   spentCents: number;
   budgetCents: number;

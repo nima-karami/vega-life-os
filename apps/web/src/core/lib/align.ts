@@ -17,9 +17,3 @@ export const ALIGN_LABEL: Record<Alignment, string> = {
   maintenance: "Upkeep",
   logistical: "Errand",
 };
-
-export const ALIGN_TAG: Record<Alignment, string> = {
-  aspirational: "GOAL",
-  maintenance: "UPKEEP",
-  logistical: "ERRAND",
-};

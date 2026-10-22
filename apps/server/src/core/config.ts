@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type NodeEnv = "development" | "staging" | "test" | "production";
+type NodeEnv = "development" | "staging" | "test" | "production";
 
 export type OauthConfig = {
   clientId: string;

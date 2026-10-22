@@ -1,6 +1,6 @@
 import type { MindMetaRecord } from "@vega/shared";
 
-export type { MindCard, MindCardType, MindMetaRecord } from "@vega/shared";
+export type { MindMetaRecord } from "@vega/shared";
 
 const VOCAB_ID_PREFIX = "d:vocab:";
 

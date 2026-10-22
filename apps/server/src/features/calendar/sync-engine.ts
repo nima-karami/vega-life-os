@@ -163,7 +163,7 @@ export function computeTaskPull(tasks: Task[], events: GEvent[], timeZone: strin
  * event can't unschedule it — but the user DID delete that block in Google. Soft-delete it: tombstone
  * the event id so the push won't resurrect it, while the completion record is left untouched.
  */
-export function computeTaskTombstones(
+function computeTaskTombstones(
   tasks: Task[],
   events: GEvent[],
 ): { eventId: string; deletedAt: string }[] {

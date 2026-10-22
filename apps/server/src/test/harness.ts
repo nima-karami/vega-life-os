@@ -131,5 +131,3 @@ function resolveListeningPort(server: ServerType): Promise<number> {
     server.once("listening", () => resolve((server.address() as AddressInfo).port));
   });
 }
-
-export const testHelpers = { OIDC_TOKEN, TEST_ENCRYPTION_KEY };

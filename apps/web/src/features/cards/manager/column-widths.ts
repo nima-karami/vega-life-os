@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 /** The five draggable columns, in table order. The checkbox and eye rails are fixed. */
-export const RESIZABLE_COLUMNS = ["title", "type", "category", "learning", "addedAt"] as const;
+const RESIZABLE_COLUMNS = ["title", "type", "category", "learning", "addedAt"] as const;
 export type ResizableColumn = (typeof RESIZABLE_COLUMNS)[number];
 
 export const RAIL_PX = 44;

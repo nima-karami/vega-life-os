@@ -23,7 +23,7 @@ import {
   sumBorneSpendAcrossMonths,
 } from "./queries";
 
-export type CategoryMonthFlag = "over" | "under" | "current-partial";
+type CategoryMonthFlag = "over" | "under" | "current-partial";
 
 /** However long the history runs, a chart nobody can read is not honesty — ten years is the cap. */
 const MAX_CHART_MONTHS = 120;
@@ -142,7 +142,7 @@ export function computeTrailingCompletedAverage(
   return { status: "ok", figures: averages.figures.get(categoryId) ?? 0 };
 }
 
-export interface MerchantConcentrationEntry {
+interface MerchantConcentrationEntry {
   key: string;
   cents: number;
 }

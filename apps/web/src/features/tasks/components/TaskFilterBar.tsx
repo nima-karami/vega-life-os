@@ -14,8 +14,8 @@ import { useStore } from "@/core/store";
 import { cx, Icon, Label, NONE, Select } from "@/core/ui";
 import type { Task } from "../model";
 
-export type DateRange = "all" | "today" | "week" | "month";
-export type TypeFilter = "all" | "habit" | "goal" | "errand";
+type DateRange = "all" | "today" | "week" | "month";
+type TypeFilter = "all" | "habit" | "goal" | "errand";
 
 export interface TaskFilters {
   range: DateRange;

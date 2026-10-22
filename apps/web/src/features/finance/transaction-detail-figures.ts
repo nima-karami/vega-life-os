@@ -2,7 +2,7 @@ import type { FinancePayer, FinanceTransaction } from "@vega/shared";
 import { computeShareFraction, roundToCents, scaleCentsFraction } from "./money";
 import { listRecognizedInstalments } from "./queries";
 
-export type ShareDirection = "comes-back" | "owed";
+type ShareDirection = "comes-back" | "owed";
 
 export interface ShareSentenceFigures {
   youBearCents: number;

@@ -5,16 +5,14 @@ import type {
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
-import { format, parseISO } from "date-fns";
-import { type ColumnSort, NONE, type SelectOption } from "@/core/ui";
+import type { ColumnSort } from "@/core/ui";
 import { monthOfISO } from "./month-cursor";
 import { unresolvedFlags } from "./review-flags";
 
-export type TransactionSortColumn = "date" | "description" | "category" | "amount";
+type TransactionSortColumn = "date" | "description" | "category" | "amount";
 export type TransactionSort = ColumnSort<TransactionSortColumn>;
 
 export const DEFAULT_TRANSACTION_SORT: TransactionSort = { column: "date", direction: "desc" };
-export const DESC_FIRST_COLUMNS: readonly TransactionSortColumn[] = ["date", "amount"];
 
 /** "This filter constrains nothing" — a picker needs a real option for it, so it can't be `NONE`. */
 export const ANY = "∅any";
@@ -54,9 +52,6 @@ export const DEFAULT_TRANSACTION_FILTERS: TransactionFilters = {
 
 /** Cash basis: the one period key is `txnDate`. */
 export const monthOfTransaction = (txn: FinanceTransaction): string => monthOfISO(txn.txnDate);
-
-export const formatTransactionDate = (isoDate: string): string =>
-  format(parseISO(isoDate), "MMM d, yy");
 
 /** A settled figure is immutable, so its rows are frozen until the month is amended. */
 export const listSettledMonths = (settlements: FinanceSettlement[]): Set<string> =>
@@ -129,31 +124,6 @@ function compareOnColumn(
 
 export function buildCategoryNames(categories: FinanceCategory[]): Map<string, string> {
   return new Map(categories.map((category) => [category.id, category.name]));
-}
-
-/**
- * The category picker's options. Assigning offers only live categories; filtering keeps archived
- * ones, because an archived category still has to be findable in the months it has rows in.
- */
-export function buildCategoryOptions(
-  categories: FinanceCategory[],
-  scope: "filter" | "assign",
-): SelectOption[] {
-  if (scope === "assign")
-    return [
-      { value: NONE, label: "No category" },
-      ...categories
-        .filter((category) => category.archivedAt === null)
-        .map((category) => ({ value: category.id, label: category.name })),
-    ];
-  return [
-    { value: ANY, label: "All categories" },
-    { value: NO_CATEGORY, label: "No category" },
-    ...categories.map((category) => ({
-      value: category.id,
-      label: category.archivedAt === null ? category.name : `${category.name} (archived)`,
-    })),
-  ];
 }
 
 /**

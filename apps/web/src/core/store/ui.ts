@@ -8,10 +8,7 @@ import type { Slice } from "./slice";
 export type ThemeMode = "paper" | "void";
 
 /** Content snapshot of a task for the calendar copy/paste flow (no id/date/time). */
-export type ClipboardTask = Pick<
-  Task,
-  "title" | "valueId" | "goalId" | "energy" | "durationMin" | "note"
->;
+type ClipboardTask = Pick<Task, "title" | "valueId" | "goalId" | "energy" | "durationMin" | "note">;
 
 /** An on-the-fly view the agent can conjure for a query the fixed views don't cover. */
 export interface EphemeralView {
@@ -103,12 +100,12 @@ export interface UiSlice {
   dismissToast: () => void;
 }
 
-export interface ToastAction {
+interface ToastAction {
   label: string;
   onClick: () => void;
 }
 
-export interface ToastState {
+interface ToastState {
   message: string;
   action?: ToastAction;
   sticky?: boolean;

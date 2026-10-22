@@ -9,7 +9,7 @@ import { FinanceStatCards } from "./FinanceStatCards";
 import { HouseholdSplitCard, type HouseholdSplitCardProps } from "./HouseholdSplitCard";
 import { StackedMonthsCard, type StackedMonthsCardProps } from "./StackedMonthsCard";
 
-export function SectionFailure({ what, onRetry }: { what: string; onRetry: () => void }) {
+function SectionFailure({ what, onRetry }: { what: string; onRetry: () => void }) {
   return (
     <FinanceNotice
       tone="danger"
