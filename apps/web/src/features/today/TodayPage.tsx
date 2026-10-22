@@ -136,6 +136,9 @@ export function TodayPage() {
         eventCount={eventCount}
         onViewDateChange={setViewDate}
         onStepViewDate={stepViewDate}
+        action={
+          <JournalEntryButton entry={viewEntry} onPress={() => navigate(`/journal/${viewDate}`)} />
+        }
       />
 
       <div aria-live="polite" className="sr-only">
@@ -202,10 +205,6 @@ export function TodayPage() {
           />
         </div>
       )}
-
-      <div className="mt-8 flex justify-center">
-        <JournalEntryButton entry={viewEntry} onPress={() => navigate(`/journal/${viewDate}`)} />
-      </div>
 
       {pendingUndo && <UndoBar message="Task deleted" onUndo={undoDelete} />}
 

@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { enterApp, gratitudePage, saveGratitude } from "./helpers/app";
+import { expectJournalButtonInHeader } from "./helpers/today-header";
 
 /**
  * Today keeps its place: a dismissed missed-gratitude nudge stays dismissed across
@@ -113,4 +114,15 @@ test("today: Back from the journal returns to the day it was opened from", async
 
   await expect(page).toHaveURL(plainTodayUrl);
   await expect(todayHeading(page)).toBeVisible();
+});
+
+test("today: the journal pill sits in the header and follows the date nav in focus order", async ({
+  page,
+}) => {
+  await enterApp(page);
+  await expectJournalButtonInHeader(page, "Journal");
+
+  await page.getByRole("button", { name: "Next day" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Journal", exact: true })).toBeFocused();
 });

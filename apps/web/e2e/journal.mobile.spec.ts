@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { enterApp, saveGratitude } from "./helpers/app";
+import { expectJournalButtonInHeader } from "./helpers/today-header";
 
 /**
  * `journal.spec.ts` runs only in the chromium project, so nothing there reaches the
@@ -86,3 +87,11 @@ test("an entry row shows its date, status, gratitude and journal, and opens that
   await expect(page).toHaveURL(new RegExp(`/journal/${TODAY}$`));
   await expect(page.getByRole("textbox", { name: "Journal" })).toBeVisible({ timeout: 15_000 });
 });
+
+for (const width of [320, 390]) {
+  test(`the journal pill sits in the Today header at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 780 });
+    await page.goto("/today", { waitUntil: "domcontentloaded" });
+    await expectJournalButtonInHeader(page, "Edit entry");
+  });
+}
