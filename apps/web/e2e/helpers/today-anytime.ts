@@ -89,12 +89,27 @@ export function describeAnytimeHabits() {
     await expect(announcer(page)).toHaveText(new RegExp(`^Done\\. A vote for ${VALUE}\\.`));
     await expect.poll(() => storedStatus(page, HABIT)).toBe("done");
 
-    await page.waitForTimeout(1000);
-    await expect(slimRow(doneSection(page), HABIT)).toHaveCount(0);
     await expectLandsInDone(page, HABIT);
     await expect(slimRow(doneSection(page), HABIT)).toHaveAttribute("data-status", "done");
     await expect(anytimeLabel(page)).toHaveAttribute("data-collapsed", "true");
     await expect(voteToasts(page)).toHaveCount(0);
+  });
+
+  test("a slim row leaves on its own 2.1s hold, not a card's 2.9s", async ({ page }) => {
+    await page.clock.install();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const row = slimRow(remaining(page), HABIT);
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000);
+
+    await complete(row, HABIT);
+    await expect(row).toHaveAttribute("data-vote", "");
+    await page.clock.runFor(1900);
+    await expect(slimRow(remaining(page), HABIT)).toHaveCount(1);
+    await expect(slimRow(doneSection(page), HABIT)).toHaveCount(0);
+    await page.clock.runFor(700);
+    await expect(slimRow(doneSection(page), HABIT)).toHaveCount(1);
+    await expect(slimRow(remaining(page), HABIT)).toHaveCount(0);
   });
 
   test("a second vote for a value still on screen says 'Another vote'", async ({ page }) => {
@@ -198,5 +213,61 @@ export function describeAnytimeHabits() {
     await expect(row.locator(".task-card__headline")).toHaveCSS("opacity", "1");
     await expect(row.locator(".task-card__flood")).toHaveCSS("clip-path", "none");
     await expectLandsInDone(page, HABIT);
+  });
+}
+
+const anytimeTitles = (page: Page) =>
+  remaining(page)
+    .locator(".task-card[data-density=compact] .task-card__title-text")
+    .allInnerTexts();
+
+/** Creates an untimed habit from the habits index; it lands under the sample value. */
+async function createAnytimeHabit(page: Page, name: string) {
+  await page.goto("/habits", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Add habit" }).click();
+  const nameField = page.getByRole("textbox", { name: "Habit name" });
+  await expect(nameField).toBeVisible({ timeout: 15_000 });
+  await nameField.fill(name);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/habits\/[^/]+$/);
+  await page.getByRole("button", { name: "Anytime", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Time/ })).toHaveCount(0);
+}
+
+/** Drags a row by its hover handle until the row above it is pushed aside. */
+async function dragAboveFirst(page: Page, title: string) {
+  const handle = remaining(page).getByRole("button", { name: `Reorder ${title}` });
+  await handle.scrollIntoViewIfNeeded();
+  const box = await handle.boundingBox();
+  if (!box) throw new Error(`${title} has no drag handle`);
+  const x = box.x + box.width / 2;
+  const fromY = box.y + box.height / 2;
+  await page.mouse.move(x, fromY);
+  await page.mouse.down();
+  for (let step = 1; step <= 12; step += 1) {
+    await page.mouse.move(x, fromY - step * 6);
+    await page.waitForTimeout(20);
+  }
+  await page.mouse.up();
+}
+
+/** Desktop only: the hover handle is the pointer path; the phone's long-press is covered elsewhere. */
+export function describeAnytimeOrder() {
+  test("an Anytime reorder holds on the next day", async ({ page }) => {
+    const second = "Stretch break";
+    await createAnytimeHabit(page, second);
+    await page.goto("/today", { waitUntil: "domcontentloaded" });
+    await expect(slimRow(remaining(page), second)).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => anytimeTitles(page)).toEqual([HABIT, second]);
+
+    await dragAboveFirst(page, second);
+    await expect.poll(() => anytimeTitles(page)).toEqual([second, HABIT]);
+
+    const todaysRows = remaining(page).locator(".task-row");
+    const todaysFirstId = await todaysRows.first().getAttribute("data-task-id");
+    await page.getByRole("button", { name: "Next day" }).click();
+    await expect(page).toHaveURL(/date=/);
+    await expect(remaining(page).locator(`[data-task-id="${todaysFirstId}"]`)).toHaveCount(0);
+    await expect.poll(() => anytimeTitles(page)).toEqual([second, HABIT]);
   });
 }

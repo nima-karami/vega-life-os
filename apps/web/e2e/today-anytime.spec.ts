@@ -1,3 +1,4 @@
-import { describeAnytimeHabits } from "./helpers/today-anytime";
+import { describeAnytimeHabits, describeAnytimeOrder } from "./helpers/today-anytime";
 
 describeAnytimeHabits();
+describeAnytimeOrder();

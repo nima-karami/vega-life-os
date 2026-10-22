@@ -375,6 +375,35 @@ describe("reorderTasksInDay()", () => {
     expect(updates.some((u) => u.id === "t")).toBe(false);
   });
 
+  it("carries an Anytime reorder to the same habits on later days, never earlier ones", () => {
+    const habitOn = (date: string, habitId: string, order: number) =>
+      task({ id: `${habitId}@${date}`, kind: "habit", habitId, date, time: null, order });
+    const TOMORROW = "2026-06-22";
+    const tasks = [
+      habitOn("2026-06-20", "x", 0),
+      habitOn("2026-06-20", "y", 1),
+      habitOn(TODAY, "x", 0),
+      habitOn(TODAY, "y", 1),
+      habitOn(TOMORROW, "x", 30),
+      habitOn(TOMORROW, "y", 31),
+    ];
+    expect(reorderTasksInDay(tasks, TODAY, `y@${TODAY}`, `x@${TODAY}`)).toEqual([
+      { id: `y@${TODAY}`, order: 0 },
+      { id: `x@${TODAY}`, order: 1 },
+      { id: `y@${TOMORROW}`, order: 30 },
+      { id: `x@${TOMORROW}`, order: 31 },
+    ]);
+  });
+
+  it("keeps a card reorder to its own day", () => {
+    const tasks = [
+      task({ id: "a", order: 0 }),
+      task({ id: "b", order: 1 }),
+      task({ id: "later", date: "2026-06-22", order: 0 }),
+    ];
+    expect(reorderTasksInDay(tasks, TODAY, "b", "a").map((u) => u.id)).toEqual(["b", "a"]);
+  });
+
   it("never reorders across the card and Anytime groups", () => {
     const tasks = [
       task({ id: "t", order: 0 }),

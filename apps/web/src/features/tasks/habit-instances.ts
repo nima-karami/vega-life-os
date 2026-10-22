@@ -1,5 +1,6 @@
 import { type Habit, isHabitActive } from "@/features/habits/model";
 import { isActiveOn } from "@/features/habits/recurrence";
+import { findLatestHabitOrders } from "./habit-order";
 import type { Task } from "./model";
 
 /** Values carry `archivedAt`; an archived or missing parent value never generates. */
@@ -50,7 +51,7 @@ export function findStaleInstances(
   return tasks.filter((t) => isStaleInstance(t, habitById, today, end));
 }
 
-/** The habit instances the given days are missing, in day-then-habit order. */
+/** The habit instances the given days are missing, in day-then-habit order, each in its habit's latest order. */
 export function buildMissingInstances(
   tasks: Task[],
   generating: Habit[],
@@ -59,6 +60,7 @@ export function buildMissingInstances(
   const existing = new Set(
     tasks.filter((t) => t.habitId).map((t) => `${t.habitId}@${t.slotDate ?? t.date}`),
   );
+  const latestOrders = findLatestHabitOrders(tasks);
   const missing: Partial<Task>[] = [];
   for (const iso of isoDates) {
     for (const h of generating) {
@@ -73,6 +75,7 @@ export function buildMissingInstances(
         time: h.time,
         durationMin: h.durationMin,
         status: "todo",
+        order: latestOrders.get(h.id),
       });
     }
   }

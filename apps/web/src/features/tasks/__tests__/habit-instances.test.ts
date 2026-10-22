@@ -121,6 +121,15 @@ describe("buildMissingInstances", () => {
     });
   });
 
+  it("gives a new instance the order of the habit's latest instance", () => {
+    const tasks = [
+      instance({ id: "old", date: MONDAY, slotDate: MONDAY, order: 2 }),
+      instance({ id: "latest", date: TUESDAY, slotDate: TUESDAY, order: 7 }),
+    ];
+    const missing = buildMissingInstances(tasks, [habit()], [WEDNESDAY, "2026-10-26"]);
+    expect(missing.map((t) => t.order)).toEqual([7, 7]);
+  });
+
   it("treats a slot as filled by its slotDate, wherever the instance moved", () => {
     const moved = instance({ date: TUESDAY, slotDate: MONDAY });
     expect(buildMissingInstances([moved], [habit()], [MONDAY])).toEqual([]);

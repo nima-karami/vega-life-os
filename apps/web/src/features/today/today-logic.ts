@@ -10,6 +10,7 @@ import { getZonedWallClock } from "@/core/lib/zone";
 import { getAllDayLivedForDay, getTimedLivedForDay } from "@/features/calendar/grid-data";
 import type { Goal } from "@/features/goals/model";
 import { type DayEntry, isReflected } from "@/features/journal";
+import { carryHabitOrderForward } from "@/features/tasks/habit-order";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import {
   computeDayCounts,
@@ -134,14 +135,23 @@ export interface OrderUpdate {
   order: number;
 }
 
+/** The habits of an Anytime group, in the sequence a reorder leaves them. */
+function sequenceHabits(anytime: Task[], updates: OrderUpdate[]): string[] {
+  const nextOrder = new Map(updates.map((u) => [u.id, u.order]));
+  return anytime
+    .map((t) => ({ habitId: t.habitId, order: nextOrder.get(t.id) ?? t.order }))
+    .sort((a, b) => a.order - b.order)
+    .flatMap((t) => (t.habitId === null ? [] : [t.habitId]));
+}
+
 /**
  * Drag-and-drop reorder within the day's to-do group that holds `activeId` (the cards,
  * or the Anytime rows): move it onto `overId`'s slot, renumbering the group to its new
  * visual sequence. Returns the minimal {id, order} updates to apply, or an empty array
  * for a no-op — including a drop across the two groups.
  *
- * Resolved tasks and other days are never touched. (Tasks still sort by time first, so
- * `order` is the tiebreaker among same-time tasks.)
+ * An Anytime reorder carries forward to the same habits' instances on later days; earlier
+ * days and resolved tasks on this day are never touched.
  */
 export function reorderTasksInDay(
   tasks: Task[],
@@ -150,8 +160,13 @@ export function reorderTasksInDay(
   overId: string,
 ): OrderUpdate[] {
   const { remaining, anytime } = partitionToday(tasks, date);
-  const group = anytime.some((t) => t.id === activeId) ? anytime : remaining;
-  return reorderByIds(group, activeId, overId);
+  if (!anytime.some((t) => t.id === activeId)) return reorderByIds(remaining, activeId, overId);
+  const dayUpdates = reorderByIds(anytime, activeId, overId);
+  if (dayUpdates.length === 0) return [];
+  return [
+    ...dayUpdates,
+    ...carryHabitOrderForward(tasks, date, sequenceHabits(anytime, dayUpdates)),
+  ];
 }
 
 /**

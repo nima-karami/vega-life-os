@@ -47,8 +47,13 @@ li:has(> .task-row[data-density="compact"]) {
   margin-top: -6px;
 }
 
+/* A travelling row folds the gap a staying row below it would lose; with none below, the one above it. */
 .task-row:not([data-density="compact"]) + .task-row[data-density="compact"] {
   --row-gap: 12px;
+}
+
+.task-row[data-density="compact"]:has(~ .task-row:not([data-travel="arrive"])) {
+  --row-gap: 6px;
 }
 
 .task-row[data-travel="leave"] {
