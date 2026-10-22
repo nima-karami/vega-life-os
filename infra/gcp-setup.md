@@ -1,118 +1,69 @@
-# GCP one-time setup for the backend deploy
+# GCP and GitHub setup for CI releases
 
-`needs-human-smoke` — every command here touches the user's GCP project and org and is
-**not** run in the autonomous build. It documents exactly what the `deploy-server.yml`
-workflow and `cloud-scheduler.md` job need so the human can provision it in one pass.
+`.github/workflows/release.yml` deploys from GitHub Actions with **Workload Identity
+Federation**: the job trades its GitHub OIDC token for a short-lived credential of the
+`vega-deployer` service account. No JSON key exists anywhere.
 
-The deploy uses **Workload Identity Federation** (keyless): GitHub Actions mints a short
-OIDC token that GCP trades for a service-account credential — no long-lived JSON key is
-ever stored in the repo.
-
-```bash
-PROJECT=your-gcp-project
-PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format 'value(projectNumber)')
-REGION=us-central1
-REPO=your-github-org/vega-life-os          # owner/name of this repo
-```
-
-## 1. Enable APIs
+All of that is provisioned by one idempotent script, run once by a human with owner rights
+on `vega-life-os` and `gh auth login` done:
 
 ```bash
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  cloudscheduler.googleapis.com \
-  secretmanager.googleapis.com \
-  iamcredentials.googleapis.com \
-  firestore.googleapis.com \
-  --project "$PROJECT"
+bash infra/setup-ci-release.sh
 ```
 
-## 2. Artifact Registry (holds the server image)
+It checks before it creates, re-asserts the provider's mapping and condition, and IAM
+bindings are additive, so re-running it is safe. On Windows it calls `gcloud.py` through the
+SDK's bundled Python, because `gcloud.cmd` routes through `cmd.exe`, which would split the
+provider condition at `&&`. Set `GCLOUD` to use another gcloud binary.
 
-```bash
-gcloud artifacts repositories create vega \
-  --project "$PROJECT" --location "$REGION" --repository-format docker
-```
+## What it creates
 
-## 3. Deploy service account (what Cloud Run runs as / WIF impersonates)
-
-```bash
-gcloud iam service-accounts create vega-deployer \
-  --project "$PROJECT" --display-name "Vega backend deployer"
-DEPLOYER=vega-deployer@$PROJECT.iam.gserviceaccount.com
-
-for ROLE in roles/run.admin roles/artifactregistry.writer \
-            roles/iam.serviceAccountUser roles/secretmanager.secretAccessor \
-            roles/datastore.user; do
-  gcloud projects add-iam-policy-binding "$PROJECT" \
-    --member "serviceAccount:$DEPLOYER" --role "$ROLE"
-done
-```
-
-## 4. Workload Identity Federation pool + provider (keyless GitHub auth)
-
-```bash
-gcloud iam workload-identity-pools create github \
-  --project "$PROJECT" --location global --display-name "GitHub Actions"
-
-gcloud iam workload-identity-pools providers create-oidc github \
-  --project "$PROJECT" --location global \
-  --workload-identity-pool github \
-  --display-name "GitHub OIDC" \
-  --issuer-uri "https://token.actions.githubusercontent.com" \
-  --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" \
-  --attribute-condition "assertion.repository=='$REPO'"
-
-POOL_ID=$(gcloud iam workload-identity-pools describe github \
-  --project "$PROJECT" --location global --format 'value(name)')
-
-# Let the GitHub repo impersonate the deployer service account.
-gcloud iam service-accounts add-iam-policy-binding "$DEPLOYER" \
-  --project "$PROJECT" --role roles/iam.workloadIdentityUser \
-  --member "principalSet://iam.googleapis.com/$POOL_ID/attribute.repository/$REPO"
-```
-
-## 5. Secret Manager entries (OAuth + token encryption key)
-
-The server reads these at runtime via `--set-secrets` in the deploy workflow:
-
-```bash
-printf '%s' "$GOOGLE_OAUTH_CLIENT_ID"     | gcloud secrets create gcal-oauth-client-id     --project "$PROJECT" --data-file=-
-printf '%s' "$GOOGLE_OAUTH_CLIENT_SECRET" | gcloud secrets create gcal-oauth-client-secret --project "$PROJECT" --data-file=-
-# 32-byte AES-256-GCM key, base64/hex per token-store's expectation:
-printf '%s' "$GCAL_TOKEN_ENC_KEY"         | gcloud secrets create gcal-token-enc-key       --project "$PROJECT" --data-file=-
-```
-
-## 6. Firestore named databases
-
-Production uses `(default)`. Staging uses a named `staging` database (the boot guard
-refuses `(default)` under any non-production `NODE_ENV`):
-
-```bash
-gcloud firestore databases create --database staging --location "$REGION" --project "$PROJECT"
-```
-
-## 7. GitHub repo secrets + environment vars
-
-Add these repo **secrets** (Settings → Secrets and variables → Actions):
-
-| Secret | Value |
+| Resource | Value |
 |---|---|
-| `GCP_PROJECT` | `your-gcp-project` |
-| `WIF_PROVIDER` | `projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github` |
-| `WIF_SERVICE_ACCOUNT` | `vega-deployer@$PROJECT.iam.gserviceaccount.com` |
+| APIs | `iam`, `iamcredentials`, `sts`, `run`, `artifactregistry`, `firebasehosting`, `serviceusage` |
+| WIF pool | `projects/433179238763/locations/global/workloadIdentityPools/github` |
+| OIDC provider | `vega-life-os`, issuer `https://token.actions.githubusercontent.com` |
+| Attribute mapping | `google.subject=assertion.sub, attribute.repository=assertion.repository, attribute.ref=assertion.ref` |
+| Attribute condition | `assertion.repository=='nima-karami/vega-life-os' && assertion.ref=='refs/heads/main'` |
+| Service account | `vega-deployer@vega-life-os.iam.gserviceaccount.com` |
+| Cloud Run | `vega-server --max-instances=2`, applied only if the current revision is not already capped at 2 |
 
-And per-environment **variables** (staging / production GitHub Environments):
+The condition means no token from a fork, another repo, a PR or a non-main branch can
+authenticate at all. The workflow's own `refs/heads/main` check is a second line.
 
-| Variable | Example |
-|---|---|
-| `PUBLIC_BASE_URL` | the deployed Cloud Run URL, e.g. `https://vega-server-xxxx-uc.a.run.app` |
-| `GOOGLE_OAUTH_REDIRECT_URI` | `$PUBLIC_BASE_URL/trpc/calendar.oauthCallback` (match the OAuth client config) |
+## Deployer roles, and why each one
 
-`PUBLIC_BASE_URL` is chicken-and-egg on the first deploy: deploy once to learn the URL,
-then set the variable and redeploy so the OIDC audience + webhook address resolve.
+| Role | Scope | Needed for |
+|---|---|---|
+| `roles/run.developer` | project | `run deploy --no-traffic --tag`, `update-traffic`, `services describe`. Not `run.admin`: the release never changes the service's IAM policy (invoker stays as it is), which is the only thing `admin` adds. |
+| `roles/iam.serviceAccountUser` | the runtime SA `433179238763-compute@developer.gserviceaccount.com` only | Cloud Run requires `actAs` on the identity a revision runs as. Bound on that one SA, so the deployer cannot act as any other. |
+| `roles/artifactregistry.writer` | the `vega` repository only | `docker push` of `server:<sha>` and reading back its digest. |
+| `roles/firebasehosting.admin` | project | `firebase deploy --only hosting` (versions, files, releases), `hosting:clone` for rollback, and the `releases.list` call that records the live version. It also carries `firebase.projects.get`, which firebase-tools reads on start. |
+| `roles/serviceusage.serviceUsageConsumer` | project | firebase-tools checks that the Hosting API is enabled (`serviceusage.services.get`), and quota is billed to the project (`serviceusage.services.use`). |
+| `roles/iam.workloadIdentityUser` | on `vega-deployer` itself, for `principalSet://…/workloadIdentityPools/github/attribute.repository/nima-karami/vega-life-os` | Lets tokens from the pool impersonate the deployer. |
 
-## 8. Cloud Scheduler
+The deployer has no Secret Manager or Firestore access. A `run deploy` with only `--image`
+keeps the service's env and secret bindings, and the runtime SA, not the deployer, reads
+the secrets.
 
-See [`cloud-scheduler.md`](cloud-scheduler.md) for the 5-minute reconcile job.
+The runtime SA stays the default compute SA on purpose. Swapping it could break the live
+signed-in paths, so that change is a separate decision.
+
+## GitHub secrets and variables it sets
+
+| Kind | Name | Value |
+|---|---|---|
+| secret | `GCP_PROJECT` | `vega-life-os` |
+| secret | `WIF_PROVIDER` | the provider's full resource name, read back from gcloud |
+| secret | `WIF_SERVICE_ACCOUNT` | `vega-deployer@vega-life-os.iam.gserviceaccount.com` |
+| variable | every `VITE_*` key in the root `.env.local` | the key's value; the script pipes it to `gh variable set` and prints only the name |
+
+`VITE_*` values end up in the public bundle anyway, so they're variables, not secrets. When
+`.env.local` changes, re-run the script to sync them.
+
+## Server runtime (already provisioned)
+
+The live service's runtime config predates this script and is unchanged by it: Secret
+Manager entries `gcal-oauth-client-id`, `gcal-oauth-client-secret` and `gcal-token-enc-key`
+bound with `--set-secrets`, the `vega` Artifact Registry repo, and the reconcile job in
+[`cloud-scheduler.md`](cloud-scheduler.md).

@@ -1,0 +1,240 @@
+name: release
+
+# Push-button release of main: server first (no-traffic revision, tag smoke, then traffic),
+# then hosting. Any failure after a cutover rolls hosting back first, then server traffic.
+# One-time setup: infra/setup-ci-release.sh. Runbook: docs/release-process.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  PROJECT: vega-life-os
+  REGION: us-central1
+  SERVICE: vega-server
+  IMAGE_REPO: us-central1-docker.pkg.dev/vega-life-os/vega/server
+  SITE: vega-life-os
+  SITE_URL: https://vega-life-os.web.app/
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    outputs:
+      short_sha: ${{ steps.sha.outputs.short }}
+    steps:
+      - name: Refuse anything but main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::release runs from refs/heads/main only (got $GITHUB_REF)"
+          exit 1
+      - uses: actions/checkout@v5
+      - id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Refuse unless verify succeeded for this sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify.yml/runs?head_sha=$GITHUB_SHA&per_page=1" \
+            --jq '.workflow_runs[0] | if . == null then "missing" else (.conclusion // .status) end')"
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::verify for $GITHUB_SHA is '$conclusion', not success"
+            exit 1
+          fi
+          echo "verify succeeded for $GITHUB_SHA"
+
+  server:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
+      TAG: c-${{ needs.gate.outputs.short_sha }}
+    outputs:
+      previous_traffic: ${{ steps.previous.outputs.traffic }}
+      tagged: ${{ steps.tagged.outputs.tagged }}
+      migrated: ${{ steps.migrating.outputs.migrated }}
+      service_url: ${{ steps.previous.outputs.url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Build and push the image
+        id: image
+        run: |
+          docker build -f apps/server/Dockerfile --build-arg "GIT_SHA=$SHORT_SHA" -t "$IMAGE_REPO:$SHORT_SHA" .
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker push "$IMAGE_REPO:$SHORT_SHA"
+          echo "digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE_REPO:$SHORT_SHA")" >> "$GITHUB_OUTPUT"
+      - name: Record the serving traffic
+        id: previous
+        run: |
+          service="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format json)"
+          traffic="$(jq -r '[.status.traffic[] | select(.percent > 0) | "\(.revisionName)=\(.percent)"] | join(",")' <<<"$service")"
+          if [ -z "$traffic" ]; then
+            echo "::error::could not read the serving revision"
+            exit 1
+          fi
+          echo "traffic=$traffic" >> "$GITHUB_OUTPUT"
+          echo "url=$(jq -r '.status.url' <<<"$service")" >> "$GITHUB_OUTPUT"
+          echo "serving: $traffic"
+      - name: Deploy a no-traffic revision
+        run: |
+          gcloud run deploy "$SERVICE" --image "${{ steps.image.outputs.digest }}" \
+            --no-traffic --tag "$TAG" --max-instances=2 \
+            --region "$REGION" --project "$PROJECT" --quiet
+      - id: tagged
+        run: echo "tagged=true" >> "$GITHUB_OUTPUT"
+      - name: Smoke the tagged revision
+        run: |
+          tag_url="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format json \
+            | jq -r --arg tag "$TAG" '.status.traffic[] | select(.tag == $tag) | .url')"
+          live_sha="$(curl -fsS --retry 5 --retry-all-errors --retry-delay 3 "$tag_url/health" | jq -r '.sha')"
+          if [ "$live_sha" != "$SHORT_SHA" ]; then
+            echo "::error::$tag_url/health reports sha '$live_sha', expected $SHORT_SHA"
+            exit 1
+          fi
+          VEGA_API_URL="$tag_url" node scripts/check-live-schema.mjs
+      - id: migrating
+        run: echo "migrated=true" >> "$GITHUB_OUTPUT"
+      - name: Move traffic to the new revision
+        run: |
+          gcloud run services update-traffic "$SERVICE" --to-latest --region "$REGION" --project "$PROJECT" --quiet
+          gcloud run services update-traffic "$SERVICE" --remove-tags "$TAG" --region "$REGION" --project "$PROJECT" --quiet
+      - name: Confirm the service URL serves the new sha
+        env:
+          SERVICE_URL: ${{ steps.previous.outputs.url }}
+        run: |
+          live_sha="$(curl -fsS --retry 5 --retry-all-errors --retry-delay 3 "$SERVICE_URL/health" | jq -r '.sha')"
+          if [ "$live_sha" != "$SHORT_SHA" ]; then
+            echo "::error::$SERVICE_URL/health reports sha '$live_sha', expected $SHORT_SHA"
+            exit 1
+          fi
+
+  hosting:
+    needs: [gate, server]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
+      # tsc -b over three projects can exceed the default heap on the 7 GB runner.
+      NODE_OPTIONS: --max-old-space-size=6144
+    outputs:
+      previous_version: ${{ steps.previous.outputs.version }}
+      deployed: ${{ steps.deploying.outputs.deployed }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build web
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - name: Check the live server schema
+        run: node scripts/check-live-schema.mjs
+        env:
+          VEGA_API_URL: ${{ needs.server.outputs.service_url }}
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Record the live hosting version
+        id: previous
+        run: |
+          version="$(curl -fsS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            "https://firebasehosting.googleapis.com/v1beta1/sites/$SITE/channels/live/releases?pageSize=1" \
+            | jq -r '.releases[0].version.name // empty')"
+          if [ -z "$version" ]; then
+            echo "::error::could not read the live hosting version"
+            exit 1
+          fi
+          echo "version=${version##*/}" >> "$GITHUB_OUTPUT"
+          echo "live: $version"
+      - id: deploying
+        run: echo "deployed=true" >> "$GITHUB_OUTPUT"
+      - name: Deploy hosting
+        run: npx -y firebase-tools@15 deploy --only hosting --project "$PROJECT" --non-interactive
+      - name: Assert the live build sha
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL?release=$GITHUB_RUN_ID-$attempt" \
+              | grep -Eq "<meta name=\"vega-build\" content=\"$SHORT_SHA\""; then
+              echo "live hosting serves $SHORT_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL is not serving vega-build $SHORT_SHA"
+          exit 1
+
+  rollback:
+    needs: [gate, server, hosting]
+    if: (failure() || cancelled()) && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: c-${{ needs.gate.outputs.short_sha }}
+      PREVIOUS_VERSION: ${{ needs.hosting.outputs.previous_version }}
+      PREVIOUS_TRAFFIC: ${{ needs.server.outputs.previous_traffic }}
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Roll hosting back to the recorded version
+        if: needs.hosting.outputs.deployed == 'true' && needs.hosting.outputs.previous_version != ''
+        run: |
+          npx -y firebase-tools@15 hosting:clone "$SITE@$PREVIOUS_VERSION" "$SITE:live" \
+            --project "$PROJECT" --non-interactive
+      - name: Route server traffic back to the recorded revision
+        if: needs.server.outputs.migrated == 'true' && needs.server.outputs.previous_traffic != ''
+        run: |
+          gcloud run services update-traffic "$SERVICE" --to-revisions "$PREVIOUS_TRAFFIC" \
+            --region "$REGION" --project "$PROJECT" --quiet
+      - name: Drop the release tag
+        if: needs.server.outputs.tagged == 'true'
+        run: |
+          gcloud run services update-traffic "$SERVICE" --remove-tags "$TAG" \
+            --region "$REGION" --project "$PROJECT" --quiet || echo "tag $TAG already gone"

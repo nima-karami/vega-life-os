@@ -60,12 +60,12 @@ on CI being green for the exact commit (§5).
 ## 4. PR & merge
 
 Open a PR; `verify.yml` runs on it. Merge to `main` once it is green. A shareable preview
-is `npm run deploy:preview` (a 7-day Hosting channel); the `preview.yml`, `deploy.yml` and
-`deploy-server.yml` workflows are dispatch-only and not the release path.
+is `npm run deploy:preview` (a 7-day Hosting channel), run from the laptop.
 
 ## 5. Release — server first, then hosting
 
-Releases run from the laptop. The order is fixed:
+The normal path is the `release` workflow ([Releasing from CI](#releasing-from-ci), end of
+this section); the laptop commands are the fallback. Either way the order is fixed:
 
 ```bash
 npm run deploy:server   # guard → Cloud Build from HEAD → Cloud Run → /health sha + schema check
@@ -130,6 +130,48 @@ field added, removed, retyped or made optional changes it.
 
 On Windows the script points `CLOUDSDK_PYTHON` at the SDK's bundled Python and calls
 `gcloud.cmd` (the Store python alias otherwise breaks gcloud); set `GCLOUD` to override.
+
+### Releasing from CI
+
+One-time setup, by a human with owner rights on the GCP project and `gh auth login` done:
+
+```bash
+bash infra/setup-ci-release.sh
+```
+
+It creates the WIF pool/provider (main of this repo only), the least-privilege
+`vega-deployer` SA, caps `vega-server` at 2 instances, and sets the repo secrets plus a
+`VITE_*` variable per key in `.env.local`. Details and the role-by-role rationale are in
+[`infra/gcp-setup.md`](../infra/gcp-setup.md). Re-run it when `.env.local` changes.
+
+Then every release is:
+
+```bash
+gh workflow run release.yml --ref main && sleep 5 && gh run watch "$(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+`release.yml` (`workflow_dispatch`, one release at a time, never cancelled by a newer one):
+
+| Job | Does |
+|---|---|
+| `gate` | Refuses unless the ref is `refs/heads/main` and the latest `verify` run for this exact sha concluded `success`. |
+| `server` | `docker build` with `GIT_SHA=<short>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
+| `hosting` | `npm ci` → `npm run build` with the `VITE_*` repo variables → `check-live-schema` against the service URL → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
+| `rollback` | Runs only if `server` or `hosting` failed or the run was cancelled. |
+
+**Rollback** runs in reverse release order:
+
+1. If hosting was deployed, `hosting:clone vega-life-os@<recorded version> vega-life-os:live`.
+2. If server traffic was moved, `update-traffic --to-revisions <recorded split>`.
+3. If the `c-<short>` tag was created, remove it.
+
+A failure before traffic moves leaves production untouched: the new revision gets no
+traffic and only its tag is cleaned up. After a server rollback, traffic is **pinned** to
+the old revision, so un-pin it after the fix ships (step 3 of §6). The release workflow's
+own `--to-latest` does that for you on the next successful run.
+
+The laptop path (`npm run deploy:server`, then `npm run deploy`, described above) stays as
+the fallback.
 
 ## 6. Rollback runbook
 
