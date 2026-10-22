@@ -31,7 +31,7 @@ test("covers the opened route with the nav hidden and lets ⌘K through", async 
   await expect(settingsHeading(page)).toHaveCount(0);
   await expect(page.getByTestId("omni-trigger")).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Continue to today" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeEnabled();
 
   await page.keyboard.press("ControlOrMeta+K");
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -40,11 +40,11 @@ test("covers the opened route with the nav hidden and lets ⌘K through", async 
   await expect(gratitudePage(page)).toBeVisible();
 });
 
-test("Skip for today lands on the opened route and stays skipped until tomorrow", async ({
+test("Continue with nothing written lands on the opened route and stays skipped until tomorrow", async ({
   page,
 }) => {
   await openWithGratitudePage(page, "/settings");
-  await gratitudePage(page).getByRole("button", { name: "Skip for today" }).click();
+  await gratitudePage(page).getByRole("button", { name: "Continue" }).click();
   await expect(gratitudePage(page)).toBeHidden();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(settingsHeading(page)).toBeVisible();

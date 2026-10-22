@@ -2,18 +2,19 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 import { formatRelativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
-import { cx, Icon } from "@/core/ui";
+import { Icon } from "@/core/ui";
 import { GratitudeFields } from "./GratitudeFields";
 
-/** Full-screen daily gratitude prompt. Continue needs one line; Skip records the day as skipped. */
+/** Full-screen daily gratitude prompt. Continue saves what was written, or skips the day if nothing was. */
 export function GratitudeStep({ date }: { date: string }) {
   const upsertDayEntry = useStore((s) => s.upsertDayEntry);
   const acknowledgeGratitudeNudge = useStore((s) => s.acknowledgeGratitudeNudge);
   const [slots, setSlots] = useState<string[]>([]);
-  const canContinue = slots.some((s) => s.trim() !== "");
-
   const submit = () => {
-    if (!canContinue) return;
+    if (!slots.some((s) => s.trim() !== "")) {
+      acknowledgeGratitudeNudge(date);
+      return;
+    }
     // immediate: a debounced save lost to a fast reload would bring the page back
     upsertDayEntry(date, { gratitude: slots }, { immediate: true });
   };
@@ -37,26 +38,8 @@ export function GratitudeStep({ date }: { date: string }) {
 
       <GratitudeFields value={slots} onChange={setSlots} autoFocus />
 
-      <Button
-        variant="primary"
-        size="lg"
-        className="w-full"
-        isDisabled={!canContinue}
-        onPress={submit}
-      >
-        Continue to today
-      </Button>
-      {/* Always rendered so satisfying the prompt never shifts the layout */}
-      <p className={cx("text-center text-xs text-muted", canContinue && "invisible")}>
-        Add at least one to continue.
-      </p>
-
-      <Button
-        variant="ghost"
-        className="self-center"
-        onPress={() => acknowledgeGratitudeNudge(date)}
-      >
-        Skip for today
+      <Button variant="primary" size="lg" className="w-full" onPress={submit}>
+        Continue
       </Button>
     </section>
   );

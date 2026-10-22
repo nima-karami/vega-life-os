@@ -74,7 +74,7 @@ test("today: a skipped day is never reported missed later", async ({ page }) => 
 
   await page.clock.setFixedTime(today);
   await page.goto("/today");
-  await gratitudePage(page).getByRole("button", { name: "Skip for today" }).click();
+  await gratitudePage(page).getByRole("button", { name: "Continue" }).click();
   await expect(todayHeading(page)).toBeVisible();
 
   await page.clock.setFixedTime(today + DAY_MS);

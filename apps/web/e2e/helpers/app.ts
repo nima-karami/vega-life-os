@@ -32,7 +32,7 @@ export const gratitudePage = (page: Page) =>
 export async function saveGratitude(page: Page) {
   const prompt = gratitudePage(page);
   await prompt.getByRole("textbox", { name: "Grateful for, item 1" }).fill("e2e gratitude");
-  await prompt.getByRole("button", { name: "Continue to today" }).click();
+  await prompt.getByRole("button", { name: "Continue" }).click();
   await expect(prompt).toBeHidden();
   await expect
     .poll(async () => {
