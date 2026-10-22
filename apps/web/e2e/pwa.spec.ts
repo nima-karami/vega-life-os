@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 
 /**
  * PWA install/runtime proof, run against the built preview (port 5179) — the
@@ -116,4 +116,116 @@ test("graceful degradation: nothing throws when service workers are unsupported"
   expect(errors, `runtime errors:\n${errors.join("\n")}`).toEqual([]);
 
   await context.close();
+});
+
+const MARKED_WORKER_REPLY = "marked-build";
+
+// The first sw.js is served with a marker that answers a version ping; every later fetch
+// is the untouched build, so the browser sees changed bytes and installs it as an update.
+async function serveMarkedFirstWorker(context: BrowserContext) {
+  let hasServedMarked = false;
+  await context.route("**/sw.js", async (route) => {
+    if (hasServedMarked) return route.fallback();
+    hasServedMarked = true;
+    const response = await route.fetch();
+    const marker = `;self.addEventListener("message",(event)=>{event.data==="vega-worker-version"&&event.source.postMessage("${MARKED_WORKER_REPLY}")});`;
+    await route.fulfill({ response, body: `${await response.text()}${marker}` });
+  });
+}
+
+async function loadUntilControlled(page: Page) {
+  await page.goto("/", { waitUntil: "networkidle" });
+  await expect(async () => {
+    await page.reload({ waitUntil: "networkidle" });
+    expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  }).toPass({ timeout: 30_000 });
+}
+
+function readControllerBuild(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<string>((resolve) => {
+        const controller = navigator.serviceWorker.controller;
+        if (!controller) return resolve("uncontrolled");
+        navigator.serviceWorker.addEventListener(
+          "message",
+          (event) => resolve(String(event.data)),
+          {
+            once: true,
+          },
+        );
+        controller.postMessage("vega-worker-version");
+        setTimeout(() => resolve("unmarked-build"), 1_500);
+      }),
+  );
+}
+
+async function loadFirstVisit(page: Page) {
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.waitForFunction(
+    async () => (await navigator.serviceWorker.getRegistration())?.active?.state === "activated",
+    null,
+    { timeout: 20_000 },
+  );
+  expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(false);
+}
+
+// A first visit (or a hard reload) leaves the page uncontrolled for its whole life in prompt
+// mode, so no controllerchange ever reaches it; that was the Reload dead end.
+for (const { name, load, markedBefore } of [
+  { name: "a controlled page", load: loadUntilControlled, markedBefore: MARKED_WORKER_REPLY },
+  { name: "a first-visit page", load: loadFirstVisit, markedBefore: "uncontrolled" },
+]) {
+  test(`Reload on the update toast moves ${name} onto the new service worker`, async ({
+    page,
+    context,
+  }) => {
+    await serveMarkedFirstWorker(context);
+    await load(page);
+    expect(await readControllerBuild(page)).toBe(markedBefore);
+
+    await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await registration?.update();
+    });
+    const toast = page.getByRole("status").filter({ hasText: "New version available" });
+    await expect(toast).toBeVisible({ timeout: 20_000 });
+
+    const reloaded = page.waitForEvent("load", { timeout: 4_000 });
+    await toast.getByRole("button", { name: "Reload" }).click();
+    await reloaded;
+
+    expect(await readControllerBuild(page)).toBe("unmarked-build");
+    await expect(page.getByText("New version available")).toHaveCount(0);
+  });
+}
+
+test("a visible tab checks for a new service worker, at most once a minute", async ({ page }) => {
+  await page.clock.install();
+  await page.addInitScript(() => {
+    const update = ServiceWorkerRegistration.prototype.update;
+    ServiceWorkerRegistration.prototype.update = function countedUpdate() {
+      const counted = window as unknown as { e2eUpdateCalls?: number };
+      counted.e2eUpdateCalls = (counted.e2eUpdateCalls ?? 0) + 1;
+      return update.call(this);
+    };
+  });
+  await loadUntilControlled(page);
+
+  const readUpdateCalls = () =>
+    page.evaluate(() => (window as unknown as { e2eUpdateCalls?: number }).e2eUpdateCalls ?? 0);
+  const showTab = () => page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+
+  await showTab();
+  expect(await readUpdateCalls(), "checked again inside the first minute").toBe(0);
+
+  await page.clock.fastForward("01:01");
+  await showTab();
+  await expect.poll(readUpdateCalls).toBe(1);
+
+  await showTab();
+  expect(await readUpdateCalls(), "throttle let a second check through").toBe(1);
+
+  await page.clock.fastForward("01:00:00");
+  await expect.poll(readUpdateCalls).toBe(2);
 });
