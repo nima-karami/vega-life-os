@@ -71,8 +71,10 @@ By explicit user decision (2026-10-22), CI skips work a change cannot affect.
 `static`, `unit` (web, shared) and `sast` always run. A push narrows **only when its base
 commit's own verify run succeeded** — otherwise a docs commit on top of a red one would be
 green and releasable. No base, an all-zero base (new branch), an unknown sha,
-`workflow_dispatch` or any detection error → `full`. Skipped jobs report `skipped`, which
-the release guard and the `release` gate treat as green.
+`workflow_dispatch` or any detection error → `full`. Diffs use `--no-renames`, so a file
+moved out of a slice still counts for that slice. Skipped jobs report `skipped`; the
+release guard treats that as green **only for `unit-server` and `e2e`**, and the `release`
+gate reads the workflow's overall conclusion.
 
 **The risk, stated:** a web-only commit ships without the server suite having run on it,
 and a docs-only commit without e2e. That is sound only while `apps/web/**` cannot change
@@ -112,15 +114,22 @@ It diffs each against `HEAD` and classifies every changed file
 | Path | Deploys |
 |---|---|
 | `apps/web/**`, `firebase.json`, `.firebaserc` | hosting |
-| `apps/server/**`, `cloudbuild.server.yaml` | server |
-| `packages/shared/**`, `package.json`, `package-lock.json`, `apps/web/package.json` | both |
-| `docs/**`, `*.md`, `.claude/**` | nothing |
+| `apps/server/**`, `cloudbuild.server.yaml`, `scripts/deploy-server.sh` | server |
+| `packages/shared/**`, `package.json`, `package-lock.json`, `apps/web/package.json`, `.github/workflows/release.yml` | both |
+| `docs/**`, `*.md` outside `apps/` and `packages/`, `.claude/**` | nothing |
 | tooling: `scripts/`, `.github/`, `.husky/`, `infra/`, `biome.json`, `knip.json`, `tsconfig.json`, `firestore.rules`, `.gitignore`, `.gitattributes`, `.gcloudignore`, `.env.example` | nothing |
 | **anything else** | **both** |
 
 `apps/web/package.json` ships both because the server image installs every workspace
-manifest. **Fail safe:** a live sha that is missing, unreachable, `dev`, or not in git
-history deploys that target. Nothing needed → it says so and exits 0.
+manifest. `.github/workflows/release.yml` ships both (it holds the `VITE_*` build env and
+the server deploy flags) and `scripts/deploy-server.sh` ships the server; both are
+matched before the tooling row. A `*.md` under `apps/` or `packages/` belongs to its
+slice, not to docs. A rename counts for both its old and new path. **Fail safe:** a live
+sha that is missing, unreachable, `dev`, not a hex sha, or not in git history deploys that
+target. Nothing needed → it says so and exits 0.
+
+Config that lives outside git (GitHub variables and secrets, local `.env` files) never
+triggers a deploy — after changing it, force with `--only=…` or `-f targets=…`.
 
 Flags: `--dry-run` (plan only, skips the guard), `--plan-json` (the plan as JSON, for CI),
 `--only=server|hosting|both` (force), `--allow-red-ci` (passed to both deploys).
@@ -145,9 +154,10 @@ the build's.
 
 - the working tree is dirty (`git status --porcelain`);
 - `HEAD` is not `origin/main` after a `git fetch` — only pushed `main` ships;
-- any GitHub check-run for `HEAD` is not `completed` with `success` or `skipped` (read
-  with `gh api`; needs `gh auth login`). `skipped` is green because CI skips jobs a
-  change cannot affect ([CI change scope](#ci-change-scope)).
+- any GitHub check-run for `HEAD` is not `completed`/`success` (read with `gh api`; needs
+  `gh auth login`). The one exception: `skipped` is green for `unit-server` and `e2e`,
+  the jobs CI may skip by change scope ([CI change scope](#ci-change-scope)); any other
+  skipped check is red (`scripts/lib/check-runs.mjs`).
 
 `--allow-red-ci` (or `RELEASE_ALLOW_RED_CI=1`) downgrades only the CI check to a loud
 warning — it exists until CI is green and is always passed explicitly:

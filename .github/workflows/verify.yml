@@ -40,7 +40,7 @@ jobs:
         run: |
           base="$BASE_SHA"
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -n "$base" ]; then
-            base_verify="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify.yml/runs?head_sha=$base&per_page=1" \
+            base_verify="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify.yml/runs?head_sha=$base&event=push&per_page=1" \
               --jq '.workflow_runs[0].conclusion // "missing"' || echo "unreadable")"
             if [ "$base_verify" != "success" ]; then
               echo "verify for base $base is '$base_verify' — running everything"

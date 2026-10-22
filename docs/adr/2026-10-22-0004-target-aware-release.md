@@ -23,9 +23,11 @@ test suite (Firestore emulator); everything else runs the full gate.**
   `planTarget` decides one target from the live sha and the diff; `classifyCiScope` maps a
   change list to `docs | web | full`.
 - **Deploy targets.** `apps/web/**`, `firebase.json`, `.firebaserc` → hosting.
-  `apps/server/**`, `cloudbuild.server.yaml` → server. `packages/shared/**`, root
-  `package.json`, `package-lock.json`, `apps/web/package.json` (the server image installs
-  every workspace manifest) → both. Docs, `*.md`, `.claude/**` and repo tooling that neither
+  `apps/server/**`, `cloudbuild.server.yaml`, `scripts/deploy-server.sh` → server.
+  `packages/shared/**`, root `package.json`, `package-lock.json`, `apps/web/package.json`
+  (the server image installs every workspace manifest), `.github/workflows/release.yml`
+  (build env + deploy flags) → both. Docs, `*.md` outside `apps/`/`packages/`,
+  `.claude/**` and repo tooling that neither
   artifact contains (`scripts/`, `.github/`, `.husky/`, `infra/`, `biome.json`, `knip.json`,
   root `tsconfig.json`, `firestore.rules` — no release deploys rules) → nothing. **Any
   other path → both.**
@@ -42,8 +44,10 @@ test suite (Firestore emulator); everything else runs the full gate.**
 - **`verify.yml`** gains a `changes` job. Static checks and SAST always run. A push narrows
   only when its base commit's own verify run succeeded; detection errors, a missing base, a
   new branch or `workflow_dispatch` all resolve to `full`.
-- **The release guard counts `skipped` check-runs as green**, so a narrowed verify is
-  releasable.
+- Diffs run with `--no-renames` (a rename otherwise lists only its destination) and only
+  ever receive a validated hex sha.
+- **The release guard counts `skipped` as green only for `unit-server` and `e2e`**, so a
+  narrowed verify is releasable and any other skipped check still blocks.
 
 ## Consequences
 

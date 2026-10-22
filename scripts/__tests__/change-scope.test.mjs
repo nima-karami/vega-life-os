@@ -61,6 +61,23 @@ describe("classifyChangedFile", () => {
     }
   });
 
+  it("ships the targets release.yml and deploy-server.sh build, not nothing", () => {
+    assert.deepEqual(classifyChangedFile(".github/workflows/release.yml").targets, [
+      "server",
+      "hosting",
+    ]);
+    assert.deepEqual(classifyChangedFile("scripts/deploy-server.sh").targets, ["server"]);
+  });
+
+  it("treats markdown inside a slice as part of that slice", () => {
+    assert.deepEqual(classifyChangedFile("apps/web/public/x.md").targets, ["hosting"]);
+    assert.deepEqual(classifyChangedFile("apps/server/README.md").targets, ["server"]);
+    assert.deepEqual(classifyChangedFile("packages/shared/README.md").targets, [
+      "server",
+      "hosting",
+    ]);
+  });
+
   it("ships both for a path it does not recognise", () => {
     const classification = classifyChangedFile("some/new/thing.ts");
     assert.deepEqual(classification.targets, ["server", "hosting"]);
@@ -113,7 +130,7 @@ describe("planTarget — fail safe and overrides", () => {
   });
 
   it("deploys when the live sha is unknown, unreachable or a dev build", () => {
-    for (const liveSha of [undefined, "", "dev", "(not reported)"]) {
+    for (const liveSha of [undefined, "", "dev", "(not reported)", "-abc1234", "--output=x"]) {
       const plan = planTarget({ target: "server", liveSha, changedFiles: [] });
       assert.equal(plan.shouldDeploy, true, String(liveSha));
       assert.match(plan.reason, /unknown/);
@@ -150,6 +167,11 @@ describe("classifyCiScope", () => {
 
   it("web plus docs is web scope", () => {
     assert.equal(classifyCiScope(["apps/web/src/a.tsx", "docs/a.md"]), "web");
+  });
+
+  it("markdown inside a slice is not docs", () => {
+    assert.equal(classifyCiScope(["apps/web/public/x.md"]), "web");
+    assert.equal(classifyCiScope(["apps/server/README.md"]), "full");
   });
 
   it("anything outside web and docs runs the full gate", () => {

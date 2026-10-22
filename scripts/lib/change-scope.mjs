@@ -5,6 +5,17 @@ const BOTH = ["server", "hosting"];
 const FILE_RULES = [
   { rule: "docs", targets: [], matches: (filePath) => isDocsPath(filePath) },
   {
+    rule: "release-pipeline",
+    targets: BOTH,
+    matches: (filePath) => filePath === ".github/workflows/release.yml",
+  },
+  {
+    rule: "server-deploy",
+    targets: ["server"],
+    matches: (filePath) =>
+      filePath === "scripts/deploy-server.sh" || filePath === "cloudbuild.server.yaml",
+  },
+  {
     rule: "manifest",
     targets: BOTH,
     matches: (filePath) =>
@@ -15,8 +26,7 @@ const FILE_RULES = [
   {
     rule: "server",
     targets: ["server"],
-    matches: (filePath) =>
-      filePath.startsWith("apps/server/") || filePath === "cloudbuild.server.yaml",
+    matches: (filePath) => filePath.startsWith("apps/server/"),
   },
   {
     rule: "hosting-config",
@@ -38,7 +48,12 @@ const TOOLING_FILES = [
   "firestore.rules",
 ];
 
+function isSlicePath(filePath) {
+  return filePath.startsWith("apps/") || filePath.startsWith("packages/");
+}
+
 function isDocsPath(filePath) {
+  if (isSlicePath(filePath)) return false;
   return (
     filePath.startsWith("docs/") || filePath.startsWith(".claude/") || filePath.endsWith(".md")
   );

@@ -3,6 +3,7 @@
 // --dry-run prints the plan; --plan-json prints it as JSON for CI; --only=server|hosting|both overrides.
 import { execFileSync, spawnSync } from "node:child_process";
 import { planTarget } from "./lib/change-scope.mjs";
+import { listChangedFilesSince } from "./lib/git-changes.mjs";
 import {
   fetchHostingBuildSha,
   fetchServerHealth,
@@ -61,15 +62,6 @@ async function readLiveHostingSha() {
   }
 }
 
-function listChangedFilesSince(liveSha) {
-  try {
-    const liveCommit = git(["rev-parse", "--verify", "--quiet", `${liveSha}^{commit}`]);
-    return git(["diff", "--name-only", liveCommit, "HEAD"]).split("\n").filter(Boolean);
-  } catch {
-    return undefined;
-  }
-}
-
 async function buildReleasePlan(only) {
   const headSha = git(["rev-parse", "--short", "HEAD"]);
   const liveByTarget = {
@@ -77,7 +69,12 @@ async function buildReleasePlan(only) {
     hosting: await readLiveHostingSha(),
   };
   const targets = Object.entries(liveByTarget).map(([target, { liveSha, detail }]) => ({
-    ...planTarget({ target, liveSha, changedFiles: listChangedFilesSince(liveSha), only }),
+    ...planTarget({
+      target,
+      liveSha,
+      changedFiles: listChangedFilesSince(liveSha, REPO_ROOT),
+      only,
+    }),
     liveSha: liveSha ?? null,
     liveShaSource: detail,
   }));
