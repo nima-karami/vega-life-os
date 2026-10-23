@@ -24,6 +24,12 @@ const timeOf = (frames: BootFrame[], matches: (frame: BootFrame) => boolean) => 
   if (!frame?.splashTime) throw new Error("no traced frame matched");
   return frame.splashTime;
 };
+// A stalled main thread drops frames, so the first visible frame can trail the real start.
+const frameGapBefore = (frames: BootFrame[], matches: (frame: BootFrame) => boolean) => {
+  const timed = frames.filter((frame) => frame.splashTime !== null);
+  const index = timed.findIndex(matches);
+  return index > 0 ? (timed[index].splashTime ?? 0) - (timed[index - 1].splashTime ?? 0) : 0;
+};
 const isOut = (frame: BootFrame) => frame.state.split(" ").includes("out");
 const isReturn = (frame: BootFrame) => frame.state.split(" ").includes("return");
 const beforeOut = (frames: BootFrame[]) => frames.slice(0, frames.findIndex(isOut));
@@ -58,11 +64,14 @@ test("a typical load draws the mark, dwells on the tagline for 600ms, then hands
   await page.goto("/");
   const { frames } = await readBootTrace(page);
 
-  const tagStart = timeOf(frames, (frame) => frame.tagOpacity > 0);
+  const isTagShown = (frame: BootFrame) => frame.tagOpacity > 0;
+  const tagStart = timeOf(frames, isTagShown);
   const outStart = timeOf(frames, isOut);
   expect(tagStart).toBeGreaterThanOrEqual(640);
   expect(outStart).toBeGreaterThanOrEqual(1240 - FRAME_SLACK_MS);
-  expect(outStart - tagStart).toBeGreaterThanOrEqual(600 - FRAME_SLACK_MS);
+  expect(outStart - tagStart).toBeGreaterThanOrEqual(
+    600 - FRAME_SLACK_MS - frameGapBefore(frames, isTagShown),
+  );
   const shown = beforeOut(frames);
   expect(shown.some((frame) => frame.tileOpacity === 1 && frame.strokeOffset === "0px")).toBe(true);
   expect(shown.some((frame) => frame.tagOpacity === 1)).toBe(true);
