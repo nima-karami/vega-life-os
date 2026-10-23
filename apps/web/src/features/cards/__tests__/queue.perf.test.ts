@@ -19,30 +19,31 @@ function measureMedianMs(run: (attempt: number) => void): number {
   return timings.sort((a, b) => a - b)[Math.floor(RUNS / 2)];
 }
 
-// Budgets carry a wide CI margin; the quadratic planner took ~11 s at 10k and ~52 s at 20k.
+// Budgets sit 10x+ under the quadratic planner (~11 s at 10k, ~52 s at 20k) yet far above the
+// ~10 ms this one takes, so a busy 2-core runner cannot trip them.
 describe("deck planning stays sub-quadratic", () => {
   const poolOf = (size: number) =>
     buildSyntheticPool({ size, seed: size, categories: CATEGORIES, dueShare: 0.2 });
 
-  it("plans a whole 10k-card pass in under 50 ms", () => {
+  it("plans a whole 10k-card pass in under 1,000 ms", () => {
     const pool = poolOf(10_000);
     expect(
       measureMedianMs((attempt) => buildFeedQueue(pool, { seed: attempt, today: POOL_TODAY })),
-    ).toBeLessThan(50);
+    ).toBeLessThan(1_000);
   });
 
-  it("plans a whole 20k-card pass in under 100 ms", () => {
+  it("plans a whole 20k-card pass in under 2,000 ms", () => {
     const pool = poolOf(20_000);
     expect(
       measureMedianMs((attempt) => buildFeedQueue(pool, { seed: attempt, today: POOL_TODAY })),
-    ).toBeLessThan(100);
+    ).toBeLessThan(2_000);
   });
 
-  it("opens a 10k-card deck in under 50 ms", () => {
+  it("opens a 10k-card deck in under 1,000 ms", () => {
     const cards = poolOf(10_000);
     const source = { cards, prefs: DEFAULT_CARD_PREFS, today: POOL_TODAY };
     expect(measureMedianMs((attempt) => planDeck({ ...source, baseSeed: attempt }))).toBeLessThan(
-      50,
+      1_000,
     );
   });
 });

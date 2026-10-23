@@ -25,7 +25,8 @@ const computeBlockSize = (size: number, categoryCount: number): number =>
  * The rest lane in pool order, cut into small blocks that each keep their eligible weight and
  * a per-category tally of it, both under Fenwick trees. A draw finds its block in O(log N) —
  * less the blocked category's tree while the interleave guard holds one — then walks that
- * block's cards, so it lands on the card a linear walk over the whole lane would.
+ * block's cards. Its picks match the old linear walk (characterization pins + fuzz); sums are
+ * kept by subtraction, so that match is empirical rather than bit-for-bit by construction.
  */
 export function createRestLane(
   entries: readonly RestLaneCard[],
