@@ -11,18 +11,23 @@
 import type { CalendarEvent } from "@vega/shared";
 import type { Task } from "@/features/tasks";
 
-/** Timed tasks for a given ISO day (rendered as positioned chips). */
-export function getTimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
-  return tasks.filter((t) => t.time != null && t.date === dayIso);
-}
+/** A task with a time draws as a positioned chip on the timed grid. */
+export const isGridTask = (task: Task): boolean => Boolean(task.time);
 
 /**
- * Dated-but-untimed ONE-OFF tasks for a given ISO day (the all-day row).
- * Anytime-habit instances (kind "habit", time null) are excluded — they live in
- * Today's Daily-habits strip, not the calendar.
+ * An untimed ONE-OFF belongs to the all-day row. Anytime-habit instances (kind "habit",
+ * time null) are excluded — they live in Today's Daily-habits strip, not the calendar.
  */
+export const isAllDayRowTask = (task: Task): boolean => task.time == null && task.kind !== "habit";
+
+/** Timed tasks for a given ISO day (rendered as positioned chips). */
+export function getTimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
+  return tasks.filter((t) => t.date === dayIso && isGridTask(t));
+}
+
+/** Dated-but-untimed one-off tasks for a given ISO day (the all-day row). */
 export function getUntimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
-  return tasks.filter((t) => t.date === dayIso && t.time == null && t.kind !== "habit");
+  return tasks.filter((t) => t.date === dayIso && isAllDayRowTask(t));
 }
 
 /** Backlog tasks with no date, ordered by their `order` field. */

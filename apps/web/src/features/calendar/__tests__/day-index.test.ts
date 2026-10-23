@@ -70,6 +70,7 @@ describe("buildTaskDayIndex", () => {
     const index = buildTaskDayIndex(tasks);
     expect(getDayTasks(index, WED)).toBe(getDayTasks(index, "2026-10-22"));
     expect(getDayTasks(index, WED).timed).toEqual([]);
+    expect(Object.isFrozen(getDayTasks(index, WED).timed)).toBe(true);
   });
 });
 
@@ -132,6 +133,30 @@ describe("resolveDayColumn", () => {
     );
     expect(column.tasks).toBe(getDayTasks(index, MON).timed);
     expect(column.placements.get("a")).toEqual({ date: MON, start: 720, durationMin: 60 });
+  });
+
+  it("keeps a populated untouched day's list while a chip moves within another day", () => {
+    const drag = buildDrag({ id: "a", origDate: MON, origStart: 540 });
+    const placements = computeDragPlacements(drag, "a", preview(MON, 720));
+    expect(resolveDayColumn(index, TUE, placements).tasks).toBe(getDayTasks(index, TUE).timed);
+  });
+
+  it("lands a group member on the day the anchor's delta takes it to", () => {
+    const drag = buildDrag({
+      id: "b",
+      origDate: TUE,
+      origStart: 600,
+      group: [
+        { id: "b", date: TUE, start: 600, durationMin: 60, allDay: false },
+        { id: "d", date: MON, start: 660, durationMin: 60, allDay: false },
+      ],
+    });
+    const placements = computeDragPlacements(drag, "b", preview(WED, 600));
+    expect(idsOf(resolveDayColumn(index, MON, placements).tasks)).toEqual(["a"]);
+    const tuesday = resolveDayColumn(index, TUE, placements);
+    expect(idsOf(tuesday.tasks)).toEqual(["d", "g"]);
+    expect(tuesday.placements.get("d")).toEqual({ date: TUE, start: 660, durationMin: 60 });
+    expect(idsOf(resolveDayColumn(index, WED, placements).tasks)).toEqual(["b"]);
   });
 
   it("moves a chip across days in store order", () => {

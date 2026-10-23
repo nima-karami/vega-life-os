@@ -3,7 +3,12 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { Task } from "@/features/tasks";
 import type { DragPreview, DragState } from "./drag-state";
 import { shiftSelection } from "./geometry";
-import { getSingleDayAllDayLived, getTimedLivedForDay } from "./grid-data";
+import {
+  getSingleDayAllDayLived,
+  getTimedLivedForDay,
+  isAllDayRowTask,
+  isGridTask,
+} from "./grid-data";
 
 /** Where a chip draws while a drag is live, in place of its stored date and time. */
 export interface ChipPlacement {
@@ -13,9 +18,9 @@ export interface ChipPlacement {
 }
 
 export interface DayTasks {
-  /** Grid chips: a truthy time, in store order. */
+  /** Grid chips (`isGridTask`), in store order. */
   readonly timed: readonly Task[];
-  /** The all-day row: untimed one-offs, the same set as `getUntimedTasksForDay`. */
+  /** The all-day row (`isAllDayRowTask`), in store order. */
   readonly untimed: readonly Task[];
 }
 
@@ -30,12 +35,12 @@ export interface DayColumnTasks {
   placements: ReadonlyMap<string, ChipPlacement>;
 }
 
-const EMPTY_DAY: DayTasks = { timed: [], untimed: [] };
+const EMPTY_DAY: DayTasks = Object.freeze({ timed: Object.freeze([]), untimed: Object.freeze([]) });
 const NO_PLACEMENTS: ReadonlyMap<string, ChipPlacement> = new Map();
 
 function addToDay(byDay: TaskDayIndex["byDay"], task: Task, dayIso: string) {
-  const isTimed = Boolean(task.time);
-  if (!isTimed && (task.time != null || task.kind === "habit")) return;
+  const isTimed = isGridTask(task);
+  if (!isTimed && !isAllDayRowTask(task)) return;
   let day = byDay.get(dayIso);
   if (!day) {
     day = { timed: [], untimed: [] };
@@ -93,7 +98,7 @@ export function computeDragPlacements(
 
 function findTimedTask(index: TaskDayIndex, id: string): Task | null {
   const task = findIndexedTask(index, id);
-  return task?.time ? task : null;
+  return task && isGridTask(task) ? task : null;
 }
 
 function rebuildDayTasks(
