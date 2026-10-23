@@ -8,6 +8,16 @@ import { saveGratitudeNudgeAck } from "./nudge-ack";
  *  Dexie/Firestore write is debounced. */
 const SAVE_DEBOUNCE_MS = 800;
 
+/** Swap the entry in where it already sits, else insert it at its date, keeping newest-first. */
+function placeEntryByDate(journal: DayEntry[], entry: DayEntry): DayEntry[] {
+  if (journal.some((existing) => existing.id === entry.id)) {
+    return journal.map((existing) => (existing.id === entry.id ? entry : existing));
+  }
+  const olderIndex = journal.findIndex((existing) => existing.date < entry.date);
+  const insertAt = olderIndex === -1 ? journal.length : olderIndex;
+  return [...journal.slice(0, insertAt), entry, ...journal.slice(insertAt)];
+}
+
 export interface JournalSlice {
   journal: DayEntry[];
   getDayEntry: (date: string) => DayEntry | undefined;
@@ -79,7 +89,7 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
         if (existing) get().removeDayEntry(existing.id);
         return null;
       }
-      set((s) => ({ journal: [merged, ...s.journal.filter((e) => e.id !== merged.id)] }));
+      set((s) => ({ journal: placeEntryByDate(s.journal, merged) }));
       if (opts?.immediate) {
         pending.delete(merged.id);
         savePut("journal", merged);
@@ -97,7 +107,7 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
 
     restoreDayEntry: (entry) => {
       pending.delete(entry.id);
-      set((s) => ({ journal: [entry, ...s.journal.filter((e) => e.id !== entry.id)] }));
+      set((s) => ({ journal: placeEntryByDate(s.journal, entry) }));
       savePut("journal", entry);
     },
   };

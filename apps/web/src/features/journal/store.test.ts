@@ -97,6 +97,40 @@ describe("journal slice", () => {
   });
 });
 
+describe("journal keeps newest-first order", () => {
+  const datesOf = (journal: DayEntry[]) => journal.map((entry) => entry.date);
+
+  function seedThreeDays() {
+    const { get } = makeSlice();
+    get().upsertDayEntry("2026-06-20", { mood: 1 });
+    get().upsertDayEntry("2026-06-21", { mood: 2 });
+    get().upsertDayEntry("2026-06-22", { mood: 3 });
+    return get;
+  }
+
+  it("replaces an edited older entry in place", () => {
+    const get = seedThreeDays();
+    get().upsertDayEntry("2026-06-20", { mood: 5 });
+    expect(datesOf(get().journal)).toEqual(["2026-06-22", "2026-06-21", "2026-06-20"]);
+    expect(get().getDayEntry("2026-06-20")?.mood).toBe(5);
+  });
+
+  it("slots a new backfilled day between its neighbours", () => {
+    const get = seedThreeDays();
+    get().removeDayEntry(get().getDayEntry("2026-06-21")?.id ?? "");
+    get().upsertDayEntry("2026-06-21", { mood: 4 });
+    expect(datesOf(get().journal)).toEqual(["2026-06-22", "2026-06-21", "2026-06-20"]);
+  });
+
+  it("restores an undone delete at its date, not at the top", () => {
+    const get = seedThreeDays();
+    const oldest = get().getDayEntry("2026-06-20") as DayEntry;
+    get().removeDayEntry(oldest.id);
+    get().restoreDayEntry(oldest);
+    expect(datesOf(get().journal)).toEqual(["2026-06-22", "2026-06-21", "2026-06-20"]);
+  });
+});
+
 describe("gratitude nudge acknowledgement", () => {
   it("never moves the watermark backwards", () => {
     const { get } = makeSlice();
