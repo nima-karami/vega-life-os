@@ -1,44 +1,41 @@
-import { CARD_TYPES, type Card } from "@vega/shared";
+import type { Card } from "@vega/shared";
+import { memo, useMemo } from "react";
 import { formatShortDate } from "@/core/lib/date";
 import { CheckField, ContextMenu, cx, Icon } from "@/core/ui";
-import { CategoryCombobox } from "../CategoryCombobox";
-import { describeCardLearning } from "../manager-query";
-import { AttributeChip } from "./AttributeChip";
-import {
-  buildCardMenuItems,
-  buildLearningOptions,
-  buildLearningPatch,
-  buildTypeOptions,
-  type CardRowActions,
-} from "./card-row-actions";
+import { CardAttributeChip } from "./CardAttributeChip";
+import { buildCardMenuItems, type CardRowActions } from "./card-row-actions";
 import { CELL_CLASS, CENTER_CELL_CLASS } from "./cell-styles";
-import { FixedListPicker } from "./FixedListPicker";
 
-export function CardsTableRow({
+export const CardsTableRow = memo(function CardsTableRow({
   card,
+  index,
   template,
   categories,
   isSelected,
-  isFirst,
   actions,
 }: {
   card: Card;
+  index: number;
   template: string;
   categories: string[];
   isSelected: boolean;
-  isFirst: boolean;
   actions: CardRowActions;
 }) {
   const isHidden = card.hiddenAt !== null;
+  const menuItems = useMemo(
+    () => buildCardMenuItems(card, actions, { isSelected }),
+    [card, actions, isSelected],
+  );
 
   return (
-    <ContextMenu items={buildCardMenuItems(card, actions, { isSelected })}>
+    <ContextMenu items={menuItems}>
       <div
         data-card-row={card.id}
+        data-index={index}
         style={{ gridTemplateColumns: template }}
         className={cx(
           "grid h-11",
-          !isFirst && "border-border border-t",
+          index !== 0 && "border-border border-t",
           isSelected && "bg-accent/[0.06]",
           isHidden && "opacity-50",
         )}
@@ -63,54 +60,30 @@ export function CardsTableRow({
         </span>
 
         <span className={CELL_CLASS}>
-          <AttributeChip label={CARD_TYPES[card.type].label} ariaLabel={`Type of ${card.title}`}>
-            {(close) => (
-              <FixedListPicker
-                options={buildTypeOptions()}
-                selectedId={card.type}
-                ariaLabel="Card type"
-                onSelect={(id) => {
-                  actions.onTypeChange(card, id as Card["type"]);
-                  close();
-                }}
-              />
-            )}
-          </AttributeChip>
+          <CardAttributeChip
+            attribute="type"
+            card={card}
+            categories={categories}
+            actions={actions}
+          />
         </span>
 
         <span className={CELL_CLASS}>
-          <AttributeChip
-            label={card.category === "" ? "No category" : card.category}
-            ariaLabel={`Category of ${card.title}`}
-          >
-            {(close) => (
-              <CategoryCombobox
-                categories={categories}
-                selected={card.category}
-                ariaLabel="Filter categories"
-                onSelect={(category) => {
-                  actions.onPatch(card.id, { category });
-                  close();
-                }}
-              />
-            )}
-          </AttributeChip>
+          <CardAttributeChip
+            attribute="category"
+            card={card}
+            categories={categories}
+            actions={actions}
+          />
         </span>
 
         <span className={CELL_CLASS}>
-          <AttributeChip label={describeCardLearning(card)} ariaLabel={`Learning of ${card.title}`}>
-            {(close) => (
-              <FixedListPicker
-                options={buildLearningOptions(card)}
-                selectedId={card.box === null ? "not-learning" : "learning"}
-                ariaLabel="Learning state"
-                onSelect={(id) => {
-                  actions.onPatch(card.id, buildLearningPatch(id === "learning"));
-                  close();
-                }}
-              />
-            )}
-          </AttributeChip>
+          <CardAttributeChip
+            attribute="learning"
+            card={card}
+            categories={categories}
+            actions={actions}
+          />
         </span>
 
         <span className={cx(CELL_CLASS, "text-muted text-xs tabular-nums")}>
@@ -130,4 +103,4 @@ export function CardsTableRow({
       </div>
     </ContextMenu>
   );
-}
+});

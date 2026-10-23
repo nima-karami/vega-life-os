@@ -16,7 +16,7 @@ npm-workspaces monorepo, TypeScript throughout, Node 24.
 | Workspace | What it is | Stack |
 |---|---|---|
 | `apps/web` | The SPA and PWA, served by Firebase Hosting | React 19.2 · Vite 8 · Tailwind 4 · HeroUI 3 · react-router 8 · Zustand 5 · Dexie 4 · TipTap 3 · tRPC client 11 · Firebase 12 |
-| `apps/server` | The API on Cloud Run (`vega-server`): signed-in reads/writes and Google Calendar sync | Hono 4 · tRPC 11 · Firebase Admin 14 (Firestore) · googleapis |
+| `apps/server` | The API on Cloud Run (`vega-server`): signed-in reads/writes and Google Calendar sync | Hono 4 · tRPC 11 · Firebase Admin 14 (Firestore) · @googleapis/calendar |
 | `packages/shared` | Zod 4 entity schemas and the `SCHEMA_HASH` both sides check | Zod 4 |
 
 Clients never write to Firestore directly (`firestore.rules` denies all writes); every

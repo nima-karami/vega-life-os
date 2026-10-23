@@ -1,6 +1,6 @@
 import { type Card, hasReveal } from "@vega/shared";
 import { useReducedMotion } from "framer-motion";
-import { useState } from "react";
+import { memo, useMemo } from "react";
 import { ContextMenu, cx } from "@/core/ui";
 import { CardFace } from "../face/CardFace";
 import { CardFlip } from "../face/CardFlip";
@@ -14,21 +14,27 @@ const CARD_CHROME = "rounded-[13px] border shadow-soft";
 // CardFlip paints that border on each face, so the face is laid out inside it, not across it.
 const CARD_CHROME_BORDER_PX = 1;
 
-export function GalleryTile({
+export const GalleryTile = memo(function GalleryTile({
   card,
   isSelected,
   actions,
   tileWidthPx,
+  isTurned,
+  onToggleTurn,
 }: {
   card: Card;
   isSelected: boolean;
   actions: CardRowActions;
   tileWidthPx: number;
+  isTurned: boolean;
+  onToggleTurn: (id: string) => void;
 }) {
-  const [isTurned, setIsTurned] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const canTurn = hasReveal(card);
-  const menuItems = buildCardMenuItems(card, actions, { isSelected });
+  const menuItems = useMemo(
+    () => buildCardMenuItems(card, actions, { isSelected }),
+    [card, actions, isSelected],
+  );
   const scale = deriveGalleryScale(tileWidthPx - 2 * CARD_CHROME_BORDER_PX);
   const faceSide = (side: FaceSide) =>
     scale > 0 ? (
@@ -63,10 +69,10 @@ export function GalleryTile({
           "rounded-[13px] outline-none focus-visible:ring-2 focus-visible:ring-accent",
         )}
         aria-label={`${card.title}, ${isTurned ? "reveal" : "face"}`}
-        onClick={() => setIsTurned((current) => !current)}
+        onClick={() => onToggleTurn(card.id)}
       >
         {face}
       </button>
     </ContextMenu>
   );
-}
+});

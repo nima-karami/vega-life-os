@@ -3,28 +3,35 @@
 FROM node:24-slim AS base
 WORKDIR /repo
 ENV HUSKY=0
-
-FROM base AS deps
-ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
-RUN npm pkg delete scripts.prepare && npm ci
+RUN npm pkg delete scripts.prepare
 
-FROM base AS runtime
+FROM base AS deps
+ENV NODE_ENV=production
+RUN npm ci
+
+FROM base AS build
+RUN npm ci
+COPY packages/shared ./packages/shared
+COPY apps/server ./apps/server
+RUN npm run build --workspace @vega/server
+
+FROM node:24-slim AS runtime
+WORKDIR /repo
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV FIRESTORE_DB="(default)"
 ENV PROJECT_ID=vega-life-os
 COPY --from=deps /repo/node_modules ./node_modules
-COPY package.json package-lock.json ./
-COPY packages/shared ./packages/shared
-COPY apps/server ./apps/server
+COPY apps/server/package.json ./apps/server/
+COPY --from=build /repo/apps/server/dist ./apps/server/dist
 ARG GIT_SHA=dev
 ARG APP_VERSION=dev
 ENV GIT_SHA=$GIT_SHA
 ENV APP_VERSION=$APP_VERSION
 WORKDIR /repo/apps/server
 EXPOSE 8080
-CMD ["npx", "tsx", "src/index.ts"]
+CMD ["node", "dist/index.js"]

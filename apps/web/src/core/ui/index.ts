@@ -1,4 +1,5 @@
 export { AddButton } from "./AddButton";
+export { APP_SCROLLER_ID, getAppScroller } from "./app-scroller";
 export { growToFitContent } from "./auto-grow";
 export type { BreadcrumbItem } from "./breadcrumb";
 export { EntityBreadcrumb } from "./breadcrumb";

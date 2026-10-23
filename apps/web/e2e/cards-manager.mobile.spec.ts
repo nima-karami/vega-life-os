@@ -1047,10 +1047,16 @@ test("the compact branch still reaches both empty states (390px)", async ({ page
   await expect(page.getByText("Nothing matches those filters")).toBeVisible();
   await search.fill("");
 
-  const total = await rows(page).count();
+  // The list is windowed, so the deck size comes from the stats line, and each row is found by
+  // its list index — a tick scrolls the next one into the window.
+  const stats = await page.getByText(/^\d+ cards ·/).innerText();
+  const total = Number.parseInt(stats, 10);
   expect(total).toBeGreaterThan(0);
   for (let index = 0; index < total; index += 1) {
-    await rows(page).nth(index).getByRole("checkbox").click({ force: true });
+    await page
+      .locator(`[data-card-row][data-index="${index}"]`)
+      .getByRole("checkbox")
+      .click({ force: true });
   }
   await expect(page.getByText(`${total} selected`)).toBeVisible();
 

@@ -1,5 +1,5 @@
 import type { Card, CardTypeId } from "@vega/shared";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
@@ -48,9 +48,11 @@ export function CardsPage() {
   const [pendingDelete, setPendingDelete] = useState<Card | null>(null);
 
   const today = todayISO();
+  // The field echoes each keystroke at once; the list catches up when the main thread is free.
+  const listQuery = useDeferredValue(query);
   const rows = useMemo(
-    () => queryCards(cards, { query, filter, sort, today }),
-    [cards, query, filter, sort, today],
+    () => queryCards(cards, { query: listQuery, filter, sort, today }),
+    [cards, listQuery, filter, sort, today],
   );
   const categories = useMemo(() => listCardCategories(cards), [cards]);
   const stats = useMemo(() => computeCardStats(cards, today), [cards, today]);
@@ -75,22 +77,29 @@ export function CardsPage() {
 
   const isDeckEmpty = cards.length === 0;
 
-  const applyTypeChange = (card: Card, nextType: CardTypeId) =>
-    updateCard(card.id, buildTypeChangePatch(card, nextType));
+  const applyTypeChange = useCallback(
+    (card: Card, nextType: CardTypeId) => updateCard(card.id, buildTypeChangePatch(card, nextType)),
+    [updateCard],
+  );
 
-  const actions: CardRowActions = {
-    onPatch: (id, patch) => updateCard(id, patch),
-    onTypeChange: (card, nextType) => {
-      if (nextType === card.type) return;
-      if (losesReviewOnTypeChange(card, nextType)) setPendingTypeChange({ card, nextType });
-      else applyTypeChange(card, nextType);
-    },
-    onToggleHidden: (card) =>
-      card.hiddenAt === null ? hideCard(card.id) : updateCard(card.id, { hiddenAt: null }),
-    onToggleSelect: selection.toggleOne,
-    onOpen: (card) => navigate(`/cards/${card.id}`),
-    onRequestDelete: (card) => setPendingDelete(card),
-  };
+  // Stable across renders, so a memoized row only repaints when its own card or tick changes.
+  const toggleOne = selection.toggleOne;
+  const actions = useMemo<CardRowActions>(
+    () => ({
+      onPatch: (id, patch) => updateCard(id, patch),
+      onTypeChange: (card, nextType) => {
+        if (nextType === card.type) return;
+        if (losesReviewOnTypeChange(card, nextType)) setPendingTypeChange({ card, nextType });
+        else applyTypeChange(card, nextType);
+      },
+      onToggleHidden: (card) =>
+        card.hiddenAt === null ? hideCard(card.id) : updateCard(card.id, { hiddenAt: null }),
+      onToggleSelect: toggleOne,
+      onOpen: (card) => navigate(`/cards/${card.id}`),
+      onRequestDelete: (card) => setPendingDelete(card),
+    }),
+    [updateCard, hideCard, toggleOne, navigate, applyTypeChange],
+  );
 
   const header = (
     <header className="flex items-end justify-between gap-4">

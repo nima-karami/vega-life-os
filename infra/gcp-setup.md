@@ -43,7 +43,7 @@ authenticate at all. The workflow's own `refs/heads/main` check is a second line
 | `roles/iam.workloadIdentityUser` | on `vega-deployer` itself, for `principalSet://…/workloadIdentityPools/github/attribute.repository/nima-karami/vega-life-os` | Lets tokens from the pool impersonate the deployer. |
 
 The deployer has no Secret Manager or Firestore access. A `run deploy` with only `--image`
-keeps the service's env and secret bindings, and the runtime SA, not the deployer, reads
+and `--cpu-boost` keeps the service's env and secret bindings, and the runtime SA, not the deployer, reads
 the secrets.
 
 The runtime SA stays the default compute SA on purpose. Swapping it could break the live
