@@ -8,12 +8,26 @@ import { enterApp } from "./helpers/app";
  * under reduced motion) gets the plain route fade.
  */
 
-type MorphRecord = { started: number; names: string[] };
+type MorphRecord = {
+  started: number;
+  names: string[];
+  directions: string[];
+  orphans: number;
+  finished: number;
+  fillArrivalOpacity: string[];
+};
 
 /** Wraps startViewTransition to count transitions and record the names captured in each. */
 async function recordViewTransitions(page: Page) {
   await page.addInitScript(() => {
-    const record: MorphRecord = { started: 0, names: [] };
+    const record: MorphRecord = {
+      started: 0,
+      names: [],
+      directions: [],
+      orphans: 0,
+      finished: 0,
+      fillArrivalOpacity: [],
+    };
     Object.assign(window, { __morph: record });
     const original = document.startViewTransition?.bind(document);
     if (!original) return;
@@ -24,16 +38,44 @@ async function recordViewTransitions(page: Page) {
     document.startViewTransition = ((update: ViewTransitionUpdateCallback) => {
       record.started += 1;
       record.names.push(...readNames());
-      return original(async () => {
+      const root = document.documentElement;
+      const transition = original(async () => {
         await update();
         record.names.push(...readNames());
+        if (root.dataset.routeMorph) record.directions.push(root.dataset.routeMorph);
+        if (root.dataset.routeMorphOrphan !== undefined) record.orphans += 1;
       });
+      const arrival = "::view-transition-new(entity-fill)";
+      transition.ready.then(() => {
+        for (const animation of document.getAnimations()) {
+          if ((animation.effect as KeyframeEffect | null)?.pseudoElement !== arrival) continue;
+          const end = Number(animation.effect?.getComputedTiming().endTime ?? 0);
+          animation.pause();
+          animation.currentTime = end - 1;
+          record.fillArrivalOpacity.push(getComputedStyle(root, arrival).opacity);
+          animation.play();
+        }
+      });
+      const countFinished = () => {
+        record.finished += 1;
+      };
+      transition.finished.then(countFinished, countFinished);
+      return transition;
     }) as typeof document.startViewTransition;
   });
 }
 
-const readMorph = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __morph: MorphRecord }).__morph);
+/** The record once every started transition has finished. */
+async function readMorph(page: Page) {
+  const read = () => page.evaluate(() => (window as unknown as { __morph: MorphRecord }).__morph);
+  await expect
+    .poll(async () => {
+      const record = await read();
+      return record.finished === record.started;
+    })
+    .toBe(true);
+  return read();
+}
 
 async function openHabits(page: Page) {
   await enterApp(page);
@@ -86,6 +128,7 @@ test("only the tapped card and its page header carry names", async ({ page }) =>
   // Captured once before and once after the swap: one of each part per snapshot.
   expect(names.filter((n) => n === "entity-fill")).toHaveLength(2);
   expect(names.filter((n) => n === "entity-title")).toHaveLength(2);
+  expect(names.filter((n) => n === "entity-icon")).toHaveLength(2);
 });
 
 test("a goal card opens its goal page from the value page", async ({ page }) => {
@@ -139,4 +182,87 @@ test("a browser without View Transitions gets the route fade", async ({ page }) 
   await expect.poll(() => layer.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
   await page.goBack();
   await expect(habitCard(page)).toBeVisible();
+});
+
+const readScrollTop = (page: Page) =>
+  page.evaluate(() => document.getElementById("main-content")?.scrollTop ?? -1);
+
+/** In-app navigation that is not a card: React Router sees a plain history change. */
+const navigateInApp = (page: Page, path: string) =>
+  page.evaluate((target) => {
+    window.history.pushState({}, "", target);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, path);
+
+test("Back restores the list's scroll onto the opened card; the page opens at the top", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await recordViewTransitions(page);
+  await openHabits(page);
+  const lastCard = page.locator('main a[href^="/habits/"]').last();
+  await lastCard.scrollIntoViewIfNeeded();
+  const listScroll = await readScrollTop(page);
+  expect(listScroll).toBeGreaterThan(0);
+
+  await lastCard.click();
+  await expect(habitName(page)).toBeVisible();
+  expect(await readScrollTop(page)).toBe(0);
+
+  await page.goBack();
+  await expect(lastCard).toBeVisible();
+  await expect.poll(() => readScrollTop(page)).toBe(listScroll);
+  expect((await readMorph(page)).directions).toEqual(["open", "back"]);
+});
+
+test("a Back React Router replays onto a non-entity page stays a plain fade", async ({ page }) => {
+  await recordViewTransitions(page);
+  await openHabits(page);
+  await habitCard(page).click();
+  await expect(habitName(page)).toBeVisible();
+  await page.goBack();
+  await expect(habitCard(page)).toBeVisible();
+
+  await navigateInApp(page, "/today");
+  await expect(page).toHaveURL(/\/today$/);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Habits", exact: true })).toBeVisible();
+  await expect(page.locator("html")).not.toHaveAttribute("data-route-morph");
+  const replayed = await readMorph(page);
+  // React Router did replay a transition here; it just carried nothing.
+  expect(replayed.started).toBe(3);
+  expect(replayed.directions).toEqual(["open", "back"]);
+  const layer = page.locator("#main-content > div").first();
+  await expect.poll(() => layer.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+});
+
+test("Back from a goal opened by its row lets the header fade instead of flying", async ({
+  page,
+}) => {
+  await recordViewTransitions(page);
+  await enterApp(page);
+  await page.goto("/values");
+  await page.locator('main a[href^="/values/"]').first().click();
+  await expect(page).toHaveURL(/\/values\/[^/]+$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/values$/);
+
+  await page.locator('main a[href^="/goals/"]').first().click();
+  await expect(page.getByRole("textbox", { name: "Goal name" })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/values$/);
+  await expect(page.locator("html")).not.toHaveAttribute("data-route-morph-orphan");
+  expect((await readMorph(page)).orphans).toBe(1);
+});
+
+test("under reduced motion a replayed Back still shows the card's fill", async ({ page }) => {
+  await recordViewTransitions(page);
+  await openHabits(page);
+  await habitCard(page).click();
+  await expect(habitName(page)).toBeVisible();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goBack();
+  await expect(habitCard(page)).toBeVisible();
+  const { fillArrivalOpacity } = await readMorph(page);
+  expect(Number(fillArrivalOpacity.at(-1))).toBeGreaterThan(0.9);
 });

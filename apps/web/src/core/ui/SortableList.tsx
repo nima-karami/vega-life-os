@@ -20,6 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { type ReactNode, useState } from "react";
 import { cx } from "./cx";
+import { DragOverlayContext } from "./entity-morph";
 import { Icon } from "./icons";
 import { useCompact } from "./useCompactModal";
 
@@ -222,7 +223,9 @@ export function SortableList<T>({
       </SortableContext>
       <DragOverlay>
         {activeItem === null ? null : (
-          <div className="cursor-grabbing">{renderItem(activeItem)}</div>
+          <DragOverlayContext.Provider value>
+            <div className="cursor-grabbing">{renderItem(activeItem)}</div>
+          </DragOverlayContext.Provider>
         )}
       </DragOverlay>
     </DndContext>

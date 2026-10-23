@@ -134,6 +134,7 @@ export function CardFill({ fill, isCarried }: { fill: string; isCarried: boolean
   return (
     <span
       aria-hidden
+      data-morph-fill={isCarried ? "" : undefined}
       className="absolute -inset-px -z-10 rounded-[16px]"
       style={{ background: fill, ...(isCarried && ENTITY_MORPH_STYLE.fill) }}
     />

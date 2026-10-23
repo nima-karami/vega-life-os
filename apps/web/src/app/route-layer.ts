@@ -1,4 +1,4 @@
-type MorphDirection = "open" | "back";
+export type MorphDirection = "open" | "back";
 
 export interface RouteLayer {
   pathname: string;

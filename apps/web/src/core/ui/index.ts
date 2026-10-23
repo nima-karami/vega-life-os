@@ -16,8 +16,9 @@ export { EmptyState } from "./EmptyState";
 export type { CardMeasure, CardMeta, CardTone, CardWeekDay } from "./EntityCard";
 export { CardFill, CardMetaLine, EntityCard } from "./EntityCard";
 export {
+  DragOverlayContext,
   ENTITY_MORPH_STYLE,
-  MORPH_FILL_PROPERTIES,
+  MORPH_PROPERTIES,
   useCarriedEntityPath,
   useEntityMorphHeader,
   useIsEntityCarried,

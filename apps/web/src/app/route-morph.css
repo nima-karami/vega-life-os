@@ -50,7 +50,6 @@
   z-index: 3;
 }
 
-/* One colour, so the snapshots stretch to the box and the pair draws the radius. */
 /* The fill is one flat colour, so the pair paints it and morphs radius and colour as one
    shape; a stretched snapshot would show the disc's circle as an ellipse mid-flight. The
    disc's own snapshot arrives at the end, for its hairline or icon-picker ring. */
@@ -74,11 +73,12 @@
   inline-size: auto;
   block-size: 100%;
 }
+/* The colour swap happens at the card end of the flight, where both lines are small. */
 ::view-transition-old(entity-title) {
-  animation: morph-fade-out 200ms linear 100ms both;
+  animation: morph-fade-out 80ms linear both;
 }
 ::view-transition-new(entity-title) {
-  animation: morph-fade-in 200ms linear 100ms both;
+  animation: morph-fade-in 80ms linear 20ms both;
 }
 
 ::view-transition-old(route-from) {
@@ -100,16 +100,30 @@
   animation: none;
 }
 :root[data-route-morph="back"]::view-transition-old(entity-title) {
-  animation: morph-fade-out 160ms linear both;
+  animation: morph-fade-out 90ms linear 230ms both;
 }
 :root[data-route-morph="back"]::view-transition-new(entity-title) {
-  animation: morph-fade-in 160ms linear both;
+  animation: morph-fade-in 90ms linear 230ms both;
 }
 :root[data-route-morph="back"]::view-transition-old(route-from) {
   animation: morph-fade-out 120ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 :root[data-route-morph="back"]::view-transition-new(route-to) {
   animation: morph-fade-in 200ms cubic-bezier(0.2, 0, 0, 1) 100ms both;
+}
+
+/* Nothing to land on: the carried parts leave with the page, as a plain fade. */
+:root[data-route-morph-orphan]::view-transition-group(entity-fill),
+:root[data-route-morph-orphan]::view-transition-group(entity-icon),
+:root[data-route-morph-orphan]::view-transition-group(entity-title),
+:root[data-route-morph-orphan]::view-transition-image-pair(entity-fill) {
+  animation: none;
+}
+:root[data-route-morph-orphan]::view-transition-old(entity-fill),
+:root[data-route-morph-orphan]::view-transition-old(entity-icon),
+:root[data-route-morph-orphan]::view-transition-old(entity-title) {
+  opacity: 1;
+  animation: morph-fade-out 120ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 /* Reduced motion: nothing travels; the route fade at 100ms out, 140ms in, linear. */
@@ -146,6 +160,9 @@
   from {
     opacity: 0;
   }
+  to {
+    opacity: 1;
+  }
 }
 @keyframes morph-rise-in {
   from {
@@ -159,13 +176,13 @@
     background-color: var(--morph-card-fill);
   }
   to {
-    border-radius: 22px;
+    border-radius: var(--morph-disc-radius, 22px);
     background-color: var(--morph-disc-fill, transparent);
   }
 }
 @keyframes morph-fill-back {
   from {
-    border-radius: 22px;
+    border-radius: var(--morph-disc-radius, 22px);
     background-color: var(--morph-disc-fill, transparent);
   }
   to {
