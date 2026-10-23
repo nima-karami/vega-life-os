@@ -136,7 +136,11 @@ export function TodayPage() {
         onViewDateChange={setViewDate}
         onStepViewDate={stepViewDate}
         action={
-          <JournalEntryButton entry={viewEntry} onPress={() => navigate(`/journal/${viewDate}`)} />
+          <JournalEntryButton
+            entry={viewEntry}
+            isCarryTarget={isToday}
+            onPress={() => navigate(`/journal/${viewDate}`)}
+          />
         }
       />
 

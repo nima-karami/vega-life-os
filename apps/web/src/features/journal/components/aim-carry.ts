@@ -39,6 +39,22 @@ export function aimCarry(layer: HTMLElement): boolean {
   const targetBox = target.getBoundingClientRect();
   const writtenLines = [...layer.querySelectorAll("textarea")].filter((line) => line.value !== "");
   for (const [i, line] of writtenLines.entries()) aimLine(line, targetBox, i);
-  target.setAttribute(CARRY_LANDING_ATTR, "");
+  markLanding(target);
   return true;
+}
+
+/** Clears the mark once the pop and the dot have both run, so a later dot never replays. */
+function markLanding(target: HTMLElement) {
+  const clearWhenSettled = () => {
+    const isPlaying = target
+      .getAnimations({ subtree: true })
+      .some((animation) => animation instanceof CSSAnimation);
+    if (isPlaying) return;
+    target.removeAttribute(CARRY_LANDING_ATTR);
+    target.removeEventListener("animationend", clearWhenSettled);
+    target.removeEventListener("animationcancel", clearWhenSettled);
+  };
+  target.addEventListener("animationend", clearWhenSettled);
+  target.addEventListener("animationcancel", clearWhenSettled);
+  target.setAttribute(CARRY_LANDING_ATTR, "");
 }

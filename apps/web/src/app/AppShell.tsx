@@ -77,6 +77,7 @@ export function AppShell() {
       </div>
       {gratitude.isShown && (
         <GratitudeStep
+          key={today}
           date={today}
           onLeave={gratitude.beginLeaving}
           onLeft={gratitude.endLeaving}

@@ -5,14 +5,22 @@ import "./journal-entry-button.css";
 
 export function JournalEntryButton({
   entry,
+  isCarryTarget,
   onPress,
 }: {
   entry: DayEntry | undefined;
+  /** only today's pill may catch the gratitude page's lines; another day's would mislabel them */
+  isCarryTarget: boolean;
   onPress: () => void;
 }) {
   const hasEntry = getEntryStatus(entry) !== "none";
   return (
-    <Button variant="secondary" size="sm" onPress={onPress} data-gratitude-target="">
+    <Button
+      variant="secondary"
+      size="sm"
+      onPress={onPress}
+      data-gratitude-target={isCarryTarget ? "" : undefined}
+    >
       <Icon name="note" size={15} />
       {hasEntry ? "Edit entry" : "Journal"}
       {hasEntry && (
