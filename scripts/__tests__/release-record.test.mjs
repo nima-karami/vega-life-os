@@ -33,6 +33,9 @@ function commit(name, subject) {
 before(() => {
   repoDir = mkdtempSync(path.join(tmpdir(), "vega-release-record-"));
   runGit(["init", "--quiet", "--initial-branch=main"]);
+  // ensureReleaseTag runs git itself; CI runners have no global identity.
+  runGit(["config", "user.name", "test"]);
+  runGit(["config", "user.email", "test@example.com"]);
   commit("root", "chore: root");
   commit("first", "feat: first feature");
   runGit(["tag", "-a", "v2026.9.1", "-m", "v2026.9.1"]);
