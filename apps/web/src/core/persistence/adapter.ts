@@ -11,6 +11,7 @@ import type {
   FinanceTransaction,
   MindCard,
   MindMetaRecord,
+  WireRow,
 } from "@vega/shared";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
@@ -47,6 +48,10 @@ export interface Dataset {
 
 export type CollectionName = keyof Dataset;
 export type Entity = Dataset[CollectionName][number];
+
+/** A row as an adapter loads it: the backend leaves the field-LWW stamps out, Dexie keeps them. */
+export type LoadedRow<T> = WireRow<T> & { fieldUpdatedAt?: Record<string, string> };
+export type LoadedDataset = { [C in CollectionName]: LoadedRow<Dataset[C][number]>[] };
 
 export const COLLECTIONS: CollectionName[] = [
   "values",
@@ -123,10 +128,10 @@ export interface BulkRemoveResult {
 export interface PersistenceAdapter {
   init(): Promise<void>;
   isEmpty(): Promise<boolean>;
-  loadAll(): Promise<Dataset>;
+  loadAll(): Promise<LoadedDataset>;
   /** Monotonic per-user write counter — one read that says whether `loadAll` is worth paying for. */
   readSyncVersion(): Promise<number>;
-  load<C extends CollectionName>(col: C): Promise<Dataset[C]>;
+  load<C extends CollectionName>(col: C): Promise<LoadedDataset[C]>;
   put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void>;
   bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult>;
   remove(col: CollectionName, id: string): Promise<void>;

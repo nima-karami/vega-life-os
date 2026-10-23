@@ -77,6 +77,8 @@ export function BrainWritePage() {
   const today = todayISO();
   const pool = useMemo(() => buildFeedPool(cards, cardPrefs, today), [cards, cardPrefs, today]);
   const poolById = useMemo(() => new Map(pool.map((card) => [card.id, card])), [pool]);
+  // A correct grade in due mode drops the card from the pool mid fly-off; its slot must outlive that.
+  const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
 
   const [baseSeed] = useState(() => Date.now() & 0xffff);
   const [deck, setDeck] = useState<DeckPlan>(EMPTY_DECK);
@@ -232,7 +234,7 @@ export function BrainWritePage() {
   };
 
   const renderEntry = (entry: DeckEntry, index: number) => {
-    const card = poolById.get(entry.cardId);
+    const card = cardsById.get(entry.cardId);
     if (!card) return null;
     const isActiveCard = index === currentIndex;
     return (

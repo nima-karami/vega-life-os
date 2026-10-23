@@ -1,9 +1,10 @@
-import type { CollectionName } from "@vega/shared";
+import type { CollectionName, SyncReceipt } from "@vega/shared";
 import { z } from "zod";
 import { shouldTriggerCalendarSync } from "../features/calendar/schedule-reconcile";
 import { protectedProcedure, router } from "../trpc/trpc";
 import { writableSchema, writeRecord } from "./collection-store";
 import { createRepository, type WritableEntity } from "./repository";
+import { toSyncedResponse, toWireRow, toWireRows } from "./wire";
 
 const idInput = z.object({ id: z.string() });
 
@@ -13,17 +14,24 @@ export function createCrudRouter<C extends CollectionName>(collection: C) {
     createRepository(ctx.firestore, ctx.uid, collection);
 
   return router({
-    list: protectedProcedure.query(({ ctx }) => repo(ctx).list()),
-    get: protectedProcedure.input(idInput).query(({ ctx, input }) => repo(ctx).get(input.id)),
-    upsert: protectedProcedure.input(writableSchema(collection)).mutation(({ ctx, input }) => {
-      const written = writeRecord(ctx, collection, input as WritableEntity<C>);
-      if (shouldTriggerCalendarSync(collection)) ctx.calendar.scheduleReconcile(ctx.uid);
-      return written;
+    list: protectedProcedure.query(async ({ ctx }) => toWireRows(await repo(ctx).list())),
+    get: protectedProcedure.input(idInput).query(async ({ ctx, input }) => {
+      const row = await repo(ctx).get(input.id);
+      return row ? toWireRow(row) : null;
     }),
-    delete: protectedProcedure.input(idInput).mutation(async ({ ctx, input }) => {
-      await repo(ctx).remove(input.id);
-      if (shouldTriggerCalendarSync(collection)) ctx.calendar.scheduleReconcile(ctx.uid);
-      return { id: input.id };
-    }),
+    upsert: protectedProcedure
+      .input(writableSchema(collection))
+      .mutation(async ({ ctx, input }) => {
+        const written = writeRecord(ctx, collection, input as WritableEntity<C>);
+        if (shouldTriggerCalendarSync(collection)) ctx.calendar.scheduleReconcile(ctx.uid);
+        return toSyncedResponse(await written);
+      }),
+    delete: protectedProcedure
+      .input(idInput)
+      .mutation(async ({ ctx, input }): Promise<{ id: string } & SyncReceipt> => {
+        const syncVersion = await repo(ctx).removeSynced(input.id);
+        if (shouldTriggerCalendarSync(collection)) ctx.calendar.scheduleReconcile(ctx.uid);
+        return { id: input.id, syncVersion };
+      }),
   });
 }

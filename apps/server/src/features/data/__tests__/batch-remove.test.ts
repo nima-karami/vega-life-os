@@ -50,7 +50,12 @@ describe("batched data.bulkRemove (real server vs emulator)", () => {
     });
 
     // 451 rows at two writes each is three ≤450-write batches.
-    expect(result).toEqual({ removed: 451, missing: 0, writtenChunks: 3 });
+    expect(result).toEqual({
+      removed: 451,
+      missing: 0,
+      writtenChunks: 3,
+      syncVersion: expect.any(Number),
+    });
     expect(await server.asUid(uid).data.list.query({ collection: "mindCards" })).toEqual([]);
   });
 
@@ -96,7 +101,7 @@ describe("batched data.bulkRemove (real server vs emulator)", () => {
       ids: idsOf(records),
     });
 
-    expect(replay).toEqual({ removed: 0, missing: 20, writtenChunks: 0 });
+    expect(replay).toEqual({ removed: 0, missing: 20, writtenChunks: 0, syncVersion: null });
     expect(await server.asUid(uid).data.syncVersion.query()).toBe(afterFirst);
   });
 
@@ -110,7 +115,12 @@ describe("batched data.bulkRemove (real server vs emulator)", () => {
       ids: [...idsOf(records), "ghost_1", "ghost_2"],
     });
 
-    expect(result).toEqual({ removed: 2, missing: 2, writtenChunks: 1 });
+    expect(result).toEqual({
+      removed: 2,
+      missing: 2,
+      writtenChunks: 1,
+      syncVersion: expect.any(Number),
+    });
     expect(await tombstonedIds(uid, "mindCards")).not.toContain("ghost_1");
   });
 
@@ -123,7 +133,7 @@ describe("batched data.bulkRemove (real server vs emulator)", () => {
       ids: [],
     });
 
-    expect(result).toEqual({ removed: 0, missing: 0, writtenChunks: 0 });
+    expect(result).toEqual({ removed: 0, missing: 0, writtenChunks: 0, syncVersion: null });
     expect(await server.asUid(uid).data.syncVersion.query()).toBe(before);
   });
 
@@ -159,7 +169,12 @@ describe("batched data.bulkRemove (real server vs emulator)", () => {
       ids: idsOf(records),
     });
 
-    expect(retry).toEqual({ removed: 226, missing: 225, writtenChunks: 2 });
+    expect(retry).toEqual({
+      removed: 226,
+      missing: 225,
+      writtenChunks: 2,
+      syncVersion: expect.any(Number),
+    });
     expect(await failing.asUid(uid).data.list.query({ collection: "mindCards" })).toEqual([]);
   });
 

@@ -2,6 +2,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { SCHEMA_HASH } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import { cors } from "hono/cors";
 import { readBearerToken } from "./core/http";
 import { type ReconcileDeps, runReconcileAll } from "./features/calendar/reconcile";
@@ -17,6 +18,27 @@ export type AppDeps = {
   calendar: CalendarContext;
   verifyOidc: OidcVerifier;
 };
+
+const COMPRESS_THRESHOLD_BYTES = 1024;
+
+/** A streamed or event-stream body must pass through untouched. */
+function isWholeJsonBody(response: Response): boolean {
+  const contentType = response.headers.get("Content-Type") ?? "";
+  return (
+    Boolean(response.body) &&
+    !response.headers.has("Transfer-Encoding") &&
+    contentType.startsWith("application/json")
+  );
+}
+
+/** tRPC sends no Content-Length, and without one `compress` cannot tell a tiny body to skip. */
+async function withContentLength(response: Response): Promise<Response> {
+  if (!isWholeJsonBody(response)) return response;
+  const body = await response.arrayBuffer();
+  const headers = new Headers(response.headers);
+  headers.set("Content-Length", String(body.byteLength));
+  return new Response(body, { status: response.status, statusText: response.statusText, headers });
+}
 
 export function buildApp(deps: AppDeps): Hono {
   const app = new Hono();
@@ -54,13 +76,17 @@ export function buildApp(deps: AppDeps): Hono {
     }),
   );
 
-  app.all("/trpc/*", (c) =>
-    fetchRequestHandler({
-      endpoint: "/trpc",
-      req: c.req.raw,
-      router: appRouter,
-      createContext: ({ req }) => deps.createContext({ req }),
-    }),
+  app.use("/trpc/*", compress({ threshold: COMPRESS_THRESHOLD_BYTES }));
+
+  app.all("/trpc/*", async (c) =>
+    withContentLength(
+      await fetchRequestHandler({
+        endpoint: "/trpc",
+        req: c.req.raw,
+        router: appRouter,
+        createContext: ({ req }) => deps.createContext({ req }),
+      }),
+    ),
   );
 
   app.post("/webhooks/gcal", async (c) => {
