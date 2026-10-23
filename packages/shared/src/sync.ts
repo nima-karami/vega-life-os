@@ -42,6 +42,8 @@ export function readSyncReceipt(response: unknown): number | null {
 
 export type SyncCursor = {
   reset(version: number | null): void;
+  /** The last refetch skipped or lost data, so the next poll must refetch whatever it reads. */
+  invalidate(): void;
   recordOwnWrite(version: number): void;
   shouldRefetch(polledVersion: number): boolean;
 };
@@ -62,11 +64,14 @@ export function createSyncCursor(): SyncCursor {
     while (pendingOwnVersions.delete(syncedVersion + 1)) syncedVersion += 1;
   };
 
+  const reset = (version: number | null) => {
+    syncedVersion = version;
+    pendingOwnVersions.clear();
+  };
+
   return {
-    reset(version) {
-      syncedVersion = version;
-      pendingOwnVersions.clear();
-    },
+    reset,
+    invalidate: () => reset(null),
     recordOwnWrite(version) {
       if (syncedVersion === null || version <= syncedVersion) return;
       pendingOwnVersions.add(version);

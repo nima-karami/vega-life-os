@@ -5,6 +5,8 @@ const server = vi.hoisted(() => ({
   loadAllCalls: 0,
   listeners: [] as ((version: number) => void)[],
   tasks: [] as { id: string; title: string; updatedAt: string }[],
+  pendingCollections: [] as string[],
+  isLoadDown: false,
 }));
 
 vi.mock("@/core/firebase/app", () => ({ auth: { currentUser: null }, db: {} }));
@@ -32,6 +34,7 @@ vi.mock("@/core/persistence/trpc-adapter", async () => {
       readSyncVersion = vi.fn(async () => server.version);
       loadAll = vi.fn(async () => {
         server.loadAllCalls += 1;
+        if (server.isLoadDown) throw new Error("backend down");
         return { ...createEmptyDataset(), tasks: server.tasks.map((task) => ({ ...task })) };
       });
     },
@@ -44,7 +47,7 @@ vi.mock("@/core/persistence/migrations", () => ({
 vi.mock("../persist", () => ({
   setPersistAuth: vi.fn(),
   bindPersistStore: vi.fn(),
-  pendingWriteCollections: () => new Set(),
+  pendingWriteCollections: () => new Set(server.pendingCollections),
 }));
 
 import { useStore } from "../store";
@@ -55,6 +58,8 @@ const latestListener = () => server.listeners[server.listeners.length - 1];
 describe("own writes and the sync cursor", () => {
   beforeEach(async () => {
     server.version = 5;
+    server.pendingCollections = [];
+    server.isLoadDown = false;
     server.tasks = [
       { id: "t1", title: "one", updatedAt: "2026-10-01T00:00:00.000Z" },
       { id: "t2", title: "two", updatedAt: "2026-10-01T00:00:00.000Z" },
@@ -69,6 +74,32 @@ describe("own writes and the sync cursor", () => {
     latestListener()(6);
     await useStore.getState().refetchIfChanged();
     expect(server.loadAllCalls).toBe(0);
+  });
+
+  it("refetches again when a refetch had to skip a collection with a write in flight", async () => {
+    server.pendingCollections = ["tasks"];
+    server.tasks = [{ ...server.tasks[0], title: "edited elsewhere" }, server.tasks[1]];
+    server.version = 6;
+    await useStore.getState().refetchIfChanged();
+    expect(useStore.getState().tasks[0].title).toBe("one");
+
+    server.pendingCollections = [];
+    latestListener()(7);
+    server.version = 7;
+    await useStore.getState().refetchIfChanged();
+
+    expect(server.loadAllCalls).toBe(2);
+    expect(useStore.getState().tasks[0].title).toBe("edited elsewhere");
+  });
+
+  it("refetches again after a refetch that failed to load", async () => {
+    server.isLoadDown = true;
+    server.version = 6;
+    await useStore.getState().refetchIfChanged();
+
+    server.isLoadDown = false;
+    await useStore.getState().refetchIfChanged();
+    expect(server.loadAllCalls).toBe(2);
   });
 
   it("refetches once when another device wrote between its own writes", async () => {

@@ -63,6 +63,16 @@ describe("sync cursor", () => {
     expect(cursor.shouldRefetch(1)).toBe(true);
   });
 
+  it("refetches on the next poll after an incomplete refetch, whatever its own writes say", () => {
+    const cursor = createSyncCursor();
+    cursor.reset(5);
+    expect(cursor.shouldRefetch(6)).toBe(true);
+    cursor.invalidate();
+    cursor.recordOwnWrite(7);
+    expect(cursor.shouldRefetch(7)).toBe(true);
+    expect(cursor.shouldRefetch(7)).toBe(false);
+  });
+
   it("forgets pending own writes on reset", () => {
     const cursor = createSyncCursor();
     cursor.reset(5);

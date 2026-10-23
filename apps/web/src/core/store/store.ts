@@ -344,7 +344,7 @@ export const useStore = create<RootState>((set, get, api) => ({
   // after a rejected write to reconcile the reverted collection. Best-effort; a
   // failed refetch leaves the current store untouched.
   refetchAll: async () => {
-    if (!get().authUid) return;
+    if (!get().authUid) return false;
     const guarded = pendingWriteCollections();
     try {
       const loaded = await persistence.loadAll();
@@ -352,8 +352,9 @@ export const useStore = create<RootState>((set, get, api) => ({
       const next = toStatePatch(loaded);
       for (const col of guarded) delete next[col];
       setChangedOnly(next, set, get);
+      return guarded.size === 0;
     } catch {
-      /* keep current state; next focus/interval retries */
+      return false; // keep current state; next focus/interval retries
     }
   },
 
@@ -367,8 +368,9 @@ export const useStore = create<RootState>((set, get, api) => ({
     } catch {
       return; // treat an unreachable counter as "unknown", not as "unchanged"
     }
-    if (!syncCursor.shouldRefetch(version)) return;
-    await get().refetchAll();
+    const cursor = syncCursor;
+    if (!cursor.shouldRefetch(version)) return;
+    if (!(await get().refetchAll())) cursor.invalidate();
   },
 
   refetchCollection: async (col) => {
