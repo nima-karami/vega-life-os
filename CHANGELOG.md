@@ -10,6 +10,41 @@ The GitHub Releases are the record; this file mirrors them. Regenerate it with
 
 Whatever is on `main` past the newest release below.
 
+## [v2026.10.3](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.3) - 2026-10-23
+
+11 commits since `v2026.10.2`.
+
+### Features
+
+- **gratitude:** carry the written lines into Today's entry pill (de108c3)
+- **goals:** seal the header disc when a goal is marked done (45269d6)
+- **motion:** carry the card's disc into its page, cut the route fade to 290ms (fd9ab0e)
+- **boot:** stroke-mark boot splash with a "Live your values" dwell (51018f2)
+
+### Fixes
+
+- **goals:** let the status chip settle to its own width after a seal (b21de05)
+- **gratitude:** keep the carry safe across midnight, past days and syncs (60aa906)
+- **motion:** only morph onto a real entity card, land on the disc's own radius (be870a4)
+- **goals:** land a sealed goal's card morph on its filled disc (0e2cefd)
+- **boot:** never leave the app stuck behind the boot splash (63ffd4b)
+
+### Documentation
+
+- **changelog:** record v2026.10.2 (0ac6931)
+
+### Tests
+
+- **boot:** allow for dropped frames when timing the tagline dwell (a68daf3)
+
+### Deploy
+
+- Server: skipped (none of 100 files changed since 26332e8 affect it)
+- Hosting: shipped, build `a68daf3`
+- Schema hash: `e62700d3b746`
+- Commit: `a68daf3`
+- Run: https://github.com/nima-karami/vega-life-os/actions/runs/40020462487
+
 ## [v2026.10.2](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.2) - 2026-10-23
 
 58 commits since `v2026.10.1`.
