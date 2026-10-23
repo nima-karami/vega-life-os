@@ -125,6 +125,7 @@ jobs:
           java-version: 21
       - run: npm ci
       - run: npm test --workspace @vega/server
+      - run: npm run smoke:server-bundle
 
   e2e:
     needs: changes
