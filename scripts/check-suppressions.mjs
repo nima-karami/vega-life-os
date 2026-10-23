@@ -5,13 +5,8 @@ import { readFileSync } from "node:fs";
 const ALLOWED = [
   "apps/web/src/app/commands.ts:264",
   "apps/web/src/core/ui/contextmenu.tsx:310",
-  "apps/web/src/features/goals/__tests__/store.test.ts:19",
-  "apps/web/src/features/habits/__tests__/store.test.ts:32",
   "apps/web/src/features/journal/components/MoodPicker.tsx:17",
-  "apps/web/src/features/journal/store.test.ts:19",
-  "apps/web/src/features/tasks/__tests__/store.test.ts:44",
   "apps/web/src/features/values/components/editor-bits.tsx:22",
-  "apps/web/src/features/values/__tests__/store.test.ts:39",
 ];
 
 const PATTERN = /biome-ignore|eslint-disable|@ts-ignore|@ts-expect-error|jscpd:ignore/;
