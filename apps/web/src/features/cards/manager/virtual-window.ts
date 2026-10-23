@@ -13,7 +13,7 @@ export interface WindowSpacers {
 export function includeFocusedIndex(
   indexes: number[],
   focusedIndex: number | null,
-  count = Number.POSITIVE_INFINITY,
+  count: number,
 ): number[] {
   if (focusedIndex === null || focusedIndex >= count || indexes.includes(focusedIndex)) {
     return indexes;

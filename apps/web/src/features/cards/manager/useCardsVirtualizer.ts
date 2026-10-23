@@ -1,4 +1,9 @@
-import { defaultRangeExtractor, type Range, useVirtualizer } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  type Range,
+  useVirtualizer,
+  type VirtualItem,
+} from "@tanstack/react-virtual";
 import {
   useCallback,
   useDeferredValue,
@@ -9,24 +14,24 @@ import {
   useState,
 } from "react";
 import { useNavigationType } from "react-router";
+import { getAppScroller } from "@/core/ui";
 import { computeSpacers, includeFocusedIndex } from "./virtual-window";
 
 export type CardsListKey = "table" | "mobile" | "gallery";
 
-// Survives the route unmount, so Back from a card lands where the list was left. One slot, not
-// one per view: a view toggle must not replay an older visit's offset.
-let lastListScroll: { listKey: CardsListKey; offset: number } | null = null;
-
-const recallScrollOffset = (listKey: CardsListKey): number | undefined =>
-  lastListScroll?.listKey === listKey ? lastListScroll.offset : undefined;
-
-function findScrollParent(node: HTMLElement): HTMLElement | null {
-  for (let parent = node.parentElement; parent !== null; parent = parent.parentElement) {
-    const { overflowY } = getComputedStyle(parent);
-    if (overflowY === "auto" || overflowY === "scroll") return parent;
-  }
-  return null;
+interface ListScroll {
+  listKey: CardsListKey;
+  offset: number;
+  measurements: VirtualItem[];
 }
+
+// One slot, so a view toggle never replays an older visit's offset.
+let lastListScroll: ListScroll | null = null;
+
+const recallListScroll = (listKey: CardsListKey): ListScroll | undefined =>
+  lastListScroll?.listKey === listKey ? lastListScroll : undefined;
+
+const defaultItemKey = (index: number) => index;
 
 function readIndexOf(target: EventTarget | null): number | null {
   if (!(target instanceof Element)) return null;
@@ -43,7 +48,7 @@ export function useCardsVirtualizer<Row>({
   rows,
   estimateSize,
   overscan,
-  getItemKey,
+  getItemKey = defaultItemKey,
 }: {
   listKey: CardsListKey;
   rows: Row[];
@@ -52,48 +57,48 @@ export function useCardsVirtualizer<Row>({
   getItemKey?: (index: number) => string | number;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
-  const scrollerRef = useRef<HTMLElement | null>(null);
-  const focusedIndexRef = useRef<number | null>(null);
+  const focusedKeyRef = useRef<string | number | null>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   const [hasKeyboardFocus, setHasKeyboardFocus] = useState(false);
   const navigationType = useNavigationType();
-  const [restoreOffset] = useState(() =>
-    navigationType === "POP" ? recallScrollOffset(listKey) : undefined,
+  const [restore] = useState(() =>
+    navigationType === "POP" ? recallListScroll(listKey) : undefined,
   );
 
-  const getScrollElement = useCallback(() => {
-    if (scrollerRef.current === null && listRef.current !== null) {
-      scrollerRef.current = findScrollParent(listRef.current);
-    }
-    return scrollerRef.current;
+  const indexByKey = useMemo(
+    () => new Map(rows.map((_, index) => [getItemKey(index), index])),
+    [rows, getItemKey],
+  );
+  const indexByKeyRef = useRef(indexByKey);
+  indexByKeyRef.current = indexByKey;
+  const getItemKeyRef = useRef(getItemKey);
+  getItemKeyRef.current = getItemKey;
+
+  const rangeExtractor = useCallback((range: Range) => {
+    const focusedKey = focusedKeyRef.current;
+    const focusedIndex = focusedKey === null ? null : indexByKeyRef.current.get(focusedKey);
+    return includeFocusedIndex(defaultRangeExtractor(range), focusedIndex ?? null, range.count);
   }, []);
-
-  const rangeExtractor = useCallback(
-    (range: Range) =>
-      includeFocusedIndex(defaultRangeExtractor(range), focusedIndexRef.current, range.count),
-    [],
-  );
 
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement,
+    getScrollElement: getAppScroller,
     estimateSize,
     overscan,
     getItemKey,
     scrollMargin,
     rangeExtractor,
-    initialOffset: restoreOffset,
-    // The scroller is unknown until mount; the viewport is a close stand-in, so the very first
-    // render already holds the opening rows instead of waiting a deferred pass for them.
+    initialOffset: restore?.offset,
+    // Measured heights come back with the offset, or unmeasured estimates shift the landing row.
+    initialMeasurementsCache: restore?.measurements,
     initialRect: { width: 0, height: window.innerHeight },
     useFlushSync: false,
   });
 
-  // Re-read only when a box around the list resizes — anything above it growing or shrinking
-  // resizes them — never per scroll frame, where the read would force a layout every frame.
+  // Anything above the list resizes an ancestor, so no per-frame read is needed.
   useLayoutEffect(() => {
     const list = listRef.current;
-    const scroller = getScrollElement();
+    const scroller = getAppScroller();
     if (list === null || scroller === null) return;
     const measure = () =>
       setScrollMargin(
@@ -109,29 +114,34 @@ export function useCardsVirtualizer<Row>({
       observer.observe(box);
     }
     return () => observer.disconnect();
-  }, [getScrollElement]);
+  }, []);
 
   useLayoutEffect(() => {
-    const scroller = getScrollElement();
+    const scroller = getAppScroller();
     if (scroller === null) return;
-    if (restoreOffset !== undefined) scroller.scrollTop = restoreOffset;
+    if (restore !== undefined) scroller.scrollTop = restore.offset;
     return () => {
-      lastListScroll = { listKey, offset: scroller.scrollTop };
+      lastListScroll = {
+        listKey,
+        offset: scroller.scrollTop,
+        measurements: virtualizer.takeSnapshot(),
+      };
     };
-  }, [getScrollElement, listKey, restoreOffset]);
+  }, [listKey, restore, virtualizer]);
 
   useEffect(() => {
     const list = listRef.current;
     if (list === null) return;
     const handleFocusIn = (event: FocusEvent) => {
-      focusedIndexRef.current = readIndexOf(event.target);
+      const index = readIndexOf(event.target);
+      focusedKeyRef.current = index === null ? null : getItemKeyRef.current(index);
       setHasKeyboardFocus(
         event.target instanceof Element && event.target.matches(":focus-visible"),
       );
     };
     const handleFocusOut = (event: FocusEvent) => {
       if (list.contains(event.relatedTarget as Node | null)) return;
-      focusedIndexRef.current = null;
+      focusedKeyRef.current = null;
       setHasKeyboardFocus(false);
     };
     list.addEventListener("focusin", handleFocusIn);
@@ -145,9 +155,7 @@ export function useCardsVirtualizer<Row>({
   const items = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
   const snapshot = useMemo(() => ({ items, rows, totalSize }), [items, rows, totalSize]);
-  // Rows a scroll brings in mount in an interruptible render, so a fling never blocks a frame;
-  // the snapshot keeps each item paired with the rows it indexed. Keyboard focus walking the
-  // list cannot wait for that pass, or Tab would run off the end of the rendered rows.
+  // A scroll's new rows mount in an interruptible pass; keyboard focus can't wait for it.
   const deferredSnapshot = useDeferredValue(snapshot);
   const shown = hasKeyboardFocus ? snapshot : deferredSnapshot;
   const spacers = computeSpacers(shown.items, shown.totalSize, scrollMargin);

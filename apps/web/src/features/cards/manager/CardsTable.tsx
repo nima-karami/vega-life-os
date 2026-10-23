@@ -16,8 +16,7 @@ import { useCardsVirtualizer } from "./useCardsVirtualizer";
 import { WindowSlot } from "./WindowSlot";
 
 const ROW_PX = 44;
-// Generous on purpose: a deck that fits a screen or two renders whole, and a fling rarely
-// outruns the window.
+// Generous so a deck of a screen or two renders whole.
 const OVERSCAN_ROWS = 12;
 
 export function CardsTable({
@@ -57,9 +56,7 @@ export function CardsTable({
   });
 
   return (
-    // `overflow-y-hidden`: an x-only scroller computes y to auto, and the virtualizer would take
-    // this box, which never scrolls vertically, for the page scroller.
-    <div className="mt-4 overflow-x-auto overflow-y-hidden">
+    <div className="mt-4 overflow-x-auto">
       <div
         className="overflow-hidden rounded-[16px] border border-border bg-surface shadow-soft"
         style={{ minWidth: tableWidth(widths) }}

@@ -40,9 +40,16 @@ test("the phone list mounts a window and reaches the last card (390px)", async (
   expect(overlap, "measured rows never overlap").toBe(false);
 });
 
-test("Back from a card returns the phone list to where it was (390px)", async ({ page }) => {
-  await openLongDeck(page, LONG_DECK);
-  await scrollMainTo(page, 12_000);
+test("Back from a card lands on the same row when rows differ in height (360px)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 844 });
+  await openLongDeck(page, LONG_DECK, { longCategoryEvery: 3 });
+  // Walked down a screen at a time, so the rows above are measured, not estimated.
+  for (let top = 400; top <= 12_000; top += 400) {
+    await scrollMainTo(page, top);
+    await page.waitForTimeout(40);
+  }
   const findRowOnScreen = () =>
     page.evaluate(() => {
       const onScreen = [...document.querySelectorAll("[data-card-row]")].find((row) => {
@@ -57,15 +64,20 @@ test("Back from a card returns the phone list to where it was (390px)", async ({
   const title = (await target.getByRole("button").first().innerText()).trim();
   await expect(target).toBeInViewport();
   const leftAt = await scroller(page).evaluate((main) => main.scrollTop);
+  const rowTopOf = () => target.evaluate((row) => row.getBoundingClientRect().top);
+  const leftRowTop = await rowTopOf();
 
   await target.getByRole("button", { name: title, exact: true }).click();
   await expect(page).toHaveURL(/\/cards\/c_deck_\d+$/);
+  // The list must really unmount, or Back would only cancel its exit animation.
+  await expect(rows(page)).toHaveCount(0);
   await page.goBack();
   await expect(page).toHaveURL(/\/cards$/);
 
-  await expect(rows(page).filter({ hasText: title })).toBeInViewport();
+  await expect(target).toBeInViewport();
   const landedAt = await scroller(page).evaluate((main) => main.scrollTop);
   expect(Math.abs(landedAt - leftAt)).toBeLessThan(2);
+  expect(Math.abs((await rowTopOf()) - leftRowTop)).toBeLessThan(2);
 });
 
 test("the phone gallery windows by rows and reaches its last tile (390px)", async ({ page }) => {

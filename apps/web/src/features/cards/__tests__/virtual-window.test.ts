@@ -9,16 +9,16 @@ import {
 
 describe("includeFocusedIndex — the row holding focus never unmounts", () => {
   it("leaves the window alone when nothing in it is focused", () => {
-    expect(includeFocusedIndex([4, 5, 6], null)).toEqual([4, 5, 6]);
+    expect(includeFocusedIndex([4, 5, 6], null, 100)).toEqual([4, 5, 6]);
   });
 
   it("leaves the window alone when the focused row is already in it", () => {
-    expect(includeFocusedIndex([4, 5, 6], 5)).toEqual([4, 5, 6]);
+    expect(includeFocusedIndex([4, 5, 6], 5, 100)).toEqual([4, 5, 6]);
   });
 
   it("keeps a focused row scrolled out above or below, in index order", () => {
-    expect(includeFocusedIndex([40, 41, 42], 2)).toEqual([2, 40, 41, 42]);
-    expect(includeFocusedIndex([0, 1, 2], 90)).toEqual([0, 1, 2, 90]);
+    expect(includeFocusedIndex([40, 41, 42], 2, 100)).toEqual([2, 40, 41, 42]);
+    expect(includeFocusedIndex([0, 1, 2], 90, 100)).toEqual([0, 1, 2, 90]);
   });
 
   it("drops a focused index the list no longer holds", () => {
