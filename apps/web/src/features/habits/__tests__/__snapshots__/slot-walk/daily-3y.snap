@@ -1,0 +1,401 @@
+{
+ "byToday": {
+  "2026-03-30": {
+   "consistency": [
+    {
+     "kept": 0,
+     "due": 0,
+     "windowDays": 1
+    },
+    {
+     "kept": 0,
+     "due": 4,
+     "windowDays": 7
+    },
+    {
+     "kept": 14,
+     "due": 25,
+     "windowDays": 30
+    },
+    {
+     "kept": 43,
+     "due": 79,
+     "windowDays": 90
+    },
+    {
+     "kept": 189,
+     "due": 314,
+     "windowDays": 365
+    },
+    {
+     "kept": 604,
+     "due": 941,
+     "windowDays": 1200
+    }
+   ],
+   "defaultWindow": {
+    "kept": 0,
+    "due": 4,
+    "windowDays": 7
+   },
+   "slots": [
+    {
+     "done": 0,
+     "total": 0
+    },
+    {
+     "done": 1,
+     "total": 5
+    },
+    {
+     "done": 0,
+     "total": 0
+    },
+    {
+     "done": 1,
+     "total": 1
+    },
+    {
+     "done": 36,
+     "total": 53
+    }
+   ],
+   "lapsed": true,
+   "week": "2026-03-30:M:off 2026-03-31:T:off 2026-04-01:W:off 2026-04-02:T:off 2026-04-03:F:off 2026-04-04:S:off 2026-04-05:S:off",
+   "record30": "kmkkkkkmkmmkmkkomkokmkkmomommo",
+   "record90": "kmkmkmkokkokkkkmommkokmkkkmkmokkokmmmmmmkmmkkkmkmmmmkkmmmkkkkmkkkkkmkmmkmkkomkokmkkmomommo",
+   "timelines": [
+    {
+     "done": 17,
+     "due": 30,
+     "days": "2026-02-24:miss 2026-02-25:miss 2026-02-26:done 2026-02-27:done 2026-02-28:moved 2026-03-01:moved 2026-03-02:miss 2026-03-03:done 2026-03-04:done 2026-03-05:done 2026-03-06:done 2026-03-07:done 2026-03-08:miss 2026-03-09:done 2026-03-10:miss 2026-03-11:miss 2026-03-12:done 2026-03-13:miss 2026-03-14:done 2026-03-15:done 2026-03-16:skip 2026-03-17:miss 2026-03-18:done 2026-03-19:skip 2026-03-20:done 2026-03-21:miss 2026-03-22:done 2026-03-23:moved 2026-03-24:miss 2026-03-25:skip 2026-03-26:miss 2026-03-27:skip 2026-03-28:miss 2026-03-29:miss 2026-03-30:skip"
+    },
+    {
+     "done": 43,
+     "due": 79,
+     "days": "2026-02-24:miss 2026-02-25:miss 2026-02-26:done 2026-02-27:done 2026-02-28:moved 2026-03-01:moved 2026-03-02:miss 2026-03-03:done 2026-03-04:done 2026-03-05:done 2026-03-06:done 2026-03-07:done 2026-03-08:miss 2026-03-09:done 2026-03-10:miss 2026-03-11:miss 2026-03-12:done 2026-03-13:miss 2026-03-14:done 2026-03-15:done 2026-03-16:skip 2026-03-17:miss 2026-03-18:done 2026-03-19:skip 2026-03-20:done 2026-03-21:miss 2026-03-22:done 2026-03-23:moved 2026-03-24:miss 2026-03-25:skip 2026-03-26:miss 2026-03-27:skip 2026-03-28:miss 2026-03-29:miss 2026-03-30:skip"
+    },
+    {
+     "done": 189,
+     "due": 314,
+     "days": "2026-02-24:miss 2026-02-25:miss 2026-02-26:done 2026-02-27:done 2026-02-28:moved 2026-03-01:moved 2026-03-02:miss 2026-03-03:done 2026-03-04:done 2026-03-05:done 2026-03-06:done 2026-03-07:done 2026-03-08:miss 2026-03-09:done 2026-03-10:miss 2026-03-11:miss 2026-03-12:done 2026-03-13:miss 2026-03-14:done 2026-03-15:done 2026-03-16:skip 2026-03-17:miss 2026-03-18:done 2026-03-19:skip 2026-03-20:done 2026-03-21:miss 2026-03-22:done 2026-03-23:moved 2026-03-24:miss 2026-03-25:skip 2026-03-26:miss 2026-03-27:skip 2026-03-28:miss 2026-03-29:miss 2026-03-30:skip"
+    }
+   ]
+  },
+  "2026-03-24": {
+   "consistency": [
+    {
+     "kept": 0,
+     "due": 0,
+     "windowDays": 1
+    },
+    {
+     "kept": 4,
+     "due": 5,
+     "windowDays": 7
+    },
+    {
+     "kept": 17,
+     "due": 27,
+     "windowDays": 30
+    },
+    {
+     "kept": 46,
+     "due": 81,
+     "windowDays": 90
+    },
+    {
+     "kept": 193,
+     "due": 315,
+     "windowDays": 365
+    },
+    {
+     "kept": 604,
+     "due": 937,
+     "windowDays": 1200
+    }
+   ],
+   "defaultWindow": {
+    "kept": 4,
+    "due": 5,
+    "windowDays": 7
+   },
+   "slots": [
+    {
+     "done": 1,
+     "total": 1
+    },
+    {
+     "done": 3,
+     "total": 5
+    },
+    {
+     "done": 1,
+     "total": 1
+    },
+    {
+     "done": 1,
+     "total": 1
+    },
+    {
+     "done": 37,
+     "total": 53
+    }
+   ],
+   "lapsed": false,
+   "week": "2026-03-23:M:kept 2026-03-24:T:due 2026-03-25:W:off 2026-03-26:T:off 2026-03-27:F:off 2026-03-28:S:off 2026-03-29:S:off",
+   "record30": "mmmkkkkmkkkkkmkmmkmkkomkokmkko",
+   "record90": "kmkmmkkmkmkmkokkokkkkmommkokmkkkmkmokkokmmmmmmkmmkkkmkmmmmkkmmmkkkkmkkkkkmkmmkmkkomkokmkko",
+   "timelines": [
+    {
+     "done": 19,
+     "due": 32,
+     "days": "2026-02-18:miss 2026-02-19:miss 2026-02-20:miss 2026-02-21:done 2026-02-22:done 2026-02-23:miss 2026-02-24:miss 2026-02-25:miss 2026-02-26:done 2026-02-27:done 2026-02-28:moved 2026-03-01:moved 2026-03-02:miss 2026-03-03:done 2026-03-04:done 2026-03-05:done 2026-03-06:done 2026-03-07:done 2026-03-08:miss 2026-03-09:done 2026-03-10:miss 2026-03-11:miss 2026-03-12:done 2026-03-13:miss 2026-03-14:done 2026-03-15:done 2026-03-16:skip 2026-03-17:miss 2026-03-18:done 2026-03-19:skip 2026-03-20:done 2026-03-21:miss 2026-03-22:done 2026-03-23:moved 2026-03-24:pending"
+    },
+    {
+     "done": 46,
+     "due": 81,
+     "days": "2026-02-18:miss 2026-02-19:miss 2026-02-20:miss 2026-02-21:done 2026-02-22:done 2026-02-23:miss 2026-02-24:miss 2026-02-25:miss 2026-02-26:done 2026-02-27:done 2026-02-28:moved 2026-03-01:moved 2026-03-02:miss 2026-03-03:done 2026-03-04:done 2026-03-05:done 2026-03-06:done 2026-03-07:done 2026-03-08:miss 2026-03-09:done 2026-03-10:miss 2026-03-11:miss 2026-03-12:done 2026-03-13:miss 2026-03-14:done 2026-03-15:done 2026-03-16:skip 2026-03-17:miss 2026-03-18:done 2026-03-19:skip 2026-03-20:done 2026-03-21:miss 2026-03-22:done 2026-03-23:moved 2026-03-24:pending"
+    },
+    {
+     "done": 193,
+     "due": 315,
+     "days": "2026-02-18:miss 2026-02-19:miss 2026-02-20:miss 2026-02-21:done 2026-02-22:done 2026-02-23:miss 2026-02-24:miss 2026-02-25:miss 2026-02-26:done 2026-02-27:done 2026-02-28:moved 2026-03-01:moved 2026-03-02:miss 2026-03-03:done 2026-03-04:done 2026-03-05:done 2026-03-06:done 2026-03-07:done 2026-03-08:miss 2026-03-09:done 2026-03-10:miss 2026-03-11:miss 2026-03-12:done 2026-03-13:miss 2026-03-14:done 2026-03-15:done 2026-03-16:skip 2026-03-17:miss 2026-03-18:done 2026-03-19:skip 2026-03-20:done 2026-03-21:miss 2026-03-22:done 2026-03-23:moved 2026-03-24:pending"
+    }
+   ]
+  },
+  "2026-02-18": {
+   "consistency": [
+    {
+     "kept": 0,
+     "due": 0,
+     "windowDays": 1
+    },
+    {
+     "kept": 4,
+     "due": 6,
+     "windowDays": 7
+    },
+    {
+     "kept": 13,
+     "due": 26,
+     "windowDays": 30
+    },
+    {
+     "kept": 50,
+     "due": 79,
+     "windowDays": 90
+    },
+    {
+     "kept": 197,
+     "due": 313,
+     "windowDays": 365
+    },
+    {
+     "kept": 585,
+     "due": 905,
+     "windowDays": 1200
+    }
+   ],
+   "defaultWindow": {
+    "kept": 4,
+    "due": 6,
+    "windowDays": 7
+   },
+   "slots": [
+    {
+     "done": 1,
+     "total": 2
+    },
+    {
+     "done": 4,
+     "total": 7
+    },
+    {
+     "done": 1,
+     "total": 2
+    },
+    {
+     "done": 1,
+     "total": 1
+    },
+    {
+     "done": 31,
+     "total": 49
+    }
+   ],
+   "lapsed": true,
+   "week": "2026-02-16:M:kept 2026-02-17:T:due 2026-02-18:W:due 2026-02-19:T:off 2026-02-20:F:off 2026-02-21:S:off 2026-02-22:S:off",
+   "record30": "okmkkkmkmokkokmmmmmmkmmkkkmkmo",
+   "record90": "kkkkkkkkmkookmmkmkkmmkmkokokkkkkkkkmkmmkkmkmkmkokkokkkkmommkokmkkkmkmokkokmmmmmmkmmkkkmkmo",
+   "timelines": [
+    {
+     "done": 14,
+     "due": 30,
+     "days": "2026-01-15:miss 2026-01-16:skip 2026-01-17:miss 2026-01-18:miss 2026-01-19:done 2026-01-20:skip 2026-01-21:done 2026-01-22:miss 2026-01-23:moved 2026-01-24:done 2026-01-25:moved 2026-01-26:miss 2026-01-27:done 2026-01-28:miss 2026-01-29:skip 2026-01-30:done 2026-01-31:done 2026-02-01:skip 2026-02-02:done 2026-02-03:miss 2026-02-04:miss 2026-02-05:miss 2026-02-06:miss 2026-02-07:miss 2026-02-08:miss 2026-02-09:moved 2026-02-10:miss 2026-02-11:miss 2026-02-12:done 2026-02-13:done 2026-02-14:moved 2026-02-15:miss 2026-02-16:moved 2026-02-17:miss 2026-02-18:pending"
+    },
+    {
+     "done": 50,
+     "due": 79,
+     "days": "2026-01-15:miss 2026-01-16:skip 2026-01-17:miss 2026-01-18:miss 2026-01-19:done 2026-01-20:skip 2026-01-21:done 2026-01-22:miss 2026-01-23:moved 2026-01-24:done 2026-01-25:moved 2026-01-26:miss 2026-01-27:done 2026-01-28:miss 2026-01-29:skip 2026-01-30:done 2026-01-31:done 2026-02-01:skip 2026-02-02:done 2026-02-03:miss 2026-02-04:miss 2026-02-05:miss 2026-02-06:miss 2026-02-07:miss 2026-02-08:miss 2026-02-09:moved 2026-02-10:miss 2026-02-11:miss 2026-02-12:done 2026-02-13:done 2026-02-14:moved 2026-02-15:miss 2026-02-16:moved 2026-02-17:miss 2026-02-18:pending"
+    },
+    {
+     "done": 197,
+     "due": 313,
+     "days": "2026-01-15:miss 2026-01-16:skip 2026-01-17:miss 2026-01-18:miss 2026-01-19:done 2026-01-20:skip 2026-01-21:done 2026-01-22:miss 2026-01-23:moved 2026-01-24:done 2026-01-25:moved 2026-01-26:miss 2026-01-27:done 2026-01-28:miss 2026-01-29:skip 2026-01-30:done 2026-01-31:done 2026-02-01:skip 2026-02-02:done 2026-02-03:miss 2026-02-04:miss 2026-02-05:miss 2026-02-06:miss 2026-02-07:miss 2026-02-08:miss 2026-02-09:moved 2026-02-10:miss 2026-02-11:miss 2026-02-12:done 2026-02-13:done 2026-02-14:moved 2026-02-15:miss 2026-02-16:moved 2026-02-17:miss 2026-02-18:pending"
+    }
+   ]
+  },
+  "2025-06-15": {
+   "consistency": [
+    {
+     "kept": 1,
+     "due": 1,
+     "windowDays": 1
+    },
+    {
+     "kept": 6,
+     "due": 7,
+     "windowDays": 7
+    },
+    {
+     "kept": 16,
+     "due": 26,
+     "windowDays": 30
+    },
+    {
+     "kept": 48,
+     "due": 78,
+     "windowDays": 90
+    },
+    {
+     "kept": 203,
+     "due": 318,
+     "windowDays": 365
+    },
+    {
+     "kept": 455,
+     "due": 693,
+     "windowDays": 1200
+    }
+   ],
+   "defaultWindow": {
+    "kept": 6,
+    "due": 7,
+    "windowDays": 7
+   },
+   "slots": [
+    {
+     "done": 6,
+     "total": 7
+    },
+    {
+     "done": 3,
+     "total": 6
+    },
+    {
+     "done": 6,
+     "total": 7
+    },
+    {
+     "done": 2,
+     "total": 2
+    },
+    {
+     "done": 29,
+     "total": 49
+    }
+   ],
+   "lapsed": false,
+   "week": "2025-06-09:M:kept 2025-06-10:T:kept 2025-06-11:W:kept 2025-06-12:T:kept 2025-06-13:F:due 2025-06-14:S:kept 2025-06-15:S:kept",
+   "record30": "omkkkmokmmkommkkmkmkmkokkkkmkk",
+   "record90": "mkmmkkkkokkmkkomkmmmkokkkmkkmkkmmkokmkkokokkkkmmkmmkmkokmkmoomkkkmokmmkommkkmkmkmkokkkkmkk",
+   "timelines": [
+    {
+     "done": 18,
+     "due": 30,
+     "days": "2025-05-12:done 2025-05-13:miss 2025-05-14:done 2025-05-15:miss 2025-05-16:skip 2025-05-17:skip 2025-05-18:miss 2025-05-19:done 2025-05-20:done 2025-05-21:done 2025-05-22:miss 2025-05-23:skip 2025-05-24:done 2025-05-25:miss 2025-05-26:miss 2025-05-27:moved 2025-05-28:skip 2025-05-29:miss 2025-05-30:miss 2025-05-31:done 2025-06-01:done 2025-06-02:miss 2025-06-03:done 2025-06-04:miss 2025-06-05:done 2025-06-06:miss 2025-06-07:done 2025-06-08:skip 2025-06-09:moved 2025-06-10:done 2025-06-11:done 2025-06-12:done 2025-06-13:miss 2025-06-14:moved 2025-06-15:done"
+    },
+    {
+     "done": 48,
+     "due": 78,
+     "days": "2025-05-12:done 2025-05-13:miss 2025-05-14:done 2025-05-15:miss 2025-05-16:skip 2025-05-17:skip 2025-05-18:miss 2025-05-19:done 2025-05-20:done 2025-05-21:done 2025-05-22:miss 2025-05-23:skip 2025-05-24:done 2025-05-25:miss 2025-05-26:miss 2025-05-27:moved 2025-05-28:skip 2025-05-29:miss 2025-05-30:miss 2025-05-31:done 2025-06-01:done 2025-06-02:miss 2025-06-03:done 2025-06-04:miss 2025-06-05:done 2025-06-06:miss 2025-06-07:done 2025-06-08:skip 2025-06-09:moved 2025-06-10:done 2025-06-11:done 2025-06-12:done 2025-06-13:miss 2025-06-14:moved 2025-06-15:done"
+    },
+    {
+     "done": 203,
+     "due": 318,
+     "days": "2025-05-12:done 2025-05-13:miss 2025-05-14:done 2025-05-15:miss 2025-05-16:skip 2025-05-17:skip 2025-05-18:miss 2025-05-19:done 2025-05-20:done 2025-05-21:done 2025-05-22:miss 2025-05-23:skip 2025-05-24:done 2025-05-25:miss 2025-05-26:miss 2025-05-27:moved 2025-05-28:skip 2025-05-29:miss 2025-05-30:miss 2025-05-31:done 2025-06-01:done 2025-06-02:miss 2025-06-03:done 2025-06-04:miss 2025-06-05:done 2025-06-06:miss 2025-06-07:done 2025-06-08:skip 2025-06-09:moved 2025-06-10:done 2025-06-11:done 2025-06-12:done 2025-06-13:miss 2025-06-14:moved 2025-06-15:done"
+    }
+   ]
+  }
+ },
+ "meta": [
+  {
+   "text": "Every day"
+  },
+  {
+   "text": "Anytime · 15 min"
+  },
+  {
+   "text": "0 of last 4",
+   "live": true
+  }
+ ],
+ "quietMeta": [
+  {
+   "text": "Every day"
+  },
+  {
+   "text": "Anytime · 15 min"
+  }
+ ],
+ "defaults": {
+  "consistency": {
+   "kept": 0,
+   "due": 4,
+   "windowDays": 7
+  },
+  "lapsed": true,
+  "week": [
+   "off",
+   "off",
+   "off",
+   "off",
+   "off",
+   "off",
+   "off"
+  ],
+  "record": [
+   "kept",
+   "missed",
+   "kept",
+   "kept",
+   "kept",
+   "kept",
+   "kept",
+   "missed",
+   "kept",
+   "missed",
+   "missed",
+   "kept",
+   "missed",
+   "kept",
+   "kept",
+   "off",
+   "missed",
+   "kept",
+   "off",
+   "kept",
+   "missed",
+   "kept",
+   "kept",
+   "missed",
+   "off",
+   "missed",
+   "off",
+   "missed",
+   "missed",
+   "off"
+  ]
+ }
+}

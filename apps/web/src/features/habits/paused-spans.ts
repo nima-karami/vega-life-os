@@ -20,9 +20,16 @@ export function getPausedSpans(habit: Habit, tasks: Task[]): PausedSpan[] {
   return from > to ? [] : [{ from, to }];
 }
 
+/** A per-day pause check with the open pause's start day resolved once, for day walks. */
+export function createPausedDayCheck(habit: Habit, spans: PausedSpan[]): (date: string) => boolean {
+  const pausedFrom = habit.pausedAt == null ? null : todayISO(new Date(habit.pausedAt));
+  return (date) =>
+    spans.some((span) => date >= span.from && date <= span.to) ||
+    (pausedFrom != null && date >= pausedFrom);
+}
+
 export function isHabitPausedOn(habit: Habit, spans: PausedSpan[], date: string): boolean {
-  if (spans.some((span) => date >= span.from && date <= span.to)) return true;
-  return habit.pausedAt != null && date >= todayISO(new Date(habit.pausedAt));
+  return createPausedDayCheck(habit, spans)(date);
 }
 
 export function closeOpenPause(habit: Habit, tasks: Task[]): PausedSpan[] {

@@ -46,13 +46,19 @@ const doneTask = (offset: number): Task => {
 
 describe("buildHabitMeta", () => {
   it("shows a count and no streak or percent", () => {
-    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), habit).map((m) => m.text);
+    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), habit, today).map((m) => m.text);
     expect(texts).toContain("4 of last 6");
     expect(texts.join(" ")).not.toMatch(/streak|%/);
   });
 
+  it("counts the week ending on the given day, not the clock's", () => {
+    const later = shiftISO(today, 10);
+    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), habit, later).map((m) => m.text);
+    expect(texts).toContain("0 of last 6");
+  });
+
   it("omits the consistency line for an untracked habit", () => {
-    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), { ...habit, tracked: false });
+    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), { ...habit, tracked: false }, today);
     expect(texts.map((m) => m.text).join(" ")).not.toContain("of last");
     expect(texts.length).toBeGreaterThan(0);
   });
@@ -60,14 +66,14 @@ describe("buildHabitMeta", () => {
   it("omits the consistency line when nothing was due", () => {
     const fresh = { ...habit, createdAt: today };
     expect(
-      buildHabitMeta([], fresh)
+      buildHabitMeta([], fresh, today)
         .map((m) => m.text)
         .join(" "),
     ).not.toContain("of last");
   });
 
   it("omits the consistency line in quiet mode but keeps the schedule", () => {
-    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), habit, true).map((m) => m.text);
+    const texts = buildHabitMeta([1, 2, 3, 4].map(doneTask), habit, today, true).map((m) => m.text);
     expect(texts.join(" ")).not.toContain("of last");
     expect(texts.length).toBe(2);
   });

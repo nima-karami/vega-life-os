@@ -1,6 +1,7 @@
 import { Button, ButtonGroup } from "@heroui/react";
 import { type ReactNode, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
+import { useTodayISO } from "@/core/lib/clock";
 import { useQuietMode, useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
 import { computeHabitConsistency, groupHabitsByValue } from "@/features/habits";
@@ -89,6 +90,7 @@ function AnalyticsSection() {
   const [range, setRange] = useState<TimeRange>(DEFAULT_RANGE);
   const [reportHabitId, setReportHabitId] = useState<string | null>(null);
   const days = rangeToDays(range);
+  const today = useTodayISO();
   const weeks = rangeToWeeks(range);
 
   const moodSeries = useMemo(() => computeMoodSeries(journal, days), [journal, days]);
@@ -103,9 +105,9 @@ function AnalyticsSection() {
         values,
       )
         .flatMap((g) => g.habits)
-        .map((h) => ({ h, ...computeHabitConsistency(tasks, h, undefined, days) }))
+        .map((h) => ({ h, ...computeHabitConsistency(tasks, h, today, days) }))
         .filter((r) => r.due > 0),
-    [habits, values, tasks, days],
+    [habits, values, tasks, days, today],
   );
 
   const maxValueCount = Math.max(1, ...Object.values(byValue));

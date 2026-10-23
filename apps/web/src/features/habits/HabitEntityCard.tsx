@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
+import { useTodayISO } from "@/core/lib/clock";
 import type { IconName } from "@/core/lib/icon-names";
 import { useQuietMode } from "@/core/store";
 import { type CardTone, EntityCard } from "@/core/ui";
@@ -34,6 +35,15 @@ export function HabitEntityCard({
 }) {
   const lifecycle = habitLifecycle(habit);
   const isQuiet = useQuietMode();
+  const today = useTodayISO();
+  const week = useMemo(
+    () => (habit.tracked ? buildHabitWeek(tasks, habit, today) : null),
+    [tasks, habit, today],
+  );
+  const meta = useMemo(
+    () => buildHabitMeta(tasks, habit, today, isQuiet),
+    [tasks, habit, today, isQuiet],
+  );
   return (
     <EntityCard
       fill={getValueCardFill(value)}
@@ -41,10 +51,8 @@ export function HabitEntityCard({
       title={habit.name}
       to={`/habits/${habit.id}`}
       status={{ label: HABIT_LIFECYCLE_LABEL[lifecycle], icon: STATUS_ICON[lifecycle] }}
-      measure={
-        habit.tracked ? { kind: "week", days: buildHabitWeek(tasks, habit) } : { kind: "none" }
-      }
-      meta={buildHabitMeta(tasks, habit, isQuiet)}
+      measure={week ? { kind: "week", days: week } : { kind: "none" }}
+      meta={meta}
       tone={STATUS_TONE[lifecycle]}
       actions={actions}
     />

@@ -1,8 +1,8 @@
-import { getWeekDays, shiftISO, todayISO } from "@/core/lib/date";
+import { getWeekDaysFor, shiftISO, todayISO } from "@/core/lib/date";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
-import { type Habit, isHabitActive } from "./model";
-import { getPausedSpans, isHabitPausedOn } from "./paused-spans";
+import { type Habit, isHabitActive, type PausedSpan } from "./model";
+import { createPausedDayCheck, getPausedSpans } from "./paused-spans";
 import { getWeeklyMask, isActiveOnSchedule } from "./recurrence";
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
@@ -17,19 +17,43 @@ export const CONSISTENCY_WINDOW_DAYS = 7;
 /** Per scheduled slot: done, due (past and unresolved), a neutral skip, or still-pending today. */
 type SlotKind = "done" | "due" | "skip" | "pending";
 
+interface SlotDay {
+  date: string;
+  kind: SlotKind;
+}
+
 const statusRank = (s: TaskStatus) => (s === "done" ? 3 : s === "skip" ? 2 : 1);
 
-/** Newest-by-status instance claiming each slotDate (a moved instance keeps its slot). */
-function mapInstancesBySlot(tasks: Task[], habitId: string): Map<string, Task> {
-  const bySlot = new Map<string, Task>();
+type SlotIndex = Map<string, Map<string, Task>>;
+
+const slotIndexByTasks = new WeakMap<Task[], SlotIndex>();
+const NO_INSTANCES = new Map<string, Task>();
+
+function buildSlotIndex(tasks: Task[]): SlotIndex {
+  const index: SlotIndex = new Map();
   for (const t of tasks) {
-    if (t.habitId !== habitId) continue;
     const slot = t.slotDate ?? t.date;
-    if (slot == null) continue;
+    if (t.habitId == null || slot == null) continue;
+    let bySlot = index.get(t.habitId);
+    if (!bySlot) {
+      bySlot = new Map();
+      index.set(t.habitId, bySlot);
+    }
     const prev = bySlot.get(slot);
     if (!prev || statusRank(t.status) > statusRank(prev.status)) bySlot.set(slot, t);
   }
-  return bySlot;
+  return index;
+}
+
+/** Newest-by-status instance claiming each slotDate (a moved instance keeps its slot),
+ *  indexed once per tasks array and shared by every habit and caller. */
+function getInstancesBySlot(tasks: Task[], habitId: string): Map<string, Task> {
+  let index = slotIndexByTasks.get(tasks);
+  if (!index) {
+    index = buildSlotIndex(tasks);
+    slotIndexByTasks.set(tasks, index);
+  }
+  return index.get(habitId) ?? NO_INSTANCES;
 }
 
 function classifySlot(inst: Task | undefined, date: string, today: string): SlotKind {
@@ -40,30 +64,60 @@ function classifySlot(inst: Task | undefined, date: string, today: string): Slot
   return date >= today ? "pending" : "due";
 }
 
-/** Schedule-driven: every active slot date from the habit's creation to today,
- *  joined to instances by slotDate — so a never-materialized day still counts. */
+/** Schedule-driven kind of one day, or null when the schedule has no slot on it — joined to
+ *  instances by slotDate, so a never-materialized day still counts. */
+function createSlotClassifier(
+  tasks: Task[],
+  habit: Habit,
+  today: string,
+  spans: PausedSpan[] = getPausedSpans(habit, tasks),
+): (date: string) => SlotKind | null {
+  const bySlot = getInstancesBySlot(tasks, habit.id);
+  const isPausedOn = createPausedDayCheck(habit, spans);
+  return (date) => {
+    if (!isActiveOnSchedule(habit.schedule, date)) return null;
+    const inst = bySlot.get(date);
+    // a pause makes undone days neutral; a slot actually completed keeps its credit
+    if (inst?.status !== "done" && isPausedOn(date)) return "skip";
+    return classifySlot(inst, date, today);
+  };
+}
+
+const MS_PER_DAY = 86_400_000;
+const toDayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / MS_PER_DAY;
+const toISODate = (dayNumber: number) =>
+  new Date(dayNumber * MS_PER_DAY).toISOString().slice(0, 10);
+
+/** Every slot from `from` to `to`, clamped to the habit's creation day and to today. */
 function deriveSlotKinds(
   tasks: Task[],
   habit: Habit,
   today: string,
-): { date: string; kind: SlotKind }[] {
-  const bySlot = mapInstancesBySlot(tasks, habit.id);
-  const out: { date: string; kind: SlotKind }[] = [];
-  const spans = getPausedSpans(habit, tasks);
-  let d = habit.createdAt.slice(0, 10);
-  while (d <= today) {
-    if (isActiveOnSchedule(habit.schedule, d)) {
-      const inst = bySlot.get(d);
-      // a pause makes undone days neutral; a slot actually completed keeps its credit
-      const kind =
-        inst?.status !== "done" && isHabitPausedOn(habit, spans, d)
-          ? "skip"
-          : classifySlot(inst, d, today);
-      out.push({ date: d, kind });
-    }
-    d = shiftISO(d, 1);
+  from: string,
+  to: string = today,
+): SlotDay[] {
+  const classify = createSlotClassifier(tasks, habit, today);
+  const createdOn = habit.createdAt.slice(0, 10);
+  const lastDay = toDayNumber(to < today ? to : today);
+  const out: SlotDay[] = [];
+  for (let day = toDayNumber(from > createdOn ? from : createdOn); day <= lastDay; day++) {
+    const date = toISODate(day);
+    const kind = classify(date);
+    if (kind) out.push({ date, kind });
   }
   return out;
+}
+
+function tallySlots(slots: SlotDay[]): { kept: number; due: number } {
+  let kept = 0;
+  let due = 0;
+  for (const { kind } of slots) {
+    if (kind === "done") {
+      kept++;
+      due++;
+    } else if (kind === "due") due++;
+  }
+  return { kept, due };
 }
 
 export interface HabitConsistency {
@@ -81,16 +135,7 @@ export function computeHabitConsistency(
   windowDays: number = CONSISTENCY_WINDOW_DAYS,
 ): HabitConsistency {
   const floor = shiftISO(today, -(windowDays - 1));
-  let kept = 0;
-  let due = 0;
-  for (const { date, kind } of deriveSlotKinds(tasks, habit, today)) {
-    if (date < floor) continue;
-    if (kind === "done") {
-      kept++;
-      due++;
-    } else if (kind === "due") due++;
-  }
-  return { kept, due, windowDays };
+  return { ...tallySlots(deriveSlotKinds(tasks, habit, today, floor)), windowDays };
 }
 
 /** Kept vs due across the given days, by the same slot walk as `computeHabitConsistency`. */
@@ -100,17 +145,12 @@ export function countHabitSlots(
   isos: string[],
   today: string = todayISO(),
 ): { done: number; total: number } {
+  if (isos.length === 0) return { done: 0, total: 0 };
   const days = new Set(isos);
-  let done = 0;
-  let total = 0;
-  for (const { date, kind } of deriveSlotKinds(tasks, habit, today)) {
-    if (!days.has(date)) continue;
-    if (kind === "done") {
-      done++;
-      total++;
-    } else if (kind === "due") total++;
-  }
-  return { done, total };
+  const sorted = [...days].sort();
+  const slots = deriveSlotKinds(tasks, habit, today, sorted[0], sorted[sorted.length - 1]);
+  const { kept, due } = tallySlots(slots.filter((slot) => days.has(slot.date)));
+  return { done: kept, total: due };
 }
 
 /** True when the latest resolved slot before today was missed (never-miss-twice). A slot at or
@@ -122,10 +162,15 @@ export function hasLapsedPreviousSlot(
 ): boolean {
   const spans = getPausedSpans(habit, tasks);
   const floor = spans.reduce((latest, span) => (span.to > latest ? span.to : latest), "");
-  const previous = deriveSlotKinds(tasks, habit, today).filter(
-    (k) => k.date < today && k.date > floor && (k.kind === "done" || k.kind === "due"),
-  );
-  return previous.at(-1)?.kind === "due";
+  const classify = createSlotClassifier(tasks, habit, today, spans);
+  const firstDay = toDayNumber(habit.createdAt.slice(0, 10));
+  for (let day = toDayNumber(today) - 1; day >= firstDay; day--) {
+    const date = toISODate(day);
+    if (date <= floor) return false;
+    const kind = classify(date);
+    if (kind === "done" || kind === "due") return kind === "due";
+  }
+  return false;
 }
 
 type HabitWeekState = "kept" | "due" | "off";
@@ -143,11 +188,14 @@ const WEEK_STATE_BY_KIND: Record<SlotKind, HabitWeekState> = {
   skip: "off",
 };
 
+const mapKindByDate = (slots: SlotDay[]) => new Map(slots.map((slot) => [slot.date, slot.kind]));
+
 /** The current Mon–Sun week for the habit card: the same slot walk as consistency, so an
  *  unscheduled, skipped, paused, future or pre-creation day is neutral ("off"), never a miss. */
 export function buildHabitWeek(tasks: Task[], habit: Habit, today = todayISO()): HabitWeekDay[] {
-  const kindByDate = new Map(deriveSlotKinds(tasks, habit, today).map((k) => [k.date, k.kind]));
-  return getWeekDays(new Date(today), today).map((d) => {
+  const week = getWeekDaysFor(today);
+  const kindByDate = mapKindByDate(deriveSlotKinds(tasks, habit, today, week[0].iso, week[6].iso));
+  return week.map((d) => {
     const kind = kindByDate.get(d.iso);
     return {
       iso: d.iso,
@@ -173,9 +221,10 @@ export function buildHabitDayRecord(
   windowDays = 30,
   today: string = todayISO(),
 ): HabitDay[] {
-  const kindByDate = new Map(deriveSlotKinds(tasks, habit, today).map((k) => [k.date, k.kind]));
+  const firstDay = toDayNumber(today) - windowDays + 1;
+  const kindByDate = mapKindByDate(deriveSlotKinds(tasks, habit, today, toISODate(firstDay)));
   return Array.from({ length: windowDays }, (_, i) => {
-    const date = shiftISO(today, i - windowDays + 1);
+    const date = toISODate(firstDay + i);
     const kind = kindByDate.get(date);
     const state: HabitDayState = kind === "done" ? "kept" : kind === "due" ? "missed" : "off";
     return { date, state };
