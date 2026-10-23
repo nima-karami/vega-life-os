@@ -17,14 +17,16 @@ export function AppShell() {
   // day rollover, so every todayISO()-derived surface (goal phase, today labels,
   // habit "today", the gratitude page) refreshes without per-page wiring.
   const today = useTodayISO();
-  const isGratitudeUp = useGratitudePage(today);
+  const gratitude = useGratitudePage(today);
+  const isGratitudeUp = gratitude.isUp;
   const { pathname } = useLocation();
   // /brainwrite bleeds its card under the overlaid nav and insets its own text off the
   // measured band; every other route reserves that band as bottom padding instead.
   const isFullStage = pathname === "/brainwrite";
 
-  // The gratitude page covers the opened route in place, so answering it lands there.
-  // Header and nav are siblings of <main> so its tree position never moves on toggle.
+  // The gratitude page is a layer over the opened route, which mounts under it as the page
+  // leaves, so answering it lands there. Header and nav are siblings of <main> so its tree
+  // position never moves on toggle.
   return (
     <div className="safe-inset-x safe-pt flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {!isGratitudeUp && (
@@ -53,11 +55,7 @@ export function AppShell() {
         )}
       >
         <main id={APP_SCROLLER_ID} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-          {isGratitudeUp ? (
-            <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center px-4 py-6 sm:py-10">
-              <GratitudeStep date={today} />
-            </div>
-          ) : (
+          {!isGratitudeUp && (
             <>
               <PageTransition />
               <RouteUndoBar />
@@ -77,6 +75,14 @@ export function AppShell() {
           </div>
         )}
       </div>
+      {gratitude.isShown && (
+        <GratitudeStep
+          key={today}
+          date={today}
+          onLeave={gratitude.beginLeaving}
+          onLeft={gratitude.endLeaving}
+        />
+      )}
     </div>
   );
 }
