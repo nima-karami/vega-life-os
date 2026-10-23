@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { formatLongDate } from "@/core/lib/date";
 import { cx, Icon } from "@/core/ui";
 import { EMPTY_FIELD, ENTRY_STATUS_LABEL, summarizeGratitude, summarizeJournal } from "../entries";
@@ -20,19 +21,25 @@ export function EntriesMobileList({
     <ul className="mt-4 divide-y divide-border rounded-[16px] border border-border bg-surface">
       {rows.map((entry) => (
         <li key={entry.id}>
-          <EntryStack entry={entry} onOpen={() => onOpen(entry)} />
+          <EntryStack entry={entry} onOpen={onOpen} />
         </li>
       ))}
     </ul>
   );
 }
 
-function EntryStack({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
+const EntryStack = memo(function EntryStack({
+  entry,
+  onOpen,
+}: {
+  entry: DayEntry;
+  onOpen: (entry: DayEntry) => void;
+}) {
   const status = getEntryStatus(entry);
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={() => onOpen(entry)}
       aria-label={`Open entry for ${formatLongDate(entry.date)}`}
       className="flex w-full flex-col gap-1 px-4 py-3 text-left outline-none active:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
     >
@@ -69,4 +76,4 @@ function EntryStack({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) 
       <span className="truncate text-muted text-sm">{summarizeJournal(entry)}</span>
     </button>
   );
-}
+});

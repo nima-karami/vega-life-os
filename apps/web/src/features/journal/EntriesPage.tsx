@@ -1,5 +1,5 @@
 import { Button } from "@heroui/react";
-import { type ReactNode, useMemo, useState } from "react";
+import { memo, type ReactNode, useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
@@ -17,6 +17,8 @@ import { type DayEntry, getEntryStatus, MOOD_LABEL } from "./model";
 
 const FIELD =
   "w-full rounded-[12px] border border-border bg-surface pl-9 pr-3 py-2 text-[16px] text-foreground outline-none placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent sm:text-sm";
+
+const PAGE_SIZE = 100;
 
 const FILTERS: { id: EntryFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -37,16 +39,35 @@ export function EntriesPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EntryFilter>("all");
   const [sort, setSort] = useState<EntrySort>("newest");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const deferredQuery = useDeferredValue(query);
 
   const rows = useMemo(
-    () => queryEntries(journal, { query, filter, sort }),
-    [journal, query, filter, sort],
+    () => queryEntries(journal, { query: deferredQuery, filter, sort }),
+    [journal, deferredQuery, filter, sort],
+  );
+  const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount]);
+  const openEntry = useCallback(
+    (entry: DayEntry) => navigate(`/journal/${entry.date}`),
+    [navigate],
   );
 
   const isEmpty = journal.length === 0;
+  const changeQuery = (next: string) => {
+    setQuery(next);
+    setVisibleCount(PAGE_SIZE);
+  };
+  const changeFilter = (next: EntryFilter) => {
+    setFilter(next);
+    setVisibleCount(PAGE_SIZE);
+  };
+  const toggleSort = () => {
+    setSort((current) => (current === "newest" ? "oldest" : "newest"));
+    setVisibleCount(PAGE_SIZE);
+  };
   const clearFilters = () => {
-    setQuery("");
-    setFilter("all");
+    changeQuery("");
+    changeFilter("all");
   };
 
   return (
@@ -75,7 +96,7 @@ export function EntriesPage() {
             <input
               type="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => changeQuery(e.target.value)}
               placeholder="Search entries…"
               aria-label="Search entries"
               className={FIELD}
@@ -86,7 +107,7 @@ export function EntriesPage() {
               <button
                 type="button"
                 key={f.id}
-                onClick={() => setFilter(f.id)}
+                onClick={() => changeFilter(f.id)}
                 aria-pressed={filter === f.id}
                 className={cx(
                   "rounded-[10px] border px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent",
@@ -101,7 +122,7 @@ export function EntriesPage() {
           </fieldset>
           <button
             type="button"
-            onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
+            onClick={toggleSort}
             className="flex items-center gap-1.5 rounded-[10px] border border-border px-3 py-1.5 text-sm text-muted outline-none hover:border-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
             aria-label={`Sort by date, ${sort === "newest" ? "newest first" : "oldest first"}`}
           >
@@ -132,28 +153,42 @@ export function EntriesPage() {
           }
         />
       ) : isCompact ? (
-        <EntriesMobileList rows={rows} onOpen={(entry) => navigate(`/journal/${entry.date}`)} />
+        <EntriesMobileList rows={visibleRows} onOpen={openEntry} />
       ) : (
         <div className="mt-4 overflow-x-auto">
           <ul className="min-w-[640px] divide-y divide-border rounded-[16px] border border-border bg-surface">
-            {rows.map((e) => (
+            {visibleRows.map((e) => (
               <li key={e.id}>
-                <EntryRow entry={e} onOpen={() => navigate(`/journal/${e.date}`)} />
+                <EntryRow entry={e} onOpen={openEntry} />
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {rows.length > visibleRows.length && (
+        <div className="mt-3 flex justify-center">
+          <Button variant="secondary" onPress={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+            Show {Math.min(PAGE_SIZE, rows.length - visibleRows.length)} more
+          </Button>
         </div>
       )}
     </div>
   );
 }
 
-function EntryRow({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
+const EntryRow = memo(function EntryRow({
+  entry,
+  onOpen,
+}: {
+  entry: DayEntry;
+  onOpen: (entry: DayEntry) => void;
+}) {
   const status = getEntryStatus(entry);
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={() => onOpen(entry)}
       aria-label={`Open entry for ${formatLongDate(entry.date)}`}
       className="grid w-full grid-cols-[9rem_4rem_1fr_1fr_6rem] items-center gap-3 px-4 py-3 text-left outline-none hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
     >
@@ -183,7 +218,7 @@ function EntryRow({ entry, onOpen }: { entry: DayEntry; onOpen: () => void }) {
       </span>
     </button>
   );
-}
+});
 
 function EmptyState({ title, body, cta }: { title: string; body: string; cta: ReactNode }) {
   return (
