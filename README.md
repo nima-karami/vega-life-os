@@ -1,56 +1,77 @@
 # VEGA · Life OS
 
-A personal command center for your life — a local-first dashboard that tracks
-**values, goals, habits, and tasks**, with a calendar, real analytics, a
-library (books / film / vocabulary), an always-present ⌘K command bar, and a
-`/lab` of wildly different visual takes on the same data.
+A personal command center for one person's life. Everything ladders up
+**Values → Goals → Habits → Tasks**, so each day's work traces back to a reason. Around that
+ladder sit Today, a calendar with two-way Google Calendar sync, a journal, BrainWrite
+(spaced-repetition cards), personal finance, analytics and a ⌘K command bar. Signed out, it
+runs as a local-only demo on IndexedDB; signed in, data lives in the cloud behind the API
+server. See [`docs/product-overview.md`](docs/product-overview.md) for the product itself.
 
-Monochrome "cockpit HUD" aesthetic. Runs entirely in the browser; your data
-lives in IndexedDB on your machine. No account, no server, no keys required.
-First run shows a welcome where you set your name and choose sample data or a
-clean start (replayable from Settings).
+**Live:** https://vega-life-os.web.app
+
+## Architecture
+
+npm-workspaces monorepo, TypeScript throughout, Node 24.
+
+| Workspace | What it is | Stack |
+|---|---|---|
+| `apps/web` | The SPA and PWA, served by Firebase Hosting | React 19.2 · Vite 8 · Tailwind 4 · HeroUI 3 · react-router 8 · Zustand 5 · Dexie 4 · TipTap 3 · tRPC client 11 · Firebase 12 |
+| `apps/server` | The API on Cloud Run (`vega-server`): signed-in reads/writes and Google Calendar sync | Hono 4 · tRPC 11 · Firebase Admin 14 (Firestore) · googleapis |
+| `packages/shared` | Zod 4 entity schemas and the `SCHEMA_HASH` both sides check | Zod 4 |
+
+Clients never write to Firestore directly (`firestore.rules` denies all writes); every
+signed-in write goes through the server, which validates it against `packages/shared`.
+
+## Local setup
+
+Requires Node 24 (`.nvmrc`).
 
 ```bash
-npm install
-npm run dev      # http://localhost:5180
+npm ci
+npm run dev        # web app on http://localhost:5180
 ```
 
-`npm run build` for a production bundle, `npm run preview` to serve it,
-`npm run typecheck` (or `tsc -b`) to type-check.
+With no env file, the web app runs as the signed-out local demo. To configure it, copy
+`.env.example` to `.env.local` (Firebase web config and `VITE_API_URL`). For a signed-in
+session, run the server too: `npm run dev --workspace @vega/server`, with the variables in
+[`apps/server/.env.example`](apps/server/.env.example) set in its environment. The web app
+looks for it at `http://127.0.0.1:8787` when `VITE_API_URL` is unset.
 
-Contributing? Read the [style guide](docs/style-guide.md) — naming, comments, structure —
-and the [release process](docs/release-process.md): commits, the `npm run verify` gate, and
-how to ship.
+Server tests boot the Firestore and Auth emulators through firebase-tools, so they need
+**JDK 21 first on `PATH`** (`java -version` to check). The full gate also expects `gitleaks`
+and `osv-scanner` on `PATH`, and Playwright's Chromium for e2e.
 
-## The core idea
+## The gate
 
-Everything ladders up to a **value**. Alignment is *derived*, not assigned:
+`npm run verify` is the single gate:
 
-| Ladders up to… | Alignment    | Measured by   |
-| -------------- | ------------ | ------------- |
-| a Goal         | Goal work    | progress      |
-| a Value only   | Upkeep       | consistency   |
-| nothing        | Errand       | just doing it |
+```
+format:check → lint → typecheck → deadcode → check:lockfile → check:suppressions → test → dupes → scan:secrets → audit:deps → e2e
+```
 
-## Views
+| Where | Runs |
+|---|---|
+| pre-commit | Biome on staged files, gitleaks on the staged diff |
+| pre-push | format, lint, typecheck (`tsc -b`), deadcode (Knip), test, dupes (jscpd) |
+| CI (`verify.yml`) | everything, plus sharded e2e and Semgrep SAST; skips work a docs-only or web-only change cannot affect |
 
-- **Cockpit** — today's queue, values, goals, habit streaks, radar, follow-through.
-- **Map** — "your life, by value": values as orbital centers, goals/habits orbiting; energy → brightness; neglected values flagged.
-- **Calendar** — week time-grid, drag-friendly blocks, focus filter, "generate week".
-- **Board** — kanban (Backlog / To-do / Doing / Done) with drag between columns.
-- **Values & Goals** — the "why" tree; checkable subgoals, pace vs. progress.
-- **Habits** — recurrence editor, streaks, rates, 28-day heatmaps.
-- **Analytics** — follow-through, weekly trend, daily completion, value balance, goal pace, habit consistency.
-- **Library** — Books (shelf + progress + rating), Film (watchlist + rating), Vocabulary (Leitner spaced repetition).
-- **Review** — weekly mirror: completion + value-balance + habit rollups, wins/slipped, and guided reflection journaling (saved per week).
-- **Settings** — editable operator identity, theme + accent, JSON backup/restore.
-- **⌘K command bar** — natural-language add/complete/skip/plan/library + on-the-fly "generated views".
-- **/lab** — Galaxy (3D), Globe (3D), Constellation (2D), Terminal (live CLI), Blueprint (technical drawing).
+No inline suppressions, ever; `check:suppressions` enforces it. Details in
+[`docs/release-process.md`](docs/release-process.md) §3.
 
-## Stack
+## Releasing
 
-Vite · React 18 · TypeScript · Tailwind v4 · Zustand · Dexie (IndexedDB) ·
-react-three-fiber + three · framer-motion · cmdk · date-fns.
+`npm run release` (or the `release` GitHub workflow) deploys only the targets that changed
+since what is live, server before hosting, and `npm run release -- --dry-run` prints the
+plan. Releases are being given CalVer tags (`vYYYY.M.N`) with a GitHub Release each, and a
+`CHANGELOG.md` generated from them. The version lives in the tag, not in `package.json`.
+The full process, including rollback, is in [`docs/release-process.md`](docs/release-process.md).
 
-Feature-sliced architecture (`src/features/<name>/`), cross-cutting concerns in
-`src/core/`.
+## Docs
+
+- [`docs/README.md`](docs/README.md): index of specs, plans, ADRs and run reports
+- [`docs/style-guide.md`](docs/style-guide.md): naming, comments, structure
+- [`docs/release-process.md`](docs/release-process.md): commits, the gate, releasing
+- [`CLAUDE.md`](CLAUDE.md): operating rules for agents working in the repo
+- [`infra/`](infra/): one-time GCP and CI setup
+
+Private project. All rights reserved.

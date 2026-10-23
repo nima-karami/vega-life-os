@@ -12,8 +12,9 @@ rules). Where this conflicts with habit, this file wins; where it conflicts with
 ## 1. The gate is the standard
 
 `npm run verify` decides whether code is acceptable — format, lint, typecheck, dead code,
-tests, duplication, secret scan, dep audit, e2e. Enforcement is layered: pre-commit runs
-lint-staged (Biome on staged files) and gitleaks; pre-push runs the gate minus e2e; CI runs
+lockfile platforms, suppression check, tests, duplication, secret scan, dep audit, e2e.
+Enforcement is layered: pre-commit runs lint-staged (Biome on staged files) and gitleaks;
+pre-push runs format, lint, typecheck, dead code, tests and duplication; CI runs
 everything, including sharded e2e and SAST. The full local gate is `npm run verify`.
 
 **Never disable, downgrade, narrow, baseline-away, or suppress a check to make progress.**
@@ -22,9 +23,12 @@ No `biome-ignore`, `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `jscpd:ig
 
 ## 2. Folders & files
 
-- **Vertical feature slices.** Code lives in `src/features/<feature>/` — component, logic,
-  and `__tests__/` together. Cross-cutting primitives live in `src/core/` (`agent`, `auth`,
-  `firebase`, `lib`, `persistence`, `store`, `theme`, `ui`). App shell is `src/app/`.
+- **Vertical feature slices.** Web code lives in `apps/web/src/features/<feature>/` —
+  component, logic, and `__tests__/` together. Cross-cutting primitives live in
+  `apps/web/src/core/` (`agent`, `auth`, `firebase`, `lib`, `persistence`, `store`, `theme`,
+  `ui`). App shell is `apps/web/src/app/`. The server uses the same shape
+  (`apps/server/src/features/`, `apps/server/src/core/`); shared Zod schemas live in
+  `packages/shared/src/`.
 - **One responsibility per file.** Past ~300–400 lines, or when it starts doing two jobs,
   split it. A big file is debt even when it passes the gate.
 - **Folders are `kebab-case`/lowercase** (`calendar-sync`).
