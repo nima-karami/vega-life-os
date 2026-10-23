@@ -4,10 +4,7 @@ import type { GoogleCalendarClient } from "./google-client";
 import type { RecordWriter } from "./record-writer";
 import type { GcalAccount } from "./token-store";
 
-/**
- * One locked reconcile's shared state: everything both lanes need is read once up front and
- * threaded through, and `tombstones` grows as the run writes new ones so later steps see them.
- */
+// `tombstones` grows as the run writes new ones, so later steps see them without a re-read.
 export type ReconcileRun = {
   firestore: Firestore;
   uid: string;

@@ -46,15 +46,13 @@ async function watchUncovered(
   calendarIds: string[],
   covered: Set<string>,
 ): Promise<number> {
-  let registered = 0;
+  let failures = 0;
   for (const calendarId of calendarIds) {
     if (covered.has(calendarId)) continue;
-    if (await watchCalendar(deps, uid, client, calendarId)) {
-      covered.add(calendarId);
-      registered += 1;
-    }
+    if (await watchCalendar(deps, uid, client, calendarId)) covered.add(calendarId);
+    else failures += 1;
   }
-  return registered;
+  return failures;
 }
 
 /** One watch channel per calendar; calendars that already have a live channel are skipped. */
@@ -63,33 +61,33 @@ export async function registerCalendarChannels(
   uid: string,
   client: GoogleCalendarClient,
   calendarIds: string[],
-): Promise<number> {
+): Promise<void> {
   const existing = await listChannelsForUid(deps.firestore, uid);
-  return watchUncovered(deps, uid, client, calendarIds, coveredCalendars(existing));
+  await watchUncovered(deps, uid, client, calendarIds, coveredCalendars(existing));
 }
 
-/**
- * Re-register channels within two days of expiry so Google never silently drops the subscription,
- * then watch any calendar still uncovered — all from one registry read. Returns how many were renewed.
- */
+export type ChannelUpkeep = { renewed: number; failures: number };
+
+/** Renew channels within two days of expiry and watch every uncovered calendar, from one registry read. */
 export async function maintainWatchChannels(
   deps: ReconcileDeps,
   uid: string,
   client: GoogleCalendarClient,
   calendarIds: string[],
   nowIso: string,
-): Promise<number> {
+): Promise<ChannelUpkeep> {
   const soonIso = new Date(Date.parse(nowIso) + RENEW_THRESHOLD_MS).toISOString();
   const channels = await listChannelsForUid(deps.firestore, uid);
   const expiring = channels.filter((channel) => channel.expiration < soonIso);
   const covered = coveredCalendars(channels.filter((channel) => channel.expiration >= soonIso));
+  let failures = 0;
   for (const channel of expiring) {
     await removeChannel(deps.firestore, channel.channelId);
-    await watchUncovered(deps, uid, client, [channel.calendarId], covered);
+    failures += await watchUncovered(deps, uid, client, [channel.calendarId], covered);
     await client.stopChannel(channel.channelId, channel.resourceId).catch(() => undefined);
   }
-  await watchUncovered(deps, uid, client, calendarIds, covered);
-  return expiring.length;
+  failures += await watchUncovered(deps, uid, client, calendarIds, covered);
+  return { renewed: expiring.length, failures };
 }
 
 export async function stopCalendarChannels(

@@ -275,7 +275,6 @@ async function deleteLivedEvent(
   }
 }
 
-/** Push pending VEGA-side deletes and edits to Google; returns how many Google refused. */
 async function pushLived(run: ReconcileRun, rows: LivedRows, timeZone: string): Promise<number> {
   const googleWrites: string[] = [];
   let pushFailures = 0;
@@ -399,7 +398,6 @@ function retireUnreachableRows(rows: LivedRows, readCalendarIds: string[], now: 
 
 export type LivedLaneResult = {
   lived: number;
-  nextSyncTokens: Record<string, string>;
   vanishedCalendarIds: string[];
   rateLimited: boolean;
   faulted: number;
@@ -421,7 +419,6 @@ export async function runLivedLane(
   );
   const window = buildLivedWindow(run.now);
 
-  const nextSyncTokens: Record<string, string> = {};
   const vanishedCalendarIds: string[] = [];
   let rateLimited = false;
   let faulted = 0;
@@ -436,7 +433,6 @@ export async function runLivedLane(
       rateLimited = rateLimited || result.rateLimited;
       continue;
     }
-    if (result.listing.nextSyncToken) nextSyncTokens[calendarId] = result.listing.nextSyncToken;
     lived += applyReadListing(
       rows,
       result.listing,
@@ -456,5 +452,5 @@ export async function runLivedLane(
   dropSupersededRemovedRows(rows);
   const pushFailures = await pushLived(run, rows, timeZone);
   await rows.flush();
-  return { lived, nextSyncTokens, vanishedCalendarIds, rateLimited, faulted, pushFailures };
+  return { lived, vanishedCalendarIds, rateLimited, faulted, pushFailures };
 }

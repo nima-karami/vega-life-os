@@ -25,10 +25,7 @@ function emptyTally(): OpTally {
   return { reads: 0, writes: 0, readsBy: {}, writesBy: {} };
 }
 
-/**
- * Counts billed Firestore operations the way Firestore meters them: a document get is one read, a
- * query is one read per returned document (minimum one), every staged or direct mutation one write.
- */
+// Metered like Firestore bills: a query costs one read per document returned, minimum one.
 export function withOpCounter(firestore: Firestore) {
   let tally = emptyTally();
 

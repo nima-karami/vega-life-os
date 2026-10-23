@@ -9,17 +9,16 @@ const MAX_BATCH_OPS = 450;
 
 type StagedWrite = (batch: WriteBatch) => void;
 
-/**
- * The reconcile's only path to user data: a handful of batched commits per run instead of one
- * read-modify-write and one counter bump per record. It counts its own bumps so the run can tell
- * whether anyone else moved the sync counter while it held the lease.
- */
+/** A record delete plus any extra tombstones that must land in the same commit. */
+export type RecordRemoval = { id: string; marks: Tombstone[] };
+
+// Counts its own bumps so the run can tell whether anyone else moved the sync counter.
 export type RecordWriter = {
   upsertMany<C extends CollectionName>(
     collection: C,
     records: WritableEntity<C>[],
   ): Promise<StoredEntity<C>[]>;
-  removeMany(collection: CollectionName, ids: string[], marks?: Tombstone[]): Promise<void>;
+  removeMany(collection: CollectionName, removals: RecordRemoval[]): Promise<void>;
   markTombstones(marks: Tombstone[]): Promise<void>;
   countBumps(): number;
 };
@@ -85,21 +84,22 @@ export function createRecordWriter(firestore: Firestore, uid: string, now: strin
       }
       return stamped;
     },
-    async removeMany(collection, ids, marks = []) {
-      if (ids.length === 0 && marks.length === 0) return;
+    async removeMany(collection, removals) {
+      if (removals.length === 0) return;
       const collectionRef = firestore.collection(`users/${uid}/${collection}`);
-      const groups = ids.map((id) => [
+      const groups = removals.map(({ id, marks }) => [
         (batch: WriteBatch) => batch.delete(collectionRef.doc(id)),
         markWrite({ collection, id, deletedAt: now }),
+        ...marks.map(markWrite),
       ]);
-      for (const mark of marks) groups.push([markWrite(mark)]);
       try {
         await commitGroups(firestore, groups);
       } finally {
-        if (ids.length > 0) await bump();
+        await bump();
       }
     },
     async markTombstones(marks) {
+      if (marks.length === 0) return;
       await commitGroups(
         firestore,
         marks.map((mark) => [markWrite(mark)]),

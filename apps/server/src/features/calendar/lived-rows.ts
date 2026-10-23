@@ -1,13 +1,10 @@
 import type { CalendarEvent, Tombstone } from "@vega/shared";
 import type { WritableEntity } from "../../core/repository";
-import type { RecordWriter } from "./record-writer";
+import type { RecordRemoval, RecordWriter } from "./record-writer";
 
 export type LivedRow = WritableEntity<"calendarEvents">;
 
-/**
- * The lived lane's view of `calendarEvents`, read once per run. Every step works on it in memory and
- * stages its writes; `flush` lands them all in batched commits behind a single counter bump.
- */
+/** The lived lane's in-memory view of `calendarEvents`; staged writes land in one `flush`. */
 export type LivedRows = {
   list(): CalendarEvent[];
   put(row: LivedRow): void;
@@ -23,8 +20,8 @@ export function createLivedRows(
   const current = new Map(rows.map((row) => [row.id, row]));
   const persistedIds = new Set(current.keys());
   const puts = new Map<string, LivedRow>();
-  const drops = new Set<string>();
-  const googleMarks: Tombstone[] = [];
+  const drops = new Map<string, RecordRemoval>();
+  const orphanMarks: Tombstone[] = [];
 
   return {
     list: () => [...current.values()],
@@ -36,13 +33,16 @@ export function createLivedRows(
     drop(id, tombstonedGoogleId) {
       current.delete(id);
       puts.delete(id);
-      if (persistedIds.has(id)) drops.add(id);
-      if (tombstonedGoogleId)
-        googleMarks.push({ collection: "calendarEvents", id: tombstonedGoogleId, deletedAt: now });
+      const marks: Tombstone[] = tombstonedGoogleId
+        ? [{ collection: "calendarEvents", id: tombstonedGoogleId, deletedAt: now }]
+        : [];
+      if (persistedIds.has(id)) drops.set(id, { id, marks });
+      else orphanMarks.push(...marks);
     },
     async flush() {
       await writer.upsertMany("calendarEvents", [...puts.values()]);
-      await writer.removeMany("calendarEvents", [...drops], googleMarks);
+      await writer.removeMany("calendarEvents", [...drops.values()]);
+      await writer.markTombstones(orphanMarks);
     },
   };
 }

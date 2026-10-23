@@ -62,10 +62,7 @@ function collectSyncTokens(account: GcalAccount, listings: CalendarListings) {
   return syncTokens;
 }
 
-/**
- * Nothing changed on VEGA's side since the last settled pass, and Google only echoed what we already
- * mirror: advance the delta tokens and stop, without reading a single task, event or tombstone.
- */
+// A stamp still current plus an echo-only delta means there is nothing to read beyond the tokens.
 async function settleIfQuiet(
   run: ReconcileRun,
   listings: CalendarListings,
@@ -90,7 +87,6 @@ type LaneOutcome = {
   activeReadCalendarIds: string[];
 };
 
-/** Both lanes from one read of each collection, then tombstone sweep and channel upkeep. */
 async function reconcileLanes(
   deps: ReconcileDeps,
   run: ReconcileRun,
@@ -118,7 +114,7 @@ async function reconcileLanes(
     tombstones,
     Date.parse(run.now),
   );
-  const channelsRenewed = await maintainWatchChannels(
+  const channels = await maintainWatchChannels(
     deps,
     uid,
     run.client,
@@ -132,7 +128,7 @@ async function reconcileLanes(
       pushFailures: task.pushFailures,
       lived: lived.lived,
       tombstonesSwept,
-      channelsRenewed,
+      channelsRenewed: channels.renewed,
     },
     // Only a list-level rate-limit backs off; a partial push failure stays persisted and
     // self-heals on the next reconcile, so it must not gate the account out.
@@ -142,7 +138,8 @@ async function reconcileLanes(
       task.pushFailures === 0 &&
       lived.pushFailures === 0 &&
       lived.faulted === 0 &&
-      lived.vanishedCalendarIds.length === 0,
+      lived.vanishedCalendarIds.length === 0 &&
+      channels.failures === 0,
     vanishedCalendarIds: lived.vanishedCalendarIds,
     activeReadCalendarIds,
   };

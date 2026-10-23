@@ -1,5 +1,5 @@
 import type { Task, Tombstone } from "@vega/shared";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, format, parseISO, subDays } from "date-fns";
 import type { Firestore } from "firebase-admin/firestore";
 import { toWritable } from "../../core/repository";
 import { RETENTION_DAYS } from "../../core/tombstone";
@@ -15,6 +15,7 @@ import {
 import {
   applyMirrorListing,
   type MirrorRow,
+  pruneCancelledRows,
   toMirrorGEvent,
   toMirrorRow,
   writeMirrorRows,
@@ -246,20 +247,13 @@ export function makeWindowGuard(todayIso: string): (task: { date: string | null 
   return (task) => task.date != null && task.date >= lo && task.date <= hi;
 }
 
-/**
- * Apply one op to Google and keep the mirror in step with what we pushed. A delete leaves a
- * cancelled row, so the cancellation Google echoes back is recognised as already known.
- */
-async function applyTaskOp(
-  firestore: Firestore,
-  uid: string,
-  client: GoogleCalendarClient,
-  calendarId: string,
-  op: BatchOp,
-): Promise<void> {
+// A delete leaves a dated cancelled row so Google's echo of it is recognised as already known.
+async function applyTaskOp(run: ReconcileRun, calendarId: string, op: BatchOp): Promise<void> {
+  const { firestore, uid, client } = run;
   if (op.kind === "delete") {
     await client.deleteEvent(calendarId, op.id);
-    await writeMirrorRows(firestore, uid, [toMirrorRow({ id: op.id, status: "cancelled" })]);
+    const cancelled = toMirrorRow({ id: op.id, status: "cancelled", updated: run.now });
+    await writeMirrorRows(firestore, uid, [cancelled]);
     return;
   }
   if (!op.body) return;
@@ -283,9 +277,7 @@ async function insertResurrecting(
 }
 
 async function applyTaskBatch(
-  firestore: Firestore,
-  uid: string,
-  client: GoogleCalendarClient,
+  run: ReconcileRun,
   calendarId: string,
   ops: BatchOp[],
 ): Promise<{ pushFailures: number; rateLimited: boolean }> {
@@ -293,7 +285,7 @@ async function applyTaskBatch(
   let rateLimited = false;
   for (const op of ops) {
     try {
-      await applyTaskOp(firestore, uid, client, calendarId, op);
+      await applyTaskOp(run, calendarId, op);
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
       pushFailures += 1;
@@ -344,9 +336,7 @@ function logTaskPush(uid: string, ops: BatchOp[]): void {
 /**
  * Reconcile VEGA tasks ⇄ the dedicated write-calendar: pull moved/cancelled events, then push the
  * set-difference. `have` comes from the persisted mirror, not the live listing, so a task unscheduled
- * in VEGA (which never shows up in a Google delta) is still detected and its event evicted. The
- * mirror is folded only after the pull lands, so a crash between the two never leaves it claiming a
- * change the tasks never received.
+ * in VEGA (which never shows up in a Google delta) is still detected and its event evicted.
  */
 export async function runTaskLane(
   run: ReconcileRun,
@@ -354,7 +344,7 @@ export async function runTaskLane(
   tasks: Task[],
   mirror: Map<string, MirrorRow>,
 ): Promise<TaskLaneResult> {
-  const { firestore, uid, client, account } = run;
+  const { firestore, uid, account } = run;
   const writeCalendarId = account.writeCalendarId ?? "";
   const timeZone = account.timeZone ?? "UTC";
   const vegaDelta = listing.events.filter(isVegaEvent);
@@ -364,7 +354,10 @@ export async function runTaskLane(
   const marks = computeTaskTombstones(tasks, vegaDelta, run.now);
   await run.writer.markTombstones(marks);
   run.tombstones.push(...marks);
-  const nextMirror = await applyMirrorListing(firestore, uid, mirror, vegaDelta, listing.mode);
+  // Folded only after the pull lands, so a crash can't leave the mirror claiming an unpulled change.
+  const listed = await applyMirrorListing(firestore, uid, mirror, vegaDelta, listing.mode);
+  const retentionCutoff = subDays(parseISO(run.now), RETENTION_DAYS).toISOString();
+  const nextMirror = await pruneCancelledRows(firestore, uid, listed, retentionCutoff);
 
   const tombstonedAt = indexTaskEventTombstones(run.tombstones);
   const inWindow = makeWindowGuard(run.now.slice(0, 10));
@@ -373,12 +366,6 @@ export async function runTaskLane(
   const haveEvents = [...nextMirror.values()].map(toMirrorGEvent);
   const ops = computeTaskBatch(current, haveEvents, canInsert, timeZone);
   logTaskPush(uid, ops);
-  const { pushFailures, rateLimited } = await applyTaskBatch(
-    firestore,
-    uid,
-    client,
-    writeCalendarId,
-    ops,
-  );
+  const { pushFailures, rateLimited } = await applyTaskBatch(run, writeCalendarId, ops);
   return { pushed: ops.length, pulled: pull.length, pushFailures, rateLimited };
 }

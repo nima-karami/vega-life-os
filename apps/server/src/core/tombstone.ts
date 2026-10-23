@@ -82,19 +82,3 @@ export async function sweepListedTombstones(
   }
   return stale.length;
 }
-
-/** Drop tombstones past the retention window; returns how many were swept. */
-export async function sweepTombstones(
-  firestore: Firestore,
-  uid: string,
-  nowMs: number,
-  retentionDays: number = RETENTION_DAYS,
-): Promise<number> {
-  return sweepListedTombstones(
-    firestore,
-    uid,
-    await listTombstones(firestore, uid),
-    nowMs,
-    retentionDays,
-  );
-}

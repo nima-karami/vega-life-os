@@ -4,11 +4,7 @@ import { type MirrorRow, toMirrorGEvent } from "./gcal-mirror";
 import { getVegaKey, isVegaEvent, signatureOf } from "./sync-engine";
 import type { GcalAccount } from "./token-store";
 
-/**
- * Left by the last settled full reconcile: VEGA's sync counter as that run left it, the UTC day it
- * ran, and the calendar config it ran against. While all three still hold, nothing on VEGA's side
- * can need pushing, so the run only has to look at Google's deltas.
- */
+// While all three still hold, nothing on VEGA's side can need pushing.
 export type ReconcileStamp = { syncVersion: number; day: string; configKey: string };
 
 function buildConfigKey(account: GcalAccount): string {
@@ -59,11 +55,6 @@ function isMirrored(event: GEvent, row: MirrorRow | undefined, timeZone: string)
   );
 }
 
-/**
- * Every listing is an incremental delta that carries nothing new: the read calendars report no
- * change and each write-calendar event matches the mirror. A full list, a vanished or faulted
- * calendar, or any unknown change sends the run down the full path.
- */
 export function isQuietDelta(
   listings: CalendarListings,
   mirror: Map<string, MirrorRow>,

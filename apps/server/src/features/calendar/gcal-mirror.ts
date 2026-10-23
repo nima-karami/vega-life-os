@@ -99,10 +99,7 @@ function isSameMirrorRow(prior: MirrorRow | undefined, next: MirrorRow): boolean
   );
 }
 
-/**
- * Fold a listing into the mirror already in memory, writing only rows that moved. A full list
- * replaces the mirror wholesale (the periodic drift repair); a delta only overlays its events.
- */
+/** A full list replaces the mirror wholesale (drift repair); a delta overlays only its events. */
 export async function applyMirrorListing(
   firestore: Firestore,
   uid: string,
@@ -121,6 +118,22 @@ export async function applyMirrorListing(
     incoming.filter((row) => !isSameMirrorRow(mirror.get(row.eventId), row)),
   );
   return next;
+}
+
+/** Past tombstone retention no echo can still be in flight, so an old cancelled row is dead weight. */
+export async function pruneCancelledRows(
+  firestore: Firestore,
+  uid: string,
+  mirror: Map<string, MirrorRow>,
+  cutoffIso: string,
+): Promise<Map<string, MirrorRow>> {
+  const staleIds = [...mirror.values()]
+    .filter((row) => row.status === "cancelled" && (row.updated ?? "") < cutoffIso)
+    .map((row) => row.eventId);
+  await removeMirrorRows(firestore, uid, staleIds);
+  const kept = new Map(mirror);
+  for (const id of staleIds) kept.delete(id);
+  return kept;
 }
 
 export async function clearMirror(firestore: Firestore, uid: string): Promise<void> {
