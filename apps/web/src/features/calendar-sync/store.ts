@@ -1,6 +1,6 @@
 import type { CalendarEvent } from "@vega/shared";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
-import { savePut } from "@/core/store/persist";
+import { saveBulkPut, savePut } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { saveShowGoogleEvents } from "./config";
 import { filterVisibleEvents } from "./display";
@@ -66,7 +66,7 @@ export const createCalendarEventsSlice: Slice<CalendarEventsSlice> = (set, get) 
         return next;
       }),
     }));
-    for (const e of touched) savePut("calendarEvents", e);
+    if (touched.length) void saveBulkPut("calendarEvents", touched);
   },
 
   editEventTime: (id, at) => {

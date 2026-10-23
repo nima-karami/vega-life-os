@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/core/store/persist", () => ({ savePut: vi.fn(), saveRemove: vi.fn() }));
+vi.mock("@/core/store/persist", () => ({
+  savePut: vi.fn(),
+  saveRemove: vi.fn(),
+  saveBulkPut: vi.fn(async () => ({})),
+}));
 
 const { setCalendarVisibility } = vi.hoisted(() => ({
   setCalendarVisibility: vi.fn(async () => ({ ok: true as const })),

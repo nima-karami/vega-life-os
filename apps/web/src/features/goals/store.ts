@@ -1,6 +1,6 @@
 import { uid } from "@/core/lib/id";
 import { arrayMove } from "@/core/lib/reorder";
-import { savePut, saveRemove } from "@/core/store/persist";
+import { saveBulkPut, savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Goal, Subgoal } from "./model";
 import { getPresetRange } from "./timeframe";
@@ -71,8 +71,8 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
       tasks: s.tasks.map((t) => (t.goalId === id ? { ...t, goalId: null } : t)),
     }));
     saveRemove("goals", id);
-    for (const h of habitsToFix) savePut("habits", h);
-    for (const t of tasksToFix) savePut("tasks", t);
+    if (habitsToFix.length) void saveBulkPut("habits", habitsToFix);
+    if (tasksToFix.length) void saveBulkPut("tasks", tasksToFix);
   },
 
   addSubgoal: (goalId, name) => {

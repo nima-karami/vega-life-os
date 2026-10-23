@@ -6,6 +6,8 @@ import { detectTimeframe } from "../timeframe";
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
   saveRemove: vi.fn(),
+  saveBulkPut: vi.fn(async () => ({})),
+  saveBulkRemove: vi.fn(async () => ({})),
 }));
 
 /** Minimal harness: drive the slice with a local state object. */

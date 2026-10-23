@@ -6,6 +6,8 @@ import { createTasksSlice, type TasksSlice } from "../store";
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
   saveRemove: vi.fn(),
+  saveBulkPut: vi.fn(async () => ({})),
+  saveBulkRemove: vi.fn(async () => ({})),
 }));
 
 interface Habit {

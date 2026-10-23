@@ -1,7 +1,9 @@
 import { todayISO } from "@/core/lib/date";
-import { savePut, saveRemove } from "@/core/store/persist";
+import { saveBulkRemove, savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
+import type { RootState } from "@/core/store/types";
 import type { Task } from "@/features/tasks/model";
+import { planUpcoming, saveTaskChurn } from "@/features/tasks/store";
 import { buildHabit } from "./build-habit";
 import { type Habit, habitLifecycle } from "./model";
 import { closeOpenPause } from "./paused-spans";
@@ -37,40 +39,66 @@ function futureUndoneInstanceIds(get: () => { tasks: Task[] }, habitId: string):
     .map((t) => t.id);
 }
 
+interface HabitChange {
+  habits: Habit[];
+  changed: Habit;
+  /** instances the change strips; dropped without a prior, so a rejected delete just refetches */
+  strippedTaskIds?: string[];
+  /** rebuild the runway from today, as `ensureUpcoming` would */
+  regenerate?: boolean;
+}
+
+/** A habit write and everything it does to the runway, as one store update. */
+function commitHabitChange(
+  set: (partial: Partial<RootState>) => void,
+  get: () => RootState,
+  { habits, changed, strippedTaskIds = [], regenerate = false }: HabitChange,
+): void {
+  const drop = new Set(strippedTaskIds);
+  const tasks = drop.size ? get().tasks.filter((t) => !drop.has(t.id)) : get().tasks;
+  const plan = regenerate
+    ? planUpcoming({ tasks, habits, values: get().values })
+    : { stale: [], created: [], tasks };
+  set({ habits, tasks: plan.tasks });
+  savePut("habits", changed);
+  saveTaskChurn(
+    [
+      ...strippedTaskIds.map((taskId) => ({ id: taskId })),
+      ...plan.stale.map((t) => ({ id: t.id, prior: t })),
+    ],
+    plan.created,
+  );
+}
+
+const replaceHabit = (habits: Habit[], next: Habit) =>
+  habits.map((h) => (h.id === next.id ? next : h));
+
 export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   habits: [],
 
   addHabit: (patch = {}) => {
     const habit = buildHabit(patch, get().values);
-    // newest first, so a freshly added habit is visible at the top (not buried below the fold)
-    set((s) => ({ habits: [habit, ...s.habits] }));
-    savePut("habits", habit);
-    // schedule it right away so it shows up in calendar/today without a reload
-    get().ensureUpcoming();
+    // newest first, and scheduled right away so it shows in calendar/today without a reload
+    commitHabitChange(set, get, {
+      habits: [habit, ...get().habits],
+      changed: habit,
+      regenerate: true,
+    });
     return habit;
   },
 
   updateHabit: (id, patch) => {
-    let next: Habit | undefined;
-    set((s) => ({
-      habits: s.habits.map((h) => {
-        if (h.id !== id) return h;
-        next = { ...h, ...patch, id };
-        return next;
-      }),
-    }));
-    if (next) savePut("habits", next);
-    // when the schedule changes, rebuild this habit's future undone instances
-    // (skipping user-detached ones) so the calendar reflects the new definition
-    if (next && (patch.schedule !== undefined || patch.time !== undefined)) {
-      const removeIds = futureUndoneInstanceIds(get, id);
-      if (removeIds.length) {
-        const drop = new Set(removeIds);
-        set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
-        for (const tid of removeIds) saveRemove("tasks", tid);
-      }
-      get().ensureUpcoming();
-    }
+    const habit = get().habits.find((h) => h.id === id);
+    if (!habit) return;
+    const next: Habit = { ...habit, ...patch, id };
+    // a new definition rebuilds the future undone instances (detached ones are the user's)
+    const rebuildsRunway = patch.schedule !== undefined || patch.time !== undefined;
+    commitHabitChange(set, get, {
+      habits: replaceHabit(get().habits, next),
+      changed: next,
+      strippedTaskIds: rebuildsRunway ? futureUndoneInstanceIds(get, id) : [],
+      regenerate: rebuildsRunway,
+    });
   },
 
   removeHabit: (id) => {
@@ -83,7 +111,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       tasks: s.tasks.filter((t) => t.habitId !== id),
     }));
     saveRemove("habits", id);
-    for (const tid of orphanTaskIds) saveRemove("tasks", tid);
+    if (orphanTaskIds.length) void saveBulkRemove("tasks", orphanTaskIds);
   },
 
   archiveHabit: (id) => {
@@ -98,24 +126,23 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     };
     // strip the same future-instance set a schedule change rebuilds — but DON'T
     // regenerate (archived habits have no future). Past/detached instances stay.
-    const removeIds = futureUndoneInstanceIds(get, id);
-    const drop = new Set(removeIds);
-    set((s) => ({
-      habits: s.habits.map((h) => (h.id === id ? next : h)),
-      tasks: removeIds.length ? s.tasks.filter((t) => !drop.has(t.id)) : s.tasks,
-    }));
-    savePut("habits", next);
-    for (const tid of removeIds) saveRemove("tasks", tid);
+    commitHabitChange(set, get, {
+      habits: replaceHabit(get().habits, next),
+      changed: next,
+      strippedTaskIds: futureUndoneInstanceIds(get, id),
+    });
   },
 
   unarchiveHabit: (id) => {
     const habit = get().habits.find((h) => h.id === id);
     if (!habit || (habit.archivedAt ?? null) === null) return; // idempotent
     const next: Habit = { ...habit, archivedAt: null };
-    set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
-    savePut("habits", next);
     // resume from today forward (no back-fill of the archived gap)
-    get().ensureUpcoming();
+    commitHabitChange(set, get, {
+      habits: replaceHabit(get().habits, next),
+      changed: next,
+      regenerate: true,
+    });
   },
 
   pauseHabit: (id) => {
@@ -123,14 +150,11 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     if (!habit || habitLifecycle(habit) !== "active") return; // idempotent, active only
     const next: Habit = { ...habit, pausedAt: new Date().toISOString() };
     // strip future undone instances (like archive) — but keep it resumable. No regenerate.
-    const removeIds = futureUndoneInstanceIds(get, id);
-    const drop = new Set(removeIds);
-    set((s) => ({
-      habits: s.habits.map((h) => (h.id === id ? next : h)),
-      tasks: removeIds.length ? s.tasks.filter((t) => !drop.has(t.id)) : s.tasks,
-    }));
-    savePut("habits", next);
-    for (const tid of removeIds) saveRemove("tasks", tid);
+    commitHabitChange(set, get, {
+      habits: replaceHabit(get().habits, next),
+      changed: next,
+      strippedTaskIds: futureUndoneInstanceIds(get, id),
+    });
   },
 
   resumeHabit: (id) => {
@@ -142,8 +166,10 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
       resumedAt: new Date().toISOString(),
       pausedSpans: closeOpenPause(habit, get().tasks),
     };
-    set((s) => ({ habits: s.habits.map((h) => (h.id === id ? next : h)) }));
-    savePut("habits", next);
-    get().ensureUpcoming();
+    commitHabitChange(set, get, {
+      habits: replaceHabit(get().habits, next),
+      changed: next,
+      regenerate: true,
+    });
   },
 });
