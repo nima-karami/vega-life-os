@@ -21,8 +21,19 @@ export type AppDeps = {
 
 const COMPRESS_THRESHOLD_BYTES = 1024;
 
+/** A streamed or event-stream body must pass through untouched. */
+function isWholeJsonBody(response: Response): boolean {
+  const contentType = response.headers.get("Content-Type") ?? "";
+  return (
+    Boolean(response.body) &&
+    !response.headers.has("Transfer-Encoding") &&
+    contentType.startsWith("application/json")
+  );
+}
+
 /** tRPC sends no Content-Length, and without one `compress` cannot tell a tiny body to skip. */
 async function withContentLength(response: Response): Promise<Response> {
+  if (!isWholeJsonBody(response)) return response;
   const body = await response.arrayBuffer();
   const headers = new Headers(response.headers);
   headers.set("Content-Length", String(body.byteLength));

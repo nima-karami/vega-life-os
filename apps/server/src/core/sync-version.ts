@@ -26,12 +26,17 @@ export async function advanceSyncVersion(
 ): Promise<number | null> {
   const ref = syncRef(firestore, uid);
   try {
-    return await firestore.runTransaction(async (transaction) => {
-      const next = readVersionField((await transaction.get(ref)).data()) + 1;
-      transaction.set(ref, { version: next }, { merge: true });
-      return next;
-    });
+    // One attempt: a client fan-out of concurrent writes must not queue retries on one hot doc.
+    return await firestore.runTransaction(
+      async (transaction) => {
+        const next = readVersionField((await transaction.get(ref)).data()) + 1;
+        transaction.set(ref, { version: next }, { merge: true });
+        return next;
+      },
+      { maxAttempts: 1 },
+    );
   } catch {
+    // A commit that landed but errored on the way back bumps twice: harmless, one spare refetch.
     await bumpSyncVersion(firestore, uid);
     return null;
   }

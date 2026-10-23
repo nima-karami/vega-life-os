@@ -77,11 +77,12 @@ describe("sync read budget (real server vs emulator)", () => {
     expect(reads.tally).toEqual({ dataset: 0, counter: 1, other: 0 });
   });
 
-  it("concurrent own writes still leave the next poll at one counter read", async () => {
+  it("a contended burst of own writes loses no bump and costs at most one refetch", async () => {
     const uid = freshUid();
     await seededAccount(uid);
     const device = createPollingClient(server.asUid(uid));
     await device.connect();
+    const before = await server.asUid(uid).data.syncVersion.query();
 
     await Promise.all(
       Array.from({ length: 6 }, (_, index) =>
@@ -90,11 +91,11 @@ describe("sync read budget (real server vs emulator)", () => {
         ),
       ),
     );
-    reads = countFirestoreReads();
+    await device.poll();
     await device.poll();
 
-    expect(device.refetches).toBe(0);
-    expect(reads.tally.dataset).toBe(0);
+    expect(await server.asUid(uid).data.syncVersion.query()).toBe(before + 6);
+    expect(device.refetches).toBeLessThanOrEqual(1);
   });
 
   it("another device's write costs exactly one refetch, then polls go quiet", async () => {
