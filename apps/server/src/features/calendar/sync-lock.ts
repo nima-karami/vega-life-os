@@ -21,7 +21,7 @@ export interface SyncLockTiming {
   startHeartbeat: (renew: () => Promise<void>, intervalMs: number) => () => void;
 }
 
-function startIntervalHeartbeat(renew: () => Promise<void>, intervalMs: number): () => void {
+export function startIntervalHeartbeat(renew: () => Promise<void>, intervalMs: number): () => void {
   const heartbeat = setInterval(() => {
     void renew().catch(() => undefined);
   }, intervalMs);
