@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { isCommitSha } from "./change-scope.mjs";
 
-function runGit(args, cwd) {
+export function runGit(args, cwd) {
   return execFileSync("git", args, {
     cwd,
     encoding: "utf8",

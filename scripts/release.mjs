@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Deploys only the targets whose inputs changed since what is live: server first, then hosting.
 // --dry-run prints the plan; --plan-json prints it as JSON for CI; --only=server|hosting|both overrides.
+// A successful deploy is tagged with the next CalVer version and published as a GitHub Release;
+// --no-record deploys unversioned.
 import { execFileSync, spawnSync } from "node:child_process";
 import { planTarget } from "./lib/change-scope.mjs";
 import { listChangedFilesSince } from "./lib/git-changes.mjs";
@@ -10,6 +12,8 @@ import {
   REPO_ROOT,
   resolveApiUrl,
 } from "./lib/live-endpoints.mjs";
+import { nextVersion } from "./lib/next-version.mjs";
+import { composeReleaseNotes, listVersionTags, publishRelease } from "./lib/release-record.mjs";
 
 const ONLY_VALUES = ["server", "hosting", "both"];
 const DEPLOY_SCRIPTS = { server: "deploy:server", hosting: "deploy" };
@@ -25,6 +29,7 @@ function parseOptions(argv) {
     only,
     isDryRun: argv.includes("--dry-run"),
     isPlanJson: argv.includes("--plan-json"),
+    isNoRecord: argv.includes("--no-record"),
     allowRedCi: argv.includes("--allow-red-ci") || process.env.RELEASE_ALLOW_RED_CI === "1",
   };
 }
@@ -62,8 +67,18 @@ async function readLiveHostingSha() {
   }
 }
 
+function computeNextVersion() {
+  try {
+    git(["fetch", "--tags", "--quiet", "origin"]);
+  } catch (error) {
+    console.error(`release: could not fetch tags, numbering from local tags (${error.message})`);
+  }
+  return nextVersion(listVersionTags(REPO_ROOT), new Date());
+}
+
 async function buildReleasePlan(only) {
   const headSha = git(["rev-parse", "--short", "HEAD"]);
+  const version = computeNextVersion();
   const liveByTarget = {
     server: await readLiveServerSha(),
     hosting: await readLiveHostingSha(),
@@ -78,11 +93,11 @@ async function buildReleasePlan(only) {
     liveSha: liveSha ?? null,
     liveShaSource: detail,
   }));
-  return { headSha, targets };
+  return { headSha, version, targets };
 }
 
-function printPlan({ headSha, targets }) {
-  console.log(`\nrelease plan for HEAD ${headSha}`);
+function printPlan({ headSha, version, targets }) {
+  console.log(`\nrelease plan for HEAD ${headSha} (next version ${version})`);
   for (const plan of targets) {
     const verdict = plan.shouldDeploy ? "DEPLOY" : "skip  ";
     console.log(
@@ -97,7 +112,7 @@ function printPlan({ headSha, targets }) {
   console.log("");
 }
 
-function runDeploy(target, allowRedCi) {
+function runDeploy(target, { allowRedCi, version }) {
   const script = DEPLOY_SCRIPTS[target];
   const passthrough = target === "server" && allowRedCi ? ["--", "--allow-red-ci"] : [];
   console.log(`release: npm run ${script}`);
@@ -105,11 +120,46 @@ function runDeploy(target, allowRedCi) {
     cwd: REPO_ROOT,
     stdio: "inherit",
     shell: process.platform === "win32",
-    env: allowRedCi ? { ...process.env, RELEASE_ALLOW_RED_CI: "1" } : process.env,
+    env: {
+      ...process.env,
+      ...(version ? { VEGA_VERSION: version } : {}),
+      ...(allowRedCi ? { RELEASE_ALLOW_RED_CI: "1" } : {}),
+    },
   });
   if (deploy.status !== 0) {
     console.error(`\nrelease: FAILED — npm run ${script} exited ${deploy.status}`);
     process.exit(deploy.status ?? 1);
+  }
+}
+
+async function readLiveSchemaHash() {
+  const api = resolveApiUrl();
+  if (!api) return undefined;
+  try {
+    return (await fetchServerHealth(api.url)).schemaHash;
+  } catch {
+    return undefined;
+  }
+}
+
+async function recordRelease({ headSha, version, targets }) {
+  const describeTarget = (target) => ({
+    status: targets.find((plan) => plan.target === target).shouldDeploy ? "shipped" : "skipped",
+  });
+  const notes = composeReleaseNotes({
+    version,
+    sha: headSha,
+    server: describeTarget("server"),
+    hosting: describeTarget("hosting"),
+    schemaHash: await readLiveSchemaHash(),
+    cwd: REPO_ROOT,
+  });
+  try {
+    publishRelease({ version, sha: headSha, notes, cwd: REPO_ROOT });
+  } catch (error) {
+    console.error(`\nrelease: deployed, but recording ${version} failed (${error.message})`);
+    console.error("  The tag may already be pushed; finish with `gh release create` by hand.");
+    process.exit(1);
   }
 }
 
@@ -131,9 +181,12 @@ if (deployTargets.length === 0) {
   console.log("release: nothing to deploy — production already serves everything that changed.");
   process.exit(0);
 }
+const version = options.isNoRecord ? undefined : plan.version;
+const recordNote = version ? `as ${version}` : "unversioned (--no-record)";
 if (options.isDryRun) {
-  console.log(`release: dry run — would deploy ${deployTargets.join(", then ")}`);
+  console.log(`release: dry run — would deploy ${deployTargets.join(", then ")} ${recordNote}`);
   process.exit(0);
 }
-for (const target of deployTargets) runDeploy(target, options.allowRedCi);
-console.log(`release: OK — ${plan.headSha} deployed to ${deployTargets.join(" + ")}`);
+for (const target of deployTargets) runDeploy(target, { allowRedCi: options.allowRedCi, version });
+if (version) await recordRelease(plan);
+console.log(`release: OK — ${plan.headSha} deployed to ${deployTargets.join(" + ")} ${recordNote}`);

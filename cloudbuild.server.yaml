@@ -1,4 +1,7 @@
-# Server image build. Submitted by scripts/deploy-server.sh with _GIT_SHA set to the release commit.
+# Server image build. Submitted by scripts/deploy-server.sh with _GIT_SHA set to the release commit
+# and _APP_VERSION to the release version ("dev" outside a release).
+substitutions:
+  _APP_VERSION: dev
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
@@ -7,6 +10,8 @@ steps:
       - apps/server/Dockerfile
       - --build-arg
       - GIT_SHA=$_GIT_SHA
+      - --build-arg
+      - APP_VERSION=$_APP_VERSION
       - -t
       - us-central1-docker.pkg.dev/$PROJECT_ID/vega/server:$_GIT_SHA
       - .

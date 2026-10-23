@@ -92,8 +92,8 @@ this section); `npm run release` is the laptop path. Both **deploy only the targ
 changed since what is live**, server always before hosting:
 
 ```bash
-npm run release -- --dry-run   # print the plan, deploy nothing
-npm run release                # guard → plan → deploy:server and/or deploy, as needed
+npm run release -- --dry-run   # print the plan and the version it would cut, deploy nothing
+npm run release                # guard → plan → deploy:server and/or deploy → tag + GitHub Release
 ```
 
 The two deploys stay as manual overrides that always ship their target:
@@ -132,9 +132,42 @@ Config that lives outside git (GitHub variables and secrets, local `.env` files)
 triggers a deploy — after changing it, force with `--only=…` or `-f targets=…`.
 
 Flags: `--dry-run` (plan only, skips the guard), `--plan-json` (the plan as JSON, for CI),
-`--only=server|hosting|both` (force), `--allow-red-ci` (passed to both deploys).
+`--only=server|hosting|both` (force), `--allow-red-ci` (passed to both deploys),
+`--no-record` (emergencies only: deploy unversioned, no tag, no GitHub Release — see
+[Versions and release records](#versions-and-release-records)).
 `check:live-schema` still runs inside `deploy`, so a hosting-only release refuses if the
 live server lags the build's schema.
+
+### Versions and release records
+
+Decided in [ADR 0005](adr/2026-10-22-0005-calendar-versioning.md). One product version for
+both targets, CalVer **`vYYYY.M.N`**: `N` is the nth release of that UTC month, from 1, month
+not zero-padded (`v2026.10.1`, `v2026.10.2`, `v2026.11.1`). It exists **only as a git tag** —
+never bump it in a `package.json` (a manifest change ships both targets).
+
+- **Computed** at plan time by `scripts/lib/next-version.mjs` from the `v*` tags (after a
+  `git fetch --tags`); other tags such as `archive/paper-wip` are ignored. `--plan-json`
+  carries it as `version`.
+- **Stamped** into both builds through `VEGA_VERSION`: the server image gets build arg
+  `APP_VERSION` (`deploy-server.sh` → Cloud Build `_APP_VERSION`, or `docker build` in CI) and
+  `/health` reports it; `vite build` defines `__APP_VERSION__` and emits
+  `<meta name="vega-version">`. Anything built outside a release — dev, preview, a manual
+  `deploy` / `deploy:server`, `--no-record` — says `dev`.
+- **Recorded** only after every planned deploy succeeded, and only if at least one target
+  shipped: an annotated tag on the released sha, pushed, then `gh release create` with notes
+  from `scripts/release-notes.mjs` — conventional commits since the previous `v*` tag (the
+  whole history for the first), grouped by type, merge commits dropped — plus a **Deploy**
+  section: each target shipped or skipped, server revision and image, schema hash, build sha
+  and (from CI) the run link. A failed or rolled-back release creates no tag and its number
+  is reused. If recording itself fails, production is already updated and nothing rolls
+  back; finish the tag / `gh release create` by hand.
+- **GitHub Releases are the record.** `CHANGELOG.md` mirrors them, newest first, ending in a
+  "Before v2026.10.1" pointer to `docs/runs/`. Regenerate with `npm run changelog` (needs
+  `gh auth login`) and commit it with the next ordinary commit — it is docs, so it ships
+  nothing. CI never commits it: a `GITHUB_TOKEN` commit gets no verify run and could not be
+  released.
+- **Seeing it:** Settings → About → *Version* shows `version · short sha · schema hash` of
+  the running bundle — the quickest way to tell which build an installed PWA is on (§7).
 
 ### Why the server goes first
 
@@ -170,10 +203,12 @@ dirty-tree and pushed checks can't be skipped.
 key-sorted `z.toJSONSchema` of every stored entity schema plus `profilePatchSchema`. Any
 field added, removed, retyped or made optional changes it.
 
-- The server reports it: `GET /health` → `{ ok, sha, schemaHash }`. `sha` is the
-  `GIT_SHA` build-arg baked into the image (`"dev"` when unset).
-- The web build stamps it into `index.html` as `<meta name="vega-build">` (short sha) and
-  `<meta name="vega-schema">`, and defines `__BUILD_SHA__` / `__SCHEMA_HASH__`.
+- The server reports it: `GET /health` → `{ ok, version, sha, schemaHash }`. `sha` is the
+  `GIT_SHA` build-arg baked into the image and `version` the `APP_VERSION` one (`"dev"`
+  when unset).
+- The web build stamps it into `index.html` as `<meta name="vega-build">` (short sha),
+  `<meta name="vega-schema">` and `<meta name="vega-version">`, and defines
+  `__BUILD_SHA__` / `__SCHEMA_HASH__` / `__APP_VERSION__` (shown in Settings → About).
 - `npm run check:live-schema` (`scripts/check-live-schema.mjs`) GETs the live `/health`,
   prints its `sha` and `schemaHash`, and fails with "deploy the server first" when the
   hash differs from the local one or is missing. The URL comes from `VEGA_API_URL`, else
@@ -188,7 +223,8 @@ field added, removed, retyped or made optional changes it.
    committed tree — never untracked files, `.env.local` or a stray edit — so the image
    always matches the sha it is tagged with.
 2. `gcloud builds submit <tarball> --config cloudbuild.server.yaml --substitutions
-   _GIT_SHA=<short sha>` — builds `apps/server/Dockerfile` with `--build-arg GIT_SHA` on
+   _GIT_SHA=<short sha>,_APP_VERSION=<VEGA_VERSION or dev>` — builds
+   `apps/server/Dockerfile` with `--build-arg GIT_SHA` and `APP_VERSION` on
    `E2_HIGHCPU_8` and pushes `us-central1-docker.pkg.dev/vega-life-os/vega/server:<sha>`.
 3. `gcloud run deploy vega-server --image <that> --region us-central1` — **only**
    `--image`, so the service's env and Secret Manager bindings carry forward.
@@ -224,9 +260,10 @@ To force targets: `gh workflow run release.yml --ref main -f targets=both` (or `
 | Job | Does |
 |---|---|
 | `gate` | Refuses unless the ref is `refs/heads/main` and the latest `verify` run for this exact sha concluded `success`. |
-| `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting`. |
-| `server` | Only when `plan` says so. `docker build` with `GIT_SHA=<short>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
-| `hosting` | Only when `plan` says so, after `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
+| `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting` and the next `version` (checkout fetches all tags). |
+| `server` | Only when `plan` says so. `docker build` with `GIT_SHA=<short>` and `APP_VERSION=<version>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
+| `hosting` | Only when `plan` says so, after `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables and `VEGA_VERSION=<version>` → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
+| `record` | Only when nothing failed or was cancelled and at least one of `server` / `hosting` succeeded (a single skipped target is fine; both skipped → nothing shipped, no tag). `contents: write`. Reads the live `schemaHash`, writes the notes with `scripts/release-notes.mjs`, creates and pushes the annotated `<version>` tag on the released sha, `gh release create`, and copies the notes into the run summary. |
 | `rollback` | Runs only if `server` or `hosting` failed or the run was cancelled. |
 
 **Rollback** runs in reverse release order:

@@ -61,6 +61,24 @@ describe("classifyChangedFile", () => {
     }
   });
 
+  it("ships nothing for the release-record tooling and the changelog it regenerates", () => {
+    const releaseRecordFiles = [
+      "CHANGELOG.md",
+      "scripts/release-notes.mjs",
+      "scripts/changelog.mjs",
+      "scripts/lib/next-version.mjs",
+      "scripts/lib/release-notes.mjs",
+      "scripts/lib/release-record.mjs",
+      "scripts/lib/changelog.mjs",
+    ];
+    for (const filePath of releaseRecordFiles) {
+      assert.deepEqual(classifyChangedFile(filePath).targets, [], filePath);
+    }
+    assert.equal(classifyChangedFile("CHANGELOG.md").rule, "docs");
+    assert.equal(classifyChangedFile("scripts/release-notes.mjs").rule, "tooling");
+    assert.equal(classifyCiScope(["CHANGELOG.md"]), "docs");
+  });
+
   it("ships the targets release.yml and deploy-server.sh build, not nothing", () => {
     assert.deepEqual(classifyChangedFile(".github/workflows/release.yml").targets, [
       "server",

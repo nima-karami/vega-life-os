@@ -1,5 +1,5 @@
-# Built from the repo root: docker build -f apps/server/Dockerfile -t vega-server .
 # syntax=docker/dockerfile:1
+# Built from the repo root: docker build -f apps/server/Dockerfile -t vega-server .
 FROM node:24-slim AS base
 WORKDIR /repo
 ENV HUSKY=0
@@ -22,7 +22,9 @@ COPY package.json package-lock.json ./
 COPY packages/shared ./packages/shared
 COPY apps/server ./apps/server
 ARG GIT_SHA=dev
+ARG APP_VERSION=dev
 ENV GIT_SHA=$GIT_SHA
+ENV APP_VERSION=$APP_VERSION
 WORKDIR /repo/apps/server
 EXPOSE 8080
 CMD ["npx", "tsx", "src/index.ts"]

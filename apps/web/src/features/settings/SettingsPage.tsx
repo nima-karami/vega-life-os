@@ -16,6 +16,8 @@ const FIELD =
 // its swatch is painted from the fixed slate below, never the live accent var.
 const DEFAULT_ACCENT_HEX = "#4e6e8e";
 
+const BUILD_IDENTITY = `${__APP_VERSION__} · ${__BUILD_SHA__} · ${__SCHEMA_HASH__}`;
+
 const ACCENTS = [
   { name: "Default", hex: "" },
   { name: "Blue", hex: "#2563eb" },
@@ -272,7 +274,7 @@ export function SettingsPage() {
         {/* about */}
         <SettingsCard title="About">
           <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-            <Row k="Version" v="0.1.0" />
+            <Row k="Version" v={BUILD_IDENTITY} />
             <Row k="Storage" v={signedIn ? "Cloud (your account)" : "This device (sample data)"} />
             <Row k="Command bar" v="⌘K · local agent" />
             <Row k="Cloud sync" v={signedIn ? "Connected" : "Sign in to enable"} />
@@ -327,7 +329,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-muted">{k}</span>
-      <span className="text-sm text-foreground">{v}</span>
+      <span className="text-right text-sm text-foreground">{v}</span>
     </div>
   );
 }

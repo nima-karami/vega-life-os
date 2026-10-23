@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the server image from the committed HEAD (never the working tree), rolls it out to
 # Cloud Run with only --image so env/secret bindings carry forward, then proves /health.
-# Extra args (e.g. --allow-red-ci) pass through to the release guard.
+# Extra args (e.g. --allow-red-ci) pass through to the release guard; VEGA_VERSION stamps the image.
 set -euo pipefail
 
 PROJECT=vega-life-os
@@ -20,6 +20,7 @@ cd "$REPO_ROOT"
 node scripts/release-guard.mjs "$@"
 
 SHA="$(git rev-parse --short HEAD)"
+VERSION="${VEGA_VERSION:-dev}"
 IMAGE="us-central1-docker.pkg.dev/$PROJECT/vega/server:$SHA"
 SOURCE_TARBALL="$(mktemp -d)/vega-server-$SHA.tar.gz"
 trap 'rm -rf "$(dirname "$SOURCE_TARBALL")"' EXIT
@@ -27,7 +28,7 @@ trap 'rm -rf "$(dirname "$SOURCE_TARBALL")"' EXIT
 git archive --format=tar.gz -o "$SOURCE_TARBALL" HEAD
 "$GCLOUD" builds submit "$SOURCE_TARBALL" \
   --config cloudbuild.server.yaml \
-  --substitutions "_GIT_SHA=$SHA" \
+  --substitutions "_GIT_SHA=$SHA,_APP_VERSION=$VERSION" \
   --project "$PROJECT"
 "$GCLOUD" run deploy "$SERVICE" --image "$IMAGE" --region "$REGION" --project "$PROJECT"
 
@@ -38,4 +39,4 @@ if [[ "$LIVE_SHA" != "$SHA" ]]; then
   exit 1
 fi
 VEGA_API_URL="$SERVICE_URL" node scripts/check-live-schema.mjs
-echo "deploy-server: OK — $SERVICE serving $SHA"
+echo "deploy-server: OK — $SERVICE serving $SHA ($VERSION)"

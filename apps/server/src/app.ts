@@ -28,7 +28,12 @@ export function buildApp(deps: AppDeps): Hono {
   };
 
   app.get("/health", (c) =>
-    c.json({ ok: true, sha: process.env.GIT_SHA ?? "dev", schemaHash: SCHEMA_HASH }),
+    c.json({
+      ok: true,
+      version: process.env.APP_VERSION || "dev",
+      sha: process.env.GIT_SHA ?? "dev",
+      schemaHash: SCHEMA_HASH,
+    }),
   );
 
   // The web client is a different origin (Firebase Hosting) than this API (Cloud Run),

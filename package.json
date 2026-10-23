@@ -34,6 +34,7 @@
     "deploy:preview": "npm run build && npx -y firebase-tools@15 hosting:channel:deploy preview --expires 7d --project vega-life-os --non-interactive",
     "deploy:rollback": "npx -y firebase-tools@15 hosting:clone --project vega-life-os",
     "release": "node scripts/release.mjs",
+    "changelog": "node scripts/changelog.mjs",
     "release:guard": "node scripts/release-guard.mjs",
     "check:live-schema": "node scripts/check-live-schema.mjs",
     "deploy:server": "bash scripts/deploy-server.sh",

@@ -662,6 +662,14 @@ test("settings: About reflects the signed-out (sample data) state", async ({ pag
   await expect(main).not.toContainText("not connected");
 });
 
+test("settings: About shows the build's version, sha and schema hash", async ({ page }) => {
+  await page.goto("/settings", { waitUntil: "networkidle" });
+  const main = page.locator("main");
+  await expect(main).toBeVisible({ timeout: 15_000 });
+  await expect(main).not.toContainText("0.1.0");
+  await expect(main.getByText(/^dev · ([0-9a-f]{7,}|dev) · [0-9a-f]{12}$/)).toBeVisible();
+});
+
 // ─── Today: step between days + jump back ─────────────────────────────────────
 
 test("today: step back/forward a day and jump back to today", async ({ page }) => {

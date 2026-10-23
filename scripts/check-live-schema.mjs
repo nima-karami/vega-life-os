@@ -22,6 +22,7 @@ const { SCHEMA_HASH } = await tsImport("../packages/shared/src/schema-hash.ts", 
 const health = await fetchLiveHealth(api.url);
 
 console.log(`check-live-schema: server ${api.isPrintable ? api.url : `from ${api.source}`}`);
+console.log(`  live version:      ${health.version ?? "(not reported)"}`);
 console.log(`  live sha:          ${health.sha ?? "(not reported)"}`);
 console.log(`  live schemaHash:   ${health.schemaHash ?? "(not reported)"}`);
 console.log(`  local schemaHash:  ${SCHEMA_HASH}`);

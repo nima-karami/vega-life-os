@@ -32,22 +32,29 @@ function sampleTask(id: string): WritableEntity<"tasks"> {
 }
 
 describe("runtime harness (real server vs Firestore emulator)", () => {
-  it("serves GET /health with the build sha and the shared schema hash", async () => {
+  it("serves GET /health with the release version, build sha and shared schema hash", async () => {
     vi.stubEnv("GIT_SHA", "abc1234");
+    vi.stubEnv("APP_VERSION", "v2026.10.1");
     try {
       const res = await fetch(`${server.url}/health`);
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true, sha: "abc1234", schemaHash: SCHEMA_HASH });
+      expect(await res.json()).toEqual({
+        ok: true,
+        version: "v2026.10.1",
+        sha: "abc1234",
+        schemaHash: SCHEMA_HASH,
+      });
     } finally {
       vi.unstubAllEnvs();
     }
   });
 
-  it("reports sha dev when the image was built without GIT_SHA", async () => {
+  it("reports version and sha dev when the image was built without them", async () => {
     vi.stubEnv("GIT_SHA", undefined);
+    vi.stubEnv("APP_VERSION", "");
     try {
       const res = await fetch(`${server.url}/health`);
-      expect(await res.json()).toMatchObject({ sha: "dev" });
+      expect(await res.json()).toMatchObject({ version: "dev", sha: "dev" });
     } finally {
       vi.unstubAllEnvs();
     }

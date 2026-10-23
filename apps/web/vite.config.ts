@@ -17,11 +17,14 @@ function readBuildSha(): string {
 }
 
 const BUILD_SHA = readBuildSha();
+// Set by a release (scripts/release.mjs, release.yml); every other build is "dev".
+const APP_VERSION = process.env.VEGA_VERSION || "dev";
 
 function buildStampPlugin(): Plugin {
   return {
     name: "vega-build-stamp",
     transformIndexHtml: () => [
+      { tag: "meta", attrs: { name: "vega-version", content: APP_VERSION }, injectTo: "head" },
       { tag: "meta", attrs: { name: "vega-build", content: BUILD_SHA }, injectTo: "head" },
       { tag: "meta", attrs: { name: "vega-schema", content: SCHEMA_HASH }, injectTo: "head" },
     ],
@@ -30,6 +33,7 @@ function buildStampPlugin(): Plugin {
 
 export default defineConfig({
   define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
     __BUILD_SHA__: JSON.stringify(BUILD_SHA),
     __SCHEMA_HASH__: JSON.stringify(SCHEMA_HASH),
   },
