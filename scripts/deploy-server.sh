@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the server image from the committed HEAD (never the working tree), rolls it out to
-# Cloud Run with only --image so env/secret bindings carry forward, then proves /health.
+# Cloud Run with only --image and --cpu-boost so env/secret bindings carry forward, then proves /health.
 # Extra args (e.g. --allow-red-ci) pass through to the release guard; VEGA_VERSION stamps the image.
 set -euo pipefail
 
@@ -30,7 +30,7 @@ git archive --format=tar.gz -o "$SOURCE_TARBALL" HEAD
   --config cloudbuild.server.yaml \
   --substitutions "_GIT_SHA=$SHA,_APP_VERSION=$VERSION" \
   --project "$PROJECT"
-"$GCLOUD" run deploy "$SERVICE" --image "$IMAGE" --region "$REGION" --project "$PROJECT"
+"$GCLOUD" run deploy "$SERVICE" --image "$IMAGE" --cpu-boost --region "$REGION" --project "$PROJECT"
 
 SERVICE_URL="$("$GCLOUD" run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format 'value(status.url)')"
 LIVE_SHA="$(curl -fsS "$SERVICE_URL/health" | node -e 'let body="";process.stdin.on("data",(chunk)=>{body+=chunk}).on("end",()=>console.log(JSON.parse(body).sha))')"

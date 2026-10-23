@@ -154,7 +154,7 @@ jobs:
       - name: Deploy a no-traffic revision
         run: |
           gcloud run deploy "$SERVICE" --image "${{ steps.image.outputs.digest }}" \
-            --no-traffic --tag "$TAG" --max-instances=2 \
+            --no-traffic --tag "$TAG" --max-instances=2 --cpu-boost \
             --region "$REGION" --project "$PROJECT" --quiet
       - id: tagged
         run: echo "tagged=true" >> "$GITHUB_OUTPUT"

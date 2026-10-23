@@ -10,7 +10,7 @@ export function shouldTriggerCalendarSync(collection: string): boolean {
 
 /**
  * Per-uid debounced reconcile — the inline push-on-write leg. Best-effort by design:
- * requires CPU-always-allocated on Cloud Run; the 5-min Scheduler is the guarantee.
+ * CPU is throttled after the response on Cloud Run; the 15-min Scheduler is the guarantee.
  * Runs are serialized per uid: a fire during an in-flight run marks the uid dirty and
  * a single trailing run picks up the latest state, so a burst never orphans a push.
  */

@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { auth } from "@googleapis/calendar";
 import type { OauthConfig } from "../../core/config";
 
 const GCAL_SCOPES = [
@@ -35,8 +35,7 @@ export type OauthGateway = {
 };
 
 export function createOauthGateway(config: OauthConfig): OauthGateway {
-  const client = () =>
-    new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
+  const client = () => new auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
 
   return {
     buildConsentUrl(state) {
