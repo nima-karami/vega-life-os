@@ -1,4 +1,5 @@
 import type { Card } from "@vega/shared";
+import { useCallback } from "react";
 import { CheckField, cx, Icon } from "@/core/ui";
 import { CARD_SORT_COLUMNS, type CardSort, type CardSortColumn } from "../manager-query";
 import { CardsTableRow } from "./CardsTableRow";
@@ -11,6 +12,13 @@ import {
   type ResizableColumn,
   tableWidth,
 } from "./column-widths";
+import { useCardsVirtualizer } from "./useCardsVirtualizer";
+import { WindowSlot } from "./WindowSlot";
+
+const ROW_PX = 44;
+// Generous on purpose: a deck that fits a screen or two renders whole, and a fling rarely
+// outruns the window.
+const OVERSCAN_ROWS = 12;
 
 export function CardsTable({
   rows,
@@ -38,9 +46,20 @@ export function CardsTable({
   actions: CardRowActions;
 }) {
   const template = buildGridTemplate(widths);
+  const estimateSize = useCallback(() => ROW_PX, []);
+  const getItemKey = useCallback((index: number) => rows[index].id, [rows]);
+  const { listRef, slots, spacers } = useCardsVirtualizer({
+    listKey: "table",
+    rows,
+    estimateSize,
+    overscan: OVERSCAN_ROWS,
+    getItemKey,
+  });
 
   return (
-    <div className="mt-4 overflow-x-auto">
+    // `overflow-y-hidden`: an x-only scroller computes y to auto, and the virtualizer would take
+    // this box, which never scrolls vertically, for the page scroller.
+    <div className="mt-4 overflow-x-auto overflow-y-hidden">
       <div
         className="overflow-hidden rounded-[16px] border border-border bg-surface shadow-soft"
         style={{ minWidth: tableWidth(widths) }}
@@ -82,17 +101,20 @@ export function CardsTable({
           <span className={CELL_CLASS} />
         </div>
 
-        {rows.map((card, index) => (
-          <CardsTableRow
-            key={card.id}
-            card={card}
-            template={template}
-            categories={categories}
-            isFirst={index === 0}
-            isSelected={selectedIds.has(card.id)}
-            actions={actions}
-          />
-        ))}
+        <div ref={listRef} style={{ paddingTop: spacers.before, paddingBottom: spacers.after }}>
+          {slots.map(({ key, index, row: card, gapPx }) => (
+            <WindowSlot key={key} gapPx={gapPx}>
+              <CardsTableRow
+                card={card}
+                index={index}
+                template={template}
+                categories={categories}
+                isSelected={selectedIds.has(card.id)}
+                actions={actions}
+              />
+            </WindowSlot>
+          ))}
+        </div>
       </div>
     </div>
   );
