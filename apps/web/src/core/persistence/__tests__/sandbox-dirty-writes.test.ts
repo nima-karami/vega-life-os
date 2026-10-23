@@ -13,6 +13,8 @@ beforeEach(() => {
 
 const loadSandboxMeta = () => import("../sandbox-meta");
 
+const SANDBOX_META_CHANNEL = "vega.sandbox-meta";
+
 describe("setSandboxDirty", () => {
   it("writes the flag once per transition, not once per save", async () => {
     const { setSandboxDirty } = await loadSandboxMeta();
@@ -32,6 +34,28 @@ describe("setSandboxDirty", () => {
       { key: "sandbox", dirty: false },
       { key: "sandbox", dirty: true },
     ]);
+  });
+
+  it("writes again after another tab rewrote the flag", async () => {
+    const { setSandboxDirty } = await loadSandboxMeta();
+    await setSandboxDirty(true);
+    const otherTab = new BroadcastChannel(SANDBOX_META_CHANNEL);
+    otherTab.postMessage("sandbox-meta-written");
+    otherTab.close();
+    await vi.waitFor(async () => {
+      await setSandboxDirty(true);
+      expect(metaPut).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("tells other tabs when it writes the flag", async () => {
+    const { setSandboxDirty } = await loadSandboxMeta();
+    const otherTab = new BroadcastChannel(SANDBOX_META_CHANNEL);
+    const received: unknown[] = [];
+    otherTab.onmessage = (event) => received.push(event.data);
+    await setSandboxDirty(false);
+    await vi.waitFor(() => expect(received).toHaveLength(1));
+    otherTab.close();
   });
 
   it("retries a write that failed", async () => {
