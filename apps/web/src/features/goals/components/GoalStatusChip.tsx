@@ -15,7 +15,7 @@ function StatusLabel({ status, isLeaving }: { status: GoalStatus; isLeaving?: bo
   );
 }
 
-/** Status chip that cross-fades on a seal or unseal; the leaving label stays stacked, hidden. */
+/** Status chip that cross-fades on a seal or unseal, the leaving label stacked under the new one. */
 export function GoalStatusChip({
   status,
   motion,
