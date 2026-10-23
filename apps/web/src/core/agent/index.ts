@@ -10,7 +10,7 @@ import type { Agent, AgentResult } from "./types";
 const local = new LocalIntentAgent();
 let anthropic: Promise<Agent> | undefined;
 
-// The SDK loads only once a key exists; a failed load is forgotten so the next query retries it.
+// The SDK loads only once a key exists.
 function loadAnthropicAgent(): Promise<Agent> {
   anthropic ??= import("./anthropic-agent").then(
     ({ AnthropicAgent }) => new AnthropicAgent(),

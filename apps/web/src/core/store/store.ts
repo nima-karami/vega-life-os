@@ -2,6 +2,7 @@ import { createSyncCursor, DEFAULT_CARD_PREFS } from "@vega/shared";
 import { create } from "zustand";
 import { auth, firebaseEnabled } from "@/core/firebase/app";
 import { getCloudProfile } from "@/core/firebase/profile";
+import { isChunkLoadError } from "@/core/lib/chunk-error";
 import type { CollectionName, Dataset, LoadedDataset } from "@/core/persistence";
 import {
   buildSeed,
@@ -41,6 +42,12 @@ import { createUiSlice } from "./ui";
 /** Replaced per account load, so a write still in flight for the previous account reports to a dead cursor. */
 let syncCursor = createSyncCursor();
 
+// A missing or unreadable profile falls back to defaults; an unloadable Firestore chunk fails the load.
+function nullUnlessChunkLoadError(error: unknown): null {
+  if (isChunkLoadError(error)) throw error;
+  return null;
+}
+
 async function loadAccount(
   uid: string,
   set: (p: Partial<RootState>) => void,
@@ -64,7 +71,7 @@ async function loadAccount(
     const [, snapshot, profile] = await Promise.all([
       get().clearLocal(), // abandon the local sandbox — never uploaded
       cloud.loadSnapshot(),
-      getCloudProfile(uid).catch(() => null),
+      getCloudProfile(uid).catch(nullUnlessChunkLoadError),
     ]);
     // The snapshot's version was read before its rows; one taken after the load would swallow a
     // write that landed mid-load, leaving the client silently stale.

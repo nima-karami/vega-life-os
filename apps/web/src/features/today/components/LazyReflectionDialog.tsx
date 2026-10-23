@@ -20,7 +20,7 @@ export function LazyReflectionDialog({
   if (dialogProps.isOpen && !hasOpened) setHasOpened(true);
 
   useEffect(() => {
-    // A failed prefetch is retried by the real load, which reports through the route's error screen.
+    // A failed prefetch is ignored; opening the dialog surfaces a failed load on the error screen.
     if (shouldPrefetch) loadReflectionDialog().catch(() => undefined);
   }, [shouldPrefetch]);
 

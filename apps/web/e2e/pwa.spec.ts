@@ -209,14 +209,21 @@ test("offline, the precache starts the app and serves a lazy route's chunk", asy
   await context.setOffline(true);
 
   await page.goto("/calendar");
-  await expect(page.locator("#root")).not.toBeEmpty({ timeout: 15_000 });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          performance
+            .getEntriesByType("resource")
+            .some((entry) => /\/CalendarPage-[\w-]+\.js$/.test(entry.name)),
+        ),
+      { message: "the lazy calendar chunk never loaded offline", timeout: 15_000 },
+    )
+    .toBe(true);
+  await expect(page.getByRole("button", { name: /explore with sample data/i })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByRole("alert")).toHaveCount(0);
-  const isCalendarChunkLoaded = await page.evaluate(() =>
-    performance
-      .getEntriesByType("resource")
-      .some((entry) => /\/CalendarPage-[\w-]+\.js$/.test(entry.name)),
-  );
-  expect(isCalendarChunkLoaded, "the lazy calendar chunk never loaded offline").toBe(true);
 });
 
 test("a visible tab checks for a new service worker, at most once a minute", async ({ page }) => {

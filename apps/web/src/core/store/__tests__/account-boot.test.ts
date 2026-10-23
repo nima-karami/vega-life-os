@@ -26,12 +26,14 @@ const server = vi.hoisted(() => ({
     profile: null as Deferred<null> | null,
   },
   calls: { clear: 0, snapshot: 0, profile: 0, syncVersion: 0, loadAll: 0 },
+  profileError: null as Error | null,
 }));
 
 vi.mock("@/core/firebase/app", () => ({ auth: { currentUser: null }, firebaseEnabled: true }));
 vi.mock("@/core/firebase/profile", () => ({
   getCloudProfile: vi.fn(() => {
     server.calls.profile += 1;
+    if (server.profileError) return Promise.reject(server.profileError);
     return server.pending.profile?.promise ?? Promise.resolve(null);
   }),
   setCloudProfile: vi.fn(async () => {}),
@@ -96,6 +98,7 @@ describe("signed-in boot", () => {
     server.tasks = [task("t1")];
     server.pending = { clear: null, snapshot: null, profile: null };
     server.calls = { clear: 0, snapshot: 0, profile: 0, syncVersion: 0, loadAll: 0 };
+    server.profileError = null;
     useStore.setState({ authUid: null, authResolved: true, refreshGcalStatus: async () => {} });
   });
 
@@ -140,5 +143,24 @@ describe("signed-in boot", () => {
 
     expect(server.calls.loadAll).toBe(1);
     expect(taskIds()).toEqual(["t1", "t2"]);
+  });
+
+  it("boots on default profile fields when the profile read fails", async () => {
+    server.profileError = new Error("permission-denied");
+
+    await useStore.getState().onAuthChange("account-a");
+
+    expect(useStore.getState()).toMatchObject({ ready: true, loadFailed: false });
+    expect(taskIds()).toEqual(["t1"]);
+  });
+
+  it("fails the load when the Firestore chunk cannot be fetched", async () => {
+    server.profileError = new TypeError(
+      "Failed to fetch dynamically imported module: /assets/index.esm.js",
+    );
+
+    await useStore.getState().onAuthChange("account-a");
+
+    expect(useStore.getState()).toMatchObject({ ready: true, loadFailed: true });
   });
 });
