@@ -1,4 +1,4 @@
-import { addDays, format, startOfWeek, subDays } from "date-fns";
+import { addDays, format, parseISO, startOfWeek, subDays } from "date-fns";
 import { shiftISO, todayISO } from "@/core/lib/date";
 import { type Goal, isGoalClosed } from "@/features/goals/model";
 import { getGoalPaceBadge } from "@/features/goals/presentation";
@@ -12,16 +12,18 @@ import type { Task } from "@/features/tasks/model";
 
 /** Any scheduled task dated within the last n days (inclusive, no future) — gates the
  *  "no activity in this range" hint. */
-export function hasTasksInWindow(tasks: Task[], n: number): boolean {
-  const today = todayISO();
+export function hasTasksInWindow(tasks: Task[], n: number, today = todayISO()): boolean {
   const lo = shiftISO(today, -(n - 1));
   return tasks.some((t) => t.date != null && t.date >= lo && t.date <= today);
 }
 
 /** Count of completed tasks per value over the last n days inclusive. Future-dated
  *  done tasks are excluded so they can't inflate the balance. */
-export function countCompletedByValue(tasks: Task[], n = 30): Record<string, number> {
-  const today = todayISO();
+export function countCompletedByValue(
+  tasks: Task[],
+  n = 30,
+  today = todayISO(),
+): Record<string, number> {
   const lo = shiftISO(today, -(n - 1));
   const out: Record<string, number> = {};
   for (const t of tasks) {
@@ -55,7 +57,7 @@ function reflectionStat(
   today: string,
 ): ReflectionStat {
   const series = Array.from({ length: n }, (_, i) => {
-    const iso = format(subDays(new Date(), n - 1 - i), "yyyy-MM-dd");
+    const iso = format(subDays(parseISO(today), n - 1 - i), "yyyy-MM-dd");
     return { iso, on: pred(byDate.get(iso)) };
   });
   const count = series.filter((d) => d.on).length;
@@ -68,9 +70,12 @@ function reflectionStat(
 }
 
 /** Journaling + gratitude tracking: an n-day display window, but runs over full history. */
-export function computeReflectionStats(journal: DayEntry[], n = 28): ReflectionStats {
+export function computeReflectionStats(
+  journal: DayEntry[],
+  n = 28,
+  today = todayISO(),
+): ReflectionStats {
   const byDate = new Map(journal.map((e) => [e.date, e]));
-  const today = format(new Date(), "yyyy-MM-dd");
   return {
     journaled: reflectionStat(byDate, n, hasJournalEntry, today),
     gratitude: reflectionStat(byDate, n, hasGratitude, today),
@@ -88,9 +93,9 @@ export interface GridCell {
 export function buildConsistencyGrid(
   tasks: Task[],
   weeks = 22,
+  today = todayISO(),
 ): { cols: GridCell[][]; months: { label: string; col: number }[] } {
-  const thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const today = format(new Date(), "yyyy-MM-dd");
+  const thisWeekStart = startOfWeek(parseISO(today), { weekStartsOn: 1 });
   const byDate = new Map<string, Task[]>();
   for (const t of tasks) {
     if (!t.date) continue;
@@ -136,10 +141,10 @@ export interface MoodPoint {
 }
 
 /** Per-day mood over the last n days (oldest first); unlogged days stay null. */
-export function computeMoodSeries(journal: DayEntry[], n = 30): MoodPoint[] {
+export function computeMoodSeries(journal: DayEntry[], n = 30, today = todayISO()): MoodPoint[] {
   const byDate = new Map(journal.map((e) => [e.date, e]));
   return Array.from({ length: n }, (_, i) => {
-    const d = subDays(new Date(), n - 1 - i);
+    const d = subDays(parseISO(today), n - 1 - i);
     const iso = format(d, "yyyy-MM-dd");
     const entry = byDate.get(iso);
     return { iso, label: format(d, "MMM d"), mood: entry?.mood ?? null };

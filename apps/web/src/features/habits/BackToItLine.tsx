@@ -1,8 +1,7 @@
-import { todayISO } from "@/core/lib/date";
+import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
 import type { Task } from "@/features/tasks/model";
-import { isHabitActive } from "./model";
-import { hasLapsedPreviousSlot } from "./selectors";
+import { shouldNudgeBackToIt } from "./back-to-it";
 
 export function BackToItLine({ task }: { task: Task }) {
   if (task.habitId == null) return null;
@@ -12,8 +11,7 @@ export function BackToItLine({ task }: { task: Task }) {
 function BackToItHabitLine({ task, habitId }: { task: Task; habitId: string }) {
   const habit = useStore((s) => s.habits.find((h) => h.id === habitId));
   const tasks = useStore((s) => s.tasks);
-  if (!habit?.tracked || !isHabitActive(habit)) return null;
-  if (task.date !== todayISO() || task.status !== "todo") return null;
-  if (!hasLapsedPreviousSlot(tasks, habit)) return null;
+  const today = useTodayISO();
+  if (!shouldNudgeBackToIt(task, habit, tasks, today)) return null;
   return <span className="text-xs text-muted">Back to it today. Even a small version counts.</span>;
 }
