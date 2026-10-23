@@ -65,7 +65,12 @@ describe("data router (real server vs emulator)", () => {
       collection: "calendarEvents",
       records: [livedEvent("ce_i1"), livedEvent("ce_i2")],
     });
-    expect(imported).toEqual({ inserted: 2, skipped: 0, writtenChunks: 1 });
+    expect(imported).toEqual({
+      inserted: 2,
+      skipped: 0,
+      writtenChunks: 1,
+      syncVersion: expect.any(Number),
+    });
 
     await server.asUid(owner).tasks.upsert.mutate({
       id: "t_wipe",

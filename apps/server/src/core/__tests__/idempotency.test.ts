@@ -19,10 +19,13 @@ describe("set-by-id upsert is idempotent (no opId mechanism)", () => {
 
     const first = await client.tasks.upsert.mutate(record);
     const second = await client.tasks.upsert.mutate(record);
-    expect(second).toEqual(first);
+    const { syncVersion: _firstVersion, ...firstRecord } = first;
+    const { syncVersion: replayVersion, ...replayRecord } = second;
+    expect(replayRecord).toEqual(firstRecord);
+    expect(replayVersion).toBeNull();
 
     const matches = (await client.tasks.list.query()).filter((task) => task.id === record.id);
     expect(matches).toHaveLength(1);
-    expect(matches[0]).toEqual(first);
+    expect(matches[0]).toEqual(firstRecord);
   });
 });

@@ -40,6 +40,6 @@ describe("refetchAll pending-write guard", () => {
   it("applies server truth for a collection with no pending write", async () => {
     loadAll.mockResolvedValue({ ...createEmptyDataset(), tasks: [{ id: "t2", title: "server" }] });
     await useStore.getState().refetchAll();
-    expect(useStore.getState().tasks).toEqual([{ id: "t2", title: "server" }]);
+    expect(useStore.getState().tasks).toEqual([{ id: "t2", title: "server", fieldUpdatedAt: {} }]);
   });
 });
