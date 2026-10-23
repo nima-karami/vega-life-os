@@ -6,9 +6,11 @@ import {
   buildBrainWriteQueue,
   type DeckPlan,
   extendDeck,
+  PASS_CHUNK_SIZE,
   planDeck,
   prunePlannedEntries,
   relocateFailedCard,
+  shouldExtendDeck,
 } from "../brainwrite-deck";
 
 const TODAY = "2026-08-20";
@@ -171,5 +173,71 @@ describe("prunePlannedEntries", () => {
   it("returns the same plan when nothing left the pool", () => {
     const plan = planDeck(sourceOf(deckCards(12)));
     expect(prunePlannedEntries(plan, new Set(idsOf(plan)), 0)).toBe(plan);
+  });
+});
+
+describe("chunked passes", () => {
+  const LONG_POOL = PASS_CHUNK_SIZE * 2 + 30;
+  const mixedCards = (count: number): Card[] =>
+    Array.from({ length: count }, (_, index) =>
+      buildCard({ id: `m${index}`, title: `M${index}`, category: `topic ${index % 5}` }),
+    );
+  const planWholePass = (cards: Card[]): string[] =>
+    buildBrainWriteQueue(cards, prefs(), TODAY, { seed: 11 }).map((entry) => entry.cardId);
+  const readOpenPass = (plan: DeckPlan, cards: Card[]): DeckPlan => {
+    let read = plan;
+    for (;;) {
+      const next = extendDeck(read, sourceOf(cards));
+      if (next.passCount > read.passCount) return read;
+      read = next;
+    }
+  };
+
+  it("reads a long pass a chunk at a time, in the order a whole pass plans", () => {
+    const cards = mixedCards(LONG_POOL);
+    const plan = planDeck(sourceOf(cards));
+    expect(plan.entries.length).toBe(PASS_CHUNK_SIZE);
+    const read = readOpenPass(plan, cards);
+    expect(read.passCount).toBe(1);
+    expect(idsOf(read)).toEqual(planWholePass(cards));
+    expect(read.entries.every((entry) => entry.passIndex === 0)).toBe(true);
+  });
+
+  it("opens the next pass only once the open one is read out", () => {
+    const cards = mixedCards(LONG_POOL);
+    const read = readOpenPass(planDeck(sourceOf(cards)), cards);
+    const next = extendDeck(read, sourceOf(cards));
+    expect(next.passCount).toBe(2);
+    expect(next.entries.slice(0, read.entries.length)).toEqual(read.entries);
+  });
+
+  it("keeps a failed card out of the unread rest of its pass", () => {
+    const cards = mixedCards(LONG_POOL);
+    const unreadId = planWholePass(cards)[PASS_CHUNK_SIZE + 10];
+    const relocated = relocateFailedCard(planDeck(sourceOf(cards)), unreadId, 0);
+    expect(idsOf(relocated)[FAILED_REAPPEAR_OFFSET]).toBe(unreadId);
+    const read = readOpenPass(relocated, cards);
+    expect(idsOf(read).filter((id) => id === unreadId)).toHaveLength(1);
+  });
+
+  it("drops a card that left the pool from a chunk not yet read", () => {
+    const cards = mixedCards(LONG_POOL);
+    const goneId = planWholePass(cards)[PASS_CHUNK_SIZE + 3];
+    const withoutGone = cards.map((card) =>
+      card.id === goneId ? { ...card, hiddenAt: "2026-08-20T00:00:00.000Z" } : card,
+    );
+    const extended = extendDeck(planDeck(sourceOf(cards)), sourceOf(withoutGone));
+    expect(extended.entries.length).toBeGreaterThan(PASS_CHUNK_SIZE);
+    expect(idsOf(extended)).not.toContain(goneId);
+  });
+
+  it("chains the next chunk early enough to hold a failed card's return slot", () => {
+    const long = planDeck(sourceOf(mixedCards(LONG_POOL)));
+    const chunkLead = 2 * FAILED_REAPPEAR_OFFSET;
+    expect(shouldExtendDeck(long, PASS_CHUNK_SIZE - chunkLead - 1)).toBe(false);
+    expect(shouldExtendDeck(long, PASS_CHUNK_SIZE - chunkLead)).toBe(true);
+    const short = planDeck(sourceOf(deckCards(12)));
+    expect(shouldExtendDeck(short, 9)).toBe(false);
+    expect(shouldExtendDeck(short, 10)).toBe(true);
   });
 });

@@ -28,6 +28,10 @@ import {
 
 const DECK = "[data-brainwrite-scroll]";
 const DECK_SIZE = 6;
+const QUICK_RUN_DECK_SIZE = 60;
+const QUICK_RUN_GRADES = 50;
+/** BrainWritePage renders the current slot and this many either side; the rest are spacers. */
+const RENDER_RADIUS = 2;
 const SEED_BOX = 2;
 /** Long enough for a grade to reach Dexie and for the 260ms fly-off + 700ms recentre. */
 const SETTLE_MS = 1_200;
@@ -54,7 +58,7 @@ const worstRepeat = (deck: DeckCardState[]): number =>
   deck.reduce((worst, card) => Math.max(worst, card.reviewCount), 0);
 
 /** A known deck of due, flippable cards, written straight into the sandbox's Dexie store. */
-async function seedDeck(page: Page) {
+async function seedDeck(page: Page, size: number) {
   await page.evaluate(
     async (setup) => {
       const pad = (value: number) => String(value).padStart(2, "0");
@@ -111,7 +115,7 @@ async function seedDeck(page: Page) {
       });
       database.close();
     },
-    { size: DECK_SIZE, box: SEED_BOX },
+    { size, box: SEED_BOX },
   );
 }
 
@@ -157,9 +161,9 @@ async function bootSandbox(page: Page) {
   }
 }
 
-async function openBrainWrite(page: Page) {
+async function openBrainWrite(page: Page, deckSize = DECK_SIZE) {
   await bootSandbox(page);
-  await seedDeck(page);
+  await seedDeck(page, deckSize);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.goto("/brainwrite", { waitUntil: "domcontentloaded" });
   await expect(page.locator(DECK)).toBeVisible({ timeout: 15_000 });
@@ -523,6 +527,32 @@ test("a deck rebuild mid-drag does not add a second grade", async ({ page }) => 
   await page.waitForTimeout(SETTLE_MS);
   const deck = await readDeckState(page);
   expect(deck[0].reviewCount, "the rebuild let the same card grade twice").toBe(1);
+});
+
+test("fifty quick grades never show a card twice and keep the deck windowed", async ({ page }) => {
+  test.setTimeout(150_000);
+  await openBrainWrite(page, QUICK_RUN_DECK_SIZE);
+  await page.locator(DECK).focus();
+
+  const seen: string[] = [];
+  for (let index = 0; index < QUICK_RUN_GRADES; index++) {
+    const card = cardAt(page, index);
+    await expect(card).toBeInViewport({ ratio: 0.9 });
+    await expect(card.locator("[data-brainwrite-phase]")).toHaveAttribute(
+      "data-brainwrite-phase",
+      "idle",
+    );
+    seen.push((await card.getAttribute("aria-label")) ?? "");
+    await page.keyboard.press("1");
+  }
+
+  expect(new Set(seen).size, seen.join(" | ")).toBe(QUICK_RUN_GRADES);
+  expect(await page.locator(`${DECK} [data-index]`).count()).toBeLessThanOrEqual(
+    2 * RENDER_RADIUS + 1,
+  );
+  await expect
+    .poll(async () => countGrades(await readDeckState(page)), { timeout: 5_000 })
+    .toBe(QUICK_RUN_GRADES);
 });
 
 test("reduced motion still shows the commit feedback and still grades", async ({ page }) => {

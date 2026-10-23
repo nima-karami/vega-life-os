@@ -8,23 +8,24 @@ import { hasClearedToday } from "../../store";
 import {
   type DeckPlan,
   extendDeck,
+  PASS_CHUNK_SIZE,
   planDeck,
   prunePlannedEntries,
   relocateFailedCard,
+  shouldExtendDeck,
 } from "../brainwrite-deck";
 
 const TODAY = "2026-08-21";
 const BASE_SEED = 0x4d2;
 const POOL_SIZE = 120;
 const DUE_COUNT = 30;
-const PASS_EXTEND_THRESHOLD = 2;
 const CATEGORIES = ["topic a", "topic m", "topic b", "topic c"];
 
 const prefs = (over: Partial<CardPrefs> = {}): CardPrefs => ({ ...DEFAULT_CARD_PREFS, ...over });
 
 /** Every card is in review, so every swipe grades — the deck's two lanes both stay live. */
-function buildDrillPool(): Card[] {
-  return Array.from({ length: POOL_SIZE }, (_, index) =>
+function buildDrillPool(size = POOL_SIZE): Card[] {
+  return Array.from({ length: size }, (_, index) =>
     buildCard({
       id: `v${index}`,
       category: CATEGORIES[index % CATEGORIES.length],
@@ -94,7 +95,7 @@ function replaySession(
       index,
     );
     index += 1;
-    if (index >= plan.entries.length - PASS_EXTEND_THRESHOLD) plan = extendDeck(plan, source());
+    if (shouldExtendDeck(plan, index)) plan = extendDeck(plan, source());
   }
 
   return { seen, wrongAt };
@@ -127,6 +128,12 @@ function findUnsanctionedRepeats(run: SessionRun): Repeat[] {
     if (isSanctioned) sanctionedPerCard.set(repeat.cardId, count + 1);
     return !isSanctioned;
   });
+}
+
+function expectRepeatsAtDesignedOffset(run: SessionRun): void {
+  const repeats = findRepeats(run.seen);
+  expect(repeats.length, describeRun(run)).toBeGreaterThan(0);
+  for (const repeat of repeats) expect(repeat.gap).toBe(FAILED_REAPPEAR_OFFSET);
 }
 
 const describeRun = (run: SessionRun): string =>
@@ -188,9 +195,31 @@ describe("BrainWrite session integrity", () => {
   });
 
   it("returns a failed card exactly at its designed offset, within its limit", () => {
-    const run = replaySession(buildDrillPool(), prefs(), (step) => step % 3 !== 0, 60);
-    const repeats = findRepeats(run.seen);
-    expect(repeats.length, describeRun(run)).toBeGreaterThan(0);
-    for (const repeat of repeats) expect(repeat.gap).toBe(FAILED_REAPPEAR_OFFSET);
+    expectRepeatsAtDesignedOffset(
+      replaySession(buildDrillPool(), prefs(), (step) => step % 3 !== 0, 60),
+    );
+  });
+});
+
+describe("BrainWrite session integrity across pass chunks", () => {
+  const LONG_POOL = PASS_CHUNK_SIZE * 3 + 17;
+  const LONG_RUN = PASS_CHUNK_SIZE * 2 + 50;
+
+  for (const mode of MODES) {
+    it(`never repeats a card inside the no-repeat window — ${mode.name}`, () => {
+      const run = replaySession(buildDrillPool(LONG_POOL), prefs(), mode.shouldPass, LONG_RUN);
+      expect(findUnsanctionedRepeats(run), describeRun(run)).toEqual([]);
+    });
+  }
+
+  it("shows a distinct card per swipe across the chunk seams when every grade is correct", () => {
+    const run = replaySession(buildDrillPool(LONG_POOL), prefs(), () => true, LONG_RUN);
+    expect(new Set(run.seen).size, describeRun(run)).toBe(LONG_RUN);
+  });
+
+  it("returns a failed card exactly at its designed offset across the chunk seams", () => {
+    expectRepeatsAtDesignedOffset(
+      replaySession(buildDrillPool(LONG_POOL), prefs(), (step) => step % 3 !== 0, LONG_RUN),
+    );
   });
 });
