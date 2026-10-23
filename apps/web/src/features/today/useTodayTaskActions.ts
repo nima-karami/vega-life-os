@@ -31,7 +31,7 @@ function holdCompletion(settle: DoneSettle, task: Task) {
 /** The Today page's task writes, with the screen-reader announcement and delete-undo they drive. */
 export function useTodayTaskActions(tasks: Task[], viewDate: string) {
   const setStatus = useStore((s) => s.setStatus);
-  const updateTask = useStore((s) => s.updateTask);
+  const updateTasks = useStore((s) => s.updateTasks);
   const removeTask = useStore((s) => s.removeTask);
   const addTask = useStore((s) => s.addTask);
   const settle = useDoneSettle(viewDate);
@@ -76,7 +76,7 @@ export function useTodayTaskActions(tasks: Task[], viewDate: string) {
   function handleReorderTasks(activeId: string, overId: string) {
     const updates = reorderTasksInDay(tasks, viewDate, activeId, overId);
     if (updates.length === 0) return;
-    for (const u of updates) updateTask(u.id, { order: u.order });
+    updateTasks(updates.map((u) => ({ id: u.id, patch: { order: u.order } })));
     setAnnounce("Tasks reordered");
   }
 

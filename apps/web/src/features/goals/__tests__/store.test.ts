@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import { getGoalPhase } from "../selectors";
 import { createGoalsSlice, type GoalsSlice } from "../store";
 import { detectTimeframe } from "../timeframe";
@@ -6,19 +7,13 @@ import { detectTimeframe } from "../timeframe";
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
   saveRemove: vi.fn(),
+  saveBulkPut: vi.fn(async () => ({})),
+  saveBulkRemove: vi.fn(async () => ({})),
 }));
 
 /** Minimal harness: drive the slice with a local state object. */
 function makeSlice() {
-  let state = {} as GoalsSlice;
-  const set = (partial: Partial<GoalsSlice> | ((s: GoalsSlice) => Partial<GoalsSlice>)) => {
-    const patch = typeof partial === "function" ? partial(state) : partial;
-    state = { ...state, ...patch };
-  };
-  const get = () => state;
-  // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
-  state = createGoalsSlice(set as any, get as any, {} as any);
-  return { get };
+  return createSliceHarness(createGoalsSlice);
 }
 
 function seedGoalWithSteps(get: () => GoalsSlice, names: string[]) {

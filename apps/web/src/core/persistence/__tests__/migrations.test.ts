@@ -1,7 +1,8 @@
 import { type Card, DEFAULT_CARD_PREFS, type MindCard, type MindMetaRecord } from "@vega/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveBulkPut, savePut, saveRemove } from "@/core/store/persist";
+import { saveBulkPut, saveBulkRemove, savePut, saveRemove } from "@/core/store/persist";
 import type { Habit } from "@/features/habits/model";
+import { normalizeHabit } from "@/features/habits/recurrence";
 import type { VocabEntry } from "@/features/library/model";
 import type { Task } from "@/features/tasks/model";
 import { RETIRED_HUE_REPLACEMENT } from "@/features/values/color";
@@ -18,7 +19,23 @@ vi.mock("@/core/store/persist", () => ({
     failedChunk: null,
     result: { inserted: 0, skipped: 0, writtenChunks: 1 },
   })),
+  saveBulkRemove: vi.fn(async () => ({})),
 }));
+
+/** The rows each collection's bulk writes carried, by collection. */
+function bulkWrites(): Record<string, string[]> {
+  const written: Record<string, string[]> = {};
+  for (const [col, rows] of vi.mocked(saveBulkPut).mock.calls)
+    written[col] = [...(written[col] ?? []), ...(rows as { id: string }[]).map((row) => row.id)];
+  return written;
+}
+
+function bulkRemovals(): Record<string, string[]> {
+  const removed: Record<string, string[]> = {};
+  for (const [col, ids] of vi.mocked(saveBulkRemove).mock.calls)
+    removed[col] = [...(removed[col] ?? []), ...ids];
+  return removed;
+}
 
 const legacyHabit = (over: Partial<Habit> = {}): Habit =>
   ({
@@ -145,9 +162,9 @@ describe("migrateData (pure)", () => {
 });
 
 describe("runDataMigrations (gated + idempotent)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("persists normalized habits, prunes stale instances, then no-ops on re-run", async () => {
-    vi.mocked(savePut).mockClear();
-    vi.mocked(saveRemove).mockClear();
     const h = harness(
       "u-mig-1",
       [legacyHabit()],
@@ -159,40 +176,76 @@ describe("runDataMigrations (gated + idempotent)", () => {
 
     await runDataMigrations(h.get, h.set, true);
 
-    // persists the normalized habit + the surviving (backfilled) task
-    expect(
-      vi
-        .mocked(savePut)
-        .mock.calls.map((c) => c[0])
-        .sort(),
-      // cardPrefs too: a v4 pass that converts nothing still stamps, or a second device re-runs.
-    ).toEqual(["cardPrefs", "habits", "tasks"]);
-    expect(saveRemove).toHaveBeenCalledWith("tasks", "stale");
-    expect(saveRemove).toHaveBeenCalledTimes(1);
+    // persists the normalized habit + the surviving (backfilled) task, one bulk call each
+    expect(bulkWrites()).toEqual({ habits: ["h1"], tasks: ["keep-done"] });
+    expect(saveBulkPut).toHaveBeenCalledTimes(2);
+    expect(bulkRemovals()).toEqual({ tasks: ["stale"] });
+    expect(saveRemove).not.toHaveBeenCalled();
+    // cardPrefs too: a v4 pass that converts nothing still stamps, or a second device re-runs.
+    expect(vi.mocked(savePut).mock.calls.map((c) => c[0])).toEqual(["cardPrefs"]);
     expect(h.state().tasks.map((t) => t.id)).toEqual(["keep-done"]);
     expect(h.state().tasks[0].slotDate).toBe("2999-01-15"); // backfilled
     expect("days" in h.state().habits[0]).toBe(false);
 
     // Second run with the marker now at DATA_VERSION → fully idempotent.
-    vi.mocked(savePut).mockClear();
-    vi.mocked(saveRemove).mockClear();
+    vi.clearAllMocks();
     await runDataMigrations(h.get, h.set, true);
     expect(savePut).not.toHaveBeenCalled();
-    expect(saveRemove).not.toHaveBeenCalled();
+    expect(saveBulkPut).not.toHaveBeenCalled();
+    expect(saveBulkRemove).not.toHaveBeenCalled();
     expect(DATA_VERSION).toBe(4);
   });
 
   it("persists only the values whose retired hue it rewrote", async () => {
-    vi.mocked(savePut).mockClear();
     const [retired, replacement] = Object.entries(RETIRED_HUE_REPLACEMENT)[0];
     const h = harness("u-mig-2", [], [], [value({ id: "a", hue: retired }), value({ id: "b" })]);
 
     await runDataMigrations(h.get, h.set, true);
 
-    const saved = vi.mocked(savePut).mock.calls.filter((c) => c[0] === "values");
-    expect(saved).toHaveLength(1);
-    expect((saved[0][1] as Value).id).toBe("a");
+    expect(bulkWrites()).toEqual({ values: ["a"] });
     expect(h.state().values.map((v) => v.hue)).toEqual([replacement, undefined]);
+  });
+
+  it("writes only the rows the transform changed, one bulk call per collection", async () => {
+    const migratedHabit = normalizeHabit(legacyHabit({ id: "h-clean" }));
+    const h = harness(
+      "u-mig-diff",
+      [legacyHabit(), migratedHabit],
+      [
+        task({ id: "needs-slot", date: "2999-01-15" }),
+        task({ id: "clean", date: "2999-02-15", slotDate: "2999-02-15", completedAt: null }),
+      ],
+    );
+
+    await runDataMigrations(h.get, h.set, true);
+
+    expect(bulkWrites()).toEqual({ habits: ["h1"], tasks: ["needs-slot"] });
+    expect(saveBulkPut).toHaveBeenCalledTimes(2);
+  });
+
+  it("a fresh profile on an already-migrated account writes nothing", async () => {
+    // Signed in is cloud-only: a new browser has no marker, so the pass re-runs over cloud rows.
+    const migrated = migrateData({
+      habits: [legacyHabit()],
+      tasks: [
+        task({ id: "done", status: "done", date: "2999-01-15" }),
+        task({ id: "todo", date: "2999-02-15" }),
+        task({ id: "one-off", kind: "oneoff", habitId: null }),
+      ],
+      values: [value({ id: "a", hue: Object.entries(RETIRED_HUE_REPLACEMENT)[0][0] })],
+    });
+    // a stored null can come back as an absent key; the pass must read that as unchanged
+    const tasks = migrated.tasks.map(({ slotDate, ...rest }) =>
+      rest.id === "one-off" ? rest : { ...rest, slotDate },
+    );
+    const h = harness("u-mig-fresh-profile", migrated.habits, tasks, migrated.values);
+
+    await runDataMigrations(h.get, h.set, true);
+
+    expect(saveBulkPut).not.toHaveBeenCalled();
+    expect(saveBulkRemove).not.toHaveBeenCalled();
+    expect(vi.mocked(savePut).mock.calls.map((c) => c[0])).toEqual(["cardPrefs"]);
+    expect(saveRemove).not.toHaveBeenCalled();
   });
 });
 

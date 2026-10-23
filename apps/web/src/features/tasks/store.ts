@@ -1,11 +1,12 @@
-import { addDays, format } from "date-fns";
+import { format } from "date-fns";
 import { getWeekDays } from "@/core/lib/date";
-import { savePut, saveRemove } from "@/core/store/persist";
+import { saveBulkPut, savePut, saveRemove, type WriteRollback } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { findSlotOnOrBefore } from "@/features/habits/recurrence";
 import { buildTask, normalizeSchedule } from "./build-task";
-import { buildMissingInstances, findStaleInstances, getGeneratingHabits } from "./habit-instances";
+import { buildMissingInstances, getGeneratingHabits } from "./habit-instances";
 import type { Task, TaskStatus } from "./model";
+import { buildInstances, planUpcoming, saveTaskChurn } from "./runway";
 
 /** Local-time stamp for a completion (the app reasons about dates in local time). */
 const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
@@ -29,14 +30,49 @@ export interface TasksSlice {
   /** link (or, with null, unlink) a task to a habit: sets kind/lineage and anchors the
    *  slotDate to the scheduled occurrence the task fulfils. Recovers orphaned instances. */
   linkTaskToHabit: (id: string, habitId: string | null) => void;
-  /** apply one patch to many tasks at once (each persisted) */
+  /** apply one patch to many tasks at once, in one store update and one write */
   bulkUpdateTasks: (ids: string[], patch: Partial<Task>) => void;
+  /** `updateTask` for many tasks (same slot lock), in one store update and one write */
+  updateTasks: (patches: TaskPatch[]) => void;
   /** remove many tasks at once; returns their snapshots so a bulk delete can be undone */
   bulkRemoveTasks: (ids: string[]) => Task[];
   /** fill the visible week with any missing habit instances; returns count made */
   planWeek: (ref?: Date) => number;
   /** keep the runway populated: ensure habit instances exist from today forward */
   ensureUpcoming: (daysAhead?: number) => number;
+}
+
+interface TaskPatch {
+  id: string;
+  patch: Partial<Task>;
+}
+
+type StoreSet = Parameters<Slice<TasksSlice>>[0];
+
+/**
+ * Slot-integrity invariant: lock a habit instance to the slot it currently fills BEFORE any edit
+ * can move its date, or a move frees the origin slot and the generator makes a phantom duplicate
+ * (the phantom-duplicate bug). An explicit slotDate in the patch still wins.
+ */
+function applyTaskPatch(task: Task, patch: Partial<Task>): Task {
+  const slotDate = task.habitId != null ? (task.slotDate ?? task.date) : task.slotDate;
+  return normalizeSchedule({ ...task, slotDate, ...patch, id: task.id });
+}
+
+/** One store update and one write for every task `patchTask` returns a new row for. */
+function writeTaskPatches(set: StoreSet, patchTask: (task: Task) => Task | null): void {
+  const updated: Task[] = [];
+  const rollbacks: WriteRollback<"tasks">[] = [];
+  set((s) => ({
+    tasks: s.tasks.map((t) => {
+      const next = patchTask(t);
+      if (!next) return t;
+      updated.push(next);
+      rollbacks.push({ kind: "update", prior: t });
+      return next;
+    }),
+  }));
+  if (updated.length) void saveBulkPut("tasks", updated, rollbacks);
 }
 
 export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
@@ -56,12 +92,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== id) return t;
         prior = t;
-        // Slot-integrity invariant: lock a habit instance to the slot it currently fills
-        // BEFORE any edit can move its date — otherwise a move frees the origin slot and
-        // the generator makes a phantom duplicate (the phantom-duplicate bug). Only
-        // stamps when missing; an explicit slotDate in the patch still wins.
-        const slotDate = t.habitId != null ? (t.slotDate ?? t.date) : t.slotDate;
-        next = normalizeSchedule({ ...t, slotDate, ...patch, id });
+        next = applyTaskPatch(t, patch);
         return next;
       }),
     }));
@@ -177,59 +208,50 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
 
   bulkUpdateTasks: (ids, patch) => {
     const idset = new Set(ids);
-    const updated: Task[] = [];
-    const priors = new Map<string, Task>();
-    set((s) => ({
-      tasks: s.tasks.map((t) => {
-        if (!idset.has(t.id)) return t;
-        priors.set(t.id, t);
-        const next = normalizeSchedule({ ...t, ...patch, id: t.id });
-        updated.push(next);
-        return next;
-      }),
-    }));
-    for (const t of updated) {
-      const prior = priors.get(t.id);
-      if (prior) savePut("tasks", t, { kind: "update", prior });
-    }
+    writeTaskPatches(set, (t) =>
+      idset.has(t.id) ? normalizeSchedule({ ...t, ...patch, id: t.id }) : null,
+    );
+  },
+
+  updateTasks: (patches) => {
+    const patchById = new Map(patches.map(({ id, patch }) => [id, patch]));
+    writeTaskPatches(set, (t) => {
+      const patch = patchById.get(t.id);
+      return patch ? applyTaskPatch(t, patch) : null;
+    });
   },
 
   bulkRemoveTasks: (ids) => {
     const idset = new Set(ids);
     const removed = get().tasks.filter((t) => idset.has(t.id));
     set((s) => ({ tasks: s.tasks.filter((t) => !idset.has(t.id)) }));
-    for (const t of removed) saveRemove("tasks", t.id, t);
+    saveTaskChurn(
+      removed.map((t) => ({ id: t.id, prior: t })),
+      [],
+    );
     return removed;
   },
 
   planWeek: (ref = new Date()) => {
-    const { tasks, habits, addTask } = get();
-    const generating = getGeneratingHabits(habits, get().values);
+    const { tasks, habits, values } = get();
+    const generating = getGeneratingHabits(habits, values);
     const isoDates = getWeekDays(ref).map((d) => d.iso);
-    const missing = buildMissingInstances(tasks, generating, isoDates);
-    for (const instance of missing) addTask(instance);
-    return missing.length;
+    const created = buildInstances(
+      buildMissingInstances(tasks, generating, isoDates),
+      tasks.length,
+    );
+    if (created.length) set({ tasks: [...tasks, ...created] });
+    saveTaskChurn([], created);
+    return created.length;
   },
 
   ensureUpcoming: (daysAhead = 14) => {
-    const { tasks, habits, addTask } = get();
-    const generating = getGeneratingHabits(habits, get().values);
-    const start = new Date();
-    const today = format(start, "yyyy-MM-dd");
-    const end = format(addDays(start, daysAhead), "yyyy-MM-dd");
-
-    const stale = findStaleInstances(tasks, generating, today, end);
-    if (stale.length) {
-      const drop = new Set(stale.map((t) => t.id));
-      set((s) => ({ tasks: s.tasks.filter((t) => !drop.has(t.id)) }));
-      for (const t of stale) saveRemove("tasks", t.id, t);
-    }
-
-    const isoDates = Array.from({ length: Math.max(daysAhead + 1, 0) }, (_, i) =>
-      format(addDays(start, i), "yyyy-MM-dd"),
+    const plan = planUpcoming(get(), daysAhead);
+    if (plan.stale.length || plan.created.length) set({ tasks: plan.tasks });
+    saveTaskChurn(
+      plan.stale.map((t) => ({ id: t.id, prior: t })),
+      plan.created,
     );
-    const missing = buildMissingInstances(get().tasks, generating, isoDates);
-    for (const instance of missing) addTask(instance);
-    return missing.length;
+    return plan.created.length;
   },
 });

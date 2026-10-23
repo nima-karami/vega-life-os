@@ -1,5 +1,5 @@
 import { uid } from "@/core/lib/id";
-import { savePut, saveRemove } from "@/core/store/persist";
+import { saveBulkRemove, savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
@@ -93,8 +93,8 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
       tasks: s.tasks.filter((t) => !taskIds.has(t.id)),
     }));
     saveRemove("values", id);
-    for (const g of goalIds) saveRemove("goals", g);
-    for (const h of habitIds) saveRemove("habits", h);
-    for (const t of taskIds) saveRemove("tasks", t);
+    if (goalIds.size) void saveBulkRemove("goals", [...goalIds]);
+    if (habitIds.size) void saveBulkRemove("habits", [...habitIds]);
+    if (taskIds.size) void saveBulkRemove("tasks", [...taskIds]);
   },
 });

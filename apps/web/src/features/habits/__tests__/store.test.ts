@@ -1,39 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
+import { shiftISO, todayISO } from "@/core/lib/date";
+import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import type { Task } from "@/features/tasks/model";
-import { createHabitsSlice, type HabitsSlice } from "../store";
+import { createHabitsSlice } from "../store";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
   saveRemove: vi.fn(),
+  saveBulkPut: vi.fn(async () => ({})),
+  saveBulkRemove: vi.fn(async () => ({})),
 }));
 
-/** Minimal harness: drive the slice with a local state object, stubbing the
- *  cross-slice bits the habit actions reach for (values + tasks + ensureUpcoming). */
+/** Minimal harness: drive the slice with a local state object, seeding the
+ *  cross-slice bits the habit actions reach for (values + tasks). */
 function makeSlice(
   seed: {
     tasks?: Task[];
     values?: { id: string; archivedAt: string | null; restingAt: string | null }[];
   } = {},
 ) {
-  type State = HabitsSlice & {
-    values: { id: string; archivedAt: string | null; restingAt: string | null }[];
-    tasks: Task[];
-    ensureUpcoming: () => void;
-  };
-  let state = {} as State;
-  const set = (partial: Partial<State> | ((s: State) => Partial<State>)) => {
-    state = { ...state, ...(typeof partial === "function" ? partial(state) : partial) };
-  };
-  const get = () => state;
-  state = {
+  return createSliceHarness(createHabitsSlice, {
     values: seed.values ?? [{ id: "v1", archivedAt: null, restingAt: null }],
     tasks: seed.tasks ?? [],
-    ensureUpcoming: vi.fn(),
-    // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
-    ...createHabitsSlice(set as any, get as any, {} as any),
-  } as State;
-  if (seed.tasks) state.tasks = seed.tasks;
-  return { get };
+  });
+}
+
+/** The generated runway: h1's instances from today through the 14-day horizon. */
+function runwayOf(get: () => { tasks: Task[] }): Task[] {
+  const today = todayISO();
+  const horizon = shiftISO(today, 14);
+  return get().tasks.filter(
+    (t) => t.habitId === "h1" && t.date != null && t.date >= today && t.date <= horizon,
+  );
 }
 
 const inst = (over: Partial<Task> = {}): Task =>
@@ -100,10 +98,10 @@ describe("addHabit — time handling", () => {
     expect(h.time).toBeNull();
   });
 
-  it("schedules instances right away (ensureUpcoming) after add", () => {
+  it("schedules the whole runway right away after add", () => {
     const { get } = makeSlice();
-    get().addHabit({ name: "Drink water", time: null });
-    expect(get().ensureUpcoming).toHaveBeenCalled();
+    get().addHabit({ id: "h1", name: "Drink water", time: null });
+    expect(runwayOf(get)).toHaveLength(15);
   });
 
   it("defaults archivedAt to null (active)", () => {
@@ -114,7 +112,8 @@ describe("addHabit — time handling", () => {
 });
 
 describe("updateHabit — schedule change rebuilds future instances", () => {
-  it("strips future undone non-detached instances, re-runs ensureUpcoming, and persists the schedule", () => {
+  it("strips future undone non-detached instances, rebuilds the runway, and persists the schedule", () => {
+    const seeded = ["future", "past", "detached"];
     const { get } = makeSlice({
       tasks: [
         inst({ id: "future", date: "2999-01-01" }),
@@ -123,7 +122,6 @@ describe("updateHabit — schedule change rebuilds future instances", () => {
       ],
     });
     get().addHabit({ id: "h1", name: "Journal" });
-    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
 
     get().updateHabit("h1", {
       schedule: { type: "monthly", daysOfMonth: [1], lastDay: false },
@@ -131,9 +129,13 @@ describe("updateHabit — schedule change rebuilds future instances", () => {
 
     const ids = get()
       .tasks.map((t) => t.id)
+      .filter((id) => seeded.includes(id))
       .sort();
     expect(ids).toEqual(["detached", "past"]); // "future" stripped
-    expect(get().ensureUpcoming).toHaveBeenCalled();
+    const firsts = Array.from({ length: 15 }, (_, i) => shiftISO(todayISO(), i)).filter((iso) =>
+      iso.endsWith("-01"),
+    );
+    expect(runwayOf(get).map((t) => t.date)).toEqual(firsts); // the daily runway is rebuilt monthly
     expect(get().habits[0].schedule).toEqual({ type: "monthly", daysOfMonth: [1], lastDay: false });
   });
 });
@@ -157,12 +159,11 @@ describe("archiveHabit / unarchiveHabit", () => {
     expect(ids).toEqual(["detached", "done", "past"]);
   });
 
-  it("archives without regenerating (ensureUpcoming not fired by archive)", () => {
+  it("archives without regenerating the runway it stripped", () => {
     const { get } = makeSlice();
     get().addHabit({ id: "h1", name: "Journal" });
-    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
     get().archiveHabit("h1");
-    expect(get().ensureUpcoming).not.toHaveBeenCalled();
+    expect(runwayOf(get)).toEqual([]);
   });
 
   it("archive is idempotent (a no-op when already archived)", () => {
@@ -174,22 +175,21 @@ describe("archiveHabit / unarchiveHabit", () => {
     expect(get().habits[0].archivedAt).toBe(firstTs);
   });
 
-  it("unarchives: clears archivedAt and calls ensureUpcoming", () => {
+  it("unarchives: clears archivedAt and regenerates the runway", () => {
     const { get } = makeSlice();
     get().addHabit({ id: "h1", name: "Journal" });
     get().archiveHabit("h1");
-    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
     get().unarchiveHabit("h1");
     expect(get().habits[0].archivedAt).toBeNull();
-    expect(get().ensureUpcoming).toHaveBeenCalled();
+    expect(runwayOf(get)).toHaveLength(15);
   });
 
   it("unarchive is idempotent (a no-op on an active habit)", () => {
     const { get } = makeSlice();
     get().addHabit({ id: "h1", name: "Journal" });
-    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    const before = get().tasks;
     get().unarchiveHabit("h1");
-    expect(get().ensureUpcoming).not.toHaveBeenCalled();
+    expect(get().tasks).toBe(before);
   });
 });
 
@@ -212,12 +212,11 @@ describe("pauseHabit / resumeHabit", () => {
     expect(ids).toEqual(["detached", "done", "past"]); // "future" stripped
   });
 
-  it("pauses without regenerating (ensureUpcoming not fired by pause)", () => {
+  it("pauses without regenerating the runway it stripped", () => {
     const { get } = makeSlice();
     get().addHabit({ id: "h1", name: "Journal" });
-    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
     get().pauseHabit("h1");
-    expect(get().ensureUpcoming).not.toHaveBeenCalled();
+    expect(runwayOf(get)).toEqual([]);
   });
 
   it("pause is idempotent (a no-op when already paused)", () => {
@@ -233,11 +232,10 @@ describe("pauseHabit / resumeHabit", () => {
     const { get } = makeSlice();
     get().addHabit({ id: "h1", name: "Journal" });
     get().pauseHabit("h1");
-    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
     get().resumeHabit("h1");
     expect(get().habits[0].pausedAt).toBeNull();
     expect(get().habits[0].resumedAt).toBeTruthy();
-    expect(get().ensureUpcoming).toHaveBeenCalled();
+    expect(runwayOf(get)).toHaveLength(15);
   });
 
   describe("paused spans", () => {
@@ -317,9 +315,9 @@ describe("pauseHabit / resumeHabit", () => {
   it("resume is idempotent (a no-op on an active habit)", () => {
     const { get } = makeSlice();
     get().addHabit({ id: "h1", name: "Journal" });
-    (get().ensureUpcoming as ReturnType<typeof vi.fn>).mockClear();
+    const before = get().tasks;
     get().resumeHabit("h1");
-    expect(get().ensureUpcoming).not.toHaveBeenCalled();
+    expect(get().tasks).toBe(before);
   });
 
   it("archiving a paused habit clears pausedAt so unarchive returns it to active", () => {
