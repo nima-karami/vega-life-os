@@ -1,7 +1,9 @@
+import { useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { IconName } from "@/core/lib/icon-names";
 import { cx } from "./cx";
+import { ENTITY_MORPH_STYLE, useIsEntityCarried, usePublishedMorphFill } from "./entity-morph";
 import { Icon } from "./icons";
 
 /** The measure block — the only part of the card that varies by entity. Fixed height
@@ -66,25 +68,36 @@ export function EntityCard({
   struck?: boolean;
   actions?: ReactNode;
 }) {
+  const isCarried = useIsEntityCarried(to);
+  const isMotionReduced = useReducedMotion() ?? false;
   return (
     <div
-      className={cx("relative rounded-[16px] border p-4", TONE_OPACITY[tone])}
-      style={{ background: fill, borderColor: fill }}
+      className={cx(
+        "relative isolate rounded-[16px] border border-transparent p-4",
+        TONE_OPACITY[tone],
+      )}
     >
+      <CardFill fill={fill} isCarried={isCarried} />
       <div className="flex items-center gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[.18] text-white">
-          <Icon name={icon} size={17} />
+          <Icon name={icon} size={17} style={isCarried ? ENTITY_MORPH_STYLE.icon : undefined} />
         </span>
         {to ? (
           <Link
             to={to}
+            viewTransition={!isMotionReduced}
             className={cx(
               "min-w-0 flex-1 truncate text-[15px] font-medium text-white outline-none",
               "after:absolute after:inset-0 after:rounded-[16px] focus-visible:after:ring-2 focus-visible:after:ring-white",
               struck && "line-through",
             )}
           >
-            {title}
+            <span
+              className="block truncate"
+              style={isCarried ? ENTITY_MORPH_STYLE.title : undefined}
+            >
+              {title}
+            </span>
           </Link>
         ) : (
           <span
@@ -111,6 +124,20 @@ export function EntityCard({
 
       <CardMetaLine meta={meta} className="mt-2.5" />
     </div>
+  );
+}
+
+/** The card's colour as its own layer under an `isolate` card, so a card → page
+ *  transition can carry the colour without the text on it. */
+export function CardFill({ fill, isCarried }: { fill: string; isCarried: boolean }) {
+  usePublishedMorphFill("--morph-card-fill", fill, isCarried);
+  return (
+    <span
+      aria-hidden
+      data-morph-fill={isCarried ? "" : undefined}
+      className="absolute -inset-px -z-10 rounded-[16px]"
+      style={{ background: fill, ...(isCarried && ENTITY_MORPH_STYLE.fill) }}
+    />
   );
 }
 

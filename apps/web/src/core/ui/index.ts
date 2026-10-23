@@ -14,7 +14,15 @@ export { CalendarPopover, DatePicker, DurationStepper, TimePicker, TimeRange } f
 export { EditorField } from "./EditorField";
 export { EmptyState } from "./EmptyState";
 export type { CardMeasure, CardMeta, CardTone, CardWeekDay } from "./EntityCard";
-export { CardMetaLine, EntityCard } from "./EntityCard";
+export { CardFill, CardMetaLine, EntityCard } from "./EntityCard";
+export {
+  DragOverlayContext,
+  ENTITY_MORPH_STYLE,
+  MORPH_PROPERTIES,
+  useCarriedEntityPath,
+  useEntityMorphHeader,
+  useIsEntityCarried,
+} from "./entity-morph";
 export type { ChipGroup, SearchBox } from "./FilterBar";
 export { FilterBar } from "./FilterBar";
 export { FIELD_CLASS } from "./field-styles";
