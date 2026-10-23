@@ -4,7 +4,14 @@ import { useNavigate, useParams } from "react-router";
 import { useTodayISO } from "@/core/lib/clock";
 import type { IconName } from "@/core/lib/icon-names";
 import { useQuietMode, useStore } from "@/core/store";
-import { EntityBreadcrumb, Icon, IconField, Menu, type MenuItem } from "@/core/ui";
+import {
+  EntityBreadcrumb,
+  Icon,
+  IconField,
+  Menu,
+  type MenuItem,
+  useEntityMorphHeader,
+} from "@/core/ui";
 import { getValueCardFill, getValueColor } from "@/features/values/color";
 import { ValueWhy } from "@/features/values/components/ValueWhy";
 import { ArchivedBanner } from "./ArchivedBanner";
@@ -50,6 +57,7 @@ function HabitDetail({ habit }: { habit: Habit }) {
   const pushToast = useStore((s) => s.pushToast);
   const navigate = useNavigate();
   const [isDeleting, setDeleting] = useState(false);
+  const morph = useEntityMorphHeader(getValueColor(value));
 
   const lifecycle = habitLifecycle(habit);
   const isArchived = lifecycle === "archived";
@@ -71,16 +79,18 @@ function HabitDetail({ habit }: { habit: Habit }) {
       <EntityBreadcrumb trail={buildHabitTrail(habit, { values, goals })} />
 
       <header className="mt-3.5 flex items-start gap-3.5">
-        <IconField
-          value={habit.icon}
-          onSelect={(icon) => updateHabit(habit.id, { icon })}
-          isDisabled={isArchived}
-          triggerClassName="rounded-full text-white"
-          triggerStyle={{ background: getValueColor(value), width: 44, height: 44 }}
-          iconSize={20}
-        />
+        <span className="shrink-0" {...morph.disc}>
+          <IconField
+            value={habit.icon}
+            onSelect={(icon) => updateHabit(habit.id, { icon })}
+            isDisabled={isArchived}
+            triggerClassName="rounded-full text-white"
+            triggerStyle={{ background: getValueColor(value), width: 44, height: 44 }}
+            iconSize={20}
+          />
+        </span>
         <div className="min-w-0 flex-1">
-          <h1>
+          <h1 {...morph.title}>
             <input
               type="text"
               aria-label="Habit name"

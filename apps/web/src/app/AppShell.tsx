@@ -67,7 +67,10 @@ export function AppShell() {
         {/* One mount, one position, every route: the band is overlaid rather than in flow,
         so no route change can unmount it and let the outgoing page flash through it. */}
         {!isGratitudeUp && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 sm:hidden">
+          <div
+            data-app-nav
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 sm:hidden"
+          >
             <span
               aria-hidden
               style={{ height: NAV_FADE_RAMP_PX }}

@@ -2,7 +2,7 @@
 import { Button } from "@heroui/react";
 import type { ReactNode } from "react";
 import type { IconName } from "@/core/lib/icon-names";
-import { type BreadcrumbItem, cx, EntityBreadcrumb, Icon } from "@/core/ui";
+import { type BreadcrumbItem, cx, EntityBreadcrumb, Icon, useEntityMorphHeader } from "@/core/ui";
 
 /** Every value- and goal-page trail starts at the values index. */
 export const VALUES_ROOT: BreadcrumbItem = { label: "Values", to: "/values" };
@@ -18,20 +18,26 @@ export function DetailPage({ trail, children }: { trail: BreadcrumbItem[]; child
 
 export function DetailHeader({
   disc,
+  discFill,
   title,
   meta,
   actions,
 }: {
   disc: ReactNode;
+  /** The disc's colour, for a card → page transition to land on. */
+  discFill?: string;
   title: ReactNode;
   meta?: ReactNode;
   actions?: ReactNode;
 }) {
+  const morph = useEntityMorphHeader(discFill);
   return (
     <div className="mt-3.5 flex items-start gap-3.5">
-      <span className="mt-0.5 shrink-0">{disc}</span>
+      <span className="mt-0.5 shrink-0" {...morph.disc}>
+        {disc}
+      </span>
       <div className="min-w-0 flex-1">
-        {title}
+        <div {...morph.title}>{title}</div>
         {meta}
       </div>
       {actions}
