@@ -1,4 +1,5 @@
-import { ContextMenu, cx, type MenuItem } from "@/core/ui";
+import { memo } from "react";
+import { ContextMenu, cx } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
 import {
@@ -7,49 +8,36 @@ import {
   getChipShadowClass,
   getChipTouchActionClass,
 } from "../chip-armed";
+import type { ChipHandlers } from "../chip-handlers";
 import { DRAG_THRESHOLD_PX } from "../geometry";
 import { useTouchDragBlocker } from "../useTouchDragBlocker";
 
-export function AllDayChip({
-  task,
-  dragging,
-  selected,
-  isArmed,
-  isTouchDragLiveRef,
-  onPointerDownBody,
-  onPointerUpBody,
-  onPointerCancelBody,
-  onOpen,
-  onLongPress,
-  onChipContextMenu,
-  onKeyDownCapture,
-  menuItems,
-}: {
+interface AllDayChipProps {
   task: Task;
   dragging: boolean;
   selected: boolean;
   isArmed: boolean;
   isTouchDragLiveRef: React.RefObject<boolean>;
-  onPointerDownBody: (e: React.PointerEvent) => void;
-  onPointerUpBody: (e: React.PointerEvent) => void;
-  onPointerCancelBody: () => void;
-  onOpen: () => void;
-  onLongPress: () => void;
-  /** Swallow a native `contextmenu` synthesized by an un-armed touch hold. */
-  onChipContextMenu: (e: React.MouseEvent) => void;
-  /** A keyboard-invoked menu carries no press, so the swallow above must forget the last one. */
-  onKeyDownCapture: () => void;
-  menuItems: MenuItem[];
-}) {
+  handlers: ChipHandlers;
+}
+
+export const AllDayChip = memo(function AllDayChip({
+  task,
+  dragging,
+  selected,
+  isArmed,
+  isTouchDragLiveRef,
+  handlers,
+}: AllDayChipProps) {
   const accent = useValueColor(task.valueId);
   const chipRef = useTouchDragBlocker(isTouchDragLiveRef);
   const resolved = task.status === "done" || task.status === "skip";
   return (
     <ContextMenu
-      items={menuItems}
+      items={handlers.getAllDayMenuItems(task)}
       longPress={isArmed}
       longPressMoveTolerancePx={DRAG_THRESHOLD_PX}
-      onLongPress={onLongPress}
+      onLongPress={handlers.onLongPress}
     >
       <button
         ref={chipRef}
@@ -58,15 +46,15 @@ export function AllDayChip({
         data-chip-id={task.id}
         data-armed={isArmed ? "true" : undefined}
         aria-pressed={selected}
-        onPointerDown={onPointerDownBody}
-        onPointerUp={onPointerUpBody}
-        onPointerCancel={onPointerCancelBody}
-        onContextMenu={onChipContextMenu}
-        onKeyDownCapture={onKeyDownCapture}
+        onPointerDown={(e) => handlers.onAllDayPointerDown(e, task)}
+        onPointerUp={handlers.onPointerUp}
+        onPointerCancel={handlers.onPointerCancel}
+        onContextMenu={(e) => handlers.onContextMenu(e, task.id)}
+        onKeyDownCapture={handlers.onKeyDownCapture}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onOpen();
+            handlers.onOpen(task);
           }
         }}
         aria-label={`${task.title}, all day${selected ? ", selected" : ""}${resolved ? `, ${task.status}` : ""}`}
@@ -84,4 +72,4 @@ export function AllDayChip({
       </button>
     </ContextMenu>
   );
-}
+});

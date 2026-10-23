@@ -3,7 +3,7 @@ import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useZonedTodayISO } from "@/core/lib/clock";
-import { addMinutes, dowIndex, formatShortDate, getWeekDaysFor, minutesOf } from "@/core/lib/date";
+import { dowIndex, formatShortDate, getWeekDaysFor, minutesOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   cx,
@@ -22,6 +22,7 @@ import type { Task, TaskStatus } from "@/features/tasks";
 import { TaskDrawer } from "@/features/tasks";
 import { useValueVoteToast } from "@/features/values/useValueVoteToast";
 import { BulkActionBar } from "./BulkActionBar";
+import type { ChipHandlers } from "./chip-handlers";
 import {
   type ChipPressAction,
   classifyAllDayChipPress,
@@ -29,17 +30,24 @@ import {
 } from "./chip-press";
 import { AllDayChip } from "./components/AllDayChip";
 import { CalendarHeader } from "./components/CalendarHeader";
+import { type ColumnHandlers, DayColumn } from "./components/DayColumn";
 import { DayStrip } from "./components/DayStrip";
 import { EmptyScheduleHint } from "./components/EmptyScheduleHint";
 import { MarqueeBox } from "./components/MarqueeBox";
 import { MoveToDayModal } from "./components/MoveToDayModal";
-import { NowLine } from "./components/NowLine";
 import { PasteBanner } from "./components/PasteBanner";
 import { ScheduleSlotModal } from "./components/ScheduleSlotModal";
 import { ScheduleTimeModal } from "./components/ScheduleTimeModal";
 import { SlotActionsMenu, type SlotMenuState } from "./components/SlotActionsMenu";
-import { TimedChip } from "./components/TimedChip";
 import { UnscheduledRail } from "./components/UnscheduledRail";
+import {
+  buildTaskDayIndex,
+  computeDragPlacements,
+  findIndexedTask,
+  getDayTasks,
+  indexLivedByDay,
+  resolveDayColumn,
+} from "./day-index";
 import { getTravelMode, isPastDragThreshold, placeDragAt } from "./drag-preview";
 import { resolveDragRelease } from "./drag-release";
 import type { DragPreview, DragState, GroupMember } from "./drag-state";
@@ -53,19 +61,14 @@ import {
   type DragMode,
   formatMinutes,
   GUTTER,
-  getChipHeight,
-  getChipTop,
   getMarqueeHits,
   getMinuteAtOffset,
   HOUR_PX,
   HOURS,
   isOffWindow,
-  layoutColumns,
   shiftSelection,
 } from "./geometry";
 import {
-  getSingleDayAllDayLived,
-  getTimedLivedForDay,
   getTimedTasksForDay,
   getUnscheduledTasks,
   getUntimedTasksForDay,
@@ -78,8 +81,10 @@ import { type ChipPress, useChipArming } from "./useChipArming";
 import { useDragAutoScroll } from "./useDragAutoScroll";
 import { WriteCalendarMissingBanner } from "./WriteCalendarMissingBanner";
 
+const NO_EVENTS: CalendarEvent[] = [];
+
 const findById = <T extends { id: string }>(items: T[], id: string | undefined): T | null =>
-  items.find((item) => item.id === id) ?? null;
+  id === undefined ? null : (items.find((item) => item.id === id) ?? null);
 
 export function CalendarPage() {
   const tasks = useStore((s) => s.tasks);
@@ -819,9 +824,9 @@ export function CalendarPage() {
   };
 
   // The relink action for a task's context menu, or null when relink doesn't apply.
-  const relinkItemFor = (t: Task): MenuItem | null => {
+  const relinkItemFor = (t: Task, currentHabits: typeof habits): MenuItem | null => {
     if (t.kind !== "habit" || !t.detached) return null;
-    const exists = t.habitId != null && habits.some((h) => h.id === t.habitId);
+    const exists = t.habitId != null && currentHabits.some((h) => h.id === t.habitId);
     return {
       label: exists ? "Relink to habit" : "Parent habit no longer exists",
       icon: "link",
@@ -900,7 +905,10 @@ export function CalendarPage() {
   endDragRef.current = endDrag;
 
   // columns the move-drag can land on (on a phone, just the active day)
-  const visibleDays = compact ? [days[activeDay]] : days;
+  const visibleDays = useMemo(
+    () => (compact ? [days[activeDay]] : days),
+    [compact, days, activeDay],
+  );
   const dragDaysRef = useRef(visibleDays);
   dragDaysRef.current = visibleDays;
 
@@ -1003,23 +1011,14 @@ export function CalendarPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const effective = (t: Task) => {
-    if (dragId === t.id && preview) {
-      return { date: preview.date, start: preview.start, durationMin: preview.durationMin };
-    }
-    // a non-anchor member of a live group drag shifts by the anchor's delta
-    const d = dragRef.current;
-    const member = d?.group?.find((g) => g.id === t.id && !g.allDay);
-    if (d?.group && preview && dragId && member) {
-      const dayDelta = differenceInCalendarDays(parseISO(preview.date), parseISO(d.origDate));
-      const [shifted] = shiftSelection([member], dayDelta, preview.start - d.origStart);
-      return { date: shifted.date, start: shifted.start, durationMin: member.durationMin };
-    }
-    return { date: t.date ?? "", start: minutesOf(t.time ?? "00:00"), durationMin: t.durationMin };
-  };
+  const taskIndex = useMemo(() => buildTaskDayIndex(tasks), [tasks]);
+  const placements = useMemo(
+    () => computeDragPlacements(dragRef.current, dragId, preview),
+    [dragId, preview],
+  );
 
   // The chip currently dragged, and whether the drag began on an all-day chip.
-  const dragTask = dragId ? tasks.find((t) => t.id === dragId) : null;
+  const dragTask = findIndexedTask(taskIndex, dragId);
   const isAllDayDragging = dragTask != null && dragTask.time == null;
 
   const copyToClipboard = (t: Task) => {
@@ -1039,8 +1038,8 @@ export function CalendarPage() {
 
   // Shared chip menus. Timed chips: Copy · Delete · (Relink). All-day chips also
   // get Open and "Schedule to time…" (the keyboard path for drag-to-schedule).
-  const timedMenuItems = (t: Task): MenuItem[] => {
-    const relink = relinkItemFor(t);
+  const timedMenuItems = (t: Task, currentHabits: typeof habits): MenuItem[] => {
+    const relink = relinkItemFor(t, currentHabits);
     const items: MenuItem[] = [
       { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
       { label: "Unschedule", icon: "calendar-off", onSelect: () => unschedule(t) },
@@ -1049,8 +1048,8 @@ export function CalendarPage() {
     ];
     return items.map(withDisarm);
   };
-  const allDayMenuItems = (t: Task): MenuItem[] => {
-    const relink = relinkItemFor(t);
+  const allDayMenuItems = (t: Task, currentHabits: typeof habits): MenuItem[] => {
+    const relink = relinkItemFor(t, currentHabits);
     const items: MenuItem[] = [
       { label: "Open", icon: "edit", onSelect: () => openTask(t) },
       { label: "Copy", icon: "copy", onSelect: () => copyToClipboard(t) },
@@ -1112,6 +1111,65 @@ export function CalendarPage() {
     pushToast(`Scheduled "${t.title}"`);
     setAnnounce(`Scheduled ${t.title} on ${dayIso}`);
   };
+
+  const livedByDay = useMemo(
+    () =>
+      indexLivedByDay(
+        livedEvents,
+        visibleDays.map((d) => d.iso),
+      ),
+    [livedEvents, visibleDays],
+  );
+  const isWeekEmpty = useMemo(
+    () => visibleDays.every((d) => getTimedTasksForDay(tasks, d.iso).length === 0),
+    [tasks, visibleDays],
+  );
+
+  const pageHandlers = {
+    beginDrag,
+    beginAllDayDrag,
+    endChipPress,
+    cancelChipPress,
+    openTask,
+    handleChipMenuOpened,
+    handleChipContextMenu,
+    clearChipPressSource,
+    timedMenuItems,
+    allDayMenuItems,
+    onColumnClick,
+    onColumnContextMenu,
+    handleColumnPointerDown,
+  };
+  const pageHandlersRef = useRef(pageHandlers);
+  pageHandlersRef.current = pageHandlers;
+  // Rebuilt only when the habits change, since that is what the relink menu item reads.
+  const chipHandlers = useMemo<ChipHandlers>(
+    () => ({
+      onTimedPointerDown: (e, task, mode) => pageHandlersRef.current.beginDrag(e, task, mode),
+      onAllDayPointerDown: (e, task) => pageHandlersRef.current.beginAllDayDrag(e, task),
+      onPointerUp: (e) => pageHandlersRef.current.endChipPress(e),
+      onPointerCancel: () => pageHandlersRef.current.cancelChipPress(),
+      onOpen: (task) => pageHandlersRef.current.openTask(task),
+      onLongPress: () => pageHandlersRef.current.handleChipMenuOpened(),
+      onContextMenu: (e, taskId) => pageHandlersRef.current.handleChipContextMenu(e, taskId),
+      onKeyDownCapture: () => pageHandlersRef.current.clearChipPressSource(),
+      getTimedMenuItems: (task) => pageHandlersRef.current.timedMenuItems(task, habits),
+      getAllDayMenuItems: (task) => pageHandlersRef.current.allDayMenuItems(task, habits),
+    }),
+    [habits],
+  );
+  const columnHandlers = useMemo<ColumnHandlers>(
+    () => ({
+      onPointerDown: (e) => pageHandlersRef.current.handleColumnPointerDown(e),
+      onKeyDownCapture: () => {
+        columnPressSourceRef.current = "none";
+      },
+      onClick: (e, dayIso) => pageHandlersRef.current.onColumnClick(e, dayIso),
+      onContextMenu: (e, dayIso) => pageHandlersRef.current.onColumnContextMenu(e, dayIso),
+      onOpenEvent: setEditingEvent,
+    }),
+    [],
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-5">
@@ -1225,7 +1283,7 @@ export function CalendarPage() {
                         isUntimedTarget && "bg-surface-secondary ring-1 ring-inset ring-accent",
                       )}
                     >
-                      {getSingleDayAllDayLived(livedEvents, d.iso).map((ev) => (
+                      {livedByDay.get(d.iso)?.allDay.map((ev) => (
                         <CalendarEventChip
                           key={ev.id}
                           event={ev}
@@ -1233,7 +1291,7 @@ export function CalendarPage() {
                           onOpen={() => setEditingEvent(ev)}
                         />
                       ))}
-                      {getUntimedTasksForDay(tasks, d.iso).map((t) => (
+                      {getDayTasks(taskIndex, d.iso).untimed.map((t) => (
                         <AllDayChip
                           key={t.id}
                           task={t}
@@ -1241,14 +1299,7 @@ export function CalendarPage() {
                           selected={selectedIds.has(t.id)}
                           isArmed={arming.armedChipId === t.id}
                           isTouchDragLiveRef={isTouchDragLiveRef}
-                          onPointerDownBody={(e) => beginAllDayDrag(e, t)}
-                          onPointerUpBody={endChipPress}
-                          onPointerCancelBody={cancelChipPress}
-                          onOpen={() => openTask(t)}
-                          onLongPress={handleChipMenuOpened}
-                          onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
-                          onKeyDownCapture={clearChipPressSource}
-                          menuItems={allDayMenuItems(t)}
+                          handlers={chipHandlers}
                         />
                       ))}
                       {isUntimedTarget && (
@@ -1291,123 +1342,40 @@ export function CalendarPage() {
 
                 {/* day columns */}
                 {visibleDays.map((d) => {
-                  const dayTasks = tasks.filter((t) => t.time && effective(t).date === d.iso);
-                  const dayLived = getTimedLivedForDay(livedEvents, d.iso);
-                  const layout = layoutColumns([
-                    ...dayTasks.map((t) => {
-                      const e = effective(t);
-                      return { id: t.id, start: e.start, durationMin: e.durationMin };
-                    }),
-                    ...dayLived.map((ev) => ({
-                      id: ev.id,
-                      start: minutesOf(ev.time ?? "00:00"),
-                      durationMin: ev.durationMin,
-                    })),
-                  ]);
+                  const column = resolveDayColumn(taskIndex, d.iso, placements);
                   const isTarget =
                     dragId != null &&
                     preview != null &&
                     !preview.isUntimed &&
                     preview.date === d.iso;
                   return (
-                    <div
+                    <DayColumn
                       key={d.iso}
-                      className={cx(
-                        "relative border-l border-border",
-                        isTarget ? "bg-surface-secondary" : d.today && "bg-surface-secondary/40",
-                      )}
-                    >
-                      <button
-                        type="button"
-                        aria-label={`Add task on ${d.dow}, ${formatShortDate(d.iso)}${d.today ? ", today" : ""}`}
-                        onPointerDown={handleColumnPointerDown}
-                        onKeyDownCapture={() => {
-                          columnPressSourceRef.current = "none";
-                        }}
-                        onClick={(e) => onColumnClick(e, d.iso)}
-                        onContextMenu={(e) => onColumnContextMenu(e, d.iso)}
-                        className={cx(
-                          "absolute inset-0 z-0 block w-full",
-                          clipboardTask ? "cursor-copy" : "cursor-default",
-                        )}
-                      />
-                      {HOURS.map((h, i) => (
-                        <div
-                          key={h}
-                          className="pointer-events-none absolute left-0 right-0 border-t border-border/60"
-                          style={{ top: i * HOUR_PX }}
-                        />
-                      ))}
-                      {d.today && <NowLine zone={displayZone} />}
-                      {isTarget && preview && isAllDayDragging && (
-                        <div
-                          className="pointer-events-none absolute inset-x-0.5 z-30 overflow-hidden rounded-[2px] border-l-[3px] border-accent bg-surface/80 px-1.5 py-1 shadow-md ring-1 ring-accent"
-                          style={{
-                            top: getChipTop(preview.start),
-                            height: getChipHeight(preview.durationMin),
-                          }}
-                        >
-                          <span className="block truncate text-[11px] leading-tight text-foreground">
-                            {dragTask?.title}
-                          </span>
-                        </div>
-                      )}
-                      {isTarget && preview && (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 z-40 flex items-center gap-1"
-                          style={{ top: getChipTop(preview.start) }}
-                        >
-                          <span className="-translate-y-1/2 rounded-[12px] bg-foreground px-1.5 py-0.5 text-[9px] tabular-nums leading-none text-background shadow-sm">
-                            {formatMinutes(preview.start)}-
-                            {addMinutes(formatMinutes(preview.start), preview.durationMin)}
-                          </span>
-                          <span className="h-px flex-1 bg-foreground/60" />
-                        </div>
-                      )}
-                      {dayTasks.map((t) => (
-                        <TimedChip
-                          key={t.id}
-                          task={t}
-                          eff={effective(t)}
-                          slot={layout[t.id] ?? { col: 0, cols: 1 }}
-                          dragging={dragId === t.id}
-                          dim={Boolean(focusGoalId) && t.goalId !== focusGoalId}
-                          detached={t.kind === "habit" && t.detached}
-                          selected={selectedIds.has(t.id)}
-                          provisional={provisional.has(t.id)}
-                          isArmed={arming.armedChipId === t.id}
-                          isTouchDragLiveRef={isTouchDragLiveRef}
-                          onPointerDownBody={(e) => beginDrag(e, t, "move")}
-                          onPointerUpBody={endChipPress}
-                          onPointerCancelBody={cancelChipPress}
-                          onPointerDownTop={(e) => beginDrag(e, t, "top")}
-                          onPointerDownBottom={(e) => beginDrag(e, t, "bottom")}
-                          onOpen={() => openTask(t)}
-                          onLongPress={handleChipMenuOpened}
-                          onChipContextMenu={(e) => handleChipContextMenu(e, t.id)}
-                          onKeyDownCapture={clearChipPressSource}
-                          onPointerDownHandle={(e, mode) => beginDrag(e, t, mode)}
-                          menuItems={timedMenuItems(t)}
-                        />
-                      ))}
-                      {dayLived.map((ev) => (
-                        <CalendarEventChip
-                          key={ev.id}
-                          event={ev}
-                          variant="timed"
-                          slot={layout[ev.id] ?? { col: 0, cols: 1 }}
-                          onOpen={() => setEditingEvent(ev)}
-                        />
-                      ))}
-                    </div>
+                      day={d}
+                      tasks={column.tasks}
+                      placements={column.placements}
+                      lived={livedByDay.get(d.iso)?.timed ?? NO_EVENTS}
+                      targetPreview={isTarget ? preview : null}
+                      allDayGhostTitle={
+                        isTarget && dragTask && isAllDayDragging ? dragTask.title : null
+                      }
+                      dragId={dragId}
+                      focusGoalId={focusGoalId}
+                      selectedIds={selectedIds}
+                      provisional={provisional}
+                      armedChipId={arming.armedChipId}
+                      hasClipboard={clipboardTask != null}
+                      displayZone={displayZone}
+                      isTouchDragLiveRef={isTouchDragLiveRef}
+                      chipHandlers={chipHandlers}
+                      columnHandlers={columnHandlers}
+                    />
                   );
                 })}
               </div>
 
               {/* empty-week hint */}
-              {visibleDays.every((d) => getTimedTasksForDay(tasks, d.iso).length === 0) && (
-                <EmptyScheduleHint compact={compact} />
-              )}
+              {isWeekEmpty && <EmptyScheduleHint compact={compact} />}
             </ScrollShadow>
           </div>
         </div>

@@ -1,5 +1,6 @@
+import { memo } from "react";
 import { addMinutes } from "@/core/lib/date";
-import { ContextMenu, cx, type MenuItem } from "@/core/ui";
+import { ContextMenu, cx } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";
 import {
@@ -9,9 +10,9 @@ import {
   getChipTouchActionClass,
   getChipZIndexClass,
 } from "../chip-armed";
+import type { ChipHandlers } from "../chip-handlers";
 import { buildTimedChipLabel, isResolvedStatus } from "../chip-label";
 import {
-  type ColumnSlot,
   DRAG_THRESHOLD_PX,
   formatMinutes,
   getChipHeight,
@@ -22,32 +23,13 @@ import { useTouchDragBlocker } from "../useTouchDragBlocker";
 import { ArmedResizeHandle } from "./ArmedResizeHandle";
 import { ChipStatusBadges } from "./ChipStatusBadges";
 
-export function TimedChip({
-  task,
-  eff,
-  slot,
-  dragging,
-  dim,
-  detached,
-  selected,
-  provisional,
-  isArmed,
-  isTouchDragLiveRef,
-  onPointerDownBody,
-  onPointerUpBody,
-  onPointerCancelBody,
-  onPointerDownTop,
-  onPointerDownBottom,
-  onOpen,
-  onLongPress,
-  onChipContextMenu,
-  onKeyDownCapture,
-  onPointerDownHandle,
-  menuItems,
-}: {
+interface TimedChipProps {
   task: Task;
-  eff: { start: number; durationMin: number };
-  slot: ColumnSlot;
+  start: number;
+  durationMin: number;
+  /** Side-by-side slot for overlapping chips, as numbers so an unchanged slot compares equal. */
+  column: number;
+  columnCount: number;
   dragging: boolean;
   dim: boolean;
   detached: boolean;
@@ -55,28 +37,31 @@ export function TimedChip({
   provisional: boolean;
   isArmed: boolean;
   isTouchDragLiveRef: React.RefObject<boolean>;
-  onPointerDownBody: (e: React.PointerEvent) => void;
-  onPointerUpBody: (e: React.PointerEvent) => void;
-  onPointerCancelBody: () => void;
-  onPointerDownTop: (e: React.PointerEvent) => void;
-  onPointerDownBottom: (e: React.PointerEvent) => void;
-  onOpen: () => void;
-  onLongPress: () => void;
-  /** Swallow a native `contextmenu` synthesized by an un-armed touch hold. */
-  onChipContextMenu: (e: React.MouseEvent) => void;
-  /** A keyboard-invoked menu carries no press, so the swallow above must forget the last one. */
-  onKeyDownCapture: () => void;
-  /** Press on an armed chip's resize pill; stopPropagation is the caller's job. */
-  onPointerDownHandle: (e: React.PointerEvent, mode: "top" | "bottom") => void;
-  menuItems: MenuItem[];
-}) {
+  handlers: ChipHandlers;
+}
+
+export const TimedChip = memo(function TimedChip({
+  task,
+  start,
+  durationMin,
+  column,
+  columnCount,
+  dragging,
+  dim,
+  detached,
+  selected,
+  provisional,
+  isArmed,
+  isTouchDragLiveRef,
+  handlers,
+}: TimedChipProps) {
   const accent = useValueColor(task.valueId);
   const chipRef = useTouchDragBlocker(isTouchDragLiveRef);
-  const top = getChipTop(eff.start);
-  const height = getChipHeight(eff.durationMin);
+  const top = getChipTop(start);
+  const height = getChipHeight(durationMin);
   // side-by-side columns for overlapping chips; 2px gutters keep them distinct
-  const left = `calc(${(slot.col / slot.cols) * 100}% + 2px)`;
-  const width = `calc(${100 / slot.cols}% - 4px)`;
+  const left = `calc(${(column / columnCount) * 100}% + 2px)`;
+  const width = `calc(${100 / columnCount}% - 4px)`;
   const chipState = {
     isArmed,
     isSelected: selected,
@@ -85,16 +70,16 @@ export function TimedChip({
   };
   const resolved = isResolvedStatus(task.status);
   const timeLabel = dragging
-    ? `${formatMinutes(eff.start)}-${addMinutes(formatMinutes(eff.start), eff.durationMin)}`
+    ? `${formatMinutes(start)}-${addMinutes(formatMinutes(start), durationMin)}`
     : task.time;
 
   return (
     <>
       <ContextMenu
-        items={menuItems}
+        items={handlers.getTimedMenuItems(task)}
         longPress={isArmed}
         longPressMoveTolerancePx={DRAG_THRESHOLD_PX}
-        onLongPress={onLongPress}
+        onLongPress={handlers.onLongPress}
       >
         <button
           ref={chipRef}
@@ -103,15 +88,15 @@ export function TimedChip({
           data-chip-id={task.id}
           data-armed={isArmed ? "true" : undefined}
           aria-pressed={selected}
-          onPointerDown={onPointerDownBody}
-          onPointerUp={onPointerUpBody}
-          onPointerCancel={onPointerCancelBody}
-          onContextMenu={onChipContextMenu}
-          onKeyDownCapture={onKeyDownCapture}
+          onPointerDown={(e) => handlers.onTimedPointerDown(e, task, "move")}
+          onPointerUp={handlers.onPointerUp}
+          onPointerCancel={handlers.onPointerCancel}
+          onContextMenu={(e) => handlers.onContextMenu(e, task.id)}
+          onKeyDownCapture={handlers.onKeyDownCapture}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onOpen();
+              handlers.onOpen(task);
             }
           }}
           aria-label={buildTimedChipLabel({ task, isDetached: detached, isSelected: selected })}
@@ -135,9 +120,9 @@ export function TimedChip({
             borderColor: accent,
           }}
         >
-          <ChipStatusBadges isDetached={detached} isOffWindow={isOffWindow(eff.start)} />
+          <ChipStatusBadges isDetached={detached} isOffWindow={isOffWindow(start)} />
           <span
-            onPointerDown={onPointerDownTop}
+            onPointerDown={(e) => handlers.onTimedPointerDown(e, task, "top")}
             className="absolute inset-x-0 top-0 z-10 flex h-1.5 cursor-ns-resize items-start justify-center opacity-0 group-hover:opacity-100"
           >
             <span className="mt-px h-0.5 w-5 rounded-full bg-border" />
@@ -154,7 +139,7 @@ export function TimedChip({
             <span className="mt-0.5 block text-[9px] tabular-nums text-muted">{timeLabel}</span>
           )}
           <span
-            onPointerDown={onPointerDownBottom}
+            onPointerDown={(e) => handlers.onTimedPointerDown(e, task, "bottom")}
             className="absolute inset-x-0 bottom-0 z-10 flex h-1.5 cursor-ns-resize items-end justify-center opacity-0 group-hover:opacity-100"
           >
             <span className="mb-px h-0.5 w-5 rounded-full bg-border" />
@@ -172,9 +157,9 @@ export function TimedChip({
             chipHeight={height}
             left={left}
             width={width}
-            onPointerDown={(e) => onPointerDownHandle(e, edge)}
+            onPointerDown={(e) => handlers.onTimedPointerDown(e, task, edge)}
           />
         ))}
     </>
   );
-}
+});
