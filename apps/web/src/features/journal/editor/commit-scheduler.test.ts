@@ -28,8 +28,8 @@ afterEach(() => {
 describe("createCommitScheduler (debounced path)", () => {
   it("commits the latest value once the idle window elapses", () => {
     const { scheduler, emit } = buildScheduler();
-    scheduler.queueSave("a");
-    scheduler.queueSave("ab");
+    scheduler.queueSave(() => "a");
+    scheduler.queueSave(() => "ab");
     vi.advanceTimersByTime(DEBOUNCE_MS - 1);
     expect(emit).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
@@ -38,9 +38,9 @@ describe("createCommitScheduler (debounced path)", () => {
 
   it("restarts the idle window on each keystroke rather than committing on a fixed interval", () => {
     const { scheduler, emit } = buildScheduler();
-    scheduler.queueSave("a");
+    scheduler.queueSave(() => "a");
     vi.advanceTimersByTime(300);
-    scheduler.queueSave("ab");
+    scheduler.queueSave(() => "ab");
     vi.advanceTimersByTime(300);
     expect(emit).not.toHaveBeenCalled();
     vi.advanceTimersByTime(DEBOUNCE_MS - 300);
@@ -49,7 +49,7 @@ describe("createCommitScheduler (debounced path)", () => {
 
   it("reports saving while a commit is pending and idle once it lands", () => {
     const { scheduler, setSaving } = buildScheduler();
-    scheduler.queueSave("a");
+    scheduler.queueSave(() => "a");
     expect(setSaving).toHaveBeenCalledWith(true);
     vi.advanceTimersByTime(DEBOUNCE_MS);
     expect(setSaving).toHaveBeenLastCalledWith(false);
@@ -57,9 +57,9 @@ describe("createCommitScheduler (debounced path)", () => {
 
   it("commits at the cap while typing keeps resetting the idle window", () => {
     const { scheduler, emit } = buildScheduler();
-    scheduler.queueSave("a");
+    scheduler.queueSave(() => "a");
     vi.advanceTimersByTime(500);
-    scheduler.queueSave("ab");
+    scheduler.queueSave(() => "ab");
     expect(emit).not.toHaveBeenCalled();
     vi.advanceTimersByTime(500);
     expect(emit).toHaveBeenCalledExactlyOnceWith("ab");
@@ -69,12 +69,33 @@ describe("createCommitScheduler (debounced path)", () => {
 
   it("commits a pending value on flush and cancels the timers behind it", () => {
     const { scheduler, emit, setSaving } = buildScheduler();
-    scheduler.queueSave("a");
+    scheduler.queueSave(() => "a");
     scheduler.flush();
     expect(emit).toHaveBeenCalledExactlyOnceWith("a");
     expect(setSaving).toHaveBeenLastCalledWith(false);
     vi.advanceTimersByTime(CAP_MS);
     expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  it("serializes once per commit, never per keystroke", () => {
+    const { scheduler, emit } = buildScheduler();
+    const readMarkdown = vi.fn(() => "abc");
+    scheduler.queueSave(readMarkdown);
+    scheduler.queueSave(readMarkdown);
+    scheduler.queueSave(readMarkdown);
+    expect(readMarkdown).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(readMarkdown).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledExactlyOnceWith("abc");
+  });
+
+  it("commits the document as it stands at flush time", () => {
+    const { scheduler, emit } = buildScheduler();
+    let doc = "a";
+    scheduler.queueSave(() => doc);
+    doc = "ab";
+    scheduler.flush();
+    expect(emit).toHaveBeenCalledExactlyOnceWith("ab");
   });
 
   it("flushing with nothing pending only reports idle", () => {
@@ -88,8 +109,8 @@ describe("createCommitScheduler (debounced path)", () => {
 describe("createCommitScheduler (immediate path)", () => {
   it("commits every change synchronously and leaves nothing pending", () => {
     const { scheduler, emit, setSaving } = buildScheduler(0);
-    scheduler.queueSave("a");
-    scheduler.queueSave("ab");
+    scheduler.queueSave(() => "a");
+    scheduler.queueSave(() => "ab");
     expect(emit.mock.calls).toEqual([["a"], ["ab"]]);
     expect(setSaving).not.toHaveBeenCalled();
     scheduler.flush();
@@ -102,7 +123,7 @@ describe("createCommitScheduler (external value guard)", () => {
   it("ignores the initial value and a value it committed itself", () => {
     const { scheduler } = buildScheduler(0, "seed");
     expect(scheduler.adoptExternalValue("seed")).toBe(false);
-    scheduler.queueSave("typed");
+    scheduler.queueSave(() => "typed");
     expect(scheduler.adoptExternalValue("typed")).toBe(false);
   });
 
@@ -113,7 +134,7 @@ describe("createCommitScheduler (external value guard)", () => {
 
   it("refuses to overwrite an edit that has not been committed yet", () => {
     const { scheduler } = buildScheduler();
-    scheduler.queueSave("typed");
+    scheduler.queueSave(() => "typed");
     expect(scheduler.adoptExternalValue("loaded elsewhere")).toBe(false);
     vi.advanceTimersByTime(DEBOUNCE_MS);
     expect(scheduler.adoptExternalValue("loaded again")).toBe(true);

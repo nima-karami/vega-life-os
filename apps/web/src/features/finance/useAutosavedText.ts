@@ -45,7 +45,7 @@ export function useAutosavedText(
     isSaving,
     setValue: (next) => {
       setValue(next);
-      scheduler.queueSave(next);
+      scheduler.queueSave(() => next);
     },
   };
 }
