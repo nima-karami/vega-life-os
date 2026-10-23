@@ -177,6 +177,19 @@ test("the gallery windows a long deck by rows and reaches its last tile", async 
   expect(await tiles.count()).toBeLessThan(WINDOW_CEILING);
 });
 
+test("a chip's picker hands focus back to the chip when it closes", async ({ page }) => {
+  await openLongDeck(page, LONG_DECK);
+  const chip = rowAt(page, 0).getByRole("button", { name: /^Type of / });
+  await chip.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".popover").getByRole("option").first()).toBeVisible();
+  await expect(page.getByRole("dialog", { name: /^Type of / })).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".popover")).toHaveCount(0);
+  await expect(chip).toBeFocused();
+});
+
 test("a turned gallery tile is still turned after it scrolls out and back", async ({ page }) => {
   await openLongDeck(page, LONG_DECK);
   await page.getByRole("button", { name: "Gallery view" }).click();
@@ -184,6 +197,8 @@ test("a turned gallery tile is still turned after it scrolls out and back", asyn
   const firstTitle = longDeckTitle(0);
   await page.getByRole("button", { name: `${firstTitle}, face` }).click();
   await expect(page.getByRole("button", { name: `${firstTitle}, reveal` })).toBeVisible();
+  // A focused tile is kept mounted on purpose, so let go of it to let it scroll out.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 
   await scrollMainTo(page, "bottom");
   await expect(page.getByLabel(new RegExp(`^${firstTitle}, `))).toHaveCount(0);
