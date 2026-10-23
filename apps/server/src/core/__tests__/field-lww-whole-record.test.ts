@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { taskInput } from "../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../test/harness";
+import { createRepository } from "../repository";
 
 /**
  * Two-session (two-device) whole-record LWW through the real tRPC upsert path. Each "device"
@@ -23,17 +24,21 @@ describe("two-device field-level LWW (whole-record upserts via separate sessions
     const deviceB = server.asUid(uid);
     const id = "t-fields";
 
+    const stored = createRepository(server.firestore, uid, "tasks");
     await deviceA.tasks.upsert.mutate(taskInput(id, { title: "A", note: "n0" }));
-    const afterA = await deviceA.tasks.upsert.mutate(taskInput(id, { title: "B", note: "n0" }));
+    await deviceA.tasks.upsert.mutate(taskInput(id, { title: "B", note: "n0" }));
+    const afterA = await stored.get(id);
 
     // Device B read A's result (title "B") and changes only `note`.
-    const afterB = await deviceB.tasks.upsert.mutate(taskInput(id, { title: "B", note: "n1" }));
+    const response = await deviceB.tasks.upsert.mutate(taskInput(id, { title: "B", note: "n1" }));
+    const afterB = await stored.get(id);
 
-    expect(afterB.title).toBe("B");
-    expect(afterB.note).toBe("n1");
+    expect(response.title).toBe("B");
+    expect(response.note).toBe("n1");
+    expect(response).not.toHaveProperty("fieldUpdatedAt");
     // `title` was unchanged by B, so neither its value nor its timestamp moved.
-    expect(afterB.fieldUpdatedAt.title).toBe(afterA.fieldUpdatedAt.title);
-    expect(afterB.fieldUpdatedAt.note).not.toBe(afterA.fieldUpdatedAt.note);
+    expect(afterB?.fieldUpdatedAt.title).toBe(afterA?.fieldUpdatedAt.title);
+    expect(afterB?.fieldUpdatedAt.note).not.toBe(afterA?.fieldUpdatedAt.note);
   });
 
   it("KNOWN LIMITATION: a stale device's whole-record write reverts a field another device just changed", async () => {

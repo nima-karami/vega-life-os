@@ -57,7 +57,7 @@ export async function writeMirrorRows(
   }
 }
 
-export async function removeMirrorRows(
+async function removeMirrorRows(
   firestore: Firestore,
   uid: string,
   eventIds: string[],
@@ -69,6 +69,71 @@ export async function removeMirrorRows(
     }
     await batch.commit();
   }
+}
+
+/** Only the rows named, for the quiet gate — a whole-mirror read would cost one read per event. */
+export async function readMirrorRows(
+  firestore: Firestore,
+  uid: string,
+  eventIds: string[],
+): Promise<Map<string, MirrorRow>> {
+  if (eventIds.length === 0) return new Map();
+  const collection = mirrorCollection(firestore, uid);
+  const snaps = await firestore.getAll(...eventIds.map((id) => collection.doc(id)));
+  return new Map(
+    snaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap.data() as MirrorRow]),
+  );
+}
+
+const startKey = (start: GEventTime) =>
+  `${start.date ?? ""}|${start.dateTime ?? ""}|${start.timeZone ?? ""}`;
+
+function isSameMirrorRow(prior: MirrorRow | undefined, next: MirrorRow): boolean {
+  return (
+    prior !== undefined &&
+    prior.summary === next.summary &&
+    prior.status === next.status &&
+    prior.updated === next.updated &&
+    prior.vegaKey === next.vegaKey &&
+    startKey(prior.start) === startKey(next.start)
+  );
+}
+
+/** A full list replaces the mirror wholesale (drift repair); a delta overlays only its events. */
+export async function applyMirrorListing(
+  firestore: Firestore,
+  uid: string,
+  mirror: Map<string, MirrorRow>,
+  events: GEvent[],
+  mode: "full" | "delta",
+): Promise<Map<string, MirrorRow>> {
+  const incoming = events.map(toMirrorRow);
+  const next = mode === "full" ? new Map<string, MirrorRow>() : new Map(mirror);
+  for (const row of incoming) next.set(row.eventId, row);
+  const staleIds = mode === "full" ? [...mirror.keys()].filter((id) => !next.has(id)) : [];
+  await removeMirrorRows(firestore, uid, staleIds);
+  await writeMirrorRows(
+    firestore,
+    uid,
+    incoming.filter((row) => !isSameMirrorRow(mirror.get(row.eventId), row)),
+  );
+  return next;
+}
+
+/** Past tombstone retention no echo can still be in flight, so an old cancelled row is dead weight. */
+export async function pruneCancelledRows(
+  firestore: Firestore,
+  uid: string,
+  mirror: Map<string, MirrorRow>,
+  cutoffIso: string,
+): Promise<Map<string, MirrorRow>> {
+  const staleIds = [...mirror.values()]
+    .filter((row) => row.status === "cancelled" && (row.updated ?? "") < cutoffIso)
+    .map((row) => row.eventId);
+  await removeMirrorRows(firestore, uid, staleIds);
+  const kept = new Map(mirror);
+  for (const id of staleIds) kept.delete(id);
+  return kept;
 }
 
 export async function clearMirror(firestore: Firestore, uid: string): Promise<void> {

@@ -1,13 +1,17 @@
-import type { CollectionName } from "@vega/shared";
+import type { CollectionName, SyncReceipt } from "@vega/shared";
 import type { CollectionReference, DocumentReference, Firestore } from "firebase-admin/firestore";
 import { parseRecord } from "../../core/collection-store";
 import { toPartialCommitError } from "../../core/errors";
 import { mergeWithFieldLww, type StoredRecord } from "../../core/field-lww";
-import { bumpSyncVersion } from "../../core/sync-version";
+import { advanceSyncVersion, bumpSyncVersion } from "../../core/sync-version";
 
 const CHUNK_SIZE = 450;
 
-export type ImportResult = { inserted: number; skipped: number; writtenChunks: number };
+export type ImportResult = {
+  inserted: number;
+  skipped: number;
+  writtenChunks: number;
+} & SyncReceipt;
 
 type PendingWrite = { ref: DocumentReference; record: Record<string, unknown> };
 
@@ -52,8 +56,8 @@ export async function importRecords<C extends CollectionName>(
     writtenChunks += 1;
   }
 
-  if (inserted > 0) await bumpSyncVersion(firestore, uid);
-  return { inserted, skipped: validatedRecords.length - inserted, writtenChunks };
+  const syncVersion = inserted > 0 ? await advanceSyncVersion(firestore, uid) : null;
+  return { inserted, skipped: validatedRecords.length - inserted, writtenChunks, syncVersion };
 }
 
 /** Same id twice in one payload would collide inside a chunk; last wins, as a serial upsert loop would leave it. */

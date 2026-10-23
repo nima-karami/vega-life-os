@@ -95,7 +95,7 @@ export const calendarRouter = router({
     await clearMirror(ctx.firestore, ctx.uid);
     const client = await ctx.calendar.getClient(ctx.uid);
     const writeCalendarId = await ensureWriteCalendar(ctx.firestore, ctx.uid, client);
-    await runReconcile(reconcileDepsFrom(ctx), ctx.uid).catch((error) => {
+    await runReconcile(reconcileDepsFrom(ctx), ctx.uid, { force: true }).catch((error) => {
       if (!isBenignSyncFault(error)) throw error;
     });
     return { writeCalendarId };
@@ -144,7 +144,7 @@ export const calendarRouter = router({
 
       const deps = reconcileDepsFrom(ctx);
       await registerCalendarChannels(deps, ctx.uid, client, [writeCalendarId, ...readCalendarIds]);
-      await runReconcile(deps, ctx.uid).catch((error) => {
+      await runReconcile(deps, ctx.uid, { force: true }).catch((error) => {
         if (!isBenignSyncFault(error)) throw error;
       });
       return { connected: true, writeCalendarId };
@@ -191,7 +191,7 @@ export const calendarRouter = router({
       for (const id of removed) {
         await retireCalendarMirrors(deps, ctx.uid, id, now);
       }
-      await runReconcile(deps, ctx.uid).catch((error) => {
+      await runReconcile(deps, ctx.uid, { force: true }).catch((error) => {
         if (!isBenignSyncFault(error)) throw error;
       });
       return { readCalendarIds: input.ids };
@@ -232,7 +232,7 @@ export const calendarRouter = router({
     if (isBackingOff(account.backoff, ctx.calendar.now()))
       return { synced: false, reason: "backing_off" as const };
     try {
-      await runReconcile(reconcileDepsFrom(ctx), ctx.uid);
+      await runReconcile(reconcileDepsFrom(ctx), ctx.uid, { force: true });
       return { synced: true };
     } catch (error) {
       if (error instanceof SyncLockBusyError) return { synced: false, reason: "locked" as const };

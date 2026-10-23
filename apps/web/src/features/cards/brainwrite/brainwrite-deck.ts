@@ -3,29 +3,42 @@ import { buildFeedPool } from "../feed-pool";
 import {
   buildFeedQueue,
   computePassSeed,
+  createPassReader,
   FAILED_REAPPEAR_LIMIT,
   FAILED_REAPPEAR_OFFSET,
   isRecapId,
   NO_REPEAT_WINDOW,
+  type PassReader,
   type QueueEntry,
 } from "../queue";
 
 /** A queue entry stamped with the pass that built it, so a React key survives an edit to the tail. */
 export type DeckEntry = QueueEntry & { passIndex: number };
 
+/** The pass still being read in: how many chunks are in the deck, and what was pulled out of the rest. */
+type OpenPass = { readChunk: PassReader; chunksRead: number; pulledIds: readonly string[] };
+
 /**
  * The planned session. Materialised once and thereafter only appended to, pruned, or
  * relocated: grading a card must never re-derive what is already planned ahead of the user.
+ * A pass is planned in full order up front but read into `entries` a chunk at a time.
  */
 export type DeckPlan = {
   entries: DeckEntry[];
   passCount: number;
   reappears: Record<string, number>;
+  openPass: OpenPass | null;
 };
 
 export type DeckSource = { cards: Card[]; prefs: CardPrefs; today: string; baseSeed: number };
 
-export const EMPTY_DECK: DeckPlan = { entries: [], passCount: 0, reappears: {} };
+export const EMPTY_DECK: DeckPlan = { entries: [], passCount: 0, reappears: {}, openPass: null };
+
+export const PASS_CHUNK_SIZE = 200;
+// The deck has no trailing recap to chain off, so nearing the end is the extend trigger.
+const PASS_EXTEND_THRESHOLD = 2;
+// Inside a pass the next chunk lands early enough that a failed card's return slot is always planned.
+const CHUNK_EXTEND_THRESHOLD = FAILED_REAPPEAR_OFFSET * 2;
 
 /** The feed's own deck, minus the trailing recap entry — BrainWrite is a card and nothing else. */
 export function buildBrainWriteQueue(
@@ -42,26 +55,79 @@ export function buildBrainWriteQueue(
   return entries.filter((entry) => !isRecapId(entry.cardId));
 }
 
-function buildPass(source: DeckSource, passIndex: number, exclude: string[]): DeckEntry[] {
-  return buildBrainWriteQueue(source.cards, source.prefs, source.today, {
-    seed: computePassSeed(source.baseSeed, passIndex),
-    exclude,
-  }).map((entry) => ({ ...entry, passIndex }));
-}
+const hasUnreadChunk = (pass: OpenPass): boolean => pass.readChunk(pass.chunksRead).length > 0;
 
-export function planDeck(source: DeckSource): DeckPlan {
-  return { entries: buildPass(source, 0, []), passCount: 1, reappears: {} };
+function readNextChunk(plan: DeckPlan, pass: OpenPass, liveIds: ReadonlySet<string>): DeckPlan {
+  const pulled = new Set(pass.pulledIds);
+  const passIndex = plan.passCount - 1;
+  const appended = pass
+    .readChunk(pass.chunksRead)
+    .filter((entry) => liveIds.has(entry.cardId) && !pulled.has(entry.cardId))
+    .map((entry) => ({ ...entry, passIndex }));
+  return {
+    ...plan,
+    entries: appended.length > 0 ? [...plan.entries, ...appended] : plan.entries,
+    openPass: { ...pass, chunksRead: pass.chunksRead + 1 },
+  };
 }
 
 // Crossing into a new pass clears each card's reappearance count — the cap belongs to the
 // pass just finished, not to the whole session.
-export function extendDeck(plan: DeckPlan, source: DeckSource): DeckPlan {
+function openNextPass(plan: DeckPlan, source: DeckSource): DeckPlan {
+  const pool = buildFeedPool(source.cards, source.prefs, source.today);
   const exclude = plan.entries.slice(-NO_REPEAT_WINDOW).map((entry) => entry.cardId);
-  return {
-    entries: [...plan.entries, ...buildPass(source, plan.passCount, exclude)],
+  const readChunk = createPassReader(
+    pool,
+    { seed: computePassSeed(source.baseSeed, plan.passCount), today: source.today, exclude },
+    PASS_CHUNK_SIZE,
+  );
+  const pass: OpenPass = { readChunk, chunksRead: 0, pulledIds: [] };
+  const opened: DeckPlan = {
+    ...plan,
     passCount: plan.passCount + 1,
     reappears: {},
+    openPass: pass,
   };
+  return readNextChunk(opened, pass, new Set(pool.map((card) => card.id)));
+}
+
+export function planDeck(source: DeckSource): DeckPlan {
+  return openNextPass(EMPTY_DECK, source);
+}
+
+/**
+ * Appends what comes next: the open pass's next chunk while it has one, else a fresh pass. A
+ * chunk is filtered against the live pool, so a card that left mid-pass never lands as a gap;
+ * one that empties out entirely moves straight on rather than leaving the deck short. With
+ * nothing left to append it returns the very same plan, so a state update over it is a no-op.
+ */
+export function extendDeck(plan: DeckPlan, source: DeckSource): DeckPlan {
+  const pool = buildFeedPool(source.cards, source.prefs, source.today);
+  if (pool.length === 0) return plan;
+  const liveIds = new Set(pool.map((card) => card.id));
+  let extended = plan;
+  while (extended.openPass !== null && hasUnreadChunk(extended.openPass)) {
+    extended = readNextChunk(extended, extended.openPass, liveIds);
+    if (extended.entries.length > plan.entries.length) return extended;
+  }
+  const opened = openNextPass(extended, source);
+  return opened.entries.length > plan.entries.length ? opened : plan;
+}
+
+export function shouldExtendDeck(plan: DeckPlan, currentIndex: number): boolean {
+  if (plan.entries.length === 0) return false;
+  const threshold =
+    plan.openPass !== null && hasUnreadChunk(plan.openPass)
+      ? CHUNK_EXTEND_THRESHOLD
+      : PASS_EXTEND_THRESHOLD;
+  return currentIndex >= plan.entries.length - threshold;
+}
+
+/** A failed card still waiting in an unread chunk of the open pass must not come round again there. */
+function pullFromOpenPass(plan: DeckPlan, cardId: string): OpenPass | null {
+  const pass = plan.openPass;
+  if (pass === null || pass.pulledIds.includes(cardId)) return pass;
+  return { ...pass, pulledIds: [...pass.pulledIds, cardId] };
 }
 
 /**
@@ -81,7 +147,12 @@ export function relocateFailedCard(plan: DeckPlan, cardId: string, currentIndex:
   const [moved] = scheduledAt === -1 ? [] : entries.splice(scheduledAt, 1);
   const returning = moved ?? { cardId, passIndex: Math.max(plan.passCount - 1, 0) };
   entries.splice(Math.min(target, entries.length), 0, returning);
-  return { ...plan, entries, reappears: { ...plan.reappears, [cardId]: reappearCount + 1 } };
+  return {
+    ...plan,
+    entries,
+    reappears: { ...plan.reappears, [cardId]: reappearCount + 1 },
+    openPass: moved ? plan.openPass : pullFromOpenPass(plan, cardId),
+  };
 }
 
 /** A card that leaves the pool mid-session would render as an empty slot: drop what is still ahead. */

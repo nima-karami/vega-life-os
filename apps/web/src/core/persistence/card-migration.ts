@@ -15,6 +15,7 @@ import { flattenMarkdown } from "@/core/lib/flatten-markdown";
 import { buildMetaId, buildVocabCardId, matchKey } from "@/features/cards/model";
 import { listCardCategories } from "@/features/cards/queries";
 import { listVocabExamples, type VocabEntry } from "@/features/library/model";
+import type { LoadedRow } from "./adapter";
 
 export type SourceMeta = { updatedAt?: string; fieldUpdatedAt?: Record<string, string> };
 
@@ -50,7 +51,7 @@ function withSchedule(
   return { ...card, ...schedule };
 }
 
-export function toCardFromMindCard(source: MindCard): Card {
+export function toCardFromMindCard(source: LoadedRow<MindCard>): Card {
   const type = source.type as CardTypeId;
   const body = cut(flattenMarkdown(source.body), slotMax(type, "body"));
   const isQuote = type === "quote";
@@ -80,7 +81,7 @@ export function toCardFromMindCard(source: MindCard): Card {
     nextDue: null,
     reviewCount: 0,
     updatedAt: source.updatedAt,
-    fieldUpdatedAt: source.fieldUpdatedAt,
+    fieldUpdatedAt: source.fieldUpdatedAt ?? {},
   };
   return withSchedule(card, {
     box: source.box,
@@ -161,7 +162,7 @@ export type CardMigrationResult = {
 };
 
 export function migrateToCards(sources: {
-  mindCards: MindCard[];
+  mindCards: LoadedRow<MindCard>[];
   mindMeta: MindMetaRecord[];
   vocab: (VocabEntry & SourceMeta)[];
 }): CardMigrationResult {

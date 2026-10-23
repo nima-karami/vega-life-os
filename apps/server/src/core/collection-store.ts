@@ -2,7 +2,12 @@ import { type CollectionName, createSchemasByCollection } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 import type { z } from "zod";
 import { AppError, toTrpcError } from "./errors";
-import { createRepository, type StoredEntity, type WritableEntity } from "./repository";
+import {
+  createRepository,
+  type StoredEntity,
+  type SyncedWrite,
+  type WritableEntity,
+} from "./repository";
 
 export type RepoContext = { firestore: Firestore; uid: string };
 
@@ -28,6 +33,6 @@ export function writeRecord<C extends CollectionName>(
   ctx: RepoContext,
   collection: C,
   record: WritableEntity<C>,
-): Promise<StoredEntity<C>> {
-  return createRepository(ctx.firestore, ctx.uid, collection).upsert(record);
+): Promise<SyncedWrite<StoredEntity<C>>> {
+  return createRepository(ctx.firestore, ctx.uid, collection).upsertSynced(record);
 }

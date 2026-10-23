@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../../../core/repository";
-import { hasTombstone, sweepTombstones, writeTombstone } from "../../../core/tombstone";
+import {
+  hasTombstone,
+  listTombstones,
+  sweepListedTombstones,
+  writeTombstone,
+} from "../../../core/tombstone";
 import { connectCalendar, isoDaysFromToday, upsertTask } from "../../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../../test/harness";
 import { runReconcile } from "../reconcile";
@@ -47,7 +52,8 @@ describe("deletion tombstones + reconcile-race (real server vs emulator + mocked
     await writeTombstone(server.firestore, uid, "tasks", "t-old", old);
     await writeTombstone(server.firestore, uid, "tasks", "t-fresh", server.now());
 
-    const swept = await sweepTombstones(server.firestore, uid, Date.now());
+    const listed = await listTombstones(server.firestore, uid);
+    const swept = await sweepListedTombstones(server.firestore, uid, listed, Date.now());
     expect(swept).toBe(1);
     expect(await hasTombstone(server.firestore, uid, "tasks", "t-old")).toBe(false);
     expect(await hasTombstone(server.firestore, uid, "tasks", "t-fresh")).toBe(true);

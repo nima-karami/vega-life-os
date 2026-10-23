@@ -1,9 +1,10 @@
-import { collectionNameSchema, type Dataset } from "@vega/shared";
+import { collectionNameSchema, type SyncReceipt, type WireDataset } from "@vega/shared";
 import { z } from "zod";
 import { parseRecord, writeRecord } from "../../core/collection-store";
 import { createRepository } from "../../core/repository";
-import { bumpSyncVersion, readSyncVersion } from "../../core/sync-version";
+import { advanceSyncVersion, readSyncVersion } from "../../core/sync-version";
 import { writeTombstone } from "../../core/tombstone";
+import { toSyncedResponse, toWireRows } from "../../core/wire";
 import { protectedProcedure, router } from "../../trpc/trpc";
 import { shouldTriggerCalendarSync } from "../calendar/schedule-reconcile";
 import { importRecords } from "./batch-import";
@@ -20,39 +21,42 @@ const unknownRecord = z.record(z.string(), z.unknown());
 export const dataRouter = router({
   list: protectedProcedure
     .input(z.object({ collection: collectionNameSchema }))
-    .query(({ ctx, input }) => createRepository(ctx.firestore, ctx.uid, input.collection).list()),
+    .query(async ({ ctx, input }) =>
+      toWireRows(await createRepository(ctx.firestore, ctx.uid, input.collection).list()),
+    ),
 
   /** One read that answers "has anything changed?", so an idle client never pulls the dataset. */
   syncVersion: protectedProcedure.query(({ ctx }) => readSyncVersion(ctx.firestore, ctx.uid)),
 
-  loadAll: protectedProcedure.query(async ({ ctx }): Promise<Dataset> => {
+  loadAll: protectedProcedure.query(async ({ ctx }): Promise<WireDataset> => {
     const collections = collectionNameSchema.options;
     const lists = await Promise.all(
       collections.map((collection) => createRepository(ctx.firestore, ctx.uid, collection).list()),
     );
     return Object.fromEntries(
-      collections.map((collection, index) => [collection, lists[index]]),
-    ) as Dataset;
+      collections.map((collection, index) => [collection, toWireRows(lists[index])]),
+    ) as WireDataset;
   }),
 
   upsert: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, record: unknownRecord }))
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const written = writeRecord(
         ctx,
         input.collection,
         parseRecord(input.collection, input.record),
       );
       if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);
-      return written;
+      return toSyncedResponse(await written);
     }),
 
   remove: protectedProcedure
     .input(z.object({ collection: collectionNameSchema, id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await createRepository(ctx.firestore, ctx.uid, input.collection).remove(input.id);
+    .mutation(async ({ ctx, input }): Promise<{ id: string } & SyncReceipt> => {
+      const repository = createRepository(ctx.firestore, ctx.uid, input.collection);
+      const syncVersion = await repository.removeSynced(input.id);
       if (shouldTriggerCalendarSync(input.collection)) ctx.calendar.scheduleReconcile(ctx.uid);
-      return { id: input.id };
+      return { id: input.id, syncVersion };
     }),
 
   importCollection: protectedProcedure
@@ -83,7 +87,7 @@ export const dataRouter = router({
       return result;
     }),
 
-  deleteAll: protectedProcedure.mutation(async ({ ctx }) => {
+  deleteAll: protectedProcedure.mutation(async ({ ctx }): Promise<{ ok: true } & SyncReceipt> => {
     const now = ctx.calendar.now();
     for (const collection of collectionNameSchema.options) {
       const col = ctx.firestore.collection(`users/${ctx.uid}/${collection}`);
@@ -105,8 +109,8 @@ export const dataRouter = router({
     }
     // The batched deletes bypass the repository, so the counter has to be bumped by hand or a
     // polling client would never learn the wipe happened.
-    await bumpSyncVersion(ctx.firestore, ctx.uid);
+    const syncVersion = await advanceSyncVersion(ctx.firestore, ctx.uid);
     ctx.calendar.scheduleReconcile(ctx.uid);
-    return { ok: true };
+    return { ok: true, syncVersion };
   }),
 });

@@ -1,8 +1,9 @@
-import type { Task } from "@vega/shared";
-import { addDays, format, parseISO } from "date-fns";
+import type { Task, Tombstone } from "@vega/shared";
+import { addDays, format, parseISO, subDays } from "date-fns";
 import type { Firestore } from "firebase-admin/firestore";
-import { createRepository, toWritable } from "../../core/repository";
-import { listTombstones, RETENTION_DAYS, writeTombstone } from "../../core/tombstone";
+import { toWritable } from "../../core/repository";
+import { RETENTION_DAYS } from "../../core/tombstone";
+import { type CalendarListing, isRateLimit } from "./calendar-listing";
 import {
   fromGEvent,
   type GEvent,
@@ -12,16 +13,17 @@ import {
   toGEvent,
 } from "./event-map";
 import {
-  clearMirror,
-  readMirror,
-  removeMirrorRows,
+  applyMirrorListing,
+  type MirrorRow,
+  pruneCancelledRows,
   toMirrorGEvent,
   toMirrorRow,
   writeMirrorRows,
 } from "./gcal-mirror";
-import { type GoogleCalendarClient, GoogleHttpError, SyncTokenExpiredError } from "./google-client";
+import { type GoogleCalendarClient, GoogleHttpError } from "./google-client";
+import type { ReconcileRun } from "./reconcile-run";
+import type { RecordWriter } from "./record-writer";
 import { formatInstantInZone } from "./time-zone";
-import type { GcalAccount } from "./token-store";
 
 export type SyncDeps = {
   firestore: Firestore;
@@ -29,23 +31,11 @@ export type SyncDeps = {
   now: () => string;
 };
 
-/** The dedicated VEGA calendar is gone from Google — pause-and-ask, never auto-recreate (user decision, spec §0). */
-export class WriteCalendarMissingError extends Error {
-  constructor() {
-    super("write calendar missing");
-    this.name = "WriteCalendarMissingError";
-  }
-}
-
-const isMissingCalendarFault = (error: unknown): boolean =>
-  error instanceof GoogleHttpError && (error.status === 404 || error.status === 410);
-
 export type TaskLaneResult = {
   pushed: number;
   pulled: number;
   pushFailures: number;
   rateLimited: boolean;
-  nextSyncToken: string | null;
 };
 
 export type PullUpdate = {
@@ -57,17 +47,16 @@ export type PullUpdate = {
 
 export type BatchOp = { kind: "insert" | "patch" | "delete"; id: string; body?: GEvent };
 
-const TASK_WINDOW = { backDays: 366, fwdDays: 732 };
 // Back edge = tombstone retention: only inside it do we still know what the user deleted, so an
 // older insert can't be told apart from resurrecting a deletion.
 const PUSH_WINDOW = { backDays: RETENTION_DAYS, fwdDays: 90 };
 
-const keyOf = (event: GEvent) => event.extendedProperties?.private?.vegaKey;
+export const getVegaKey = (event: GEvent) => event.extendedProperties?.private?.vegaKey;
 const legacyIdOf = (event: GEvent) => event.extendedProperties?.private?.vegaTaskId;
 
 /** VEGA-owned events are the only ones safe to delete — foreign calendar events are never touched. */
-const isVegaEvent = (event: GEvent) =>
-  Boolean(event.id?.startsWith("vega") || keyOf(event) || legacyIdOf(event));
+export const isVegaEvent = (event: GEvent) =>
+  Boolean(event.id?.startsWith("vega") || getVegaKey(event) || legacyIdOf(event));
 
 /**
  * Google echoes a pushed start either with a zone offset OR as a plain UTC instant (`…Z`), so the
@@ -88,7 +77,7 @@ const startSignature = (event: GEvent, accountZone: string): string => {
 
 // The zone stays in the signature so a browser timezone change still re-pushes the events instead
 // of silently drifting (spec edge #24).
-const signatureOf = (event: GEvent, accountZone: string) =>
+export const signatureOf = (event: GEvent, accountZone: string) =>
   `${startSignature(event, accountZone)}|${event.start?.timeZone ?? ""}|${event.summary ?? ""}`;
 
 function newestVegaScheduleTime(task: Task): string {
@@ -139,7 +128,7 @@ function matchTaskForEvent(
   byLegacyId: Map<string, Task>,
 ): Task | undefined {
   if (event.status === "cancelled") return event.id ? byEventId.get(event.id) : undefined;
-  const key = keyOf(event);
+  const key = getVegaKey(event);
   const legacyId = legacyIdOf(event);
   return (key ? byKey.get(key) : undefined) ?? (legacyId ? byLegacyId.get(legacyId) : undefined);
 }
@@ -163,17 +152,14 @@ export function computeTaskPull(tasks: Task[], events: GEvent[], timeZone: strin
  * event can't unschedule it — but the user DID delete that block in Google. Soft-delete it: tombstone
  * the event id so the push won't resurrect it, while the completion record is left untouched.
  */
-function computeTaskTombstones(
-  tasks: Task[],
-  events: GEvent[],
-): { eventId: string; deletedAt: string }[] {
+function computeTaskTombstones(tasks: Task[], events: GEvent[], now: string): Tombstone[] {
   const byEventId = new Map(tasks.map((task) => [getGoogleEventId(task), task]));
-  const out: { eventId: string; deletedAt: string }[] = [];
+  const out: Tombstone[] = [];
   for (const event of events) {
     if (event.status !== "cancelled" || !event.id) continue;
     const task = byEventId.get(event.id);
     if (task && (task.status === "done" || task.status === "skip")) {
-      out.push({ eventId: event.id, deletedAt: event.updated ?? "" });
+      out.push({ collection: "tasks", id: event.id, deletedAt: event.updated || now });
     }
   }
   return out;
@@ -188,11 +174,7 @@ function isResurrectBlocked(task: Task, id: string, tombstonedAt: Map<string, st
   return !vega || deletedAt > vega;
 }
 
-async function readTaskEventTombstones(
-  firestore: Firestore,
-  uid: string,
-): Promise<Map<string, string>> {
-  const tombstones = await listTombstones(firestore, uid);
+function indexTaskEventTombstones(tombstones: Tombstone[]): Map<string, string> {
   return new Map(
     tombstones
       .filter((tombstone) => tombstone.collection === "tasks")
@@ -265,17 +247,13 @@ export function makeWindowGuard(todayIso: string): (task: { date: string | null 
   return (task) => task.date != null && task.date >= lo && task.date <= hi;
 }
 
-/** Apply one op to Google and keep the mirror in step: a push writes the confirmed row, a delete removes it. */
-async function applyTaskOp(
-  firestore: Firestore,
-  uid: string,
-  client: GoogleCalendarClient,
-  calendarId: string,
-  op: BatchOp,
-): Promise<void> {
+// A delete leaves a dated cancelled row so Google's echo of it is recognised as already known.
+async function applyTaskOp(run: ReconcileRun, calendarId: string, op: BatchOp): Promise<void> {
+  const { firestore, uid, client } = run;
   if (op.kind === "delete") {
     await client.deleteEvent(calendarId, op.id);
-    await removeMirrorRows(firestore, uid, [op.id]);
+    const cancelled = toMirrorRow({ id: op.id, status: "cancelled", updated: run.now });
+    await writeMirrorRows(firestore, uid, [cancelled]);
     return;
   }
   if (!op.body) return;
@@ -298,12 +276,8 @@ async function insertResurrecting(
   }
 }
 
-export const isRateLimit = (status: number) => status === 429 || status === 403 || status >= 500;
-
 async function applyTaskBatch(
-  firestore: Firestore,
-  uid: string,
-  client: GoogleCalendarClient,
+  run: ReconcileRun,
   calendarId: string,
   ops: BatchOp[],
 ): Promise<{ pushFailures: number; rateLimited: boolean }> {
@@ -311,7 +285,7 @@ async function applyTaskBatch(
   let rateLimited = false;
   for (const op of ops) {
     try {
-      await applyTaskOp(firestore, uid, client, calendarId, op);
+      await applyTaskOp(run, calendarId, op);
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
       pushFailures += 1;
@@ -322,105 +296,76 @@ async function applyTaskBatch(
   return { pushFailures, rateLimited };
 }
 
-type WriteCalendarListing = {
-  events: GEvent[];
-  nextSyncToken: string | null;
-  mode: "full" | "delta";
-};
+/** Write every pulled schedule change in one batch and return the task list as it now stands. */
+async function applyTaskPull(
+  writer: RecordWriter,
+  tasks: Task[],
+  pull: PullUpdate[],
+): Promise<Task[]> {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const records = pull.flatMap((update) => {
+    const task = byId.get(update.taskId);
+    if (!task) return [];
+    return [
+      {
+        ...toWritable<"tasks">(task),
+        date: update.date,
+        time: update.time,
+        ...(update.unscheduled ? { status: "open" as const } : {}),
+      },
+    ];
+  });
+  for (const stored of await writer.upsertMany("tasks", records)) byId.set(stored.id, stored);
+  return [...byId.values()];
+}
 
-/** Prefer the stored delta token; a 410 (or first run) falls back to one full windowed list. */
-async function listWriteCalendar(
-  client: GoogleCalendarClient,
-  calendarId: string,
-  syncTokens: Record<string, string>,
-): Promise<WriteCalendarListing> {
-  const token = syncTokens[calendarId];
-  if (token) {
-    try {
-      const delta = await client.listEvents(calendarId, { syncToken: token });
-      return { ...delta, mode: "delta" };
-    } catch (error) {
-      if (isMissingCalendarFault(error)) throw new WriteCalendarMissingError();
-      if (!(error instanceof SyncTokenExpiredError)) throw error;
-    }
-  }
-  try {
-    const full = await client.listEvents(calendarId, { window: TASK_WINDOW });
-    return { ...full, mode: "full" };
-  } catch (error) {
-    if (isMissingCalendarFault(error)) throw new WriteCalendarMissingError();
-    throw error;
-  }
+function logTaskPush(uid: string, ops: BatchOp[]): void {
+  // A settled sync writes nothing, and every write re-notifies us — so a non-empty batch on a
+  // quiet calendar is the signature of a feedback loop. Name the ops so it can be diagnosed.
+  if (ops.length === 0) return;
+  console.log(
+    JSON.stringify({
+      event: "gcal-task-push",
+      uid,
+      total: ops.length,
+      ops: ops.slice(0, 10).map((op) => `${op.kind}:${op.id}`),
+    }),
+  );
 }
 
 /**
  * Reconcile VEGA tasks ⇄ the dedicated write-calendar: pull moved/cancelled events, then push the
- * set-difference. `have` comes from a persisted mirror, not the live listing, so a task unscheduled
- * in VEGA (which never shows up in a Google delta) is still detected and its event evicted. A full
- * windowed list replaces the mirror wholesale, repairing any drift — the periodic verify pass.
+ * set-difference. `have` comes from the persisted mirror, not the live listing, so a task unscheduled
+ * in VEGA (which never shows up in a Google delta) is still detected and its event evicted.
  */
 export async function runTaskLane(
-  deps: SyncDeps,
-  uid: string,
-  account: GcalAccount,
+  run: ReconcileRun,
+  listing: CalendarListing,
+  tasks: Task[],
+  mirror: Map<string, MirrorRow>,
 ): Promise<TaskLaneResult> {
+  const { firestore, uid, account } = run;
   const writeCalendarId = account.writeCalendarId ?? "";
   const timeZone = account.timeZone ?? "UTC";
-  const client = await deps.getClient(uid);
-  const repo = createRepository(deps.firestore, uid, "tasks", deps.now);
-  const tasks = await repo.list();
-
-  const listed = await listWriteCalendar(client, writeCalendarId, account.syncTokens ?? {});
-  const vegaDelta = listed.events.filter(isVegaEvent);
-  if (listed.mode === "full") await clearMirror(deps.firestore, uid);
-  await writeMirrorRows(deps.firestore, uid, vegaDelta.map(toMirrorRow));
+  const vegaDelta = listing.events.filter(isVegaEvent);
 
   const pull = computeTaskPull(tasks, vegaDelta, timeZone);
-  for (const update of pull) {
-    const task = tasks.find((candidate) => candidate.id === update.taskId);
-    if (!task) continue;
-    await repo.upsert({
-      ...toWritable<"tasks">(task),
-      date: update.date,
-      time: update.time,
-      ...(update.unscheduled ? { status: "open" as const } : {}),
-    });
-  }
-  for (const { eventId, deletedAt } of computeTaskTombstones(tasks, vegaDelta)) {
-    await writeTombstone(deps.firestore, uid, "tasks", eventId, deletedAt || deps.now());
-  }
+  const current = await applyTaskPull(run.writer, tasks, pull);
+  const marks = computeTaskTombstones(tasks, vegaDelta, run.now);
+  await run.writer.markTombstones(marks);
+  run.tombstones.push(...marks);
+  // Folded only after the pull lands, so a crash can't leave the mirror claiming an unpulled change.
+  const listed = await applyMirrorListing(firestore, uid, mirror, vegaDelta, listing.mode);
+  const retentionCutoff = subDays(parseISO(run.now), RETENTION_DAYS).toISOString();
+  const nextMirror = await pruneCancelledRows(firestore, uid, listed, retentionCutoff);
 
-  const current = pull.length ? await repo.list() : tasks;
-  const mirror = await readMirror(deps.firestore, uid);
-  const haveEvents = [...mirror.values()].map(toMirrorGEvent);
-  const tombstonedAt = await readTaskEventTombstones(deps.firestore, uid);
-  const inWindow = makeWindowGuard(deps.now().slice(0, 10));
+  const tombstonedAt = indexTaskEventTombstones(run.tombstones);
+  const inWindow = makeWindowGuard(run.now.slice(0, 10));
   const canInsert = (task: Task, id: string) =>
     inWindow(task) && !isResurrectBlocked(task, id, tombstonedAt);
+  const haveEvents = [...nextMirror.values()].map(toMirrorGEvent);
   const ops = computeTaskBatch(current, haveEvents, canInsert, timeZone);
-  // A settled sync writes nothing, and every write re-notifies us — so a non-empty batch on a
-  // quiet calendar is the signature of a feedback loop. Name the ops so it can be diagnosed.
-  if (ops.length > 0)
-    console.log(
-      JSON.stringify({
-        event: "gcal-task-push",
-        uid,
-        total: ops.length,
-        ops: ops.slice(0, 10).map((op) => `${op.kind}:${op.id}`),
-      }),
-    );
-  const { pushFailures, rateLimited } = await applyTaskBatch(
-    deps.firestore,
-    uid,
-    client,
-    writeCalendarId,
-    ops,
-  );
-  return {
-    pushed: ops.length,
-    pulled: pull.length,
-    pushFailures,
-    rateLimited,
-    nextSyncToken: listed.nextSyncToken,
-  };
+  logTaskPush(uid, ops);
+  const { pushFailures, rateLimited } = await applyTaskBatch(run, writeCalendarId, ops);
+  return { pushed: ops.length, pulled: pull.length, pushFailures, rateLimited };
 }

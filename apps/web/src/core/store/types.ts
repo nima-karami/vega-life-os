@@ -38,7 +38,8 @@ export interface RootState
   confirmPendingSignIn: () => Promise<void>;
   exportJSON: () => string;
   importJSON: (text: string) => Promise<boolean>;
-  refetchAll: () => Promise<void>;
+  /** Resolves false when it skipped a collection with a write in flight, or failed to load. */
+  refetchAll: () => Promise<boolean>;
   refetchIfChanged: () => Promise<void>;
   refetchCollection: (col: import("@/core/persistence").CollectionName) => Promise<void>;
   onAuthChange: (uid: string | null) => Promise<void>;

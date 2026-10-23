@@ -1,5 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore";
-import { writeGcalAccount } from "./token-store";
+import { type GcalAccount, writeGcalAccount } from "./token-store";
 
 export type BackoffState = { failures: number; nextAllowedAt: string };
 
@@ -39,10 +39,13 @@ export async function recordSyncFailure(
   return backoff;
 }
 
-export async function clearSyncBackoff(
-  firestore: Firestore,
-  uid: string,
+/** Extend the backoff window on a list-level rate-limit, clear it (and stamp lastSyncedAt) otherwise. */
+export function buildBackoffPatch(
+  account: Pick<GcalAccount, "backoff">,
+  isRateLimited: boolean,
   nowIso: string,
-): Promise<void> {
-  await writeGcalAccount(firestore, uid, { backoff: null, lastSyncedAt: nowIso });
+): Pick<GcalAccount, "backoff" | "lastSyncedAt"> {
+  if (isRateLimited)
+    return { backoff: computeNextBackoff(account.backoff?.failures ?? 0, Date.parse(nowIso)) };
+  return { backoff: null, lastSyncedAt: nowIso };
 }

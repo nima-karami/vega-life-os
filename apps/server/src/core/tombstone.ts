@@ -62,21 +62,23 @@ export async function listTombstones(firestore: Firestore, uid: string): Promise
   return snap.docs.map((doc) => doc.data() as Tombstone);
 }
 
-/** Drop tombstones past the retention window; returns how many were swept. */
-export async function sweepTombstones(
+const SWEEP_BATCH_SIZE = 450;
+
+/** Drop the already-listed tombstones that are past the retention window, in batched commits. */
+export async function sweepListedTombstones(
   firestore: Firestore,
   uid: string,
+  listed: Tombstone[],
   nowMs: number,
   retentionDays: number = RETENTION_DAYS,
 ): Promise<number> {
   const cutoff = nowMs - retentionDays * 864e5;
-  const stale = (await listTombstones(firestore, uid)).filter(
-    (tombstone) => Date.parse(tombstone.deletedAt) < cutoff,
-  );
-  await Promise.all(
-    stale.map((tombstone) =>
-      tombstones(firestore, uid).doc(docId(tombstone.collection, tombstone.id)).delete(),
-    ),
-  );
+  const stale = listed.filter((tombstone) => Date.parse(tombstone.deletedAt) < cutoff);
+  for (let start = 0; start < stale.length; start += SWEEP_BATCH_SIZE) {
+    const batch = firestore.batch();
+    for (const tombstone of stale.slice(start, start + SWEEP_BATCH_SIZE))
+      batch.delete(tombstones(firestore, uid).doc(docId(tombstone.collection, tombstone.id)));
+    await batch.commit();
+  }
   return stale.length;
 }
