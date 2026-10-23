@@ -1,20 +1,23 @@
 import { ScrollShadow } from "@heroui/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
+import { findById } from "@/core/lib/id-index";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { TaskDrawer, TaskRow } from "@/features/tasks";
 
+const NO_TASKS: Task[] = [];
+
 /** Renders an agent-conjured view for queries the fixed views don't cover. */
 export function EphemeralOverlay() {
   const ephemeral = useStore((s) => s.ephemeral);
   const clear = useStore((s) => s.setEphemeral);
-  const tasks = useStore((s) => s.tasks);
+  const tasks = useStore((s) => (s.ephemeral?.taskIds ? s.tasks : NO_TASKS));
   const [selected, setSelected] = useState<Task | null>(null);
 
   const list = ephemeral?.taskIds
-    ? (ephemeral.taskIds.map((id) => tasks.find((t) => t.id === id)).filter(Boolean) as Task[])
+    ? ephemeral.taskIds.map((id) => findById(tasks, id)).filter((task) => task !== undefined)
     : [];
 
   return (

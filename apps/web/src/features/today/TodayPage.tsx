@@ -1,3 +1,4 @@
+import { startOfHour } from "date-fns";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useNowMs } from "@/core/lib/clock";
@@ -90,9 +91,13 @@ export function TodayPage() {
   );
 
   const { isFreshStartVisible, dismissForWeek } = useFreshStart(today, viewDate);
-  const showEvening =
-    eveningDismissedFor !== today &&
-    shouldShowEveningCard(tasks, todayEntry, viewDate, new Date(nowMs));
+  // The card only turns on the date and the hour, so the per-minute tick reuses the verdict.
+  const currentHourMs = startOfHour(nowMs).getTime();
+  const isEveningCardDue = useMemo(
+    () => shouldShowEveningCard(tasks, todayEntry, viewDate, new Date(currentHourMs)),
+    [tasks, todayEntry, viewDate, currentHourMs],
+  );
+  const showEvening = eveningDismissedFor !== today && isEveningCardDue;
 
   const groups = useMemo(
     () => partitionToday(tasks, viewDate, settlingIds),

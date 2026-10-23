@@ -1,4 +1,5 @@
 import type { CalendarEvent } from "@vega/shared";
+import { startOfHour } from "date-fns";
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { DayEntry } from "@/features/journal";
@@ -641,5 +642,14 @@ describe("shouldShowEveningCard", () => {
 
   it("only applies to today", () => {
     expect(shouldShowEveningCard([open], undefined, "2026-06-21", at(18))).toBe(false);
+  });
+
+  it("turns only on the hour, so the page may judge it from an hour-truncated clock", () => {
+    for (let minute = 0; minute < 24 * 60; minute += 7) {
+      const now = at(0, minute);
+      expect(shouldShowEveningCard([open], undefined, TODAY, startOfHour(now))).toBe(
+        shouldShowEveningCard([open], undefined, TODAY, now),
+      );
+    }
   });
 });

@@ -13,12 +13,17 @@ export async function getSandboxDirty(): Promise<boolean | undefined> {
   }
 }
 
+// Every signed-out save calls this, so only a change of the flag reaches IndexedDB.
+let lastWrittenDirty: boolean | undefined;
+
 /** Persist the sandbox-dirty flag. Fire-and-forget callers may ignore the promise. */
 export async function setSandboxDirty(dirty: boolean): Promise<void> {
+  if (lastWrittenDirty === dirty) return;
+  lastWrittenDirty = dirty;
   try {
     await db.meta.put({ key: KEY, dirty });
   } catch {
-    /* meta is best-effort */
+    lastWrittenDirty = undefined;
   }
 }
 
