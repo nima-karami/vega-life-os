@@ -606,6 +606,37 @@ test("a due session that grades its last card settles on the empty notice", asyn
   expect(errors).toEqual([]);
 });
 
+test("correct keyboard grades walk a due session card by card to the empty notice", async ({
+  page,
+}) => {
+  const errors = collectPageErrors(page);
+  const dueSessionSize = 3;
+  await openBrainWrite(page, { size: dueSessionSize, mode: "due" });
+  await page.locator(DECK).focus();
+
+  const seen: string[] = [];
+  for (let index = 0; index < dueSessionSize; index++) {
+    seen.push(await gradeCardAt(page, index, true));
+  }
+
+  expect(new Set(seen).size, seen.join(" | ")).toBe(dueSessionSize);
+  await expect(page.getByRole("heading", { name: "Nothing to review right now" })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("a correct swipe in a due session flies off and brings the next card into view", async ({
+  page,
+}) => {
+  await openBrainWrite(page, { size: 3, mode: "due" });
+  const anchors = await measureCardAnchors(cardAt(page, 0));
+
+  await swipe(page, { ...crossCardPath(anchors, 1), durationMs: 250, steps: 10 });
+
+  await expect(announcerOf(page)).toContainText("Remembered", { timeout: 5_000 });
+  await expect(cardAt(page, 1)).toBeInViewport({ ratio: 0.9 });
+  expect(countGrades(await readDeckState(page))).toBe(1);
+});
+
 test("grades across the first chunk seam repeat nothing but a failed card at its offset", async ({
   page,
 }) => {
