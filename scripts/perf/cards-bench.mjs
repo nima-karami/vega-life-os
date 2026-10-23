@@ -1,10 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { parseArgs } from "node:util";
-
-const require = createRequire(new URL("../../apps/web/package.json", import.meta.url));
-const { chromium } = require("@playwright/test");
+import { chromium } from "@playwright/test";
 
 const USAGE = `usage: npm run perf:cards -- <baseUrl> [sizes] [options]
   baseUrl            running app, e.g. http://localhost:5301 (build + preview, or dev)

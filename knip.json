@@ -3,7 +3,6 @@
   "workspaces": {
     ".": {
       "entry": [],
-      "ignoreDependencies": ["@playwright/test"],
       "project": []
     },
     "apps/web": {
