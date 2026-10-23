@@ -23,3 +23,14 @@ export function nextVersion(existingTags, now) {
     .map((version) => version.count);
   return `v${year}.${month}.${Math.max(0, ...releasedThisMonth) + 1}`;
 }
+
+// One sha, one version: a re-release of an already tagged sha reuses its version.
+export function resolveReleaseVersion({ headTags, allTags, now }) {
+  const existingVersion = headTags
+    .filter((tag) => parseVersionTag(tag))
+    .sort(compareVersionTags)
+    .at(-1);
+  return existingVersion
+    ? { version: existingVersion, isNew: false }
+    : { version: nextVersion(allTags, now), isNew: true };
+}

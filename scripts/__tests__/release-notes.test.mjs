@@ -67,9 +67,28 @@ describe("buildReleaseNotes", () => {
     assert.match(notes, /6 commits since `v2026\.10\.1`/);
   });
 
-  it("describes a first release as everything up to it", () => {
-    const notes = buildReleaseNotes({ previousTag: undefined, commits: commits.slice(0, 1) });
-    assert.match(notes, /1 commit, the first release/);
+  it("points a first release at the run reports instead of the whole log", () => {
+    const notes = buildReleaseNotes({
+      previousTag: undefined,
+      commits,
+      manifest: "### Deploy\n\n- Server: shipped",
+    });
+    assert.equal(
+      notes,
+      "First versioned release. Earlier history: docs/runs/.\n\n### Deploy\n\n- Server: shipped\n",
+    );
+  });
+
+  it("keeps @ mentions in subjects from pinging anyone", () => {
+    const notes = buildReleaseNotes({
+      previousTag: "v2026.10.1",
+      commits: [
+        { sha: "abc1234", subject: "build(deps): bump @vega/shared, thanks @octocat" },
+        { sha: "abc1235", subject: "fix: keep `@already` and mail a@b.com as they are" },
+      ],
+    });
+    assert.match(notes, /bump `@vega\/shared`, thanks `@octocat` \(abc1234\)/);
+    assert.match(notes, /keep `@already` and mail a@b\.com as they are \(abc1235\)/);
   });
 
   it("says so when nothing changed", () => {
@@ -88,7 +107,7 @@ describe("buildReleaseNotes", () => {
 
   it("appends the deploy manifest", () => {
     const notes = buildReleaseNotes({
-      previousTag: undefined,
+      previousTag: "v2026.10.1",
       commits: [],
       manifest: "### Deploy\n\n- Server: skipped",
     });
@@ -116,13 +135,25 @@ describe("buildDeployManifest", () => {
     assert.match(manifest, /^- Run: https:\/\/github\.com\/o\/r\/actions\/runs\/1$/m);
   });
 
-  it("names a skipped target and leaves unknown details out", () => {
+  it("gives a skipped target the plan's reason and leaves unknown details out", () => {
     const manifest = buildDeployManifest({
       sha: "abc1234",
-      server: { status: "skipped" },
+      server: { status: "skipped", reason: "none of 3 files changed since 56f69c3 affect it" },
       hosting: { status: "shipped" },
     });
-    assert.match(manifest, /^- Server: skipped \(unchanged since live\)$/m);
+    assert.match(
+      manifest,
+      /^- Server: skipped \(none of 3 files changed since 56f69c3 affect it\)$/m,
+    );
     assert.doesNotMatch(manifest, /Schema hash|Run:/);
+  });
+
+  it("says plain skipped when no reason is known", () => {
+    const manifest = buildDeployManifest({
+      sha: "abc1234",
+      server: { status: "shipped" },
+      hosting: { status: "skipped", reason: "" },
+    });
+    assert.match(manifest, /^- Hosting: skipped$/m);
   });
 });

@@ -24,17 +24,23 @@ below.
   keeps the tag valid SemVer syntax: `git tag --sort=v:refname` and semver tooling order it
   correctly. `scripts/lib/next-version.mjs` computes it from the existing `v*` tags that
   match the pattern and ignores every other tag (e.g. `archive/paper-wip`).
+- **One sha, one version** (conductor decision, 2026-10-22). If `HEAD` already carries a
+  `v*` tag, a forced or config-only re-release stamps that existing version into both
+  builds and records nothing new: no second tag, no new GitHub Release. The plan says
+  "sha X is already vN — re-deploying as vN, nothing recorded" and reports `record: false`.
 - **The version lives only in git tags.** It is never written to `package.json`: a manifest
   change classifies as *both* targets in `scripts/lib/change-scope.mjs`, so a bump would
   redeploy everything on the next release, and it would need a bump commit per release.
 - **GitHub Releases are the source of truth.** After every release that shipped at least one
   target and failed none, the release workflow's `record` job (or `scripts/release.mjs` on
   the laptop) creates an annotated tag on the released sha and a GitHub Release. The notes
-  come from `scripts/release-notes.mjs`: conventional commits since the previous `v*` tag
-  (the whole history for the first), grouped by type, merge commits dropped, followed by a
-  deploy manifest — targets shipped or skipped, server revision and image, schema hash,
-  build sha, the Actions run. A failed or rolled-back release creates no tag; its number is
-  reused.
+  come from `scripts/release-notes.mjs`: conventional commits since the previous `v*` tag,
+  grouped by type, merge commits dropped, `@` mentions put in code spans; the first release
+  says "First versioned release. Earlier history: docs/runs/." instead of a commit log.
+  Then a deploy manifest — targets shipped or skipped (with the plan's reason), server
+  revision and image, schema hash, build sha, the Actions run. A failed or rolled-back
+  release creates no tag; its number is reused. Recording is idempotent: an existing tag on
+  the released sha and an existing Release are kept, a tag on another sha fails loudly.
 - **`CHANGELOG.md` is a regenerated mirror.** `npm run changelog` rebuilds it from the
   GitHub Releases. It is committed with an ordinary commit, never by CI: a commit pushed
   with `GITHUB_TOKEN` gets no verify run, so the release gate would refuse that sha. It is
@@ -75,7 +81,10 @@ staging environment, per-workspace READMEs, manifest version bumps.
   Release, and an installed PWA shows its version in Settings.
 - `npm run release -- --no-record` exists for emergencies; it deploys unversioned (`dev`)
   and leaves no tag, so the next release takes the number.
-- Recording happens after the deploys. If the tag or the GitHub Release fails, production
-  is already updated and nothing rolls back; the failure is loud and the record is finished
-  by hand.
+- Recording happens after the deploys. If it fails, production is already updated and
+  nothing rolls back; the failure is loud. In CI, "re-run failed jobs" finishes it; on the
+  laptop a failed tag push deletes the local tag ("not tagged, nothing recorded") and a
+  failed Release prints the `gh release create` to finish it.
+- The laptop path refuses while a `release.yml` run is queued or in progress, and refuses
+  before deploying when recording is due but `gh` is not authenticated.
 - The `record` job and the laptop recording can only be proven by a real release.

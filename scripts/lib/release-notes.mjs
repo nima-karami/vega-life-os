@@ -14,6 +14,9 @@ const SECTIONS = [
   { type: "chore", title: "Chores" },
 ];
 const OTHER_SECTION = "Other";
+const FIRST_RELEASE_BODY = "First versioned release. Earlier history: docs/runs/.";
+// A code span or a bare @mention (not an email); only the mention is rewritten.
+const CODE_SPAN_OR_MENTION = /`[^`]*`|(?<![\w`])@[\w./-]*\w/g;
 
 export function parseCommitSubject(subject) {
   if (subject.startsWith('Revert "')) {
@@ -29,10 +32,16 @@ function isMergeCommit(subject, type) {
   return type === "merge" || GIT_MERGE_SUBJECT.test(subject);
 }
 
+function neutraliseMentions(text) {
+  return text.replace(CODE_SPAN_OR_MENTION, (match) =>
+    match.startsWith("`") ? match : `\`${match}\``,
+  );
+}
+
 function formatChangeLine({ sha, scope, description, isBreaking }) {
   const scopePrefix = scope ? `**${scope}:** ` : "";
   const breakingPrefix = isBreaking ? "**breaking:** " : "";
-  return `- ${scopePrefix}${breakingPrefix}${description} (${sha})`;
+  return `- ${scopePrefix}${breakingPrefix}${neutraliseMentions(description)} (${sha})`;
 }
 
 function groupChanges(commits) {
@@ -53,28 +62,29 @@ function groupChanges(commits) {
     .map((title) => ({ title, lines: linesBySection.get(title) }));
 }
 
-function describeRange(previousTag, changeCount) {
+function describeChanges(previousTag, commits) {
+  if (!previousTag) return [FIRST_RELEASE_BODY];
+  const sections = groupChanges(commits);
+  const changeCount = sections.reduce((total, section) => total + section.lines.length, 0);
+  if (changeCount === 0) return [`No commits since \`${previousTag}\`.`];
   const commitWord = changeCount === 1 ? "commit" : "commits";
-  return previousTag
-    ? `${changeCount} ${commitWord} since \`${previousTag}\`.`
-    : `${changeCount} ${commitWord}, the first release.`;
+  return [
+    `${changeCount} ${commitWord} since \`${previousTag}\`.`,
+    ...sections.map(({ title, lines }) => `### ${title}\n\n${lines.join("\n")}`),
+  ];
 }
 
 export function buildReleaseNotes({ previousTag, commits, manifest }) {
-  const sections = groupChanges(commits);
-  const changeCount = sections.reduce((total, section) => total + section.lines.length, 0);
-  const body =
-    changeCount === 0
-      ? [`No commits since \`${previousTag ?? "the root"}\`.`]
-      : [
-          describeRange(previousTag, changeCount),
-          ...sections.map(({ title, lines }) => `### ${title}\n\n${lines.join("\n")}`),
-        ];
+  const body = describeChanges(previousTag, commits);
   return `${[...body, ...(manifest ? [manifest] : [])].join("\n\n")}\n`;
 }
 
+function describeSkipped({ reason }) {
+  return reason ? `skipped (${reason})` : "skipped";
+}
+
 function describeServer(server) {
-  if (server.status !== "shipped") return `skipped (${server.reason ?? "unchanged since live"})`;
+  if (server.status !== "shipped") return describeSkipped(server);
   const details = [
     server.revision && `revision \`${server.revision}\``,
     server.image && `image \`${server.image}\``,
@@ -83,7 +93,7 @@ function describeServer(server) {
 }
 
 function describeHosting(hosting, sha) {
-  if (hosting.status !== "shipped") return `skipped (${hosting.reason ?? "unchanged since live"})`;
+  if (hosting.status !== "shipped") return describeSkipped(hosting);
   return `shipped, build \`${sha}\``;
 }
 

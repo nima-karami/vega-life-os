@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { compareVersionTags, nextVersion, parseVersionTag } from "../lib/next-version.mjs";
+import {
+  compareVersionTags,
+  nextVersion,
+  parseVersionTag,
+  resolveReleaseVersion,
+} from "../lib/next-version.mjs";
 
 const OCT_22 = new Date("2026-10-22T12:00:00Z");
 
@@ -56,6 +61,38 @@ describe("nextVersion", () => {
   it("reads the month in UTC, not local time", () => {
     assert.equal(nextVersion([], new Date("2026-10-31T23:30:00-05:00")), "v2026.11.1");
     assert.equal(nextVersion([], new Date("2026-11-01T01:00:00+05:00")), "v2026.10.1");
+  });
+});
+
+describe("resolveReleaseVersion", () => {
+  it("cuts the next version when HEAD carries no release tag", () => {
+    assert.deepEqual(
+      resolveReleaseVersion({ headTags: [], allTags: ["v2026.10.1"], now: OCT_22 }),
+      { version: "v2026.10.2", isNew: true },
+    );
+    assert.deepEqual(
+      resolveReleaseVersion({ headTags: ["archive/paper-wip"], allTags: [], now: OCT_22 }),
+      { version: "v2026.10.1", isNew: true },
+    );
+  });
+
+  it("reuses the version HEAD already carries: one sha, one version", () => {
+    assert.deepEqual(
+      resolveReleaseVersion({
+        headTags: ["v2026.9.3"],
+        allTags: ["v2026.9.3", "v2026.10.4"],
+        now: OCT_22,
+      }),
+      { version: "v2026.9.3", isNew: false },
+    );
+  });
+
+  it("takes the newest when HEAD somehow carries two", () => {
+    assert.equal(
+      resolveReleaseVersion({ headTags: ["v2026.10.2", "v2026.10.10"], allTags: [], now: OCT_22 })
+        .version,
+      "v2026.10.10",
+    );
   });
 });
 

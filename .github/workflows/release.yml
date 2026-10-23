@@ -70,6 +70,9 @@ jobs:
       server: ${{ steps.plan.outputs.server }}
       hosting: ${{ steps.plan.outputs.hosting }}
       version: ${{ steps.plan.outputs.version }}
+      record: ${{ steps.plan.outputs.record }}
+      server_reason: ${{ steps.plan.outputs.server_reason }}
+      hosting_reason: ${{ steps.plan.outputs.hosting_reason }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -87,10 +90,12 @@ jobs:
           plan_args=(--plan-json)
           if [ -n "$TARGETS" ] && [ "$TARGETS" != "auto" ]; then plan_args+=("--only=$TARGETS"); fi
           plan="$(node scripts/release.mjs "${plan_args[@]}")"
-          jq -r '"version: \(.version)", (.targets[] | "\(.target): \(if .shouldDeploy then "DEPLOY" else "skip" end) — \(.reason)")' <<<"$plan"
+          jq -r '"version: \(.version)\(if .record then "" else " (sha already tagged: re-deploy, nothing recorded)" end)", (.targets[] | "\(.target): \(if .shouldDeploy then "DEPLOY" else "skip" end) — \(.reason)")' <<<"$plan"
           echo "version=$(jq -r '.version' <<<"$plan")" >> "$GITHUB_OUTPUT"
+          echo "record=$(jq -r '.record' <<<"$plan")" >> "$GITHUB_OUTPUT"
           for target in server hosting; do
             echo "$target=$(jq -r --arg target "$target" '.targets[] | select(.target == $target) | .shouldDeploy' <<<"$plan")" >> "$GITHUB_OUTPUT"
+            echo "${target}_reason=$(jq -r --arg target "$target" '.targets[] | select(.target == $target) | .reason' <<<"$plan")" >> "$GITHUB_OUTPUT"
           done
 
   server:
@@ -257,10 +262,11 @@ jobs:
           echo "::error::$SITE_URL is not serving vega-build $SHORT_SHA"
           exit 1
 
-  # Tags and publishes only when something shipped and nothing failed; a rolled-back release reuses its number.
+  # Tags and publishes only when something shipped, nothing failed and the sha has no version yet.
+  # A rolled-back release reuses its number. Idempotent, so "re-run failed jobs" recovers it.
   record:
     needs: [gate, plan, server, hosting]
-    if: ${{ !cancelled() && !failure() && (needs.server.result == 'success' || needs.hosting.result == 'success') }}
+    if: ${{ !cancelled() && !failure() && needs.plan.outputs.record == 'true' && (needs.server.result == 'success' || needs.hosting.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -289,23 +295,37 @@ jobs:
           HOSTING_RESULT: ${{ needs.hosting.result }}
           SERVER_REVISION: ${{ needs.server.outputs.revision }}
           SERVER_IMAGE: ${{ needs.server.outputs.image }}
+          SERVER_REASON: ${{ needs.plan.outputs.server_reason }}
+          HOSTING_REASON: ${{ needs.plan.outputs.hosting_reason }}
           SCHEMA_HASH: ${{ steps.schema.outputs.hash }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           shipped_or_skipped() { if [ "$1" = success ]; then echo shipped; else echo skipped; fi; }
           node scripts/release-notes.mjs --version="$VERSION" --sha="$SHORT_SHA" \
             --server="$(shipped_or_skipped "$SERVER_RESULT")" --hosting="$(shipped_or_skipped "$HOSTING_RESULT")" \
+            --server-reason="$SERVER_REASON" --hosting-reason="$HOSTING_REASON" \
             --server-revision="$SERVER_REVISION" --server-image="$SERVER_IMAGE" \
             --schema-hash="$SCHEMA_HASH" --run-url="$RUN_URL" > "$RUNNER_TEMP/release-notes.md"
-      - name: Tag and publish the release
+      - name: Tag the released sha
+        run: |
+          tagged="$(git rev-parse --verify --quiet "refs/tags/$VERSION^{commit}" || true)"
+          if [ "$tagged" = "$GITHUB_SHA" ]; then
+            echo "$VERSION already marks $GITHUB_SHA"
+          elif [ -n "$tagged" ]; then
+            echo "::error::$VERSION already marks $tagged, not $GITHUB_SHA"
+            exit 1
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$VERSION" -m "$VERSION" "$GITHUB_SHA"
+            git push origin "refs/tags/$VERSION"
+          fi
+      - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$VERSION" -m "$VERSION" "$GITHUB_SHA"
-          git push origin "refs/tags/$VERSION"
-          gh release create "$VERSION" --title "$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag
+          gh release view "$VERSION" >/dev/null 2>&1 \
+            || gh release create "$VERSION" --title "$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag
           { echo "## $VERSION"; echo; cat "$RUNNER_TEMP/release-notes.md"; } >> "$GITHUB_STEP_SUMMARY"
 
   # A skipped server or hosting job leaves its outputs empty, so rollback never touches it.

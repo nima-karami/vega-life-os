@@ -39,18 +39,60 @@ export function listCommitsSince(previousTag, sha, cwd) {
     });
 }
 
+export function listVersionTagsAt(sha, cwd) {
+  return keepVersionTags(runGit(["tag", "--list", "v*", "--points-at", sha], cwd));
+}
+
 export function composeReleaseNotes({ version, sha, server, hosting, schemaHash, runUrl, cwd }) {
   const previousTag = findPreviousVersionTag(sha, version, cwd);
   return buildReleaseNotes({
     previousTag,
-    commits: listCommitsSince(previousTag, sha, cwd),
+    commits: previousTag ? listCommitsSince(previousTag, sha, cwd) : [],
     manifest: buildDeployManifest({ sha, server, hosting, schemaHash, runUrl }),
   });
 }
 
-export function publishRelease({ version, sha, notes, cwd }) {
-  runGit(["tag", "-a", version, "-m", version, sha], cwd);
-  runGit(["push", "origin", `refs/tags/${version}`], cwd);
+function resolveTaggedCommit(version, cwd) {
+  try {
+    return runGit(["rev-parse", "--verify", "--quiet", `refs/tags/${version}^{commit}`], cwd);
+  } catch {
+    return undefined;
+  }
+}
+
+export function ensureReleaseTag({ version, sha, cwd }) {
+  const releasedCommit = runGit(["rev-parse", "--verify", `${sha}^{commit}`], cwd);
+  const taggedCommit = resolveTaggedCommit(version, cwd);
+  if (taggedCommit === releasedCommit) return "existing";
+  if (taggedCommit) {
+    throw new Error(`tag ${version} already marks ${taggedCommit}, not ${releasedCommit}`);
+  }
+  runGit(["tag", "-a", version, "-m", version, releasedCommit], cwd);
+  try {
+    runGit(["push", "origin", `refs/tags/${version}`], cwd);
+  } catch (error) {
+    runGit(["tag", "-d", version], cwd);
+    throw new Error(
+      `could not push tag ${version}: not tagged, nothing recorded (${error.message})`,
+    );
+  }
+  return "created";
+}
+
+function hasGithubRelease(version, cwd) {
+  try {
+    execFileSync("gh", ["release", "view", version, "--json", "tagName"], {
+      cwd,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function ensureGithubRelease({ version, notes, cwd }) {
+  if (hasGithubRelease(version, cwd)) return "existing";
   const notesDir = mkdtempSync(path.join(tmpdir(), "vega-release-notes-"));
   try {
     const notesFile = path.join(notesDir, `${version}.md`);
@@ -63,4 +105,5 @@ export function publishRelease({ version, sha, notes, cwd }) {
   } finally {
     rmSync(notesDir, { recursive: true, force: true });
   }
+  return "created";
 }

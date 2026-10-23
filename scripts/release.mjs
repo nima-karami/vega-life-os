@@ -2,8 +2,11 @@
 // Deploys only the targets whose inputs changed since what is live: server first, then hosting.
 // --dry-run prints the plan; --plan-json prints it as JSON for CI; --only=server|hosting|both overrides.
 // A successful deploy is tagged with the next CalVer version and published as a GitHub Release;
-// --no-record deploys unversioned.
+// --no-record deploys unversioned. A sha that already carries a version re-deploys as that version.
 import { execFileSync, spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { planTarget } from "./lib/change-scope.mjs";
 import { listChangedFilesSince } from "./lib/git-changes.mjs";
 import {
@@ -12,11 +15,18 @@ import {
   REPO_ROOT,
   resolveApiUrl,
 } from "./lib/live-endpoints.mjs";
-import { nextVersion } from "./lib/next-version.mjs";
-import { composeReleaseNotes, listVersionTags, publishRelease } from "./lib/release-record.mjs";
+import { resolveReleaseVersion } from "./lib/next-version.mjs";
+import {
+  composeReleaseNotes,
+  ensureGithubRelease,
+  ensureReleaseTag,
+  listVersionTags,
+  listVersionTagsAt,
+} from "./lib/release-record.mjs";
 
 const ONLY_VALUES = ["server", "hosting", "both"];
 const DEPLOY_SCRIPTS = { server: "deploy:server", hosting: "deploy" };
+const ACTIVE_RUN_STATUSES = ["queued", "in_progress", "waiting", "pending", "requested"];
 
 function parseOptions(argv) {
   const onlyArg = argv.find((arg) => arg.startsWith("--only="));
@@ -67,18 +77,22 @@ async function readLiveHostingSha() {
   }
 }
 
-function computeNextVersion() {
+function computeReleaseVersion() {
   try {
     git(["fetch", "--tags", "--quiet", "origin"]);
   } catch (error) {
     console.error(`release: could not fetch tags, numbering from local tags (${error.message})`);
   }
-  return nextVersion(listVersionTags(REPO_ROOT), new Date());
+  return resolveReleaseVersion({
+    headTags: listVersionTagsAt("HEAD", REPO_ROOT),
+    allTags: listVersionTags(REPO_ROOT),
+    now: new Date(),
+  });
 }
 
 async function buildReleasePlan(only) {
   const headSha = git(["rev-parse", "--short", "HEAD"]);
-  const version = computeNextVersion();
+  const { version, isNew } = computeReleaseVersion();
   const liveByTarget = {
     server: await readLiveServerSha(),
     hosting: await readLiveHostingSha(),
@@ -93,11 +107,12 @@ async function buildReleasePlan(only) {
     liveSha: liveSha ?? null,
     liveShaSource: detail,
   }));
-  return { headSha, version, targets };
+  return { headSha, version, record: isNew, targets };
 }
 
-function printPlan({ headSha, version, targets }) {
-  console.log(`\nrelease plan for HEAD ${headSha} (next version ${version})`);
+function printPlan({ headSha, version, record, targets }) {
+  const versionNote = record ? `next version ${version}` : `already ${version}`;
+  console.log(`\nrelease plan for HEAD ${headSha} (${versionNote})`);
   for (const plan of targets) {
     const verdict = plan.shouldDeploy ? "DEPLOY" : "skip  ";
     console.log(
@@ -142,10 +157,55 @@ async function readLiveSchemaHash() {
   }
 }
 
+function refuse(reason) {
+  console.error(`\nrelease: REFUSED — ${reason}`);
+  process.exit(1);
+}
+
+function readGhJson(args) {
+  return JSON.parse(
+    execFileSync("gh", args, {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }),
+  );
+}
+
+// Two releases at once would race for one version number and one live revision.
+function refuseWhileCiReleaseRuns() {
+  for (const status of ACTIVE_RUN_STATUSES) {
+    let activeRuns;
+    try {
+      activeRuns = readGhJson([
+        "run",
+        "list",
+        "--workflow",
+        "release.yml",
+        "--status",
+        status,
+        "--limit",
+        "1",
+        "--json",
+        "url",
+      ]);
+    } catch (error) {
+      refuse(`could not check for a running release workflow (${error.message})`);
+    }
+    if (activeRuns.length > 0) refuse(`a release workflow run is ${status}: ${activeRuns[0].url}`);
+  }
+}
+
+function refuseWithoutGhAuth() {
+  const auth = spawnSync("gh", ["auth", "status"], { cwd: REPO_ROOT, stdio: "ignore" });
+  if (auth.status !== 0) refuse("recording needs `gh auth login` (or pass --no-record)");
+}
+
 async function recordRelease({ headSha, version, targets }) {
-  const describeTarget = (target) => ({
-    status: targets.find((plan) => plan.target === target).shouldDeploy ? "shipped" : "skipped",
-  });
+  const describeTarget = (target) => {
+    const plan = targets.find((candidate) => candidate.target === target);
+    return plan.shouldDeploy ? { status: "shipped" } : { status: "skipped", reason: plan.reason };
+  };
   const notes = composeReleaseNotes({
     version,
     sha: headSha,
@@ -155,10 +215,22 @@ async function recordRelease({ headSha, version, targets }) {
     cwd: REPO_ROOT,
   });
   try {
-    publishRelease({ version, sha: headSha, notes, cwd: REPO_ROOT });
+    ensureReleaseTag({ version, sha: headSha, cwd: REPO_ROOT });
   } catch (error) {
-    console.error(`\nrelease: deployed, but recording ${version} failed (${error.message})`);
-    console.error("  The tag may already be pushed; finish with `gh release create` by hand.");
+    console.error(`\nrelease: deployed, but ${error.message}`);
+    process.exit(1);
+  }
+  try {
+    ensureGithubRelease({ version, notes, cwd: REPO_ROOT });
+  } catch (error) {
+    const notesFile = path.join(tmpdir(), `vega-${version}-notes.md`);
+    writeFileSync(notesFile, notes);
+    console.error(
+      `\nrelease: deployed and tagged ${version}, but the GitHub Release failed (${error.message}).`,
+    );
+    console.error(
+      `  Finish it: gh release create ${version} --title ${version} --notes-file "${notesFile}" --verify-tag`,
+    );
     process.exit(1);
   }
 }
@@ -181,12 +253,20 @@ if (deployTargets.length === 0) {
   console.log("release: nothing to deploy — production already serves everything that changed.");
   process.exit(0);
 }
-const version = options.isNoRecord ? undefined : plan.version;
+const shouldRecord = plan.record && !options.isNoRecord;
+const version = plan.record && options.isNoRecord ? undefined : plan.version;
 const recordNote = version ? `as ${version}` : "unversioned (--no-record)";
+if (!plan.record) {
+  console.log(
+    `release: sha ${plan.headSha} is already ${plan.version} — re-deploying as ${plan.version}, nothing recorded`,
+  );
+}
 if (options.isDryRun) {
   console.log(`release: dry run — would deploy ${deployTargets.join(", then ")} ${recordNote}`);
   process.exit(0);
 }
+refuseWhileCiReleaseRuns();
+if (shouldRecord) refuseWithoutGhAuth();
 for (const target of deployTargets) runDeploy(target, { allowRedCi: options.allowRedCi, version });
-if (version) await recordRelease(plan);
+if (shouldRecord) await recordRelease(plan);
 console.log(`release: OK — ${plan.headSha} deployed to ${deployTargets.join(" + ")} ${recordNote}`);

@@ -10,7 +10,7 @@ The GitHub Releases are the record; this file mirrors them. Regenerate it with
 
 Whatever is on `main` past the newest release below.
 
-## Before v2026.10.1
+## Before versioned releases
 
 Earlier releases were not versioned. What shipped, and when, is written up in the
 run reports under [`docs/runs/`](docs/runs/), one folder per run.

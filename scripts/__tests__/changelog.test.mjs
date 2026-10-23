@@ -33,7 +33,7 @@ describe("buildChangelog", () => {
       "## [v2026.10.2](https://github.com/o/r/releases/tag/v2026.10.2) - 2026-10-24",
       "## [v2026.10.1](https://github.com/o/r/releases/tag/v2026.10.1) - 2026-10-22",
       "## [v2026.9.10](https://github.com/o/r/releases/tag/v2026.9.10) - 2026-09-30",
-      "## Before v2026.10.1",
+      "## Before v2026.9.10",
     ]);
     assert.doesNotMatch(changelog, /nope/);
   });
@@ -44,13 +44,16 @@ describe("buildChangelog", () => {
     assert.doesNotMatch(changelog, /\r/);
   });
 
-  it("points history before the first release at the run reports", () => {
-    assert.match(buildChangelog([]), /## Before v2026\.10\.1\n\n[^#]*docs\/runs\//);
+  it("names the oldest release in the pointer to the run reports", () => {
+    assert.match(buildChangelog(releases), /## Before v2026\.9\.10\n\n[^#]*docs\/runs\//);
   });
 
   it("is stable with no releases yet", () => {
     const changelog = buildChangelog([]);
-    assert.deepEqual(changelog.match(/^## .+$/gm), ["## Unreleased", "## Before v2026.10.1"]);
+    assert.deepEqual(changelog.match(/^## .+$/gm), [
+      "## Unreleased",
+      "## Before versioned releases",
+    ]);
     assert.ok(changelog.startsWith("# Changelog\n"));
     assert.ok(changelog.endsWith("\n") && !changelog.endsWith("\n\n"));
   });

@@ -5,9 +5,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
 import {
+  ensureReleaseTag,
   findPreviousVersionTag,
   listCommitsSince,
   listVersionTags,
+  listVersionTagsAt,
 } from "../lib/release-record.mjs";
 
 let repoDir;
@@ -89,5 +91,56 @@ describe("listCommitsSince", () => {
       ["chore: root", "feat: first feature"],
     );
     assert.equal(changes[1].sha, shas.first);
+  });
+});
+
+describe("listVersionTagsAt", () => {
+  it("lists only the release tags on that sha", () => {
+    assert.deepEqual(listVersionTagsAt(shas.first, repoDir), ["v2026.9.1"]);
+    assert.deepEqual(listVersionTagsAt(shas.third, repoDir), []);
+  });
+});
+
+describe("ensureReleaseTag", () => {
+  let remoteDir;
+
+  before(() => {
+    remoteDir = mkdtempSync(path.join(tmpdir(), "vega-release-remote-"));
+    execFileSync("git", ["init", "--quiet", "--bare", remoteDir]);
+    runGit(["remote", "add", "origin", remoteDir]);
+  });
+
+  after(() => rmSync(remoteDir, { recursive: true, force: true }));
+
+  it("creates and pushes an annotated tag", () => {
+    const outcome = ensureReleaseTag({ version: "v2026.11.1", sha: shas.fourth, cwd: repoDir });
+    assert.equal(outcome, "created");
+    assert.equal(runGit(["cat-file", "-t", "v2026.11.1"]), "tag");
+    assert.match(runGit(["ls-remote", "--tags", "origin"]), /refs\/tags\/v2026\.11\.1/);
+  });
+
+  it("is a no-op when the tag already marks that sha, so a re-run recovers", () => {
+    const outcome = ensureReleaseTag({ version: "v2026.11.1", sha: shas.fourth, cwd: repoDir });
+    assert.equal(outcome, "existing");
+  });
+
+  it("refuses when the tag marks another sha", () => {
+    assert.throws(
+      () => ensureReleaseTag({ version: "v2026.11.1", sha: shas.third, cwd: repoDir }),
+      /already marks/,
+    );
+  });
+
+  it("deletes the local tag when the push fails", () => {
+    runGit(["remote", "set-url", "origin", path.join(remoteDir, "missing")]);
+    try {
+      assert.throws(
+        () => ensureReleaseTag({ version: "v2026.11.2", sha: shas.third, cwd: repoDir }),
+        /not tagged, nothing recorded/,
+      );
+      assert.equal(runGit(["tag", "--list", "v2026.11.2"]), "");
+    } finally {
+      runGit(["remote", "set-url", "origin", remoteDir]);
+    }
   });
 });

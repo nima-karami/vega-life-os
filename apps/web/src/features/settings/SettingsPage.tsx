@@ -329,7 +329,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-muted">{k}</span>
-      <span className="text-right text-sm text-foreground">{v}</span>
+      <span className="text-right text-sm tabular-nums text-foreground">{v}</span>
     </div>
   );
 }

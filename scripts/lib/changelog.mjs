@@ -12,10 +12,13 @@ The GitHub Releases are the record; this file mirrors them. Regenerate it with
 
 Whatever is on \`main\` past the newest release below.`;
 
-const BEFORE_FIRST_RELEASE = `## Before v2026.10.1
+function describeUnversionedHistory(oldestRelease) {
+  const heading = oldestRelease ? `Before ${oldestRelease.tagName}` : "Before versioned releases";
+  return `## ${heading}
 
 Earlier releases were not versioned. What shipped, and when, is written up in the
 run reports under [\`docs/runs/\`](docs/runs/), one folder per run.`;
+}
 
 function formatRelease({ tagName, publishedAt, url, body }) {
   const heading = `## [${tagName}](${url}) - ${publishedAt.slice(0, 10)}`;
@@ -27,5 +30,10 @@ export function buildChangelog(releases) {
   const versioned = releases
     .filter((release) => parseVersionTag(release.tagName))
     .sort((left, right) => compareVersionTags(right.tagName, left.tagName));
-  return `${[HEADER, ...versioned.map(formatRelease), BEFORE_FIRST_RELEASE].join("\n\n")}\n`;
+  const sections = [
+    HEADER,
+    ...versioned.map(formatRelease),
+    describeUnversionedHistory(versioned.at(-1)),
+  ];
+  return `${sections.join("\n\n")}\n`;
 }

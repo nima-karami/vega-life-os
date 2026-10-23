@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Prints a release's notes: conventional commits since the previous v* tag, then the deploy manifest.
 // node scripts/release-notes.mjs --version=v2026.10.1 --sha=<short> --server=shipped|skipped --hosting=shipped|skipped
-//   [--server-revision=…] [--server-image=…] [--schema-hash=…] [--run-url=…]
+//   [--server-reason=…] [--hosting-reason=…] [--server-revision=…] [--server-image=…] [--schema-hash=…] [--run-url=…]
 import { parseArgs } from "node:util";
 import { REPO_ROOT } from "./lib/live-endpoints.mjs";
 import { parseVersionTag } from "./lib/next-version.mjs";
@@ -15,6 +15,8 @@ const { values: options } = parseArgs({
     sha: { type: "string" },
     server: { type: "string" },
     hosting: { type: "string" },
+    "server-reason": { type: "string" },
+    "hosting-reason": { type: "string" },
     "server-revision": { type: "string" },
     "server-image": { type: "string" },
     "schema-hash": { type: "string" },
@@ -43,10 +45,11 @@ process.stdout.write(
     sha: options.sha,
     server: {
       status: options.server,
+      reason: options["server-reason"],
       revision: options["server-revision"],
       image: options["server-image"],
     },
-    hosting: { status: options.hosting },
+    hosting: { status: options.hosting, reason: options["hosting-reason"] },
     schemaHash: options["schema-hash"],
     runUrl: options["run-url"],
     cwd: REPO_ROOT,

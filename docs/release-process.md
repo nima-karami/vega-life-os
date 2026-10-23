@@ -149,22 +149,36 @@ never bump it in a `package.json` (a manifest change ships both targets).
 
 - **Computed** at plan time by `scripts/lib/next-version.mjs` from the `v*` tags (after a
   `git fetch --tags`); other tags such as `archive/paper-wip` are ignored. `--plan-json`
-  carries it as `version`.
+  carries it as `version`, plus `record`.
+- **One sha, one version.** If `HEAD` already carries a `v*` tag, a forced or config-only
+  re-release stamps that version into both builds and records nothing (`record: false`;
+  "sha X is already vN — re-deploying as vN, nothing recorded").
 - **Stamped** into both builds through `VEGA_VERSION`: the server image gets build arg
   `APP_VERSION` (`deploy-server.sh` → Cloud Build `_APP_VERSION`, or `docker build` in CI) and
   `/health` reports it; `vite build` defines `__APP_VERSION__` and emits
   `<meta name="vega-version">`. Anything built outside a release — dev, preview, a manual
-  `deploy` / `deploy:server`, `--no-record` — says `dev`.
-- **Recorded** only after every planned deploy succeeded, and only if at least one target
-  shipped: an annotated tag on the released sha, pushed, then `gh release create` with notes
-  from `scripts/release-notes.mjs` — conventional commits since the previous `v*` tag (the
-  whole history for the first), grouped by type, merge commits dropped — plus a **Deploy**
-  section: each target shipped or skipped, server revision and image, schema hash, build sha
-  and (from CI) the run link. A failed or rolled-back release creates no tag and its number
-  is reused. If recording itself fails, production is already updated and nothing rolls
-  back; finish the tag / `gh release create` by hand.
+  `deploy` / `deploy:server`, `--no-record` on an untagged sha — says `dev`.
+- **Recorded** only after every planned deploy succeeded, only if at least one target
+  shipped, and only for a new version: an annotated tag on the released sha, pushed, then
+  `gh release create` with notes from `scripts/release-notes.mjs` — conventional commits
+  since the previous `v*` tag, grouped by type, merge commits dropped, `@` mentions in code
+  spans (the first release just says "First versioned release. Earlier history:
+  docs/runs/.") — plus a **Deploy** section: each target shipped or skipped with the plan's
+  reason, server revision and image, schema hash, build sha and (from CI) the run link. A
+  failed or rolled-back release creates no tag and its number is reused.
+- **Recording is idempotent.** A tag already on the released sha is kept (on another sha it
+  fails loudly), and an existing Release is kept. If recording fails, production is already
+  updated and nothing rolls back: in CI, *Re-run failed jobs* on the run finishes it; on the
+  laptop a failed tag push deletes the local tag ("not tagged, nothing recorded") and a
+  failed Release prints the `gh release create` command to finish it. The laptop also
+  checks `gh auth status` before the first deploy when it will record.
+- **One release at a time.** `npm run release` refuses while a `release.yml` run is queued
+  or in progress — both would claim the same number and race the live revision. If they
+  collided anyway, let the later one fail and re-release: the sha it shipped either got
+  the tag (and re-deploys as that version) or gets the next number.
 - **GitHub Releases are the record.** `CHANGELOG.md` mirrors them, newest first, ending in a
-  "Before v2026.10.1" pointer to `docs/runs/`. Regenerate with `npm run changelog` (needs
+  "Before <oldest release>" pointer to `docs/runs/` ("Before versioned releases" until the
+  first one exists). Regenerate with `npm run changelog` (needs
   `gh auth login`) and commit it with the next ordinary commit — it is docs, so it ships
   nothing. CI never commits it: a `GITHUB_TOKEN` commit gets no verify run and could not be
   released.
@@ -262,10 +276,10 @@ To force targets: `gh workflow run release.yml --ref main -f targets=both` (or `
 | Job | Does |
 |---|---|
 | `gate` | Refuses unless the ref is `refs/heads/main` and the latest `verify` run for this exact sha concluded `success`. |
-| `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting` and the next `version` (checkout fetches all tags). |
+| `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting`, their skip reasons, the `version` (next, or the one `HEAD` already carries) and `record` (checkout fetches all tags). |
 | `server` | Only when `plan` says so. `docker build` with `GIT_SHA=<short>` and `APP_VERSION=<version>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
 | `hosting` | Only when `plan` says so, after `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables and `VEGA_VERSION=<version>` → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
-| `record` | Only when nothing failed or was cancelled and at least one of `server` / `hosting` succeeded (a single skipped target is fine; both skipped → nothing shipped, no tag). `contents: write`. Reads the live `schemaHash`, writes the notes with `scripts/release-notes.mjs`, creates and pushes the annotated `<version>` tag on the released sha, `gh release create`, and copies the notes into the run summary. |
+| `record` | Only when the plan's `record` is true (the sha has no version yet), nothing failed or was cancelled, and at least one of `server` / `hosting` succeeded (a single skipped target is fine; both skipped → nothing shipped, no tag). `contents: write`. Reads the live `schemaHash`, writes the notes with `scripts/release-notes.mjs` (skip reasons from the plan), creates and pushes the annotated `<version>` tag on the released sha unless it is already there, `gh release create` unless the Release exists, and copies the notes into the run summary. Idempotent, so *Re-run failed jobs* recovers a failed record. |
 | `rollback` | Runs only if `server` or `hosting` failed or the run was cancelled. |
 
 **Rollback** runs in reverse release order:
