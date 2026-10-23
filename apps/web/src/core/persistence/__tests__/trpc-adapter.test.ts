@@ -1,3 +1,4 @@
+import { TRPCClientError } from "@trpc/client";
 import { describe, expect, it, vi } from "vitest";
 import { TrpcAdapter } from "../trpc-adapter";
 import type { TrpcClient } from "../trpc-client";
@@ -37,6 +38,7 @@ function makeClient() {
       loadSnapshot: {
         query: vi.fn(async () => ({ syncVersion: 7, dataset: { tasks: [{ id: "t1" }] } })),
       },
+      syncVersion: { query: vi.fn(async () => 4) },
       upsert: { mutate: vi.fn(async (i: { record: unknown }) => i.record) },
       remove: { mutate: vi.fn(async (i: { id: string }) => i) },
       importCollection: {
@@ -51,6 +53,10 @@ function makeClient() {
 }
 
 const asTask = (id: string) => ({ id }) as never;
+
+const trpcError = (code: string) =>
+  TRPCClientError.from({ error: { message: code, code: -32004, data: { code } } });
+const missingProcedure = () => trpcError("NOT_FOUND");
 
 describe("TrpcAdapter", () => {
   it("routes a domain put to the domain upsert", async () => {
@@ -174,6 +180,50 @@ describe("TrpcAdapter", () => {
     expect(snapshot.syncVersion).toBe(7);
     expect(snapshot.dataset.tasks).toEqual([{ id: "t1" }]);
     expect(client.data.loadSnapshot.query).toHaveBeenCalledTimes(1);
+    expect(client.data.loadAll.query).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the counter, then loadAll, on a server that predates loadSnapshot", async () => {
+    const client = makeClient();
+    client.data.loadSnapshot.query.mockRejectedValueOnce(missingProcedure());
+    let resolveVersion: (version: number) => void = () => {};
+    client.data.syncVersion.query.mockReturnValueOnce(
+      new Promise<number>((resolve) => {
+        resolveVersion = resolve;
+      }),
+    );
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient);
+
+    const loading = adapter.loadSnapshot();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(client.data.syncVersion.query).toHaveBeenCalledTimes(1);
+    expect(client.data.loadAll.query).not.toHaveBeenCalled();
+
+    resolveVersion(4);
+    const snapshot = await loading;
+    expect(snapshot.syncVersion).toBe(4);
+    expect(snapshot.dataset.tasks).toEqual([{ id: "t1" }]);
+    expect(client.data.loadAll.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back with an unknown version when the old server's counter read fails", async () => {
+    const client = makeClient();
+    client.data.loadSnapshot.query.mockRejectedValueOnce(missingProcedure());
+    client.data.syncVersion.query.mockRejectedValueOnce(new Error("counter down"));
+    const snapshot = await new TrpcAdapter(client as unknown as TrpcClient).loadSnapshot();
+    expect(snapshot.syncVersion).toBeNull();
+    expect(snapshot.dataset.tasks).toEqual([{ id: "t1" }]);
+  });
+
+  it("rethrows any other loadSnapshot failure without loading", async () => {
+    const client = makeClient();
+    client.data.loadSnapshot.query.mockRejectedValueOnce(new Error("backend down"));
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient);
+    await expect(adapter.loadSnapshot()).rejects.toThrow("backend down");
+
+    client.data.loadSnapshot.query.mockRejectedValueOnce(trpcError("UNAUTHORIZED"));
+    await expect(adapter.loadSnapshot()).rejects.toBeInstanceOf(TRPCClientError);
+    expect(client.data.syncVersion.query).not.toHaveBeenCalled();
     expect(client.data.loadAll.query).not.toHaveBeenCalled();
   });
 

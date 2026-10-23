@@ -1,3 +1,4 @@
+import { TRPCClientError } from "@trpc/client";
 import { readSyncReceipt } from "@vega/shared";
 import type {
   BulkPutResult,
@@ -26,6 +27,9 @@ const DATA_COLLECTIONS = new Set<CollectionName>([
   "cardPrefs",
 ]);
 const isDataCollection = (col: CollectionName): boolean => DATA_COLLECTIONS.has(col);
+
+const isMissingProcedure = (error: unknown): boolean =>
+  error instanceof TRPCClientError && error.data?.code === "NOT_FOUND";
 
 type DomainProcedures = {
   list: { query: () => Promise<unknown[]> };
@@ -86,9 +90,16 @@ export class TrpcAdapter implements PersistenceAdapter {
   }
 
   /** The boot load: the dataset and a counter version that is never ahead of it, in one request. */
-  async loadSnapshot(): Promise<{ dataset: LoadedDataset; syncVersion: number }> {
-    const { dataset, syncVersion } = await this.client.data.loadSnapshot.query();
-    return { dataset: dataset as LoadedDataset, syncVersion };
+  async loadSnapshot(): Promise<{ dataset: LoadedDataset; syncVersion: number | null }> {
+    try {
+      const { dataset, syncVersion } = await this.client.data.loadSnapshot.query();
+      return { dataset: dataset as LoadedDataset, syncVersion };
+    } catch (error) {
+      if (!isMissingProcedure(error)) throw error;
+      // A rolled-back server predates loadSnapshot: read the counter strictly before the rows.
+      const syncVersion = await this.readSyncVersion().catch(() => null);
+      return { dataset: await this.loadAll(), syncVersion };
+    }
   }
 
   async readSyncVersion(): Promise<number> {
