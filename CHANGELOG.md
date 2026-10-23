@@ -10,6 +10,30 @@ The GitHub Releases are the record; this file mirrors them. Regenerate it with
 
 Whatever is on `main` past the newest release below.
 
+## [v2026.10.4](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.4) - 2026-10-23
+
+4 commits since `v2026.10.3`.
+
+### Fixes
+
+- **app:** reload once on a stale lazy chunk; start auth sync at entry (f623aab)
+- **store:** fail the account load when the Firestore chunk is missing (8460b27)
+
+### Performance
+
+- **app:** lazy-load routes and gated SDKs to halve cold-boot JS (f46566b)
+
+### Documentation
+
+- **changelog:** record v2026.10.3 (6c5081a)
+
+### Deploy
+
+- Server: skipped (none of 121 files changed since 26332e8 affect it)
+- Hosting: shipped, build `8460b27`
+- Schema hash: `e62700d3b746`
+- Commit: `8460b27`
+
 ## [v2026.10.3](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.3) - 2026-10-23
 
 11 commits since `v2026.10.2`.
