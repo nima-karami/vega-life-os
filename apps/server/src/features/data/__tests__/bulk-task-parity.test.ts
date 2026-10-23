@@ -55,10 +55,8 @@ describe("bulk task writes keep per-row parity (real server vs emulator)", () =>
     expect(await call.data.syncVersion.query()).toBe(before + 1);
     // contiguous with the writer's cursor, so its next poll does not refetch its own write
     expect(readSyncReceipt(response)).toBe(before + 1);
-    const stored = await call.tasks.list.query();
-    expect(stored.map((task) => task.order).sort((a, b) => a - b)).toEqual(
-      rows.map((_, index) => index),
-    );
+    const orderById = new Map((await call.tasks.list.query()).map((task) => [task.id, task.order]));
+    expect(rows.map((row) => orderById.get(row.id))).toEqual(rows.map((_, index) => 29 - index));
   });
 
   it("the same reorder row by row costs a bump per row", async () => {
