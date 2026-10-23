@@ -57,7 +57,7 @@ export async function writeMirrorRows(
   }
 }
 
-export async function removeMirrorRows(
+async function removeMirrorRows(
   firestore: Firestore,
   uid: string,
   eventIds: string[],
@@ -69,6 +69,58 @@ export async function removeMirrorRows(
     }
     await batch.commit();
   }
+}
+
+/** Only the rows named, for the quiet gate — a whole-mirror read would cost one read per event. */
+export async function readMirrorRows(
+  firestore: Firestore,
+  uid: string,
+  eventIds: string[],
+): Promise<Map<string, MirrorRow>> {
+  if (eventIds.length === 0) return new Map();
+  const collection = mirrorCollection(firestore, uid);
+  const snaps = await firestore.getAll(...eventIds.map((id) => collection.doc(id)));
+  return new Map(
+    snaps.filter((snap) => snap.exists).map((snap) => [snap.id, snap.data() as MirrorRow]),
+  );
+}
+
+const startKey = (start: GEventTime) =>
+  `${start.date ?? ""}|${start.dateTime ?? ""}|${start.timeZone ?? ""}`;
+
+function isSameMirrorRow(prior: MirrorRow | undefined, next: MirrorRow): boolean {
+  return (
+    prior !== undefined &&
+    prior.summary === next.summary &&
+    prior.status === next.status &&
+    prior.updated === next.updated &&
+    prior.vegaKey === next.vegaKey &&
+    startKey(prior.start) === startKey(next.start)
+  );
+}
+
+/**
+ * Fold a listing into the mirror already in memory, writing only rows that moved. A full list
+ * replaces the mirror wholesale (the periodic drift repair); a delta only overlays its events.
+ */
+export async function applyMirrorListing(
+  firestore: Firestore,
+  uid: string,
+  mirror: Map<string, MirrorRow>,
+  events: GEvent[],
+  mode: "full" | "delta",
+): Promise<Map<string, MirrorRow>> {
+  const incoming = events.map(toMirrorRow);
+  const next = mode === "full" ? new Map<string, MirrorRow>() : new Map(mirror);
+  for (const row of incoming) next.set(row.eventId, row);
+  const staleIds = mode === "full" ? [...mirror.keys()].filter((id) => !next.has(id)) : [];
+  await removeMirrorRows(firestore, uid, staleIds);
+  await writeMirrorRows(
+    firestore,
+    uid,
+    incoming.filter((row) => !isSameMirrorRow(mirror.get(row.eventId), row)),
+  );
+  return next;
 }
 
 export async function clearMirror(firestore: Firestore, uid: string): Promise<void> {

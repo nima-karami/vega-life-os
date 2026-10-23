@@ -4,6 +4,7 @@ import type { ServerConfig } from "../../core/config";
 import type { BackoffState } from "./backoff";
 import { SyncBackingOffError } from "./backoff";
 import { type OauthGateway, OauthHttpError } from "./oauth";
+import type { ReconcileStamp } from "./quiet-gate";
 import { SyncLockBusyError } from "./sync-lock";
 
 /** A token refresh that failed for a retryable reason — the caller backs off, never prompts. */
@@ -47,6 +48,7 @@ export type GcalAccount = {
   writeCalendarMissing?: boolean;
   backoff?: BackoffState | null;
   lastSyncedAt?: string | null;
+  lastReconcile?: ReconcileStamp | null;
 };
 
 const ALGORITHM = "aes-256-gcm";

@@ -1,31 +1,24 @@
 import { randomUUID } from "node:crypto";
 import type { CalendarEvent } from "@vega/shared";
 import { addDays, format, parseISO } from "date-fns";
+import { createRepository, toWritable } from "../../core/repository";
 import {
-  createRepository,
-  type Repository,
-  toWritable,
-  type WritableEntity,
-} from "../../core/repository";
-import { listTombstones, writeTombstone } from "../../core/tombstone";
+  type CalendarListing,
+  isRateLimit,
+  LIVED_WINDOW,
+  type ReadListing,
+} from "./calendar-listing";
 import {
   calendarEventToGPatch,
   type GEvent,
   gEventToSyncedFields,
   type SyncedFields,
 } from "./event-map";
-import {
-  type GoogleCalendarClient,
-  GoogleHttpError,
-  type ListEventsResult,
-  SyncTokenExpiredError,
-} from "./google-client";
-import { isRateLimit, type SyncDeps } from "./sync-engine";
-import type { GcalAccount } from "./token-store";
-
-const LIVED_WINDOW = { backDays: 30, fwdDays: 120 };
-
-type LivedRow = WritableEntity<"calendarEvents">;
+import { type GoogleCalendarClient, GoogleHttpError } from "./google-client";
+import { createLivedRows, type LivedRow, type LivedRows } from "./lived-rows";
+import type { ReconcileRun } from "./reconcile-run";
+import { createRecordWriter } from "./record-writer";
+import type { SyncDeps } from "./sync-engine";
 
 type MeaningFields = {
   valueId: string | null;
@@ -185,25 +178,33 @@ function groupInstancesBySeries(rows: CalendarEvent[]): Map<string, CalendarEven
   return bySeriesId;
 }
 
-/** A tagged mirror survives as a `removedAt` snapshot (meaning kept); a plain one is dropped outright. */
-async function retireRow(
-  repo: Repository<"calendarEvents">,
-  row: CalendarEvent,
-  now: string,
-): Promise<void> {
-  const outcome = retireOutcome(row, now);
-  if (outcome.upsert) await repo.upsert(outcome.upsert);
-  if (outcome.dropId) await repo.remove(outcome.dropId);
+function applyOutcome(rows: LivedRows, outcome: LivedOutcome): void {
+  if (outcome.upsert) rows.put(outcome.upsert);
+  if (outcome.dropId) rows.drop(outcome.dropId);
 }
 
-async function retireMirrorRows(
-  repo: Repository<"calendarEvents">,
+function retireMirrorRows(
+  rows: LivedRows,
   now: string,
   shouldRetire: (row: CalendarEvent) => boolean,
+): number {
+  const retiring = rows.list().filter(shouldRetire);
+  for (const row of retiring) applyOutcome(rows, retireOutcome(row, now));
+  return retiring.length;
+}
+
+/** Outside a reconcile (a picker change, a disconnect): read the mirror, retire, and flush in one go. */
+async function retireStoredMirrors(
+  deps: SyncDeps,
+  uid: string,
+  nowIso: string,
+  shouldRetire: (row: CalendarEvent) => boolean,
 ): Promise<number> {
-  const rows = (await repo.list()).filter(shouldRetire);
-  for (const row of rows) await retireRow(repo, row, now);
-  return rows.length;
+  const stored = await createRepository(deps.firestore, uid, "calendarEvents").list();
+  const rows = createLivedRows(stored, createRecordWriter(deps.firestore, uid, nowIso), nowIso);
+  const retired = retireMirrorRows(rows, nowIso, shouldRetire);
+  await rows.flush();
+  return retired;
 }
 
 /** A tagged mirror survives its calendar vanishing (kept with `removedAt`); a plain one is dropped. */
@@ -213,14 +214,12 @@ export function retireCalendarMirrors(
   calendarId: string,
   nowIso: string,
 ): Promise<number> {
-  const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
-  return retireMirrorRows(repo, nowIso, (row) => row.calendarId === calendarId);
+  return retireStoredMirrors(deps, uid, nowIso, (row) => row.calendarId === calendarId);
 }
 
 /** Disconnecting leaves no engine to reconcile the mirror, so nothing may be left behind live. */
 export function retireAllMirrors(deps: SyncDeps, uid: string, nowIso: string): Promise<number> {
-  const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
-  return retireMirrorRows(repo, nowIso, () => true);
+  return retireStoredMirrors(deps, uid, nowIso, () => true);
 }
 
 /**
@@ -230,28 +229,28 @@ export function retireAllMirrors(deps: SyncDeps, uid: string, nowIso: string): P
 const instanceKey = (event: Pick<CalendarEvent, "iCalUID" | "date">) =>
   `${event.iCalUID}|${event.date ?? ""}`;
 
-async function dropSupersededRemovedRows(repo: Repository<"calendarEvents">): Promise<void> {
-  const rows = await repo.list();
+function dropSupersededRemovedRows(rows: LivedRows): void {
+  const snapshot = rows.list();
   const survivorByInstance = new Map<string, CalendarEvent>();
-  for (const row of rows) {
+  for (const row of snapshot) {
     if (row.removedAt == null && row.status === "confirmed")
       survivorByInstance.set(instanceKey(row), row);
   }
-  for (const removed of rows) {
+  for (const removed of snapshot) {
     if (removed.removedAt == null) continue;
     // Same iCalUID AND date = the one instance moved between calendars; a different-dated sibling
     // of a recurring series must not absorb this instance's meaning.
     const survivor = survivorByInstance.get(instanceKey(removed));
     if (!survivor) continue;
     if (hasMeaning(removed) && !hasMeaning(survivor)) {
-      await repo.upsert({
+      rows.put({
         ...toWritable<"calendarEvents">(survivor),
         valueId: removed.valueId,
         goalId: removed.goalId,
         note: removed.note,
       });
     }
-    await repo.remove(removed.id);
+    rows.drop(removed.id);
   }
 }
 
@@ -276,31 +275,32 @@ async function deleteLivedEvent(
   }
 }
 
-async function pushLived(
-  deps: SyncDeps,
-  uid: string,
-  client: GoogleCalendarClient,
-  timeZone: string,
-): Promise<void> {
-  const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
-  const rows = await repo.list();
-  const now = deps.now();
+/** Push pending VEGA-side deletes and edits to Google; returns how many Google refused. */
+async function pushLived(run: ReconcileRun, rows: LivedRows, timeZone: string): Promise<number> {
   const googleWrites: string[] = [];
+  let pushFailures = 0;
 
-  for (const row of rows.filter((event) => event.pendingDelete)) {
-    const outcome = await deleteLivedEvent(client, row);
-    if (outcome === "refused") continue;
+  for (const row of rows.list().filter((event) => event.pendingDelete)) {
+    const outcome = await deleteLivedEvent(run.client, row);
+    if (outcome === "refused") {
+      pushFailures += 1;
+      continue;
+    }
     if (outcome === "deleted") googleWrites.push(`delete:${row.googleId}`);
-    await repo.remove(row.id);
-    await writeTombstone(deps.firestore, uid, "calendarEvents", row.googleId, now);
+    rows.drop(row.id, row.googleId);
   }
-  for (const row of rows.filter((event) => event.vegaEditedAt)) {
+  for (const row of rows.list().filter((event) => event.vegaEditedAt)) {
     try {
-      await client.patchEvent(row.calendarId, row.googleId, calendarEventToGPatch(row, timeZone));
+      await run.client.patchEvent(
+        row.calendarId,
+        row.googleId,
+        calendarEventToGPatch(row, timeZone),
+      );
       googleWrites.push(`patch:${row.googleId}`);
-      await repo.upsert({ ...toWritable<"calendarEvents">(row), vegaEditedAt: null });
+      rows.put({ ...toWritable<"calendarEvents">(row), vegaEditedAt: null });
     } catch (error) {
       if (!(error instanceof GoogleHttpError)) throw error;
+      pushFailures += 1;
       if (!isRateLimit(error.status))
         console.error(`gcal push failed: lived patch ${row.googleId} status ${error.status}`);
     }
@@ -310,83 +310,58 @@ async function pushLived(
     console.log(
       JSON.stringify({
         event: "gcal-lived-push",
-        uid,
+        uid: run.uid,
         total: googleWrites.length,
         ops: googleWrites.slice(0, 10),
       }),
     );
+  return pushFailures;
 }
 
-type ReadCalendarListing = ListEventsResult & { mode: "full" | "delta" };
+type LivedWindow = {
+  isInsertableDate: (date: string | null) => boolean;
+  // Strictly inside the window (not merely overlapping the boundary) so a full-list absence is a real
+  // deletion, never an event Google didn't list because it fell outside the requested range.
+  isStrictlyInWindow: (event: CalendarEvent) => boolean;
+};
 
-/** Prefer the stored delta token; a 410 (or first run) falls back to one full windowed list. */
-async function listReadCalendar(
-  client: GoogleCalendarClient,
-  calendarId: string,
-  syncTokens: Record<string, string>,
-): Promise<ReadCalendarListing> {
-  const token = syncTokens[calendarId];
-  if (token) {
-    try {
-      return { ...(await client.listEvents(calendarId, { syncToken: token })), mode: "delta" };
-    } catch (error) {
-      if (!(error instanceof SyncTokenExpiredError)) throw error;
-    }
-  }
-  return { ...(await client.listEvents(calendarId, { window: LIVED_WINDOW })), mode: "full" };
+function buildLivedWindow(nowIso: string): LivedWindow {
+  const today = parseISO(nowIso.slice(0, 10));
+  const lo = format(addDays(today, -LIVED_WINDOW.backDays), "yyyy-MM-dd");
+  const hi = format(addDays(today, LIVED_WINDOW.fwdDays), "yyyy-MM-dd");
+  return {
+    isInsertableDate: (date) => date != null && date >= lo && date <= hi,
+    isStrictlyInWindow: (event) =>
+      event.date != null && event.date > lo && (event.endDate ?? event.date) < hi,
+  };
 }
 
-type ReadListing =
-  | { kind: "ok"; listing: ReadCalendarListing }
-  | { kind: "vanished" }
-  | { kind: "faulted"; rateLimited: boolean };
-
-/** List one read calendar, classifying a 404/410 as vanished and a 403/429/5xx as a retryable fault. */
-async function classifyReadCalendar(
-  client: GoogleCalendarClient,
-  calendarId: string,
-  syncTokens: Record<string, string>,
-): Promise<ReadListing> {
-  try {
-    return { kind: "ok", listing: await listReadCalendar(client, calendarId, syncTokens) };
-  } catch (error) {
-    if (!(error instanceof GoogleHttpError)) throw error;
-    if (error.status === 404 || error.status === 410) return { kind: "vanished" };
-    return {
-      kind: "faulted",
-      rateLimited: error.status === 429 || error.status === 403 || error.status >= 500,
-    };
-  }
-}
-
-async function applyReadListing(
-  repo: Repository<"calendarEvents">,
-  listing: ReadCalendarListing,
+function applyReadListing(
+  rows: LivedRows,
+  listing: CalendarListing,
   calendarId: string,
   now: string,
   tombstoned: Set<string>,
-  isInsertableDate: (date: string | null) => boolean,
-  isInWindow: (event: CalendarEvent) => boolean,
+  window: LivedWindow,
   timeZone: string,
-): Promise<number> {
-  const allRows = await repo.list();
+): number {
+  const allRows = rows.list();
   const existing = allRows.filter((event) => event.calendarId === calendarId);
-  const meaningByICalUID = buildMeaningIndex(allRows);
   const { upserts, dropIds } = reconcileLived(
     existing,
     listing.events,
     calendarId,
     now,
     tombstoned,
-    meaningByICalUID,
-    isInsertableDate,
+    buildMeaningIndex(allRows),
+    window.isInsertableDate,
     timeZone,
   );
-  for (const row of upserts) await repo.upsert(row);
-  for (const id of dropIds) await repo.remove(id);
+  for (const row of upserts) rows.put(row);
+  for (const id of dropIds) rows.drop(id);
   const removedByAbsence =
     listing.mode === "full"
-      ? await removeAbsentRows(repo, existing, listing.events, now, isInWindow)
+      ? retireAbsentRows(rows, existing, listing.events, now, window.isStrictlyInWindow)
       : 0;
   return upserts.length + dropIds.length + removedByAbsence;
 }
@@ -396,21 +371,19 @@ async function applyReadListing(
  * strictly-in-window mirror row absent from the listing was deleted on Google — retire it. Mirrors the
  * task lane's set-difference self-heal; scoped strictly in-window so an out-of-window event isn't false-dropped.
  */
-async function removeAbsentRows(
-  repo: Repository<"calendarEvents">,
+function retireAbsentRows(
+  rows: LivedRows,
   existing: CalendarEvent[],
   incoming: GEvent[],
   now: string,
   isInWindow: (event: CalendarEvent) => boolean,
-): Promise<number> {
+): number {
   const listedIds = new Set(incoming.map((event) => event.id));
-  let removed = 0;
-  for (const row of existing) {
-    if (row.removedAt != null || listedIds.has(row.googleId) || !isInWindow(row)) continue;
-    await retireRow(repo, row, now);
-    removed += 1;
-  }
-  return removed;
+  const absent = existing.filter(
+    (row) => row.removedAt == null && !listedIds.has(row.googleId) && isInWindow(row),
+  );
+  for (const row of absent) applyOutcome(rows, retireOutcome(row, now));
+  return absent.length;
 }
 
 /**
@@ -418,14 +391,10 @@ async function removeAbsentRows(
  * an interrupted `setReadCalendars`) would strand it on the calendar forever. An empty selection is
  * "not configured yet", never "sync nothing" — sweeping on it would wipe the whole mirror.
  */
-function retireUnreachableRows(
-  repo: Repository<"calendarEvents">,
-  readCalendarIds: string[],
-  now: string,
-): Promise<number> {
-  if (readCalendarIds.length === 0) return Promise.resolve(0);
+function retireUnreachableRows(rows: LivedRows, readCalendarIds: string[], now: string): number {
+  if (readCalendarIds.length === 0) return 0;
   const synced = new Set(readCalendarIds);
-  return retireMirrorRows(repo, now, (row) => row.removedAt == null && !synced.has(row.calendarId));
+  return retireMirrorRows(rows, now, (row) => row.removedAt == null && !synced.has(row.calendarId));
 }
 
 export type LivedLaneResult = {
@@ -433,70 +402,59 @@ export type LivedLaneResult = {
   nextSyncTokens: Record<string, string>;
   vanishedCalendarIds: string[];
   rateLimited: boolean;
+  faulted: number;
+  pushFailures: number;
 };
 
-/** Reconcile external calendars ⇄ the `calendarEvents` mirror: pull each read calendar via its delta token, then push local edits/deletes. */
+/** Reconcile external calendars ⇄ the `calendarEvents` mirror from the run's listings, then push local edits/deletes. */
 export async function runLivedLane(
-  deps: SyncDeps,
-  uid: string,
-  account: GcalAccount,
+  run: ReconcileRun,
+  reads: Map<string, ReadListing>,
+  storedRows: CalendarEvent[],
 ): Promise<LivedLaneResult> {
-  const writeCalendarId = account.writeCalendarId ?? "";
-  const readCalendarIds = account.readCalendarIds ?? [];
-  const timeZone = account.timeZone ?? "UTC";
-  const syncTokens = account.syncTokens ?? {};
-  const client = await deps.getClient(uid);
-  const repo = createRepository(deps.firestore, uid, "calendarEvents", deps.now);
-  const now = deps.now();
+  const timeZone = run.account.timeZone ?? "UTC";
+  const rows = createLivedRows(storedRows, run.writer, run.now);
   const tombstoned = new Set(
-    (await listTombstones(deps.firestore, uid))
+    run.tombstones
       .filter((tombstone) => tombstone.collection === "calendarEvents")
       .map((tombstone) => tombstone.id),
   );
+  const window = buildLivedWindow(run.now);
 
   const nextSyncTokens: Record<string, string> = {};
   const vanishedCalendarIds: string[] = [];
   let rateLimited = false;
-  const today = parseISO(now.slice(0, 10));
-  const lo = format(addDays(today, -LIVED_WINDOW.backDays), "yyyy-MM-dd");
-  const hi = format(addDays(today, LIVED_WINDOW.fwdDays), "yyyy-MM-dd");
-  const isInsertableDate = (date: string | null) => date != null && date >= lo && date <= hi;
-  // Strictly inside the window (not merely overlapping the boundary) so a full-list absence is a real
-  // deletion, never an event Google didn't list because it fell outside the requested range.
-  const isStrictlyInWindow = (event: CalendarEvent) =>
-    event.date != null && event.date > lo && (event.endDate ?? event.date) < hi;
-
+  let faulted = 0;
   let lived = 0;
-  for (const calendarId of readCalendarIds) {
-    if (calendarId === writeCalendarId) continue;
-    const result = await classifyReadCalendar(client, calendarId, syncTokens);
+  for (const [calendarId, result] of reads) {
     if (result.kind === "vanished") {
       vanishedCalendarIds.push(calendarId);
       continue;
     }
     if (result.kind === "faulted") {
+      faulted += 1;
       rateLimited = rateLimited || result.rateLimited;
       continue;
     }
     if (result.listing.nextSyncToken) nextSyncTokens[calendarId] = result.listing.nextSyncToken;
-    lived += await applyReadListing(
-      repo,
+    lived += applyReadListing(
+      rows,
       result.listing,
       calendarId,
-      now,
+      run.now,
       tombstoned,
-      isInsertableDate,
-      isStrictlyInWindow,
+      window,
       timeZone,
     );
   }
 
   for (const calendarId of vanishedCalendarIds) {
-    await retireCalendarMirrors(deps, uid, calendarId, now);
+    retireMirrorRows(rows, run.now, (row) => row.calendarId === calendarId);
   }
 
-  lived += await retireUnreachableRows(repo, readCalendarIds, now);
-  await dropSupersededRemovedRows(repo);
-  await pushLived(deps, uid, client, timeZone);
-  return { lived, nextSyncTokens, vanishedCalendarIds, rateLimited };
+  lived += retireUnreachableRows(rows, run.account.readCalendarIds ?? [], run.now);
+  dropSupersededRemovedRows(rows);
+  const pushFailures = await pushLived(run, rows, timeZone);
+  await rows.flush();
+  return { lived, nextSyncTokens, vanishedCalendarIds, rateLimited, faulted, pushFailures };
 }

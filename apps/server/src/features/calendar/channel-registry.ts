@@ -31,12 +31,3 @@ export async function listChannelsForUid(
   const snap = await registry(firestore).where("uid", "==", uid).get();
   return snap.docs.map((doc) => doc.data() as ChannelRegistration);
 }
-
-/** Channels expiring before `beforeIso` — the reconcile re-registers these before Google drops them. */
-export async function listNearExpiryChannels(
-  firestore: Firestore,
-  beforeIso: string,
-): Promise<ChannelRegistration[]> {
-  const snap = await registry(firestore).where("expiration", "<", beforeIso).get();
-  return snap.docs.map((doc) => doc.data() as ChannelRegistration);
-}
