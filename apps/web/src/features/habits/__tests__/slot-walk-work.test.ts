@@ -1,53 +1,83 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getWeekDaysFor } from "@/core/lib/date";
 import type { Task } from "@/features/tasks/model";
 import { buildHabitMeta } from "../habit-meta";
-import type { Habit } from "../model";
-import { buildHabitWeek, computeHabitConsistency } from "../selectors";
+import { isActiveOnSchedule } from "../recurrence";
+import {
+  buildHabitDayRecord,
+  buildHabitWeek,
+  computeHabitConsistency,
+  countHabitSlots,
+  hasLapsedPreviousSlot,
+} from "../selectors";
 import { buildThreeYearLoad, FIXTURE_TODAY } from "./slot-walk-fixtures";
 
-const RUNS = 7;
-const CARDS_BUDGET_MS = 60;
-const YEAR_WINDOW_BUDGET_MS = 900;
+vi.mock("../recurrence", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../recurrence")>();
+  return { ...actual, isActiveOnSchedule: vi.fn(actual.isActiveOnSchedule) };
+});
 
-type HabitRender = (tasks: Task[], habit: Habit) => void;
+const scheduleChecks = vi.mocked(isActiveOnSchedule);
 
-const renderHabitCard: HabitRender = (tasks, habit) => {
-  buildHabitMeta(tasks, habit);
-  buildHabitWeek(tasks, habit, FIXTURE_TODAY);
-};
-
-const rankHabitOverYear: HabitRender = (tasks, habit) => {
-  computeHabitConsistency(tasks, habit, FIXTURE_TODAY, 365);
-};
-
-/** Median over runs, each on a fresh tasks array so the slot index is rebuilt as after a toggle. */
-function measureMedianMs(tasks: Task[], habits: Habit[], render: HabitRender): number {
-  const samples: number[] = [];
-  for (let run = 0; run < RUNS; run++) {
-    const freshTasks = tasks.slice();
-    const started = performance.now();
-    for (const habit of habits) render(freshTasks, habit);
-    samples.push(performance.now() - started);
-  }
-  return samples.sort((a, b) => a - b)[Math.floor(RUNS / 2)];
+/** Counts full passes over the array, so a per-call scan of every task shows up. */
+function trackTaskScans(tasks: Task[]): { tasks: Task[]; scans: () => number } {
+  let scans = 0;
+  const tracked = tasks.slice();
+  Object.defineProperty(tracked, Symbol.iterator, {
+    value() {
+      scans++;
+      return Array.prototype[Symbol.iterator].call(this);
+    },
+  });
+  return { tasks: tracked, scans: () => scans };
 }
 
-describe("habit slot walk — cost on a three-year history", () => {
+describe("habit slot walk — work done on a three-year history", () => {
   const { habits, tasks } = buildThreeYearLoad();
+  const habit = habits[0];
+
+  beforeEach(() => {
+    scheduleChecks.mockClear();
+  });
 
   it("builds about 11k instances", () => {
     expect(tasks.length).toBeGreaterThan(10_000);
   });
 
-  it("renders every habit card after a task change within budget", () => {
-    const medianMs = measureMedianMs(tasks, habits, renderHabitCard);
-    console.info(`slot walk cards: ${tasks.length} instances, median ${medianMs.toFixed(1)} ms`);
-    expect(medianMs).toBeLessThan(CARDS_BUDGET_MS);
-  }, 60_000);
+  it.each([1, 7, 30, 90, 365])("visits at most %i days for that consistency window", (days) => {
+    computeHabitConsistency(tasks, habit, FIXTURE_TODAY, days);
+    expect(scheduleChecks.mock.calls.length).toBeLessThanOrEqual(days);
+  });
 
-  it("ranks every habit over a year within budget", () => {
-    const medianMs = measureMedianMs(tasks, habits, rankHabitOverYear);
-    console.info(`slot walk 365d: ${tasks.length} instances, median ${medianMs.toFixed(1)} ms`);
-    expect(medianMs).toBeLessThan(YEAR_WINDOW_BUDGET_MS);
-  }, 60_000);
+  it("visits at most a week for the card's week strip and meta", () => {
+    buildHabitWeek(tasks, habit, FIXTURE_TODAY);
+    buildHabitMeta(tasks, habit, FIXTURE_TODAY);
+    expect(scheduleChecks.mock.calls.length).toBeLessThanOrEqual(14);
+  });
+
+  it("visits at most the record strip's days", () => {
+    buildHabitDayRecord(tasks, habit, 30, FIXTURE_TODAY);
+    expect(scheduleChecks.mock.calls.length).toBeLessThanOrEqual(30);
+  });
+
+  it("visits at most the review's days", () => {
+    const week = getWeekDaysFor(FIXTURE_TODAY, -1).map((day) => day.iso);
+    countHabitSlots(tasks, habit, week, FIXTURE_TODAY);
+    expect(scheduleChecks.mock.calls.length).toBeLessThanOrEqual(7);
+  });
+
+  it("stops the lapse check at the latest resolved slot", () => {
+    hasLapsedPreviousSlot(tasks, habit, FIXTURE_TODAY);
+    expect(scheduleChecks.mock.calls.length).toBeLessThanOrEqual(30);
+  });
+
+  it("scans the task list once for every card on the page", () => {
+    const tracked = trackTaskScans(tasks);
+    for (const each of habits) {
+      buildHabitWeek(tracked.tasks, each, FIXTURE_TODAY);
+      buildHabitMeta(tracked.tasks, each, FIXTURE_TODAY);
+      computeHabitConsistency(tracked.tasks, each, FIXTURE_TODAY, 365);
+    }
+    expect(tracked.scans()).toBe(1);
+  });
 });
