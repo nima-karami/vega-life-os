@@ -56,6 +56,8 @@ describe("classifyChangedFile", () => {
       "knip.json",
       "tsconfig.json",
       "infra/setup-ci-release.sh",
+      ".nvmrc",
+      ".env.example",
     ]) {
       assert.deepEqual(classifyChangedFile(filePath).targets, [], filePath);
     }

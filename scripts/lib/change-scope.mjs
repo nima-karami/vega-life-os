@@ -43,7 +43,7 @@ const TOOLING_FILES = [
   "tsconfig.json",
   ".gitignore",
   ".gitattributes",
-  ".gcloudignore",
+  ".nvmrc",
   ".env.example",
   "firestore.rules",
 ];

@@ -19,13 +19,14 @@ type(scope): subject
 
 optional body — the why, wrapped ~72 cols
 
-Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude <model name> <noreply@anthropic.com>
 ```
 
 The trailer names **the model that actually did the work** — update it when the model
 changes rather than copying the previous commit's name.
 
-- **type:** `feat` · `fix` · `docs` · `chore` · `refactor` · `test` · `perf`.
+- **type:** `feat` · `fix` · `perf` · `refactor` · `test` · `docs` · `build` · `ci` ·
+  `chore` · `revert`. The release notes group commits by these types (§5).
 - **scope:** the feature slice touched (`calendar-sync`, `streaks`, `auth`). Multiple →
   comma-separate: `feat(streaks,journal): …`.
 - **subject:** what changed and why it matters, tersely. Prefer
@@ -42,7 +43,8 @@ changes rather than copying the previous commit's name.
 `npm run verify` must pass locally before the change is done. It runs, in order:
 
 ```
-format:check → lint → typecheck → deadcode → test → dupes → scan:secrets → audit:deps → e2e
+format:check → lint → typecheck → deadcode → check:lockfile → check:suppressions → test
+  → dupes → scan:secrets → audit:deps → e2e
 ```
 
 Never `--no-verify`; never weaken a check to get through it (see `style-guide.md §1`).
@@ -51,7 +53,7 @@ Each layer runs a different slice of it:
 | Where | Runs |
 |---|---|
 | **pre-commit** (husky) | `lint-staged` (Biome on staged files) + `gitleaks` on the staged diff |
-| **pre-push** (husky) | the gate minus e2e and the audits: format, lint, typecheck, deadcode, test, dupes. Needs JDK 21 first on `PATH` (server tests boot the Firestore emulator) |
+| **pre-push** (husky) | the gate minus e2e, the audits, the secret scan and the lockfile / suppression checks: format, lint, typecheck, deadcode, test, dupes. Needs JDK 21 first on `PATH` (server tests boot the Firestore emulator) |
 | **CI** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | `changes`: scope detection (below) · `static`: format, lint, typecheck, deadcode, dupes, lockfile-platform check, suppression check, script tests, npm audit, OSV, gitleaks · `unit`: web / shared · `unit-server`: server (with Java 21) · `e2e`: chromium in 3 shards, mobile-chromium in 2, the PWA project · `sast`: Semgrep |
 
 The full e2e suite only runs locally on `npm run verify` and in CI, so a release is gated
@@ -117,7 +119,7 @@ It diffs each against `HEAD` and classifies every changed file
 | `apps/server/**`, `cloudbuild.server.yaml`, `scripts/deploy-server.sh` | server |
 | `packages/shared/**`, `package.json`, `package-lock.json`, `apps/web/package.json`, `.github/workflows/release.yml` | both |
 | `docs/**`, `*.md` outside `apps/` and `packages/`, `.claude/**` | nothing |
-| tooling: `scripts/`, `.github/`, `.husky/`, `infra/`, `biome.json`, `knip.json`, `tsconfig.json`, `firestore.rules`, `.gitignore`, `.gitattributes`, `.gcloudignore`, `.env.example` | nothing |
+| tooling: `scripts/`, `.github/`, `.husky/`, `infra/`, `biome.json`, `knip.json`, `tsconfig.json`, `firestore.rules`, `.gitignore`, `.gitattributes`, `.nvmrc`, `.env.example` | nothing |
 | **anything else** | **both** |
 
 `apps/web/package.json` ships both because the server image installs every workspace
