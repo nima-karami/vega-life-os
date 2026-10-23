@@ -54,7 +54,7 @@ Each layer runs a different slice of it:
 |---|---|
 | **pre-commit** (husky) | `lint-staged` (Biome on staged files) + `gitleaks` on the staged diff |
 | **pre-push** (husky) | the gate minus e2e, the audits, the secret scan and the lockfile / suppression checks: format, lint, typecheck, deadcode, test, dupes. Needs JDK 21 first on `PATH` (server tests boot the Firestore emulator) |
-| **CI** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | `changes`: scope detection (below) · `static`: format, lint, typecheck, deadcode, dupes, lockfile-platform check, suppression check, script tests, npm audit, OSV, gitleaks · `unit`: web / shared · `unit-server`: server (with Java 21) · `e2e`: chromium in 3 shards, mobile-chromium in 2, the PWA project · `sast`: Semgrep |
+| **CI** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | `changes`: scope detection (below) · `static`: format, lint, typecheck, deadcode, dupes, lockfile-platform check, suppression check, script tests, npm audit, OSV, gitleaks · `unit`: web / shared · `unit-server`: server (with Java 21) + `smoke:server-bundle` · `e2e`: chromium in 3 shards, mobile-chromium in 2, the PWA project · `sast`: Semgrep |
 
 The full e2e suite only runs locally on `npm run verify` and in CI, so a release is gated
 on CI being green for the exact commit (§5).
@@ -242,8 +242,11 @@ field added, removed, retyped or made optional changes it.
    _GIT_SHA=<short sha>,_APP_VERSION=<VEGA_VERSION or dev>` — builds
    `apps/server/Dockerfile` with `--build-arg GIT_SHA` and `APP_VERSION` on
    `E2_HIGHCPU_8` and pushes `us-central1-docker.pkg.dev/vega-life-os/vega/server:<sha>`.
-3. `gcloud run deploy vega-server --image <that> --region us-central1` — **only**
-   `--image`, so the service's env and Secret Manager bindings carry forward.
+   The image runs a bundled `dist/index.js` built by esbuild (`apps/server/scripts/build.mjs`),
+   not `tsx src/index.ts`; `npm run smoke:server-bundle` builds and boots it locally.
+3. `gcloud run deploy vega-server --image <that> --cpu-boost --region us-central1` — **only**
+   `--image` and `--cpu-boost`, so the service's env and Secret Manager bindings carry
+   forward. `--cpu-boost` is a service setting and carries forward too.
 4. Asserts the live `/health` reports the new `sha`, then runs `check:live-schema`.
 
 On Windows the script points `CLOUDSDK_PYTHON` at the SDK's bundled Python and calls
@@ -277,7 +280,7 @@ To force targets: `gh workflow run release.yml --ref main -f targets=both` (or `
 |---|---|
 | `gate` | Refuses unless the ref is `refs/heads/main` and the latest `verify` run for this exact sha concluded `success`. |
 | `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting`, their skip reasons, the `version` (next, or the one `HEAD` already carries) and `record` (checkout fetches all tags). |
-| `server` | Only when `plan` says so. `docker build` with `GIT_SHA=<short>` and `APP_VERSION=<version>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
+| `server` | Only when `plan` says so. `docker build` with `GIT_SHA=<short>` and `APP_VERSION=<version>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2 --cpu-boost` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
 | `hosting` | Only when `plan` says so, after `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables and `VEGA_VERSION=<version>` → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
 | `record` | Only when the plan's `record` is true (the sha has no version yet), nothing failed or was cancelled, and at least one of `server` / `hosting` succeeded (a single skipped target is fine; both skipped → nothing shipped, no tag). `contents: write`. Reads the live `schemaHash`, writes the notes with `scripts/release-notes.mjs` (skip reasons from the plan), creates and pushes the annotated `<version>` tag on the released sha unless it is already there, `gh release create` unless the Release exists, and copies the notes into the run summary. Idempotent, so *Re-run failed jobs* recovers a failed record. |
 | `rollback` | Runs only if `server` or `hosting` failed or the run was cancelled. |
