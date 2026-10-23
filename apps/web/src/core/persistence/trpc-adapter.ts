@@ -1,3 +1,4 @@
+import { readSyncReceipt } from "@vega/shared";
 import type {
   BulkPutResult,
   BulkRemoveResult,
@@ -31,6 +32,9 @@ type DomainProcedures = {
   delete: { mutate: (input: { id: string }) => Promise<unknown> };
 };
 
+/** Told the counter version each of this adapter's own writes produced. */
+export type SyncVersionListener = (syncVersion: number) => void;
+
 /**
  * Backend-backed persistence for signed-in users. Every method maps to a tRPC
  * procedure — the 9 app-data domains to their routers, the rest to the generic
@@ -40,13 +44,25 @@ type DomainProcedures = {
  */
 export class TrpcAdapter implements PersistenceAdapter {
   private client: TrpcClient;
+  private onSyncVersion: SyncVersionListener;
 
-  constructor(client: TrpcClient = createTrpcClient()) {
+  constructor(
+    client: TrpcClient = createTrpcClient(),
+    onSyncVersion: SyncVersionListener = () => {},
+  ) {
     this.client = client;
+    this.onSyncVersion = onSyncVersion;
   }
 
   private domain(col: CollectionName): DomainProcedures {
     return (this.client as unknown as Record<string, DomainProcedures>)[col];
+  }
+
+  private async withReceipt<T>(write: Promise<T>): Promise<T> {
+    const response = await write;
+    const syncVersion = readSyncReceipt(response);
+    if (syncVersion !== null) this.onSyncVersion(syncVersion);
+    return response;
   }
 
   async init(): Promise<void> {
@@ -65,7 +81,8 @@ export class TrpcAdapter implements PersistenceAdapter {
   }
 
   async loadAll(): Promise<Dataset> {
-    return (await this.client.data.loadAll.query()) as Dataset;
+    // Rows arrive without `fieldUpdatedAt`: only the server merges with it, the client never reads it.
+    return (await this.client.data.loadAll.query()) as unknown as Dataset;
   }
 
   async readSyncVersion(): Promise<number> {
@@ -74,39 +91,45 @@ export class TrpcAdapter implements PersistenceAdapter {
 
   async put<C extends CollectionName>(col: C, item: Dataset[C][number]): Promise<void> {
     if (isDataCollection(col)) {
-      await this.client.data.upsert.mutate({
-        collection: col,
-        record: item as unknown as Record<string, unknown>,
-      });
+      await this.withReceipt(
+        this.client.data.upsert.mutate({
+          collection: col,
+          record: item as unknown as Record<string, unknown>,
+        }),
+      );
       return;
     }
-    await this.domain(col).upsert.mutate(item);
+    await this.withReceipt(this.domain(col).upsert.mutate(item));
   }
 
   /** The server chunks the payload and reports what landed — including on the partial-commit throw. */
   bulkPut<C extends CollectionName>(col: C, items: Dataset[C]): Promise<BulkPutResult> {
     return rethrowPartialWrites(() =>
-      this.client.data.importCollection.mutate({
-        collection: col,
-        records: items as unknown as Record<string, unknown>[],
-      }),
+      this.withReceipt(
+        this.client.data.importCollection.mutate({
+          collection: col,
+          records: items as unknown as Record<string, unknown>[],
+        }),
+      ),
     );
   }
 
   async remove(col: CollectionName, id: string): Promise<void> {
     if (isDataCollection(col)) {
-      await this.client.data.remove.mutate({ collection: col, id });
+      await this.withReceipt(this.client.data.remove.mutate({ collection: col, id }));
       return;
     }
-    await this.domain(col).delete.mutate({ id });
+    await this.withReceipt(this.domain(col).delete.mutate({ id }));
   }
 
   /** One chunked call for every collection — the domain routers have no batched delete. */
   bulkRemove<C extends CollectionName>(col: C, ids: string[]): Promise<BulkRemoveResult> {
-    return rethrowPartialWrites(() => this.client.data.bulkRemove.mutate({ collection: col, ids }));
+    return rethrowPartialWrites(() =>
+      this.withReceipt(this.client.data.bulkRemove.mutate({ collection: col, ids })),
+    );
   }
 
   async clearAll(): Promise<void> {
-    await this.client.data.deleteAll.mutate();
+    await this.withReceipt(this.client.data.deleteAll.mutate());
   }
 }

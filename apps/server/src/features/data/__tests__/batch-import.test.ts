@@ -29,7 +29,12 @@ describe("batched importCollection (real server vs emulator)", () => {
       records: cards(451, "chunk"),
     });
 
-    expect(result).toEqual({ inserted: 451, skipped: 0, writtenChunks: 2 });
+    expect(result).toEqual({
+      inserted: 451,
+      skipped: 0,
+      writtenChunks: 2,
+      syncVersion: expect.any(Number),
+    });
     expect((await server.asUid(uid).data.list.query({ collection: "mindCards" })).length).toBe(451);
   });
 
@@ -56,7 +61,7 @@ describe("batched importCollection (real server vs emulator)", () => {
       records,
     });
 
-    expect(replay).toEqual({ inserted: 0, skipped: 20, writtenChunks: 0 });
+    expect(replay).toEqual({ inserted: 0, skipped: 20, writtenChunks: 0, syncVersion: null });
     expect(await server.asUid(uid).data.syncVersion.query()).toBe(afterFirst);
   });
 
@@ -70,7 +75,12 @@ describe("batched importCollection (real server vs emulator)", () => {
       records: [card("delta_0", "edited"), ...records.slice(1)],
     });
 
-    expect(result).toEqual({ inserted: 1, skipped: 4, writtenChunks: 1 });
+    expect(result).toEqual({
+      inserted: 1,
+      skipped: 4,
+      writtenChunks: 1,
+      syncVersion: expect.any(Number),
+    });
     const stored = await createRepository(server.firestore, uid, "mindCards").get("delta_0");
     expect(stored?.body).toBe("edited");
   });
@@ -133,7 +143,12 @@ describe("batched importCollection (real server vs emulator)", () => {
       records: [card("dupe_1", "first"), card("dupe_1", "last")],
     });
 
-    expect(result).toEqual({ inserted: 1, skipped: 0, writtenChunks: 1 });
+    expect(result).toEqual({
+      inserted: 1,
+      skipped: 0,
+      writtenChunks: 1,
+      syncVersion: expect.any(Number),
+    });
     const stored = await createRepository(server.firestore, uid, "mindCards").get("dupe_1");
     expect(stored?.body).toBe("last");
   });
@@ -179,7 +194,12 @@ describe("batched importCollection (real server vs emulator)", () => {
       records: cards(451, "partial"),
     });
 
-    expect(retry).toEqual({ inserted: 1, skipped: 450, writtenChunks: 1 });
+    expect(retry).toEqual({
+      inserted: 1,
+      skipped: 450,
+      writtenChunks: 1,
+      syncVersion: expect.any(Number),
+    });
     expect((await failing.asUid(uid).data.list.query({ collection: "mindCards" })).length).toBe(
       451,
     );

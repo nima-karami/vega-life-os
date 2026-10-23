@@ -1,4 +1,4 @@
-import { DEFAULT_CARD_PREFS } from "@vega/shared";
+import { createSyncCursor, DEFAULT_CARD_PREFS } from "@vega/shared";
 import { create } from "zustand";
 import { auth, db } from "@/core/firebase/app";
 import { getCloudProfile } from "@/core/firebase/profile";
@@ -31,14 +31,15 @@ import { createReviewSlice } from "@/features/review/store";
 import { createTasksSlice } from "@/features/tasks/store";
 import { createValuesSlice } from "@/features/values/store";
 import { type AuthTransition, authTransition } from "./auth-transition";
+import { mergeRecord, mergeRows } from "./merge-rows";
 import { bindPersistStore, pendingWriteCollections, setPersistAuth } from "./persist";
 import { resolveProfile } from "./profile";
 import { readLocalQuietMode } from "./quiet-mode";
 import type { RootState } from "./types";
 import { createUiSlice } from "./ui";
 
-/** The server write-counter this store is known to be consistent with; null until an account loads. */
-let syncedVersion: number | null = null;
+/** Replaced per account load, so a write still in flight for the previous account reports to a dead cursor. */
+let syncCursor = createSyncCursor();
 
 async function loadAccount(
   uid: string,
@@ -52,7 +53,9 @@ async function loadAccount(
   const routing = persistence as RoutingAdapter;
   // Online-first: the signed-in write path is the backend (apps/server), never
   // client-direct Firestore. Realtime is off — the store refetches on focus/interval.
-  const cloud = new TrpcAdapter();
+  const cursor = createSyncCursor();
+  syncCursor = cursor;
+  const cloud = new TrpcAdapter(undefined, (version) => cursor.recordOwnWrite(version));
   routing.setDelegate(cloud);
   // Hold the boot spinner until the profile is hydrated, so the onboarding
   // "what should we call you?" step doesn't flash before the name arrives.
@@ -61,7 +64,7 @@ async function loadAccount(
   try {
     // Read the counter first: recording a version taken *after* the load would swallow a write
     // that landed mid-load, leaving the client silently stale.
-    syncedVersion = await cloud.readSyncVersion().catch(() => null);
+    cursor.reset(await cloud.readSyncVersion().catch(() => null));
     const loaded = await cloud.loadAll(); // hydrating → hydrated
     set({ ...toStatePatch(loaded), loadFailed: false });
     await runDataMigrations(get, set, hasMigrationSources(loaded));
@@ -171,6 +174,25 @@ function toStatePatch(dataset: Partial<Dataset>): Partial<RootState> {
   const patch = rest as Partial<RootState>;
   if (cardPrefs) patch.cardPrefs = resolveCardPrefs(cardPrefs);
   return patch;
+}
+
+/** Apply server truth reusing every unchanged row and collection, so subscribers of those don't re-render. */
+function setChangedOnly(
+  patch: Partial<RootState>,
+  set: (p: Partial<RootState>) => void,
+  get: () => RootState,
+) {
+  const state = get() as unknown as Record<string, unknown>;
+  const changed: Record<string, unknown> = {};
+  for (const [key, next] of Object.entries(patch)) {
+    const prev = state[key];
+    const merged =
+      Array.isArray(prev) && Array.isArray(next)
+        ? mergeRows(prev as { id: string }[], next as { id: string }[])
+        : mergeRecord(prev, next);
+    if (merged !== prev) changed[key] = merged;
+  }
+  if (Object.keys(changed).length > 0) set(changed as Partial<RootState>);
 }
 
 export const useStore = create<RootState>((set, get, api) => ({
@@ -329,7 +351,7 @@ export const useStore = create<RootState>((set, get, api) => ({
       for (const col of pendingWriteCollections()) guarded.add(col);
       const next = toStatePatch(loaded);
       for (const col of guarded) delete next[col];
-      set(next);
+      setChangedOnly(next, set, get);
     } catch {
       /* keep current state; next focus/interval retries */
     }
@@ -345,8 +367,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     } catch {
       return; // treat an unreachable counter as "unknown", not as "unchanged"
     }
-    if (syncedVersion !== null && version === syncedVersion) return;
-    syncedVersion = version;
+    if (!syncCursor.shouldRefetch(version)) return;
     await get().refetchAll();
   },
 
@@ -354,7 +375,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     if (!get().authUid || pendingWriteCollections().has(col)) return;
     try {
       const rows = await persistence.load(col);
-      set(toStatePatch({ [col]: rows } as Partial<Dataset>));
+      setChangedOnly(toStatePatch({ [col]: rows } as Partial<Dataset>), set, get);
     } catch {
       /* best-effort reconcile */
     }

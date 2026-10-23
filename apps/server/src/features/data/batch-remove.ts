@@ -1,4 +1,4 @@
-import type { CollectionName } from "@vega/shared";
+import type { CollectionName, SyncReceipt } from "@vega/shared";
 import type {
   CollectionReference,
   DocumentSnapshot,
@@ -6,12 +6,16 @@ import type {
   WriteBatch,
 } from "firebase-admin/firestore";
 import { toPartialCommitError } from "../../core/errors";
-import { bumpSyncVersion } from "../../core/sync-version";
+import { advanceSyncVersion, bumpSyncVersion } from "../../core/sync-version";
 import { stageTombstone } from "../../core/tombstone";
 
 const MAX_BATCH_WRITES = 450;
 
-export type RemoveResult = { removed: number; missing: number; writtenChunks: number };
+export type RemoveResult = {
+  removed: number;
+  missing: number;
+  writtenChunks: number;
+} & SyncReceipt;
 
 /**
  * Bulk delete without the per-row round-trip: one batched read plus one batch per chunk, and a
@@ -59,8 +63,8 @@ export async function removeRecords(
   }
 
   // Removing ids that were already gone writes nothing, so it must not move the counter either.
-  if (removed > 0) await bumpSyncVersion(firestore, uid);
-  return { removed, missing: uniqueIds.length - removed, writtenChunks };
+  const syncVersion = removed > 0 ? await advanceSyncVersion(firestore, uid) : null;
+  return { removed, missing: uniqueIds.length - removed, writtenChunks, syncVersion };
 }
 
 /** A removal costs its delete plus its tombstone — a mirrored event also tombstones its googleId. */

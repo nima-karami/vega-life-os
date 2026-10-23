@@ -1,15 +1,17 @@
+import type { SyncReceipt } from "@vega/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRepository } from "../core/repository";
 import { type AppClient, bootTestServer, type TestServer } from "./harness";
 import { type RoutedCollection, sampleByCollection } from "./samples";
 
-type StoredMeta = { id: string; updatedAt: string; fieldUpdatedAt: Record<string, string> };
+type WireMeta = { id: string; updatedAt: string };
+type StoredMeta = WireMeta & { fieldUpdatedAt: Record<string, string> };
 
 type DomainClient = {
-  list: { query: () => Promise<StoredMeta[]> };
-  get: { query: (input: { id: string }) => Promise<StoredMeta | null> };
-  upsert: { mutate: (input: unknown) => Promise<StoredMeta> };
-  delete: { mutate: (input: { id: string }) => Promise<{ id: string }> };
+  list: { query: () => Promise<WireMeta[]> };
+  get: { query: (input: { id: string }) => Promise<WireMeta | null> };
+  upsert: { mutate: (input: unknown) => Promise<StoredMeta & SyncReceipt> };
+  delete: { mutate: (input: { id: string }) => Promise<{ id: string } & SyncReceipt> };
 };
 
 function domainOf(client: AppClient, collection: RoutedCollection): DomainClient {
@@ -41,13 +43,18 @@ export function runCrudContract(collection: RoutedCollection): void {
 
       const fetched = await domainOf(server.asUid(owner), collection).get.query({ id: record.id });
       expect(fetched?.id).toBe(record.id);
+      expect(fetched).not.toHaveProperty("fieldUpdatedAt");
     });
 
     it("a replayed identical upsert yields exactly one document", async () => {
       const record = sample(`${collection}-idem`);
       const first = await domainOf(server.asUid(owner), collection).upsert.mutate(record);
       const second = await domainOf(server.asUid(owner), collection).upsert.mutate(record);
-      expect(second).toEqual(first);
+      const { syncVersion: firstVersion, ...firstRecord } = first;
+      const { syncVersion: replayVersion, ...replayRecord } = second;
+      expect(replayRecord).toEqual(firstRecord);
+      expect(firstVersion).toEqual(expect.any(Number));
+      expect(replayVersion).toBeNull();
 
       const ids = (await domainOf(server.asUid(owner), collection).list.query()).map((r) => r.id);
       expect(ids.filter((id) => id === record.id)).toHaveLength(1);

@@ -170,4 +170,56 @@ describe("TrpcAdapter", () => {
     const adapter = new TrpcAdapter(client as unknown as TrpcClient);
     await expect(adapter.put("tasks", asTask("t1"))).rejects.toThrow("backend down");
   });
+
+  it("reports the sync version every kind of write produced", async () => {
+    const client = makeClient();
+    const receipt = (syncVersion: number) => async () => ({ syncVersion }) as never;
+    client.tasks.upsert.mutate.mockImplementationOnce(receipt(11));
+    client.data.upsert.mutate.mockImplementationOnce(receipt(12));
+    client.tasks.delete.mutate.mockImplementationOnce(receipt(13));
+    client.data.remove.mutate.mockImplementationOnce(receipt(14));
+    client.data.importCollection.mutate.mockImplementationOnce(async () => ({
+      inserted: 1,
+      skipped: 0,
+      writtenChunks: 1,
+      syncVersion: 15,
+    }));
+    client.data.bulkRemove.mutate.mockImplementationOnce(async () => ({
+      removed: 1,
+      missing: 0,
+      writtenChunks: 1,
+      syncVersion: 16,
+    }));
+    client.data.deleteAll.mutate.mockImplementationOnce(async () => ({
+      ok: true,
+      syncVersion: 17,
+    }));
+    const onSyncVersion = vi.fn();
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient, onSyncVersion);
+
+    await adapter.put("tasks", asTask("t1"));
+    await adapter.put("calendarEvents", asTask("ce1"));
+    await adapter.remove("tasks", "t1");
+    await adapter.remove("calendarEvents", "ce1");
+    await adapter.bulkPut("mindCards", [asTask("m1")]);
+    await adapter.bulkRemove("mindCards", ["m1"]);
+    await adapter.clearAll();
+
+    expect(onSyncVersion.mock.calls.map(([version]) => version)).toEqual([
+      11, 12, 13, 14, 15, 16, 17,
+    ]);
+  });
+
+  it("reports nothing for a server that predates sync receipts", async () => {
+    const client = makeClient();
+    const onSyncVersion = vi.fn();
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient, onSyncVersion);
+
+    await adapter.put("tasks", asTask("t1"));
+    await adapter.remove("calendarEvents", "ce1");
+    await adapter.bulkPut("mindCards", [asTask("m1")]);
+    await adapter.clearAll();
+
+    expect(onSyncVersion).not.toHaveBeenCalled();
+  });
 });
