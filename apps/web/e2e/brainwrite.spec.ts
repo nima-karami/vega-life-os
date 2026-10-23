@@ -47,6 +47,8 @@ test("the deck pages with the keyboard and logs nothing", async ({ page }) => {
   await expect
     .poll(() => scroller.evaluate((node) => node.scrollTop), { timeout: 5_000 })
     .toBeGreaterThan(0);
+  // Only the slots around the current card exist; spacers stand in for the rest of the deck.
+  expect(await scroller.locator("[data-index]").count()).toBeLessThanOrEqual(5);
   expect(errors).toEqual([]);
 });
 

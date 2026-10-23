@@ -26,11 +26,10 @@ import {
   planDeck,
   prunePlannedEntries,
   relocateFailedCard,
+  shouldExtendDeck,
 } from "./brainwrite-deck";
 
 const RENDER_RADIUS = 2;
-// The deck has no trailing recap to chain off, so nearing the end is the extend trigger.
-const PASS_EXTEND_THRESHOLD = 2;
 const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
 const SCROLL_TABINDEX = 0;
 const EVERYTHING: FeedControlDraft = { mode: "mix", types: [], categories: [] };
@@ -54,6 +53,12 @@ function BrainWriteNotice({
     </div>
   );
 }
+
+// Stands in for the unrendered slots so every rendered one keeps its true scroll offset.
+const renderSpacer = (slotCount: number) =>
+  slotCount > 0 ? (
+    <div aria-hidden className="w-full shrink-0" style={{ height: `${slotCount * 100}%` }} />
+  ) : null;
 
 export function BrainWritePage() {
   const navigate = useNavigate();
@@ -122,11 +127,11 @@ export function BrainWritePage() {
   // Nearing the end chains the next pass. Nothing already planned is touched, so a grade
   // never reaches back into the sequence the user is walking through.
   const extendIfShort = useCallback(() => {
-    setDeck((plan) => {
-      if (plan.entries.length === 0) return plan;
-      if (currentIndexRef.current < plan.entries.length - PASS_EXTEND_THRESHOLD) return plan;
-      return extendDeck(plan, deckSourceRef.current);
-    });
+    setDeck((plan) =>
+      shouldExtendDeck(plan, currentIndexRef.current)
+        ? extendDeck(plan, deckSourceRef.current)
+        : plan,
+    );
   }, []);
 
   const handleGestureStart = useCallback(() => {
@@ -162,18 +167,22 @@ export function BrainWritePage() {
   }, [pool]);
 
   useEffect(() => {
-    if (queueEntries.length === 0) return;
-    if (currentIndex < queueEntries.length - PASS_EXTEND_THRESHOLD) return;
+    if (!shouldExtendDeck(deck, currentIndex)) return;
     if (isGestureLiveRef.current) {
       isExtendPendingRef.current = true;
       return;
     }
     extendIfShort();
-  }, [currentIndex, queueEntries.length, extendIfShort]);
+  }, [currentIndex, deck, extendIfShort]);
 
+  const windowStart = Math.max(0, currentIndex - RENDER_RADIUS);
+  const windowEnd = Math.min(queueEntries.length - 1, currentIndex + RENDER_RADIUS);
+
+  // Only the windowed slots exist, so the observer is re-pointed whenever the window moves or
+  // an edit to the deck swaps a slot inside it.
   useEffect(() => {
     const scroller = scrollRef.current;
-    if (!scroller || queueEntries.length === 0) return;
+    if (!scroller || queueEntries.length === 0 || windowEnd < windowStart) return;
     const observer = new IntersectionObserver(
       (records) => {
         for (const record of records) {
@@ -186,13 +195,13 @@ export function BrainWritePage() {
     );
     for (const section of scroller.querySelectorAll("[data-index]")) observer.observe(section);
     return () => observer.disconnect();
-  }, [queueEntries, setCurrentIndex]);
+  }, [queueEntries, windowStart, windowEnd, setCurrentIndex]);
 
   const advance = useCallback(() => {
-    const sections = scrollRef.current?.querySelectorAll<HTMLElement>("[data-index]");
-    sections?.[currentIndexRef.current + 1]?.scrollIntoView({
-      behavior: shouldReduceMotion ? "auto" : "smooth",
-    });
+    const next = scrollRef.current?.querySelector<HTMLElement>(
+      `[data-index="${currentIndexRef.current + 1}"]`,
+    );
+    next?.scrollIntoView({ behavior: shouldReduceMotion ? "auto" : "smooth" });
   }, [shouldReduceMotion]);
 
   const handleToggleLike = (card: Card) => {
@@ -277,15 +286,20 @@ export function BrainWritePage() {
         onKeyDown={handleBrainWriteKeyDown}
         className="mx-auto flex h-full max-w-3xl snap-y snap-mandatory flex-col overflow-y-auto overflow-x-hidden overscroll-contain outline-none sm:pb-2"
       >
-        {queueEntries.map((entry, index) => (
-          <div
-            key={entryKeys[index]}
-            data-index={index}
-            className="h-full w-full shrink-0 snap-start"
-          >
-            {Math.abs(index - currentIndex) <= RENDER_RADIUS ? renderEntry(entry, index) : null}
-          </div>
-        ))}
+        {renderSpacer(windowStart)}
+        {queueEntries.slice(windowStart, windowEnd + 1).map((entry, offset) => {
+          const index = windowStart + offset;
+          return (
+            <div
+              key={entryKeys[index]}
+              data-index={index}
+              className="h-full w-full shrink-0 snap-start"
+            >
+              {renderEntry(entry, index)}
+            </div>
+          );
+        })}
+        {renderSpacer(queueEntries.length - 1 - windowEnd)}
       </section>
 
       <span data-brainwrite-announcer className="sr-only" role="status" aria-live="polite">
