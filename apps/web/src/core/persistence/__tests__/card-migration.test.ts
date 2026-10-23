@@ -210,6 +210,14 @@ describe("migrateToCards", () => {
     expect(result.skipped).toEqual([]);
   });
 
+  it("converts a card loaded from the backend, which arrives without field stamps", () => {
+    const { fieldUpdatedAt: _stamps, ...loaded } = mindCard();
+    const result = migrateToCards({ mindCards: [loaded], mindMeta: [], vocab: [] });
+
+    expect(result.skipped).toEqual([]);
+    expect(result.cards[0].fieldUpdatedAt).toEqual({});
+  });
+
   it("converts a sourced note instead of skipping it — Note declares no Source slot", () => {
     const result = migrateToCards({
       mindCards: [mindCard({ source: "Poor Charlie's Almanack" })],

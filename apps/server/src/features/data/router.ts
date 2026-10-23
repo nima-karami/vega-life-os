@@ -1,18 +1,16 @@
-import { collectionNameSchema, type Dataset, type SyncReceipt } from "@vega/shared";
+import { collectionNameSchema, type SyncReceipt, type WireDataset } from "@vega/shared";
 import { z } from "zod";
 import { parseRecord, writeRecord } from "../../core/collection-store";
 import { createRepository } from "../../core/repository";
 import { advanceSyncVersion, readSyncVersion } from "../../core/sync-version";
 import { writeTombstone } from "../../core/tombstone";
-import { toSyncedResponse, toWireRows, type WireRow } from "../../core/wire";
+import { toSyncedResponse, toWireRows } from "../../core/wire";
 import { protectedProcedure, router } from "../../trpc/trpc";
 import { shouldTriggerCalendarSync } from "../calendar/schedule-reconcile";
 import { importRecords } from "./batch-import";
 import { removeRecords } from "./batch-remove";
 
 const unknownRecord = z.record(z.string(), z.unknown());
-
-type WireDataset = { [C in keyof Dataset]: WireRow<Dataset[C][number]>[] };
 
 /**
  * Collection-agnostic writes for paths the domain routers don't cover: the

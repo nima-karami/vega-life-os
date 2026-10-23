@@ -2,7 +2,7 @@ import { createSyncCursor, DEFAULT_CARD_PREFS } from "@vega/shared";
 import { create } from "zustand";
 import { auth, db } from "@/core/firebase/app";
 import { getCloudProfile } from "@/core/firebase/profile";
-import type { CollectionName, Dataset } from "@/core/persistence";
+import type { CollectionName, Dataset, LoadedDataset } from "@/core/persistence";
 import {
   buildSeed,
   COLLECTIONS,
@@ -65,7 +65,7 @@ async function loadAccount(
     // Read the counter first: recording a version taken *after* the load would swallow a write
     // that landed mid-load, leaving the client silently stale.
     cursor.reset(await cloud.readSyncVersion().catch(() => null));
-    const loaded = await cloud.loadAll(); // hydrating → hydrated
+    const loaded = withEmptyStamps(await cloud.loadAll()); // hydrating → hydrated
     set({ ...toStatePatch(loaded), loadFailed: false });
     await runDataMigrations(get, set, hasMigrationSources(loaded));
     const profile = await getCloudProfile(uid).catch(() => null);
@@ -168,6 +168,17 @@ function sortDataset(dataset: Partial<Dataset>): Partial<Dataset> {
   return out;
 }
 
+/** Backend rows arrive without the server's field stamps; the client only ever holds an empty map. */
+function withEmptyStamps(dataset: Partial<LoadedDataset>): Partial<Dataset> {
+  const stamped: Partial<Record<CollectionName, unknown[]>> = {};
+  for (const col of Object.keys(dataset) as CollectionName[]) {
+    stamped[col] = dataset[col]?.map((row) =>
+      row.fieldUpdatedAt ? row : { ...row, fieldUpdatedAt: {} },
+    );
+  }
+  return stamped as Partial<Dataset>;
+}
+
 /** `cardPrefs` is one record in state but a collection on the wire, so the patch resolves it here. */
 function toStatePatch(dataset: Partial<Dataset>): Partial<RootState> {
   const { cardPrefs, ...rest } = sortDataset(dataset);
@@ -217,7 +228,7 @@ export const useStore = create<RootState>((set, get, api) => ({
 
   bootstrap: async () => {
     await persistence.init();
-    const loaded = await persistence.loadAll();
+    const loaded = withEmptyStamps(await persistence.loadAll());
     set({ ...toStatePatch(loaded), ready: true });
     get().hydrateGcalStatus(null); // signed-out sandbox: no Google Calendar connection
     clearLegacyStreakRules();
@@ -347,7 +358,7 @@ export const useStore = create<RootState>((set, get, api) => ({
     if (!get().authUid) return false;
     const guarded = pendingWriteCollections();
     try {
-      const loaded = await persistence.loadAll();
+      const loaded = withEmptyStamps(await persistence.loadAll());
       for (const col of pendingWriteCollections()) guarded.add(col);
       const next = toStatePatch(loaded);
       for (const col of guarded) delete next[col];
@@ -376,8 +387,8 @@ export const useStore = create<RootState>((set, get, api) => ({
   refetchCollection: async (col) => {
     if (!get().authUid || pendingWriteCollections().has(col)) return;
     try {
-      const rows = await persistence.load(col);
-      setChangedOnly(toStatePatch({ [col]: rows } as Partial<Dataset>), set, get);
+      const loaded = withEmptyStamps({ [col]: await persistence.load(col) });
+      setChangedOnly(toStatePatch(loaded), set, get);
     } catch {
       /* best-effort reconcile */
     }

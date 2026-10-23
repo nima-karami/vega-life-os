@@ -5,12 +5,11 @@ import { type AppClient, bootTestServer, type TestServer } from "./harness";
 import { type RoutedCollection, sampleByCollection } from "./samples";
 
 type WireMeta = { id: string; updatedAt: string };
-type StoredMeta = WireMeta & { fieldUpdatedAt: Record<string, string> };
 
 type DomainClient = {
   list: { query: () => Promise<WireMeta[]> };
   get: { query: (input: { id: string }) => Promise<WireMeta | null> };
-  upsert: { mutate: (input: unknown) => Promise<StoredMeta & SyncReceipt> };
+  upsert: { mutate: (input: unknown) => Promise<WireMeta & SyncReceipt> };
   delete: { mutate: (input: { id: string }) => Promise<{ id: string } & SyncReceipt> };
 };
 
@@ -34,12 +33,14 @@ export function runCrudContract(collection: RoutedCollection): void {
       await server.close();
     });
 
-    it("upsert returns the persisted record with server-stamped updatedAt + fieldUpdatedAt", async () => {
+    it("upsert returns the persisted record and stores the server-stamped field times", async () => {
       const record = sample(`${collection}-a`);
       const persisted = await domainOf(server.asUid(owner), collection).upsert.mutate(record);
       expect(persisted.id).toBe(record.id);
       expect(typeof persisted.updatedAt).toBe("string");
-      expect(persisted.fieldUpdatedAt.id).toBe(persisted.updatedAt);
+      expect(persisted).not.toHaveProperty("fieldUpdatedAt");
+      const stored = await createRepository(server.firestore, owner, collection).get(record.id);
+      expect(stored?.fieldUpdatedAt.id).toBe(persisted.updatedAt);
 
       const fetched = await domainOf(server.asUid(owner), collection).get.query({ id: record.id });
       expect(fetched?.id).toBe(record.id);

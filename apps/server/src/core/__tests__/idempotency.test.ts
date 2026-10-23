@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bootTestServer, type TestServer } from "../../test/harness";
 import { sampleByCollection } from "../../test/samples";
-import { toWireRow } from "../wire";
 
 let server: TestServer;
 
@@ -27,6 +26,6 @@ describe("set-by-id upsert is idempotent (no opId mechanism)", () => {
 
     const matches = (await client.tasks.list.query()).filter((task) => task.id === record.id);
     expect(matches).toHaveLength(1);
-    expect(matches[0]).toEqual(toWireRow(firstRecord));
+    expect(matches[0]).toEqual(firstRecord);
   });
 });

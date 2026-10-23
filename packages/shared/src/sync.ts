@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { collectionNameSchema } from "./collections";
+import { collectionNameSchema, type Dataset } from "./collections";
 
 /** Field → ISO timestamp map for server-computed field-level last-writer-wins. */
 export const fieldMetaSchema = z.record(z.string(), z.string());
@@ -28,6 +28,10 @@ export const channelRegistrySchema = z
 export type FieldMeta = z.infer<typeof fieldMetaSchema>;
 export type Tombstone = z.infer<typeof tombstoneSchema>;
 export type ChannelRegistration = z.infer<typeof channelRegistrySchema>;
+
+/** A row as the backend ships it: the field-LWW stamps stay server-side, only the server merges with them. */
+export type WireRow<T> = Omit<T, "fieldUpdatedAt">;
+export type WireDataset = { [C in keyof Dataset]: WireRow<Dataset[C][number]>[] };
 
 /**
  * What a client-facing mutation reports: the sync-counter value its own write produced, or null

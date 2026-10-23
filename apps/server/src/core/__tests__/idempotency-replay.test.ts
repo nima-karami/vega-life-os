@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { taskInput } from "../../test/calendar-fixtures";
 import { bootTestServer, type TestServer } from "../../test/harness";
-import { toWireRow } from "../wire";
 
 /** Set-by-id upsert is idempotent by construction: a replayed identical write yields one document. */
 describe("idempotent double-submit (replay + concurrent, no opId)", () => {
@@ -28,7 +27,7 @@ describe("idempotent double-submit (replay + concurrent, no opId)", () => {
 
     const matches = (await client.tasks.list.query()).filter((task) => task.id === "t-seq");
     expect(matches).toHaveLength(1);
-    expect(matches[0]).toEqual(toWireRow(firstRecord));
+    expect(matches[0]).toEqual(firstRecord);
   });
 
   it("a concurrent double-submit of the same id still collapses to one document", async () => {

@@ -4,6 +4,7 @@ import type {
   BulkRemoveResult,
   CollectionName,
   Dataset,
+  LoadedDataset,
   PersistenceAdapter,
 } from "./adapter";
 import { rethrowPartialWrites } from "./partial-write";
@@ -73,16 +74,15 @@ export class TrpcAdapter implements PersistenceAdapter {
     return (await this.client.values.list.query()).length === 0;
   }
 
-  async load<C extends CollectionName>(col: C): Promise<Dataset[C]> {
+  async load<C extends CollectionName>(col: C): Promise<LoadedDataset[C]> {
     const rows = isDataCollection(col)
       ? await this.client.data.list.query({ collection: col })
       : await this.domain(col).list.query();
-    return rows as Dataset[C];
+    return rows as LoadedDataset[C];
   }
 
-  async loadAll(): Promise<Dataset> {
-    // Rows arrive without `fieldUpdatedAt`: only the server merges with it, the client never reads it.
-    return (await this.client.data.loadAll.query()) as unknown as Dataset;
+  async loadAll(): Promise<LoadedDataset> {
+    return (await this.client.data.loadAll.query()) as LoadedDataset;
   }
 
   async readSyncVersion(): Promise<number> {
