@@ -8,13 +8,20 @@ import { saveGratitudeNudgeAck } from "./nudge-ack";
  *  Dexie/Firestore write is debounced. */
 const SAVE_DEBOUNCE_MS = 800;
 
-/** Swap the entry in where it already sits, else insert it at its date, keeping newest-first. */
-function placeEntryByDate(journal: DayEntry[], entry: DayEntry): DayEntry[] {
+/** Swap the entry in where it already sits, else insert it at its date, keeping newest-first.
+ *  `isAheadOfSameDate` puts it before any entry already on its date, so getDayEntry finds it. */
+function placeEntryByDate(
+  journal: DayEntry[],
+  entry: DayEntry,
+  { isAheadOfSameDate = false } = {},
+): DayEntry[] {
   if (journal.some((existing) => existing.id === entry.id)) {
     return journal.map((existing) => (existing.id === entry.id ? entry : existing));
   }
-  const olderIndex = journal.findIndex((existing) => existing.date < entry.date);
-  const insertAt = olderIndex === -1 ? journal.length : olderIndex;
+  const nextIndex = journal.findIndex((existing) =>
+    isAheadOfSameDate ? existing.date <= entry.date : existing.date < entry.date,
+  );
+  const insertAt = nextIndex === -1 ? journal.length : nextIndex;
   return [...journal.slice(0, insertAt), entry, ...journal.slice(insertAt)];
 }
 
@@ -107,7 +114,7 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
 
     restoreDayEntry: (entry) => {
       pending.delete(entry.id);
-      set((s) => ({ journal: placeEntryByDate(s.journal, entry) }));
+      set((s) => ({ journal: placeEntryByDate(s.journal, entry, { isAheadOfSameDate: true }) }));
       savePut("journal", entry);
     },
   };

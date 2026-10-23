@@ -122,6 +122,21 @@ describe("journal keeps newest-first order", () => {
     expect(datesOf(get().journal)).toEqual(["2026-06-22", "2026-06-21", "2026-06-20"]);
   });
 
+  it("restores ahead of another entry for the same date, so the restored one wins", () => {
+    const get = seedThreeDays();
+    const original = get().getDayEntry("2026-06-21") as DayEntry;
+    get().removeDayEntry(original.id);
+    get().upsertDayEntry("2026-06-21", { mood: 4 });
+    get().restoreDayEntry(original);
+    expect(datesOf(get().journal)).toEqual([
+      "2026-06-22",
+      "2026-06-21",
+      "2026-06-21",
+      "2026-06-20",
+    ]);
+    expect(get().getDayEntry("2026-06-21")?.id).toBe(original.id);
+  });
+
   it("restores an undone delete at its date, not at the top", () => {
     const get = seedThreeDays();
     const oldest = get().getDayEntry("2026-06-20") as DayEntry;
