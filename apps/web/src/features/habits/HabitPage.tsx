@@ -1,6 +1,7 @@
 import { Button } from "@heroui/react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import { useTodayISO } from "@/core/lib/clock";
 import type { IconName } from "@/core/lib/icon-names";
 import { useQuietMode, useStore } from "@/core/store";
 import { EntityBreadcrumb, Icon, IconField, Menu, type MenuItem } from "@/core/ui";
@@ -53,8 +54,15 @@ function HabitDetail({ habit }: { habit: Habit }) {
   const lifecycle = habitLifecycle(habit);
   const isArchived = lifecycle === "archived";
   const isQuiet = useQuietMode();
-  const meta = useMemo(() => buildHabitMeta(tasks, habit, isQuiet), [tasks, habit, isQuiet]);
-  const record = useMemo(() => buildHabitDayRecord(tasks, habit, RECORD_DAYS), [tasks, habit]);
+  const today = useTodayISO();
+  const meta = useMemo(
+    () => buildHabitMeta(tasks, habit, today, isQuiet),
+    [tasks, habit, today, isQuiet],
+  );
+  const record = useMemo(
+    () => buildHabitDayRecord(tasks, habit, RECORD_DAYS, today),
+    [tasks, habit, today],
+  );
 
   const renameHabit = (name: string) => updateHabit(habit.id, { name });
 

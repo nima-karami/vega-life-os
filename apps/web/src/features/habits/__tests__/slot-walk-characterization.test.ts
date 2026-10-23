@@ -77,8 +77,8 @@ describe("habit slot walk — characterization pinned from the pre-optimization 
         byToday: Object.fromEntries(
           TODAYS.map((today) => [today, describeHabitAt(tasks, habit, today)]),
         ),
-        meta: buildHabitMeta(tasks, habit),
-        quietMeta: buildHabitMeta(tasks, habit, true),
+        meta: buildHabitMeta(tasks, habit, FIXTURE_TODAY),
+        quietMeta: buildHabitMeta(tasks, habit, FIXTURE_TODAY, true),
         defaults: {
           consistency: computeHabitConsistency(tasks, habit),
           lapsed: hasLapsedPreviousSlot(tasks, habit),
@@ -104,4 +104,15 @@ describe("habit slot walk — characterization pinned from the pre-optimization 
       "./__snapshots__/slot-walk/rollup.snap",
     );
   });
+
+  it("keeps the lapsed verdict on each of the last 60 days", async () => {
+    const lapsedByHabit = habits.map((habit) => {
+      const days = Array.from({ length: 60 }, (_, i) => shiftISO(FIXTURE_TODAY, i - 59));
+      const verdicts = days.map((today) => (hasLapsedPreviousSlot(tasks, habit, today) ? 1 : 0));
+      return `${habit.id} ${days[0]} ${verdicts.join("")}`;
+    });
+    await expect(JSON.stringify(lapsedByHabit, null, 1)).toMatchFileSnapshot(
+      "./__snapshots__/slot-walk/lapsed.snap",
+    );
+  }, 60_000);
 });

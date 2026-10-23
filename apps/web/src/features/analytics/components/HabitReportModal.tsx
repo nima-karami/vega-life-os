@@ -1,6 +1,7 @@
 import { Modal, useOverlayState } from "@heroui/react";
 import { useMemo } from "react";
 import { Link } from "react-router";
+import { useTodayISO } from "@/core/lib/clock";
 import { useStore } from "@/core/store";
 import { Icon, useCompactModal } from "@/core/ui";
 import { computeHabitConsistency } from "@/features/habits";
@@ -65,11 +66,12 @@ export function HabitReportModal({
 }) {
   const tasks = useStore((s) => s.tasks);
   const responsive = useCompactModal();
+  const today = useTodayISO();
   const timeline = useMemo(
-    () => computeHabitTimeline(tasks, habit, windowDays),
-    [tasks, habit, windowDays],
+    () => computeHabitTimeline(tasks, habit, windowDays, today),
+    [tasks, habit, windowDays, today],
   );
-  const lately = useMemo(() => computeHabitConsistency(tasks, habit), [tasks, habit]);
+  const lately = useMemo(() => computeHabitConsistency(tasks, habit, today), [tasks, habit, today]);
   const state = useOverlayState({
     isOpen,
     onOpenChange: (next) => {
