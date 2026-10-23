@@ -25,6 +25,13 @@ const deckCards = (count: number): Card[] =>
 const sourceOf = (cards: Card[]) => ({ cards, prefs: prefs(), today: TODAY, baseSeed: 11 });
 const idsOf = (plan: DeckPlan): string[] => plan.entries.map((entry) => entry.cardId);
 
+// The same object back is what lets the page's setDeck bail out instead of looping forever.
+function expectNoOpOnEmptyPool(cards: Card[]): void {
+  const plan = planDeck(sourceOf(cards));
+  const allHidden = cards.map((card) => ({ ...card, hiddenAt: "2026-08-20T00:00:00.000Z" }));
+  expect(extendDeck(plan, sourceOf(allHidden))).toBe(plan);
+}
+
 describe("buildBrainWriteQueue", () => {
   it("never includes a recap entry", () => {
     const cards = [
@@ -96,6 +103,10 @@ describe("planDeck / extendDeck", () => {
     for (let i = 0; i < ids.length; i++) {
       expect(ids.slice(Math.max(0, i - NO_REPEAT_WINDOW), i)).not.toContain(ids[i]);
     }
+  });
+
+  it("returns the very same plan when the pool has emptied", () => {
+    expectNoOpOnEmptyPool(deckCards(12));
   });
 
   it("clears the reappearance counts when a pass is crossed", () => {
@@ -229,6 +240,10 @@ describe("chunked passes", () => {
     const extended = extendDeck(planDeck(sourceOf(cards)), sourceOf(withoutGone));
     expect(extended.entries.length).toBeGreaterThan(PASS_CHUNK_SIZE);
     expect(idsOf(extended)).not.toContain(goneId);
+  });
+
+  it("returns the very same plan when the pool empties with chunks still unread", () => {
+    expectNoOpOnEmptyPool(mixedCards(LONG_POOL));
   });
 
   it("chains the next chunk early enough to hold a failed card's return slot", () => {

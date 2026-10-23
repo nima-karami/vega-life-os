@@ -32,6 +32,12 @@ const QUICK_RUN_DECK_SIZE = 60;
 const QUICK_RUN_GRADES = 50;
 /** BrainWritePage renders the current slot and this many either side; the rest are spacers. */
 const RENDER_RADIUS = 2;
+/** Mirrors brainwrite-deck: a pass is read into the deck this many entries at a time. */
+const PASS_CHUNK_SIZE = 200;
+const FAILED_REAPPEAR_OFFSET = 5;
+const SEAM_DECK_SIZE = PASS_CHUNK_SIZE + 15;
+const SEAM_RUN_START = PASS_CHUNK_SIZE - 10;
+const SEAM_RUN_GRADES = 16;
 const SEED_BOX = 2;
 /** Long enough for a grade to reach Dexie and for the 260ms fly-off + 700ms recentre. */
 const SETTLE_MS = 1_200;
@@ -58,7 +64,9 @@ const worstRepeat = (deck: DeckCardState[]): number =>
   deck.reduce((worst, card) => Math.max(worst, card.reviewCount), 0);
 
 /** A known deck of due, flippable cards, written straight into the sandbox's Dexie store. */
-async function seedDeck(page: Page, size: number) {
+type DeckSeed = { size: number; mode: "mix" | "due" };
+
+async function seedDeck(page: Page, { size, mode }: DeckSeed) {
   await page.evaluate(
     async (setup) => {
       const pad = (value: number) => String(value).padStart(2, "0");
@@ -102,7 +110,7 @@ async function seedDeck(page: Page, size: number) {
         }
         tx.objectStore("cardPrefs").put({
           id: "feed",
-          mode: "mix",
+          mode: setup.mode,
           types: [],
           categories: [],
           view: "rows",
@@ -115,7 +123,7 @@ async function seedDeck(page: Page, size: number) {
       });
       database.close();
     },
-    { size, box: SEED_BOX },
+    { size, mode, box: SEED_BOX },
   );
 }
 
@@ -161,15 +169,53 @@ async function bootSandbox(page: Page) {
   }
 }
 
-async function openBrainWrite(page: Page, deckSize = DECK_SIZE) {
+async function openBrainWrite(page: Page, seed: Partial<DeckSeed> = {}) {
   await bootSandbox(page);
-  await seedDeck(page, deckSize);
+  await seedDeck(page, { size: DECK_SIZE, mode: "mix", ...seed });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.goto("/brainwrite", { waitUntil: "domcontentloaded" });
   await expect(page.locator(DECK)).toBeVisible({ timeout: 15_000 });
   await expect(cardAt(page, 0)).toBeVisible({ timeout: 15_000 });
   // The stage measures itself through a ResizeObserver; until it has, cardWidthPx is 0.
   await page.waitForTimeout(500);
+}
+
+function collectPageErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  return errors;
+}
+
+/** Keyboard-grades the card at `index` once it has settled in view; returns its label. */
+async function gradeCardAt(page: Page, index: number, isCorrect: boolean): Promise<string> {
+  const card = cardAt(page, index);
+  await expect(card).toBeInViewport({ ratio: 0.9 });
+  await expect(card.locator("[data-brainwrite-phase]")).toHaveAttribute(
+    "data-brainwrite-phase",
+    "idle",
+  );
+  const label = (await card.getAttribute("aria-label")) ?? "";
+  await page.keyboard.press(isCorrect ? "1" : "2");
+  return label;
+}
+
+/** Pages one slot at a time, waiting for the render window to follow, without grading. */
+async function scrollDeckTo(page: Page, targetIndex: number) {
+  await page.locator(DECK).evaluate(
+    async (deck, { target, radius }) => {
+      const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+      for (let index = 1; index <= target; index++) {
+        deck.scrollTop = index * deck.clientHeight;
+        const lead = `[data-index="${index + radius}"]`;
+        for (let frame = 0; frame < 240 && !deck.querySelector(lead); frame++) await nextFrame();
+      }
+    },
+    { target: targetIndex, radius: RENDER_RADIUS },
+  );
+  await expect(cardAt(page, targetIndex)).toBeInViewport({ ratio: 0.9 });
 }
 
 /** Nothing in the deck was graded — the assertion behind every "must not grade" case. */
@@ -531,19 +577,12 @@ test("a deck rebuild mid-drag does not add a second grade", async ({ page }) => 
 
 test("fifty quick grades never show a card twice and keep the deck windowed", async ({ page }) => {
   test.setTimeout(150_000);
-  await openBrainWrite(page, QUICK_RUN_DECK_SIZE);
+  await openBrainWrite(page, { size: QUICK_RUN_DECK_SIZE });
   await page.locator(DECK).focus();
 
   const seen: string[] = [];
   for (let index = 0; index < QUICK_RUN_GRADES; index++) {
-    const card = cardAt(page, index);
-    await expect(card).toBeInViewport({ ratio: 0.9 });
-    await expect(card.locator("[data-brainwrite-phase]")).toHaveAttribute(
-      "data-brainwrite-phase",
-      "idle",
-    );
-    seen.push((await card.getAttribute("aria-label")) ?? "");
-    await page.keyboard.press("1");
+    seen.push(await gradeCardAt(page, index, true));
   }
 
   expect(new Set(seen).size, seen.join(" | ")).toBe(QUICK_RUN_GRADES);
@@ -553,6 +592,53 @@ test("fifty quick grades never show a card twice and keep the deck windowed", as
   await expect
     .poll(async () => countGrades(await readDeckState(page)), { timeout: 5_000 })
     .toBe(QUICK_RUN_GRADES);
+});
+
+test("a due session that grades its last card settles on the empty notice", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await openBrainWrite(page, { size: 1, mode: "due" });
+  await page.locator(DECK).focus();
+
+  await gradeCardAt(page, 0, true);
+
+  await expect(page.getByRole("heading", { name: "Nothing to review right now" })).toBeVisible();
+  await page.waitForTimeout(SETTLE_MS);
+  expect(errors).toEqual([]);
+});
+
+test("grades across the first chunk seam repeat nothing but a failed card at its offset", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = collectPageErrors(page);
+  await openBrainWrite(page, { size: SEAM_DECK_SIZE });
+  await page.locator(DECK).focus();
+  await scrollDeckTo(page, SEAM_RUN_START);
+
+  await expect
+    .poll(() => page.locator(DECK).evaluate((node) => node.scrollHeight / node.clientHeight), {
+      message: "the next chunk was not chained ahead of the seam",
+    })
+    .toBeGreaterThan(PASS_CHUNK_SIZE);
+
+  const seen: string[] = [];
+  const wrongAt = new Set<number>();
+  for (let step = 0; step < SEAM_RUN_GRADES; step++) {
+    const isCorrect = step % 3 !== 0;
+    if (!isCorrect) wrongAt.add(step);
+    seen.push(await gradeCardAt(page, SEAM_RUN_START + step, isCorrect));
+  }
+
+  const lastSeenAt = new Map<string, number>();
+  seen.forEach((label, at) => {
+    const previous = lastSeenAt.get(label);
+    if (previous !== undefined) {
+      expect(at - previous, `${label} came back unsanctioned`).toBe(FAILED_REAPPEAR_OFFSET);
+      expect(wrongAt.has(previous), `${label} came back without a wrong grade`).toBe(true);
+    }
+    lastSeenAt.set(label, at);
+  });
+  expect(errors).toEqual([]);
 });
 
 test("reduced motion still shows the commit feedback and still grades", async ({ page }) => {

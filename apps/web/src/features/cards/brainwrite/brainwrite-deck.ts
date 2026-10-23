@@ -98,16 +98,20 @@ export function planDeck(source: DeckSource): DeckPlan {
 /**
  * Appends what comes next: the open pass's next chunk while it has one, else a fresh pass. A
  * chunk is filtered against the live pool, so a card that left mid-pass never lands as a gap;
- * one that empties out entirely moves straight on rather than leaving the deck short.
+ * one that empties out entirely moves straight on rather than leaving the deck short. With
+ * nothing left to append it returns the very same plan, so a state update over it is a no-op.
  */
 export function extendDeck(plan: DeckPlan, source: DeckSource): DeckPlan {
-  const liveIds = new Set(buildFeedPool(source.cards, source.prefs, source.today).map((c) => c.id));
+  const pool = buildFeedPool(source.cards, source.prefs, source.today);
+  if (pool.length === 0) return plan;
+  const liveIds = new Set(pool.map((card) => card.id));
   let extended = plan;
   while (extended.openPass !== null && hasUnreadChunk(extended.openPass)) {
     extended = readNextChunk(extended, extended.openPass, liveIds);
     if (extended.entries.length > plan.entries.length) return extended;
   }
-  return openNextPass(extended, source);
+  const opened = openNextPass(extended, source);
+  return opened.entries.length > plan.entries.length ? opened : plan;
 }
 
 export function shouldExtendDeck(plan: DeckPlan, currentIndex: number): boolean {
