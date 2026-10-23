@@ -1,8 +1,6 @@
-import { hasBootSplash } from "./boot-splash";
-
-/** The index.html splash, held still for a mid-session reload; its CSS lives in index.html. */
+/** The index.html splash held still, for any wait on the store; its CSS lives in index.html.
+ *  It renders under the live splash too, so losing the splash early never leaves a blank page. */
 export function BootScreen() {
-  if (hasBootSplash()) return null;
   return (
     <div className="boot" data-state="static" aria-hidden="true">
       <div className="boot-stage">

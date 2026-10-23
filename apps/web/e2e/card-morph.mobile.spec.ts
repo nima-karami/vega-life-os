@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./fixtures";
 import { enterApp } from "./helpers/app";
 
 /** On a phone a tap on a value card carries its disc into the value page, and Back returns. */

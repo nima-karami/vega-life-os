@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "../fixtures";
 import { DAY_MS, enterApp, gratitudePage } from "./app";
 import { countOf, readMotion, recordMotion } from "./motion-log";
 import { readStoredRows } from "./stored-rows";

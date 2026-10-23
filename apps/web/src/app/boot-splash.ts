@@ -25,10 +25,6 @@ export function planBootHandoff(readyAt: number, isUrgent: boolean): BootHandoff
 
 let isDismissing = false;
 
-export function hasBootSplash(): boolean {
-  return document.getElementById(SPLASH_ID) !== null;
-}
-
 // Finished animations hold their currentTime, so measure from the earliest start instead.
 function readSplashElapsed(splash: HTMLElement): number {
   const now = document.timeline.currentTime;
@@ -94,6 +90,7 @@ export function dismissBootSplash({ isUrgent = false } = {}): void {
     removeAfterExit(splash);
   };
   const handleSkipKey = (event: KeyboardEvent) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     beginOut();

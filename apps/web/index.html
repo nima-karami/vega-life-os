@@ -22,7 +22,7 @@
     <title>VEGA · Life OS</title>
     <style>
       .boot{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:#f7f7f6;font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
-      .boot[data-state~="out"]{background:transparent}
+      .boot[data-state~="out"]{background:transparent;pointer-events:none}
       .boot[data-state="static"]{z-index:auto}
       .boot-stage{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-20px}
       .boot-tile{display:block;opacity:0;animation:boot-tile-in 200ms cubic-bezier(.2,0,0,1) 300ms both}
@@ -38,6 +38,8 @@
       .boot[data-state~="out"] .boot-tag,.boot[data-state~="out"] .boot-status{animation-play-state:paused}
       .boot[data-state="static"] .boot-tile,.boot[data-state="static"] .boot-word,.boot[data-state="static"] .boot-tag{opacity:1;animation:none}
       .boot[data-state="static"] .boot-v{stroke-dashoffset:0;animation:boot-breathe 2400ms cubic-bezier(.45,0,.55,1) infinite}
+      .boot[data-state="stalled"] .boot-tag{opacity:0;animation:none}
+      .boot[data-state="stalled"] .boot-status{opacity:1;animation:none}
       #root.boot-app-in{animation:boot-app-in 260ms cubic-bezier(.2,0,0,1) 140ms both}
       #root.boot-app-fast{animation:boot-fade-in 160ms cubic-bezier(.2,0,0,1) both}
       @media (prefers-reduced-motion:reduce){
@@ -61,7 +63,64 @@
       @keyframes boot-leave{from{opacity:var(--boot-status-from,1)}to{opacity:0}}
       @keyframes boot-mark-out{from{opacity:1;transform:none}to{opacity:0;transform:scale(.96)}}
       @keyframes boot-app-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+      .boot-failed{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:16px;background:#f7f7f6;color:#1a1a19;font:14px/20px Inter,system-ui,-apple-system,sans-serif;text-align:center}
+      .boot-failed p{margin:0;color:#6b7280}
+      .boot-failed .boot-failed-title{font-size:16px;font-weight:600;line-height:24px;color:#1a1a19}
+      .boot-failed button{margin-top:12px;height:36px;padding:0 16px;border:0;border-radius:12px;background:#1a1a19;color:#fff;font:inherit;font-weight:500;cursor:pointer}
     </style>
+    <script>
+      // Outside React on purpose: these are the cases where React never gets to dismiss the splash.
+      (() => {
+        const STALL_MS = 15000;
+        let hasFailed = false;
+        const splashOf = () => document.getElementById("boot");
+        // A live React tree always renders something into #root, even while the store loads.
+        const hasAppContent = () => {
+          const appRoot = document.getElementById("root");
+          return !!appRoot && appRoot.childElementCount > 0;
+        };
+        const showFailure = () => {
+          if (hasFailed) return;
+          hasFailed = true;
+          const splash = splashOf();
+          if (splash) splash.remove();
+          if (hasAppContent()) return;
+          const panel = document.createElement("div");
+          panel.className = "boot-failed";
+          panel.setAttribute("role", "alert");
+          panel.innerHTML =
+            '<p class="boot-failed-title">VEGA couldn’t start</p>' +
+            "<p>Check your connection, then reload.</p>" +
+            '<button type="button">Reload</button>';
+          panel.querySelector("button").addEventListener("click", () => { location.reload(); });
+          document.body.appendChild(panel);
+        };
+        const checkAfterError = () => {
+          setTimeout(() => {
+            if (splashOf() && !hasAppContent()) showFailure();
+          }, 200);
+        };
+        window.addEventListener(
+          "error",
+          (event) => {
+            const source = event.target;
+            if (source && source.tagName === "SCRIPT") {
+              if (source.type === "module") showFailure();
+              return;
+            }
+            if (event.filename && event.filename.indexOf(location.origin) === 0) checkAfterError();
+          },
+          true,
+        );
+        window.addEventListener("unhandledrejection", checkAfterError);
+        setTimeout(() => {
+          const splash = splashOf();
+          if (!splash || splash.dataset.state) return;
+          if (hasAppContent()) splash.remove();
+          else splash.dataset.state = "stalled";
+        }, STALL_MS);
+      })();
+    </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>

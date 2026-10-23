@@ -43,5 +43,31 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "apps/web/e2e/**",
+        "!apps/web/e2e/fixtures.ts",
+        "!apps/web/e2e/boot-splash*.spec.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@playwright/test": {
+                    "importNames": ["test"],
+                    "message": "Import `test` from e2e/fixtures.ts, which removes the boot splash; only the boot-splash specs boot the real one."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

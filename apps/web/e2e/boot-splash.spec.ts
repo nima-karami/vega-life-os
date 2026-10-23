@@ -132,3 +132,47 @@ test("a tap during the dwell skips straight to the hand-off without reaching the
   await expect(explore(page)).toBeVisible();
   await expectAppUsable(page);
 });
+
+test("a key with a modifier during the dwell reaches the app and does not skip", async ({
+  page,
+}) => {
+  await delayAppBundle(page, 3200);
+  await traceBootSplash(page);
+  await page.addInitScript(() =>
+    document.addEventListener("keydown", (event) => {
+      if (event.ctrlKey && event.key === "r") document.documentElement.dataset.sawReloadKey = "yes";
+    }),
+  );
+  await page.goto("/");
+  await expect(page.locator("#boot[data-state='return']")).toBeAttached({ timeout: 15_000 });
+  // keyboard.press dispatches the keydown without the browser acting on it, so no reload.
+  await page.keyboard.press("Control+r");
+  const { frames } = await readBootTrace(page);
+
+  expect(timeOf(frames, isOut) - timeOf(frames, isReturn)).toBeGreaterThanOrEqual(
+    720 - FRAME_SLACK_MS,
+  );
+  await expect(page.locator("html")).toHaveAttribute("data-saw-reload-key", "yes");
+});
+
+test("losing the splash while the store is still loading leaves the still mark, not a blank page", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expectAppUsable(page);
+
+  // Re-create "splash up, store not ready", then drop the splash without the store changing.
+  await page.evaluate(async () => {
+    const splashStandIn = document.createElement("div");
+    splashStandIn.id = "boot";
+    document.body.prepend(splashStandIn);
+    const { useStore } = await import("/src/core/store/index.ts");
+    useStore.setState({ ready: false });
+  });
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  await page.evaluate(() => document.getElementById("boot")?.remove());
+
+  const stillMark = page.locator(".boot[data-state='static']");
+  await expect(stillMark).toBeVisible();
+  await expect(stillMark.getByText("Live your values")).toHaveCSS("opacity", "1");
+});

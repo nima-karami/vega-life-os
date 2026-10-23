@@ -24,10 +24,12 @@ import { ValuePage } from "@/features/values/ValuePage";
 import { AppShell } from "./AppShell";
 import { NotFound } from "./NotFound";
 import { RootBoot } from "./RootBoot";
+import { RootError } from "./RootError";
 
 export const router = createBrowserRouter([
   {
     element: <RootBoot />,
+    errorElement: <RootError />,
     children: [
       {
         path: "/",
