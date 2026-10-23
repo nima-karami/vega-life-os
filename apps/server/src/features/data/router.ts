@@ -1,4 +1,10 @@
-import { collectionNameSchema, type SyncReceipt, type WireDataset } from "@vega/shared";
+import {
+  collectionNameSchema,
+  type SyncedSnapshot,
+  type SyncReceipt,
+  type WireDataset,
+} from "@vega/shared";
+import type { Firestore } from "firebase-admin/firestore";
 import { z } from "zod";
 import { parseRecord, writeRecord } from "../../core/collection-store";
 import { createRepository } from "../../core/repository";
@@ -11,6 +17,16 @@ import { importRecords } from "./batch-import";
 import { removeRecords } from "./batch-remove";
 
 const unknownRecord = z.record(z.string(), z.unknown());
+
+async function listDataset(firestore: Firestore, uid: string): Promise<WireDataset> {
+  const collections = collectionNameSchema.options;
+  const lists = await Promise.all(
+    collections.map((collection) => createRepository(firestore, uid, collection).list()),
+  );
+  return Object.fromEntries(
+    collections.map((collection, index) => [collection, toWireRows(lists[index])]),
+  ) as WireDataset;
+}
 
 /**
  * Collection-agnostic writes for paths the domain routers don't cover: the
@@ -28,14 +44,13 @@ export const dataRouter = router({
   /** One read that answers "has anything changed?", so an idle client never pulls the dataset. */
   syncVersion: protectedProcedure.query(({ ctx }) => readSyncVersion(ctx.firestore, ctx.uid)),
 
-  loadAll: protectedProcedure.query(async ({ ctx }): Promise<WireDataset> => {
-    const collections = collectionNameSchema.options;
-    const lists = await Promise.all(
-      collections.map((collection) => createRepository(ctx.firestore, ctx.uid, collection).list()),
-    );
-    return Object.fromEntries(
-      collections.map((collection, index) => [collection, toWireRows(lists[index])]),
-    ) as WireDataset;
+  loadAll: protectedProcedure.query(({ ctx }) => listDataset(ctx.firestore, ctx.uid)),
+
+  /** `loadAll` plus the counter version it is consistent with, so a booting client saves a round trip. */
+  loadSnapshot: protectedProcedure.query(async ({ ctx }): Promise<SyncedSnapshot> => {
+    // Counter first: every write bumps it after landing, so rows read afterwards are never older.
+    const syncVersion = await readSyncVersion(ctx.firestore, ctx.uid);
+    return { dataset: await listDataset(ctx.firestore, ctx.uid), syncVersion };
   }),
 
   upsert: protectedProcedure

@@ -33,6 +33,9 @@ export type ChannelRegistration = z.infer<typeof channelRegistrySchema>;
 export type WireRow<T> = Omit<T, "fieldUpdatedAt">;
 export type WireDataset = { [C in keyof Dataset]: WireRow<Dataset[C][number]>[] };
 
+/** A dataset with the counter version read before it, so the version can never be ahead of the rows. */
+export type SyncedSnapshot = { dataset: WireDataset; syncVersion: number };
+
 /**
  * What a client-facing mutation reports: the sync-counter value its own write produced, or null
  * when it wrote nothing or could not tell. A server older than this field omits it.

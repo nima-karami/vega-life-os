@@ -34,6 +34,9 @@ function makeClient() {
           calendarEvents: [{ id: "ce1" }],
         })),
       },
+      loadSnapshot: {
+        query: vi.fn(async () => ({ syncVersion: 7, dataset: { tasks: [{ id: "t1" }] } })),
+      },
       upsert: { mutate: vi.fn(async (i: { record: unknown }) => i.record) },
       remove: { mutate: vi.fn(async (i: { id: string }) => i) },
       importCollection: {
@@ -162,6 +165,16 @@ describe("TrpcAdapter", () => {
     expect(data.calendarEvents).toEqual([{ id: "ce1" }]);
     expect(client.data.loadAll.query).toHaveBeenCalledTimes(1);
     expect(client.tasks.list.query).not.toHaveBeenCalled();
+  });
+
+  it("loadSnapshot fetches the dataset and its sync version in one request", async () => {
+    const client = makeClient();
+    const adapter = new TrpcAdapter(client as unknown as TrpcClient);
+    const snapshot = await adapter.loadSnapshot();
+    expect(snapshot.syncVersion).toBe(7);
+    expect(snapshot.dataset.tasks).toEqual([{ id: "t1" }]);
+    expect(client.data.loadSnapshot.query).toHaveBeenCalledTimes(1);
+    expect(client.data.loadAll.query).not.toHaveBeenCalled();
   });
 
   it("propagates a rejected write so the caller can revert", async () => {

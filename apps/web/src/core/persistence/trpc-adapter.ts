@@ -85,6 +85,12 @@ export class TrpcAdapter implements PersistenceAdapter {
     return (await this.client.data.loadAll.query()) as LoadedDataset;
   }
 
+  /** The boot load: the dataset and a counter version that is never ahead of it, in one request. */
+  async loadSnapshot(): Promise<{ dataset: LoadedDataset; syncVersion: number }> {
+    const { dataset, syncVersion } = await this.client.data.loadSnapshot.query();
+    return { dataset: dataset as LoadedDataset, syncVersion };
+  }
+
   async readSyncVersion(): Promise<number> {
     return await this.client.data.syncVersion.query();
   }

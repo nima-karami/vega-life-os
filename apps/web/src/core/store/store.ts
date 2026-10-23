@@ -60,15 +60,18 @@ async function loadAccount(
   // Hold the boot spinner until the profile is hydrated, so the onboarding
   // "what should we call you?" step doesn't flash before the name arrives.
   set({ ready: false });
-  await get().clearLocal(); // abandon the local sandbox — never uploaded
   try {
-    // Read the counter first: recording a version taken *after* the load would swallow a write
-    // that landed mid-load, leaving the client silently stale.
-    cursor.reset(await cloud.readSyncVersion().catch(() => null));
-    const loaded = withEmptyStamps(await cloud.loadAll()); // hydrating → hydrated
+    const [, snapshot, profile] = await Promise.all([
+      get().clearLocal(), // abandon the local sandbox — never uploaded
+      cloud.loadSnapshot(),
+      getCloudProfile(uid).catch(() => null),
+    ]);
+    // The snapshot's version was read before its rows; one taken after the load would swallow a
+    // write that landed mid-load, leaving the client silently stale.
+    cursor.reset(snapshot.syncVersion);
+    const loaded = withEmptyStamps(snapshot.dataset); // hydrating → hydrated
     set({ ...toStatePatch(loaded), loadFailed: false });
     await runDataMigrations(get, set, hasMigrationSources(loaded));
-    const profile = await getCloudProfile(uid).catch(() => null);
     get().hydrateProfile(resolveProfile(profile, auth?.currentUser ?? null));
     get().hydrateGratitudeNudgeAck(profile?.gratitudeNudgeAckedThrough ?? null);
     get().hydrateQuietMode(profile?.quietMode ?? true);

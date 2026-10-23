@@ -22,8 +22,7 @@ vi.mock("@/core/persistence/trpc-adapter", async () => {
   const { createEmptyDataset } = await import("@/core/persistence");
   return {
     TrpcAdapter: class {
-      readSyncVersion = vi.fn(async () => 1);
-      loadAll = vi.fn(async () => createEmptyDataset());
+      loadSnapshot = vi.fn(async () => ({ syncVersion: 1, dataset: createEmptyDataset() }));
     },
   };
 });

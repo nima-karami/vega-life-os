@@ -26,16 +26,21 @@ vi.mock("@/core/persistence", async (orig) => {
 });
 vi.mock("@/core/persistence/trpc-adapter", async () => {
   const { createEmptyDataset } = await import("@/core/persistence");
+  const readDataset = () => ({
+    ...createEmptyDataset(),
+    tasks: server.tasks.map((task) => ({ ...task })),
+  });
   return {
     TrpcAdapter: class {
       constructor(_client: unknown, onSyncVersion: (version: number) => void) {
         server.listeners.push(onSyncVersion);
       }
       readSyncVersion = vi.fn(async () => server.version);
+      loadSnapshot = vi.fn(async () => ({ syncVersion: server.version, dataset: readDataset() }));
       loadAll = vi.fn(async () => {
         server.loadAllCalls += 1;
         if (server.isLoadDown) throw new Error("backend down");
-        return { ...createEmptyDataset(), tasks: server.tasks.map((task) => ({ ...task })) };
+        return readDataset();
       });
     },
   };
