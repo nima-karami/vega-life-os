@@ -29,7 +29,7 @@ export function startIntervalHeartbeat(renew: () => Promise<void>, intervalMs: n
   return () => clearInterval(heartbeat);
 }
 
-const DEFAULT_TIMING: SyncLockTiming = {
+const defaultTiming: SyncLockTiming = {
   leaseMs: LEASE_MS,
   now: () => Date.now(),
   startHeartbeat: startIntervalHeartbeat,
@@ -63,7 +63,7 @@ export async function withSyncLock<T>(
   run: () => Promise<T>,
   timingOverrides: Partial<SyncLockTiming> = {},
 ): Promise<T> {
-  const timing = { ...DEFAULT_TIMING, ...timingOverrides };
+  const timing = { ...defaultTiming, ...timingOverrides };
   const ref = firestore.doc(`users/${uid}/private/syncLock`);
   const holder = randomUUID();
 

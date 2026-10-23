@@ -83,7 +83,7 @@ import { WriteCalendarMissingBanner } from "./WriteCalendarMissingBanner";
 
 const NO_EVENTS: CalendarEvent[] = [];
 
-const findById = <T extends { id: string }>(items: T[], id: string | undefined): T | null =>
+const findByIdOrNull = <T extends { id: string }>(items: T[], id: string | undefined): T | null =>
   id === undefined ? null : (items.find((item) => item.id === id) ?? null);
 
 export function CalendarPage() {
@@ -1389,10 +1389,10 @@ export function CalendarPage() {
         onScheduleTask={(t) => scheduleBacklog(t, (days.find((d) => d.today) ?? days[0]).iso)}
       />
 
-      <TaskDrawer task={findById(tasks, selected?.id)} onClose={closeEditor} />
+      <TaskDrawer task={findByIdOrNull(tasks, selected?.id)} onClose={closeEditor} />
 
       <EventEditor
-        event={findById(calendarEvents, editingEvent?.id)}
+        event={findByIdOrNull(calendarEvents, editingEvent?.id)}
         onClose={() => setEditingEvent(null)}
       />
 
