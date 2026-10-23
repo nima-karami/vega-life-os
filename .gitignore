@@ -39,8 +39,6 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
-# playwright-cli scratch (snapshots/console logs)
-.playwright-cli/
-
-# Autonomous build-loop run state (transient)
-.autoloop/
+# Local agent/tool caches (not source)
+.superpowers/
+.fallow/
