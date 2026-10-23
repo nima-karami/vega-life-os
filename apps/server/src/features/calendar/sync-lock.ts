@@ -13,17 +13,39 @@ export class SyncLockBusyError extends Error {
 
 type Lease = { holder: string; acquiredAt: string; expiresAt: number };
 
+/** Lease timing, injectable so a test can drive the clock and the heartbeat by hand. */
+export interface SyncLockTiming {
+  leaseMs: number;
+  now: () => number;
+  /** Start calling `renew` every `intervalMs`; returns the function that stops it. */
+  startHeartbeat: (renew: () => Promise<void>, intervalMs: number) => () => void;
+}
+
+function startIntervalHeartbeat(renew: () => Promise<void>, intervalMs: number): () => void {
+  const heartbeat = setInterval(() => {
+    void renew().catch(() => undefined);
+  }, intervalMs);
+  heartbeat.unref?.();
+  return () => clearInterval(heartbeat);
+}
+
+const DEFAULT_TIMING: SyncLockTiming = {
+  leaseMs: LEASE_MS,
+  now: () => Date.now(),
+  startHeartbeat: startIntervalHeartbeat,
+};
+
 /** Push `expiresAt` forward while we still hold the lease, so a long run is never seen as expired. */
 async function renewLease(
   firestore: Firestore,
   ref: DocumentReference,
   holder: string,
-  leaseMs: number,
+  timing: SyncLockTiming,
 ): Promise<void> {
   await firestore.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (snap.exists && (snap.data() as Lease).holder === holder) {
-      tx.update(ref, { expiresAt: Date.now() + leaseMs });
+      tx.update(ref, { expiresAt: timing.now() + timing.leaseMs });
     }
   });
 }
@@ -39,36 +61,35 @@ export async function withSyncLock<T>(
   firestore: Firestore,
   uid: string,
   run: () => Promise<T>,
-  leaseMs: number = LEASE_MS,
+  timingOverrides: Partial<SyncLockTiming> = {},
 ): Promise<T> {
+  const timing = { ...DEFAULT_TIMING, ...timingOverrides };
   const ref = firestore.doc(`users/${uid}/private/syncLock`);
   const holder = randomUUID();
 
   const acquired = await firestore.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const lease = snap.exists ? (snap.data() as Lease) : null;
-    if (lease && lease.expiresAt > Date.now()) return false;
+    const now = timing.now();
+    if (lease && lease.expiresAt > now) return false;
     tx.set(ref, {
       holder,
-      acquiredAt: new Date().toISOString(),
-      expiresAt: Date.now() + leaseMs,
+      acquiredAt: new Date(now).toISOString(),
+      expiresAt: now + timing.leaseMs,
     } satisfies Lease);
     return true;
   });
   if (!acquired) throw new SyncLockBusyError(uid);
 
-  const heartbeat = setInterval(
-    () => {
-      void renewLease(firestore, ref, holder, leaseMs).catch(() => undefined);
-    },
-    Math.max(1, Math.floor(leaseMs / 3)),
+  const stopHeartbeat = timing.startHeartbeat(
+    () => renewLease(firestore, ref, holder, timing),
+    Math.max(1, Math.floor(timing.leaseMs / 3)),
   );
-  heartbeat.unref?.();
 
   try {
     return await run();
   } finally {
-    clearInterval(heartbeat);
+    stopHeartbeat();
     await firestore.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (snap.exists && (snap.data() as Lease).holder === holder) tx.delete(ref);
