@@ -78,6 +78,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
       }
     >
       <DetailHeader
+        discFill={goal.status === "done" ? getValueColor(value) : undefined}
         disc={
           <GoalSealDisc
             icon={goal.icon}
