@@ -3,7 +3,7 @@ import { saveBulkRemove, savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { RootState } from "@/core/store/types";
 import type { Task } from "@/features/tasks/model";
-import { planUpcoming, saveTaskChurn } from "@/features/tasks/store";
+import { planUpcoming, saveTaskChurn } from "@/features/tasks/runway";
 import { buildHabit } from "./build-habit";
 import { type Habit, habitLifecycle } from "./model";
 import { closeOpenPause } from "./paused-spans";

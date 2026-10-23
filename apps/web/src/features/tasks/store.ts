@@ -1,18 +1,12 @@
-import { addDays, format } from "date-fns";
+import { format } from "date-fns";
 import { getWeekDays } from "@/core/lib/date";
-import {
-  saveBulkPut,
-  saveBulkRemove,
-  savePut,
-  saveRemove,
-  type WriteRollback,
-} from "@/core/store/persist";
+import { saveBulkPut, savePut, saveRemove, type WriteRollback } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import type { RootState } from "@/core/store/types";
 import { findSlotOnOrBefore } from "@/features/habits/recurrence";
 import { buildTask, normalizeSchedule } from "./build-task";
-import { buildMissingInstances, findStaleInstances, getGeneratingHabits } from "./habit-instances";
+import { buildMissingInstances, getGeneratingHabits } from "./habit-instances";
 import type { Task, TaskStatus } from "./model";
+import { buildInstances, planUpcoming, saveTaskChurn } from "./runway";
 
 /** Local-time stamp for a completion (the app reasons about dates in local time). */
 const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
@@ -53,19 +47,6 @@ interface TaskPatch {
   patch: Partial<Task>;
 }
 
-/** A task the store has already dropped; `prior` is what a rejected delete puts back. */
-interface TaskRemoval {
-  id: string;
-  prior?: Task;
-}
-
-/** What one pass over the habit runway changes, and the task list it leaves. */
-interface UpcomingPlan {
-  stale: Task[];
-  created: Task[];
-  tasks: Task[];
-}
-
 type StoreSet = Parameters<Slice<TasksSlice>>[0];
 
 /**
@@ -76,48 +57,6 @@ type StoreSet = Parameters<Slice<TasksSlice>>[0];
 function applyTaskPatch(task: Task, patch: Partial<Task>): Task {
   const slotDate = task.habitId != null ? (task.slotDate ?? task.date) : task.slotDate;
   return normalizeSchedule({ ...task, slotDate, ...patch, id: task.id });
-}
-
-/** Numbered as if each were added on its own onto the end of the list. */
-function buildInstances(patches: Partial<Task>[], baseOrder: number): Task[] {
-  return patches.map((patch, index) => buildTask(patch, baseOrder + index));
-}
-
-/** Drop stale habit instances and generate the missing ones from today through `daysAhead`. */
-export function planUpcoming(
-  state: Pick<RootState, "tasks" | "habits" | "values">,
-  daysAhead = 14,
-  start = new Date(),
-): UpcomingPlan {
-  const generating = getGeneratingHabits(state.habits, state.values);
-  const today = format(start, "yyyy-MM-dd");
-  const end = format(addDays(start, daysAhead), "yyyy-MM-dd");
-
-  const stale = findStaleInstances(state.tasks, generating, today, end);
-  const drop = new Set(stale.map((t) => t.id));
-  const kept = stale.length ? state.tasks.filter((t) => !drop.has(t.id)) : state.tasks;
-
-  const isoDates = Array.from({ length: Math.max(daysAhead + 1, 0) }, (_, i) =>
-    format(addDays(start, i), "yyyy-MM-dd"),
-  );
-  const created = buildInstances(buildMissingInstances(kept, generating, isoDates), kept.length);
-  return { stale, created, tasks: created.length ? [...kept, ...created] : kept };
-}
-
-/** Persist task deletes and instance inserts the store already shows, one bulk call each. */
-export function saveTaskChurn(removed: TaskRemoval[], created: Task[]): void {
-  if (removed.length)
-    void saveBulkRemove(
-      "tasks",
-      removed.map((removal) => removal.id),
-      removed.map((removal) => removal.prior),
-    );
-  if (created.length)
-    void saveBulkPut(
-      "tasks",
-      created,
-      created.map(() => ({ kind: "insert" as const })),
-    );
 }
 
 /** One store update and one write for every task `patchTask` returns a new row for. */
