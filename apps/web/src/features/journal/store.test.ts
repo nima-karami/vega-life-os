@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import { savePut } from "@/core/store/persist";
 import type { DayEntry } from "./model";
-import { createJournalSlice, type JournalSlice } from "./store";
+import { createJournalSlice } from "./store";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
@@ -10,15 +11,7 @@ vi.mock("@/core/store/persist", () => ({
 
 /** Minimal harness: drive the slice with a local state object. */
 function makeSlice() {
-  let state = {} as JournalSlice;
-  const set = (partial: Partial<JournalSlice> | ((s: JournalSlice) => Partial<JournalSlice>)) => {
-    const patch = typeof partial === "function" ? partial(state) : partial;
-    state = { ...state, ...patch };
-  };
-  const get = () => state;
-  // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
-  state = createJournalSlice(set as any, get as any, {} as any);
-  return { get };
+  return createSliceHarness(createJournalSlice);
 }
 
 describe("journal slice", () => {

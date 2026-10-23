@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import type { Value } from "../model";
-import { createValuesSlice, type ValuesSlice } from "../store";
+import { createValuesSlice } from "../store";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
@@ -24,24 +25,15 @@ interface Task {
   habitId: string | null;
 }
 
-type State = ValuesSlice & { goals: Goal[]; habits: Habit[]; tasks: Task[] };
-
 function makeSlice(
   seed: { values?: Value[]; goals?: Goal[]; habits?: Habit[]; tasks?: Task[] } = {},
 ) {
-  let state = {} as State;
-  const set = (partial: Partial<State> | ((s: State) => Partial<State>)) => {
-    state = { ...state, ...(typeof partial === "function" ? partial(state) : partial) };
-  };
-  const get = () => state;
-  state = {
+  return createSliceHarness(createValuesSlice, {
     goals: seed.goals ?? [],
     habits: seed.habits ?? [],
     tasks: seed.tasks ?? [],
-    ...createValuesSlice(set as never, get as never, {} as never),
-  } as State;
-  if (seed.values) state.values = seed.values;
-  return { get };
+    ...(seed.values ? { values: seed.values } : {}),
+  });
 }
 
 const value = (over: Partial<Value> = {}): Value => ({

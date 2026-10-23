@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { shiftISO, todayISO } from "@/core/lib/date";
+import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import type { Task } from "../model";
-import { createTasksSlice, type TasksSlice } from "../store";
+import { createTasksSlice } from "../store";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
@@ -34,19 +35,11 @@ interface Value {
 /** Minimal harness: drive the slice with a local state object, supplying the
  *  cross-slice `habits`/`values` the scheduling engine reaches for. */
 function makeSlice(seed: { tasks?: Task[]; habits?: Habit[]; values?: Value[] } = {}) {
-  type State = TasksSlice & { habits: Habit[]; values: Value[] };
-  let state = {} as State;
-  const set = (partial: Partial<State> | ((s: State) => Partial<State>)) => {
-    state = { ...state, ...(typeof partial === "function" ? partial(state) : partial) };
-  };
-  const get = () => state;
-  state = {
+  return createSliceHarness(createTasksSlice, {
     habits: seed.habits ?? [],
     values: seed.values ?? [],
-    ...createTasksSlice(set as never, get as never, {} as never),
-  } as State;
-  if (seed.tasks) state.tasks = seed.tasks;
-  return { get };
+    ...(seed.tasks ? { tasks: seed.tasks } : {}),
+  });
 }
 
 const instance = (over: Partial<Task> = {}): Task => ({

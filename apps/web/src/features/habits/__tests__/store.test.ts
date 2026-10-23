@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { shiftISO, todayISO } from "@/core/lib/date";
+import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import type { Task } from "@/features/tasks/model";
-import { createHabitsSlice, type HabitsSlice } from "../store";
+import { createHabitsSlice } from "../store";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),
@@ -18,22 +19,10 @@ function makeSlice(
     values?: { id: string; archivedAt: string | null; restingAt: string | null }[];
   } = {},
 ) {
-  type State = HabitsSlice & {
-    values: { id: string; archivedAt: string | null; restingAt: string | null }[];
-    tasks: Task[];
-  };
-  let state = {} as State;
-  const set = (partial: Partial<State> | ((s: State) => Partial<State>)) => {
-    state = { ...state, ...(typeof partial === "function" ? partial(state) : partial) };
-  };
-  const get = () => state;
-  state = {
+  return createSliceHarness(createHabitsSlice, {
     values: seed.values ?? [{ id: "v1", archivedAt: null, restingAt: null }],
     tasks: seed.tasks ?? [],
-    ...createHabitsSlice(set as never, get as never, {} as never),
-  } as State;
-  if (seed.tasks) state.tasks = seed.tasks;
-  return { get };
+  });
 }
 
 /** The generated runway: h1's instances from today through the 14-day horizon. */
