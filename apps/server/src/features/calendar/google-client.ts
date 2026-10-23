@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { auth, type calendar_v3, calendar as createCalendar } from "@googleapis/calendar";
 import type { GEvent } from "./event-map";
 
 type ListWindow = { backDays: number; fwdDays: number };
@@ -58,10 +58,13 @@ function buildWindowedParams(window: ListWindow): Record<string, unknown> {
 }
 
 /** A real client bound to one access token; the engines get a fresh one per uid from the token store. */
-export function createGoogleClient(accessToken: string): GoogleCalendarClient {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
-  const calendar = google.calendar({ version: "v3", auth });
+export function createGoogleClient(
+  accessToken: string,
+  transportOptions: Omit<calendar_v3.Options, "version" | "auth"> = {},
+): GoogleCalendarClient {
+  const oauthClient = new auth.OAuth2();
+  oauthClient.setCredentials({ access_token: accessToken });
+  const calendar = createCalendar({ ...transportOptions, version: "v3", auth: oauthClient });
 
   return {
     async listEvents(calendarId, options) {
