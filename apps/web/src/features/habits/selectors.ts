@@ -1,4 +1,4 @@
-import { getWeekDays, shiftISO, todayISO } from "@/core/lib/date";
+import { getWeekDaysFor, shiftISO, todayISO } from "@/core/lib/date";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
 import { type Habit, isHabitActive, type PausedSpan } from "./model";
@@ -193,7 +193,7 @@ const mapKindByDate = (slots: SlotDay[]) => new Map(slots.map((slot) => [slot.da
 /** The current Mon–Sun week for the habit card: the same slot walk as consistency, so an
  *  unscheduled, skipped, paused, future or pre-creation day is neutral ("off"), never a miss. */
 export function buildHabitWeek(tasks: Task[], habit: Habit, today = todayISO()): HabitWeekDay[] {
-  const week = getWeekDays(new Date(today), today);
+  const week = getWeekDaysFor(today);
   const kindByDate = mapKindByDate(deriveSlotKinds(tasks, habit, today, week[0].iso, week[6].iso));
   return week.map((d) => {
     const kind = kindByDate.get(d.iso);
