@@ -18,8 +18,7 @@ function makeSlice() {
     state = { ...state, ...patch };
   };
   const get = () => state;
-  // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
-  state = createGoalsSlice(set as any, get as any, {} as any);
+  state = createGoalsSlice(set as never, get as never, {} as never);
   return { get };
 }
 

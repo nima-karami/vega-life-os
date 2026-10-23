@@ -43,8 +43,7 @@ function makeSlice(seed: { tasks?: Task[]; habits?: Habit[]; values?: Value[] } 
   state = {
     habits: seed.habits ?? [],
     values: seed.values ?? [],
-    // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
-    ...createTasksSlice(set as any, get as any, {} as any),
+    ...createTasksSlice(set as never, get as never, {} as never),
   } as State;
   if (seed.tasks) state.tasks = seed.tasks;
   return { get };

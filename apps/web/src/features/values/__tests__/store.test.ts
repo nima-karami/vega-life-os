@@ -38,8 +38,7 @@ function makeSlice(
     goals: seed.goals ?? [],
     habits: seed.habits ?? [],
     tasks: seed.tasks ?? [],
-    // biome-ignore lint/suspicious/noExplicitAny: test harness for a root-store slice
-    ...createValuesSlice(set as any, get as any, {} as any),
+    ...createValuesSlice(set as never, get as never, {} as never),
   } as State;
   if (seed.values) state.values = seed.values;
   return { get };
