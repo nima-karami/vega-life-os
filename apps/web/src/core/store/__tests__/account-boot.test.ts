@@ -28,7 +28,7 @@ const server = vi.hoisted(() => ({
   calls: { clear: 0, snapshot: 0, profile: 0, syncVersion: 0, loadAll: 0 },
 }));
 
-vi.mock("@/core/firebase/app", () => ({ auth: { currentUser: null }, db: {} }));
+vi.mock("@/core/firebase/app", () => ({ auth: { currentUser: null }, firebaseEnabled: true }));
 vi.mock("@/core/firebase/profile", () => ({
   getCloudProfile: vi.fn(() => {
     server.calls.profile += 1;

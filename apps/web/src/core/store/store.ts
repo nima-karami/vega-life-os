@@ -1,6 +1,6 @@
 import { createSyncCursor, DEFAULT_CARD_PREFS } from "@vega/shared";
 import { create } from "zustand";
-import { auth, db } from "@/core/firebase/app";
+import { auth, firebaseEnabled } from "@/core/firebase/app";
 import { getCloudProfile } from "@/core/firebase/profile";
 import type { CollectionName, Dataset, LoadedDataset } from "@/core/persistence";
 import {
@@ -46,7 +46,7 @@ async function loadAccount(
   set: (p: Partial<RootState>) => void,
   get: () => RootState,
 ) {
-  if (!db) {
+  if (!firebaseEnabled) {
     set({ loadFailed: true, ready: true });
     return;
   }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getCloudProfile } = vi.hoisted(() => ({ getCloudProfile: vi.fn() }));
 
-vi.mock("@/core/firebase/app", () => ({ auth: { currentUser: null }, db: {} }));
+vi.mock("@/core/firebase/app", () => ({ auth: { currentUser: null }, firebaseEnabled: true }));
 vi.mock("@/core/firebase/profile", () => ({
   getCloudProfile,
   setCloudProfile: vi.fn(async () => {}),

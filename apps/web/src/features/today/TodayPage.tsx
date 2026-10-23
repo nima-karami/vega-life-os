@@ -13,7 +13,6 @@ import {
   BackfillNudge,
   filterUnacknowledgedDays,
   getMissedGratitudeDays,
-  ReflectionDialog,
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
@@ -23,6 +22,7 @@ import { DoneTasks } from "./components/DoneTasks";
 import { EveningCard } from "./components/EveningCard";
 import { FreshStartCard } from "./components/FreshStartCard";
 import { JournalEntryButton } from "./components/JournalEntryButton";
+import { LazyReflectionDialog } from "./components/LazyReflectionDialog";
 import { RemainingTasks } from "./components/RemainingTasks";
 import { TodayHeader } from "./components/TodayHeader";
 import {
@@ -212,7 +212,8 @@ export function TodayPage() {
 
       <EventEditor event={liveEvent} onClose={() => setEditingEvent(null)} />
 
-      <ReflectionDialog
+      <LazyReflectionDialog
+        shouldPrefetch={showEvening}
         date={today}
         isOpen={isReflecting}
         onClose={() => setIsReflecting(false)}

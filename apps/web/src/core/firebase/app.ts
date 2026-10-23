@@ -1,6 +1,6 @@
 import { type FirebaseApp, initializeApp } from "firebase/app";
 import { type Auth, getAuth } from "firebase/auth";
-import { type Firestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
+import type { Firestore } from "firebase/firestore";
 
 /**
  * Firebase is optional. With no VITE_FIREBASE_* env vars the app runs fully
@@ -17,14 +17,27 @@ export const firebaseEnabled = Boolean(cfg.apiKey && cfg.projectId && cfg.appId)
 
 let app: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
-let dbInstance: Firestore | null = null;
+let firestore: Promise<Firestore> | undefined;
 
 if (firebaseEnabled) {
   app = initializeApp(cfg);
   authInstance = getAuth(app);
-  // Cloud-only for real data: memory cache, no app data persisted to disk.
-  dbInstance = initializeFirestore(app, { localCache: memoryLocalCache() });
 }
 
 export const auth = authInstance;
-export const db = dbInstance;
+
+/** The Firestore SDK is only needed for the profile read, so it loads on first use. */
+export function loadFirestore(): Promise<Firestore | null> {
+  const firebaseApp = app;
+  if (!firebaseApp) return Promise.resolve(null);
+  firestore ??= import("firebase/firestore").then(
+    // Cloud-only for real data: memory cache, no app data persisted to disk.
+    ({ initializeFirestore, memoryLocalCache }) =>
+      initializeFirestore(firebaseApp, { localCache: memoryLocalCache() }),
+    (error: unknown) => {
+      firestore = undefined;
+      throw error;
+    },
+  );
+  return firestore;
+}

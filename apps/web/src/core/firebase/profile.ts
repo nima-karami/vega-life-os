@@ -1,7 +1,6 @@
-import { doc, getDoc } from "firebase/firestore";
 import { isValidISODate } from "@/core/lib/date";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
-import { auth, db } from "./app";
+import { auth, loadFirestore } from "./app";
 
 export interface CloudProfile {
   name?: string;
@@ -28,7 +27,9 @@ const readISODate = (value: unknown) =>
   typeof value === "string" && isValidISODate(value) ? value : null;
 
 export async function getCloudProfile(uid: string): Promise<CloudProfile | null> {
+  const db = await loadFirestore();
   if (!db) return null;
+  const { doc, getDoc } = await import("firebase/firestore");
   const snap = await getDoc(doc(db, "users", uid));
   if (!snap.exists()) return null;
   const d = snap.data() as Record<string, unknown>;

@@ -201,6 +201,24 @@ for (const { name, load, markedBefore } of [
   });
 }
 
+test("offline, the precache starts the app and serves a lazy route's chunk", async ({
+  page,
+  context,
+}) => {
+  await loadUntilControlled(page);
+  await context.setOffline(true);
+
+  await page.goto("/calendar");
+  await expect(page.locator("#root")).not.toBeEmpty({ timeout: 15_000 });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  const isCalendarChunkLoaded = await page.evaluate(() =>
+    performance
+      .getEntriesByType("resource")
+      .some((entry) => /\/CalendarPage-[\w-]+\.js$/.test(entry.name)),
+  );
+  expect(isCalendarChunkLoaded, "the lazy calendar chunk never loaded offline").toBe(true);
+});
+
 test("a visible tab checks for a new service worker, at most once a minute", async ({ page }) => {
   await page.clock.install();
   await page.addInitScript(() => {

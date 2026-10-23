@@ -6,7 +6,7 @@ const { setDelegate, setPersistAuth, sandbox } = vi.hoisted(() => ({
   sandbox: { isDirty: false },
 }));
 
-vi.mock("@/core/firebase/app", () => ({ auth: null, db: null }));
+vi.mock("@/core/firebase/app", () => ({ auth: null, firebaseEnabled: false }));
 vi.mock("@/core/persistence", async (orig) => {
   const actual = await orig<typeof import("@/core/persistence")>();
   return {

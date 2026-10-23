@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const { getDoc } = vi.hoisted(() => ({ getDoc: vi.fn() }));
 
 vi.mock("firebase/firestore", () => ({ doc: vi.fn(), getDoc }));
-vi.mock("./app", () => ({ auth: null, db: {} }));
+vi.mock("./app", () => ({ auth: null, loadFirestore: async () => ({}) }));
 vi.mock("@/core/persistence/trpc-client", () => ({ getTrpcClient: vi.fn() }));
 
 import { getCloudProfile } from "./profile";
