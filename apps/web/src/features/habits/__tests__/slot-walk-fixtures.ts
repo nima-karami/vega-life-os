@@ -90,7 +90,7 @@ function buildInstance(habit: Habit, slot: string, status: TaskStatus, roll: num
 
 /** A deterministic mixed history: done, skip, open, unresolved, never-materialized,
  *  moved-late, legacy no-slotDate and duplicate instances, plus a few future todos. */
-export function buildHabitHistory(habit: Habit, seed: number, options: HistoryOptions = {}) {
+function buildHabitHistory(habit: Habit, seed: number, options: HistoryOptions = {}) {
   const random = createSeededRandom(seed);
   const until = options.until ?? shiftISO(FIXTURE_TODAY, 3);
   const tasks: Task[] = [];

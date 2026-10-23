@@ -1,4 +1,5 @@
 import { Modal, useOverlayState } from "@heroui/react";
+import { useMemo } from "react";
 import { Link } from "react-router";
 import { useStore } from "@/core/store";
 import { Icon, useCompactModal } from "@/core/ui";
@@ -64,8 +65,11 @@ export function HabitReportModal({
 }) {
   const tasks = useStore((s) => s.tasks);
   const responsive = useCompactModal();
-  const timeline = computeHabitTimeline(tasks, habit, windowDays);
-  const lately = computeHabitConsistency(tasks, habit);
+  const timeline = useMemo(
+    () => computeHabitTimeline(tasks, habit, windowDays),
+    [tasks, habit, windowDays],
+  );
+  const lately = useMemo(() => computeHabitConsistency(tasks, habit), [tasks, habit]);
   const state = useOverlayState({
     isOpen,
     onOpenChange: (next) => {
