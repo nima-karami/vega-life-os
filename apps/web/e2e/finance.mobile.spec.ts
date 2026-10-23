@@ -1,5 +1,6 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { format, setDate, subMonths } from "date-fns";
+import { test } from "./fixtures";
 import { enterApp } from "./helpers/app";
 import { clearFinanceStores } from "./helpers/finance";
 

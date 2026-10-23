@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 import { longDeckTitle, openLongDeck } from "./helpers/deck";
 import { failOnPageErrors } from "./helpers/page-errors";
 

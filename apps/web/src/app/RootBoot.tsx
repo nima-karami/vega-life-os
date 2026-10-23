@@ -4,6 +4,8 @@ import { onAuth } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { isProfileIncomplete } from "@/core/store/profile";
 import { ACCENT_VAR_KEYS, getAccentVars } from "@/core/theme/accent";
+import { BootScreen } from "./BootScreen";
+import { dismissBootSplash } from "./boot-splash";
 import { CommandBar } from "./CommandBar";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { GO_SHORTCUTS } from "./keymap";
@@ -36,6 +38,7 @@ const isTypingTarget = (target: EventTarget | null): boolean => {
 /** Top-level provider: boots data, applies vapor theme, owns the global ⌘K layer. */
 export function RootBoot() {
   const ready = useStore((s) => s.ready);
+  const loadFailed = useStore((s) => s.loadFailed);
   const accent = useStore((s) => s.accent);
   const onboarded = useStore((s) => s.onboarded);
   const authUid = useStore((s) => s.authUid);
@@ -179,13 +182,13 @@ export function RootBoot() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleCommand, navigate]);
 
+  useEffect(() => {
+    if (ready) dismissBootSplash({ isUrgent: loadFailed });
+  }, [ready, loadFailed]);
+
   let content: React.ReactNode;
   if (!ready) {
-    content = (
-      <div className="grid h-dvh place-items-center bg-background">
-        <span className="animate-pulse text-sm text-muted">Booting VEGA…</span>
-      </div>
-    );
+    content = <BootScreen />;
   } else if (!authUid && !onboarded) {
     content = <Onboarding />;
   } else if (authUid && isProfileIncomplete(operatorName)) {

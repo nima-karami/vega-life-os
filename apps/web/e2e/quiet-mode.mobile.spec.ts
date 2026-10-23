@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./fixtures";
 import { enterApp, turnQuietModeOff, upcomingMondayNoon } from "./helpers/app";
 
 test("the phone nav drops Analytics while quiet and brings it back when off", async ({ page }) => {

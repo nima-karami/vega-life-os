@@ -1,8 +1,9 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { format, setDate, subDays, subMonths } from "date-fns";
+import { test } from "./fixtures";
 import { enterApp } from "./helpers/app";
 import { clearFinanceStores } from "./helpers/finance";
 

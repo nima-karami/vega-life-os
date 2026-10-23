@@ -16,13 +16,68 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <title>VEGA · Life OS</title>
+    <style>
+      .boot{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:#f7f7f6;font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+      .boot[data-state~="out"]{background:transparent}
+      .boot[data-state="static"]{z-index:auto}
+      .boot-stage{position:relative;display:flex;flex-direction:column;align-items:center;margin-top:-20px}
+      .boot-tile{display:block;opacity:0;animation:boot-tile-in 200ms cubic-bezier(.2,0,0,1) 300ms both}
+      .boot-v{stroke-dasharray:100 110;stroke-dashoffset:105;animation:boot-draw 380ms cubic-bezier(.65,0,.35,1) 340ms both,boot-breathe 2400ms cubic-bezier(.45,0,.55,1) 1400ms infinite}
+      .boot-word{margin:14px -.32em 0 0;font-size:12px;font-weight:600;line-height:16px;letter-spacing:.32em;color:#1a1a19;opacity:0;animation:boot-rise 240ms cubic-bezier(.2,0,0,1) 520ms both}
+      .boot-line{position:absolute;top:100%;left:50%;width:240px;height:20px;margin:12px 0 0 -120px}
+      .boot-tag,.boot-status{position:absolute;inset:0;text-align:center;line-height:20px;white-space:nowrap;opacity:0}
+      .boot-tag{font-size:14px;color:#3f3f3a;animation:boot-rise 280ms cubic-bezier(.2,0,0,1) 640ms both,boot-fade-out 160ms cubic-bezier(.4,0,1,1) 3000ms forwards}
+      .boot-status{font-size:13px;color:#6b7280;animation:boot-fade-in 240ms cubic-bezier(.2,0,0,1) 3160ms both}
+      .boot[data-state~="return"] .boot-tag{animation:boot-return 200ms cubic-bezier(.2,0,0,1) 120ms both}
+      .boot[data-state~="return"] .boot-status{animation:boot-leave 120ms cubic-bezier(.4,0,1,1) both}
+      .boot[data-state~="out"] .boot-stage{animation:boot-mark-out 160ms cubic-bezier(.4,0,1,1) both}
+      .boot[data-state~="out"] .boot-tag,.boot[data-state~="out"] .boot-status{animation-play-state:paused}
+      .boot[data-state="static"] .boot-tile,.boot[data-state="static"] .boot-word,.boot[data-state="static"] .boot-tag{opacity:1;animation:none}
+      .boot[data-state="static"] .boot-v{stroke-dashoffset:0;animation:boot-breathe 2400ms cubic-bezier(.45,0,.55,1) infinite}
+      #root.boot-app-in{animation:boot-app-in 260ms cubic-bezier(.2,0,0,1) 140ms both}
+      #root.boot-app-fast{animation:boot-fade-in 160ms cubic-bezier(.2,0,0,1) both}
+      @media (prefers-reduced-motion:reduce){
+        .boot-tile,.boot-word{animation:boot-fade-in 120ms linear 300ms both}
+        .boot-v,.boot[data-state="static"] .boot-v{stroke-dashoffset:0;animation:none}
+        .boot-tag{animation:boot-fade-in 120ms linear 640ms both,boot-fade-out 120ms linear 3000ms forwards}
+        .boot-status{animation:boot-fade-in 120ms linear 3160ms both}
+        .boot[data-state~="return"] .boot-tag{animation:boot-return 120ms linear 120ms both}
+        .boot[data-state~="return"] .boot-status{animation:boot-leave 120ms linear both}
+        .boot[data-state~="out"] .boot-stage{animation:boot-fade-out 120ms linear both}
+        #root.boot-app-in{animation:boot-fade-in 120ms linear 100ms both}
+        #root.boot-app-fast{animation:boot-fade-in 120ms linear both}
+      }
+      @keyframes boot-tile-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+      @keyframes boot-draw{from{stroke-dashoffset:105}to{stroke-dashoffset:0}}
+      @keyframes boot-breathe{0%,100%{opacity:1}50%{opacity:.45}}
+      @keyframes boot-rise{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+      @keyframes boot-fade-in{from{opacity:0}to{opacity:1}}
+      @keyframes boot-fade-out{from{opacity:1}to{opacity:0}}
+      @keyframes boot-return{from{opacity:var(--boot-tag-from,0)}to{opacity:1}}
+      @keyframes boot-leave{from{opacity:var(--boot-status-from,1)}to{opacity:0}}
+      @keyframes boot-mark-out{from{opacity:1;transform:none}to{opacity:0;transform:scale(.96)}}
+      @keyframes boot-app-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
+    <div id="boot" class="boot" aria-hidden="true">
+      <div class="boot-stage">
+        <svg class="boot-tile" width="64" height="64" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="6" fill="#1b1b16" />
+          <path class="boot-v" pathLength="100" d="M8 9 L16 23 L24 9" fill="none" stroke="#f2efe6" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter" />
+        </svg>
+        <div class="boot-word">VEGA</div>
+        <div class="boot-line">
+          <div class="boot-tag">Live your values</div>
+          <div class="boot-status">Still loading your day…</div>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

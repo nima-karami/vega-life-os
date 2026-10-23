@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "../fixtures";
 
 /** Collects console errors and uncaught errors from the next navigation on. */
 export async function trackPageErrors(page: Page): Promise<string[]> {

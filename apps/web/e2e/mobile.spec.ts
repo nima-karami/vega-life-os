@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 import { skipGratitudePage, turnQuietModeOff } from "./helpers/app";
 import { expectMenuClearOf, expectMenuOpenAndInert } from "./helpers/menu";
 import { trackPageErrors } from "./helpers/page-errors";

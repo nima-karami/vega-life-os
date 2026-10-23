@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 import { DAY_MS, enterApp, upcomingMondayNoon } from "./helpers/app";
 
 // The clock stalls route animations, so these assert on the DOM rather than on paint.

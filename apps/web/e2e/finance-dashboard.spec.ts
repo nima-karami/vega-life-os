@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { format, startOfMonth, subMonths } from "date-fns";
+import { test } from "./fixtures";
 import { enterApp } from "./helpers/app";
 
 /**

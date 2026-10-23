@@ -1,4 +1,5 @@
-import { type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type BrowserContext, expect, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 
 /**
  * PWA install/runtime proof, run against the built preview (port 5179) — the

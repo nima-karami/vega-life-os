@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./fixtures";
 import { openDeck } from "./helpers/deck";
 
 // Authoring is a routed page now: /cards/new writes nothing until the type's required

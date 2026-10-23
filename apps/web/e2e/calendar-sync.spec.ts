@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import {
   addDays,
   differenceInCalendarDays,
@@ -7,6 +7,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import { test } from "./fixtures";
 import { skipGratitudePage } from "./helpers/app";
 
 /**

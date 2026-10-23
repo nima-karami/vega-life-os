@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 import { enterApp, turnQuietModeOff } from "./helpers/app";
 
 function at(iso: string, hour: number): Date {

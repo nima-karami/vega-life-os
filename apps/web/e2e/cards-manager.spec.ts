@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 import { openDeck } from "./helpers/deck";
 import { failOnPageErrors } from "./helpers/page-errors";
 

@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { test } from "./fixtures";
 import { openDeck } from "./helpers/deck";
 import {
   type Box,
@@ -17,8 +18,8 @@ import { cancelTouch, endTouch, longPress, startTouch, swipe, tap } from "./help
  * the gallery at a phone track width — the `.mobile.spec.ts` suffix routes this file
  * into the Pixel 7 project instead.
  *
- * There is no loading skeleton to assert: `RootBoot` holds the whole app on its own
- * "Booting VEGA…" screen until the store is ready, so `CardsResults` only ever mounts
+ * There is no loading skeleton to assert: `RootBoot` holds the whole app behind the
+ * boot splash until the store is ready, so `CardsResults` only ever mounts
  * with the deck already in hand.
  */
 
