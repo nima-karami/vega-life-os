@@ -27,8 +27,19 @@ export function listCardCategories(cards: Card[]): string[] {
   return [...firstSpellingByKey.values()].sort((a, b) => collator.compare(a, b));
 }
 
+// A write replaces the card object rather than mutating it, so the cache can never go stale.
+const haystackByCard = new WeakMap<Card, string>();
+
+export function getCardHaystack(card: Card): string {
+  const cached = haystackByCard.get(card);
+  if (cached !== undefined) return cached;
+  const haystack = CARD_TEXT_SLOTS(card).join(" ").toLowerCase();
+  haystackByCard.set(card, haystack);
+  return haystack;
+}
+
 export function matchesCardQuery(card: Card, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (needle === "") return true;
-  return CARD_TEXT_SLOTS(card).join(" ").toLowerCase().includes(needle);
+  return getCardHaystack(card).includes(needle);
 }

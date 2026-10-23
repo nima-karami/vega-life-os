@@ -1,42 +1,47 @@
-import { CARD_TYPES, type Card } from "@vega/shared";
+import type { Card } from "@vega/shared";
+import { memo, useCallback, useMemo } from "react";
 import { formatShortDate } from "@/core/lib/date";
 import { CheckField, ContextMenu, cx, Icon } from "@/core/ui";
-import { CategoryCombobox } from "../CategoryCombobox";
-import { describeCardLearning } from "../manager-query";
-import { AttributeChip } from "./AttributeChip";
-import {
-  buildCardMenuItems,
-  buildLearningOptions,
-  buildLearningPatch,
-  buildTypeOptions,
-  type CardRowActions,
-} from "./card-row-actions";
-import { FixedListPicker } from "./FixedListPicker";
+import { CardAttributeChip } from "./CardAttributeChip";
+import { buildCardMenuItems, type CardRowActions } from "./card-row-actions";
+import { useCardsVirtualizer } from "./useCardsVirtualizer";
+import { WindowSlot } from "./WindowSlot";
 
 const TAP_CELL = "inline-flex h-11 items-center";
+// A row is two 44px tap lines plus its padding; wrapped chips grow it, and the row is measured.
+const ESTIMATED_ROW_PX = 105;
+const OVERSCAN_ROWS = 8;
 
-function MobileRow({
+const MobileRow = memo(function MobileRow({
   card,
+  index,
   categories,
   isSelected,
-  isFirst,
   actions,
+  measureRef,
 }: {
   card: Card;
+  index: number;
   categories: string[];
   isSelected: boolean;
-  isFirst: boolean;
   actions: CardRowActions;
+  measureRef: (node: HTMLDivElement | null) => void;
 }) {
   const isHidden = card.hiddenAt !== null;
+  const menuItems = useMemo(
+    () => buildCardMenuItems(card, actions, { isSelected }),
+    [card, actions, isSelected],
+  );
 
   return (
-    <ContextMenu items={buildCardMenuItems(card, actions, { isSelected })} longPress>
+    <ContextMenu items={menuItems} longPress>
       <div
+        ref={measureRef}
         data-card-row={card.id}
+        data-index={index}
         className={cx(
           "flex items-start gap-2 px-2.5 py-2",
-          !isFirst && "border-border border-t",
+          index !== 0 && "border-border border-t",
           isHidden && "opacity-50",
         )}
       >
@@ -66,58 +71,28 @@ function MobileRow({
 
           <span className="flex flex-wrap items-center gap-x-2 gap-y-0">
             <span className={TAP_CELL}>
-              <AttributeChip
-                label={CARD_TYPES[card.type].label}
-                ariaLabel={`Type of ${card.title}`}
-              >
-                {(close) => (
-                  <FixedListPicker
-                    options={buildTypeOptions()}
-                    selectedId={card.type}
-                    ariaLabel="Card type"
-                    onSelect={(id) => {
-                      actions.onTypeChange(card, id as Card["type"]);
-                      close();
-                    }}
-                  />
-                )}
-              </AttributeChip>
+              <CardAttributeChip
+                attribute="type"
+                card={card}
+                categories={categories}
+                actions={actions}
+              />
             </span>
             <span className={TAP_CELL}>
-              <AttributeChip
-                label={card.category === "" ? "No category" : card.category}
-                ariaLabel={`Category of ${card.title}`}
-              >
-                {(close) => (
-                  <CategoryCombobox
-                    categories={categories}
-                    selected={card.category}
-                    ariaLabel="Filter categories"
-                    onSelect={(category) => {
-                      actions.onPatch(card.id, { category });
-                      close();
-                    }}
-                  />
-                )}
-              </AttributeChip>
+              <CardAttributeChip
+                attribute="category"
+                card={card}
+                categories={categories}
+                actions={actions}
+              />
             </span>
             <span className={TAP_CELL}>
-              <AttributeChip
-                label={describeCardLearning(card)}
-                ariaLabel={`Learning of ${card.title}`}
-              >
-                {(close) => (
-                  <FixedListPicker
-                    options={buildLearningOptions(card)}
-                    selectedId={card.box === null ? "not-learning" : "learning"}
-                    ariaLabel="Learning state"
-                    onSelect={(id) => {
-                      actions.onPatch(card.id, buildLearningPatch(id === "learning"));
-                      close();
-                    }}
-                  />
-                )}
-              </AttributeChip>
+              <CardAttributeChip
+                attribute="learning"
+                card={card}
+                categories={categories}
+                actions={actions}
+              />
             </span>
           </span>
         </span>
@@ -133,7 +108,7 @@ function MobileRow({
       </div>
     </ContextMenu>
   );
-}
+});
 
 export function CardsMobileList({
   rows,
@@ -146,18 +121,32 @@ export function CardsMobileList({
   selectedIds: Set<string>;
   actions: CardRowActions;
 }) {
+  const estimateSize = useCallback(() => ESTIMATED_ROW_PX, []);
+  const getItemKey = useCallback((index: number) => rows[index].id, [rows]);
+  const { virtualizer, listRef, slots, spacers } = useCardsVirtualizer({
+    listKey: "mobile",
+    rows,
+    estimateSize,
+    overscan: OVERSCAN_ROWS,
+    getItemKey,
+  });
+
   return (
     <div className="mt-3 overflow-hidden rounded-[16px] border border-border bg-surface shadow-soft">
-      {rows.map((card, index) => (
-        <MobileRow
-          key={card.id}
-          card={card}
-          categories={categories}
-          isFirst={index === 0}
-          isSelected={selectedIds.has(card.id)}
-          actions={actions}
-        />
-      ))}
+      <div ref={listRef} style={{ paddingTop: spacers.before, paddingBottom: spacers.after }}>
+        {slots.map(({ key, index, row: card, gapPx }) => (
+          <WindowSlot key={key} gapPx={gapPx}>
+            <MobileRow
+              card={card}
+              index={index}
+              categories={categories}
+              isSelected={selectedIds.has(card.id)}
+              actions={actions}
+              measureRef={virtualizer.measureElement}
+            />
+          </WindowSlot>
+        ))}
+      </div>
     </div>
   );
 }

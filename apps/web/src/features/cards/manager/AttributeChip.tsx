@@ -16,50 +16,86 @@ export interface AttributeChipProps {
 
 /**
  * The cell *is* the control: the chip is the trigger and the picker opens in place, matched
- * to the column's width so a row of pickers doesn't read as a row of different sizes.
+ * to the column's width so a row of pickers doesn't read as a row of different sizes. A row
+ * mounts a plain button; the popover only exists once the chip has been opened.
  */
 export function AttributeChip({ label, ariaLabel, isDisabled, children }: AttributeChipProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLSpanElement>(null);
+  const [hasPopover, setHasPopover] = useState(false);
   const [pickerWidth, setPickerWidth] = useState(MIN_PICKER_PX);
+  const boxRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const isOpeningRef = useRef(false);
 
+  // The chip's own box, not the cell's: the cell's padding would run the panel past the column.
+  const measurePicker = () => {
+    const box = boxRef.current;
+    if (box === null) return;
+    const width = box.getBoundingClientRect().width;
+    setPickerWidth(Math.max(MIN_PICKER_PX, Math.round(width) - POPOVER_PADDING_PX));
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (next) measurePicker();
+    setIsOpen(next);
+  };
+
+  // Focus the real trigger before opening, so the popover hands focus back to it on close.
   useLayoutEffect(() => {
-    // The popover hangs off the chip, so measure the chip's own box — the cell's
-    // border box would run the panel past the column by the cell's padding.
-    const triggerBox = triggerRef.current;
-    if (triggerBox === null) return;
-    const measure = (width: number) =>
-      setPickerWidth(Math.max(MIN_PICKER_PX, Math.round(width) - POPOVER_PADDING_PX));
-    measure(triggerBox.getBoundingClientRect().width);
-    const observer = new ResizeObserver(() => measure(triggerBox.getBoundingClientRect().width));
-    observer.observe(triggerBox);
-    return () => observer.disconnect();
-  }, []);
+    if (!hasPopover || !isOpeningRef.current) return;
+    isOpeningRef.current = false;
+    triggerRef.current?.focus();
+    setIsOpen(true);
+  }, [hasPopover]);
+
+  const chipLabel = <span className="overflow-hidden text-ellipsis">{label}</span>;
 
   if (isDisabled) {
     return (
-      <span ref={triggerRef} className="flex min-w-0 flex-1">
-        <span className={cx(CHIP_CLASS, "opacity-60")}>
-          <span className="overflow-hidden text-ellipsis">{label}</span>
-        </span>
+      <span ref={boxRef} className="flex min-w-0 flex-1">
+        <span className={cx(CHIP_CLASS, "opacity-60")}>{chipLabel}</span>
+      </span>
+    );
+  }
+
+  const chipContent = (
+    <>
+      {chipLabel}
+      <Icon name="chevD" size={11} className="shrink-0 opacity-55" />
+    </>
+  );
+
+  if (!hasPopover) {
+    return (
+      <span ref={boxRef} className="flex min-w-0 flex-1">
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          aria-haspopup="dialog"
+          aria-expanded={false}
+          className={CHIP_CLASS}
+          onClick={() => {
+            measurePicker();
+            isOpeningRef.current = true;
+            setHasPopover(true);
+          }}
+        >
+          {chipContent}
+        </button>
       </span>
     );
   }
 
   return (
-    <span ref={triggerRef} className="flex min-w-0 flex-1">
+    <span ref={boxRef} className="flex min-w-0 flex-1">
       <Popover
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={handleOpenChange}
         align="start"
         triggerLabel={ariaLabel}
+        triggerRef={triggerRef}
         triggerClassName={cx(CHIP_CLASS, isOpen && CHIP_OPEN_CLASS)}
-        triggerContent={
-          <>
-            <span className="overflow-hidden text-ellipsis">{label}</span>
-            <Icon name="chevD" size={11} className="shrink-0 opacity-55" />
-          </>
-        }
+        triggerContent={chipContent}
         className="p-[5px]"
       >
         <div style={{ width: pickerWidth }}>{children(() => setIsOpen(false))}</div>

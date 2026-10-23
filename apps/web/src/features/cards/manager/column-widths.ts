@@ -60,11 +60,16 @@ export const tableWidth = (widths: ColumnWidths): number =>
 
 export function useColumnWidths() {
   const [widths, setWidths] = useState<ColumnWidths>(readStoredColumnWidths);
+  // Ahead of state: a keyboard step resizes and commits in one handler, before any re-render.
   const latestWidths = useRef(widths);
-  latestWidths.current = widths;
 
   const resize = useCallback((column: ResizableColumn, next: number) => {
-    setWidths((current) => ({ ...current, [column]: Math.max(MIN_COLUMN_PX, Math.round(next)) }));
+    const updated = {
+      ...latestWidths.current,
+      [column]: Math.max(MIN_COLUMN_PX, Math.round(next)),
+    };
+    latestWidths.current = updated;
+    setWidths(updated);
   }, []);
 
   const commit = useCallback(() => writeStoredColumnWidths(latestWidths.current), []);

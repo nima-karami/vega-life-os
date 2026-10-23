@@ -1,6 +1,6 @@
 import { useLocation } from "react-router";
 import { useTodayISO } from "@/core/lib/clock";
-import { cx } from "@/core/ui";
+import { APP_SCROLLER_ID, cx } from "@/core/ui";
 import { RouteUndoBar } from "@/features/cards/RouteUndoBar";
 import { GratitudeStep, useGratitudePage } from "@/features/journal";
 import { AccountMenu } from "./AccountMenu";
@@ -52,7 +52,7 @@ export function AppShell() {
             "pb-[calc(env(safe-area-inset-bottom)_+_0.875rem_+_2.75rem)] sm:pb-0",
         )}
       >
-        <main id="main-content" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <main id={APP_SCROLLER_ID} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           {isGratitudeUp ? (
             <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center px-4 py-6 sm:py-10">
               <GratitudeStep date={today} />

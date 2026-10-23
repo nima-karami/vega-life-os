@@ -338,15 +338,18 @@ test("the phone puts Delete at the end of the form and undo still works", async 
   await page.mouse.wheel(0, 600);
   await expect.poll(async () => (await remove.boundingBox())?.y ?? before.y).not.toBe(before.y);
 
+  const deletedId = new URL(page.url()).pathname.split("/").pop() ?? "";
   await remove.click();
   const confirm = page.getByRole("dialog");
   await confirm.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page).toHaveURL(/\/cards$/);
 
   await expect(page.getByRole("status").filter({ hasText: "Card deleted" })).toBeVisible();
-  const rows = page.locator("[data-card-row]");
-  await expect(rows.first()).toBeVisible();
-  const afterDelete = await rows.count();
+  // The list is windowed, so the deck size is read from the stats line, not by counting rows.
+  const stats = page.getByText(/^\d+ cards ·/);
+  await expect(stats).toBeVisible();
+  const afterDelete = Number.parseInt(await stats.innerText(), 10);
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(rows).toHaveCount(afterDelete + 1);
+  await expect(stats).toHaveText(new RegExp(`^${afterDelete + 1} cards ·`));
+  await expect(page.locator(`[data-card-row="${deletedId}"]`)).toBeVisible();
 });
