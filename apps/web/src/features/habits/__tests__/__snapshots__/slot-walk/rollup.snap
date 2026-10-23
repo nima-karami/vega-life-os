@@ -1,0 +1,14 @@
+[
+ "created-today:1/1",
+ "daily-3y:1/5 weekdays:3/5 biweekly:1/1 paused-spans:4/7 legacy-resumed:1/5 mid-window:3/6 open-heavy:3/3",
+ "daily-3y:4/7 weekdays:4/5 biweekly:1/2 monthly:1/1 monthly-last:1/1 paused-spans:4/5 legacy-resumed:2/4 paused-now:2/4 open-heavy:2/2",
+ "daily-3y:1/1 weekdays:1/1 paused-spans:1/2 mid-window:1/2 open-heavy:1/1",
+ "daily-3y:3/5 weekdays:3/5 paused-spans:3/4 legacy-resumed:3/5 paused-now:3/3 mid-window:3/5 open-heavy:4/4",
+ "daily-3y:3/7 weekdays:2/4 paused-spans:4/4 legacy-resumed:4/7 paused-now:4/5 open-heavy:2/3",
+ "daily-3y:1/2 weekdays:1/1 paused-spans:1/1 legacy-resumed:3/3 paused-now:2/2 open-heavy:1/1",
+ "daily-3y:4/7 weekdays:2/3 biweekly:1/2 monthly:0/1 paused-spans:3/3 legacy-resumed:1/6 paused-now:2/5 open-heavy:1/1",
+ "daily-3y:3/6 weekdays:4/5 biweekly:1/1 monthly:1/1 paused-spans:3/6 legacy-resumed:4/7 paused-now:2/5",
+ "daily-3y:6/7",
+ "daily-3y:3/6",
+ "daily-3y:3/6"
+]
