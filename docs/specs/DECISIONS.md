@@ -1,41 +1,33 @@
-# Resolved decisions — minimal redesign
+# Standing decisions
 
-Authoritative answers to the cross-cutting `## Decisions Needed` flags in the slice
-specs. **This ledger overrides any conflicting per-spec default.** Read it before
-implementing any slice.
+Product and engineering calls that hold across every spec. A spec may not quietly override
+one; changing one is a user decision, recorded here with its date. Detail lives in the
+linked section of `CLAUDE.md` or the ADR. Item 1 keeps its number because older specs cite
+"DECISIONS.md #1". The pre-2026-07 ledger is archived at
+[`docs/archive/2026-06-21-minimal-focus-decisions.md`](../archive/2026-06-21-minimal-focus-decisions.md).
 
-Branch: `redesign/minimal-focus`. Build order: slice 0 (foundation) first, then
-slices 1–5 (any order; each depends only on slice 0).
-
-## Product decisions (user-confirmed 2026-06-21)
-
-1. **i18n — OUT OF SCOPE for all slices.** VEGA is a single-user personal app.
-   Keep UI copy inline; do **not** add an i18n library and do **not** introduce a
-   centralized strings module. Ignore the i18n sections/flags in every spec
-   (slice 1 §, slice 3, slice 5 D7, and any other). Accessibility (a11y) is still
-   in scope — only translation-readiness is dropped.
-
-2. **Calendar — Google Calendar sync IS IN SCOPE for v1** (slice 4, overrides
-   D1's "out of scope" default). The new `/calendar` view surfaces the existing
-   two-way `calendar-sync` feature (re-skinned to vapor/HeroUI), reusing its
-   existing logic and Settings/boot wiring. See `04-calendar-view.md` for the
-   folded-in requirements.
-
-3. **Calendar backlog — Collapsible "Unscheduled" rail** (slice 4 D2, confirms
-   default). Undated tasks (`date = null`) appear in a collapsible side rail that
-   can be dragged onto days; they are not shown inside the timed grid.
-
-4. **Foundation contracts — single source of truth.** `valueColor` / `taskLineage`
-   ship as BOTH a pure core function and a thin store-bound hook (slice 0 §3).
-   View slices consume the real exports; no local shims once slice 0 is merged
-   (build order guarantees slice 0 lands first).
-
-## Remaining `[high]` flags (handled by build order / safe defaults — no human input needed)
-
-- View slices depend on slice 0 contracts that don't exist yet → resolved by build
-  order (slice 0 first). No shims needed.
-- Playwright smoke (`e2e/smoke.spec.ts`) asserts the old nav + removed routes →
-  slice 0 rewrites it to assert boot-to-`/today`, omni trigger visible, the 5
-  routes render, and a removed route 404s.
-- Muted-text contrast (`#8A93A0` on white) → slice 0 theme owner ensures small/body
-  text meets WCAG 4.5:1 (use a darker muted token for small text if needed).
+1. **i18n is out of scope** (2026-06-21). Single-user app: copy stays inline, no i18n
+   library, no central strings module.
+2. **Accessibility is a non-goal, but ARIA stays** (2026-08-04). Don't chase a11y defects.
+   Keep ARIA attributes: the e2e suite selects by role, and React Aria emits them anyway.
+3. **Energy UX is removed** (2026-06-22). No task charge/drain, no value gauge. The data
+   fields stay inert and restorable (`CLAUDE.md` §4).
+4. **Data lifecycle** (2026-06-22). Signed out = local Dexie demo sandbox; signed in =
+   cloud only, nothing persisted to disk, no upload on sign-in (`CLAUDE.md` §7).
+5. **Online-first through `apps/server`** (2026-07-13). Signed-in writes go through the
+   tRPC server; `firestore.rules` denies all client writes
+   ([ADR 0003](../adr/2026-07-13-0003-backend-architecture.md)).
+6. **Two page widths**: `max-w-3xl` and `max-w-6xl`, nothing else (`CLAUDE.md` §4).
+7. **Centered modals, not drawers** — except value, goal and habit, which are routed pages
+   (2026-08-07, `CLAUDE.md` §4).
+8. **Entity cards are the value's colour, from an 8-hue palette** (2026-08-07). No neutral
+   hue in the picker; status reads by glyph and weight (`CLAUDE.md` §4).
+9. **Custom pickers only.** No native `<select>`, date/time inputs or `window.confirm`;
+   either-or choices are `Button`/`ButtonGroup` with `aria-pressed`, never `Tabs`.
+10. **Habit cadence has one source of truth**: `Habit.schedule` (2026-06-26).
+11. **Rolling consistency replaces streaks** (2026-10-20). The streak engine was deleted
+    (9ddb355).
+12. **Server ships before hosting**, and a release never renames or removes a field an old
+    client still sends ([`release-process.md`](../release-process.md) §5).
+13. **CI skips work a change cannot affect** (2026-10-22): docs-only and web-only scopes
+    ([`release-process.md`](../release-process.md) §3).

@@ -26,9 +26,11 @@ here, not optional context.
 ## 1. The gate — never weaken it
 
 `npm run verify` is the single gate. It runs, in order:
-`format:check → lint → typecheck → deadcode → test → dupes → scan:secrets → audit:deps → e2e`.
+`format:check → lint → typecheck → deadcode → check:lockfile → check:suppressions → test →
+dupes → scan:secrets → audit:deps → e2e`.
 Enforcement is layered: **pre-commit** runs lint-staged (Biome on staged files) +
-gitleaks only; **pre-push** runs the gate minus e2e; **CI** runs everything, including
+gitleaks only; **pre-push** runs format, lint, typecheck, deadcode, test and dupes (no e2e,
+no lockfile/suppression checks, no audits — `.husky/pre-push`); **CI** runs everything, including
 sharded e2e and SAST — except that, by explicit user decision (2026-10-22), it skips the
 server suite for a web-only change and e2e + the server suite for a docs-only change
 (`docs/release-process.md §3`). Run the full gate locally with `npm run verify`.
@@ -44,12 +46,14 @@ server suite for a web-only change and e2e + the server suite for a docs-only ch
 ## 2. Build / typecheck gotchas
 
 - **`tsc --noEmit` is a no-op here.** This is a TypeScript *project-references*
-  repo (`tsconfig.json` → `tsconfig.app.json` + `tsconfig.node.json`). The real
+  repo (root `tsconfig.json` → `apps/web` (→ `tsconfig.app.json` + `tsconfig.node.json`),
+  `apps/server`, `packages/shared`). The real
   typecheck is **`tsc -b`** (or `tsc -b --force` to bust the stale `.tsbuildinfo`
   cache). `npm run typecheck` / `verify` already use `tsc -b`.
-- **Unit tests are node-only.** `apps/web/vitest.config.ts` is `environment: "node"` with
-  `include: ["src/**/*.test.ts"]` — no DOM, no `renderHook`, and `.tsx` test files are never
-  collected. Anything that has to render is proved in e2e, not in a unit test.
+- **Unit tests are node by default.** `apps/web/vitest.config.ts` is `environment: "node"` with
+  `include: ["src/**/*.test.ts"]` — `.tsx` test files are never collected. A `.test.ts` file
+  that needs a DOM opts in with a first-line `// @vitest-environment jsdom` (a few do: the
+  journal editor, `useStatementImport`). Rendered UI is still proved in e2e, not in a unit test.
 - Dev server runs on **port 5180** (`npm run dev`), not Vite's default 5173.
 - Stack: **React 19 + Vite 8 + Tailwind v4 + HeroUI v3 + react-router 8 + Zustand 5 +
   Dexie/Firestore**. date-fns for all date math. Lucide for icons. dnd-kit for drag-reorder.
@@ -65,14 +69,16 @@ server suite for a web-only change and e2e + the server suite for a docs-only ch
 ## 3. Architecture — feature slices
 
 - **Vertical feature slices, not layer-based folders.** Code lives under
-  `src/features/<feature>/` (component + logic + `__tests__/` together). Cross-cutting
-  primitives live in `src/core/` (`agent`, `auth`, `firebase`, `lib`, `persistence`,
-  `store`, `theme`, `ui`). The app shell is `src/app/`.
+  `apps/web/src/features/<feature>/` (component + logic + `__tests__/` together).
+  Cross-cutting primitives live in `apps/web/src/core/` (`agent`, `auth`, `firebase`, `lib`,
+  `persistence`, `store`, `theme`, `ui`). The app shell is `apps/web/src/app/`.
 - **Zustand root store = composed feature slices.** `Slice<T> = StateCreator<RootState,…>`
   so `get()` returns the full RootState — slices may reach across (e.g. the tasks
   slice reads `get().habits`). Persist through `@/core/store/persist`
   (`savePut`/`saveRemove`), never write storage directly from a component.
 - Keep files focused and small. When a file grows unwieldy, split by responsibility.
+- The server mirrors this: `apps/server/src/features/<feature>/` and `apps/server/src/core/`.
+  Schemas shared by both sides live in `packages/shared`.
 
 ## 4. UI & layout conventions (strict)
 
@@ -129,6 +135,9 @@ All docs live under `docs/`. **Never create a `superpowers/` folder.**
 | `docs/plans/` | implementation plans | `YYYY-MM-DD-<slug>.md` |
 | `docs/adr/` | architecture decision records | `YYYY-MM-DD-NNNN-<slug>.md` |
 | `docs/runs/` | autonomous-run reports | `YYYY-MM-DD-<name>/` |
+| `docs/archive/` | frozen docs, kept for history | `YYYY-MM-DD-<slug>.md` |
+
+The index is [`docs/README.md`](docs/README.md).
 
 - **Every spec and plan filename MUST start with an ISO date prefix** (`YYYY-MM-DD-`).
   A spec with no date in its name is a defect — rename it with `git mv`. (Exception:
@@ -139,28 +148,25 @@ All docs live under `docs/`. **Never create a `superpowers/` folder.**
 
 ## 7. Connected-platform features are dormant by design
 
-Firebase sync, the Anthropic-powered ⌘K agent, and Google Calendar sync are built
-but **gated** behind env vars / stored keys (`firebaseEnabled` / a stored Anthropic
-key / `gcalConfigured`). With no config the app runs as a pure local-first Dexie app.
-**Don't "fix" the gated-off paths thinking they're broken** — they're waiting on
-secrets. Roadmap + plans live in `.claude/docs/` (git-ignored on purpose).
+Firebase sign-in and sync, the Anthropic-powered ⌘K agent, and Google Calendar sync are
+**gated**: on the `VITE_FIREBASE_*` env vars (`firebaseEnabled`), a stored Anthropic key,
+and the user connecting a Google account in Settings. With no config the app runs as a
+pure local-first Dexie app. **Don't "fix" the gated-off paths thinking they're broken** —
+they're waiting on config. Plans are tracked in `docs/plans/`; `.claude/docs/` (git-ignored)
+holds only the old connected-platform roadmap.
 
 **Data lifecycle (2026-06-22):** signed-out = local demo sandbox; signed-in = strictly
-cloud-only (no app data persisted to disk); no upload-on-sign-in. The signed-in paths
-are PENDING manual smoke — treat them as unverified.
+cloud-only (no app data persisted to disk); no upload-on-sign-in.
 
-**Architecture pivot — BUILT on `main`, NOT deployed (2026-07-13):** the repo is now an
-**npm-workspaces monorepo** — `apps/web` (the SPA, moved from `src/`), `apps/server`
-(Node 24 · Hono · tRPC · Firebase Admin), `packages/shared` (Zod schemas). The signed-in
-app is **online-first through `apps/server`**: the client writes via `TrpcAdapter` (behind
-the existing `RoutingAdapter` seam), direct client→Firestore writes are gone, and
-`firestore.rules` is locked to `write: if false`. Google Calendar sync is server-side
-(OAuth + encrypted refresh token + reconcile). All 8 build slices are on `main` and green
-(server 130 / web 547 / shared 36 / e2e 89, tested vs the Firestore emulator). **The
-signed-out demo still runs standalone on local Dexie.** NOT yet done (needs the user):
-the server is **not deployed** (Cloud Run / Secret Manager / Scheduler / WIF need their GCP
-project) and **live Google OAuth** needs their client id+secret — so a signed-in session
-needs the server running + configured. **Running server tests needs JDK 21 on `PATH`, not
+**Monorepo, online-first (2026-07-13, live):** npm workspaces — `apps/web` (the SPA),
+`apps/server` (Node 24 · Hono · tRPC · Firebase Admin, deployed to Cloud Run as
+`vega-server`), `packages/shared` (Zod schemas). The signed-in app is **online-first
+through `apps/server`**: the client writes via `TrpcAdapter` (behind the `RoutingAdapter`
+seam), there are no direct client→Firestore writes, and `firestore.rules` is locked to
+`write: if false`. Google Calendar sync is server-side (OAuth + encrypted refresh token +
+reconcile; secrets in Secret Manager). **The signed-out demo runs standalone on local
+Dexie.** A local signed-in session needs the server running and configured
+(`apps/server/.env.example`). **Running server tests needs JDK 21 on `PATH`, not
 just `JAVA_HOME`** — the tests boot the Firestore emulator through firebase-tools, and if
 `java` resolves to an older JRE the whole server suite fails misleadingly (every calendar
 test at once, with errors that look like product bugs). Prepend it for the session:
@@ -178,14 +184,19 @@ SDK types lag the runtime payload, hence the deliberate cast in `anthropic-agent
 
 ## 9. Workflow & hygiene
 
-- All tooling is scoped to `src/`. `.env.local` is a gitignored Firebase secret —
-  never read it into output or commit it.
+- Tooling covers the whole monorepo (`apps/*`, `packages/*`, `scripts/`). `.env.local` is
+  a gitignored Firebase secret — never read it into output or commit it.
 - **Commit/push only when the user asks.** Don't auto-commit or auto-push.
 - Before any commit, run `git status` and confirm **only intended files** are staged.
 - Commit message bodies end with a `Co-Authored-By:` trailer naming **the model that
-  actually did the work** — don't copy a stale model name from an older commit. As of
-  2026-07-28 that is:
-  `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
+  actually did the work** — don't copy a stale model name from an older commit:
+  `Co-Authored-By: Claude <model name> <noreply@anthropic.com>`
+- Commit types: `feat` · `fix` · `perf` · `refactor` · `test` · `docs` · `build` · `ci` ·
+  `chore` · `revert` (format in `docs/release-process.md` §2).
+- **Releases & versioning:** ship with `npm run release` (target-aware: deploys only what
+  changed since live, server first). A release is a CalVer git tag `vYYYY.M.N` plus a GitHub
+  Release; `CHANGELOG.md` is regenerated from them by `npm run changelog`. **Never bump
+  `package.json` versions** — the tag is the version. Details: `docs/release-process.md`.
 - **Scratch/throwaway artifacts** (screenshots, scratch scripts, logs, `.har`) go to
   the OS temp dir (`%TEMP%\claude-scratch\`), **never** the repo. Pass absolute temp
   paths to Playwright screenshots — a bare filename lands in the repo root. Clean up
