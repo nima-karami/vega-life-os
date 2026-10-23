@@ -338,6 +338,7 @@ test("the phone puts Delete at the end of the form and undo still works", async 
   await page.mouse.wheel(0, 600);
   await expect.poll(async () => (await remove.boundingBox())?.y ?? before.y).not.toBe(before.y);
 
+  const deletedId = new URL(page.url()).pathname.split("/").pop() ?? "";
   await remove.click();
   const confirm = page.getByRole("dialog");
   await confirm.getByRole("button", { name: "Delete", exact: true }).click();
@@ -350,4 +351,5 @@ test("the phone puts Delete at the end of the form and undo still works", async 
   const afterDelete = Number.parseInt(await stats.innerText(), 10);
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(stats).toHaveText(new RegExp(`^${afterDelete + 1} cards ·`));
+  await expect(page.locator(`[data-card-row="${deletedId}"]`)).toBeVisible();
 });

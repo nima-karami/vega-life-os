@@ -153,6 +153,8 @@ test("Back from a card lands where the list was left", async ({ page }) => {
 
   await row.getByRole("button", { name: title, exact: true }).click();
   await expect(page).toHaveURL(/\/cards\/c_deck_460$/);
+  // The list must really unmount, or Back would only cancel its exit animation.
+  await expect(rows(page)).toHaveCount(0);
   await page.goBack();
   await expect(page).toHaveURL(/\/cards$/);
 
@@ -173,6 +175,20 @@ test("the gallery windows a long deck by rows and reaches its last tile", async 
   const lastTitle = longDeckTitle(LONG_DECK - 1);
   await expect(page.getByLabel(new RegExp(`^${lastTitle}, face$`))).toBeInViewport();
   expect(await tiles.count()).toBeLessThan(WINDOW_CEILING);
+});
+
+test("a turned gallery tile is still turned after it scrolls out and back", async ({ page }) => {
+  await openLongDeck(page, LONG_DECK);
+  await page.getByRole("button", { name: "Gallery view" }).click();
+
+  const firstTitle = longDeckTitle(0);
+  await page.getByRole("button", { name: `${firstTitle}, face` }).click();
+  await expect(page.getByRole("button", { name: `${firstTitle}, reveal` })).toBeVisible();
+
+  await scrollMainTo(page, "bottom");
+  await expect(page.getByLabel(new RegExp(`^${firstTitle}, `))).toHaveCount(0);
+  await scrollMainTo(page, 0);
+  await expect(page.getByRole("button", { name: `${firstTitle}, reveal` })).toBeVisible();
 });
 
 test("an empty search over a long deck reads as filtered, and clearing it restores the window", async ({

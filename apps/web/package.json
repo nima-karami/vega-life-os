@@ -22,7 +22,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@heroui/react": "^3.2.1",
     "@heroui/styles": "^3.2.1",
-    "@tanstack/react-virtual": "3.14.13",
+    "@tanstack/react-virtual": "^3.14.13",
     "@tiptap/core": "^3.27.1",
     "@tiptap/extension-task-item": "^3.27.1",
     "@tiptap/extension-task-list": "^3.27.1",

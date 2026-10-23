@@ -10,9 +10,7 @@ import { WindowSlot } from "./WindowSlot";
 const GAP_PX = 16;
 const OVERSCAN_ROWS = 1;
 
-// Every track is 1fr and the resolved template has the gaps taken out, so one read of a row's
-// first track sizes every tile — not an observer per tile. A row still laid out for another
-// column count falls back to dividing the list.
+// One read of the resolved first track sizes every tile, not an observer per tile.
 function readTrackWidth(list: HTMLElement, columns: number): number {
   const row = list.querySelector<HTMLElement>("[data-index]");
   const tracks = row === null ? [] : window.getComputedStyle(row).gridTemplateColumns.split(" ");
@@ -33,13 +31,26 @@ export function CardsGallery({
   const columns = deriveGalleryColumns({ isCompact: useCompact(), isBelowLarge: useBelowLarge() });
   const tileRows = useMemo(() => chunkIntoRows(rows, columns), [rows, columns]);
   const [tileWidthPx, setTileWidthPx] = useState(0);
+  // Held here, not in the tile, so a turned card stays turned when it scrolls out and back.
+  const [turnedIds, setTurnedIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  const toggleTurn = useCallback((id: string) => {
+    setTurnedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const estimateSize = useCallback(() => estimateGalleryRowPx(tileWidthPx, GAP_PX), [tileWidthPx]);
+  const getItemKey = useCallback((index: number) => `${columns}:${index}`, [columns]);
   const { virtualizer, listRef, slots, spacers } = useCardsVirtualizer({
     listKey: "gallery",
     rows: tileRows,
     estimateSize,
     overscan: OVERSCAN_ROWS,
+    getItemKey,
   });
 
   useEffect(() => {
@@ -49,6 +60,10 @@ export function CardsGallery({
     observer.observe(grid);
     return () => observer.disconnect();
   }, [listRef, columns]);
+
+  useEffect(() => {
+    if (tileWidthPx > 0) virtualizer.measure();
+  }, [virtualizer, tileWidthPx]);
 
   return (
     <div
@@ -71,6 +86,8 @@ export function CardsGallery({
                 isSelected={selectedIds.has(card.id)}
                 actions={actions}
                 tileWidthPx={tileWidthPx}
+                isTurned={turnedIds.has(card.id)}
+                onToggleTurn={toggleTurn}
               />
             ))}
           </div>

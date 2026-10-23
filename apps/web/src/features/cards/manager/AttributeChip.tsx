@@ -5,8 +5,6 @@ import { CHIP_CLASS, CHIP_OPEN_CLASS } from "./cell-styles";
 // The popover pads itself by 5px a side; subtract it so the panel ends where the cell does.
 const POPOVER_PADDING_PX = 10;
 const MIN_PICKER_PX = 132;
-// HeroUI's own trigger class, so the stand-in chip is the same box before the popover exists.
-const TRIGGER_CLASS = "popover__trigger";
 
 export interface AttributeChipProps {
   label: string;
@@ -19,17 +17,17 @@ export interface AttributeChipProps {
 /**
  * The cell *is* the control: the chip is the trigger and the picker opens in place, matched
  * to the column's width so a row of pickers doesn't read as a row of different sizes. A row
- * mounts a plain button; the popover machinery only exists once the chip has been opened.
+ * mounts a plain button; the popover only exists once the chip has been opened.
  */
 export function AttributeChip({ label, ariaLabel, isDisabled, children }: AttributeChipProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasPopover, setHasPopover] = useState(false);
   const [pickerWidth, setPickerWidth] = useState(MIN_PICKER_PX);
   const boxRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const isOpeningRef = useRef(false);
 
-  // The popover hangs off the chip, so measure the chip's own box — the cell's
-  // border box would run the panel past the column by the cell's padding.
+  // The chip's own box, not the cell's: the cell's padding would run the panel past the column.
   const measurePicker = () => {
     const box = boxRef.current;
     if (box === null) return;
@@ -46,7 +44,7 @@ export function AttributeChip({ label, ariaLabel, isDisabled, children }: Attrib
   useLayoutEffect(() => {
     if (!hasPopover || !isOpeningRef.current) return;
     isOpeningRef.current = false;
-    boxRef.current?.querySelector<HTMLElement>(`.${TRIGGER_CLASS}`)?.focus();
+    triggerRef.current?.focus();
     setIsOpen(true);
   }, [hasPopover]);
 
@@ -75,7 +73,7 @@ export function AttributeChip({ label, ariaLabel, isDisabled, children }: Attrib
           aria-label={ariaLabel}
           aria-haspopup="dialog"
           aria-expanded={false}
-          className={cx(TRIGGER_CLASS, CHIP_CLASS)}
+          className={CHIP_CLASS}
           onClick={() => {
             measurePicker();
             isOpeningRef.current = true;
@@ -95,6 +93,7 @@ export function AttributeChip({ label, ariaLabel, isDisabled, children }: Attrib
         onOpenChange={handleOpenChange}
         align="start"
         triggerLabel={ariaLabel}
+        triggerRef={triggerRef}
         triggerClassName={cx(CHIP_CLASS, isOpen && CHIP_OPEN_CLASS)}
         triggerContent={chipContent}
         className="p-[5px]"

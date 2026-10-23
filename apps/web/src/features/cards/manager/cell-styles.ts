@@ -3,7 +3,7 @@ export const CELL_CLASS =
 export const CENTER_CELL_CLASS = `${CELL_CLASS} justify-center`;
 
 export const CHIP_CLASS =
-  "inline-flex h-6 max-w-full items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[10px] border border-transparent bg-surface-secondary px-2 text-foreground/80 text-xs outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "inline-flex h-6 max-w-full cursor-(--cursor-interactive) items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[10px] border border-transparent bg-surface-secondary px-2 text-foreground/80 text-xs outline-none transition-[color,background-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none";
 export const CHIP_OPEN_CLASS = "border-accent bg-surface text-foreground";
 
 // A picker fills its popover, so a trigger with no cell to match sets the width here.
