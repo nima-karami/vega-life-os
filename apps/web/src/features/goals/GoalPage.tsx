@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuietMode, useStore } from "@/core/store";
-import { ConfirmDialog, CreateNameDialog, Icon, IconField, SegmentButton, Select } from "@/core/ui";
+import { ConfirmDialog, CreateNameDialog, Icon, SegmentButton, Select } from "@/core/ui";
+import { getValueColor } from "@/features/values";
 import { TitleField } from "@/features/values/components/DetailFields";
 import {
   DetailAction,
@@ -16,9 +17,11 @@ import {
 import { FractionSlider } from "@/features/values/components/editor-bits";
 import { HabitSection } from "@/features/values/components/HabitSection";
 import { buildValueOptions } from "@/features/values/selectors";
+import { GoalSealDisc } from "./components/GoalSealDisc";
+import { GoalStatusChip } from "./components/GoalStatusChip";
 import { GoalSteps } from "./components/GoalSteps";
 import { GoalTimeframeField } from "./components/GoalTimeframeField";
-import { GOAL_STATUS_ICON, GOAL_STATUS_LABEL, GOAL_STATUSES, type Goal } from "./model";
+import { GOAL_STATUS_LABEL, GOAL_STATUSES, type Goal, type GoalStatus } from "./model";
 import {
   buildStatusChangePatch,
   canActivate,
@@ -28,6 +31,7 @@ import {
   isGoalProgressDerived,
 } from "./presentation";
 import { formatPeriodLabel } from "./timeframe";
+import { useGoalSeal } from "./useGoalSeal";
 
 export function GoalPage() {
   const { goalId } = useParams();
@@ -61,6 +65,11 @@ function GoalDetail({ goal }: { goal: Goal }) {
   const isQuiet = useQuietMode();
   const pace = isQuiet ? null : getGoalPaceBadge(goal);
   const canStart = canActivate(goal);
+  const seal = useGoalSeal(goal.status);
+  const changeStatus = (status: GoalStatus) => {
+    seal.playStatusChange(status);
+    update(goal.id, buildStatusChangePatch(status));
+  };
 
   return (
     <DetailPage
@@ -70,12 +79,12 @@ function GoalDetail({ goal }: { goal: Goal }) {
     >
       <DetailHeader
         disc={
-          <IconField
-            value={goal.icon}
-            label="Goal icon"
-            onSelect={(icon) => update(goal.id, { icon })}
-            triggerStyle={{ width: 44, height: 44 }}
-            iconSize={20}
+          <GoalSealDisc
+            icon={goal.icon}
+            color={getValueColor(value)}
+            isSealed={goal.status === "done"}
+            anim={seal.motion?.anim ?? null}
+            onSelectIcon={(icon) => update(goal.id, { icon })}
           />
         }
         title={
@@ -88,10 +97,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
         }
         meta={
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-[9px] py-[3px] text-[12px] text-accent">
-              <Icon name={GOAL_STATUS_ICON[goal.status]} size={11} />
-              {GOAL_STATUS_LABEL[goal.status]}
-            </span>
+            <GoalStatusChip status={goal.status} motion={seal.motion} />
             <span className="inline-flex items-center gap-1 text-xs text-muted">
               <Icon name="calendar" size={11} />
               {formatPeriodLabel(goal.start, goal.end)}
@@ -121,7 +127,7 @@ function GoalDetail({ goal }: { goal: Goal }) {
                 key={status}
                 isSelected={goal.status === status}
                 isDisabled={!canStart && (status === "active" || status === "paused")}
-                onClick={() => update(goal.id, buildStatusChangePatch(status))}
+                onClick={() => changeStatus(status)}
               >
                 {GOAL_STATUS_LABEL[status]}
               </SegmentButton>
