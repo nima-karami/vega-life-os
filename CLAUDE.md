@@ -30,10 +30,11 @@ here, not optional context.
 dupes → scan:secrets → audit:deps → e2e`.
 Enforcement is layered: **pre-commit** runs lint-staged (Biome on staged files) +
 gitleaks only; **pre-push** runs format, lint, typecheck, deadcode, test and dupes (no e2e,
-no lockfile/suppression checks, no audits — `.husky/pre-push`); **CI** runs everything, including
-sharded e2e and SAST — except that, by explicit user decision (2026-10-22), it skips the
-server suite for a web-only change and e2e + the server suite for a docs-only change
-(`docs/release-process.md §3`). Run the full gate locally with `npm run verify`.
+no lockfile/suppression checks, no audits — `.husky/pre-push`); **CI on push** runs everything
+except e2e, plus SAST, in one `checks` job — skipping the server suite for a web- or docs-only
+change (user decision 2026-10-22); **e2e runs at release**, in `release.yml` before any deploy
+and locally in the laptop release guard (user decision 2026-10-23, to save Actions minutes;
+`docs/release-process.md §3`). Run the full gate locally with `npm run verify`.
 
 - **Never disable, downgrade, narrow, baseline-away, or mock-out a check to make
   progress.** Fix the code so the check passes. "It's only local/dev" is not a

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-// Refuses a release from a tree that is not exactly the pushed, CI-checked origin/main.
-import { execFileSync } from "node:child_process";
+// Refuses a release from a tree that is not exactly the pushed, CI-checked origin/main, then runs
+// locally what CI did not prove for it: e2e (CI runs it only inside release.yml), or the whole
+// gate when CI is red and --allow-red-ci was passed.
+import { execFileSync, spawnSync } from "node:child_process";
 import { isGreenCheckRun, isReleaseCheckRun } from "./lib/check-runs.mjs";
+
+// Set by `npm run release` for its deploy steps, so one release runs the local gate once.
+const LOCAL_GATE_ENV = "RELEASE_LOCAL_GATE_SHA";
 
 const allowRedCi =
   process.argv.includes("--allow-red-ci") || process.env.RELEASE_ALLOW_RED_CI === "1";
@@ -63,20 +68,36 @@ function findCiProblems(sha) {
     .map((check) => `${check.name}: ${check.status}/${check.conclusion ?? "pending"}`);
 }
 
-function assertCiGreen(sha) {
+function checkCiGreen(sha) {
   const problems = findCiProblems(sha);
   if (problems.length === 0) {
     console.log(`release-guard: CI green for ${sha.slice(0, 7)}`);
-    return;
+    return true;
   }
   const detail = problems.map((problem) => `  - ${problem}`).join("\n");
   if (!allowRedCi) refuse(`CI is not green for ${sha.slice(0, 7)}:\n${detail}`);
   console.warn(
-    `\n${"!".repeat(72)}\nrelease-guard: WARNING — releasing with RED CI (--allow-red-ci)\n${detail}\n${"!".repeat(72)}\n`,
+    `\n${"!".repeat(72)}\nrelease-guard: WARNING — CI is RED (--allow-red-ci); running the full gate locally\n${detail}\n${"!".repeat(72)}\n`,
   );
+  return false;
+}
+
+function runLocalGate(sha, isCiGreen) {
+  if (process.env[LOCAL_GATE_ENV] === sha) {
+    console.log(`release-guard: local gate already passed for ${sha.slice(0, 7)} in this release`);
+    return;
+  }
+  const script = isCiGreen ? "e2e" : "verify";
+  console.log(`release-guard: npm run ${script} for ${sha.slice(0, 7)}`);
+  const gate = spawnSync("npm", ["run", script], {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+  if (gate.status !== 0) refuse(`npm run ${script} exited ${gate.status}`);
 }
 
 assertCleanTree();
 const releaseSha = assertHeadIsOriginMain();
-assertCiGreen(releaseSha);
+runLocalGate(releaseSha, checkCiGreen(releaseSha));
+assertCleanTree();
 console.log(`release-guard: OK — releasing ${releaseSha.slice(0, 7)}`);

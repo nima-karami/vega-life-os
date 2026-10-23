@@ -1,0 +1,59 @@
+name: e2e
+
+# The full Playwright suite: the release gate (called by release.yml before any deploy), or a
+# manual run on any ref. Not run on push — user decision 2026-10-23, docs/release-process.md §3.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # chromium + mobile-chromium split over 3 shards; shard 1 also runs the PWA project, so only
+  # one shard pays for its production build.
+  e2e:
+    name: e2e (${{ matrix.shardIndex }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Playwright (chromium, mobile-chromium)
+        working-directory: apps/web
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/3
+      - name: Playwright (pwa)
+        if: matrix.shardIndex == 1
+        working-directory: apps/web
+        run: npx playwright test --project=pwa
+      - if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-shard-${{ matrix.shardIndex }}of3
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

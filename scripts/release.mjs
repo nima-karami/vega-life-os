@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Deploys only the targets whose inputs changed since what is live: server first, then hosting.
+// The release guard (which also runs e2e locally) runs once, after the plan finds work.
 // --dry-run prints the plan; --plan-json prints it as JSON for CI; --only=server|hosting|both overrides.
 // A successful deploy is tagged with the next CalVer version and published as a GitHub Release;
 // --no-record deploys unversioned. A sha that already carries a version re-deploys as that version.
@@ -127,7 +128,7 @@ function printPlan({ headSha, version, record, targets }) {
   console.log("");
 }
 
-function runDeploy(target, { allowRedCi, version }) {
+function runDeploy(target, { allowRedCi, version, gatedSha }) {
   const script = DEPLOY_SCRIPTS[target];
   const passthrough = target === "server" && allowRedCi ? ["--", "--allow-red-ci"] : [];
   console.log(`release: npm run ${script}`);
@@ -137,6 +138,7 @@ function runDeploy(target, { allowRedCi, version }) {
     shell: process.platform === "win32",
     env: {
       ...process.env,
+      RELEASE_LOCAL_GATE_SHA: gatedSha,
       ...(version ? { VEGA_VERSION: version } : {}),
       ...(allowRedCi ? { RELEASE_ALLOW_RED_CI: "1" } : {}),
     },
@@ -236,9 +238,6 @@ async function recordRelease({ headSha, version, targets }) {
 }
 
 const options = parseOptions(process.argv.slice(2));
-const isPlanOnly = options.isDryRun || options.isPlanJson;
-if (!isPlanOnly) runReleaseGuard(options.allowRedCi);
-
 const plan = await buildReleasePlan(options.only);
 if (options.isPlanJson) {
   console.log(JSON.stringify(plan, null, 2));
@@ -265,8 +264,13 @@ if (options.isDryRun) {
   console.log(`release: dry run — would deploy ${deployTargets.join(", then ")} ${recordNote}`);
   process.exit(0);
 }
+// After the plan, so a release with nothing to ship never pays for the local e2e run.
+runReleaseGuard(options.allowRedCi);
+const gatedSha = git(["rev-parse", "HEAD"]);
 refuseWhileCiReleaseRuns();
 if (shouldRecord) refuseWithoutGhAuth();
-for (const target of deployTargets) runDeploy(target, { allowRedCi: options.allowRedCi, version });
+for (const target of deployTargets) {
+  runDeploy(target, { allowRedCi: options.allowRedCi, version, gatedSha });
+}
 if (shouldRecord) await recordRelease(plan);
 console.log(`release: OK — ${plan.headSha} deployed to ${deployTargets.join(" + ")} ${recordNote}`);

@@ -1,19 +1,17 @@
-// verify.yml's change detection may skip only these jobs; a skipped matrix job may carry its matrix in the name.
-const NARROWABLE_JOBS = ["unit-server", "e2e"];
-
-function isNarrowableJob(checkName) {
-  return NARROWABLE_JOBS.some((job) => checkName === job || checkName.startsWith(`${job} (`));
-}
-
-// release.yml's own jobs land on the same sha; the guard judges verify.yml only.
-const RELEASE_JOBS = ["gate", "plan", "server", "hosting", "rollback"];
+// release.yml's jobs (and the e2e.yml shards it calls, or a manual e2e run) land on the same
+// sha; the guard judges verify.yml only. A called or matrix job carries a suffix in its name.
+const RELEASE_JOBS = ["gate", "plan", "e2e", "server", "hosting", "record", "rollback"];
 
 export function isReleaseCheckRun(checkRun) {
-  return RELEASE_JOBS.includes(checkRun.name);
+  return RELEASE_JOBS.some(
+    (job) =>
+      checkRun.name === job ||
+      checkRun.name.startsWith(`${job} (`) ||
+      checkRun.name.startsWith(`${job} / `),
+  );
 }
 
+// verify.yml narrows by skipping steps inside its one job, never a whole job, so only success is green.
 export function isGreenCheckRun(checkRun) {
-  if (checkRun.status !== "completed") return false;
-  if (checkRun.conclusion === "success") return true;
-  return checkRun.conclusion === "skipped" && isNarrowableJob(checkRun.name);
+  return checkRun.status === "completed" && checkRun.conclusion === "success";
 }

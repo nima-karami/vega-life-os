@@ -15,7 +15,8 @@ rules). Where this conflicts with habit, this file wins; where it conflicts with
 lockfile platforms, suppression check, tests, duplication, secret scan, dep audit, e2e.
 Enforcement is layered: pre-commit runs lint-staged (Biome on staged files) and gitleaks;
 pre-push runs format, lint, typecheck, dead code, tests and duplication; CI runs
-everything, including sharded e2e and SAST. The full local gate is `npm run verify`.
+everything but e2e, plus SAST, on push, and the sharded e2e suite at release. The full local
+gate is `npm run verify`.
 
 **Never disable, downgrade, narrow, baseline-away, or suppress a check to make progress.**
 No `biome-ignore`, `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `jscpd:ignore`, or

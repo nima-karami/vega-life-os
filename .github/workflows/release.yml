@@ -1,7 +1,7 @@
 name: release
 
-# Push-button release of main: server first (no-traffic revision, tag smoke, then traffic),
-# then hosting — each only when its inputs changed since what is live (scripts/release.mjs).
+# Push-button release of main: the full e2e suite first (e2e.yml), then server (no-traffic
+# revision, tag smoke, then traffic), then hosting — each only when its inputs changed since what is live (scripts/release.mjs).
 # Any failure after a cutover rolls hosting back first, then server traffic. A release that
 # shipped anything is recorded as an annotated vYYYY.M.N tag plus a GitHub Release.
 # One-time setup: infra/setup-ci-release.sh. Runbook: docs/release-process.md.
@@ -98,8 +98,16 @@ jobs:
             echo "${target}_reason=$(jq -r --arg target "$target" '.targets[] | select(.target == $target) | .reason' <<<"$plan")" >> "$GITHUB_OUTPUT"
           done
 
+  # The e2e gate (moved off push, user decision 2026-10-23). Runs whenever anything ships.
+  e2e:
+    needs: plan
+    if: needs.plan.outputs.server == 'true' || needs.plan.outputs.hosting == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/e2e.yml
+
   server:
-    needs: [gate, plan]
+    needs: [gate, plan, e2e]
     if: needs.plan.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -191,9 +199,9 @@ jobs:
           fi
 
   hosting:
-    needs: [gate, plan, server]
+    needs: [gate, plan, e2e, server]
     # Runs after a successful server deploy, or alone when the plan skipped the server.
-    if: ${{ !cancelled() && needs.plan.outputs.hosting == 'true' && (needs.server.result == 'success' || needs.server.result == 'skipped') }}
+    if: ${{ !cancelled() && needs.e2e.result == 'success' && needs.plan.outputs.hosting == 'true' && (needs.server.result == 'success' || needs.server.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -328,10 +336,11 @@ jobs:
             || gh release create "$VERSION" --title "$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag
           { echo "## $VERSION"; echo; cat "$RUNNER_TEMP/release-notes.md"; } >> "$GITHUB_STEP_SUMMARY"
 
-  # A skipped server or hosting job leaves its outputs empty, so rollback never touches it.
+  # A skipped server or hosting job leaves its outputs empty, so rollback never touches it;
+  # with both skipped (e.g. e2e failed) nothing shipped, so it does not start at all.
   rollback:
     needs: [gate, plan, server, hosting]
-    if: (failure() || cancelled()) && needs.gate.result == 'success'
+    if: (failure() || cancelled()) && needs.gate.result == 'success' && (needs.server.result != 'skipped' || needs.hosting.result != 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

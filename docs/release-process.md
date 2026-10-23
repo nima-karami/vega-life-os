@@ -54,10 +54,34 @@ Each layer runs a different slice of it:
 |---|---|
 | **pre-commit** (husky) | `lint-staged` (Biome on staged files) + `gitleaks` on the staged diff |
 | **pre-push** (husky) | the gate minus e2e, the audits, the secret scan and the lockfile / suppression checks: format, lint, typecheck, deadcode, test, dupes. Needs JDK 21 first on `PATH` (server tests boot the Firestore emulator) |
-| **CI** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | `changes`: scope detection (below) · `static`: format, lint, typecheck, deadcode, dupes, lockfile-platform check, suppression check, script tests, npm audit, OSV, gitleaks · `unit`: web / shared · `unit-server`: server (with Java 21) + `smoke:server-bundle` · `e2e`: chromium in 3 shards, mobile-chromium in 2, the PWA project · `sast`: Semgrep |
+| **CI on push** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | one job, `checks`: scope detection (below) → Semgrep → lockfile-platform check, format, lint, typecheck, deadcode, dupes, suppression check, script tests → unit tests (web, shared) → the server suite (with Java 21) + `smoke:server-bundle` when the scope is `full` → npm audit, OSV, gitleaks |
+| **CI on release** (`e2e.yml`, called by `release.yml` before any deploy; also `workflow_dispatch` on any ref) | the full e2e suite: chromium + mobile-chromium over 3 shards, shard 1 also runs the PWA project |
+| **laptop release** (`npm run release`, `deploy`, `deploy:server`) | the release guard runs `npm run e2e` locally — or the whole `npm run verify` when CI is red and `--allow-red-ci` was passed (§5) |
 
-The full e2e suite only runs locally on `npm run verify` and in CI, so a release is gated
-on CI being green for the exact commit (§5).
+### e2e runs at release, not on push
+
+By explicit user decision (2026-10-23): *"what is the standard? I think the end-to-end
+suite always runs mostly on release not on every push. Can you make sure that all of that is
+correct and we optimize for cost?"*
+
+The repo is private on GitHub Free: 2,000 Linux minutes a month, a $0 spending limit, so
+Actions simply stop once the budget is spent (it ran out mid-October 2026). A push run used
+to cost 80–100 billable minutes, ~80 of them the six e2e shards. Now:
+
+| Trigger | Runs | Billable minutes |
+|---|---|---|
+| push to `main` / PR | `checks` (one job) | ~8 (web/docs scope) to ~11 (`full`) |
+| `release.yml` | gate + plan + e2e ×3 + server and/or hosting + record | ~80 e2e + ~12 deploy ≈ 95 |
+| Dependabot | one grouped github-actions PR a month (`.github/dependabot.yml`) | ~10 per PR |
+| schedule | none — a nightly run burns minutes while nobody is changing the code | 0 |
+
+Every check still runs before production: everything but e2e on each push (the release
+`gate` requires that run to be green for the exact sha), and e2e in the release itself,
+whether from CI or the laptop. The trade-off: an e2e regression surfaces at release time,
+not on the push that caused it — `npm run verify` before each merge, which includes e2e, is
+what catches it first. `gh workflow run e2e.yml --ref <branch>` runs the suite on demand.
+If the repo goes public (unlimited minutes), moving `e2e.yml` back onto push is a one-line
+`on:` change; the release gate can stay.
 
 ### CI change scope
 
@@ -66,21 +90,23 @@ By explicit user decision (2026-10-22), CI skips work a change cannot affect.
 
 | Changed files | Scope | Skipped |
 |---|---|---|
-| only `docs/**`, `*.md`, `.claude/**` | `docs` | `e2e`, `unit-server` |
-| only those plus `apps/web/**` | `web` | `unit-server` |
+| only `docs/**`, `*.md`, `.claude/**` | `docs` | the server suite + `smoke:server-bundle` |
+| only those plus `apps/web/**` | `web` | the server suite + `smoke:server-bundle` |
 | anything else | `full` | nothing |
 
-`static`, `unit` (web, shared) and `sast` always run. A push narrows **only when its base
-commit's own verify run succeeded** — otherwise a docs commit on top of a red one would be
-green and releasable. No base, an all-zero base (new branch), an unknown sha,
-`workflow_dispatch` or any detection error → `full`. Diffs use `--no-renames`, so a file
-moved out of a slice still counts for that slice. Skipped jobs report `skipped`; the
-release guard treats that as green **only for `unit-server` and `e2e`**, and the `release`
-gate reads the workflow's overall conclusion.
+(Before e2e moved to release, `docs` skipped e2e too; e2e now never runs on push.)
 
-**The risk, stated:** a web-only commit ships without the server suite having run on it,
-and a docs-only commit without e2e. That is sound only while `apps/web/**` cannot change
-server behaviour. Anything shared lives in `packages/shared/`, which forces `full`.
+Everything else in `checks` always runs. A push narrows **only when its base commit's own
+verify run succeeded** — otherwise a docs commit on top of a red one would be green and
+releasable. No base, an all-zero base (new branch), an unknown sha, `workflow_dispatch` or
+any detection error → `full`. Diffs use `--no-renames`, so a file moved out of a slice
+still counts for that slice. Narrowing skips steps inside `checks`, never a whole job, so
+the release guard treats only `success` as green, and the `release` gate reads the
+workflow's overall conclusion.
+
+**The risk, stated:** a web-only commit ships without the server suite having run on it.
+That is sound only while `apps/web/**` cannot change server behaviour. Anything shared
+lives in `packages/shared/`, which forces `full`.
 
 ## 4. PR & merge
 
@@ -95,19 +121,19 @@ changed since what is live**, server always before hosting:
 
 ```bash
 npm run release -- --dry-run   # print the plan and the version it would cut, deploy nothing
-npm run release                # guard → plan → deploy:server and/or deploy → tag + GitHub Release
+npm run release                # plan → guard (+ local e2e) → deploy:server and/or deploy → tag + GitHub Release
 ```
 
 The two deploys stay as manual overrides that always ship their target:
 
 ```bash
-npm run deploy:server   # guard → Cloud Build from HEAD → Cloud Run → /health sha + schema check
-npm run deploy          # guard → live-schema check → vite build → Firebase Hosting
+npm run deploy:server   # guard (+ local e2e) → Cloud Build from HEAD → Cloud Run → /health sha + schema check
+npm run deploy          # guard (+ local e2e) → live-schema check → vite build → Firebase Hosting
 ```
 
 ### How `npm run release` picks targets
 
-`scripts/release.mjs` runs the release guard, then reads what is live: the server sha from
+`scripts/release.mjs` reads what is live: the server sha from
 `GET /health` (URL resolved as in [Schema hash and `/health`](#schema-hash-and-health)) and
 the hosting sha from the `vega-build` meta on https://vega-life-os.web.app/ (cache-busted).
 It diffs each against `HEAD` and classifies every changed file
@@ -128,7 +154,9 @@ the server deploy flags) and `scripts/deploy-server.sh` ships the server; both a
 matched before the tooling row. A `*.md` under `apps/` or `packages/` belongs to its
 slice, not to docs. A rename counts for both its old and new path. **Fail safe:** a live
 sha that is missing, unreachable, `dev`, not a hex sha, or not in git history deploys that
-target. Nothing needed → it says so and exits 0.
+target. Nothing needed → it says so and exits 0. Only when something will deploy does it run
+the release guard (below) — once; the deploys it calls see `RELEASE_LOCAL_GATE_SHA` set to
+the guarded sha and skip the local e2e run.
 
 Config that lives outside git (GitHub variables and secrets, local `.env` files) never
 triggers a deploy — after changing it, force with `--only=…` or `-f targets=…`.
@@ -203,15 +231,23 @@ the build's.
 
 - the working tree is dirty (`git status --porcelain`);
 - `HEAD` is not `origin/main` after a `git fetch` — only pushed `main` ships;
-- any GitHub check-run for `HEAD` is not `completed`/`success` (read with `gh api`; needs
-  `gh auth login`). The one exception: `skipped` is green for `unit-server` and `e2e`,
-  the jobs CI may skip by change scope ([CI change scope](#ci-change-scope)); any other
-  skipped check is red (`scripts/lib/check-runs.mjs`).
+- any `verify.yml` check-run for `HEAD` is not `completed`/`success` (read with `gh api`;
+  needs `gh auth login`). `release.yml`'s jobs and the e2e shards on the same sha are left
+  out (`scripts/lib/check-runs.mjs`);
+- `npm run e2e` fails — CI runs e2e only inside `release.yml`, so the laptop runs it itself
+  (the full suite, chromium + mobile + PWA, ~15–25 min locally). Skipped only when
+  `RELEASE_LOCAL_GATE_SHA` equals `HEAD`, which `npm run release` sets for its own deploys
+  after its guard passed;
+- the tree is dirty again after that run.
 
-`--allow-red-ci` (or `RELEASE_ALLOW_RED_CI=1`) downgrades only the CI check to a loud
-warning — it exists until CI is green and is always passed explicitly:
-`npm run deploy:server -- --allow-red-ci`, `RELEASE_ALLOW_RED_CI=1 npm run deploy`. The
-dirty-tree and pushed checks can't be skipped.
+Running e2e locally, not dispatching `release.yml` and waiting, keeps the laptop path a real
+fallback: it works when Actions is down or out of minutes.
+
+`--allow-red-ci` (or `RELEASE_ALLOW_RED_CI=1`) turns a red CI check into a loud warning and
+**replaces the local e2e run with the whole `npm run verify`** (needs JDK 21 first on
+`PATH`), so nothing CI failed to prove ships unchecked. It is always passed explicitly:
+`npm run release -- --allow-red-ci`, `npm run deploy:server -- --allow-red-ci`,
+`RELEASE_ALLOW_RED_CI=1 npm run deploy`. The dirty-tree and pushed checks can't be skipped.
 
 ### Schema hash and `/health`
 
@@ -280,10 +316,11 @@ To force targets: `gh workflow run release.yml --ref main -f targets=both` (or `
 |---|---|
 | `gate` | Refuses unless the ref is `refs/heads/main` and the latest `verify` run for this exact sha concluded `success`. |
 | `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting`, their skip reasons, the `version` (next, or the one `HEAD` already carries) and `record` (checkout fetches all tags). |
-| `server` | Only when `plan` says so. `docker build` with `GIT_SHA=<short>` and `APP_VERSION=<version>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2 --cpu-boost` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
-| `hosting` | Only when `plan` says so, after `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables and `VEGA_VERSION=<version>` → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
+| `e2e` | Only when `plan` deploys something. Calls `e2e.yml`: the full Playwright suite in 3 shards (wall ~25 min, ~80 billable minutes). `server` and `hosting` need it to succeed, so a red e2e ships nothing. |
+| `server` | Only when `plan` says so, after `e2e` succeeded. `docker build` with `GIT_SHA=<short>` and `APP_VERSION=<version>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2 --cpu-boost` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
+| `hosting` | Only when `plan` says so, after `e2e` succeeded and `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables and `VEGA_VERSION=<version>` → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
 | `record` | Only when the plan's `record` is true (the sha has no version yet), nothing failed or was cancelled, and at least one of `server` / `hosting` succeeded (a single skipped target is fine; both skipped → nothing shipped, no tag). `contents: write`. Reads the live `schemaHash`, writes the notes with `scripts/release-notes.mjs` (skip reasons from the plan), creates and pushes the annotated `<version>` tag on the released sha unless it is already there, `gh release create` unless the Release exists, and copies the notes into the run summary. Idempotent, so *Re-run failed jobs* recovers a failed record. |
-| `rollback` | Runs only if `server` or `hosting` failed or the run was cancelled. |
+| `rollback` | Runs only if `server` or `hosting` failed or the run was cancelled — not when both were skipped (e.g. after a red `e2e`), since nothing shipped. |
 
 **Rollback** runs in reverse release order:
 

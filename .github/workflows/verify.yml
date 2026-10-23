@@ -1,5 +1,8 @@
 name: verify
 
+# Fast checks on every push and PR, in one job so setup and per-job minute rounding are paid
+# once. e2e runs at release time instead (e2e.yml, called by release.yml) — user decision
+# 2026-10-23, docs/release-process.md §3.
 on:
   push:
     branches: [main]
@@ -14,26 +17,27 @@ permissions:
   contents: read
 
 jobs:
-  # docs-only → skip e2e and the server suite; web-only → skip the server suite; else everything.
-  # User decision 2026-10-22. Any detection doubt resolves to "full".
-  changes:
+  checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     permissions:
       contents: read
       actions: read
-    outputs:
-      scope: ${{ steps.detect.outputs.scope }}
+      pull-requests: read
+    env:
+      # tsc -b over three projects can exceed the default heap on the 7 GB runner.
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # scope detection diffs the base; gitleaks scans history
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      # A push only narrows when its base was itself verified green, so a docs commit
-      # can never turn a red predecessor into a releasable sha.
-      - id: detect
+          cache: npm
+      # docs-only or web-only → skip the server suite (user decision 2026-10-22). A push only
+      # narrows when its base was itself verified green; any detection doubt resolves to "full".
+      - id: scope
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}
@@ -48,24 +52,11 @@ jobs:
             fi
           fi
           node scripts/ci-scope.mjs "$base" >> "$GITHUB_OUTPUT" || echo "scope=full" >> "$GITHUB_OUTPUT"
-
-  static:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      # tsc -b over three projects can exceed the default heap on the 7 GB runner.
-      NODE_OPTIONS: --max-old-space-size=6144
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # gitleaks scans history
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
+      # Before npm ci, so Semgrep sees exactly the checked-out tree.
+      - name: SAST (Semgrep)
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src semgrep/semgrep:1.181.0 \
+            semgrep scan --error --metrics off --config p/javascript --config p/typescript --config p/react --config p/nodejs
       - run: npm ci
       - run: node scripts/check-lockfile-platforms.mjs
       - run: npm run format:check
@@ -75,6 +66,18 @@ jobs:
       - run: npm run dupes
       - run: node scripts/check-suppressions.mjs
       - run: npm run test:scripts
+      - run: npm test --workspace @vega/web
+      - run: npm test --workspace @vega/shared
+      # The server suite boots the Firestore/Auth emulator, which needs a JRE 11+.
+      - if: steps.scope.outputs.scope == 'full'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - if: steps.scope.outputs.scope == 'full'
+        run: npm test --workspace @vega/server
+      - if: steps.scope.outputs.scope == 'full'
+        run: npm run smoke:server-bundle
       - name: Dependency audit (npm)
         run: npm audit --audit-level=high
       - name: Dependency audit (OSV)
@@ -86,106 +89,3 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  unit:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        workspace: ["@vega/web", "@vega/shared"]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm test --workspace ${{ matrix.workspace }}
-
-  unit-server:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.scope != 'docs' && needs.changes.outputs.scope != 'web' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-      # The server suite boots the Firestore/Auth emulator, which needs a JRE 11+.
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 21
-      - run: npm ci
-      - run: npm test --workspace @vega/server
-      - run: npm run smoke:server-bundle
-
-  e2e:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.scope != 'docs' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { project: chromium, shardIndex: 1, shardTotal: 3 }
-          - { project: chromium, shardIndex: 2, shardTotal: 3 }
-          - { project: chromium, shardIndex: 3, shardTotal: 3 }
-          - { project: mobile-chromium, shardIndex: 1, shardTotal: 2 }
-          - { project: mobile-chromium, shardIndex: 2, shardTotal: 2 }
-          - { project: pwa, shardIndex: 1, shardTotal: 1, pwa: "1" }
-    env:
-      E2E_PWA: ${{ matrix.pwa }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Resolve Playwright version
-        id: pw
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        id: pw-cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      - if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-      - name: Playwright
-        working-directory: apps/web
-        run: npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
-      - if: failure()
-        uses: actions/upload-artifact@v5
-        with:
-          name: playwright-${{ matrix.project }}-${{ matrix.shardIndex }}of${{ matrix.shardTotal }}
-          path: |
-            apps/web/playwright-report
-            apps/web/test-results
-          retention-days: 7
-
-  sast:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    container:
-      image: semgrep/semgrep:1.181.0
-    steps:
-      - uses: actions/checkout@v5
-      - name: Semgrep
-        run: semgrep scan --error --metrics off --config p/javascript --config p/typescript --config p/react --config p/nodejs
