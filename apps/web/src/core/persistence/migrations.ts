@@ -1,6 +1,6 @@
 import type { Card, CardPrefs, MindCard, MindMetaRecord } from "@vega/shared";
 import { todayISO } from "@/core/lib/date";
-import { saveBulkPut, savePut, saveRemove } from "@/core/store/persist";
+import { saveBulkPut, saveBulkRemove, savePut } from "@/core/store/persist";
 import type { Habit } from "@/features/habits/model";
 import { isActiveOn, normalizeHabit } from "@/features/habits/recurrence";
 import type { VocabEntry } from "@/features/library/model";
@@ -143,25 +143,51 @@ export function hasMigrationSources(dataset: Partial<Dataset>): boolean {
   );
 }
 
+/** Equal as stored data: key order is ignored and an absent key reads as null, as on the server. */
+function isSameStoredValue(left: unknown, right: unknown): boolean {
+  const a = left ?? null;
+  const b = right ?? null;
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && a.length !== (b as unknown[]).length) return false;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((key) =>
+    isSameStoredValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
+  );
+}
+
+/** The migrated rows that differ from what was loaded. */
+function findChangedRows<T extends { id: string }>(before: T[], after: T[]): T[] {
+  const beforeById = new Map(before.map((row) => [row.id, row]));
+  return after.filter((row) => !isSameStoredValue(beforeById.get(row.id), row));
+}
+
+/**
+ * Signed in there is no on-disk marker a fresh browser could read, so this pass re-runs on every
+ * new device. It persists only what it changed, so a re-run over migrated rows writes nothing.
+ */
 function runEntityMigrations(
   get: () => MigrationState,
   set: (patch: MigrationPatch) => void,
 ): void {
-  const { habits, tasks, values, rehuedValueIds, prunedTaskIds } = migrateData({
-    habits: get().habits,
-    tasks: get().tasks,
-    values: get().values,
+  const before = get();
+  const { habits, tasks, values, prunedTaskIds } = migrateData({
+    habits: before.habits,
+    tasks: before.tasks,
+    values: before.values,
   });
-  for (const h of habits) savePut("habits", h);
-
-  const rehued = new Set(rehuedValueIds);
-  for (const v of values) if (rehued.has(v.id)) savePut("values", v);
-
   const drop = new Set(prunedTaskIds);
   const nextTasks = tasks.filter((t) => !drop.has(t.id));
   set({ habits, tasks: nextTasks, values });
-  for (const t of nextTasks) savePut("tasks", t); // persist backfilled slotDate/completedAt
-  for (const id of prunedTaskIds) saveRemove("tasks", id);
+
+  const changedHabits = findChangedRows(before.habits, habits);
+  const changedValues = findChangedRows(before.values, values);
+  const changedTasks = findChangedRows(before.tasks, nextTasks);
+  if (changedHabits.length) void saveBulkPut("habits", changedHabits);
+  if (changedValues.length) void saveBulkPut("values", changedValues);
+  if (changedTasks.length) void saveBulkPut("tasks", changedTasks);
+  if (prunedTaskIds.length) void saveBulkRemove("tasks", prunedTaskIds);
 }
 
 const isUnfiltered = (prefs: CardPrefs): boolean =>
