@@ -229,6 +229,7 @@ async function saveBulk<C extends CollectionName, R extends { writtenChunks: num
 /**
  * Persist a batch of inserts/updates the caller has already applied optimistically. `rollbacks`
  * runs parallel to `items` — omit it to keep the optimistic rows and let the refetch settle them.
+ * Signed in, one row the server's schema rejects fails the whole call before any chunk is written.
  */
 export function saveBulkPut<C extends CollectionName>(
   col: C,
