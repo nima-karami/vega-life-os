@@ -338,3 +338,19 @@ Specs, plans, ADRs, and run reports follow the naming in `CLAUDE.md §6` —
 `docs/specs/`, `docs/plans/`, `docs/adr/`, `docs/runs/` — every filename ISO-date-prefixed
 (`YYYY-MM-DD-`). Transcribe any decision (e.g. from a clarifying question) into the spec
 verbatim; never silently soften a destructive-action guard.
+
+## 9. Cards performance benchmark
+
+`npm run perf:cards` seeds synthetic cards into the signed-out sandbox and measures
+`/cards` (table, search, select, sort, gallery), `/cards/:id` and `/brainwrite` through long
+tasks, event timing, heap and scroll frame rate. Run it against a production build, not dev:
+
+```bash
+npm run build
+npm run preview -w @vega/web -- --port 5301 --strictPort
+npm run perf:cards -- http://localhost:5301 1000,5000,10000
+```
+
+Options: `--mobile`, `--throttle=4` (CPU slowdown), `--skip-gallery`, `--skip-brainwrite`,
+`--boot-only`, `--json=<path>`, `--profile=<dir>` (one `.cpuprofile` per size) and `--help`.
+Write outputs outside the repo (`%TEMP%\claude-scratch\`). Compare runs on the same machine.
