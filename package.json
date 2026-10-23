@@ -39,6 +39,7 @@
     "perf:cards": "node scripts/perf/cards-bench.mjs",
     "release:guard": "node scripts/release-guard.mjs",
     "check:live-schema": "node scripts/check-live-schema.mjs",
+    "smoke:server-bundle": "node scripts/smoke-server-bundle.mjs",
     "deploy:server": "bash scripts/deploy-server.sh",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run deadcode && npm run check:lockfile && npm run check:suppressions && npm run test && npm run dupes && npm run scan:secrets && npm run audit:deps && npm run e2e",
     "prepare": "husky"
