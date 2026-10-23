@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router";
-import { onAuth } from "@/core/auth";
 import { useStore } from "@/core/store";
 import { isProfileIncomplete } from "@/core/store/profile";
 import { ACCENT_VAR_KEYS, getAccentVars } from "@/core/theme/accent";
 import { BootScreen } from "./BootScreen";
 import { dismissBootSplash } from "./boot-splash";
 import { CommandBar } from "./CommandBar";
+import { clearChunkReload } from "./chunk-reload";
 import { EphemeralOverlay } from "./EphemeralOverlay";
 import { GO_SHORTCUTS } from "./keymap";
 import { Onboarding } from "./Onboarding";
@@ -47,14 +47,6 @@ export function RootBoot() {
   const navigate = useNavigate();
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(() => {
-    const onAuthChange = useStore.getState().onAuthChange;
-    const unsub = onAuth((user) => {
-      void onAuthChange(user?.uid ?? null);
-    });
-    return unsub;
-  }, []);
 
   // Realtime is off: signed-in clients pull server truth when the tab becomes visible + a
   // low-frequency poll, so out-of-band server changes (e.g. calendar reconcile) land. The poll is
@@ -184,6 +176,7 @@ export function RootBoot() {
 
   useEffect(() => {
     if (ready) dismissBootSplash({ isUrgent: loadFailed });
+    if (ready && !loadFailed) clearChunkReload();
   }, [ready, loadFailed]);
 
   let content: React.ReactNode;
