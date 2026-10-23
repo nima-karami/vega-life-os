@@ -74,6 +74,7 @@ function ValueDetail({ value }: { value: Value }) {
   return (
     <DetailPage trail={[VALUES_ROOT]}>
       <DetailHeader
+        discFill={getValueColor(value)}
         disc={
           <IconField
             value={value.icon}

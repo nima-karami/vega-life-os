@@ -1,0 +1,205 @@
+/* Goal reached · Seal (Tier 1, kept below the vote takeover: one disc, one halo, no hold).
+   Transitions live only under [data-anim], so a load, refetch or remote change snaps. */
+
+.goal-seal {
+  position: relative;
+  display: inline-grid;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.goal-seal:not([data-sealed]):hover {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.goal-seal__flood,
+.goal-seal__halo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.goal-seal__flood {
+  clip-path: circle(0% at 50% 50%);
+}
+
+.goal-seal__halo {
+  opacity: 0;
+}
+
+.goal-seal[data-sealed] .goal-seal__flood {
+  clip-path: circle(75% at 50% 50%);
+}
+
+.goal-seal[data-sealed] .goal-seal__icon {
+  color: #fff;
+}
+
+.goal-seal[data-anim="seal"] {
+  animation: goal-seal-pop 320ms cubic-bezier(0.2, 0, 0, 1) 40ms both;
+}
+
+.goal-seal[data-anim="seal"] .goal-seal__flood {
+  transition: clip-path 320ms cubic-bezier(0.2, 0, 0, 1) 40ms;
+}
+
+.goal-seal[data-anim="seal"] .goal-seal__icon {
+  transition: color 100ms linear 60ms;
+}
+
+.goal-seal[data-anim="seal"] .goal-seal__halo {
+  animation: goal-seal-halo 520ms cubic-bezier(0.16, 1, 0.3, 1) 160ms forwards;
+}
+
+/* The icon stays white while the flood drains under it. */
+.goal-seal[data-anim="unseal"] .goal-seal__flood {
+  transition: clip-path 240ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.goal-seal[data-anim="unseal"] .goal-seal__icon {
+  transition: color 120ms linear 120ms;
+}
+
+.goal-status-chip {
+  display: inline-grid;
+}
+
+.goal-status-chip > * {
+  grid-area: 1 / 1;
+  justify-self: start;
+}
+
+.goal-status-chip[data-anim="seal"] .goal-status-chip__label[data-leaving] {
+  animation: goal-chip-out-up 120ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.goal-status-chip[data-anim="seal"] .goal-status-chip__label:not([data-leaving]) {
+  animation: goal-chip-in-up 160ms cubic-bezier(0.2, 0, 0, 1) 220ms both;
+}
+
+.goal-status-chip[data-anim="unseal"] .goal-status-chip__label[data-leaving] {
+  animation: goal-chip-out-down 120ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.goal-status-chip[data-anim="unseal"] .goal-status-chip__label:not([data-leaving]) {
+  animation: goal-chip-in-down 160ms cubic-bezier(0.2, 0, 0, 1) 120ms both;
+}
+
+@keyframes goal-seal-pop {
+  0% {
+    transform: none;
+  }
+  35% {
+    transform: scale(0.94);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes goal-seal-halo {
+  from {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes goal-chip-out-up {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes goal-chip-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes goal-chip-out-down {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
+@keyframes goal-chip-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes goal-chip-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes goal-chip-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-seal__flood {
+    clip-path: none;
+    opacity: 0;
+  }
+
+  .goal-seal[data-sealed] .goal-seal__flood {
+    clip-path: none;
+    opacity: 1;
+  }
+
+  .goal-seal[data-anim="seal"] .goal-seal__flood,
+  .goal-seal[data-anim="unseal"] .goal-seal__flood {
+    transition: opacity 120ms linear;
+  }
+
+  .goal-seal[data-anim="seal"],
+  .goal-seal[data-anim="seal"] .goal-seal__halo {
+    animation: none;
+  }
+
+  .goal-status-chip[data-anim] .goal-status-chip__label[data-leaving] {
+    animation: goal-chip-fade-out 120ms linear both;
+  }
+
+  .goal-status-chip[data-anim] .goal-status-chip__label:not([data-leaving]) {
+    animation: goal-chip-fade-in 120ms linear both;
+  }
+}

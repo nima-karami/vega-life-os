@@ -1,6 +1,15 @@
+import { useReducedMotion } from "framer-motion";
 import { Link } from "react-router";
 import { useStore } from "@/core/store";
-import { cx, Disclosure, Icon, Menu } from "@/core/ui";
+import {
+  CardFill,
+  cx,
+  Disclosure,
+  ENTITY_MORPH_STYLE,
+  Icon,
+  Menu,
+  useIsEntityCarried,
+} from "@/core/ui";
 import { getValueCardFill } from "../color";
 import type { Value } from "../model";
 import { splitGoals } from "../selectors";
@@ -33,23 +42,30 @@ export function ValueIndexCard({
   const { open, closed } = splitGoals(valueGoals);
   const loose = habits.filter((h) => h.valueId === value.id && !h.goalId);
   const fill = getValueCardFill(value);
+  const path = `/values/${value.id}`;
+  const isCarried = useIsEntityCarried(path);
+  const isMotionReduced = useReducedMotion() ?? false;
 
   return (
     <div
       className={cx(
-        "rounded-[16px] border p-[22px] sm:p-5",
+        "relative isolate rounded-[16px] border border-transparent p-[22px] sm:p-5",
         archived && "opacity-60",
         resting && "opacity-80",
       )}
-      style={{ background: fill, borderColor: fill }}
     >
+      <CardFill fill={fill} isCarried={isCarried} />
       <div className="flex items-start gap-4">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/[.18] text-white">
-          <Icon name={value.icon} size={18} />
+          <Icon
+            name={value.icon}
+            size={18}
+            style={isCarried ? ENTITY_MORPH_STYLE.icon : undefined}
+          />
         </span>
-        <Link to={`/values/${value.id}`} className="min-w-0 flex-1 outline-none">
+        <Link to={path} viewTransition={!isMotionReduced} className="min-w-0 flex-1 outline-none">
           <span className="flex items-center gap-1.5 text-[19px] font-semibold leading-[1.25] text-white sm:text-[18px]">
-            {value.name}
+            <span style={isCarried ? ENTITY_MORPH_STYLE.title : undefined}>{value.name}</span>
             {resting && <Icon name="moon" size={14} aria-label="Resting" />}
           </span>
           <span className="mt-1 block break-words text-[14px] leading-[1.6] text-white/[.86] sm:leading-[1.5]">

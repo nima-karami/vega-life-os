@@ -1,0 +1,200 @@
+/* Card → page "disc carries". useRouteLayer sets data-route-morph on <html> for the
+   length of the view transition; React Router owns startViewTransition. */
+
+:root[data-route-morph] #main-content {
+  view-transition-name: route-from;
+}
+:root[data-route-morph][data-route-morph-swapped] #main-content {
+  view-transition-name: route-to;
+}
+:root[data-route-morph] [data-app-nav] {
+  view-transition-name: app-nav;
+}
+[data-morph-disc] svg {
+  view-transition-name: entity-icon;
+}
+
+/* The shell holds still; only the pages and the carried parts move. */
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-group(app-nav),
+::view-transition-old(app-nav),
+::view-transition-new(app-nav),
+::view-transition-group(route-from),
+::view-transition-group(route-to) {
+  animation: none;
+}
+
+/* The list always sits above the travelling fill and the entity page under it. */
+::view-transition-group(route-to) {
+  z-index: 0;
+}
+::view-transition-group(entity-fill),
+::view-transition-group(entity-icon),
+::view-transition-group(entity-title) {
+  z-index: 1;
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+::view-transition-group(route-from) {
+  z-index: 2;
+}
+:root[data-route-morph="back"]::view-transition-group(route-from) {
+  z-index: 0;
+}
+:root[data-route-morph="back"]::view-transition-group(route-to) {
+  z-index: 2;
+}
+::view-transition-group(app-nav) {
+  z-index: 3;
+}
+
+/* The fill is one flat colour, so the pair paints it and morphs radius and colour as one
+   shape; a stretched snapshot would show the disc's circle as an ellipse mid-flight. The
+   disc's own snapshot arrives at the end, for its hairline or icon-picker ring. */
+::view-transition-image-pair(entity-fill) {
+  overflow: hidden;
+  animation: morph-fill-open 380ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+::view-transition-old(entity-fill),
+::view-transition-new(entity-fill) {
+  block-size: 100%;
+  animation: none;
+  opacity: 0;
+}
+::view-transition-new(entity-fill) {
+  animation: morph-fill-arrive 380ms linear both;
+}
+
+/* Text scales with its line box, not the box width, and stays left-aligned. */
+::view-transition-old(entity-title),
+::view-transition-new(entity-title) {
+  inline-size: auto;
+  block-size: 100%;
+}
+/* The colour swap happens at the card end of the flight, where both lines are small. */
+::view-transition-old(entity-title) {
+  animation: morph-fade-out 80ms linear both;
+}
+::view-transition-new(entity-title) {
+  animation: morph-fade-in 80ms linear 20ms both;
+}
+
+::view-transition-old(route-from) {
+  animation: morph-fade-out 140ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(route-to) {
+  animation: morph-rise-in 220ms cubic-bezier(0.2, 0, 0, 1) 180ms both;
+}
+
+:root[data-route-morph="back"]::view-transition-group(entity-fill),
+:root[data-route-morph="back"]::view-transition-group(entity-icon),
+:root[data-route-morph="back"]::view-transition-group(entity-title) {
+  animation-duration: 320ms;
+}
+:root[data-route-morph="back"]::view-transition-image-pair(entity-fill) {
+  animation: morph-fill-back 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+:root[data-route-morph="back"]::view-transition-new(entity-fill) {
+  animation: none;
+}
+:root[data-route-morph="back"]::view-transition-old(entity-title) {
+  animation: morph-fade-out 90ms linear 230ms both;
+}
+:root[data-route-morph="back"]::view-transition-new(entity-title) {
+  animation: morph-fade-in 90ms linear 230ms both;
+}
+:root[data-route-morph="back"]::view-transition-old(route-from) {
+  animation: morph-fade-out 120ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+:root[data-route-morph="back"]::view-transition-new(route-to) {
+  animation: morph-fade-in 200ms cubic-bezier(0.2, 0, 0, 1) 100ms both;
+}
+
+/* Nothing to land on: the carried parts leave with the page, as a plain fade. */
+:root[data-route-morph-orphan]::view-transition-group(entity-fill),
+:root[data-route-morph-orphan]::view-transition-group(entity-icon),
+:root[data-route-morph-orphan]::view-transition-group(entity-title),
+:root[data-route-morph-orphan]::view-transition-image-pair(entity-fill) {
+  animation: none;
+}
+:root[data-route-morph-orphan]::view-transition-old(entity-fill),
+:root[data-route-morph-orphan]::view-transition-old(entity-icon),
+:root[data-route-morph-orphan]::view-transition-old(entity-title) {
+  opacity: 1;
+  animation: morph-fade-out 120ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* Reduced motion: nothing travels; the route fade at 100ms out, 140ms in, linear. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-route-morph]::view-transition-group(entity-fill),
+  :root[data-route-morph]::view-transition-group(entity-icon),
+  :root[data-route-morph]::view-transition-group(entity-title),
+  :root[data-route-morph]::view-transition-image-pair(entity-fill) {
+    animation: none;
+  }
+  :root[data-route-morph]::view-transition-old(entity-fill),
+  :root[data-route-morph]::view-transition-old(entity-icon),
+  :root[data-route-morph]::view-transition-old(entity-title) {
+    animation: none;
+    opacity: 0;
+  }
+  :root[data-route-morph]::view-transition-old(route-from) {
+    animation: morph-fade-out 100ms linear both;
+  }
+  :root[data-route-morph]::view-transition-new(route-to),
+  :root[data-route-morph]::view-transition-new(entity-fill),
+  :root[data-route-morph]::view-transition-new(entity-icon),
+  :root[data-route-morph]::view-transition-new(entity-title) {
+    animation: morph-fade-in 140ms linear 100ms both;
+  }
+}
+
+@keyframes morph-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes morph-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes morph-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes morph-fill-open {
+  from {
+    border-radius: 16px;
+    background-color: var(--morph-card-fill);
+  }
+  to {
+    border-radius: var(--morph-disc-radius, 22px);
+    background-color: var(--morph-disc-fill, transparent);
+  }
+}
+@keyframes morph-fill-back {
+  from {
+    border-radius: var(--morph-disc-radius, 22px);
+    background-color: var(--morph-disc-fill, transparent);
+  }
+  to {
+    border-radius: 16px;
+    background-color: var(--morph-card-fill);
+  }
+}
+@keyframes morph-fill-arrive {
+  70% {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

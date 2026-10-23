@@ -1,0 +1,131 @@
+/* Gratitude B · Carry to entry. Unlayered on purpose: it must beat the field utilities and the
+   global reduced-motion rule. Times are from the Continue tap; [data-carry] lands at 200ms. */
+
+.gratitude-heart {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+}
+
+.gratitude-heart > svg {
+  grid-area: 1 / 1;
+}
+
+.gratitude-heart__fill {
+  opacity: 0;
+}
+
+.gratitude-layer[data-departure="kept"] .gratitude-heart {
+  animation: gratitude-pop 280ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.gratitude-layer[data-departure="kept"] .gratitude-heart__fill {
+  animation: gratitude-fade-in 160ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.gratitude-layer[data-departure="kept"] .gratitude-field:not(:placeholder-shown) {
+  border-color: transparent;
+  background-color: transparent;
+  transition:
+    border-color 200ms cubic-bezier(0.2, 0, 0, 1) 60ms,
+    background-color 200ms cubic-bezier(0.2, 0, 0, 1) 60ms;
+}
+
+.gratitude-layer[data-departure="kept"] .gratitude-field:placeholder-shown {
+  opacity: 0;
+  transition: opacity 160ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.gratitude-layer[data-carry] .gratitude-fade,
+.gratitude-layer[data-carry="fade"] .gratitude-field:not(:placeholder-shown) {
+  animation: gratitude-fade-out 160ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.gratitude-layer[data-carry="aim"] .gratitude-field:not(:placeholder-shown) {
+  animation: gratitude-carry 420ms cubic-bezier(0.4, 0, 0.2, 1) var(--carry-delay, 40ms) both;
+}
+
+/* The routed page is already mounted underneath, so fading the canvas out is Today fading in. */
+.gratitude-layer[data-carry] .gratitude-layer__backdrop {
+  animation: gratitude-fade-out 280ms cubic-bezier(0.2, 0, 0, 1) 300ms both;
+}
+
+.gratitude-layer[data-departure="skip"] .gratitude-step {
+  animation: gratitude-fade-out 160ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.gratitude-layer[data-departure="skip"] .gratitude-layer__backdrop {
+  animation: gratitude-fade-out 200ms cubic-bezier(0.2, 0, 0, 1) 120ms both;
+}
+
+@keyframes gratitude-pop {
+  0% {
+    transform: scale(0.86);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes gratitude-carry {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(var(--carry-x), var(--carry-y)) scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes gratitude-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gratitude-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gratitude-layer[data-departure="kept"] .gratitude-heart {
+    animation: none;
+  }
+
+  .gratitude-layer[data-departure="kept"] .gratitude-heart__fill {
+    animation: gratitude-fade-in 120ms linear both;
+  }
+
+  .gratitude-layer[data-departure="kept"] .gratitude-field:not(:placeholder-shown),
+  .gratitude-layer[data-departure="kept"] .gratitude-field:placeholder-shown {
+    transition-duration: 120ms;
+    transition-timing-function: linear;
+  }
+
+  .gratitude-layer[data-carry] .gratitude-fade,
+  .gratitude-layer[data-carry] .gratitude-field:not(:placeholder-shown),
+  .gratitude-layer[data-departure="skip"] .gratitude-step {
+    animation: gratitude-fade-out 120ms linear both;
+  }
+
+  .gratitude-layer[data-carry] .gratitude-layer__backdrop,
+  .gratitude-layer[data-departure="skip"] .gratitude-layer__backdrop {
+    animation: gratitude-fade-out 120ms linear 120ms both;
+  }
+}
