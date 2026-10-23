@@ -1,5 +1,8 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { openDeck } from "./helpers/deck";
+import { failOnPageErrors } from "./helpers/page-errors";
+
+failOnPageErrors();
 
 // Both the table and the mobile list are mounted; only one is visible at a given width.
 const rows = (page: Page) => page.locator("[data-card-row]:visible");
@@ -37,6 +40,40 @@ test("the filter readouts agree with each other and with the rows", async ({ pag
 
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(rows(page)).toHaveCount(total);
+});
+
+test("no painted frame shows rows the filter readout has already left behind", async ({ page }) => {
+  await openDeck(page);
+  await page.evaluate(() => {
+    const frames: { readout: number; rows: number }[] = [];
+    Object.assign(window, { __filterFrames: frames });
+    const record = () => {
+      const readout = document.querySelector("main header p")?.textContent ?? "";
+      const match = readout.match(/^(\d+) of \d+ cards/);
+      if (match === null) return;
+      const shownRows = [...document.querySelectorAll("[data-card-row]")].filter((row) =>
+        row.checkVisibility(),
+      ).length;
+      frames.push({ readout: Number(match[1]), rows: shownRows });
+    };
+    new MutationObserver(record).observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+  });
+
+  await page.getByRole("button", { name: "Filter cards" }).click();
+  await check(page.getByRole("checkbox", { name: "Vocabulary" }));
+  await check(page.getByRole("checkbox", { name: "Learning", exact: true }));
+  await expect(page.getByText(/^\d+ of \d+ cards · filtered$/)).toBeVisible();
+
+  const frames = await page.evaluate(
+    () =>
+      (window as unknown as { __filterFrames: { readout: number; rows: number }[] }).__filterFrames,
+  );
+  expect(frames.length).toBeGreaterThan(0);
+  expect(frames.filter((frame) => frame.readout !== frame.rows)).toEqual([]);
 });
 
 test("a category cell creates the category that was typed", async ({ page }) => {

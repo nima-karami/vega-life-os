@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { longDeckTitle, openLongDeck } from "./helpers/deck";
+import { failOnPageErrors } from "./helpers/page-errors";
 
 /**
  * The manager windows its rows: a long deck mounts a screenful plus overscan, while the scroll
@@ -8,6 +9,7 @@ import { longDeckTitle, openLongDeck } from "./helpers/deck";
 
 // Seeding and reloading a long deck on the dev server outlasts the default 30s.
 test.describe.configure({ timeout: 60_000 });
+failOnPageErrors();
 
 const LONG_DECK = 1500;
 const WINDOW_CEILING = 80;

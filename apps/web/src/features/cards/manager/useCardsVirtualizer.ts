@@ -155,9 +155,9 @@ export function useCardsVirtualizer<Row>({
   const items = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
   const snapshot = useMemo(() => ({ items, rows, totalSize }), [items, rows, totalSize]);
-  // A scroll's new rows mount in an interruptible pass; keyboard focus can't wait for it.
+  // Only a scroll mounts in an interruptible pass; keyboard focus and a new row set can't wait.
   const deferredSnapshot = useDeferredValue(snapshot);
-  const shown = hasKeyboardFocus ? snapshot : deferredSnapshot;
+  const shown = hasKeyboardFocus || deferredSnapshot.rows !== rows ? snapshot : deferredSnapshot;
   const spacers = computeSpacers(shown.items, shown.totalSize, scrollMargin);
   const slots = shown.items.map((item, position) => ({
     key: item.key,

@@ -7,6 +7,7 @@ import {
   MENU_EDGE_PAD_PX,
   type Point,
 } from "./helpers/menu";
+import { failOnPageErrors } from "./helpers/page-errors";
 import { readStoredRows } from "./helpers/stored-rows";
 import { cancelTouch, endTouch, longPress, startTouch, swipe, tap } from "./helpers/touch";
 
@@ -20,6 +21,8 @@ import { cancelTouch, endTouch, longPress, startTouch, swipe, tap } from "./help
  * "Booting VEGA…" screen until the store is ready, so `CardsResults` only ever mounts
  * with the deck already in hand.
  */
+
+failOnPageErrors();
 
 const PHONE_WIDTHS = [320, 390];
 const PHONE_HEIGHT = 844;

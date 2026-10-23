@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { skipGratitudePage, turnQuietModeOff } from "./helpers/app";
 import { expectMenuClearOf, expectMenuOpenAndInert } from "./helpers/menu";
+import { trackPageErrors } from "./helpers/page-errors";
 import { dragAlong, endTouch, longPress, startTouch, swipe, tap } from "./helpers/touch";
 
 /**
@@ -830,6 +831,7 @@ test("the whole habit card is the link, not just its title (390px)", async ({ pa
 // The same gesture on two surfaces must not disagree: Today's ⋯ is 44px, so the values
 // list's is too, and the tap has to still reach the menu it grew around.
 test("the value actions menu is 44px and works by tap (390px)", async ({ page }) => {
+  const errors = await trackPageErrors(page);
   await openPhone(page, "/values");
 
   const trigger = page.locator('main [aria-label$=" actions"]').first();
@@ -840,6 +842,9 @@ test("the value actions menu is 44px and works by tap (390px)", async ({ page })
   await trigger.click();
   await expect(page.getByRole("menuitem", { name: "Add goal" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Archive" })).toBeVisible();
+  // The panel lands in one pass: a second resize inside the observer is a loop error.
+  await expect(page.locator(".dropdown__popover")).not.toHaveAttribute("data-entering", "true");
+  expect(errors).toEqual([]);
 });
 
 test("a goal step is removable by tap on a phone (390px)", async ({ page }) => {

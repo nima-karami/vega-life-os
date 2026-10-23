@@ -68,10 +68,11 @@ export function Menu({
       >
         {triggerContent}
       </Dropdown.Trigger>
+      {/* w-max: a shrink-to-fit width follows the `left` react-aria sets in its ResizeObserver. */}
       <Dropdown.Popover
         placement={placement}
         offset={6}
-        className="rounded-[var(--radius-floating)]"
+        className="w-max rounded-[var(--radius-floating)]"
       >
         <Dropdown.Menu aria-label="Actions">
           {items.map((it) => (

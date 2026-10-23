@@ -1,9 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
 import { longDeckTitle, openLongDeck } from "./helpers/deck";
+import { failOnPageErrors } from "./helpers/page-errors";
 
 /** The phone list and gallery are windowed too; rows are measured, not assumed, on a phone. */
 
 test.describe.configure({ timeout: 60_000 });
+failOnPageErrors();
 
 const LONG_DECK = 600;
 const WINDOW_CEILING = 50;

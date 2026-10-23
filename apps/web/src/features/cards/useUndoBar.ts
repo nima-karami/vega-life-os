@@ -39,10 +39,11 @@ export function useUndoBar(): UndoBarController {
     [stopTimer],
   );
 
+  // Restore writes to the store, so it runs in the handler: an updater runs during render.
   const undo = useCallback(() => {
     stopTimer();
-    setPending(runPendingUndo);
-  }, [stopTimer]);
+    setPending(runPendingUndo(pending));
+  }, [pending, stopTimer]);
 
   return { pending, offer, undo };
 }
