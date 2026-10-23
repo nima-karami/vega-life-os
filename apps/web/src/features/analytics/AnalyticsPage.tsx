@@ -93,11 +93,14 @@ function AnalyticsSection() {
   const today = useTodayISO();
   const weeks = rangeToWeeks(range);
 
-  const moodSeries = useMemo(() => computeMoodSeries(journal, days), [journal, days]);
-  const byValue = useMemo(() => countCompletedByValue(tasks, days), [tasks, days]);
-  const grid = useMemo(() => buildConsistencyGrid(tasks, weeks), [tasks, weeks]);
-  const reflection = useMemo(() => computeReflectionStats(journal, days), [journal, days]);
-  const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days), [goals, days]);
+  const moodSeries = useMemo(() => computeMoodSeries(journal, days, today), [journal, days, today]);
+  const byValue = useMemo(() => countCompletedByValue(tasks, days, today), [tasks, days, today]);
+  const grid = useMemo(() => buildConsistencyGrid(tasks, weeks, today), [tasks, weeks, today]);
+  const reflection = useMemo(
+    () => computeReflectionStats(journal, days, today),
+    [journal, days, today],
+  );
+  const goalsInWindow = useMemo(() => getGoalsInWindow(goals, days, today), [goals, days, today]);
   const habitRanked = useMemo(
     () =>
       groupHabitsByValue(
@@ -113,7 +116,7 @@ function AnalyticsSection() {
   const maxValueCount = Math.max(1, ...Object.values(byValue));
 
   const hasTasks = tasks.some((t) => t.date);
-  const tasksInRange = hasTasksInWindow(tasks, days);
+  const tasksInRange = hasTasksInWindow(tasks, days, today);
   const reportHabit = reportHabitId ? habits.find((h) => h.id === reportHabitId) : undefined;
   const moodGranularity = range === "1y" ? "week" : "day";
   const moodChartSeries = range === "1y" ? downsampleMoodWeekly(moodSeries) : moodSeries;

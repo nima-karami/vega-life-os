@@ -1,5 +1,6 @@
 import { Button } from "@heroui/react";
 import { useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, cx, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
@@ -28,7 +29,29 @@ const ACCENTS = [
 ];
 
 export function SettingsPage() {
-  const state = useStore();
+  const state = useStore(
+    useShallow((s) => ({
+      accent: s.accent,
+      authUid: s.authUid,
+      operatorAvatar: s.operatorAvatar,
+      operatorEmail: s.operatorEmail,
+      operatorName: s.operatorName,
+      operatorWorkspace: s.operatorWorkspace,
+      partnerName: s.partnerName,
+      deleteAllData: s.deleteAllData,
+      exportJSON: s.exportJSON,
+      importJSON: s.importJSON,
+      pushToast: s.pushToast,
+      resetDemo: s.resetDemo,
+      setAccent: s.setAccent,
+      setOnboarded: s.setOnboarded,
+      setOperatorAvatar: s.setOperatorAvatar,
+      setOperatorEmail: s.setOperatorEmail,
+      setOperatorName: s.setOperatorName,
+      setOperatorWorkspace: s.setOperatorWorkspace,
+      setPartnerName: s.setPartnerName,
+    })),
+  );
   const fileRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
   const signedIn = state.authUid != null;

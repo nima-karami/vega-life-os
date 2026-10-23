@@ -4,6 +4,7 @@
  * Pure function (no store access) so it is deterministic in unit tests.
  * The store-bound hook `useTaskLineage` wraps it for component use.
  */
+import { findById } from "@/core/lib/id-index";
 import { useStore } from "@/core/store";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
@@ -29,16 +30,12 @@ interface LineageCtx {
  * Never throws on dangling ids — missing fields resolve to `undefined`.
  */
 export function getTaskLineage(task: Task, ctx: LineageCtx): TaskLineage {
-  const habit = task.habitId != null ? ctx.habits.find((h) => h.id === task.habitId) : undefined;
-
-  const goal =
-    ctx.goals.find((g) => g.id === task.goalId) ??
-    (habit?.goalId != null ? ctx.goals.find((g) => g.id === habit.goalId) : undefined);
-
+  const habit = findById(ctx.habits, task.habitId);
+  const goal = findById(ctx.goals, task.goalId) ?? findById(ctx.goals, habit?.goalId);
   const value =
-    ctx.values.find((v) => v.id === task.valueId) ??
-    (goal?.valueId != null ? ctx.values.find((v) => v.id === goal.valueId) : undefined) ??
-    (habit?.valueId != null ? ctx.values.find((v) => v.id === habit.valueId) : undefined);
+    findById(ctx.values, task.valueId) ??
+    findById(ctx.values, goal?.valueId) ??
+    findById(ctx.values, habit?.valueId);
 
   const fromHabit = task.kind === "habit" || task.habitId != null;
 
@@ -50,7 +47,7 @@ export function getTaskLineage(task: Task, ctx: LineageCtx): TaskLineage {
  * Returns null when the task is not found.
  */
 export function useTaskLineage(taskId: string): TaskLineage | null {
-  const task = useStore((s) => s.tasks.find((t) => t.id === taskId));
+  const task = useStore((s) => findById(s.tasks, taskId));
   const values = useStore((s) => s.values);
   const goals = useStore((s) => s.goals);
   const habits = useStore((s) => s.habits);

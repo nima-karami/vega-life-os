@@ -106,7 +106,7 @@ export function RichMarkdownEditor({
     },
     onCreate: ({ editor }) => reportLengths(editor),
     onUpdate: ({ editor }) => {
-      scheduler.queueSave(getEditorMarkdown(editor));
+      scheduler.queueSave(() => getEditorMarkdown(editor));
       reportLengths(editor);
     },
     onBlur: () => scheduler.flush(),
@@ -119,8 +119,19 @@ export function RichMarkdownEditor({
     editor.commands.setContent(value, { emitUpdate: false });
   }, [editor, value, scheduler]);
 
-  // Flush any pending save when leaving the page / unmounting.
-  useEffect(() => () => scheduler.flush(), [scheduler]);
+  // Flush any pending save when the page hides (reload, tab close) or the editor unmounts.
+  useEffect(() => {
+    const flushWhenHidden = () => {
+      if (document.visibilityState === "hidden") scheduler.flush();
+    };
+    window.addEventListener("pagehide", scheduler.flush);
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    return () => {
+      window.removeEventListener("pagehide", scheduler.flush);
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+      scheduler.flush();
+    };
+  }, [scheduler]);
 
   if (!editor) return null;
 

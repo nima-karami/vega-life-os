@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { skipGratitudePage } from "./helpers/app";
+import { readStoredRows } from "./helpers/stored-rows";
 
 /**
  * Full-screen journal editor (Notion-style) E2E. Drives the real app: the
@@ -122,4 +123,48 @@ test("journal: plain-text entry renders and stays editable (back-compat)", async
 test("journal: an invalid date param redirects to today", async ({ page }) => {
   await page.goto("/journal/not-a-date", { waitUntil: "networkidle" });
   await expect(page).toHaveURL(/\/(today)?$/);
+});
+
+function isoDaysBefore(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** A client-side route change, the way an in-app link or the back button moves between days. */
+async function routeInApp(page: import("@playwright/test").Page, path: string) {
+  await page.evaluate((to) => {
+    window.history.pushState(null, "", to);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, path);
+}
+
+test("journal: switching day mid-autosave saves each day's text to its own date", async ({
+  page,
+}) => {
+  const first = isoDaysBefore(1);
+  const second = isoDaysBefore(2);
+  await page.goto(`/journal/${first}`, { waitUntil: "networkidle" });
+  const editor = page.getByRole("textbox", { name: "Journal" });
+  await editor.click();
+  await editor.pressSequentially("first day note");
+
+  // Inside the 600ms autosave debounce, move to another day and type there too.
+  await routeInApp(page, `/journal/${second}`);
+  await expect(page).toHaveURL(new RegExp(`/journal/${second}$`));
+  await expect(editor).toBeFocused();
+  await expect(editor).not.toContainText("first day note");
+  await editor.pressSequentially("second day note");
+  await page.evaluate(() => window.history.back());
+  await expect(page).toHaveURL(new RegExp(`/journal/${first}$`));
+  await expect(editor).toContainText("first day note");
+  await expect(editor).not.toContainText("second day note");
+
+  await expect
+    .poll(async () => {
+      const rows = await readStoredRows<{ date: string; journal: string }>(page, "journal");
+      const textOn = (date: string) => rows.find((row) => row.date === date)?.journal ?? "";
+      return [textOn(first), textOn(second)];
+    })
+    .toEqual(["first day note", "second day note"]);
 });

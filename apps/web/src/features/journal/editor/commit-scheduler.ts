@@ -1,11 +1,12 @@
 export interface CommitScheduler {
-  queueSave: (markdown: string) => void;
+  queueSave: (readMarkdown: () => string) => void;
   flush: () => void;
   adoptExternalValue: (next: string) => boolean;
 }
 
 /** Commit timing for the markdown editors: an idle debounce with a hard cap so continuous
- * typing still lands, `debounceMs: 0` meaning "commit every change". */
+ * typing still lands, `debounceMs: 0` meaning "commit every change". The document is
+ * serialized only when a commit lands, never per keystroke. */
 export function createCommitScheduler({
   initialValue,
   debounceMs,
@@ -19,7 +20,7 @@ export function createCommitScheduler({
   emit: (markdown: string) => void;
   setSaving: (saving: boolean) => void;
 }): CommitScheduler {
-  let pending: string | null = null;
+  let pending: (() => string) | null = null;
   let lastValue = initialValue;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let capTimer: ReturnType<typeof setTimeout> | null = null;
@@ -35,19 +36,19 @@ export function createCommitScheduler({
     idleTimer = null;
     capTimer = null;
     if (pending !== null) {
-      const markdown = pending;
+      const readMarkdown = pending;
       pending = null;
-      commit(markdown);
+      commit(readMarkdown());
     }
     setSaving(false);
   };
 
-  const queueSave = (markdown: string) => {
+  const queueSave = (readMarkdown: () => string) => {
     if (debounceMs === 0) {
-      commit(markdown);
+      commit(readMarkdown());
       return;
     }
-    pending = markdown;
+    pending = readMarkdown;
     setSaving(true);
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(flush, debounceMs);

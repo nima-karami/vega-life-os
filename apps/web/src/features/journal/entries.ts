@@ -3,6 +3,18 @@ import { type DayEntry, type EntryStatus, hasGratitude } from "./model";
 export type EntryFilter = "all" | "journaled" | "gratitude" | "mood";
 export type EntrySort = "newest" | "oldest";
 
+// Entries are replaced, never mutated, on edit, so an object-keyed cache cannot go stale.
+const searchHaystacks = new WeakMap<DayEntry, string>();
+
+function readSearchHaystack(entry: DayEntry): string {
+  let haystack = searchHaystacks.get(entry);
+  if (haystack === undefined) {
+    haystack = `${entry.journal} ${entry.gratitude.join(" ")}`.toLowerCase();
+    searchHaystacks.set(entry, haystack);
+  }
+  return haystack;
+}
+
 /**
  * Filter + search + sort over day entries for the entries manager. Search is a
  * case-insensitive substring over journal text and gratitude items only (mood is a
@@ -20,10 +32,7 @@ export function queryEntries(
     if (filter === "journaled" && e.journal.trim() === "") return false;
     if (filter === "gratitude" && !hasGratitude(e)) return false;
     if (filter === "mood" && e.mood == null) return false;
-    if (normalizedQuery) {
-      const haystack = `${e.journal} ${e.gratitude.join(" ")}`.toLowerCase();
-      if (!haystack.includes(normalizedQuery)) return false;
-    }
+    if (normalizedQuery && !readSearchHaystack(e).includes(normalizedQuery)) return false;
     return true;
   });
 

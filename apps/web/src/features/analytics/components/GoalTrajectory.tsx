@@ -1,3 +1,4 @@
+import { useTodayISO } from "@/core/lib/clock";
 import { Icon } from "@/core/ui";
 import { computeGoalTimeElapsed } from "@/features/goals";
 import type { Goal } from "@/features/goals/model";
@@ -21,8 +22,9 @@ export function GoalTrajectory({ goals }: { goals: Goal[] }) {
 }
 
 function GoalTrajectoryRow({ goal }: { goal: Goal }) {
-  const verdict = computeGoalVerdict(goal);
-  const elapsed = computeGoalTimeElapsed(goal);
+  const today = useTodayISO();
+  const verdict = computeGoalVerdict(goal, today);
+  const elapsed = computeGoalTimeElapsed(goal, today);
   const isDone = verdict.kind === "completed";
   const fill = isDone ? "var(--color-good)" : CHART_PRIMARY;
 

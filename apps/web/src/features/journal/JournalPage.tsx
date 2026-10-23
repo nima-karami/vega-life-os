@@ -12,7 +12,8 @@ import type { DayEntry } from "./model";
 export function JournalPage() {
   const { date } = useParams<{ date: string }>();
   if (!isValidISODate(date)) return <Navigate to="/today" replace />;
-  return <JournalEditorView date={date} />;
+  // A new day is a new editor, so a pending save flushes to the day it was typed on.
+  return <JournalEditorView key={date} date={date} />;
 }
 
 function JournalEditorView({ date }: { date: string }) {
