@@ -10,18 +10,18 @@ permissions:
   contents: read
 
 jobs:
-  # chromium + mobile-chromium split over 3 shards; shard 1 also runs the PWA project, so only
-  # one shard pays for its production build.
+  # chromium + mobile-chromium split over 2 shards; shard 1 also runs the PWA project, so only
+  # one shard pays for its production build. fail-fast: one red shard already blocks the release.
   e2e:
-    name: e2e (${{ matrix.shardIndex }}/3)
+    name: e2e (${{ matrix.shardIndex }}/2)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: read
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        shardIndex: [1, 2, 3]
+        shardIndex: [1, 2]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -44,7 +44,7 @@ jobs:
         run: npx playwright install-deps chromium
       - name: Playwright (chromium, mobile-chromium)
         working-directory: apps/web
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/3
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/2
       - name: Playwright (pwa)
         if: matrix.shardIndex == 1
         working-directory: apps/web
@@ -52,7 +52,7 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@v5
         with:
-          name: playwright-shard-${{ matrix.shardIndex }}of3
+          name: playwright-shard-${{ matrix.shardIndex }}of2
           path: |
             apps/web/playwright-report
             apps/web/test-results

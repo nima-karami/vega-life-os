@@ -22,8 +22,9 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   // Uncapped, Playwright takes a worker per core and starves the dev machine — which
-  // shows up as spurious 30s timeouts, not as a slow run. CI gets the full box.
-  workers: process.env.CI ? undefined : 2,
+  // shows up as spurious 30s timeouts, not as a slow run. On CI's 2-vCPU runner the default
+  // would be a single worker.
+  workers: 2,
   forbidOnly: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

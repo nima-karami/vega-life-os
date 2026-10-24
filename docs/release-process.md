@@ -55,8 +55,8 @@ Each layer runs a different slice of it:
 | **pre-commit** (husky) | `lint-staged` (Biome on staged files) + `gitleaks` on the staged diff |
 | **pre-push** (husky) | the gate minus e2e, the audits, the secret scan and the lockfile / suppression checks: format, lint, typecheck, deadcode, test, dupes. Needs JDK 21 first on `PATH` (server tests boot the Firestore emulator) |
 | **CI on push** (`verify.yml`, on push to `main`, every PR, and `workflow_dispatch`) | one job, `checks`: scope detection (below) → Semgrep → lockfile-platform check, format, lint, typecheck, deadcode, dupes, suppression check, script tests → unit tests (web, shared) → the server suite (with Java 21) + `smoke:server-bundle` when the scope is `full` → npm audit, OSV, gitleaks |
-| **CI on release** (`e2e.yml`, called by `release.yml` before any deploy; also `workflow_dispatch` on any ref) | the full e2e suite: chromium + mobile-chromium over 3 shards, shard 1 also runs the PWA project |
-| **laptop release** (`npm run release`, `deploy`, `deploy:server`) | the release guard runs `npm run e2e` locally — or the whole `npm run verify` when CI is red and `--allow-red-ci` was passed (§5) |
+| **CI on release** (`e2e.yml`, called by `release.yml` before any deploy; also `workflow_dispatch` on any ref) | the full e2e suite: chromium + mobile-chromium over 2 shards (2 workers each), shard 1 also runs the PWA project |
+| **laptop release** (`npm run release`, `deploy`, `deploy:server`) | the release guard runs `npm run e2e` locally — or `npm run verify` + `smoke:server-bundle` when CI is red and `--allow-red-ci` was passed (§5) |
 
 ### e2e runs at release, not on push
 
@@ -71,7 +71,8 @@ to cost 80–100 billable minutes, ~80 of them the six e2e shards. Now:
 | Trigger | Runs | Billable minutes |
 |---|---|---|
 | push to `main` / PR | `checks` (one job) | ~8 (web/docs scope) to ~11 (`full`) |
-| `release.yml` | gate + plan + e2e ×3 + server and/or hosting + record | ~80 e2e + ~12 deploy ≈ 95 |
+| `release.yml` | gate + plan + e2e ×2 + server and/or hosting + record | ~50–80 e2e + ~12 deploy ≈ 60–95 |
+| `npm run release` (laptop) | e2e locally, deploys from the laptop | 0 |
 | Dependabot | one grouped github-actions PR a month (`.github/dependabot.yml`) | ~10 per PR |
 | schedule | none — a nightly run burns minutes while nobody is changing the code | 0 |
 
@@ -80,6 +81,10 @@ Every check still runs before production: everything but e2e on each push (the r
 whether from CI or the laptop. The trade-off: an e2e regression surfaces at release time,
 not on the push that caused it — `npm run verify` before each merge, which includes e2e, is
 what catches it first. `gh workflow run e2e.yml --ref <branch>` runs the suite on demand.
+
+**Routine releases use the laptop path** (`npm run release`): its e2e run costs no Actions
+minutes. A CI release costs about 60–95 minutes, so the budget covers only ~15–20 a month on
+top of pushes; keep `release.yml` for when the laptop can't deploy.
 If the repo goes public (unlimited minutes), moving `e2e.yml` back onto push is a one-line
 `on:` change; the release gate can stay.
 
@@ -155,8 +160,12 @@ matched before the tooling row. A `*.md` under `apps/` or `packages/` belongs to
 slice, not to docs. A rename counts for both its old and new path. **Fail safe:** a live
 sha that is missing, unreachable, `dev`, not a hex sha, or not in git history deploys that
 target. Nothing needed → it says so and exits 0. Only when something will deploy does it run
-the release guard (below) — once; the deploys it calls see `RELEASE_LOCAL_GATE_SHA` set to
-the guarded sha and skip the local e2e run.
+the release guard (below), pinned to the full sha the plan read (`--sha=`). The gate takes
+~15–25 minutes, so afterwards it fetches tags and re-plans, refusing if anything changed (a
+CI release landed, HEAD moved), and re-asserts `HEAD` is that sha before each deploy and
+before recording. The deploys it calls see `RELEASE_LOCAL_GATE_SHA` set to the gated sha and
+skip the local e2e run (they refuse if `HEAD` is anything else). That variable is internal to
+`npm run release` — never set it by hand.
 
 Config that lives outside git (GitHub variables and secrets, local `.env` files) never
 triggers a deploy — after changing it, force with `--only=…` or `-f targets=…`.
@@ -230,22 +239,26 @@ the build's.
 `scripts/release-guard.mjs` runs first in both deploys and refuses (exit 1) when:
 
 - the working tree is dirty (`git status --porcelain`);
-- `HEAD` is not `origin/main` after a `git fetch` — only pushed `main` ships;
+- `HEAD` is not `origin/main` after a `git fetch` — only pushed `main` ships — or not the
+  `--sha=` it was pinned to;
 - any `verify.yml` check-run for `HEAD` is not `completed`/`success` (read with `gh api`;
   needs `gh auth login`). `release.yml`'s jobs and the e2e shards on the same sha are left
   out (`scripts/lib/check-runs.mjs`);
 - `npm run e2e` fails — CI runs e2e only inside `release.yml`, so the laptop runs it itself
   (the full suite, chromium + mobile + PWA, ~15–25 min locally). Skipped only when
-  `RELEASE_LOCAL_GATE_SHA` equals `HEAD`, which `npm run release` sets for its own deploys
-  after its guard passed;
-- the tree is dirty again after that run.
+  `RELEASE_LOCAL_GATE_SHA` (internal to `npm run release`) equals `HEAD`; set to any other
+  sha, the guard refuses;
+- the tree is dirty, or `HEAD` has moved, after that run — so a standalone `npm run deploy`
+  never builds a sha its gate did not run on.
 
 Running e2e locally, not dispatching `release.yml` and waiting, keeps the laptop path a real
 fallback: it works when Actions is down or out of minutes.
 
 `--allow-red-ci` (or `RELEASE_ALLOW_RED_CI=1`) turns a red CI check into a loud warning and
-**replaces the local e2e run with the whole `npm run verify`** (needs JDK 21 first on
-`PATH`), so nothing CI failed to prove ships unchecked. It is always passed explicitly:
+**replaces the local e2e run with `npm run verify` then `npm run smoke:server-bundle`**
+(needs JDK 21 first on `PATH`; `verify`'s `test` already includes `test:scripts`). That
+covers every check CI runs **except SAST**: Semgrep has no local install here, so a red-CI
+release ships without it. It is always passed explicitly:
 `npm run release -- --allow-red-ci`, `npm run deploy:server -- --allow-red-ci`,
 `RELEASE_ALLOW_RED_CI=1 npm run deploy`. The dirty-tree and pushed checks can't be skipped.
 
@@ -316,7 +329,7 @@ To force targets: `gh workflow run release.yml --ref main -f targets=both` (or `
 |---|---|
 | `gate` | Refuses unless the ref is `refs/heads/main` and the latest `verify` run for this exact sha concluded `success`. |
 | `plan` | `node scripts/release.mjs --plan-json` against the live shas (server URL from the `VITE_API_URL` variable) — the same classifier as the laptop path — and outputs `server` / `hosting`, their skip reasons, the `version` (next, or the one `HEAD` already carries) and `record` (checkout fetches all tags). |
-| `e2e` | Only when `plan` deploys something. Calls `e2e.yml`: the full Playwright suite in 3 shards (wall ~25 min, ~80 billable minutes). `server` and `hosting` need it to succeed, so a red e2e ships nothing. |
+| `e2e` | Only when `plan` deploys something. Calls `e2e.yml`: the full Playwright suite in 2 fail-fast shards of 2 workers (~50–80 billable minutes). `server` and `hosting` need it to succeed, so a red e2e ships nothing. |
 | `server` | Only when `plan` says so, after `e2e` succeeded. `docker build` with `GIT_SHA=<short>` and `APP_VERSION=<version>` → push `server:<short>` → record the serving traffic split → `gcloud run deploy --image <digest> --no-traffic --tag c-<short> --max-instances=2 --cpu-boost` → the tag URL's `/health` must report `<short>` and `check-live-schema` must pass against it → `update-traffic --to-latest`, drop the tag → the service URL must report `<short>`. |
 | `hosting` | Only when `plan` says so, after `e2e` succeeded and `server` succeeded or was skipped. `npm ci` → `npm run build` with the `VITE_*` repo variables and `VEGA_VERSION=<version>` → `check-live-schema` against the service URL (the `VITE_API_URL` variable when `server` was skipped) → record the live Hosting version (`releases.list` on the live channel) → `firebase deploy --only hosting` via WIF/ADC → `https://vega-life-os.web.app/` must serve `<meta name="vega-build" content="<short>">` within ~2 minutes. |
 | `record` | Only when the plan's `record` is true (the sha has no version yet), nothing failed or was cancelled, and at least one of `server` / `hosting` succeeded (a single skipped target is fine; both skipped → nothing shipped, no tag). `contents: write`. Reads the live `schemaHash`, writes the notes with `scripts/release-notes.mjs` (skip reasons from the plan), creates and pushes the annotated `<version>` tag on the released sha unless it is already there, `gh release create` unless the Release exists, and copies the notes into the run summary. Idempotent, so *Re-run failed jobs* recovers a failed record. |
