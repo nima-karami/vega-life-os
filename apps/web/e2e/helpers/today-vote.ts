@@ -8,7 +8,7 @@ const OPEN_VALUED_CARD =
 const HOLD_LANDS_WITHIN_MS = 10_000;
 
 interface StoredTask {
-  title: string;
+  id: string;
   status: string;
 }
 
@@ -40,9 +40,14 @@ async function readTitle(card: Locator): Promise<string> {
   return (await card.locator(".task-card__title-text").textContent()) ?? "";
 }
 
-async function storedStatus(page: Page, title: string): Promise<string | undefined> {
+/** A habit's title repeats on every past instance, so only the card's own row counts. */
+async function storedStatus(page: Page, card: Locator): Promise<string | undefined> {
+  const taskId = await card
+    .locator("xpath=ancestor::*[@data-task-id][1]")
+    .getAttribute("data-task-id");
+  expect(taskId, "card's task id").toBeTruthy();
   const tasks = await readStoredRows<StoredTask>(page, "tasks");
-  return tasks.find((task) => task.title === title)?.status;
+  return tasks.find((task) => task.id === taskId)?.status;
 }
 
 async function openValuedTitles(page: Page, count: number): Promise<string[]> {
@@ -113,7 +118,7 @@ export function describeVoteMoment() {
     await expect(headline).toHaveText(/^A vote for \S/);
     await expect(headline).toHaveCSS("opacity", "1");
     await expect(announcer(page)).toHaveText(/^Done\. A vote for /);
-    await expect.poll(() => storedStatus(page, title)).toBe("done");
+    await expect.poll(() => storedStatus(page, card)).toBe("done");
 
     await page.waitForTimeout(1000);
     await expect(titleIn(doneSection(page), title)).toHaveCount(0);
@@ -134,7 +139,7 @@ export function describeVoteMoment() {
     await page.waitForTimeout(3500);
     await expect(titleIn(remaining(page), title)).toHaveCount(1);
     await expect(titleIn(doneSection(page), title)).toHaveCount(0);
-    expect(await storedStatus(page, title)).toBe("todo");
+    expect(await storedStatus(page, card)).toBe("todo");
   });
 
   test("an unvalued task completes with no message", async ({ page }) => {
@@ -237,7 +242,7 @@ export function describeVoteMoment() {
     );
     await page.waitForTimeout(3500);
     await expect(titleIn(remaining(page), title)).toHaveCount(1);
-    expect(await storedStatus(page, title)).toBe("todo");
+    expect(await storedStatus(page, card)).toBe("todo");
   });
 
   test("skipping from the editor mid-hold sends the row to Done at once", async ({ page }) => {
