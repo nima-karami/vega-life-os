@@ -32,7 +32,7 @@ describe("isReleaseCheckRun", () => {
   });
 
   it("names the e2e shards release.yml calls, and a manual e2e.yml run", () => {
-    for (const name of ["e2e / e2e (1/3)", "e2e / e2e (3/3)", "e2e (2/3)"]) {
+    for (const name of ["e2e / e2e (1/2)", "e2e / e2e (2/2)", "e2e (2/2)"]) {
       assert.equal(isReleaseCheckRun(checkRun(name, "success")), true, name);
     }
   });

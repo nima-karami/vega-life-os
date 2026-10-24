@@ -17,6 +17,7 @@ import {
   resolveApiUrl,
 } from "./lib/live-endpoints.mjs";
 import { resolveReleaseVersion } from "./lib/next-version.mjs";
+import { describeHeadDrift, describePlanDrift } from "./lib/release-gate.mjs";
 import {
   composeReleaseNotes,
   ensureGithubRelease,
@@ -29,12 +30,22 @@ const ONLY_VALUES = ["server", "hosting", "both"];
 const DEPLOY_SCRIPTS = { server: "deploy:server", hosting: "deploy" };
 const ACTIVE_RUN_STATUSES = ["queued", "in_progress", "waiting", "pending", "requested"];
 
+// Thrown instead of process.exit: exiting while fetch sockets close trips a libuv assertion on Windows.
+class ReleaseExit extends Error {
+  constructor(message, exitCode) {
+    super(message);
+    this.exitCode = exitCode;
+  }
+}
+
 function parseOptions(argv) {
   const onlyArg = argv.find((arg) => arg.startsWith("--only="));
   const only = onlyArg?.slice("--only=".length);
   if (only !== undefined && !ONLY_VALUES.includes(only)) {
-    console.error(`release: --only must be one of ${ONLY_VALUES.join("|")} (got "${only}")`);
-    process.exit(2);
+    throw new ReleaseExit(
+      `release: --only must be one of ${ONLY_VALUES.join("|")} (got "${only}")`,
+      2,
+    );
   }
   return {
     only,
@@ -53,10 +64,19 @@ function git(args) {
   }).trim();
 }
 
-function runReleaseGuard(allowRedCi) {
-  const guardArgs = ["scripts/release-guard.mjs", ...(allowRedCi ? ["--allow-red-ci"] : [])];
+function runReleaseGuard({ allowRedCi, sha }) {
+  const guardArgs = [
+    "scripts/release-guard.mjs",
+    `--sha=${sha}`,
+    ...(allowRedCi ? ["--allow-red-ci"] : []),
+  ];
   const guard = spawnSync(process.execPath, guardArgs, { cwd: REPO_ROOT, stdio: "inherit" });
-  if (guard.status !== 0) process.exit(guard.status ?? 1);
+  if (guard.status !== 0) throw new ReleaseExit("", guard.status ?? 1);
+}
+
+function assertHeadIs(gatedSha) {
+  const drift = describeHeadDrift(gatedSha, git(["rev-parse", "HEAD"]));
+  if (drift) refuse(drift);
 }
 
 async function readLiveServerSha() {
@@ -78,22 +98,23 @@ async function readLiveHostingSha() {
   }
 }
 
-function computeReleaseVersion() {
+function computeReleaseVersion(headFullSha) {
   try {
     git(["fetch", "--tags", "--quiet", "origin"]);
   } catch (error) {
     console.error(`release: could not fetch tags, numbering from local tags (${error.message})`);
   }
   return resolveReleaseVersion({
-    headTags: listVersionTagsAt("HEAD", REPO_ROOT),
+    headTags: listVersionTagsAt(headFullSha, REPO_ROOT),
     allTags: listVersionTags(REPO_ROOT),
     now: new Date(),
   });
 }
 
 async function buildReleasePlan(only) {
-  const headSha = git(["rev-parse", "--short", "HEAD"]);
-  const { version, isNew } = computeReleaseVersion();
+  const headFullSha = git(["rev-parse", "HEAD"]);
+  const headSha = git(["rev-parse", "--short", headFullSha]);
+  const { version, isNew } = computeReleaseVersion(headFullSha);
   const liveByTarget = {
     server: await readLiveServerSha(),
     hosting: await readLiveHostingSha(),
@@ -102,13 +123,13 @@ async function buildReleasePlan(only) {
     ...planTarget({
       target,
       liveSha,
-      changedFiles: listChangedFilesSince(liveSha, REPO_ROOT),
+      changedFiles: listChangedFilesSince(liveSha, REPO_ROOT, headFullSha),
       only,
     }),
     liveSha: liveSha ?? null,
     liveShaSource: detail,
   }));
-  return { headSha, version, record: isNew, targets };
+  return { headFullSha, headSha, version, record: isNew, targets };
 }
 
 function printPlan({ headSha, version, record, targets }) {
@@ -144,8 +165,10 @@ function runDeploy(target, { allowRedCi, version, gatedSha }) {
     },
   });
   if (deploy.status !== 0) {
-    console.error(`\nrelease: FAILED — npm run ${script} exited ${deploy.status}`);
-    process.exit(deploy.status ?? 1);
+    throw new ReleaseExit(
+      `\nrelease: FAILED — npm run ${script} exited ${deploy.status}`,
+      deploy.status ?? 1,
+    );
   }
 }
 
@@ -160,8 +183,7 @@ async function readLiveSchemaHash() {
 }
 
 function refuse(reason) {
-  console.error(`\nrelease: REFUSED — ${reason}`);
-  process.exit(1);
+  throw new ReleaseExit(`\nrelease: REFUSED — ${reason}`, 1);
 }
 
 function readGhJson(args) {
@@ -219,58 +241,78 @@ async function recordRelease({ headSha, version, targets }) {
   try {
     ensureReleaseTag({ version, sha: headSha, cwd: REPO_ROOT });
   } catch (error) {
-    console.error(`\nrelease: deployed, but ${error.message}`);
-    process.exit(1);
+    throw new ReleaseExit(`\nrelease: deployed, but ${error.message}`, 1);
   }
   try {
     ensureGithubRelease({ version, notes, cwd: REPO_ROOT });
   } catch (error) {
     const notesFile = path.join(tmpdir(), `vega-${version}-notes.md`);
     writeFileSync(notesFile, notes);
-    console.error(
-      `\nrelease: deployed and tagged ${version}, but the GitHub Release failed (${error.message}).`,
+    throw new ReleaseExit(
+      `\nrelease: deployed and tagged ${version}, but the GitHub Release failed (${error.message}).\n` +
+        `  Finish it: gh release create ${version} --title ${version} --notes-file "${notesFile}" --verify-tag`,
+      1,
     );
-    console.error(
-      `  Finish it: gh release create ${version} --title ${version} --notes-file "${notesFile}" --verify-tag`,
-    );
-    process.exit(1);
   }
 }
 
-const options = parseOptions(process.argv.slice(2));
-const plan = await buildReleasePlan(options.only);
-if (options.isPlanJson) {
-  console.log(JSON.stringify(plan, null, 2));
-  process.exit(0);
+// Re-planned after the guard: a CI release or a moved HEAD during the local e2e run changes the plan.
+async function assertPlanUnchanged(gatedPlan, only) {
+  const drift = describePlanDrift(gatedPlan, await buildReleasePlan(only));
+  if (drift) refuse(drift);
 }
-printPlan(plan);
 
-const deployTargets = plan.targets
-  .filter((target) => target.shouldDeploy)
-  .map(({ target }) => target);
-if (deployTargets.length === 0) {
-  console.log("release: nothing to deploy — production already serves everything that changed.");
-  process.exit(0);
-}
-const shouldRecord = plan.record && !options.isNoRecord;
-const version = plan.record && options.isNoRecord ? undefined : plan.version;
-const recordNote = version ? `as ${version}` : "unversioned (--no-record)";
-if (!plan.record) {
+async function main() {
+  const options = parseOptions(process.argv.slice(2));
+  const plan = await buildReleasePlan(options.only);
+  if (options.isPlanJson) {
+    console.log(JSON.stringify(plan, null, 2));
+    return;
+  }
+  printPlan(plan);
+
+  const deployTargets = plan.targets
+    .filter((target) => target.shouldDeploy)
+    .map(({ target }) => target);
+  if (deployTargets.length === 0) {
+    console.log("release: nothing to deploy — production already serves everything that changed.");
+    return;
+  }
+  const shouldRecord = plan.record && !options.isNoRecord;
+  const version = plan.record && options.isNoRecord ? undefined : plan.version;
+  const recordNote = version ? `as ${version}` : "unversioned (--no-record)";
+  if (!plan.record) {
+    console.log(
+      `release: sha ${plan.headSha} is already ${plan.version} — re-deploying as ${plan.version}, nothing recorded`,
+    );
+  }
+  if (options.isDryRun) {
+    console.log(`release: dry run — would deploy ${deployTargets.join(", then ")} ${recordNote}`);
+    return;
+  }
+  const gatedSha = plan.headFullSha;
+  // After the plan, so a release with nothing to ship never pays for the local e2e run.
+  runReleaseGuard({ allowRedCi: options.allowRedCi, sha: gatedSha });
+  await assertPlanUnchanged(plan, options.only);
+  refuseWhileCiReleaseRuns();
+  if (shouldRecord) refuseWithoutGhAuth();
+  for (const target of deployTargets) {
+    assertHeadIs(gatedSha);
+    runDeploy(target, { allowRedCi: options.allowRedCi, version, gatedSha });
+  }
+  if (shouldRecord) {
+    assertHeadIs(gatedSha);
+    await recordRelease(plan);
+  }
   console.log(
-    `release: sha ${plan.headSha} is already ${plan.version} — re-deploying as ${plan.version}, nothing recorded`,
+    `release: OK — ${plan.headSha} deployed to ${deployTargets.join(" + ")} ${recordNote}`,
   );
 }
-if (options.isDryRun) {
-  console.log(`release: dry run — would deploy ${deployTargets.join(", then ")} ${recordNote}`);
-  process.exit(0);
+
+try {
+  await main();
+} catch (error) {
+  if (!(error instanceof ReleaseExit)) throw error;
+  if (error.message) console.error(error.message);
+  process.exitCode = error.exitCode;
 }
-// After the plan, so a release with nothing to ship never pays for the local e2e run.
-runReleaseGuard(options.allowRedCi);
-const gatedSha = git(["rev-parse", "HEAD"]);
-refuseWhileCiReleaseRuns();
-if (shouldRecord) refuseWithoutGhAuth();
-for (const target of deployTargets) {
-  runDeploy(target, { allowRedCi: options.allowRedCi, version, gatedSha });
-}
-if (shouldRecord) await recordRelease(plan);
-console.log(`release: OK — ${plan.headSha} deployed to ${deployTargets.join(" + ")} ${recordNote}`);

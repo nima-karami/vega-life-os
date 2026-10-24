@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 // Refuses a release from a tree that is not exactly the pushed, CI-checked origin/main, then runs
 // locally what CI did not prove for it: e2e (CI runs it only inside release.yml), or the whole
-// gate when CI is red and --allow-red-ci was passed.
+// gate when CI is red and --allow-red-ci was passed. --sha=<full sha> pins the sha to release.
 import { execFileSync, spawnSync } from "node:child_process";
 import { isGreenCheckRun, isReleaseCheckRun } from "./lib/check-runs.mjs";
-
-// Set by `npm run release` for its deploy steps, so one release runs the local gate once.
-const LOCAL_GATE_ENV = "RELEASE_LOCAL_GATE_SHA";
+import { chooseLocalGate, describeHeadDrift, LOCAL_GATE_ENV } from "./lib/release-gate.mjs";
 
 const allowRedCi =
   process.argv.includes("--allow-red-ci") || process.env.RELEASE_ALLOW_RED_CI === "1";
+const pinnedSha = process.argv.find((arg) => arg.startsWith("--sha="))?.slice("--sha=".length);
 
 function run(command, args) {
   return execFileSync(command, args, {
@@ -83,21 +82,34 @@ function checkCiGreen(sha) {
 }
 
 function runLocalGate(sha, isCiGreen) {
-  if (process.env[LOCAL_GATE_ENV] === sha) {
-    console.log(`release-guard: local gate already passed for ${sha.slice(0, 7)} in this release`);
-    return;
-  }
-  const script = isCiGreen ? "e2e" : "verify";
-  console.log(`release-guard: npm run ${script} for ${sha.slice(0, 7)}`);
-  const gate = spawnSync("npm", ["run", script], {
-    stdio: "inherit",
-    shell: process.platform === "win32",
+  const choice = chooseLocalGate({
+    releaseSha: sha,
+    gatedSha: process.env[LOCAL_GATE_ENV],
+    isCiGreen,
   });
-  if (gate.status !== 0) refuse(`npm run ${script} exited ${gate.status}`);
+  if (choice.refusal) refuse(choice.refusal);
+  if (choice.scripts.length === 0) {
+    console.log(`release-guard: local gate already passed for ${sha.slice(0, 7)} in this release`);
+  }
+  for (const script of choice.scripts) {
+    console.log(`release-guard: npm run ${script} for ${sha.slice(0, 7)}`);
+    const gate = spawnSync("npm", ["run", script], {
+      stdio: "inherit",
+      shell: process.platform === "win32",
+    });
+    if (gate.status !== 0) refuse(`npm run ${script} exited ${gate.status}`);
+  }
+}
+
+function assertHeadUnmoved(releaseSha) {
+  const drift = describeHeadDrift(releaseSha, run("git", ["rev-parse", "HEAD"]));
+  if (drift) refuse(drift);
 }
 
 assertCleanTree();
 const releaseSha = assertHeadIsOriginMain();
+if (pinnedSha) assertHeadUnmoved(pinnedSha);
 runLocalGate(releaseSha, checkCiGreen(releaseSha));
 assertCleanTree();
+assertHeadUnmoved(releaseSha);
 console.log(`release-guard: OK — releasing ${releaseSha.slice(0, 7)}`);

@@ -10,11 +10,11 @@ export function runGit(args, cwd) {
 }
 
 // --no-renames: a rename otherwise lists only its destination, hiding the slice it left.
-export function listChangedFilesSince(baseSha, cwd) {
+export function listChangedFilesSince(baseSha, cwd, headRef = "HEAD") {
   if (!isCommitSha(baseSha) || /^0+$/.test(baseSha)) return undefined;
   try {
     const baseCommit = runGit(["rev-parse", "--verify", "--quiet", `${baseSha}^{commit}`], cwd);
-    return runGit(["diff", "--name-only", "--no-renames", baseCommit, "HEAD"], cwd)
+    return runGit(["diff", "--name-only", "--no-renames", baseCommit, headRef], cwd)
       .split("\n")
       .filter(Boolean);
   } catch {
