@@ -14,7 +14,7 @@ const SECTIONS = [
   { type: "chore", title: "Chores" },
 ];
 const OTHER_SECTION = "Other";
-const FIRST_RELEASE_BODY = "First versioned release. Earlier history: docs/runs/.";
+const FIRST_RELEASE_BODY = "First versioned release. Earlier history: the git log.";
 // A code span or a bare @mention (not an email); only the mention is rewritten.
 const CODE_SPAN_OR_MENTION = /`[^`]*`|(?<![\w`])@[\w./-]*\w/g;
 

@@ -165,7 +165,7 @@ Whatever is on `main` past the newest release below.
 
 ## [v2026.10.1](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.1) - 2026-10-23
 
-First versioned release. Earlier history: docs/runs/.
+First versioned release. Earlier history: the git log.
 
 ### Deploy
 
@@ -177,5 +177,4 @@ First versioned release. Earlier history: docs/runs/.
 
 ## Before v2026.10.1
 
-Earlier releases were not versioned. What shipped, and when, is written up in the
-run reports under [`docs/runs/`](docs/runs/), one folder per run.
+Earlier releases were not versioned. What shipped, and when, is in the git log.

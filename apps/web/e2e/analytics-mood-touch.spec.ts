@@ -5,7 +5,7 @@ import { describedAs, dotCentre, isoDaysAgo, openMoodChart } from "./helpers/moo
 
 /**
  * The desktop half of the mood-chart touch work: a mouse keeps hover plus one-click
- * navigation, and the wider gutters are unchanged (spec
+ * navigation, and the wider gutters are unchanged (local spec
  * docs/specs/2026-09-04-analytics-habit-touch.md). Under 640px a mouse meets the phone's
  * overlapping hit columns — a narrowed window or ≥250% zoom — so that width is covered
  * here too; neither existing project reaches it otherwise.

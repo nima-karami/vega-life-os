@@ -42,3 +42,9 @@ playwright/.cache/
 # Local agent/tool caches (not source)
 .superpowers/
 .fallow/
+
+# Specs, plans, run reports and archive: local-only, kept on disk for retros (CLAUDE.md §6)
+docs/specs/
+docs/plans/
+docs/runs/
+docs/archive/

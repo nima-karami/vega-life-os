@@ -75,7 +75,7 @@ describe("buildReleaseNotes", () => {
     });
     assert.equal(
       notes,
-      "First versioned release. Earlier history: docs/runs/.\n\n### Deploy\n\n- Server: shipped\n",
+      "First versioned release. Earlier history: the git log.\n\n### Deploy\n\n- Server: shipped\n",
     );
   });
 

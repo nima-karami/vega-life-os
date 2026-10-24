@@ -17,7 +17,7 @@ Google-Calendar path. That client-only design has a hard ceiling:
   from real data.
 - **The future agent needs a server** to read data and act with scoped tools.
 
-The feature spec (`docs/specs/2026-07-13-backend-platform.md`) settled the *behavior*.
+The feature spec (local, `docs/specs/2026-07-13-backend-platform.md`) settled the *behavior*.
 This ADR records the *architecture and stack* decided with the maintainer, and the
 reasoning, so it isn't re-argued later.
 

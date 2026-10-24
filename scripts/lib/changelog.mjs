@@ -16,8 +16,7 @@ function describeUnversionedHistory(oldestRelease) {
   const heading = oldestRelease ? `Before ${oldestRelease.tagName}` : "Before versioned releases";
   return `## ${heading}
 
-Earlier releases were not versioned. What shipped, and when, is written up in the
-run reports under [\`docs/runs/\`](docs/runs/), one folder per run.`;
+Earlier releases were not versioned. What shipped, and when, is in the git log.`;
 }
 
 function formatRelease({ tagName, publishedAt, url, body }) {

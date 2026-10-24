@@ -36,7 +36,7 @@ below.
   the laptop) creates an annotated tag on the released sha and a GitHub Release. The notes
   come from `scripts/release-notes.mjs`: conventional commits since the previous `v*` tag,
   grouped by type, merge commits dropped, `@` mentions put in code spans; the first release
-  says "First versioned release. Earlier history: docs/runs/." instead of a commit log.
+  says "First versioned release. Earlier history: the git log." instead of a commit log.
   Then a deploy manifest — targets shipped or skipped (with the plan's reason), server
   revision and image, schema hash, build sha, the Actions run. A failed or rolled-back
   release creates no tag; its number is reused. Recording is idempotent: an existing tag on

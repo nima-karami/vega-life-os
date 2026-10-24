@@ -200,7 +200,7 @@ never bump it in a `package.json` (a manifest change ships both targets).
   `gh release create` with notes from `scripts/release-notes.mjs` — conventional commits
   since the previous `v*` tag, grouped by type, merge commits dropped, `@` mentions in code
   spans (the first release just says "First versioned release. Earlier history:
-  docs/runs/.") — plus a **Deploy** section: each target shipped or skipped with the plan's
+  the git log.") — plus a **Deploy** section: each target shipped or skipped with the plan's
   reason, server revision and image, schema hash, build sha and (from CI) the run link. A
   failed or rolled-back release creates no tag and its number is reused.
 - **Recording is idempotent.** A tag already on the released sha is kept (on another sha it
@@ -214,7 +214,7 @@ never bump it in a `package.json` (a manifest change ships both targets).
   collided anyway, let the later one fail and re-release: the sha it shipped either got
   the tag (and re-deploys as that version) or gets the next number.
 - **GitHub Releases are the record.** `CHANGELOG.md` mirrors them, newest first, ending in a
-  "Before <oldest release>" pointer to `docs/runs/` ("Before versioned releases" until the
+  "Before <oldest release>" pointer to the git log ("Before versioned releases" until the
   first one exists). Regenerate with `npm run changelog` (needs
   `gh auth login`) and commit it with the next ordinary commit — it is docs, so it ships
   nothing. CI never commits it: a `GITHUB_TOKEN` commit gets no verify run and could not be
@@ -388,9 +388,10 @@ To check what hosting is actually serving, bypass the service worker:
 ## 8. Document the change
 
 Specs, plans, ADRs, and run reports follow the naming in `CLAUDE.md §6` —
-`docs/specs/`, `docs/plans/`, `docs/adr/`, `docs/runs/` — every filename ISO-date-prefixed
-(`YYYY-MM-DD-`). Transcribe any decision (e.g. from a clarifying question) into the spec
-verbatim; never silently soften a destructive-action guard.
+`docs/specs/`, `docs/plans/`, `docs/adr/`, `docs/runs/` (all but `adr/` are local-only and
+gitignored) — every filename ISO-date-prefixed (`YYYY-MM-DD-`). Transcribe any decision
+(e.g. from a clarifying question) into the spec verbatim; never silently soften a
+destructive-action guard.
 
 ## 9. Cards performance benchmark
 

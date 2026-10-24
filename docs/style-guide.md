@@ -140,7 +140,7 @@ Do **not** write:
 - JSDoc on internal functions — reserve it for a genuinely shared public API.
 - Commented-out code. Delete it; git remembers.
 - `TODO` / `FIXME` / `HACK` on `main`. The tree has **zero** — keep it that way; track work
-  in `docs/specs/` instead.
+  in a local spec (`docs/specs/`, gitignored) instead.
 
 ## 6. Imports
 

@@ -6,7 +6,7 @@ import { tap } from "./helpers/touch";
 
 /**
  * Phone touch details on the analytics mood chart, the habit day picker and the card
- * gutters (spec docs/specs/2026-09-04-analytics-habit-touch.md). Three *consecutive*
+ * gutters (local spec docs/specs/2026-09-04-analytics-habit-touch.md). Three *consecutive*
  * days are seeded on purpose: at that pitch the 24px hit columns overlap, so an interior
  * point's own dot sits under its right-hand neighbour's column. Sparser fixtures leave
  * every column unoccluded, where element-based and x-based resolution agree and neither

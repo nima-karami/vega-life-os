@@ -130,19 +130,24 @@ The lines below are a reminder, not a substitute for reading them:
 
 All docs live under `docs/`. **Never create a `superpowers/` folder.**
 
-| Dir | Holds | Filename convention |
-|---|---|---|
-| `docs/specs/` | feature specifications | `YYYY-MM-DD-<slug>.md` |
-| `docs/plans/` | implementation plans | `YYYY-MM-DD-<slug>.md` |
-| `docs/adr/` | architecture decision records | `YYYY-MM-DD-NNNN-<slug>.md` |
-| `docs/runs/` | autonomous-run reports | `YYYY-MM-DD-<name>/` |
-| `docs/archive/` | frozen docs, kept for history | `YYYY-MM-DD-<slug>.md` |
+| Dir | Holds | Filename convention | In git |
+|---|---|---|---|
+| `docs/specs/` | feature specifications | `YYYY-MM-DD-<slug>.md` | no, local-only |
+| `docs/plans/` | implementation plans | `YYYY-MM-DD-<slug>.md` | no, local-only |
+| `docs/adr/` | architecture decision records | `YYYY-MM-DD-NNNN-<slug>.md` | yes |
+| `docs/runs/` | autonomous-run reports | `YYYY-MM-DD-<name>/` | no, local-only |
+| `docs/archive/` | frozen docs, kept for history | `YYYY-MM-DD-<slug>.md` | no, local-only |
 
 The index is [`docs/README.md`](docs/README.md).
 
+- **specs/plans/runs/archive are gitignored**: they stay on the owner's disk for retros and
+  are never committed.
+- **In a git worktree, write specs, plans and run reports to the main checkout's absolute
+  path** `G:\awby\projects\vega-life-os\docs\<dir>\`. A worktree's ignored folders are lost
+  when it is removed.
 - **Every spec and plan filename MUST start with an ISO date prefix** (`YYYY-MM-DD-`).
-  A spec with no date in its name is a defect — rename it with `git mv`. (Exception:
-  `docs/specs/DECISIONS.md`, the standing decisions index.)
+  A spec with no date in its name is a defect — rename it. (Exception:
+  [`docs/DECISIONS.md`](docs/DECISIONS.md), the standing decisions index, which is tracked.)
 - **Spec fidelity to decisions**: transcribe the user's chosen options (e.g. from a
   clarifying question) into the spec **verbatim**. Never silently soften a
   destructive-action guard (e.g. a required typed-"delete" confirmation).
@@ -153,8 +158,8 @@ Firebase sign-in and sync, the Anthropic-powered ⌘K agent, and Google Calendar
 **gated**: on the `VITE_FIREBASE_*` env vars (`firebaseEnabled`), a stored Anthropic key,
 and the user connecting a Google account in Settings. With no config the app runs as a
 pure local-first Dexie app. **Don't "fix" the gated-off paths thinking they're broken** —
-they're waiting on config. Plans are tracked in `docs/plans/`; `.claude/docs/` (git-ignored)
-holds only the old connected-platform roadmap.
+they're waiting on config. Plans live in `docs/plans/` (local-only, gitignored); `.claude/docs/`
+(git-ignored) holds only the old connected-platform roadmap.
 
 **Data lifecycle (2026-06-22):** signed-out = local demo sandbox; signed-in = strictly
 cloud-only (no app data persisted to disk); no upload-on-sign-in.
@@ -172,9 +177,8 @@ just `JAVA_HOME`** — the tests boot the Firestore emulator through firebase-to
 `java` resolves to an older JRE the whole server suite fails misleadingly (every calendar
 test at once, with errors that look like product bugs). Prepend it for the session:
 `export PATH="/c/Users/karam/tools/jdk-21.0.11+10/bin:$PATH"` (verify with `java -version`).
-See the run report
-[`docs/runs/2026-07-13-backend-build/report.md`](docs/runs/2026-07-13-backend-build/report.md),
-the spec, and [`docs/adr/2026-07-13-0003-backend-architecture.md`](docs/adr/2026-07-13-0003-backend-architecture.md).
+See [`docs/adr/2026-07-13-0003-backend-architecture.md`](docs/adr/2026-07-13-0003-backend-architecture.md);
+the run report (`docs/runs/2026-07-13-backend-build/`) and the spec are local-only.
 
 ## 8. Anthropic client-side call contract
 

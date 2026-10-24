@@ -14,7 +14,7 @@ import {
 } from "./helpers/touch";
 
 /**
- * Touch safety for the calendar's timed grid (spec
+ * Touch safety for the calendar's timed grid (local spec
  * docs/specs/2026-09-04-calendar-touch.md): a finger scrolls, it never reschedules.
  * Both widths run here — a touchscreen laptop is past `sm` and still has only fingers.
  */

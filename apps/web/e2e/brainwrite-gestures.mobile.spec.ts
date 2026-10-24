@@ -22,7 +22,7 @@ import {
  * The `.mobile.spec.ts` suffix routes this into the Pixel 7 / `hasTouch` project.
  *
  * Several of these are RED on purpose — they are the proof the defects exist. Never
- * soften an assertion here to get green; the table in
+ * soften an assertion here to get green; the table in the local run report
  * `docs/runs/2026-08-20-brainwrite-gestures/evidence/e2e-red.md` records what each
  * one actually does.
  */

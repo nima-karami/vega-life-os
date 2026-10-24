@@ -44,8 +44,8 @@ describe("buildChangelog", () => {
     assert.doesNotMatch(changelog, /\r/);
   });
 
-  it("names the oldest release in the pointer to the run reports", () => {
-    assert.match(buildChangelog(releases), /## Before v2026\.9\.10\n\n[^#]*docs\/runs\//);
+  it("names the oldest release in the pointer to the git log", () => {
+    assert.match(buildChangelog(releases), /## Before v2026\.9\.10\n\n[^#]*git log/);
   });
 
   it("is stable with no releases yet", () => {
