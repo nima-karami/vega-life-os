@@ -45,7 +45,7 @@ jobs:
         run: |
           echo "::error::release runs from refs/heads/main only (got $GITHUB_REF)"
           exit 1
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
       - name: Refuse unless verify succeeded for this sha
@@ -74,11 +74,11 @@ jobs:
       server_reason: ${{ steps.plan.outputs.server_reason }}
       hosting_reason: ${{ steps.plan.outputs.hosting_reason }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # the plan diffs the live shas against HEAD
           fetch-tags: true # and numbers the version from the existing v* tags
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Plan the targets
@@ -126,8 +126,8 @@ jobs:
       revision: ${{ steps.revision.outputs.name }}
       image: ${{ steps.image.outputs.digest }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -215,8 +215,8 @@ jobs:
       previous_version: ${{ steps.previous.outputs.version }}
       deployed: ${{ steps.deploying.outputs.deployed }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -283,11 +283,11 @@ jobs:
       VERSION: ${{ needs.plan.outputs.version }}
       SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # notes cover the commits since the previous v* tag
           fetch-tags: true
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Read the live schema hash
