@@ -67,7 +67,9 @@ test("the strip names the five views in order", async ({ page }) => {
 });
 
 for (const { tab, url, heading } of FINANCE_VIEWS) {
-  test(`the view strip reaches ${heading} and the page renders`, async ({ page }) => {
+  test(`the view strip reaches ${heading} and the page renders`, { tag: "@smoke" }, async ({
+    page,
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
 

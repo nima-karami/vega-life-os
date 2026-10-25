@@ -38,7 +38,9 @@ test.beforeEach(async ({ page }) => {
   }
 });
 
-test("boots to /today — no TopBar, no NavRow, omni trigger visible", async ({ page }) => {
+test("boots to /today — no TopBar, no NavRow, omni trigger visible", { tag: "@smoke" }, async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   page.on("console", (m) => {
@@ -94,7 +96,9 @@ const V1_ROUTES: { path: string; name: string }[] = [
 ];
 
 for (const { path, name } of V1_ROUTES) {
-  test(`renders ${name} (${path}) with content and no errors`, async ({ page }) => {
+  test(`renders ${name} (${path}) with content and no errors`, { tag: "@smoke" }, async ({
+    page,
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
     page.on("console", (m) => {
@@ -854,7 +858,7 @@ test("settings: delete all (this device) empties the sandbox", async ({ page }) 
 // A detail view is a route, not a dialog, so there is no Cancel and nothing is
 // deferred: Add persists immediately and navigates.
 
-test("habits: Add creates the habit and opens its page", async ({ page }) => {
+test("habits: Add creates the habit and opens its page", { tag: "@smoke" }, async ({ page }) => {
   await page.goto("/habits", { waitUntil: "networkidle" });
   await expect(page.locator("main")).toBeVisible({ timeout: 15_000 });
 

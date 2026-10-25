@@ -14,6 +14,9 @@ const SECTIONS = [
   { type: "chore", title: "Chores" },
 ];
 const OTHER_SECTION = "Other";
+const DEPLOY_HEADING = "### Deploy";
+const DEPLOY_HEADING_LINE = /^### Deploy$/gm;
+const BREAK_GLASS_LINE = "- Path: **break-glass** (laptop release; Semgrep did not run)";
 const FIRST_RELEASE_BODY = "First versioned release. Earlier history: the git log.";
 // A code span or a bare @mention (not an email); only the mention is rewritten.
 const CODE_SPAN_OR_MENTION = /`[^`]*`|(?<![\w`])@[\w./-]*\w/g;
@@ -94,16 +97,39 @@ function describeServer(server) {
 
 function describeHosting(hosting, sha) {
   if (hosting.status !== "shipped") return describeSkipped(hosting);
-  return `shipped, build \`${sha}\``;
+  const version = hosting.hostingVersion ? `, version \`${hosting.hostingVersion}\`` : "";
+  return `shipped, build \`${sha}\`${version}`;
 }
 
-export function buildDeployManifest({ sha, server, hosting, schemaHash, runUrl }) {
+export function buildDeployManifest({ sha, server, hosting, schemaHash, runUrl, isBreakGlass }) {
   const lines = [
+    isBreakGlass && BREAK_GLASS_LINE,
     `- Server: ${describeServer(server)}`,
     `- Hosting: ${describeHosting(hosting, sha)}`,
     schemaHash && `- Schema hash: \`${schemaHash}\``,
     `- Commit: \`${sha}\``,
     runUrl && `- Run: ${runUrl}`,
   ].filter(Boolean);
-  return `### Deploy\n\n${lines.join("\n")}`;
+  return `${DEPLOY_HEADING}\n\n${lines.join("\n")}`;
+}
+
+function parseTargetLine(deploySection, label, idLabel) {
+  const line = deploySection.match(new RegExp(`^- ${label}: (.*)$`, "m"))?.[1] ?? "";
+  const isShipped = line.startsWith("shipped");
+  const id = isShipped ? line.match(new RegExp(`${idLabel} \`([^\`]+)\``))?.[1] : undefined;
+  return { isShipped, id };
+}
+
+export function parseDeployManifest(notes) {
+  const normalizedNotes = notes.replace(/\r\n/g, "\n");
+  const lastHeading = [...normalizedNotes.matchAll(DEPLOY_HEADING_LINE)].at(-1);
+  const deploySection = lastHeading
+    ? normalizedNotes.slice(lastHeading.index + lastHeading[0].length)
+    : "";
+  const server = parseTargetLine(deploySection, "Server", "revision");
+  const hosting = parseTargetLine(deploySection, "Hosting", "version");
+  return {
+    server: { isShipped: server.isShipped, revision: server.id },
+    hosting: { isShipped: hosting.isShipped, hostingVersion: hosting.id },
+  };
 }

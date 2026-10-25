@@ -43,12 +43,21 @@ export function listVersionTagsAt(sha, cwd) {
   return keepVersionTags(runGit(["tag", "--list", "v*", "--points-at", sha], cwd));
 }
 
-export function composeReleaseNotes({ version, sha, server, hosting, schemaHash, runUrl, cwd }) {
+export function composeReleaseNotes({
+  version,
+  sha,
+  server,
+  hosting,
+  schemaHash,
+  runUrl,
+  isBreakGlass,
+  cwd,
+}) {
   const previousTag = findPreviousVersionTag(sha, version, cwd);
   return buildReleaseNotes({
     previousTag,
     commits: previousTag ? listCommitsSince(previousTag, sha, cwd) : [],
-    manifest: buildDeployManifest({ sha, server, hosting, schemaHash, runUrl }),
+    manifest: buildDeployManifest({ sha, server, hosting, schemaHash, runUrl, isBreakGlass }),
   });
 }
 

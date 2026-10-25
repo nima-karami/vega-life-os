@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
 import {
+  composeReleaseNotes,
   ensureReleaseTag,
   findPreviousVersionTag,
   listCommitsSince,
@@ -145,5 +146,20 @@ describe("ensureReleaseTag", () => {
     } finally {
       runGit(["remote", "set-url", "origin", remoteDir]);
     }
+  });
+});
+
+describe("composeReleaseNotes", () => {
+  it("composeReleaseNotes passes isBreakGlass and hostingVersion through", () => {
+    const notes = composeReleaseNotes({
+      version: "v2026.10.10",
+      sha: shas.fourth,
+      server: { status: "skipped", reason: "forced by --only=hosting" },
+      hosting: { status: "shipped", hostingVersion: "a1b2c3d4" },
+      isBreakGlass: true,
+      cwd: repoDir,
+    });
+    assert.match(notes, /^- Path: \*\*break-glass\*\*/m);
+    assert.ok(notes.includes(`- Hosting: shipped, build \`${shas.fourth}\`, version \`a1b2c3d4\``));
   });
 });

@@ -253,9 +253,9 @@ test("habit page opens from a card, fits the column, and the trail climbs out (3
   await expect(page).toHaveURL(/\/values$/);
 });
 
-test("phone bottom nav shows the primary tabs and navigates between routes (390px)", async ({
-  page,
-}) => {
+test("phone bottom nav shows the primary tabs and navigates between routes (390px)", {
+  tag: "@smoke",
+}, async ({ page }) => {
   await turnQuietModeOff(page);
   await page.setViewportSize({ width: 390, height: 780 });
   await page.goto("/today", { waitUntil: "domcontentloaded" });

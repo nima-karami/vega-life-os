@@ -1,27 +1,62 @@
 name: e2e
 
-# The full Playwright suite: the release gate (called by release.yml before any deploy), or a
-# manual run on any ref. Not run on push — user decision 2026-10-23, docs/release-process.md §3.
+# A skipped required check counts as passing, so the shards report through one always-run `e2e` job.
 on:
-  workflow_call:
+  pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      force_full:
+        type: boolean
+        default: false
+
+concurrency:
+  group: e2e-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  # chromium + mobile-chromium split over 2 shards; shard 1 also runs the PWA project, so only
-  # one shard pays for its production build. fail-fast: one red shard already blocks the release.
-  e2e:
-    name: e2e (${{ matrix.shardIndex }}/2)
+  e2e-scope:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # scope detection diffs the PR base
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - id: scope
+        env:
+          FORCE_FULL: ${{ inputs.force_full }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$FORCE_FULL" != "true" ] && [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            node scripts/ci-scope.mjs "$BASE_SHA" >> "$GITHUB_OUTPUT" || echo "scope=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "scope=full" >> "$GITHUB_OUTPUT"
+          fi
+
+  # chromium + mobile-chromium over 4 shards; shard 1 also runs the PWA project, so only one
+  # shard pays for its production build.
+  e2e-shard:
+    name: e2e-shard (${{ matrix.shardIndex }}/4)
+    needs: e2e-scope
+    if: needs.e2e-scope.outputs.scope != 'docs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       contents: read
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        shardIndex: [1, 2]
+        shardIndex: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -44,7 +79,7 @@ jobs:
         run: npx playwright install-deps chromium
       - name: Playwright (chromium, mobile-chromium)
         working-directory: apps/web
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/2
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/4
       - name: Playwright (pwa)
         if: matrix.shardIndex == 1
         working-directory: apps/web
@@ -52,8 +87,27 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-shard-${{ matrix.shardIndex }}of2
+          name: playwright-shard-${{ matrix.shardIndex }}-of-4
           path: |
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
+
+  e2e:
+    needs: [e2e-scope, e2e-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - env:
+          SCOPE_RESULT: ${{ needs.e2e-scope.result }}
+          SCOPE: ${{ needs.e2e-scope.outputs.scope }}
+          SHARDS_RESULT: ${{ needs.e2e-shard.result }}
+        run: |
+          if [ "$SCOPE_RESULT" = "success" ] && { [ "$SHARDS_RESULT" = "success" ] || { [ "$SHARDS_RESULT" = "skipped" ] && [ "$SCOPE" = "docs" ]; }; }; then
+            echo "e2e: scope $SCOPE, shards $SHARDS_RESULT"
+            exit 0
+          fi
+          echo "::error::e2e failed: scope job $SCOPE_RESULT (scope '$SCOPE'), shards $SHARDS_RESULT"
+          exit 1
