@@ -4,7 +4,7 @@
 |---|---|---|
 | [`product-overview.md`](product-overview.md) | What VEGA is and how its parts connect | — |
 | [`style-guide.md`](style-guide.md) | Naming, comments, file structure | — |
-| [`release-process.md`](release-process.md) | Commits, the gate, CI scope, releasing, rollback | — |
+| [`release-process.md`](release-process.md) | Commits, The gate, CI scope, releasing, rollback | — |
 | [`DECISIONS.md`](DECISIONS.md) | Standing product and engineering decisions | fixed name |
 | [`adr/`](adr/) | Architecture decision records | `YYYY-MM-DD-NNNN-<slug>.md` |
 | [`heroui/`](heroui/) | HeroUI v3 API reference for agents | — |
