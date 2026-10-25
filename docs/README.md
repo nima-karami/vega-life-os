@@ -21,5 +21,5 @@ Local-only and gitignored, kept on the owner's disk for retros:
 Agent rules live in [`../CLAUDE.md`](../CLAUDE.md), which wins on any conflict. GCP and CI
 setup lives in [`../infra/`](../infra/).
 
-Spec status lines are not maintained. What shipped, and when, is recorded by release tags,
-GitHub Releases and `CHANGELOG.md`.
+Spec status lines are not maintained. What shipped, and when, is recorded by the release tags
+and GitHub Releases.
