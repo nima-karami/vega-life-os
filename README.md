@@ -60,10 +60,12 @@ No inline suppressions, ever; `check:suppressions` enforces it. Details in
 
 ## Releasing
 
-`npm run release` (or the `release` GitHub workflow) deploys only the targets that changed
-since what is live, server before hosting, and `npm run release -- --dry-run` prints the
-plan. Releases are being given CalVer tags (`vYYYY.M.N`) with a GitHub Release each, and a
-`CHANGELOG.md` generated from them. The version lives in the tag, not in `package.json`.
+Every merge to `main` deploys itself through `.github/workflows/deploy.yml`:
+- it ships only the targets that changed since what is live, server before hosting;
+- it stages both and smokes them before anything goes live;
+- it records a CalVer tag (`vYYYY.M.N`) with a GitHub Release, which is the release history.
+
+`npm run release -- --dry-run` prints the plan. The version lives in the tag, not in `package.json`.
 The full process, including rollback, is in [`docs/release-process.md`](docs/release-process.md).
 
 ## Docs
