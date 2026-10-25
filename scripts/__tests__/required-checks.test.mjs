@@ -155,6 +155,30 @@ describe("required checks", () => {
     assert.ok(clone >= 0 && record === clone + 1 && assertMeta > record, names.join(" | "));
   });
 
+  it("a deploy job below a skippable job carries a status function, or it inherits the skip", () => {
+    const jobs = readWorkflow("deploy.yml").jobs;
+    const byId = new Map(jobs.map((job) => [job.id, job]));
+    const parseNeeds = (needs) =>
+      (needs ?? "")
+        .replace(/[[\]]/g, "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+    const hasSkippableAncestor = (job, seen = new Set()) =>
+      parseNeeds(job.needs).some((id) => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        const ancestor = byId.get(id);
+        return ancestor.condition !== undefined || hasSkippableAncestor(ancestor, seen);
+      });
+    const STATUS_FUNCTION = /\b(cancelled|always|failure|success)\(\)/;
+    const unguarded = jobs
+      .filter((job) => hasSkippableAncestor(job))
+      .filter((job) => !STATUS_FUNCTION.test(job.condition ?? ""))
+      .map((job) => job.id);
+    assert.deepEqual(unguarded, []);
+  });
+
   it("no deploy job shares a name with a required check", () => {
     const deployJobIds = readWorkflow("deploy.yml").jobs.map((job) => job.id);
     assert.deepEqual(
