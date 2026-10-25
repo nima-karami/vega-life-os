@@ -15,7 +15,7 @@ jobs:
     steps:
       - env:
           HAS_WIF_PROVIDER: ${{ secrets.WIF_PROVIDER != '' }}
-        run: echo "production WIF_PROVIDER visible to a PR job: $HAS_WIF_PROVIDER"
+        run: echo "production WIF_PROVIDER visible to a PR job = $HAS_WIF_PROVIDER"
 
   wif-auth:
     runs-on: ubuntu-latest
