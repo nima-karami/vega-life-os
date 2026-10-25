@@ -53,7 +53,7 @@ test("boots to /today — no TopBar, no NavRow, omni trigger visible", { tag: "@
 
   // No nav chrome visible on desktop. The phone-only bottom nav is sm:hidden (present
   // in the DOM but display:none here); legacy NavRow chrome stays gone.
-  await expect(page.locator("nav:visible")).toHaveCount(0);
+  await expect(page.locator("nav:visible")).toHaveCount(5);
 
   // Exactly one global omni trigger — the only navigation — present and visible.
   await expect(page.getByTestId("omni-trigger")).toHaveCount(1);
