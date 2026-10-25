@@ -226,6 +226,23 @@ describe("parseDeployManifest", () => {
     }
   });
 
+  it("reads only a real Deploy heading, and the last one", () => {
+    const notes = [
+      "### Deployment notes\n\n- Server: shipped, revision `not-a-manifest`",
+      "### Deploy\n\n- Server: shipped, revision `older`\n- Hosting: skipped",
+      "### Deploy\n\n- Server: skipped\n- Hosting: shipped, build `abc1234`, version `h9`",
+    ].join("\n\n");
+    assert.deepEqual(parseDeployManifest(notes), {
+      server: { isShipped: false, revision: undefined },
+      hosting: { isShipped: true, hostingVersion: "h9" },
+    });
+    assert.deepEqual(parseDeployManifest(notes.replace(/\n/g, "\r\n")), parseDeployManifest(notes));
+    assert.deepEqual(parseDeployManifest(notes.split("\n\n### Deploy\n")[0]), {
+      server: { isShipped: false, revision: undefined },
+      hosting: { isShipped: false, hostingVersion: undefined },
+    });
+  });
+
   it("notes without a Deploy section parse as nothing shipped", () => {
     assert.deepEqual(parseDeployManifest("3 commits since `v2026.10.4`.\n\n### Fixes\n"), {
       server: { isShipped: false, revision: undefined },

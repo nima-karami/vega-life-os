@@ -15,6 +15,7 @@ const SECTIONS = [
 ];
 const OTHER_SECTION = "Other";
 const DEPLOY_HEADING = "### Deploy";
+const DEPLOY_HEADING_LINE = /^### Deploy$/gm;
 const BREAK_GLASS_LINE = "- Path: **break-glass** (laptop release; Semgrep did not run)";
 const FIRST_RELEASE_BODY = "First versioned release. Earlier history: the git log.";
 // A code span or a bare @mention (not an email); only the mention is rewritten.
@@ -120,8 +121,11 @@ function parseTargetLine(deploySection, label, idLabel) {
 }
 
 export function parseDeployManifest(notes) {
-  const deployStart = notes.indexOf(DEPLOY_HEADING);
-  const deploySection = deployStart === -1 ? "" : notes.slice(deployStart + DEPLOY_HEADING.length);
+  const normalizedNotes = notes.replace(/\r\n/g, "\n");
+  const lastHeading = [...normalizedNotes.matchAll(DEPLOY_HEADING_LINE)].at(-1);
+  const deploySection = lastHeading
+    ? normalizedNotes.slice(lastHeading.index + lastHeading[0].length)
+    : "";
   const server = parseTargetLine(deploySection, "Server", "revision");
   const hosting = parseTargetLine(deploySection, "Hosting", "version");
   return {

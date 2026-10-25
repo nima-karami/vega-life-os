@@ -27,6 +27,8 @@ describe("validatePrTitle", () => {
       ["fix x", 'missing ": "'],
       ["fix(Bad Scope): x", "bad scope"],
       ["fix: ", "empty description"],
+      ["fix:  x", 'whitespace after ": "'],
+      ["feat(api)!:   breaking", 'whitespace after ": "'],
       [" fix: x", "whitespace"],
       ["WIP", "unknown type"],
       ["", "empty title"],

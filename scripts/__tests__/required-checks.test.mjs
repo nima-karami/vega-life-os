@@ -47,6 +47,18 @@ function readWorkflow(fileName) {
   return { fileName, triggers, jobs };
 }
 
+function findPullRequestFilters(fileName) {
+  const lines = readRepoFile(`.github/workflows/${fileName}`).split("\n");
+  const start = lines.indexOf("  pull_request:");
+  const filters = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!/^ {4}/.test(line)) break;
+    const filter = /^ {4}(paths|paths-ignore|branches|branches-ignore):/.exec(line)?.[1];
+    if (filter) filters.push(filter);
+  }
+  return filters;
+}
+
 function readRulesetChecks() {
   const ruleset = JSON.parse(readRepoFile("infra/github/main-ruleset.json"));
   return ruleset.rules.find((rule) => rule.type === "required_status_checks").parameters
@@ -77,6 +89,12 @@ describe("required checks", () => {
       assert.ok(found, `no job reports "${name}"`);
       assert.equal(found.job.id, name, `${name} is the job id, not just its display name`);
       assert.ok(found.workflow.triggers.includes("pull_request"), `${found.workflow.fileName}`);
+    }
+  });
+
+  it("no PR workflow filters pull_request by paths or branches, which would leave a check pending", () => {
+    for (const fileName of PR_WORKFLOWS) {
+      assert.deepEqual(findPullRequestFilters(fileName), [], fileName);
     }
   });
 

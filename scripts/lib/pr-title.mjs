@@ -38,7 +38,9 @@ function validateHeader(title) {
   if (!rest.startsWith(": ")) {
     return fail('missing ": " after the type');
   }
-  return rest.slice(2).trim() === "" ? fail("empty description") : { isValid: true };
+  const description = rest.slice(2);
+  if (description.trim() === "") return fail("empty description");
+  return /^\s/.test(description) ? fail('whitespace after ": "') : { isValid: true };
 }
 
 export function validatePrTitle(title) {
