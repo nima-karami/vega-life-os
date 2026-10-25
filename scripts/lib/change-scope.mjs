@@ -7,8 +7,7 @@ const FILE_RULES = [
   {
     rule: "release-pipeline",
     targets: BOTH,
-    matches: (filePath) =>
-      filePath === ".github/workflows/deploy.yml" || filePath === ".github/workflows/release.yml",
+    matches: (filePath) => filePath === ".github/workflows/deploy.yml",
   },
   {
     rule: "server-deploy",

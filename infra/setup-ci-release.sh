@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# One-time, idempotent setup for .github/workflows/release.yml: keyless GitHub -> GCP auth,
-# a least-privilege deployer SA, the Cloud Run instance cap, and the repo secrets/variables.
+# One-time, idempotent setup for .github/workflows/deploy.yml: keyless GitHub -> GCP auth,
+# a least-privilege deployer SA, the Cloud Run instance cap, the main-only production
+# environment with its secrets, and the repo variables.
 # Safe to re-run: every resource is checked before it is created, and bindings are additive.
 set -euo pipefail
 
@@ -113,6 +114,20 @@ else
   gc run services update "$SERVICE" --max-instances=2 --region "$REGION" --project "$PROJECT"
 fi
 
+# I7: deploy credentials live only in an environment that main alone can use.
+step "GitHub production environment, limited to main"
+gh api -X PUT "repos/$GITHUB_REPO/environments/production" --input - >/dev/null <<'JSON'
+{ "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true } }
+JSON
+if gh api "repos/$GITHUB_REPO/environments/production/deployment-branch-policies" \
+  --jq '.branch_policies[].name' | grep -qx main; then
+  echo "  main branch policy already present"
+else
+  gh api -X POST "repos/$GITHUB_REPO/environments/production/deployment-branch-policies" \
+    -f name=main -f type=branch >/dev/null
+  echo "  main branch policy added"
+fi
+
 # The project id is public and sits inside every deploy URL; as a secret, GitHub would drop job outputs that contain it.
 step "GitHub variable and production environment secrets"
 printf '%s' "$PROJECT" | gh variable set GCP_PROJECT --repo "$GITHUB_REPO"
@@ -138,4 +153,4 @@ done <"$ENV_FILE"
 [[ "$SET_COUNT" -gt 0 ]] || { echo "setup-ci-release: no VITE_* keys found in .env.local" >&2; exit 1; }
 
 step "Done"
-echo "Release with: gh workflow run release.yml --ref main && gh run watch"
+echo "Deploys run on every merge to main (.github/workflows/deploy.yml)."

@@ -1,6 +1,6 @@
 # GCP and GitHub setup for CI releases
 
-`.github/workflows/release.yml` deploys from GitHub Actions with **Workload Identity
+`.github/workflows/deploy.yml` deploys every merge to main from GitHub Actions with **Workload Identity
 Federation**: the job trades its GitHub OIDC token for a short-lived credential of the
 `vega-deployer` service account. No JSON key exists anywhere.
 
@@ -49,7 +49,18 @@ the secrets.
 The runtime SA stays the default compute SA on purpose. Swapping it could break the live
 signed-in paths, so that change is a separate decision.
 
-## GitHub secrets and variables it sets
+## GitHub environment, secrets and variables it sets
+
+The WIF secrets are `production` environment secrets, not repo secrets. The script creates
+the environment with a custom deployment-branch policy that allows `main` only.
+
+**I7, deploy credentials only on main.** Three locks hold it:
+- Only `deploy.yml`'s credentialed jobs declare `environment: production`, and the
+  environment's branch policy rejects any other ref.
+- The WIF attribute condition is pinned to `refs/heads/main`, so even a token minted for a
+  PR (`refs/pull/<n>/merge`) cannot be exchanged.
+- PR jobs, including a PR that edits a workflow to ask for `id-token: write`, therefore get
+  neither the secrets nor a credential.
 
 | Kind | Name | Value |
 |---|---|---|

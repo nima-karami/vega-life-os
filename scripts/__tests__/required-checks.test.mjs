@@ -38,7 +38,11 @@ function splitJobs(jobLines) {
 function readWorkflow(fileName) {
   const lines = readRepoFile(`.github/workflows/${fileName}`).split("\n");
   const jobsStart = lines.indexOf("jobs:");
-  const onLines = lines.slice(lines.indexOf("on:") + 1, jobsStart);
+  const afterOn = lines.slice(lines.indexOf("on:") + 1);
+  const onLines = afterOn.slice(
+    0,
+    afterOn.findIndex((line) => /^\S/.test(line)),
+  );
   const triggers = onLines.flatMap((line) => /^ {2}([\w-]+):/.exec(line)?.[1] ?? []);
   const jobs = splitJobs(lines.slice(jobsStart + 1)).map(({ id, lines: jobBody }) => {
     const keys = readJobBlock(jobBody);
@@ -177,6 +181,13 @@ describe("required checks", () => {
       .filter((job) => !STATUS_FUNCTION.test(job.condition ?? ""))
       .map((job) => job.id);
     assert.deepEqual(unguarded, []);
+  });
+
+  it("deploy.yml deploys every push to main and keeps the manual dispatch", () => {
+    const { triggers } = readWorkflow("deploy.yml");
+    assert.deepEqual([...triggers].sort(), ["push", "workflow_dispatch"]);
+    const workflowText = readRepoFile(".github/workflows/deploy.yml");
+    assert.match(workflowText, /^ {2}push:\n {4}branches: \[main\]$/m);
   });
 
   it("no deploy job shares a name with a required check", () => {
