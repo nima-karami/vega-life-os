@@ -53,9 +53,9 @@ signed-in paths, so that change is a separate decision.
 
 | Kind | Name | Value |
 |---|---|---|
-| secret | `GCP_PROJECT` | `vega-life-os` |
-| secret | `WIF_PROVIDER` | the provider's full resource name, read back from gcloud |
-| secret | `WIF_SERVICE_ACCOUNT` | `vega-deployer@vega-life-os.iam.gserviceaccount.com` |
+| variable | `GCP_PROJECT` | `vega-life-os` (public; a secret would mask it out of job outputs) |
+| production secret | `WIF_PROVIDER` | the provider's full resource name, read back from gcloud |
+| production secret | `WIF_SERVICE_ACCOUNT` | `vega-deployer@vega-life-os.iam.gserviceaccount.com` |
 | variable | every `VITE_*` key in the root `.env.local` | the key's value; the script pipes it to `gh variable set` and prints only the name |
 
 `VITE_*` values end up in the public bundle anyway, so they're variables, not secrets. When

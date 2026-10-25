@@ -162,7 +162,7 @@ jobs:
       - run: npm ci
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
+          project_id: ${{ vars.GCP_PROJECT }}
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           create_credentials_file: true
@@ -255,7 +255,7 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
+          project_id: ${{ vars.GCP_PROJECT }}
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           create_credentials_file: true
@@ -378,7 +378,7 @@ jobs:
         run: node scripts/deploy-gate.mjs --check-head
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
+          project_id: ${{ vars.GCP_PROJECT }}
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           create_credentials_file: true
@@ -547,7 +547,7 @@ jobs:
           node-version: 24
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
+          project_id: ${{ vars.GCP_PROJECT }}
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           create_credentials_file: true
@@ -638,7 +638,7 @@ jobs:
       - if: ${{ !inputs.dry_run }}
         uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
+          project_id: ${{ vars.GCP_PROJECT }}
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           create_credentials_file: true
