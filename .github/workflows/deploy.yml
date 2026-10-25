@@ -455,7 +455,7 @@ jobs:
 
   # Tags and publishes only when something shipped, nothing failed and the sha has no version yet.
   # A rolled-back release reuses its number. Idempotent, so re-running a failed record finishes it;
-  # a re-run of any credentialed job refuses once main has moved past this sha (--check-head).
+  # a re-run of server/hosting/promote refuses once main has moved past this sha (--check-head).
   record:
     needs: [gate, plan, server, promote]
     if: ${{ !cancelled() && !failure() && needs.plan.outputs.record == 'true' && needs.promote.result == 'success' }}
@@ -524,6 +524,7 @@ jobs:
 
   # Hosting first, then traffic (I4). Each step keys off outputs set as the run went, and reverts a
   # target only while production still holds what this run put live; anything newer is left alone.
+  # No main-HEAD check here: a merge mid-deploy must not strand a half-done promote.
   rollback:
     needs: [gate, plan, server, hosting, smoke, promote]
     if: (failure() || cancelled()) && needs.plan.result == 'success' && (needs.server.result != 'skipped' || needs.hosting.result != 'skipped')
@@ -543,11 +544,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - name: Refuse unless this sha is still main HEAD
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DEPLOY_MODE: ${{ inputs.mode || 'deploy' }}
-        run: node scripts/deploy-gate.mjs --check-head
       - uses: google-github-actions/auth@v3
         with:
           project_id: ${{ secrets.GCP_PROJECT }}

@@ -107,6 +107,19 @@ describe("required checks", () => {
     }
   });
 
+  it("credentialed deploy jobs re-check main HEAD; rollback relies on its revert judges instead", () => {
+    const lines = readRepoFile(".github/workflows/deploy.yml").split("\n");
+    const jobs = splitJobs(lines.slice(lines.indexOf("jobs:") + 1));
+    const bodyOf = (id) => jobs.find((job) => job.id === id).lines.join("\n");
+    for (const id of ["server", "hosting", "promote", "restore"]) {
+      assert.match(bodyOf(id), /deploy-gate\.mjs --check-head/, id);
+    }
+    // A merge mid-deploy must not strand a half-done promote; the judges only undo this run's own changes.
+    assert.doesNotMatch(bodyOf("rollback"), /--check-head/);
+    assert.match(bodyOf("rollback"), /deploy-gate\.mjs --check-hosting-revert/);
+    assert.match(bodyOf("rollback"), /deploy-gate\.mjs --check-traffic-revert/);
+  });
+
   it("no deploy job shares a name with a required check", () => {
     const deployJobIds = readWorkflow("deploy.yml").jobs.map((job) => job.id);
     assert.deepEqual(
