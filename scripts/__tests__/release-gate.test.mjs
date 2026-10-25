@@ -83,11 +83,11 @@ describe("findActiveCiDeploy", () => {
   it("a read failure on one workflow still checks the next", () => {
     const listActiveRuns = runLister({
       "deploy.yml": new Error("HTTP 404: workflow deploy.yml not found"),
-      "release.yml": { in_progress: [{ url: RUN_URL }] },
+      "legacy-deploy.yml": { in_progress: [{ url: RUN_URL }] },
     });
     assert.deepEqual(
       findActiveCiDeploy({
-        workflows: ["deploy.yml", "release.yml"],
+        workflows: ["deploy.yml", "legacy-deploy.yml"],
         statuses: STATUSES,
         listActiveRuns,
       }),
@@ -98,11 +98,11 @@ describe("findActiveCiDeploy", () => {
   it("reports the read failure when nothing readable is running", () => {
     const listActiveRuns = runLister({
       "deploy.yml": new Error("HTTP 404: workflow deploy.yml not found\nmore"),
-      "release.yml": {},
+      "legacy-deploy.yml": {},
     });
     assert.deepEqual(
       findActiveCiDeploy({
-        workflows: ["deploy.yml", "release.yml"],
+        workflows: ["deploy.yml", "legacy-deploy.yml"],
         statuses: STATUSES,
         listActiveRuns,
       }),
@@ -113,7 +113,7 @@ describe("findActiveCiDeploy", () => {
   it("is empty when every workflow reads and none runs", () => {
     assert.deepEqual(
       findActiveCiDeploy({
-        workflows: ["deploy.yml", "release.yml"],
+        workflows: ["deploy.yml", "legacy-deploy.yml"],
         statuses: STATUSES,
         listActiveRuns: runLister({}),
       }),

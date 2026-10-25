@@ -81,18 +81,18 @@ describe("classifyChangedFile", () => {
     assert.equal(classifyCiScope(["CHANGELOG.md"]), "docs");
   });
 
-  it("ships the targets release.yml and deploy-server.sh build, not nothing", () => {
-    assert.deepEqual(classifyChangedFile(".github/workflows/release.yml").targets, [
-      "server",
-      "hosting",
-    ]);
-    assert.deepEqual(classifyChangedFile("scripts/deploy-server.sh").targets, ["server"]);
-  });
-
-  it(".github/workflows/deploy.yml ships both, like release.yml", () => {
+  it("ships the targets deploy.yml and deploy-server.sh build, not nothing", () => {
     assert.deepEqual(classifyChangedFile(".github/workflows/deploy.yml"), {
       rule: "release-pipeline",
       targets: ["server", "hosting"],
+    });
+    assert.deepEqual(classifyChangedFile("scripts/deploy-server.sh").targets, ["server"]);
+  });
+
+  it("the retired release workflow is tooling and ships nothing", () => {
+    assert.deepEqual(classifyChangedFile(".github/workflows/release.yml"), {
+      rule: "tooling",
+      targets: [],
     });
   });
 

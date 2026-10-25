@@ -3,6 +3,8 @@ name: deploy
 # Gate (I1 tested tree, I2 current main) → plan → stage server and hosting → @smoke the channel →
 # promote → record; any failure rolls back hosting first. Runbook: docs/release-process.md.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       mode:

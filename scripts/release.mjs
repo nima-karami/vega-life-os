@@ -36,7 +36,7 @@ import {
 const ONLY_VALUES = ["server", "hosting", "both"];
 const DEPLOY_SCRIPTS = { server: "deploy:server", hosting: "deploy" };
 const ACTIVE_RUN_STATUSES = ["queued", "in_progress", "waiting", "pending", "requested"];
-const CI_DEPLOY_WORKFLOWS = ["deploy.yml", "release.yml"];
+const CI_DEPLOY_WORKFLOWS = ["deploy.yml"];
 
 // Thrown instead of process.exit: exiting while fetch sockets close trips a libuv assertion on Windows.
 class ReleaseExit extends Error {
