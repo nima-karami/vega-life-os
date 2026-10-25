@@ -10,6 +10,26 @@ The GitHub Releases are the record; this file mirrors them. Regenerate it with
 
 Whatever is on `main` past the newest release below.
 
+## [v2026.10.6](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.6) - 2026-10-25
+
+2 commits since `v2026.10.5`.
+
+### Fixes
+
+- **boot:** keep the splash hand-off from growing the document (868c498)
+
+### Documentation
+
+- regenerate changelog for v2026.10.5 (53bfe55)
+
+### Deploy
+
+- Server: skipped (none of 6 files changed since 1b0f0c5 affect it)
+- Hosting: shipped, build `868c498`
+- Schema hash: `e62700d3b746`
+- Commit: `868c498`
+- Run: https://github.com/nima-karami/vega-life-os/actions/runs/40159488969
+
 ## [v2026.10.5](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.5) - 2026-10-25
 
 9 commits since `v2026.10.4`.
