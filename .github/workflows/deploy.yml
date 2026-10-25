@@ -581,9 +581,10 @@ jobs:
           serving="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format json \
             | jq -r '[.status.traffic[] | select(.percent > 0) | "\(.revisionName)=\(.percent)"] | join(",")' || true)"
           SERVING_TRAFFIC="$serving" node scripts/deploy-gate.mjs --check-traffic-revert
-      # After a promote, old traffic under new hosting would strip the new clients' fields (I4/I8).
+      # After a promote, traffic goes back only once hosting is on the previous version: old traffic
+      # under new hosting would strip the new clients' fields (I4/I8).
       - name: Route server traffic back to the recorded revision
-        if: steps.traffic_ours.outputs.should_revert == 'true' && (needs.promote.outputs.promoted != 'true' || steps.hosting_revert.outcome == 'success')
+        if: steps.traffic_ours.outputs.should_revert == 'true' && (needs.promote.outputs.promoted != 'true' || steps.hosting_revert.outcome == 'success' || steps.hosting_ours.outputs.hosting_is_previous == 'true')
         run: |
           gcloud run services update-traffic "$SERVICE" --to-revisions "$PREVIOUS_TRAFFIC" \
             --region "$REGION" --project "$PROJECT" --quiet

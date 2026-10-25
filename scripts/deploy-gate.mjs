@@ -106,9 +106,11 @@ function checkMainHeadFromEnvironment() {
   return judgeMainHead({ ref, sha, mainHeadSha: readMainHeadSha(repository), mode });
 }
 
-function toRevertOutcome({ shouldRevert, isUnreadable, reason }) {
+function toRevertOutcome({ shouldRevert, isUnreadable, isHostingPrevious, reason }) {
   if (isUnreadable) return { refusal: reason };
-  return { reason, outputs: { should_revert: String(shouldRevert) } };
+  const outputs = { should_revert: String(shouldRevert) };
+  if (isHostingPrevious !== undefined) outputs.hosting_is_previous = String(isHostingPrevious);
+  return { reason, outputs };
 }
 
 const MODES = {

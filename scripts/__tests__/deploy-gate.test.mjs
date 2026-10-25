@@ -182,6 +182,7 @@ describe("judgeHostingRevert", () => {
     assert.deepEqual(outcome, {
       shouldRevert: false,
       isUnreadable: false,
+      isHostingPrevious: false,
       reason:
         "live hosting is h-later (build 9988776), not this run's h-new / a1b2c3d — leaving it",
     });
@@ -197,6 +198,18 @@ describe("judgeHostingRevert", () => {
     });
     assert.equal(outcome.shouldRevert, false);
     assert.equal(outcome.isUnreadable, false);
+    assert.equal(outcome.isHostingPrevious, true);
+  });
+
+  it("only a live previous version counts as hosting already back", () => {
+    const cases = [
+      { ...ours, liveVersion: "h-new", liveBuildSha: "a1b2c3d", previousVersion: "h-old" },
+      { ...ours, liveVersion: "h-later", liveBuildSha: "9988776", previousVersion: "h-old" },
+      { ...ours, liveVersion: "", liveBuildSha: "", previousVersion: "h-old" },
+    ];
+    for (const input of cases) {
+      assert.equal(judgeHostingRevert(input).isHostingPrevious, false, JSON.stringify(input));
+    }
   });
 
   it("an unreadable live state is judged unreadable, not someone else's", () => {

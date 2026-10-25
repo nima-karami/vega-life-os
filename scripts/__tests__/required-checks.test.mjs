@@ -132,7 +132,7 @@ describe("required checks", () => {
     assert.match(bodyOf("rollback"), /deploy-gate\.mjs --check-traffic-revert/);
   });
 
-  it("rollback reverts traffic after a promote only once hosting was reverted (I4)", () => {
+  it("rollback reverts traffic after a promote only once hosting is on the previous version (I4)", () => {
     const steps = readDeploySteps("rollback");
     const hostingIndex = steps.findIndex((step) => step.id === "hosting_revert");
     const trafficStep = steps.find(
@@ -143,7 +143,7 @@ describe("required checks", () => {
     assert.match(trafficStep.condition, /steps\.traffic_ours\.outputs\.should_revert == 'true'/);
     assert.match(
       trafficStep.condition,
-      /needs\.promote\.outputs\.promoted != 'true' \|\| steps\.hosting_revert\.outcome == 'success'/,
+      /\(needs\.promote\.outputs\.promoted != 'true' \|\| steps\.hosting_revert\.outcome == 'success' \|\| steps\.hosting_ours\.outputs\.hosting_is_previous == 'true'\)/,
     );
   });
 

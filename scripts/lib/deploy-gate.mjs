@@ -101,15 +101,24 @@ export function judgeHostingRevert({
     return {
       shouldRevert: true,
       isUnreadable: false,
+      isHostingPrevious: false,
       reason: `live hosting is this run's (${liveVersion || liveBuildSha})`,
     };
   }
-  const isStillPrevious = Boolean(previousVersion) && liveVersion === previousVersion;
+  if (Boolean(previousVersion) && liveVersion === previousVersion) {
+    return {
+      shouldRevert: false,
+      isUnreadable: false,
+      isHostingPrevious: true,
+      reason: `live hosting is already the previous version ${previousVersion} — nothing to revert`,
+    };
+  }
   const isKnownOther = Boolean(liveBuildSha) || (Boolean(promotedVersion) && Boolean(liveVersion));
-  if (!isStillPrevious && !isKnownOther) {
+  if (!isKnownOther) {
     return {
       shouldRevert: false,
       isUnreadable: true,
+      isHostingPrevious: false,
       reason: describeUnreadable(
         `cannot tell whose hosting is live (version ${liveVersion || "unknown"}, build unknown, this run promoted ${promotedVersion || "an unrecorded version"})`,
       ),
@@ -118,6 +127,7 @@ export function judgeHostingRevert({
   return {
     shouldRevert: false,
     isUnreadable: false,
+    isHostingPrevious: false,
     reason: `live hosting is ${liveVersion || "unknown"} (build ${liveBuildSha || "unknown"}), not this run's ${promotedVersion || "?"} / ${runSha} — leaving it`,
   };
 }
