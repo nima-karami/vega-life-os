@@ -10,6 +10,42 @@ The GitHub Releases are the record; this file mirrors them. Regenerate it with
 
 Whatever is on `main` past the newest release below.
 
+## [v2026.10.5](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.5) - 2026-10-25
+
+9 commits since `v2026.10.4`.
+
+### Fixes
+
+- **release:** pin the gated sha across the local e2e run (7027c14)
+
+### Documentation
+
+- **changelog:** record v2026.10.4 (961695f)
+- keep specs, plans, run reports and archive local-only (5abe27f)
+- point cited commits at the rewritten history (1b0f0c5)
+
+### Tests
+
+- **today:** read the vote card's own stored row, not the first title match (cdcf850)
+
+### Build
+
+- **deps:** bump serialize-javascript to 7.1.4 (5e47882)
+- **deps:** Bump the github-actions group across 1 directory with 7 updates (#1) (001559e)
+
+### CI
+
+- run e2e at release instead of on every push (fc1702a)
+- run release e2e in 2 fail-fast shards with 2 workers (c3df7fe)
+
+### Deploy
+
+- Server: shipped, revision `vega-server-00043-fik`
+- Hosting: shipped, build `1b0f0c5`
+- Schema hash: `e62700d3b746`
+- Commit: `1b0f0c5`
+- Run: https://github.com/nima-karami/vega-life-os/actions/runs/40149639148
+
 ## [v2026.10.4](https://github.com/nima-karami/vega-life-os/releases/tag/v2026.10.4) - 2026-10-24
 
 4 commits since `v2026.10.3`.
