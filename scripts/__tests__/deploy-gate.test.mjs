@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { decideDeployGate, findRedRequiredChecks } from "../lib/deploy-gate.mjs";
+import {
+  decideDeployGate,
+  findRedRequiredChecks,
+  judgeHostingRevert,
+  judgeMainHead,
+  judgeTrafficRevert,
+} from "../lib/deploy-gate.mjs";
 import { REQUIRED_CHECKS } from "../lib/required-checks.mjs";
 
 const MAIN_SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
@@ -118,5 +124,110 @@ describe("findRedRequiredChecks", () => {
   it('a missing check is named "missing"', () => {
     const runs = allGreen().filter((run) => run.name !== "pr-title");
     assert.deepEqual(findRedRequiredChecks(runs, REQUIRED_CHECKS), ["pr-title: missing"]);
+  });
+});
+
+describe("judgeMainHead", () => {
+  const current = { ref: "refs/heads/main", sha: MAIN_SHA, mainHeadSha: MAIN_SHA, mode: "deploy" };
+
+  it("a job of the current main HEAD may touch production", () => {
+    assert.equal(judgeMainHead(current).refusal, undefined);
+  });
+
+  it("a re-run after main moved refuses before touching production", () => {
+    assert.deepEqual(judgeMainHead({ ...current, mainHeadSha: OLD_SHA }), {
+      refusal:
+        "sha a1b2c3d is no longer main HEAD (0f1e2d3) — a re-run of an old deploy must not touch production",
+    });
+  });
+
+  it("a rollback dispatch keeps its own semantics", () => {
+    assert.equal(
+      judgeMainHead({ ...current, mode: "rollback", mainHeadSha: OLD_SHA }).refusal,
+      undefined,
+    );
+  });
+
+  it("a non-main ref refuses, even for a rollback", () => {
+    assert.deepEqual(judgeMainHead({ ...current, ref: "refs/heads/x", mode: "rollback" }), {
+      refusal: "not main: refs/heads/x",
+    });
+  });
+});
+
+describe("judgeHostingRevert", () => {
+  const ours = { promotedVersion: "h-new", shortSha: "a1b2c3d" };
+
+  it("reverts when live is still the version this run promoted", () => {
+    const outcome = judgeHostingRevert({ ...ours, liveVersion: "h-new", liveBuildSha: "a1b2c3d" });
+    assert.equal(outcome.shouldRevert, true);
+  });
+
+  it("reverts when live serves this run's build though promote recorded no version", () => {
+    const outcome = judgeHostingRevert({
+      shortSha: "a1b2c3d",
+      promotedVersion: "",
+      liveVersion: "h-new",
+      liveBuildSha: "a1b2c3d",
+    });
+    assert.equal(outcome.shouldRevert, true);
+  });
+
+  it("leaves a newer release alone", () => {
+    const outcome = judgeHostingRevert({
+      ...ours,
+      liveVersion: "h-later",
+      liveBuildSha: "9988776",
+    });
+    assert.deepEqual(outcome, {
+      shouldRevert: false,
+      reason:
+        "live hosting is h-later (build 9988776), not this run's h-new / a1b2c3d — leaving it",
+    });
+  });
+
+  it("an unreadable live state reverts nothing", () => {
+    const outcome = judgeHostingRevert({ ...ours, liveVersion: "", liveBuildSha: "" });
+    assert.equal(outcome.shouldRevert, false);
+  });
+});
+
+describe("judgeTrafficRevert", () => {
+  it("reverts when this run's revision serves all traffic", () => {
+    const outcome = judgeTrafficRevert({
+      servingTraffic: "vega-server-00041-new=100",
+      runRevision: "vega-server-00041-new",
+    });
+    assert.equal(outcome.shouldRevert, true);
+  });
+
+  it("leaves another revision's traffic alone", () => {
+    assert.deepEqual(
+      judgeTrafficRevert({
+        servingTraffic: "vega-server-00042-later=100",
+        runRevision: "vega-server-00041-new",
+      }),
+      {
+        shouldRevert: false,
+        reason:
+          "serving vega-server-00042-later=100, not this run's vega-server-00041-new — leaving traffic",
+      },
+    );
+  });
+
+  it("a split that includes another revision is not ours to undo", () => {
+    const outcome = judgeTrafficRevert({
+      servingTraffic: "vega-server-00041-new=50,vega-server-00040-old=50",
+      runRevision: "vega-server-00041-new",
+    });
+    assert.equal(outcome.shouldRevert, false);
+  });
+
+  it("no recorded revision or unreadable traffic reverts nothing", () => {
+    assert.equal(judgeTrafficRevert({ servingTraffic: "", runRevision: "r" }).shouldRevert, false);
+    assert.equal(
+      judgeTrafficRevert({ servingTraffic: "r=100", runRevision: "" }).shouldRevert,
+      false,
+    );
   });
 });

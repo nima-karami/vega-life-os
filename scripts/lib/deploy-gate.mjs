@@ -68,3 +68,51 @@ export function decideDeployGate({
   }
   return judgeTestedTree({ sha, mergedPull, isTreeMatch, redChecks });
 }
+
+// "Re-run failed jobs" skips the gate and reuses its outputs, so each credentialed job re-checks I2.
+export function judgeMainHead({ ref, sha, mainHeadSha, mode }) {
+  if (ref !== "refs/heads/main") return { refusal: `not main: ${ref}` };
+  if (mode === "rollback") return { reason: "rollback dispatch: main HEAD not required" };
+  if (sha !== mainHeadSha) {
+    return {
+      refusal: `sha ${shortSha(sha)} is no longer main HEAD (${shortSha(mainHeadSha)}) — a re-run of an old deploy must not touch production`,
+    };
+  }
+  return { reason: `sha ${shortSha(sha)} is main HEAD` };
+}
+
+export function judgeHostingRevert({
+  liveVersion,
+  liveBuildSha,
+  promotedVersion,
+  shortSha: runSha,
+}) {
+  const isOurVersion = Boolean(promotedVersion) && liveVersion === promotedVersion;
+  const isOurBuild = Boolean(runSha) && liveBuildSha === runSha;
+  if (isOurVersion || isOurBuild) {
+    return {
+      shouldRevert: true,
+      reason: `live hosting is this run's (${liveVersion || liveBuildSha})`,
+    };
+  }
+  return {
+    shouldRevert: false,
+    reason: `live hosting is ${liveVersion || "unknown"} (build ${liveBuildSha || "unknown"}), not this run's ${promotedVersion || "?"} / ${runSha} — leaving it`,
+  };
+}
+
+export function judgeTrafficRevert({ servingTraffic, runRevision }) {
+  const servingRevisions = servingTraffic
+    .split(",")
+    .filter(Boolean)
+    .map((entry) => entry.split("=")[0]);
+  const isOurs =
+    Boolean(runRevision) &&
+    servingRevisions.length > 0 &&
+    servingRevisions.every((revision) => revision === runRevision);
+  if (isOurs) return { shouldRevert: true, reason: `${runRevision} serves all traffic` };
+  return {
+    shouldRevert: false,
+    reason: `serving ${servingTraffic || "unknown"}, not this run's ${runRevision || "?"} — leaving traffic`,
+  };
+}

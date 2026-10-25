@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 // deploy.yml's gate (I1 tested tree, I2 current main). Only I/O lives here; the rules are in lib/deploy-gate.mjs.
+// --check-head re-asserts I2 inside a credentialed job; --check-hosting-revert / --check-traffic-revert tell
+// rollback whether production still holds what this run put live.
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { decideDeployGate, findRedRequiredChecks } from "./lib/deploy-gate.mjs";
+import {
+  decideDeployGate,
+  findRedRequiredChecks,
+  judgeHostingRevert,
+  judgeMainHead,
+  judgeTrafficRevert,
+} from "./lib/deploy-gate.mjs";
 import { REQUIRED_CHECKS } from "./lib/required-checks.mjs";
 
 class GateReadError extends Error {}
@@ -90,14 +98,55 @@ function decideFromEnvironment() {
   return decideDeployGate({ ref, sha, mainHeadSha, mode, ...gatherTreeEvidence(repository, sha) });
 }
 
-function writeOutputs(outcome) {
-  const lines = `decision=${outcome.decision}\nreason=${outcome.reason.replace(/\n/g, " ")}\n`;
+function checkMainHeadFromEnvironment() {
+  const { GITHUB_REF: ref, GITHUB_SHA: sha, GITHUB_REPOSITORY: repository } = process.env;
+  const mode = process.env.DEPLOY_MODE || "deploy";
+  const withoutRead = judgeMainHead({ ref, sha, mainHeadSha: sha, mode });
+  if (withoutRead.refusal || mode === "rollback") return withoutRead;
+  return judgeMainHead({ ref, sha, mainHeadSha: readMainHeadSha(repository), mode });
+}
+
+function toRevertOutcome({ shouldRevert, reason }) {
+  return { reason, outputs: { should_revert: String(shouldRevert) } };
+}
+
+const MODES = {
+  "--check-head": checkMainHeadFromEnvironment,
+  "--check-hosting-revert": () =>
+    toRevertOutcome(
+      judgeHostingRevert({
+        liveVersion: process.env.LIVE_VERSION ?? "",
+        liveBuildSha: process.env.LIVE_BUILD_SHA ?? "",
+        promotedVersion: process.env.PROMOTED_VERSION ?? "",
+        shortSha: process.env.SHORT_SHA ?? "",
+      }),
+    ),
+  "--check-traffic-revert": () =>
+    toRevertOutcome(
+      judgeTrafficRevert({
+        servingTraffic: process.env.SERVING_TRAFFIC ?? "",
+        runRevision: process.env.RUN_REVISION ?? "",
+      }),
+    ),
+};
+
+function decideGateOutputs() {
+  const outcome = decideFromEnvironment();
+  if (outcome.refusal) return outcome;
+  return { reason: outcome.reason, outputs: { decision: outcome.decision } };
+}
+
+function writeOutputs({ reason, outputs = {} }) {
+  const lines = Object.entries({ ...outputs, reason })
+    .map(([key, value]) => `${key}=${value.replace(/\n/g, " ")}\n`)
+    .join("");
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, lines);
-  console.log(`::notice title=deploy gate::${outcome.reason}`);
+  console.log(`::notice title=deploy gate::${reason}`);
 }
 
 try {
-  const outcome = decideFromEnvironment();
+  const runMode = MODES[process.argv[2]] ?? decideGateOutputs;
+  const outcome = runMode();
   if (outcome.refusal) {
     console.error(`::error title=deploy gate::${outcome.refusal}`);
     process.exitCode = 1;
