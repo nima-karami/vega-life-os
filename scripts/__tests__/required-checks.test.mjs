@@ -183,6 +183,14 @@ describe("required checks", () => {
     assert.deepEqual(unguarded, []);
   });
 
+  it("promote, and so record, run only when the plan deploys something (I5: tag = live)", () => {
+    const promote = readWorkflow("deploy.yml").jobs.find((job) => job.id === "promote");
+    assert.match(
+      promote.condition,
+      /\(needs\.plan\.outputs\.server == 'true' \|\| needs\.plan\.outputs\.hosting == 'true'\)/,
+    );
+  });
+
   it("deploy.yml deploys every push to main and keeps the manual dispatch", () => {
     const { triggers } = readWorkflow("deploy.yml");
     assert.deepEqual([...triggers].sort(), ["push", "workflow_dispatch"]);

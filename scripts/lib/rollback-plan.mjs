@@ -12,7 +12,13 @@ function sortNewestFirst(releases) {
   return releases
     .filter((release) => parseVersionTag(release.tagName))
     .map((release) => ({ tagName: release.tagName, manifest: parseDeployManifest(release.body) }))
+    .filter(hasShippedTarget)
     .sort((left, right) => compareVersionTags(right.tagName, left.tagName));
+}
+
+// A release that shipped nothing never changed what is live, so it can't be the one rolled back.
+function hasShippedTarget({ manifest }) {
+  return ROLLBACK_TARGETS.some(({ target }) => manifest[target].isShipped);
 }
 
 function planTargetStep(current, olderReleases, { target, idKey, idName }) {
