@@ -36,9 +36,14 @@ function readSplashElapsed(splash: HTMLElement): number {
   return now - Math.min(...startTimes);
 }
 
+// The rise plays on #root's children inside a clipped #root, so its translate never grows the document.
+function isEntranceTarget(appRoot: HTMLElement, target: EventTarget | null) {
+  return target === appRoot || (target instanceof Node && target.parentNode === appRoot);
+}
+
 function playAppEntrance(appRoot: HTMLElement, className: string) {
   const handleEnd = (event: AnimationEvent) => {
-    if (event.target !== appRoot) return;
+    if (!isEntranceTarget(appRoot, event.target)) return;
     appRoot.classList.remove(className);
     appRoot.removeEventListener("animationend", handleEnd);
   };
