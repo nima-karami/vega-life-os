@@ -2,7 +2,7 @@
 
 | Path | Holds | Naming |
 |---|---|---|
-| [`product-overview.md`](product-overview.md) | What VEGA is and how its parts connect | — |
+| [`product-overview.md`](product-overview.md) | What VEGA is & how its parts connect | — |
 | [`style-guide.md`](style-guide.md) | Naming, comments, file structure | — |
 | [`release-process.md`](release-process.md) | Commits, the gate, CI scope, releasing, rollback | — |
 | [`DECISIONS.md`](DECISIONS.md) | Standing product and engineering decisions | fixed name |
