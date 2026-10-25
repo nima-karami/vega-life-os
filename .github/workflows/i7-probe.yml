@@ -1,0 +1,31 @@
+name: i7-probe
+
+# Throwaway I7 probe (never merged): a PR job must get neither the production secrets nor a WIF credential.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  env-secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - env:
+          HAS_WIF_PROVIDER: ${{ secrets.WIF_PROVIDER != '' }}
+        run: echo "production WIF_PROVIDER visible to a PR job: $HAS_WIF_PROVIDER"
+
+  wif-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/433179238763/locations/global/workloadIdentityPools/github/providers/vega-life-os
+          service_account: vega-deployer@vega-life-os.iam.gserviceaccount.com
+      - run: echo "::error::a PR job obtained a production credential — I7 is broken"
