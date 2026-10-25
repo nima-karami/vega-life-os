@@ -81,10 +81,18 @@ export function judgeMainHead({ ref, sha, mainHeadSha, mode }) {
   return { reason: `sha ${shortSha(sha)} is main HEAD` };
 }
 
+const RUNBOOK = "docs/release-process.md §6";
+
+function describeUnreadable(what) {
+  return `${what} — production may not be restored; roll back by hand (${RUNBOOK})`;
+}
+
+// Unreadable is never "someone else's": a human must learn that production was not restored.
 export function judgeHostingRevert({
   liveVersion,
   liveBuildSha,
   promotedVersion,
+  previousVersion,
   shortSha: runSha,
 }) {
   const isOurVersion = Boolean(promotedVersion) && liveVersion === promotedVersion;
@@ -92,11 +100,24 @@ export function judgeHostingRevert({
   if (isOurVersion || isOurBuild) {
     return {
       shouldRevert: true,
+      isUnreadable: false,
       reason: `live hosting is this run's (${liveVersion || liveBuildSha})`,
+    };
+  }
+  const isStillPrevious = Boolean(previousVersion) && liveVersion === previousVersion;
+  const isKnownOther = Boolean(liveBuildSha) || (Boolean(promotedVersion) && Boolean(liveVersion));
+  if (!isStillPrevious && !isKnownOther) {
+    return {
+      shouldRevert: false,
+      isUnreadable: true,
+      reason: describeUnreadable(
+        `cannot tell whose hosting is live (version ${liveVersion || "unknown"}, build unknown, this run promoted ${promotedVersion || "an unrecorded version"})`,
+      ),
     };
   }
   return {
     shouldRevert: false,
+    isUnreadable: false,
     reason: `live hosting is ${liveVersion || "unknown"} (build ${liveBuildSha || "unknown"}), not this run's ${promotedVersion || "?"} / ${runSha} — leaving it`,
   };
 }
@@ -106,13 +127,21 @@ export function judgeTrafficRevert({ servingTraffic, runRevision }) {
     .split(",")
     .filter(Boolean)
     .map((entry) => entry.split("=")[0]);
-  const isOurs =
-    Boolean(runRevision) &&
-    servingRevisions.length > 0 &&
-    servingRevisions.every((revision) => revision === runRevision);
-  if (isOurs) return { shouldRevert: true, reason: `${runRevision} serves all traffic` };
+  if (!runRevision || servingRevisions.length === 0) {
+    return {
+      shouldRevert: false,
+      isUnreadable: true,
+      reason: describeUnreadable(
+        `cannot tell whose revision serves (serving ${servingTraffic || "unknown"}, this run's ${runRevision || "unrecorded"})`,
+      ),
+    };
+  }
+  if (servingRevisions.every((revision) => revision === runRevision)) {
+    return { shouldRevert: true, isUnreadable: false, reason: `${runRevision} serves all traffic` };
+  }
   return {
     shouldRevert: false,
-    reason: `serving ${servingTraffic || "unknown"}, not this run's ${runRevision || "?"} — leaving traffic`,
+    isUnreadable: false,
+    reason: `serving ${servingTraffic}, not this run's ${runRevision} — leaving traffic`,
   };
 }

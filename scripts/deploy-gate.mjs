@@ -106,7 +106,8 @@ function checkMainHeadFromEnvironment() {
   return judgeMainHead({ ref, sha, mainHeadSha: readMainHeadSha(repository), mode });
 }
 
-function toRevertOutcome({ shouldRevert, reason }) {
+function toRevertOutcome({ shouldRevert, isUnreadable, reason }) {
+  if (isUnreadable) return { refusal: reason };
   return { reason, outputs: { should_revert: String(shouldRevert) } };
 }
 
@@ -118,6 +119,7 @@ const MODES = {
         liveVersion: process.env.LIVE_VERSION ?? "",
         liveBuildSha: process.env.LIVE_BUILD_SHA ?? "",
         promotedVersion: process.env.PROMOTED_VERSION ?? "",
+        previousVersion: process.env.PREVIOUS_VERSION ?? "",
         shortSha: process.env.SHORT_SHA ?? "",
       }),
     ),

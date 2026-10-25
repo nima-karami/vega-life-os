@@ -59,6 +59,18 @@ function findPullRequestFilters(fileName) {
   return filters;
 }
 
+function readDeploySteps(jobId) {
+  const lines = readRepoFile(".github/workflows/deploy.yml").split("\n");
+  const job = splitJobs(lines.slice(lines.indexOf("jobs:") + 1)).find(({ id }) => id === jobId);
+  const steps = [];
+  for (const line of job.lines) {
+    if (/^ {6}- /.test(line)) steps.push({});
+    const key = /^ {6}[- ] (name|id|if): (.*)$/.exec(line);
+    if (key && steps.length > 0) steps.at(-1)[key[1] === "if" ? "condition" : key[1]] = key[2];
+  }
+  return steps;
+}
+
 function readRulesetChecks() {
   const ruleset = JSON.parse(readRepoFile("infra/github/main-ruleset.json"));
   return ruleset.rules.find((rule) => rule.type === "required_status_checks").parameters
@@ -118,6 +130,29 @@ describe("required checks", () => {
     assert.doesNotMatch(bodyOf("rollback"), /--check-head/);
     assert.match(bodyOf("rollback"), /deploy-gate\.mjs --check-hosting-revert/);
     assert.match(bodyOf("rollback"), /deploy-gate\.mjs --check-traffic-revert/);
+  });
+
+  it("rollback reverts traffic after a promote only once hosting was reverted (I4)", () => {
+    const steps = readDeploySteps("rollback");
+    const hostingIndex = steps.findIndex((step) => step.id === "hosting_revert");
+    const trafficStep = steps.find(
+      (step) => step.name === "Route server traffic back to the recorded revision",
+    );
+    assert.ok(hostingIndex >= 0, "the hosting revert step has id hosting_revert");
+    assert.ok(steps.indexOf(trafficStep) > hostingIndex, "hosting reverts before traffic");
+    assert.match(trafficStep.condition, /steps\.traffic_ours\.outputs\.should_revert == 'true'/);
+    assert.match(
+      trafficStep.condition,
+      /needs\.promote\.outputs\.promoted != 'true' \|\| steps\.hosting_revert\.outcome == 'success'/,
+    );
+  });
+
+  it("promote records the live hosting version straight after the clone, before the meta assert", () => {
+    const names = readDeploySteps("promote").map((step) => step.name);
+    const clone = names.indexOf("Clone the smoked channel to live");
+    const record = names.indexOf("Record the live hosting version");
+    const assertMeta = names.indexOf("Assert the live build sha");
+    assert.ok(clone >= 0 && record === clone + 1 && assertMeta > record, names.join(" | "));
   });
 
   it("no deploy job shares a name with a required check", () => {

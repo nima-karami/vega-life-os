@@ -417,19 +417,7 @@ jobs:
         run: |
           npx -y firebase-tools@15 hosting:clone "$SITE:$CHANNEL" "$SITE:live" \
             --project "$PROJECT" --non-interactive
-      - name: Assert the live build sha
-        if: needs.plan.outputs.hosting == 'true'
-        run: |
-          for attempt in $(seq 1 12); do
-            if curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL?release=$GITHUB_RUN_ID-$attempt" \
-              | grep -Eq "<meta name=\"vega-build\" content=\"$SHORT_SHA\""; then
-              echo "live hosting serves $SHORT_SHA"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "::error::$SITE_URL is not serving vega-build $SHORT_SHA"
-          exit 1
+      # Straight after the clone, so rollback can always recognise the version this run put live.
       - name: Record the live hosting version
         id: live_version
         if: needs.plan.outputs.hosting == 'true'
@@ -443,6 +431,19 @@ jobs:
           fi
           echo "version=${version##*/}" >> "$GITHUB_OUTPUT"
           echo "live: $version"
+      - name: Assert the live build sha
+        if: needs.plan.outputs.hosting == 'true'
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL?release=$GITHUB_RUN_ID-$attempt" \
+              | grep -Eq "<meta name=\"vega-build\" content=\"$SHORT_SHA\""; then
+              echo "live hosting serves $SHORT_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL is not serving vega-build $SHORT_SHA"
+          exit 1
       - name: Delete the preview channel
         if: needs.plan.outputs.hosting == 'true'
         run: |
@@ -566,6 +567,7 @@ jobs:
           LIVE_VERSION="${live##*/}" LIVE_BUILD_SHA="$build" SHORT_SHA="$RUN_SHORT_SHA" \
             node scripts/deploy-gate.mjs --check-hosting-revert
       - name: Roll hosting back to the recorded version
+        id: hosting_revert
         if: steps.hosting_ours.outputs.should_revert == 'true'
         run: |
           npx -y firebase-tools@15 hosting:clone "$SITE@$PREVIOUS_VERSION" "$SITE:live" \
@@ -579,8 +581,9 @@ jobs:
           serving="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format json \
             | jq -r '[.status.traffic[] | select(.percent > 0) | "\(.revisionName)=\(.percent)"] | join(",")' || true)"
           SERVING_TRAFFIC="$serving" node scripts/deploy-gate.mjs --check-traffic-revert
+      # After a promote, old traffic under new hosting would strip the new clients' fields (I4/I8).
       - name: Route server traffic back to the recorded revision
-        if: steps.traffic_ours.outputs.should_revert == 'true'
+        if: steps.traffic_ours.outputs.should_revert == 'true' && (needs.promote.outputs.promoted != 'true' || steps.hosting_revert.outcome == 'success')
         run: |
           gcloud run services update-traffic "$SERVICE" --to-revisions "$PREVIOUS_TRAFFIC" \
             --region "$REGION" --project "$PROJECT" --quiet

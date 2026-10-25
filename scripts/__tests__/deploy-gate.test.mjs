@@ -181,14 +181,41 @@ describe("judgeHostingRevert", () => {
     });
     assert.deepEqual(outcome, {
       shouldRevert: false,
+      isUnreadable: false,
       reason:
         "live hosting is h-later (build 9988776), not this run's h-new / a1b2c3d — leaving it",
     });
   });
 
-  it("an unreadable live state reverts nothing", () => {
+  it("live still on the previous version (the clone never landed) is left alone", () => {
+    const outcome = judgeHostingRevert({
+      shortSha: "a1b2c3d",
+      promotedVersion: "",
+      previousVersion: "h-old",
+      liveVersion: "h-old",
+      liveBuildSha: "",
+    });
+    assert.equal(outcome.shouldRevert, false);
+    assert.equal(outcome.isUnreadable, false);
+  });
+
+  it("an unreadable live state is judged unreadable, not someone else's", () => {
     const outcome = judgeHostingRevert({ ...ours, liveVersion: "", liveBuildSha: "" });
     assert.equal(outcome.shouldRevert, false);
+    assert.equal(outcome.isUnreadable, true);
+  });
+
+  it("promoted, version unknown, build unreadable is unreadable", () => {
+    const outcome = judgeHostingRevert({
+      shortSha: "a1b2c3d",
+      promotedVersion: "",
+      previousVersion: "h-old",
+      liveVersion: "h-mystery",
+      liveBuildSha: "",
+    });
+    assert.equal(outcome.shouldRevert, false);
+    assert.equal(outcome.isUnreadable, true);
+    assert.match(outcome.reason, /docs\/release-process\.md §6/);
   });
 });
 
@@ -209,6 +236,7 @@ describe("judgeTrafficRevert", () => {
       }),
       {
         shouldRevert: false,
+        isUnreadable: false,
         reason:
           "serving vega-server-00042-later=100, not this run's vega-server-00041-new — leaving traffic",
       },
@@ -223,11 +251,14 @@ describe("judgeTrafficRevert", () => {
     assert.equal(outcome.shouldRevert, false);
   });
 
-  it("no recorded revision or unreadable traffic reverts nothing", () => {
-    assert.equal(judgeTrafficRevert({ servingTraffic: "", runRevision: "r" }).shouldRevert, false);
-    assert.equal(
-      judgeTrafficRevert({ servingTraffic: "r=100", runRevision: "" }).shouldRevert,
-      false,
-    );
+  it("no recorded revision or unreadable traffic is unreadable, and reverts nothing", () => {
+    for (const input of [
+      { servingTraffic: "", runRevision: "r" },
+      { servingTraffic: "r=100", runRevision: "" },
+    ]) {
+      const outcome = judgeTrafficRevert(input);
+      assert.equal(outcome.shouldRevert, false, JSON.stringify(input));
+      assert.equal(outcome.isUnreadable, true, JSON.stringify(input));
+    }
   });
 });
