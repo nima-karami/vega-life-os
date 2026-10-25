@@ -79,6 +79,11 @@ describe("planRollback", () => {
     assert.equal(planRollback(history).fromVersion, "v2026.11.3");
   });
 
+  it("a release that shipped nothing is not what is live, so it is passed over", () => {
+    const history = [release("v2026.11.5"), release("v2026.11.4"), ...HISTORY];
+    assert.deepEqual(planRollback(history), planRollback(HISTORY));
+  });
+
   it("input order does not matter", () => {
     const shuffled = [HISTORY[1], HISTORY[2], HISTORY[0]];
     assert.deepEqual(planRollback(shuffled), planRollback(HISTORY));

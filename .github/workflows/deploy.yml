@@ -352,7 +352,7 @@ jobs:
   # Server traffic first, then the hosting clone (I4). A skipped target is fine only when the plan skipped it.
   promote:
     needs: [gate, plan, server, hosting, smoke]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.server.result == 'success' || (needs.server.result == 'skipped' && needs.plan.outputs.server != 'true')) && (needs.hosting.result == 'success' || (needs.hosting.result == 'skipped' && needs.plan.outputs.hosting != 'true')) && (needs.smoke.result == 'success' || (needs.smoke.result == 'skipped' && needs.plan.outputs.hosting != 'true')) }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.plan.outputs.server == 'true' || needs.plan.outputs.hosting == 'true') && (needs.server.result == 'success' || (needs.server.result == 'skipped' && needs.plan.outputs.server != 'true')) && (needs.hosting.result == 'success' || (needs.hosting.result == 'skipped' && needs.plan.outputs.hosting != 'true')) && (needs.smoke.result == 'success' || (needs.smoke.result == 'skipped' && needs.plan.outputs.hosting != 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
