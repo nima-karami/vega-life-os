@@ -28,13 +28,23 @@ here, not optional context.
 `npm run verify` is the single gate. It runs, in order:
 `format:check → lint → typecheck → deadcode → check:lockfile → check:suppressions → test →
 dupes → scan:secrets → audit:deps → e2e`.
-Enforcement is layered: **pre-commit** runs lint-staged (Biome on staged files) +
-gitleaks only; **pre-push** runs format, lint, typecheck, deadcode, test and dupes (no e2e,
-no lockfile/suppression checks, no audits — `.husky/pre-push`); **CI on push** runs everything
-except e2e, plus SAST, in one `checks` job — skipping the server suite for a web- or docs-only
-change (user decision 2026-10-22); **e2e runs at release**, in `release.yml` before any deploy
-and locally in the laptop release guard (user decision 2026-10-23, to save Actions minutes;
-`docs/release-process.md §3`). Run the full gate locally with `npm run verify`.
+Enforcement is layered (`docs/release-process.md §3`):
+- **pre-commit:** lint-staged (Biome on staged files) + gitleaks.
+- **pre-push:** format:check, lint, typecheck (`.husky/pre-push`, ~1 min).
+- **Every PR:** seven required checks, required by the `main` ruleset and up to date with main:
+  - `static`: format, lint, typecheck, deadcode, dupes, lockfile, suppressions, script tests.
+  - `unit-web`, `unit-shared`, `unit-server`. The server suite boots the emulator and is
+    skipped by scope for a web- or docs-only change (user decision 2026-10-22).
+  - `security`: Semgrep, npm audit (high), OSV (High/Critical block, lower warn), gitleaks.
+  - `e2e`: the full suite, 4 shards plus pwa.
+  - `pr-title`.
+- **On main:** `verify.yml` re-runs on every push, and `deploy.yml` deploys every merge after
+  an `@smoke` run on the staged build.
+
+**e2e runs on every PR** (user decision 2026-10-24, superseding 2026-10-23; the repo is
+public, so Actions minutes are free). **Renaming or removing a required check** must update
+`infra/github/main-ruleset.json` and `scripts/lib/required-checks.mjs` in the same PR, or every
+PR blocks; `required-checks.test.mjs` enforces it. Run the full gate locally with `npm run verify`.
 
 - **Never disable, downgrade, narrow, baseline-away, or mock-out a check to make
   progress.** Fix the code so the check passes. "It's only local/dev" is not a
@@ -191,17 +201,34 @@ SDK types lag the runtime payload, hence the deliberate cast in `anthropic-agent
 
 - Tooling covers the whole monorepo (`apps/*`, `packages/*`, `scripts/`). `.env.local` is
   a gitignored Firebase secret — never read it into output or commit it.
-- **Commit/push only when the user asks.** Don't auto-commit or auto-push.
+- **Ship = branch → PR → auto-merge, and only when the user asks to ship.**
+  - Work on a short-lived branch off `origin/main`. Commit on it as usual.
+  - Open the PR with `gh pr create`. Its title is a Conventional Commit subject: it becomes
+    the squash commit and the release note.
+  - Enable auto-merge (`gh pr merge <n> --auto --squash`) only when the user asks to ship.
+  - **Agents never push to `main`.** The ruleset rejects it anyway.
+  - The squash body is the PR body, so the PR body ends with the `Co-Authored-By:` trailer.
+  - A PR that falls behind main: `gh pr update-branch <n>`.
+  - Unfinished work stays on its branch or a draft PR.
 - Before any commit, run `git status` and confirm **only intended files** are staged.
 - Commit message bodies end with a `Co-Authored-By:` trailer naming **the model that
   actually did the work** — don't copy a stale model name from an older commit:
   `Co-Authored-By: Claude <model name> <noreply@anthropic.com>`
 - Commit types: `feat` · `fix` · `perf` · `refactor` · `test` · `docs` · `build` · `ci` ·
   `chore` · `revert` (format in `docs/release-process.md` §2).
-- **Releases & versioning:** ship with `npm run release` (target-aware: deploys only what
-  changed since live, server first). A release is a CalVer git tag `vYYYY.M.N` plus a GitHub
-  Release; `CHANGELOG.md` is regenerated from them by `npm run changelog`. **Never bump
-  `package.json` versions** — the tag is the version. Details: `docs/release-process.md`.
+- **Releases & versioning:**
+  - Ship = merge = deploy. On each merge, `deploy.yml`:
+    - plans target-aware;
+    - stages both targets;
+    - smokes them;
+    - promotes, server first;
+    - records a CalVer tag `vYYYY.M.N` plus a GitHub Release (the record; `CHANGELOG.md` is a stub);
+    - rolls back on failure.
+  - Undo a bad change with a revert PR. The fast path is
+    `gh workflow run deploy.yml --ref main -f mode=rollback`.
+  - `npm run release -- --break-glass` is for GitHub outages only.
+  - **Never bump `package.json` versions** — the tag is the version.
+  - Details: `docs/release-process.md`.
 - **Scratch/throwaway artifacts** (screenshots, scratch scripts, logs, `.har`) go to
   the OS temp dir (`%TEMP%\claude-scratch\`), **never** the repo. Pass absolute temp
   paths to Playwright screenshots — a bare filename lands in the repo root. Clean up

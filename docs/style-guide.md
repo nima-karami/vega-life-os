@@ -13,10 +13,9 @@ rules). Where this conflicts with habit, this file wins; where it conflicts with
 
 `npm run verify` decides whether code is acceptable — format, lint, typecheck, dead code,
 lockfile platforms, suppression check, tests, duplication, secret scan, dep audit, e2e.
-Enforcement is layered: pre-commit runs lint-staged (Biome on staged files) and gitleaks;
-pre-push runs format, lint, typecheck, dead code, tests and duplication; CI runs
-everything but e2e, plus SAST, on push, and the sharded e2e suite at release. The full local
-gate is `npm run verify`.
+Enforcement is layered: pre-commit runs lint-staged plus gitleaks; pre-push runs format, lint
+and typecheck; every PR runs the full gate, e2e included, as seven required checks (see
+`release-process.md §3`). The full local gate is `npm run verify`.
 
 **Never disable, downgrade, narrow, baseline-away, or suppress a check to make progress.**
 No `biome-ignore`, `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `jscpd:ignore`, or
