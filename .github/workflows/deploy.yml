@@ -1,0 +1,618 @@
+name: deploy
+
+# Gate (I1 tested tree, I2 current main) → plan → stage server and hosting → @smoke the channel →
+# promote → record; any failure rolls back hosting first. Runbook: docs/release-process.md.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "deploy = ship main HEAD; rollback = restore the previous release"
+        type: choice
+        default: deploy
+        options: [deploy, rollback]
+      targets:
+        description: "auto = only what changed since live; or force server / hosting / both"
+        type: choice
+        default: auto
+        options: [auto, both, server, hosting]
+      dry_run:
+        description: "rollback only: print the plan, change nothing"
+        type: boolean
+        default: false
+      drill:
+        description: "game day: force a failure to prove the rollback"
+        type: choice
+        default: none
+        options: [none, fail-staged-smoke, fail-after-promote]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT: vega-life-os
+  REGION: us-central1
+  SERVICE: vega-server
+  IMAGE_REPO: us-central1-docker.pkg.dev/vega-life-os/vega/server
+  SITE: vega-life-os
+  SITE_URL: https://vega-life-os.web.app/
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+    outputs:
+      decision: ${{ steps.gate.outputs.decision }}
+      reason: ${{ steps.gate.outputs.reason }}
+      short_sha: ${{ steps.sha.outputs.short }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_MODE: ${{ inputs.mode || 'deploy' }}
+        run: node scripts/deploy-gate.mjs
+
+  fallback-verify:
+    needs: gate
+    if: needs.gate.outputs.decision == 'verify-first'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/verify.yml
+    with:
+      force_full: true
+
+  fallback-e2e:
+    needs: gate
+    if: needs.gate.outputs.decision == 'verify-first'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/e2e.yml
+    with:
+      force_full: true
+
+  plan:
+    needs: [gate, fallback-verify, fallback-e2e]
+    if: ${{ !cancelled() && needs.gate.result == 'success' && (needs.gate.outputs.decision == 'deploy' || (needs.gate.outputs.decision == 'verify-first' && needs.fallback-verify.result == 'success' && needs.fallback-e2e.result == 'success')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      server: ${{ steps.plan.outputs.server }}
+      hosting: ${{ steps.plan.outputs.hosting }}
+      version: ${{ steps.plan.outputs.version }}
+      record: ${{ steps.plan.outputs.record }}
+      server_reason: ${{ steps.plan.outputs.server_reason }}
+      hosting_reason: ${{ steps.plan.outputs.hosting_reason }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the plan diffs the live shas against HEAD
+          fetch-tags: true # and numbers the version from the existing v* tags
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Plan the targets
+        id: plan
+        env:
+          VEGA_API_URL: ${{ vars.VITE_API_URL }}
+          TARGETS: ${{ inputs.targets }}
+        run: |
+          plan_args=(--plan-json)
+          if [ -n "$TARGETS" ] && [ "$TARGETS" != "auto" ]; then plan_args+=("--only=$TARGETS"); fi
+          plan="$(node scripts/release.mjs "${plan_args[@]}")"
+          jq -r '"version: \(.version)\(if .record then "" else " (sha already tagged: re-deploy, nothing recorded)" end)", (.targets[] | "\(.target): \(if .shouldDeploy then "DEPLOY" else "skip" end) — \(.reason)")' <<<"$plan"
+          echo "version=$(jq -r '.version' <<<"$plan")" >> "$GITHUB_OUTPUT"
+          echo "record=$(jq -r '.record' <<<"$plan")" >> "$GITHUB_OUTPUT"
+          for target in server hosting; do
+            echo "$target=$(jq -r --arg target "$target" '.targets[] | select(.target == $target) | .shouldDeploy' <<<"$plan")" >> "$GITHUB_OUTPUT"
+            echo "${target}_reason=$(jq -r --arg target "$target" '.targets[] | select(.target == $target) | .reason' <<<"$plan")" >> "$GITHUB_OUTPUT"
+          done
+
+  # Stage only: the new revision gets no traffic until promote, after the hosting smoke.
+  server:
+    needs: [gate, plan]
+    if: needs.plan.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
+      TAG: c-${{ needs.gate.outputs.short_sha }}
+      VERSION: ${{ needs.plan.outputs.version }}
+    outputs:
+      tagged: ${{ steps.tagged.outputs.tagged }}
+      previous_traffic: ${{ steps.previous.outputs.traffic }}
+      service_url: ${{ steps.previous.outputs.url }}
+      tag_url: ${{ steps.smoke.outputs.tag_url }}
+      revision: ${{ steps.revision.outputs.name }}
+      image: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Build and push the image
+        id: image
+        run: |
+          docker build -f apps/server/Dockerfile --build-arg "GIT_SHA=$SHORT_SHA" --build-arg "APP_VERSION=$VERSION" \
+            -t "$IMAGE_REPO:$SHORT_SHA" .
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker push "$IMAGE_REPO:$SHORT_SHA"
+          echo "digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE_REPO:$SHORT_SHA")" >> "$GITHUB_OUTPUT"
+      - name: Record the serving traffic
+        id: previous
+        run: |
+          service="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format json)"
+          traffic="$(jq -r '[.status.traffic[] | select(.percent > 0) | "\(.revisionName)=\(.percent)"] | join(",")' <<<"$service")"
+          if [ -z "$traffic" ]; then
+            echo "::error::could not read the serving revision"
+            exit 1
+          fi
+          echo "traffic=$traffic" >> "$GITHUB_OUTPUT"
+          echo "url=$(jq -r '.status.url' <<<"$service")" >> "$GITHUB_OUTPUT"
+          echo "serving: $traffic"
+      - name: Deploy a no-traffic revision
+        run: |
+          gcloud run deploy "$SERVICE" --image "${{ steps.image.outputs.digest }}" \
+            --no-traffic --tag "$TAG" --max-instances=2 --cpu-boost \
+            --region "$REGION" --project "$PROJECT" --quiet
+      - id: tagged
+        run: echo "tagged=true" >> "$GITHUB_OUTPUT"
+      - name: Record the new revision
+        id: revision
+        run: |
+          name="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" \
+            --format 'value(status.latestCreatedRevisionName)')"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - name: Smoke the tagged revision
+        id: smoke
+        run: |
+          tag_url="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format json \
+            | jq -r --arg tag "$TAG" '.status.traffic[] | select(.tag == $tag) | .url')"
+          echo "tag_url=$tag_url" >> "$GITHUB_OUTPUT"
+          live_sha="$(curl -fsS --retry 5 --retry-all-errors --retry-delay 3 "$tag_url/health" | jq -r '.sha')"
+          if [ "$live_sha" != "$SHORT_SHA" ]; then
+            echo "::error::$tag_url/health reports sha '$live_sha', expected $SHORT_SHA"
+            exit 1
+          fi
+          VEGA_API_URL="$tag_url" node scripts/check-live-schema.mjs
+
+  # Stage only: a per-sha preview channel; live is cloned from it in promote, after the smoke.
+  hosting:
+    needs: [gate, plan]
+    if: needs.plan.outputs.hosting == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
+      CHANNEL: c-${{ needs.gate.outputs.short_sha }}
+      # tsc -b over three projects can exceed the default heap on the 7 GB runner.
+      NODE_OPTIONS: --max-old-space-size=6144
+    outputs:
+      previous_version: ${{ steps.previous.outputs.version }}
+      channel_created: ${{ steps.channel_created.outputs.channel_created }}
+      channel_url: ${{ steps.channel.outputs.url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build web
+        run: npm run build
+        env:
+          VEGA_VERSION: ${{ needs.plan.outputs.version }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Record the live hosting version
+        id: previous
+        run: |
+          version="$(curl -fsS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            "https://firebasehosting.googleapis.com/v1beta1/sites/$SITE/channels/live/releases?pageSize=1" \
+            | jq -r '.releases[0].version.name // empty')"
+          if [ -z "$version" ]; then
+            echo "::error::could not read the live hosting version"
+            exit 1
+          fi
+          echo "version=${version##*/}" >> "$GITHUB_OUTPUT"
+          echo "live: $version"
+      - id: channel_created
+        run: echo "channel_created=true" >> "$GITHUB_OUTPUT"
+      - name: Deploy the preview channel
+        id: channel
+        run: |
+          result="$(npx -y firebase-tools@15 hosting:channel:deploy "$CHANNEL" --expires 1d \
+            --project "$PROJECT" --non-interactive --json)"
+          url="$(jq -r --arg site "$SITE" '.result[$site].url // empty' <<<"$result")"
+          if [ -z "$url" ]; then
+            echo "::error::hosting:channel:deploy returned no URL: $result"
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "channel: $url"
+      - name: Assert the channel serves this build
+        env:
+          CHANNEL_URL: ${{ steps.channel.outputs.url }}
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS -H 'Cache-Control: no-cache' "$CHANNEL_URL/?release=$GITHUB_RUN_ID-$attempt" \
+              | grep -Eq "<meta name=\"vega-build\" content=\"$SHORT_SHA\""; then
+              echo "channel serves $SHORT_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$CHANNEL_URL is not serving vega-build $SHORT_SHA"
+          exit 1
+
+  smoke:
+    needs: [hosting]
+    if: needs.hosting.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - if: inputs.drill == 'fail-staged-smoke'
+        run: |
+          echo "::error::drill: staged smoke forced to fail"
+          exit 1
+      - name: Playwright @smoke against the staged channel
+        working-directory: apps/web
+        env:
+          SMOKE_BASE_URL: ${{ needs.hosting.outputs.channel_url }}
+          CI: true
+        run: npx playwright test -c playwright.smoke.config.ts
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-smoke
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
+  # Server traffic first, then the hosting clone (I4). A skipped target is fine only when the plan skipped it.
+  promote:
+    needs: [gate, plan, server, hosting, smoke]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.server.result == 'success' || (needs.server.result == 'skipped' && needs.plan.outputs.server != 'true')) && (needs.hosting.result == 'success' || (needs.hosting.result == 'skipped' && needs.plan.outputs.hosting != 'true')) && (needs.smoke.result == 'success' || (needs.smoke.result == 'skipped' && needs.plan.outputs.hosting != 'true')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
+      TAG: c-${{ needs.gate.outputs.short_sha }}
+      CHANNEL: c-${{ needs.gate.outputs.short_sha }}
+    outputs:
+      migrated: ${{ steps.migrating.outputs.migrated }}
+      promoted: ${{ steps.promoting.outputs.promoted }}
+      hosting_version: ${{ steps.live_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: google-github-actions/setup-gcloud@v3
+      - id: migrating
+        if: needs.plan.outputs.server == 'true'
+        run: echo "migrated=true" >> "$GITHUB_OUTPUT"
+      - name: Move traffic to the new revision
+        if: needs.plan.outputs.server == 'true'
+        run: |
+          gcloud run services update-traffic "$SERVICE" --to-latest --region "$REGION" --project "$PROJECT" --quiet
+          gcloud run services update-traffic "$SERVICE" --remove-tags "$TAG" --region "$REGION" --project "$PROJECT" --quiet
+      - name: Confirm the service URL serves the new sha
+        if: needs.plan.outputs.server == 'true'
+        env:
+          SERVICE_URL: ${{ needs.server.outputs.service_url }}
+        run: |
+          live_sha="$(curl -fsS --retry 5 --retry-all-errors --retry-delay 3 "$SERVICE_URL/health" | jq -r '.sha')"
+          if [ "$live_sha" != "$SHORT_SHA" ]; then
+            echo "::error::$SERVICE_URL/health reports sha '$live_sha', expected $SHORT_SHA"
+            exit 1
+          fi
+      - if: needs.plan.outputs.hosting == 'true'
+        run: npm ci
+      - name: Check the live server schema
+        if: needs.plan.outputs.hosting == 'true'
+        run: node scripts/check-live-schema.mjs
+        env:
+          VEGA_API_URL: ${{ needs.server.outputs.service_url || vars.VITE_API_URL }}
+      - id: promoting
+        if: needs.plan.outputs.hosting == 'true'
+        run: echo "promoted=true" >> "$GITHUB_OUTPUT"
+      - name: Clone the smoked channel to live
+        if: needs.plan.outputs.hosting == 'true'
+        run: |
+          npx -y firebase-tools@15 hosting:clone "$SITE:$CHANNEL" "$SITE:live" \
+            --project "$PROJECT" --non-interactive
+      - name: Assert the live build sha
+        if: needs.plan.outputs.hosting == 'true'
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL?release=$GITHUB_RUN_ID-$attempt" \
+              | grep -Eq "<meta name=\"vega-build\" content=\"$SHORT_SHA\""; then
+              echo "live hosting serves $SHORT_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL is not serving vega-build $SHORT_SHA"
+          exit 1
+      - name: Record the live hosting version
+        id: live_version
+        if: needs.plan.outputs.hosting == 'true'
+        run: |
+          version="$(curl -fsS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            "https://firebasehosting.googleapis.com/v1beta1/sites/$SITE/channels/live/releases?pageSize=1" \
+            | jq -r '.releases[0].version.name // empty')"
+          if [ -z "$version" ]; then
+            echo "::error::could not read the live hosting version"
+            exit 1
+          fi
+          echo "version=${version##*/}" >> "$GITHUB_OUTPUT"
+          echo "live: $version"
+      - name: Delete the preview channel
+        if: needs.plan.outputs.hosting == 'true'
+        run: |
+          npx -y firebase-tools@15 hosting:channel:delete "$CHANNEL" --site "$SITE" --project "$PROJECT" --force \
+            || echo "::notice::could not delete channel $CHANNEL; it expires within a day"
+      - if: inputs.drill == 'fail-after-promote'
+        run: |
+          echo "::error::drill: failing after promote to prove the rollback"
+          exit 1
+
+  # Tags and publishes only when something shipped, nothing failed and the sha has no version yet.
+  # A rolled-back release reuses its number. Idempotent, so "re-run failed jobs" recovers it.
+  record:
+    needs: [gate, plan, server, promote]
+    if: ${{ !cancelled() && !failure() && needs.plan.outputs.record == 'true' && needs.promote.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      SHORT_SHA: ${{ needs.gate.outputs.short_sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # notes cover the commits since the previous v* tag
+          fetch-tags: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Read the live schema hash
+        id: schema
+        env:
+          SERVICE_URL: ${{ needs.server.outputs.service_url || vars.VITE_API_URL }}
+        run: |
+          hash="$(curl -fsS --retry 3 --retry-all-errors --retry-delay 3 "${SERVICE_URL%/}/health" | jq -r '.schemaHash // empty' || true)"
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+      - name: Write the release notes
+        env:
+          SERVER_PLANNED: ${{ needs.plan.outputs.server }}
+          HOSTING_PLANNED: ${{ needs.plan.outputs.hosting }}
+          SERVER_REVISION: ${{ needs.server.outputs.revision }}
+          SERVER_IMAGE: ${{ needs.server.outputs.image }}
+          HOSTING_VERSION: ${{ needs.promote.outputs.hosting_version }}
+          SERVER_REASON: ${{ needs.plan.outputs.server_reason }}
+          HOSTING_REASON: ${{ needs.plan.outputs.hosting_reason }}
+          SCHEMA_HASH: ${{ steps.schema.outputs.hash }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          shipped_or_skipped() { if [ "$1" = true ]; then echo shipped; else echo skipped; fi; }
+          node scripts/release-notes.mjs --version="$VERSION" --sha="$SHORT_SHA" \
+            --server="$(shipped_or_skipped "$SERVER_PLANNED")" --hosting="$(shipped_or_skipped "$HOSTING_PLANNED")" \
+            --server-reason="$SERVER_REASON" --hosting-reason="$HOSTING_REASON" \
+            --server-revision="$SERVER_REVISION" --server-image="$SERVER_IMAGE" \
+            --hosting-version="$HOSTING_VERSION" \
+            --schema-hash="$SCHEMA_HASH" --run-url="$RUN_URL" > "$RUNNER_TEMP/release-notes.md"
+      - name: Tag the released sha
+        run: |
+          tagged="$(git rev-parse --verify --quiet "refs/tags/$VERSION^{commit}" || true)"
+          if [ "$tagged" = "$GITHUB_SHA" ]; then
+            echo "$VERSION already marks $GITHUB_SHA"
+          elif [ -n "$tagged" ]; then
+            echo "::error::$VERSION already marks $tagged, not $GITHUB_SHA"
+            exit 1
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$VERSION" -m "$VERSION" "$GITHUB_SHA"
+            git push origin "refs/tags/$VERSION"
+          fi
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$VERSION" >/dev/null 2>&1 \
+            || gh release create "$VERSION" --title "$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag
+          { echo "## $VERSION"; echo; cat "$RUNNER_TEMP/release-notes.md"; } >> "$GITHUB_STEP_SUMMARY"
+
+  # Hosting first, then traffic (I4). Each step keys off outputs set as the run went, so a target
+  # that never reached live is only cleaned up, never rolled back.
+  rollback:
+    needs: [gate, plan, server, hosting, smoke, promote]
+    if: (failure() || cancelled()) && needs.plan.result == 'success' && (needs.server.result != 'skipped' || needs.hosting.result != 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: c-${{ needs.gate.outputs.short_sha }}
+      CHANNEL: c-${{ needs.gate.outputs.short_sha }}
+      PREVIOUS_VERSION: ${{ needs.hosting.outputs.previous_version }}
+      PREVIOUS_TRAFFIC: ${{ needs.server.outputs.previous_traffic }}
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Roll hosting back to the recorded version
+        if: needs.promote.outputs.promoted == 'true' && needs.hosting.outputs.previous_version != ''
+        run: |
+          npx -y firebase-tools@15 hosting:clone "$SITE@$PREVIOUS_VERSION" "$SITE:live" \
+            --project "$PROJECT" --non-interactive
+      - name: Route server traffic back to the recorded revision
+        if: needs.promote.outputs.migrated == 'true' && needs.server.outputs.previous_traffic != ''
+        run: |
+          gcloud run services update-traffic "$SERVICE" --to-revisions "$PREVIOUS_TRAFFIC" \
+            --region "$REGION" --project "$PROJECT" --quiet
+      - name: Drop the staging tag
+        if: needs.server.outputs.tagged == 'true'
+        run: |
+          gcloud run services update-traffic "$SERVICE" --remove-tags "$TAG" \
+            --region "$REGION" --project "$PROJECT" --quiet || echo "tag $TAG already gone"
+      - name: Delete the preview channel
+        if: needs.hosting.outputs.channel_created == 'true'
+        run: |
+          npx -y firebase-tools@15 hosting:channel:delete "$CHANNEL" --site "$SITE" --project "$PROJECT" --force \
+            || echo "channel $CHANNEL already gone"
+
+  # mode: rollback — one release back, hosting first, from the Releases' Deploy blocks.
+  restore:
+    needs: gate
+    if: needs.gate.outputs.decision == 'rollback'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Plan the rollback
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/rollback-plan.mjs > "$RUNNER_TEMP/rollback.json"
+          { echo "## Rollback plan"; echo; echo '```json'; cat "$RUNNER_TEMP/rollback.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/rollback.json"
+          echo "hosting_id=$(jq -r '.steps[] | select(.target == "hosting") | .id' "$RUNNER_TEMP/rollback.json")" >> "$GITHUB_OUTPUT"
+          echo "server_id=$(jq -r '.steps[] | select(.target == "server") | .id' "$RUNNER_TEMP/rollback.json")" >> "$GITHUB_OUTPUT"
+      - if: inputs.dry_run
+        run: echo "dry run — nothing changed"
+      - if: ${{ !inputs.dry_run }}
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - if: ${{ !inputs.dry_run }}
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Restore the previous hosting version
+        if: ${{ !inputs.dry_run && steps.plan.outputs.hosting_id != '' }}
+        env:
+          HOSTING_ID: ${{ steps.plan.outputs.hosting_id }}
+        run: |
+          npx -y firebase-tools@15 hosting:clone "$SITE@$HOSTING_ID" "$SITE:live" \
+            --project "$PROJECT" --non-interactive
+          live="$(curl -fsS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            "https://firebasehosting.googleapis.com/v1beta1/sites/$SITE/channels/live/releases?pageSize=1" \
+            | jq -r '.releases[0].version.name // empty')"
+          if [ "${live##*/}" != "$HOSTING_ID" ]; then
+            echo "::error::live hosting serves version '${live##*/}', expected $HOSTING_ID"
+            exit 1
+          fi
+      - name: Restore the previous server revision
+        if: ${{ !inputs.dry_run && steps.plan.outputs.server_id != '' }}
+        env:
+          SERVER_ID: ${{ steps.plan.outputs.server_id }}
+        run: |
+          gcloud run services update-traffic "$SERVICE" --to-revisions "$SERVER_ID=100" \
+            --region "$REGION" --project "$PROJECT" --quiet
+          percent="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format json \
+            | jq -r --arg revision "$SERVER_ID" '[.status.traffic[] | select(.revisionName == $revision) | .percent] | add // 0')"
+          if [ "$percent" != "100" ]; then
+            echo "::error::$SERVER_ID serves $percent%, expected 100"
+            exit 1
+          fi

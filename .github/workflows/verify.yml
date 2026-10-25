@@ -1,36 +1,89 @@
 name: verify
 
-# Fast checks on every push and PR, in one job so setup and per-job minute rounding are paid
-# once. e2e runs at release time instead (e2e.yml, called by release.yml) — user decision
-# 2026-10-23, docs/release-process.md §3.
+# The PR checks are split so each required check reports on its own (docs/release-process.md §3).
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      force_full:
+        type: boolean
+        default: false
 
+# Runs on main are never cancelled: scope narrowing and the break-glass guard read them.
 concurrency:
-  group: verify-${{ github.ref }}
-  cancel-in-progress: true
+  group: verify-${{ github.event_name }}-${{ github.ref }}-${{ inputs.force_full && 'fallback' || 'run' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  checks:
+  static:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     permissions:
       contents: read
-      actions: read
-      pull-requests: read
     env:
       # tsc -b over three projects can exceed the default heap on the 7 GB runner.
       NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          fetch-depth: 0 # scope detection diffs the base; gitleaks scans history
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-lockfile-platforms.mjs
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run deadcode
+      - run: npm run dupes
+      - run: node scripts/check-suppressions.mjs
+      - run: npm run test:scripts
+
+  unit-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test --workspace @vega/web
+
+  unit-shared:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test --workspace @vega/shared
+
+  unit-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # scope detection diffs the base
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -40,8 +93,10 @@ jobs:
       - id: scope
         env:
           GH_TOKEN: ${{ github.token }}
+          FORCE_FULL: ${{ inputs.force_full }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}
         run: |
+          if [ "$FORCE_FULL" = "true" ]; then echo "scope=full" >> "$GITHUB_OUTPUT"; exit 0; fi
           base="$BASE_SHA"
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -n "$base" ]; then
             base_verify="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/verify.yml/runs?head_sha=$base&event=push&per_page=1" \
@@ -52,22 +107,7 @@ jobs:
             fi
           fi
           node scripts/ci-scope.mjs "$base" >> "$GITHUB_OUTPUT" || echo "scope=full" >> "$GITHUB_OUTPUT"
-      # Before npm ci, so Semgrep sees exactly the checked-out tree.
-      - name: SAST (Semgrep)
-        run: |
-          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src semgrep/semgrep:1.181.0 \
-            semgrep scan --error --metrics off --config p/javascript --config p/typescript --config p/react --config p/nodejs
       - run: npm ci
-      - run: node scripts/check-lockfile-platforms.mjs
-      - run: npm run format:check
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run deadcode
-      - run: npm run dupes
-      - run: node scripts/check-suppressions.mjs
-      - run: npm run test:scripts
-      - run: npm test --workspace @vega/web
-      - run: npm test --workspace @vega/shared
       # The server suite boots the Firestore/Auth emulator, which needs a JRE 11+.
       - if: steps.scope.outputs.scope == 'full'
         uses: actions/setup-java@v6
@@ -78,14 +118,38 @@ jobs:
         run: npm test --workspace @vega/server
       - if: steps.scope.outputs.scope == 'full'
         run: npm run smoke:server-bundle
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # gitleaks scans history
+      # Before npm ci, so Semgrep sees exactly the checked-out tree.
+      - name: SAST (Semgrep)
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src semgrep/semgrep:1.181.0 \
+            semgrep scan --error --metrics off --config p/javascript --config p/typescript --config p/react --config p/nodejs
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       - name: Dependency audit (npm)
         run: npm audit --audit-level=high
       - name: Dependency audit (OSV)
         uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
+        continue-on-error: true # the severity judge below decides
         with:
           scan-args: |-
             --lockfile=package-lock.json
+            --format=json
+            --output-file=${{ runner.temp }}/osv.json
+      - name: OSV severity (High/Critical block, lower warn)
+        run: node scripts/check-osv-severity.mjs "$RUNNER_TEMP/osv.json"
       - name: Secret scan (gitleaks)
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false

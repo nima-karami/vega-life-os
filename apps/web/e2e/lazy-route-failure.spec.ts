@@ -75,7 +75,9 @@ test("a chunk that keeps failing on navigation shows the error screen after one 
   expect(loads.count).toBe(1);
 });
 
-test("a lazy route still loads when its chunk is reachable", async ({ page }) => {
+test("a lazy route still loads when its chunk is reachable", { tag: "@smoke" }, async ({
+  page,
+}) => {
   await enterApp(page);
   const loads = countDocumentLoads(page);
   await goToCalendarInApp(page);
