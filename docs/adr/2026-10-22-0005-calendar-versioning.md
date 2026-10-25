@@ -88,3 +88,23 @@ staging environment, per-workspace READMEs, manifest version bumps.
 - The laptop path refuses while a `release.yml` run is queued or in progress, and refuses
   before deploying when recording is due but `gh` is not authenticated.
 - The `record` job and the laptop recording can only be proven by a real release.
+
+## Amendment — 2026-10-24: CHANGELOG on a protected main
+
+**Context.** `main` is now protected (`docs/specs/2026-10-24-ci-cd-trunk-flow.md`), so the
+post-release `CHANGELOG.md` commit would need its own PR for every release.
+
+**Decision** (owner, 2026-10-24, §14 Q2: "Yep all good. Go ahead"):
+- GitHub Releases stay the only record.
+- `CHANGELOG.md` becomes a stub that points at them. `npm run changelog` renders the full
+  mirror on demand, and nobody commits it after a release.
+- CI never commits it.
+
+**Also:**
+- `deploy.yml` now cuts a release on every merge that deploys something.
+- Release-note subjects are the squash-merged PR titles, which `pr-title` gates.
+- The Deploy manifest also records the live hosting version id, which `mode: rollback` reads.
+- Unchanged: CalVer, one sha = one version, and tag = live.
+
+**Supersedes** the "`CHANGELOG.md` is a regenerated mirror" bullet above. That bullet stays
+as written, since ADRs are history.
