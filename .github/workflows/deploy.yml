@@ -130,7 +130,7 @@ jobs:
   # Stage only: the new revision gets no traffic until promote, after the hosting smoke.
   server:
     needs: [gate, plan]
-    if: needs.plan.outputs.server == 'true'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.server == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: production
@@ -216,7 +216,7 @@ jobs:
   # Stage only: a per-sha preview channel; live is cloned from it in promote, after the smoke.
   hosting:
     needs: [gate, plan]
-    if: needs.plan.outputs.hosting == 'true'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.hosting == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -303,7 +303,7 @@ jobs:
 
   smoke:
     needs: [hosting]
-    if: needs.hosting.result == 'success'
+    if: ${{ !cancelled() && needs.hosting.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
