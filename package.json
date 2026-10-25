@@ -27,7 +27,7 @@
     "dupes": "jscpd apps/web/src apps/server/src packages/shared/src --threshold 2 --reporters console",
     "check:lockfile": "node scripts/check-lockfile-platforms.mjs",
     "check:suppressions": "node scripts/check-suppressions.mjs",
-    "audit:deps": "npm audit --audit-level=high && osv-scanner scan source --lockfile package-lock.json",
+    "audit:deps": "npm audit --audit-level=high && osv-scanner scan source --lockfile package-lock.json --format json | node scripts/check-osv-severity.mjs",
     "scan:secrets": "gitleaks git . --no-banner --redact",
     "sast": "semgrep scan --error --metrics off --config p/javascript --config p/typescript --config p/react --config p/nodejs",
     "e2e": "npm run e2e --workspace @vega/web",

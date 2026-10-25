@@ -89,6 +89,13 @@ describe("classifyChangedFile", () => {
     assert.deepEqual(classifyChangedFile("scripts/deploy-server.sh").targets, ["server"]);
   });
 
+  it(".github/workflows/deploy.yml ships both, like release.yml", () => {
+    assert.deepEqual(classifyChangedFile(".github/workflows/deploy.yml"), {
+      rule: "release-pipeline",
+      targets: ["server", "hosting"],
+    });
+  });
+
   it("treats markdown inside a slice as part of that slice", () => {
     assert.deepEqual(classifyChangedFile("apps/web/public/x.md").targets, ["hosting"]);
     assert.deepEqual(classifyChangedFile("apps/server/README.md").targets, ["server"]);

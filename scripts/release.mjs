@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Deploys only the targets whose inputs changed since what is live: server first, then hosting.
-// The release guard (which also runs e2e locally) runs once, after the plan finds work.
+// The laptop path is break-glass only (--break-glass): the guard runs the full gate locally, once,
+// after the plan finds work.
 // --dry-run prints the plan; --plan-json prints it as JSON for CI; --only=server|hosting|both overrides.
 // A successful deploy is tagged with the next CalVer version and published as a GitHub Release;
 // --no-record deploys unversioned. A sha that already carries a version re-deploys as that version.
@@ -17,7 +18,12 @@ import {
   resolveApiUrl,
 } from "./lib/live-endpoints.mjs";
 import { resolveReleaseVersion } from "./lib/next-version.mjs";
-import { describeHeadDrift, describePlanDrift } from "./lib/release-gate.mjs";
+import {
+  BREAK_GLASS_ENV,
+  describeHeadDrift,
+  describePlanDrift,
+  judgeCiDeployCheck,
+} from "./lib/release-gate.mjs";
 import {
   composeReleaseNotes,
   ensureGithubRelease,
@@ -29,6 +35,7 @@ import {
 const ONLY_VALUES = ["server", "hosting", "both"];
 const DEPLOY_SCRIPTS = { server: "deploy:server", hosting: "deploy" };
 const ACTIVE_RUN_STATUSES = ["queued", "in_progress", "waiting", "pending", "requested"];
+const CI_DEPLOY_WORKFLOWS = ["deploy.yml", "release.yml"];
 
 // Thrown instead of process.exit: exiting while fetch sockets close trips a libuv assertion on Windows.
 class ReleaseExit extends Error {
@@ -47,12 +54,15 @@ function parseOptions(argv) {
       2,
     );
   }
+  if (argv.includes("--allow-red-ci")) {
+    throw new ReleaseExit("release: --allow-red-ci is folded into --break-glass", 2);
+  }
   return {
     only,
     isDryRun: argv.includes("--dry-run"),
     isPlanJson: argv.includes("--plan-json"),
     isNoRecord: argv.includes("--no-record"),
-    allowRedCi: argv.includes("--allow-red-ci") || process.env.RELEASE_ALLOW_RED_CI === "1",
+    isBreakGlass: argv.includes("--break-glass"),
   };
 }
 
@@ -64,11 +74,11 @@ function git(args) {
   }).trim();
 }
 
-function runReleaseGuard({ allowRedCi, sha }) {
+function runReleaseGuard({ isBreakGlass, sha }) {
   const guardArgs = [
     "scripts/release-guard.mjs",
     `--sha=${sha}`,
-    ...(allowRedCi ? ["--allow-red-ci"] : []),
+    ...(isBreakGlass ? ["--break-glass"] : []),
   ];
   const guard = spawnSync(process.execPath, guardArgs, { cwd: REPO_ROOT, stdio: "inherit" });
   if (guard.status !== 0) throw new ReleaseExit("", guard.status ?? 1);
@@ -149,9 +159,9 @@ function printPlan({ headSha, version, record, targets }) {
   console.log("");
 }
 
-function runDeploy(target, { allowRedCi, version, gatedSha }) {
+function runDeploy(target, { isBreakGlass, version, gatedSha }) {
   const script = DEPLOY_SCRIPTS[target];
-  const passthrough = target === "server" && allowRedCi ? ["--", "--allow-red-ci"] : [];
+  const passthrough = target === "server" && isBreakGlass ? ["--", "--break-glass"] : [];
   console.log(`release: npm run ${script}`);
   const deploy = spawnSync("npm", ["run", script, ...passthrough], {
     cwd: REPO_ROOT,
@@ -161,7 +171,7 @@ function runDeploy(target, { allowRedCi, version, gatedSha }) {
       ...process.env,
       RELEASE_LOCAL_GATE_SHA: gatedSha,
       ...(version ? { VEGA_VERSION: version } : {}),
-      ...(allowRedCi ? { RELEASE_ALLOW_RED_CI: "1" } : {}),
+      ...(isBreakGlass ? { [BREAK_GLASS_ENV]: "1" } : {}),
     },
   });
   if (deploy.status !== 0) {
@@ -196,28 +206,36 @@ function readGhJson(args) {
   );
 }
 
-// Two releases at once would race for one version number and one live revision.
-function refuseWhileCiReleaseRuns() {
-  for (const status of ACTIVE_RUN_STATUSES) {
-    let activeRuns;
-    try {
-      activeRuns = readGhJson([
-        "run",
-        "list",
-        "--workflow",
-        "release.yml",
-        "--status",
-        status,
-        "--limit",
-        "1",
-        "--json",
-        "url",
-      ]);
-    } catch (error) {
-      refuse(`could not check for a running release workflow (${error.message})`);
+function findActiveCiDeploy() {
+  for (const workflow of CI_DEPLOY_WORKFLOWS) {
+    for (const status of ACTIVE_RUN_STATUSES) {
+      try {
+        const activeRuns = readGhJson([
+          "run",
+          "list",
+          "--workflow",
+          workflow,
+          "--status",
+          status,
+          "--limit",
+          "1",
+          "--json",
+          "url",
+        ]);
+        if (activeRuns.length > 0) return { activeRunUrl: activeRuns[0].url };
+      } catch (error) {
+        return { readError: error.message.split("\n")[0] };
+      }
     }
-    if (activeRuns.length > 0) refuse(`a release workflow run is ${status}: ${activeRuns[0].url}`);
   }
+  return {};
+}
+
+// Two deploys at once would race for one version number and one live revision.
+function refuseWhileCiDeployRuns() {
+  const outcome = judgeCiDeployCheck(findActiveCiDeploy());
+  if (outcome.refusal) refuse(outcome.refusal);
+  if (outcome.warning) console.warn(`release: WARNING — ${outcome.warning}`);
 }
 
 function refuseWithoutGhAuth() {
@@ -225,7 +243,7 @@ function refuseWithoutGhAuth() {
   if (auth.status !== 0) refuse("recording needs `gh auth login` (or pass --no-record)");
 }
 
-async function recordRelease({ headSha, version, targets }) {
+async function recordRelease({ headSha, version, targets }, { isBreakGlass }) {
   const describeTarget = (target) => {
     const plan = targets.find((candidate) => candidate.target === target);
     return plan.shouldDeploy ? { status: "shipped" } : { status: "skipped", reason: plan.reason };
@@ -236,6 +254,7 @@ async function recordRelease({ headSha, version, targets }) {
     server: describeTarget("server"),
     hosting: describeTarget("hosting"),
     schemaHash: await readLiveSchemaHash(),
+    isBreakGlass,
     cwd: REPO_ROOT,
   });
   try {
@@ -292,17 +311,17 @@ async function main() {
   }
   const gatedSha = plan.headFullSha;
   // After the plan, so a release with nothing to ship never pays for the local e2e run.
-  runReleaseGuard({ allowRedCi: options.allowRedCi, sha: gatedSha });
+  runReleaseGuard({ isBreakGlass: options.isBreakGlass, sha: gatedSha });
   await assertPlanUnchanged(plan, options.only);
-  refuseWhileCiReleaseRuns();
   if (shouldRecord) refuseWithoutGhAuth();
   for (const target of deployTargets) {
+    refuseWhileCiDeployRuns();
     assertHeadIs(gatedSha);
-    runDeploy(target, { allowRedCi: options.allowRedCi, version, gatedSha });
+    runDeploy(target, { isBreakGlass: options.isBreakGlass, version, gatedSha });
   }
   if (shouldRecord) {
     assertHeadIs(gatedSha);
-    await recordRelease(plan);
+    await recordRelease(plan, { isBreakGlass: options.isBreakGlass });
   }
   console.log(
     `release: OK — ${plan.headSha} deployed to ${deployTargets.join(" + ")} ${recordNote}`,

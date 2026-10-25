@@ -4,6 +4,7 @@ import {
   buildDeployManifest,
   buildReleaseNotes,
   parseCommitSubject,
+  parseDeployManifest,
 } from "../lib/release-notes.mjs";
 
 describe("parseCommitSubject", () => {
@@ -155,5 +156,80 @@ describe("buildDeployManifest", () => {
       hosting: { status: "skipped", reason: "" },
     });
     assert.match(manifest, /^- Hosting: skipped$/m);
+  });
+
+  it("a shipped hosting line carries its version id", () => {
+    const manifest = buildDeployManifest({
+      sha: "abc1234",
+      server: { status: "skipped" },
+      hosting: { status: "shipped", hostingVersion: "v9f" },
+    });
+    assert.match(manifest, /^- Hosting: shipped, build `abc1234`, version `v9f`$/m);
+  });
+
+  it("a break-glass release says so first", () => {
+    const manifest = buildDeployManifest({
+      sha: "abc1234",
+      server: { status: "shipped" },
+      hosting: { status: "skipped" },
+      isBreakGlass: true,
+    });
+    const [firstLine] = manifest.split("\n").filter((line) => line.startsWith("- "));
+    assert.equal(firstLine, "- Path: **break-glass** (laptop release; Semgrep did not run)");
+  });
+
+  it("a normal release carries no path line", () => {
+    const manifest = buildDeployManifest({
+      sha: "abc1234",
+      server: { status: "shipped" },
+      hosting: { status: "shipped" },
+    });
+    assert.doesNotMatch(manifest, /Path:/);
+  });
+});
+
+describe("parseDeployManifest", () => {
+  const SERVER_STATES = [
+    { status: "shipped", revision: "vega-server-00040-abc", image: "repo@sha256:02" },
+    { status: "shipped" },
+    { status: "skipped", reason: "none of 2 files changed since 56f69c3 affect it" },
+  ];
+  const HOSTING_STATES = [
+    { status: "shipped", hostingVersion: "5f3a9c0e1d2b" },
+    { status: "shipped" },
+    { status: "skipped", reason: "HEAD is already live (56f69c3)" },
+  ];
+
+  function expectedParse(server, hosting) {
+    return {
+      server: { isShipped: server.status === "shipped", revision: server.revision },
+      hosting: { isShipped: hosting.status === "shipped", hostingVersion: hosting.hostingVersion },
+    };
+  }
+
+  it("parse round-trips build", () => {
+    const combinations = SERVER_STATES.flatMap((server) =>
+      HOSTING_STATES.flatMap((hosting) =>
+        [false, true].map((isBreakGlass) => ({ server, hosting, isBreakGlass })),
+      ),
+    );
+    for (const { server, hosting, isBreakGlass } of combinations) {
+      const notes = buildReleaseNotes({
+        previousTag: "v2026.10.1",
+        commits: [
+          { sha: "abc1234", subject: "fix: name revision `not-this-one` and version `nor-this`" },
+        ],
+        manifest: buildDeployManifest({ sha: "abc1234", server, hosting, isBreakGlass }),
+      });
+      const label = JSON.stringify({ server, hosting, isBreakGlass });
+      assert.deepEqual(parseDeployManifest(notes), expectedParse(server, hosting), label);
+    }
+  });
+
+  it("notes without a Deploy section parse as nothing shipped", () => {
+    assert.deepEqual(parseDeployManifest("3 commits since `v2026.10.4`.\n\n### Fixes\n"), {
+      server: { isShipped: false, revision: undefined },
+      hosting: { isShipped: false, hostingVersion: undefined },
+    });
   });
 });

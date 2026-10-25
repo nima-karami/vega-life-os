@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isGreenCheckRun, isReleaseCheckRun } from "../lib/check-runs.mjs";
+import { DEPLOY_JOBS, isDeployCheckRun, isGreenCheckRun } from "../lib/check-runs.mjs";
+import { REQUIRED_CHECKS } from "../lib/required-checks.mjs";
 
 function checkRun(name, conclusion, status = "completed") {
   return { name, status, conclusion };
@@ -24,22 +25,38 @@ describe("isGreenCheckRun", () => {
   });
 });
 
-describe("isReleaseCheckRun", () => {
-  it("names release.yml's jobs", () => {
-    for (const name of ["gate", "plan", "e2e", "server", "hosting", "record", "rollback"]) {
-      assert.equal(isReleaseCheckRun(checkRun(name, "skipped")), true, name);
+describe("isDeployCheckRun", () => {
+  it("names deploy.yml's jobs and their called sub-runs", () => {
+    for (const name of DEPLOY_JOBS) {
+      assert.equal(isDeployCheckRun(checkRun(name, "skipped")), true, name);
+    }
+    for (const name of [
+      "fallback-e2e / e2e",
+      "fallback-verify / static",
+      "fallback-e2e / e2e-shard (1/4)",
+    ]) {
+      assert.equal(isDeployCheckRun(checkRun(name, "success")), true, name);
     }
   });
 
-  it("names the e2e shards release.yml calls, and a manual e2e.yml run", () => {
-    for (const name of ["e2e / e2e (1/2)", "e2e / e2e (2/2)", "e2e (2/2)"]) {
-      assert.equal(isReleaseCheckRun(checkRun(name, "success")), true, name);
+  it("e2e and the other PR check names are not deploy jobs", () => {
+    for (const name of [
+      "static",
+      "unit-web",
+      "unit-shared",
+      "unit-server",
+      "security",
+      "e2e",
+      "pr-title",
+      ...REQUIRED_CHECKS,
+    ]) {
+      assert.equal(isDeployCheckRun(checkRun(name, "success")), false, name);
     }
   });
 
-  it("leaves verify.yml's job and look-alike names to the guard", () => {
-    for (const name of ["checks", "e2e-extra", "planner", "server-suite", "unit (@vega/web)"]) {
-      assert.equal(isReleaseCheckRun(checkRun(name, "success")), false, name);
+  it("leaves look-alike names to the guard", () => {
+    for (const name of ["e2e-shard (1/4)", "planner", "server-suite", "gatekeeper"]) {
+      assert.equal(isDeployCheckRun(checkRun(name, "success")), false, name);
     }
   });
 });

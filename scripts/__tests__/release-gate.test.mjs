@@ -1,33 +1,60 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { chooseLocalGate, describeHeadDrift, describePlanDrift } from "../lib/release-gate.mjs";
+import {
+  chooseLocalGate,
+  describeHeadDrift,
+  describePlanDrift,
+  judgeCiDeployCheck,
+} from "../lib/release-gate.mjs";
 
 const SHA_X = "1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_Y = "2222222bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 describe("chooseLocalGate", () => {
   it("skips the gate when this release already gated the same sha", () => {
-    assert.deepEqual(chooseLocalGate({ releaseSha: SHA_X, gatedSha: SHA_X, isCiGreen: true }), {
+    assert.deepEqual(chooseLocalGate({ releaseSha: SHA_X, gatedSha: SHA_X, isBreakGlass: false }), {
       scripts: [],
     });
   });
 
   it("refuses when the release gated another sha", () => {
-    const choice = chooseLocalGate({ releaseSha: SHA_Y, gatedSha: SHA_X, isCiGreen: true });
+    const choice = chooseLocalGate({ releaseSha: SHA_Y, gatedSha: SHA_X, isBreakGlass: true });
     assert.match(choice.refusal, /2222222.*1111111/);
     assert.equal(choice.scripts, undefined);
   });
 
-  it("runs e2e when CI is green", () => {
-    assert.deepEqual(chooseLocalGate({ releaseSha: SHA_X, isCiGreen: true }), {
-      scripts: ["e2e"],
+  it("refuses the laptop path without break-glass", () => {
+    const choice = chooseLocalGate({ releaseSha: SHA_X, isBreakGlass: false });
+    assert.ok(choice.refusal.includes("npm run release -- --break-glass"), choice.refusal);
+    assert.equal(choice.scripts, undefined);
+  });
+
+  it("break-glass runs verify and the bundle smoke whatever CI says", () => {
+    assert.deepEqual(chooseLocalGate({ releaseSha: SHA_X, isBreakGlass: true }), {
+      scripts: ["verify", "smoke:server-bundle"],
+    });
+  });
+});
+
+describe("judgeCiDeployCheck", () => {
+  it("a running CI deploy refuses with its url", () => {
+    const url = "https://github.com/o/r/actions/runs/7";
+    assert.deepEqual(judgeCiDeployCheck({ activeRunUrl: url }), {
+      refusal: `a CI deploy is running: ${url}`,
     });
   });
 
-  it("runs the whole gate and the bundle smoke when CI is red", () => {
-    assert.deepEqual(chooseLocalGate({ releaseSha: SHA_X, isCiGreen: false }), {
-      scripts: ["verify", "smoke:server-bundle"],
-    });
+  it("an unreadable run list warns and proceeds", () => {
+    const outcome = judgeCiDeployCheck({ readError: "gh: HTTP 503" });
+    assert.equal(outcome.refusal, undefined);
+    assert.match(
+      outcome.warning,
+      /could not confirm that no CI deploy is running \(gh: HTTP 503\)/,
+    );
+  });
+
+  it("quiet when none runs", () => {
+    assert.deepEqual(judgeCiDeployCheck({}), {});
   });
 });
 
