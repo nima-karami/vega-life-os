@@ -113,11 +113,12 @@ else
   gc run services update "$SERVICE" --max-instances=2 --region "$REGION" --project "$PROJECT"
 fi
 
-step "GitHub secrets"
-printf '%s' "$PROJECT" | gh secret set GCP_PROJECT --repo "$GITHUB_REPO"
-printf '%s' "$WIF_PROVIDER" | gh secret set WIF_PROVIDER --repo "$GITHUB_REPO"
-printf '%s' "$DEPLOYER" | gh secret set WIF_SERVICE_ACCOUNT --repo "$GITHUB_REPO"
-echo "  GCP_PROJECT WIF_PROVIDER WIF_SERVICE_ACCOUNT"
+# The project id is public and sits inside every deploy URL; as a secret, GitHub would drop job outputs that contain it.
+step "GitHub variable and production environment secrets"
+printf '%s' "$PROJECT" | gh variable set GCP_PROJECT --repo "$GITHUB_REPO"
+printf '%s' "$WIF_PROVIDER" | gh secret set WIF_PROVIDER --env production --repo "$GITHUB_REPO"
+printf '%s' "$DEPLOYER" | gh secret set WIF_SERVICE_ACCOUNT --env production --repo "$GITHUB_REPO"
+echo "  GCP_PROJECT (variable), WIF_PROVIDER and WIF_SERVICE_ACCOUNT (production secrets)"
 
 step "GitHub variables from .env.local (names only)"
 SET_COUNT=0
