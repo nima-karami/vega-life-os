@@ -138,6 +138,7 @@ jobs:
           node-version: 24
       - name: Dependency audit (npm)
         run: npm audit --audit-level=high
+      # A docker action: the runner's temp dir is mounted at /github/runner_temp inside it.
       - name: Dependency audit (OSV)
         uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
         continue-on-error: true # the severity judge below decides
@@ -145,7 +146,7 @@ jobs:
           scan-args: |-
             --lockfile=package-lock.json
             --format=json
-            --output-file=${{ runner.temp }}/osv.json
+            --output-file=/github/runner_temp/osv.json
       - name: OSV severity (High/Critical block, lower warn)
         run: node scripts/check-osv-severity.mjs "$RUNNER_TEMP/osv.json"
       - name: Secret scan (gitleaks)
