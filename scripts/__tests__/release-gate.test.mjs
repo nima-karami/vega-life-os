@@ -4,6 +4,7 @@ import {
   chooseLocalGate,
   describeHeadDrift,
   describePlanDrift,
+  findActiveCiDeploy,
   judgeCiDeployCheck,
 } from "../lib/release-gate.mjs";
 
@@ -27,6 +28,15 @@ describe("chooseLocalGate", () => {
     const choice = chooseLocalGate({ releaseSha: SHA_X, isBreakGlass: false });
     assert.ok(choice.refusal.includes("npm run release -- --break-glass"), choice.refusal);
     assert.equal(choice.scripts, undefined);
+  });
+
+  it("names the normal CI path in both phases, and the standalone break-glass spellings", () => {
+    const { refusal } = chooseLocalGate({ releaseSha: SHA_X, isBreakGlass: false });
+    assert.doesNotMatch(refusal, /CI deploys every merge/);
+    assert.match(refusal, /deploy\.yml dispatch/);
+    assert.match(refusal, /merge to main once auto-deploy is on/);
+    assert.match(refusal, /RELEASE_BREAK_GLASS=1 npm run deploy/);
+    assert.match(refusal, /npm run deploy:server -- --break-glass/);
   });
 
   it("break-glass runs verify and the bundle smoke whatever CI says", () => {
@@ -55,6 +65,60 @@ describe("judgeCiDeployCheck", () => {
 
   it("quiet when none runs", () => {
     assert.deepEqual(judgeCiDeployCheck({}), {});
+  });
+});
+
+describe("findActiveCiDeploy", () => {
+  const STATUSES = ["queued", "in_progress"];
+  const RUN_URL = "https://github.com/o/r/actions/runs/9";
+
+  function runLister(byWorkflow) {
+    return (workflow, status) => {
+      const outcome = byWorkflow[workflow];
+      if (outcome instanceof Error) throw outcome;
+      return outcome?.[status] ?? [];
+    };
+  }
+
+  it("a read failure on one workflow still checks the next", () => {
+    const listActiveRuns = runLister({
+      "deploy.yml": new Error("HTTP 404: workflow deploy.yml not found"),
+      "release.yml": { in_progress: [{ url: RUN_URL }] },
+    });
+    assert.deepEqual(
+      findActiveCiDeploy({
+        workflows: ["deploy.yml", "release.yml"],
+        statuses: STATUSES,
+        listActiveRuns,
+      }),
+      { activeRunUrl: RUN_URL },
+    );
+  });
+
+  it("reports the read failure when nothing readable is running", () => {
+    const listActiveRuns = runLister({
+      "deploy.yml": new Error("HTTP 404: workflow deploy.yml not found\nmore"),
+      "release.yml": {},
+    });
+    assert.deepEqual(
+      findActiveCiDeploy({
+        workflows: ["deploy.yml", "release.yml"],
+        statuses: STATUSES,
+        listActiveRuns,
+      }),
+      { readError: "deploy.yml: HTTP 404: workflow deploy.yml not found" },
+    );
+  });
+
+  it("is empty when every workflow reads and none runs", () => {
+    assert.deepEqual(
+      findActiveCiDeploy({
+        workflows: ["deploy.yml", "release.yml"],
+        statuses: STATUSES,
+        listActiveRuns: runLister({}),
+      }),
+      {},
+    );
   });
 });
 

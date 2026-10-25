@@ -20,10 +20,32 @@ export function chooseLocalGate({ releaseSha, gatedSha, isBreakGlass }) {
   if (!isBreakGlass) {
     return {
       refusal:
-        "the laptop path is break-glass only — CI deploys every merge to main. During a GitHub outage: npm run release -- --break-glass",
+        "the laptop path is break-glass only — the normal path is CI: a deploy.yml dispatch, or a merge to main once auto-deploy is on. During a GitHub outage: npm run release -- --break-glass (standalone: RELEASE_BREAK_GLASS=1 npm run deploy, npm run deploy:server -- --break-glass)",
     };
   }
   return { scripts: BREAK_GLASS_GATE };
+}
+
+function findActiveRunUrl(workflow, statuses, listActiveRuns) {
+  for (const status of statuses) {
+    const activeRuns = listActiveRuns(workflow, status);
+    if (activeRuns.length > 0) return activeRuns[0].url;
+  }
+  return undefined;
+}
+
+// Each workflow is read on its own: an unreadable one (deploy.yml 404s until it lands) must not hide another.
+export function findActiveCiDeploy({ workflows, statuses, listActiveRuns }) {
+  const readErrors = [];
+  for (const workflow of workflows) {
+    try {
+      const activeRunUrl = findActiveRunUrl(workflow, statuses, listActiveRuns);
+      if (activeRunUrl) return { activeRunUrl };
+    } catch (error) {
+      readErrors.push(`${workflow}: ${error.message.split("\n")[0]}`);
+    }
+  }
+  return readErrors.length > 0 ? { readError: readErrors.join("; ") } : {};
 }
 
 export function judgeCiDeployCheck({ activeRunUrl, readError }) {

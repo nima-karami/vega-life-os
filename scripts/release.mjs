@@ -22,6 +22,7 @@ import {
   BREAK_GLASS_ENV,
   describeHeadDrift,
   describePlanDrift,
+  findActiveCiDeploy,
   judgeCiDeployCheck,
 } from "./lib/release-gate.mjs";
 import {
@@ -206,34 +207,30 @@ function readGhJson(args) {
   );
 }
 
-function findActiveCiDeploy() {
-  for (const workflow of CI_DEPLOY_WORKFLOWS) {
-    for (const status of ACTIVE_RUN_STATUSES) {
-      try {
-        const activeRuns = readGhJson([
-          "run",
-          "list",
-          "--workflow",
-          workflow,
-          "--status",
-          status,
-          "--limit",
-          "1",
-          "--json",
-          "url",
-        ]);
-        if (activeRuns.length > 0) return { activeRunUrl: activeRuns[0].url };
-      } catch (error) {
-        return { readError: error.message.split("\n")[0] };
-      }
-    }
-  }
-  return {};
+function listActiveRuns(workflow, status) {
+  return readGhJson([
+    "run",
+    "list",
+    "--workflow",
+    workflow,
+    "--status",
+    status,
+    "--limit",
+    "1",
+    "--json",
+    "url",
+  ]);
 }
 
 // Two deploys at once would race for one version number and one live revision.
 function refuseWhileCiDeployRuns() {
-  const outcome = judgeCiDeployCheck(findActiveCiDeploy());
+  const outcome = judgeCiDeployCheck(
+    findActiveCiDeploy({
+      workflows: CI_DEPLOY_WORKFLOWS,
+      statuses: ACTIVE_RUN_STATUSES,
+      listActiveRuns,
+    }),
+  );
   if (outcome.refusal) refuse(outcome.refusal);
   if (outcome.warning) console.warn(`release: WARNING — ${outcome.warning}`);
 }

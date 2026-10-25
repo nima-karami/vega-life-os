@@ -70,6 +70,38 @@ describe("classifyOsvFindings", () => {
     assert.equal(warnings[0].id, "GHSA-aaaa");
   });
 
+  it("a vulnerability no group covers blocks as unknown", () => {
+    const report = {
+      results: [
+        {
+          packages: [
+            {
+              package: { name: "example-pkg", version: "1.2.3" },
+              vulnerabilities: [buildGhsaVulnerability("GHSA-bbbb", "LOW")],
+            },
+          ],
+        },
+      ],
+    };
+    const { blocking } = classifyOsvFindings(report);
+    assert.equal(blocking.length, 1);
+    assert.equal(blocking[0].id, "GHSA-bbbb");
+    assert.equal(blocking[0].label, "unknown");
+  });
+
+  it("a vulnerability outside every group blocks even when another group warns", () => {
+    const report = buildReport(
+      { ids: ["GHSA-aaaa"], aliases: ["CVE-2026-0001"], max_severity: "2.1" },
+      [buildGhsaVulnerability("CVE-2026-0001", "LOW"), buildGhsaVulnerability("GHSA-cccc", "LOW")],
+    );
+    const { blocking, warnings } = classifyOsvFindings(report);
+    assert.equal(warnings.length, 1);
+    assert.deepEqual(
+      blocking.map((finding) => finding.id),
+      ["GHSA-cccc"],
+    );
+  });
+
   it("a non-report throws", () => {
     assert.throws(() => classifyOsvFindings(null), /not an osv-scanner JSON report/);
     assert.throws(() => classifyOsvFindings({}), /not an osv-scanner JSON report/);

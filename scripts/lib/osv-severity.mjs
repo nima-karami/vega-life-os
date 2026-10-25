@@ -42,17 +42,34 @@ function buildFinding(group, osvPackage) {
   return { ...base, score, label: labelScore(score) };
 }
 
+// A vulnerability no group grades is not a pass: it fails closed as unknown.
+function buildUngroupedFindings(osvPackage) {
+  const groups = osvPackage.groups ?? [];
+  const groupedIds = new Set(groups.flatMap((group) => [...group.ids, ...(group.aliases ?? [])]));
+  const { name, version } = osvPackage.package;
+  return (osvPackage.vulnerabilities ?? [])
+    .filter((vulnerability) => !groupedIds.has(vulnerability.id))
+    .map((vulnerability) => ({
+      id: vulnerability.id,
+      packageName: name,
+      packageVersion: version,
+      score: undefined,
+      label: "unknown",
+    }));
+}
+
+function buildPackageFindings(osvPackage) {
+  const groupFindings = (osvPackage.groups ?? []).map((group) => buildFinding(group, osvPackage));
+  return [...groupFindings, ...buildUngroupedFindings(osvPackage)];
+}
+
 export function classifyOsvFindings(report) {
   if (!Array.isArray(report?.results)) throw new Error("not an osv-scanner JSON report");
-  const blocking = [];
-  const warnings = [];
-  for (const result of report.results) {
-    for (const osvPackage of result.packages ?? []) {
-      for (const group of osvPackage.groups ?? []) {
-        const finding = buildFinding(group, osvPackage);
-        (BLOCKING_LABELS.has(finding.label) ? blocking : warnings).push(finding);
-      }
-    }
-  }
-  return { blocking, warnings };
+  const findings = report.results.flatMap((result) =>
+    (result.packages ?? []).flatMap(buildPackageFindings),
+  );
+  return {
+    blocking: findings.filter((finding) => BLOCKING_LABELS.has(finding.label)),
+    warnings: findings.filter((finding) => !BLOCKING_LABELS.has(finding.label)),
+  };
 }
