@@ -89,7 +89,7 @@ async function main(): Promise<void> {
     Boolean(movedEvent?.start?.dateTime?.includes("15:00")),
   );
 
-  log("\n4. Invariant f550ae2 — a live task's aged-out event is never evicted");
+  log("\n4. Invariant 2c3cd67 — a live task's aged-out event is never evicted");
   const aged = storedTask({ id: "t-aged", date: "2020-01-01", time: "09:00", status: "todo" });
   const agedEvents: GEvent[] = [{ ...toGEvent(aged), status: "confirmed" }];
   const outsideWindow = computeTaskBatch([aged], agedEvents, () => false);
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
     outsideWindow.every((op) => op.kind !== "delete"),
   );
 
-  log("\n5. Invariant 7af64aa — a resolved task is not unscheduled on a cancelled event");
+  log("\n5. Invariant 145b8e2 — a resolved task is not unscheduled on a cancelled event");
   const doneTask = storedTask({ id: "t-done", date: "2026-07-20", status: "done" });
   const cancelledEvent: GEvent = {
     id: "vega1",

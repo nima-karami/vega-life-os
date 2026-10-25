@@ -9,7 +9,7 @@ const WRITE_CAL = "cal-write-resolved-race";
 const SCHEDULED_DATE = isoDaysFromToday(1);
 
 /**
- * Invariant (commit 7af64aa) hardened under a reconcile race: a task the user already resolved
+ * Invariant (commit 145b8e2) hardened under a reconcile race: a task the user already resolved
  * (done/skip) is not unscheduled when Google cancels its event, even when reconciles overlap.
  */
 describe("resolved task is not unscheduled on a cancelled event under a reconcile race", () => {

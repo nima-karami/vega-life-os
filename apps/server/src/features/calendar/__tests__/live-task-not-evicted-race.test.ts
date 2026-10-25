@@ -8,7 +8,7 @@ import { runReconcile } from "../reconcile";
 const WRITE_CAL = "cal-write-aged-race";
 
 /**
- * Invariant (commit f550ae2) hardened under a reconcile race: an event whose task is still
+ * Invariant (commit 2c3cd67) hardened under a reconcile race: an event whose task is still
  * scheduled but has aged past the push window is kept — the window gates inserts only, the
  * desired set is ALL scheduled tasks — even when reconciles overlap.
  */

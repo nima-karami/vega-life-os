@@ -99,7 +99,7 @@ function googleWins(task: Task, event: GEvent): boolean {
 
 /**
  * The schedule change (if any) a task should adopt from its Google event. A cancelled event
- * unschedules an unresolved task but NEVER a resolved (done/skip) one (commit 7af64aa), and never
+ * unschedules an unresolved task but NEVER a resolved (done/skip) one (commit 145b8e2), and never
  * when a newer VEGA reschedule outdates the deletion (a self-delete echo racing a re-schedule); a
  * moved event wins only under whole-event LWW.
  */
@@ -185,7 +185,7 @@ function indexTaskEventTombstones(tombstones: Tombstone[]): Map<string, string> 
 /**
  * Set-difference push. `desired` = ALL scheduled tasks (any date), so a still-scheduled task's
  * event is protected from deletion; `isInsertable` gates only *creation* to the push window. An
- * event aged past the window is kept, never evicted (commit f550ae2), so the pull can't misread a
+ * event aged past the window is kept, never evicted (commit 2c3cd67), so the pull can't misread a
  * self-inflicted deletion as the user unscheduling the task.
  */
 type DesiredEvent = { body: GEvent; task: Task };

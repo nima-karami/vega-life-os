@@ -58,7 +58,7 @@ describe("push window back edge derives from tombstone retention", () => {
     ]);
   });
 
-  it("keeps the event of an out-of-window task that is still scheduled (commit f550ae2)", () => {
+  it("keeps the event of an out-of-window task that is still scheduled (commit 2c3cd67)", () => {
     const task = storedTask({
       id: "t-aged",
       date: isoDaysFromToday(-RETENTION_DAYS - 10),

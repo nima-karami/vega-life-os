@@ -9,7 +9,7 @@ const cancelled: GEvent = {
   extendedProperties: { private: { vegaTaskId: "t1", vegaKey: "task:t1" } },
 };
 
-/** Invariant (commit 7af64aa): a cancelled Google event must not unschedule a resolved task. */
+/** Invariant (commit 145b8e2): a cancelled Google event must not unschedule a resolved task. */
 describe("resolved task is not unscheduled when its Google event is cancelled", () => {
   it("keeps a done task scheduled on a cancelled event", () => {
     const task = storedTask({ id: "t1", date: "2026-07-20", status: "done" });
