@@ -1,5 +1,6 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import type { Firestore } from "firebase-admin/firestore";
+import { readBearerToken } from "../../core/http";
 import type { CalendarContext } from "../../trpc/context";
 import type { AccessTokenResolver } from "../access-tokens/grant";
 import type { ToolRegistrar } from "./mcp-context";
@@ -31,7 +32,7 @@ export async function handleMcpRequest(request: Request, deps: McpHttpDeps): Pro
     return new Response(null, { status: 413 });
   }
 
-  const token = request.headers.get("Authorization")?.match(/^Bearer +([^\s,]+)$/i)?.[1];
+  const token = readBearerToken(request);
   const grant = token ? await deps.resolveAccessToken(token) : null;
   if (!grant) {
     return new Response(null, {

@@ -8,6 +8,8 @@ import {
   carryHabitOrderForward,
   computeDayCounts,
   daysBetween,
+  getAllDayLivedForDay,
+  getTimedLivedForDay,
   getZonedWallClock,
   isAnytimeHabit,
   isReflected,
@@ -18,7 +20,6 @@ import {
   type TodayGroups,
   todayISO,
 } from "@vega/shared";
-import { getAllDayLivedForDay, getTimedLivedForDay } from "@/features/calendar/grid-data";
 import type { Goal } from "@/features/goals/model";
 import type { DayEntry } from "@/features/journal";
 import type { Task, TaskStatus } from "@/features/tasks/model";

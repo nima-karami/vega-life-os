@@ -2,9 +2,8 @@
 export function readBearerToken(req: Request): string | null {
   const header = req.headers.get("authorization");
   if (!header) return null;
-  const [scheme, token] = header.split(" ");
-  if (scheme?.toLowerCase() !== "bearer" || !token) return null;
-  return token;
+  const match = header.match(/^Bearer +([^\s,]+)$/i);
+  return match?.[1] ?? null;
 }
 
 export function readCorsOrigins(): string[] {

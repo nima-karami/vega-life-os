@@ -6,6 +6,7 @@ const rows = [
   { id: "b", order: 1, name: "Groceries" },
   { id: "a", order: 2, name: "Gym" },
   { id: "c", order: 1, name: "Library" },
+  { id: "d", name: "Unordered" },
 ];
 
 describe("queryRecords", () => {
@@ -15,7 +16,9 @@ describe("queryRecords", () => {
     expect(first.nextCursor).toBeTruthy();
     const second = queryRecords(rows, { schemaKeys, limit: 2, cursor: first.nextCursor ?? "" });
     expect(second.rows.map(({ id }) => id)).toEqual(["c", "a"]);
-    expect(second.nextCursor).toBeNull();
+    const third = queryRecords(rows, { schemaKeys, limit: 2, cursor: second.nextCursor ?? "" });
+    expect(third.rows.map(({ id }) => id)).toEqual(["d"]);
+    expect(third.nextCursor).toBeNull();
   });
 
   it("rejects unknown filter keys", () => {

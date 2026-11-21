@@ -61,8 +61,11 @@ function getMatchingRows<RowType extends Row>(rows: readonly RowType[], options:
       return (
         filters.every(([key, value]) => Object.hasOwn(fields, key) && fields[key] === value) &&
         (!search ||
-          Object.values(fields).some(
-            (value) => typeof value === "string" && value.toLowerCase().includes(search),
+          Object.entries(fields).some(
+            ([key, value]) =>
+              key !== "updatedAt" &&
+              typeof value === "string" &&
+              value.toLowerCase().includes(search),
           ))
       );
     })

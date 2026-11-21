@@ -51,7 +51,12 @@ async function fetchOtherCounts(context: McpContext) {
     await Promise.all(
       collections.map(async (collection) => [
         collection,
-        (await getRepository(context, collection).list()).length,
+        (
+          await context.firestore
+            .collection(`users/${context.grant.uid}/${collection}`)
+            .count()
+            .get()
+        ).data().count,
       ]),
     ),
   );

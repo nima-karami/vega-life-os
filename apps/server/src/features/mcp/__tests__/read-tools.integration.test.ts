@@ -128,15 +128,12 @@ it("exposes the five read tools, scopes the write stub, and reads only the token
         schema: { type: "object", required: expect.not.arrayContaining(["id"]) },
       },
     });
+    await Promise.all([readClient.close(), writeClient.close()]);
+    const logs = JSON.stringify([...log.mock.calls, ...error.mock.calls]);
+    expect(logs.includes(readToken) || logs.includes(writeToken)).toBe(false);
   } finally {
-    try {
-      await Promise.all([readClient.close(), writeClient.close()]);
-      const logs = JSON.stringify([...log.mock.calls, ...error.mock.calls]);
-      expect(logs.includes(readToken) || logs.includes(writeToken)).toBe(false);
-    } finally {
-      log.mockRestore();
-      error.mockRestore();
-    }
+    log.mockRestore();
+    error.mockRestore();
   }
 });
 
@@ -157,4 +154,14 @@ it("rejects a PAT on tRPC and rejects revoked tokens on the next MCP request", a
   } finally {
     await client.close();
   }
+});
+
+it("answers GET with 405 and sends no CORS headers on /mcp", async () => {
+  const getResponse = await fetch(`${server.url}/mcp`);
+  expect(getResponse.status).toBe(405);
+  const preflight = await fetch(`${server.url}/mcp`, {
+    method: "OPTIONS",
+    headers: { Origin: "http://localhost:5180", "Access-Control-Request-Method": "POST" },
+  });
+  expect(preflight.headers.get("access-control-allow-origin")).toBeNull();
 });

@@ -1,4 +1,4 @@
-import type { CalendarEvent } from "@vega/shared";
+import type { CalendarEventCreate as CalendarEvent } from "../entities/calendar-event";
 
 const hasMeaning = (event: CalendarEvent) =>
   !!event.valueId || !!event.goalId || event.note.trim() !== "";
@@ -8,9 +8,9 @@ const hasMeaning = (event: CalendarEvent) =>
 const instanceKey = (event: CalendarEvent) => `${event.iCalUID}|${event.date ?? ""}`;
 
 /** One visible row per instance; hide declined-untagged and removed events. */
-export function dedupeForDisplay(events: CalendarEvent[]): CalendarEvent[] {
+export function dedupeForDisplay<T extends CalendarEvent>(events: T[]): T[] {
   const seen = new Set<string>();
-  const out: CalendarEvent[] = [];
+  const out: T[] = [];
   for (const event of events) {
     if (event.removedAt || event.pendingDelete) continue;
     if (event.responseStatus === "declined" && !hasMeaning(event)) continue;
@@ -22,9 +22,9 @@ export function dedupeForDisplay(events: CalendarEvent[]): CalendarEvent[] {
 }
 
 /** Display gate: dedupe (declined/removed already dropped there) then per-calendar visibility. */
-export function filterVisibleEvents(
-  events: CalendarEvent[],
+export function filterVisibleEvents<T extends CalendarEvent>(
+  events: T[],
   prefs: Record<string, { visible: boolean }>,
-): CalendarEvent[] {
+): T[] {
   return dedupeForDisplay(events).filter((event) => prefs[event.calendarId]?.visible ?? true);
 }
