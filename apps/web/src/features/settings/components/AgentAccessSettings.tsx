@@ -1,10 +1,11 @@
-import { Button, Spinner } from "@heroui/react";
+import { Button, Chip, Spinner } from "@heroui/react";
 import { ACCESS_TOKEN_LIMIT, type AccessTokenRow } from "@vega/shared";
 import { format, parseISO } from "date-fns";
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { getApiUrl } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
-import { ConfirmDialog, cx, Icon } from "@/core/ui";
+import { ConfirmDialog, Icon } from "@/core/ui";
 import { SettingsCard } from "../SettingsCard";
 import { useAccessTokens } from "../useAccessTokens";
 import { CreateTokenDialog } from "./CreateTokenDialog";
@@ -45,25 +46,23 @@ function EndpointRow({ endpointUrl, onCopy }: { endpointUrl: string; onCopy: () 
 
 function TokenRow({
   token,
-  revoking,
+  isRevoking,
+  revokeBlocked,
   onRevoke,
 }: {
   token: AccessTokenRow;
-  revoking: boolean;
+  isRevoking: boolean;
+  revokeBlocked: boolean;
   onRevoke: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[12px] border border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2 rounded-xl border border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-foreground">{token.name}</span>
-          <span
-            className={cx(
-              "inline-flex h-5 items-center rounded-[10px] border border-border px-2 text-[11px] font-medium text-muted",
-            )}
-          >
-            {SCOPE_CHIP[token.scope]}
-          </span>
+          <Chip size="sm" variant="soft">
+            <Chip.Label>{SCOPE_CHIP[token.scope]}</Chip.Label>
+          </Chip>
         </div>
         <p className="text-xs text-muted">
           Created {formatTokenStamp(token.createdAt)} · Last used{" "}
@@ -73,12 +72,21 @@ function TokenRow({
       <Button
         size="sm"
         variant="danger-soft"
-        isDisabled={revoking}
+        isDisabled={isRevoking || revokeBlocked}
         onPress={onRevoke}
-        aria-busy={revoking || undefined}
+        aria-busy={isRevoking || undefined}
       >
-        <Icon name="trash" size={14} />
-        {revoking ? "Revoking…" : "Revoke"}
+        {isRevoking ? (
+          <span className="inline-flex items-center gap-2">
+            <Spinner size="sm" color="current" />
+            Revoking…
+          </span>
+        ) : (
+          <>
+            <Icon name="trash" size={14} />
+            Revoke
+          </>
+        )}
       </Button>
     </div>
   );
@@ -92,16 +100,16 @@ function AgentAccessSettingsSignedIn() {
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const endpointUrl = `${getApiUrl()}/mcp`;
-  const atLimit = tokens.length >= ACCESS_TOKEN_LIMIT;
+  const isAtTokenLimit = tokens.length >= ACCESS_TOKEN_LIMIT;
 
-  const doRevoke = async () => {
-    if (revokeTarget === null) return;
-    const { id } = revokeTarget;
+  const handleRevokeConfirm = async () => {
+    if (revokeTarget === null || revokingId !== null) return;
+    const { id, name } = revokeTarget;
+    setRevokeTarget(null);
     setRevokingId(id);
     try {
       await revoke(id);
-      pushToast(`Revoked ${revokeTarget.name}`);
-      setRevokeTarget(null);
+      pushToast(`Revoked ${name}`);
     } catch {
       pushToast("Couldn't revoke");
     } finally {
@@ -113,10 +121,10 @@ function AgentAccessSettingsSignedIn() {
     <Button
       size="sm"
       variant="primary"
-      isDisabled={atLimit || status === "loading"}
+      isDisabled={isAtTokenLimit || status === "loading"}
       onPress={() => setDialogOpen(true)}
     >
-      <Icon name="key" size={15} />
+      <KeyRound size={15} aria-hidden />
       New token
     </Button>
   );
@@ -156,13 +164,19 @@ function AgentAccessSettingsSignedIn() {
                   <TokenRow
                     key={token.id}
                     token={token}
-                    revoking={revokingId === token.id}
-                    onRevoke={() => setRevokeTarget(token)}
+                    isRevoking={revokingId === token.id}
+                    revokeBlocked={revokingId !== null && revokingId !== token.id}
+                    onRevoke={() => {
+                      if (revokingId !== null) return;
+                      setRevokeTarget(token);
+                    }}
                   />
                 ))}
               </div>
             )}
-            {atLimit && <p className="text-sm text-muted">Revoke a token to create another</p>}
+            {isAtTokenLimit && (
+              <p className="text-sm text-muted">Revoke a token to create another</p>
+            )}
           </>
         )}
       </div>
@@ -178,8 +192,10 @@ function AgentAccessSettingsSignedIn() {
         body="Agents using it stop working."
         confirmLabel="Revoke"
         danger
-        onConfirm={() => void doRevoke()}
-        onClose={() => setRevokeTarget(null)}
+        onConfirm={() => void handleRevokeConfirm()}
+        onClose={() => {
+          if (revokingId === null) setRevokeTarget(null);
+        }}
       />
     </SettingsCard>
   );
@@ -196,5 +212,5 @@ export function AgentAccessSettings() {
     );
   }
 
-  return <AgentAccessSettingsSignedIn />;
+  return <AgentAccessSettingsSignedIn key={authUid} />;
 }

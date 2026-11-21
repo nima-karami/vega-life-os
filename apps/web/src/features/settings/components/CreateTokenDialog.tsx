@@ -1,9 +1,17 @@
-import { Button, ButtonGroup, Modal, Spinner, useOverlayState } from "@heroui/react";
+import {
+  Button,
+  ButtonGroup,
+  Input,
+  Modal,
+  Spinner,
+  TextArea,
+  useOverlayState,
+} from "@heroui/react";
 import { TRPCClientError } from "@trpc/client";
 import type { AccessTokenCreated, AccessTokenCreateInput, AccessTokenScope } from "@vega/shared";
 import { useEffect, useState } from "react";
 import { useStore } from "@/core/store";
-import { FIELD_CLASS, Icon } from "@/core/ui";
+import { Icon } from "@/core/ui";
 import { smallCenteredDialogContainer } from "@/core/ui/modal";
 import { buildConnectSnippets } from "./connect-snippets";
 
@@ -19,7 +27,6 @@ function readCreateError(error: unknown): string {
     const message = error.message;
     if (message.includes("token limit")) return "Token limit reached. Revoke one first.";
     if (message.includes("invalid time zone")) return "Invalid time zone.";
-    return message;
   }
   return "Couldn't create token. Try again.";
 }
@@ -53,12 +60,14 @@ function SnippetBlock({
           Copy
         </Button>
       </div>
-      <textarea
+      <TextArea
         readOnly
         aria-label={label}
         value={value}
         rows={label === "JSON" ? 6 : 3}
-        className={`${FIELD_CLASS} resize-none font-mono text-xs`}
+        disabled={disabled}
+        fullWidth
+        className="resize-none font-mono text-xs"
       />
     </div>
   );
@@ -82,12 +91,12 @@ export function CreateTokenDialog({
   const [created, setCreated] = useState<AccessTokenCreated | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const lockDismiss = phase === "creating" || phase === "created";
+  const isDismissalLocked = phase === "creating" || phase === "created";
 
   const state = useOverlayState({
     isOpen: open,
     onOpenChange: (next) => {
-      if (!next && lockDismiss) return;
+      if (!next && isDismissalLocked) return;
       if (!next) onClose();
     },
   });
@@ -123,11 +132,23 @@ export function CreateTokenDialog({
     }
   };
 
-  const snippets = created !== null ? buildConnectSnippets(endpointUrl, created.token) : null;
+  const finishCreated = () => {
+    setCreated(null);
+    setPhase("form");
+    onClose();
+  };
+
+  const showSecrets = open && phase === "created" && created !== null;
+  const snippets =
+    showSecrets && created !== null ? buildConnectSnippets(endpointUrl, created.token) : null;
 
   return (
     <Modal state={state}>
-      <Modal.Backdrop variant="blur" isDismissable={!lockDismiss}>
+      <Modal.Backdrop
+        variant="blur"
+        isDismissable={!isDismissalLocked}
+        isKeyboardDismissDisabled={isDismissalLocked}
+      >
         <Modal.Container {...smallCenteredDialogContainer}>
           <Modal.Dialog aria-label={phase === "created" ? "Token created" : "New access token"}>
             <Modal.Header>
@@ -136,7 +157,7 @@ export function CreateTokenDialog({
               </Modal.Heading>
             </Modal.Header>
             <Modal.Body className="space-y-4">
-              {phase === "created" && created !== null && snippets !== null ? (
+              {showSecrets && created !== null && snippets !== null ? (
                 <>
                   <p className="text-sm text-warning">You won&apos;t see this token again.</p>
                   <div className="space-y-1.5">
@@ -151,11 +172,12 @@ export function CreateTokenDialog({
                         Copy
                       </Button>
                     </div>
-                    <input
+                    <Input
                       readOnly
                       aria-label="Access token"
                       value={created.token}
-                      className={`${FIELD_CLASS} font-mono text-xs`}
+                      fullWidth
+                      className="font-mono text-xs"
                     />
                   </div>
                   <SnippetBlock
@@ -179,16 +201,16 @@ export function CreateTokenDialog({
                 </>
               ) : (
                 <>
-                  <label className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-1.5">
                     <span className="text-sm font-medium text-foreground">Name</span>
-                    <input
-                      type="text"
+                    <Input
                       autoFocus
                       value={name}
                       disabled={inputsDisabled}
                       placeholder="MacBook Claude"
                       autoComplete="off"
                       maxLength={60}
+                      fullWidth
                       onChange={(event) => setName(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
@@ -196,9 +218,8 @@ export function CreateTokenDialog({
                           void submit();
                         }
                       }}
-                      className={FIELD_CLASS}
                     />
-                  </label>
+                  </div>
                   <div>
                     <span className="mb-2 block text-sm font-medium text-foreground">Scope</span>
                     <ButtonGroup aria-label="Token scope">
@@ -222,7 +243,7 @@ export function CreateTokenDialog({
             </Modal.Body>
             <Modal.Footer>
               {phase === "created" ? (
-                <Button variant="primary" onPress={onClose}>
+                <Button variant="primary" onPress={finishCreated}>
                   Done
                 </Button>
               ) : (

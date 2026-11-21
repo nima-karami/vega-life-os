@@ -22,6 +22,15 @@ describe("buildConnectSnippets", () => {
     );
   });
 
+  it("matches the Codex TOML exactly", () => {
+    const snippets = buildConnectSnippets(url, token);
+    expect(snippets.codex).toBe(
+      `[mcp_servers.vega]
+url = "${url}"
+http_headers = { Authorization = "Bearer ${token}" }`,
+    );
+  });
+
   it("produces valid JSON", () => {
     const snippets = buildConnectSnippets(url, token);
     expect(() => JSON.parse(snippets.json)).not.toThrow();
