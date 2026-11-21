@@ -4,6 +4,10 @@ import { auth } from "@/core/firebase/app";
 
 const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:8787";
 
+export function getApiUrl(): string {
+  return apiUrl;
+}
+
 async function buildAuthHeaders(): Promise<Record<string, string>> {
   const token = await auth?.currentUser?.getIdToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

@@ -4,6 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, cx, Icon } from "@/core/ui";
 import { AccountSettings } from "./components/AccountSettings";
+import { AgentAccessSettings } from "./components/AgentAccessSettings";
 import { AgentSettings } from "./components/AgentSettings";
 import { CalendarSettings } from "./components/CalendarSettings";
 import { QuietModeSettings } from "./components/QuietModeSettings";
@@ -237,6 +238,8 @@ export function SettingsPage() {
         <QuietModeSettings />
 
         <AgentSettings />
+
+        <AgentAccessSettings />
 
         {/* data */}
         <SettingsCard
