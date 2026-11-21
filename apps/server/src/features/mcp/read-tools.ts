@@ -9,6 +9,7 @@ import {
 } from "@vega/shared";
 import { z } from "zod";
 import { createRepository } from "../../core/repository";
+import { ToolError } from "../../core/tool-error";
 import { toWireRow, toWireRows } from "../../core/wire";
 import { SCOPE_VERSION } from "../calendar/oauth";
 import { readGcalAccount } from "../calendar/token-store";
@@ -25,7 +26,7 @@ import {
 } from "./mcp-collections";
 import type { McpContext, ToolRegistrar } from "./mcp-context";
 import { queryRecords } from "./record-query";
-import { ToolError, toToolFailure, toToolSuccess } from "./tool-result";
+import { toToolFailure, toToolSuccess } from "./tool-result";
 
 const READ_ONLY = { readOnlyHint: true } as const;
 

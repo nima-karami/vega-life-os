@@ -12,6 +12,7 @@ import { createReconcileScheduler } from "../features/calendar/schedule-reconcil
 import { refreshAccessToken } from "../features/calendar/token-store";
 import type { ToolRegistrar } from "../features/mcp/mcp-context";
 import { registerReadTools } from "../features/mcp/read-tools";
+import { registerWriteTools } from "../features/mcp/write-tools";
 import {
   type CalendarContext,
   createAdminVerifier,
@@ -106,7 +107,7 @@ export async function bootTestServer(options: BootOptions = {}): Promise<TestSer
     verifyOidc,
     mcp: {
       resolveAccessToken: createAccessTokenResolver(firestore),
-      registrars: options.mcpRegistrars ?? [registerReadTools],
+      registrars: options.mcpRegistrars ?? [registerReadTools, registerWriteTools],
       now: () => Date.parse(now()),
     },
   };

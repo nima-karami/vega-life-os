@@ -1,25 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError } from "zod";
 import { AppError, type AppErrorCode } from "../../core/errors";
-
-export type ToolErrorCode =
-  | "BAD_REQUEST"
-  | "NOT_FOUND"
-  | "CONFLICT"
-  | "FORBIDDEN"
-  | "CONFIRM_REQUIRED"
-  | "INTERNAL";
-
-export class ToolError extends Error {
-  constructor(
-    readonly code: ToolErrorCode,
-    message: string,
-    readonly detail?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "ToolError";
-  }
-}
+import { ToolError, type ToolErrorCode } from "../../core/tool-error";
 
 const APP_TO_TOOL_CODE: Record<AppErrorCode, ToolErrorCode> = {
   UNAUTHORIZED: "FORBIDDEN",

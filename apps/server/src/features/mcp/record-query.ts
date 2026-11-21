@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ToolError } from "./tool-result";
+import { ToolError } from "../../core/tool-error";
 
 const PAGE_BYTE_LIMIT = 256 * 1024;
 const DEFAULT_LIMIT = 50;

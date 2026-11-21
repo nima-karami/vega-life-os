@@ -10,6 +10,7 @@ import type { ReconcileDeps } from "./features/calendar/reconcile";
 import { createReconcileScheduler } from "./features/calendar/schedule-reconcile";
 import { refreshAccessToken } from "./features/calendar/token-store";
 import { registerReadTools } from "./features/mcp/read-tools";
+import { registerWriteTools } from "./features/mcp/write-tools";
 import { type CalendarContext, createAdminVerifier, makeCreateContext } from "./trpc/context";
 
 const config = loadServerConfig();
@@ -48,7 +49,7 @@ const app = buildApp({
   calendar,
   mcp: {
     resolveAccessToken: createAccessTokenResolver(firestore),
-    registrars: [registerReadTools],
+    registrars: [registerReadTools, registerWriteTools],
   },
   verifyOidc: createOidcVerifier(`${publicBaseUrl}/tasks/reconcile`),
 });

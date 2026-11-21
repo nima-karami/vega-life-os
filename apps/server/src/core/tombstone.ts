@@ -1,5 +1,12 @@
 import { type CollectionName, type Tombstone, tombstoneSchema } from "@vega/shared";
-import type { DocumentReference, Firestore, WriteBatch } from "firebase-admin/firestore";
+import type { DocumentReference, DocumentSnapshot, Firestore } from "firebase-admin/firestore";
+
+/** What a batch and a transaction share, so one staging path serves both. */
+export type TombstoneWriter = {
+  set(ref: DocumentReference, data: Tombstone): unknown;
+};
+
+type RemovalWriter = TombstoneWriter & { delete(ref: DocumentReference): unknown };
 
 export const RETENTION_DAYS = 30;
 
@@ -36,7 +43,7 @@ export async function writeTombstone(
 
 /** The batched form: a delete and its marker land in the same commit, so neither can survive alone. */
 export function stageTombstone(
-  batch: WriteBatch,
+  writer: TombstoneWriter,
   firestore: Firestore,
   uid: string,
   collectionName: CollectionName,
@@ -44,7 +51,30 @@ export function stageTombstone(
   deletedAt: string,
 ): void {
   const { ref, tombstone } = buildTombstoneWrite(firestore, uid, collectionName, id, deletedAt);
-  batch.set(ref, tombstone);
+  writer.set(ref, tombstone);
+}
+
+/** A removal costs its delete plus its tombstone — a mirrored event also tombstones its googleId. */
+export function countRemovalWrites(collectionName: CollectionName): number {
+  return collectionName === "calendarEvents" ? 3 : 2;
+}
+
+export function stageRemoval(
+  writer: RemovalWriter,
+  firestore: Firestore,
+  uid: string,
+  collectionName: CollectionName,
+  doc: DocumentSnapshot,
+  deletedAt: string,
+): void {
+  writer.delete(doc.ref);
+  stageTombstone(writer, firestore, uid, collectionName, doc.id, deletedAt);
+  if (collectionName !== "calendarEvents") return;
+  // A wiped mirror event resurrects on the next gcal reconcile unless its googleId is tombstoned —
+  // the reconcile keys resurrection on googleId, not the record id.
+  const googleId = (doc.data() as { googleId?: string } | undefined)?.googleId;
+  if (googleId && googleId !== doc.id)
+    stageTombstone(writer, firestore, uid, collectionName, googleId, deletedAt);
 }
 
 export async function hasTombstone(
