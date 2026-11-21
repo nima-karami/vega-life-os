@@ -6,3 +6,13 @@ export function readBearerToken(req: Request): string | null {
   if (scheme?.toLowerCase() !== "bearer" || !token) return null;
   return token;
 }
+
+export function readCorsOrigins(): string[] {
+  return (
+    process.env.CORS_ORIGINS ??
+    "https://vega-life-os.web.app,https://vega-life-os.firebaseapp.com,http://localhost:5180"
+  )
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}

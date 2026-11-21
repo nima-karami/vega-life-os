@@ -6,10 +6,18 @@ import type { Firestore } from "firebase-admin/firestore";
 import { type AppDeps, buildApp, type OidcVerifier } from "../app";
 import { assertDbMatchesEnv, type ServerConfig } from "../core/config";
 import { initAdmin } from "../core/firebase-admin";
+import { createAccessTokenResolver } from "../features/access-tokens/token-store";
 import type { ReconcileDeps } from "../features/calendar/reconcile";
 import { createReconcileScheduler } from "../features/calendar/schedule-reconcile";
 import { refreshAccessToken } from "../features/calendar/token-store";
-import { type CalendarContext, makeCreateContext, type TokenVerifier } from "../trpc/context";
+import type { ToolRegistrar } from "../features/mcp/mcp-context";
+import { registerReadTools } from "../features/mcp/read-tools";
+import {
+  type CalendarContext,
+  createAdminVerifier,
+  makeCreateContext,
+  type TokenVerifier,
+} from "../trpc/context";
 import type { AppRouter } from "../trpc/router";
 import { resolveEmulatorConfig } from "./emulator";
 import { GoogleMock } from "./google-mock";
@@ -35,6 +43,8 @@ export type TestServer = {
 
 export type BootOptions = {
   verifyIdToken?: TokenVerifier;
+  useAdminVerifier?: boolean;
+  mcpRegistrars?: readonly ToolRegistrar[];
   google?: GoogleMock;
   verifyOidc?: OidcVerifier;
   webhookUrl?: string;
@@ -86,12 +96,19 @@ export async function bootTestServer(options: BootOptions = {}): Promise<TestSer
     createContext: makeCreateContext({
       firestore,
       config,
-      verifyIdToken: options.verifyIdToken ?? stubVerifier,
+      verifyIdToken: options.useAdminVerifier
+        ? createAdminVerifier(auth)
+        : (options.verifyIdToken ?? stubVerifier),
       calendar,
     }),
     firestore,
     calendar,
     verifyOidc,
+    mcp: {
+      resolveAccessToken: createAccessTokenResolver(firestore),
+      registrars: options.mcpRegistrars ?? [registerReadTools],
+      now: () => Date.parse(now()),
+    },
   };
   const app = buildApp(deps);
 
