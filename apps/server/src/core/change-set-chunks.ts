@@ -6,8 +6,7 @@ import { ToolError } from "./tool-error";
 // One write of the 450 a transaction may carry is reserved for the sync counter.
 const MAX_CHUNK_WRITES = 449;
 const MAX_CHUNK_BYTES = 9 * 1024 * 1024;
-// Below Firestore's 1 MiB document limit, leaving room for the stamp map.
-const MAX_DOCUMENT_BYTES = 900 * 1024;
+const MAX_DOCUMENT_BYTES = 1024 * 1024;
 const TOMBSTONE_ALLOWANCE_BYTES = 512;
 
 export const getOperationId = (operation: ChangeOperation) =>
@@ -30,6 +29,20 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 
 export const toDocPath = (uid: string, recordKey: string) => `users/${uid}/${recordKey}`;
 
+/** Firestore's own sizing: string bytes + 1, numbers 8, booleans and null 1, map keys + 1. */
+function measureStoredValue(value: unknown): number {
+  if (typeof value === "string") return Buffer.byteLength(value) + 1;
+  if (typeof value === "number") return 8;
+  if (Array.isArray(value))
+    return value.reduce((total: number, element) => total + measureStoredValue(element), 0);
+  if (isPlainObject(value))
+    return Object.entries(value).reduce(
+      (total, [key, child]) => total + Buffer.byteLength(key) + 1 + measureStoredValue(child),
+      0,
+    );
+  return 1;
+}
+
 /** Each entry names the doc and its parent collection, the field, and the value. */
 function estimateIndexBytes(value: unknown, fieldPath: string, nameBytes: number): number {
   if (isPlainObject(value))
@@ -41,7 +54,7 @@ function estimateIndexBytes(value: unknown, fieldPath: string, nameBytes: number
   const entry = (indexed: unknown) =>
     2 * nameBytes +
     Buffer.byteLength(fieldPath) +
-    Math.min(Buffer.byteLength(JSON.stringify(indexed) ?? ""), MAX_INDEXED_VALUE_BYTES) +
+    Math.min(measureStoredValue(indexed), MAX_INDEXED_VALUE_BYTES) +
     INDEX_ENTRY_OVERHEAD_BYTES;
   const ordered = 2 * entry(value);
   return Array.isArray(value)
@@ -80,10 +93,16 @@ function estimateOperationBytes(uid: string, operation: WriteOperation): number 
   );
 }
 
+/** The stored doc: its name, fields and the field-LWW stamp map the merge adds. */
+function measureStoredDocument(uid: string, operation: Extract<WriteOperation, { kind: "put" }>) {
+  const nameBytes = Buffer.byteLength(toDocPath(uid, getOperationKey(operation))) + 16;
+  const stampBytes = Object.keys(operation.record).length * STAMP_FIELD_BYTES;
+  return nameBytes + measureStoredValue(operation.record) + stampBytes + INDEX_ENTRY_OVERHEAD_BYTES;
+}
+
 export function assertFitsOneChunk(uid: string, operation: WriteOperation): void {
   const isOversizedDocument =
-    operation.kind === "put" &&
-    Buffer.byteLength(JSON.stringify(operation.record)) > MAX_DOCUMENT_BYTES;
+    operation.kind === "put" && measureStoredDocument(uid, operation) > MAX_DOCUMENT_BYTES;
   if (!isOversizedDocument && estimateOperationBytes(uid, operation) <= MAX_CHUNK_BYTES) return;
   throw new ToolError("BAD_REQUEST", `${getOperationKey(operation)} is too large to write`);
 }
