@@ -1,6 +1,6 @@
 import { buildHabit, buildTask, type ValueCreate } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { createLoadedCollection, type LoadedDataset } from "../ops/dataset-loader";
+import { createLoadedCollection, getLoaded, type LoadedDataset } from "../ops/dataset-loader";
 import { planCreateValue, planDeleteValue, planUpdateValue } from "../ops/value-ops";
 import { computeZonedClock } from "../zoned-clock";
 
@@ -102,6 +102,33 @@ describe("planUpdateValue", () => {
       clock,
     );
     expect(outcome.result.createdTaskIds).toHaveLength(15);
+  });
+
+  it("checks only the habits that generate instances, not a paused sibling", () => {
+    const dataset = valueDataset();
+    const paused = buildHabit(
+      { id: "h_paused", valueId: "v_mind", createdAt: "2026-11-01" },
+      { valueId: "v_mind", icon: "repeat" },
+    );
+    dataset.habits = createLoadedCollection(
+      withMeta([
+        ...getLoaded(dataset, "habits").rows,
+        { ...paused, pausedAt: "2026-11-02T00:00:00.000Z" },
+      ]),
+    );
+    const outcome = planUpdateValue(
+      dataset,
+      "v_mind",
+      { fields: { archivedAt: null }, ignoredKeys: [] },
+      clock,
+    );
+    const checked = outcome.changeSet.operations
+      .filter((operation) => operation.kind === "check")
+      .map(
+        (operation) => `${operation.collection}/${operation.kind === "check" ? operation.id : ""}`,
+      );
+    expect(checked).toContain("habits/h_read");
+    expect(checked).not.toContain("habits/h_paused");
   });
 
   it("regenerates its habits' runway on unarchive", () => {

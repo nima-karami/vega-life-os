@@ -6,8 +6,8 @@ import {
   type ChangeSetReceipt,
   commitChangeSet,
   ExpectationFailedError,
-  getRecordKey,
 } from "../../core/change-set";
+import { getRecordKey } from "../../core/change-set-chunks";
 import { ToolError } from "../../core/tool-error";
 import type { AccessTokenGrant } from "../access-tokens/grant";
 import { mcpCollectionSchema, RECORD_ID_PATTERN } from "./mcp-collections";

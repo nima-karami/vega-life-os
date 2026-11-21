@@ -1149,7 +1149,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     });
     expect(created.isError).toBe(false);
     const slotHash = createHash("sha256").update(longId).digest("base64url").slice(0, 22);
-    const todayId = `t_h${slotHash}_2026-11-20`;
+    const todayId = `th_${slotHash}_2026-11-20`;
     expect((await listTasks(uid)).map((task) => task.id)).toContain(todayId);
     const status = await callTool(client, "set_task_status", { id: todayId, status: "done" });
     expect(status.payload).toMatchObject({ record: { id: todayId, status: "done" } });
@@ -1160,7 +1160,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     const checkIn = await callTool(client, "check_in_habit", { habitId: bareId });
     expect(checkIn.payload).toMatchObject({
       created: true,
-      record: { id: `t_h${bareHash}_2026-11-20` },
+      record: { id: `th_${bareHash}_2026-11-20` },
     });
   });
 });

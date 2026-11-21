@@ -344,9 +344,18 @@ describe("runway bookkeeping", () => {
       clock,
     );
     const ids = idsOf(runway.changeSet.operations, "put", "tasks");
-    expect(ids.every((id) => /^t_h[A-Za-z0-9_-]{22}_\d{4}-\d{2}-\d{2}$/.test(id))).toBe(true);
+    expect(ids.every((id) => /^th_[A-Za-z0-9_-]{22}_\d{4}-\d{2}-\d{2}$/.test(id))).toBe(true);
     const checkIn = planCheckInHabit(seed([habit], []), { habitId: longId }, clock);
-    expect(ids).toContain((checkIn.result.record as { id: string }).id);
+    const hashedId = (checkIn.result.record as { id: string }).id;
+    expect(ids).toContain(hashedId);
+
+    const digest = hashedId.slice("th_".length, "th_".length + 22);
+    const lookalike = planCheckInHabit(
+      seed([makeHabit({ id: `h${digest}` })], []),
+      { habitId: `h${digest}` },
+      clock,
+    );
+    expect((lookalike.result.record as { id: string }).id).not.toBe(hashedId);
   });
 
   it("checks each source habit and value of new instances", () => {

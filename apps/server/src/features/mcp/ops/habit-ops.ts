@@ -66,7 +66,7 @@ function habitSlotTaskId(habitId: string, slot: string): string {
   const plain = `t_${habitId}_${slot}`;
   if (RECORD_ID_PATTERN.test(plain)) return plain;
   const digest = createHash("sha256").update(habitId).digest("base64url");
-  return `t_h${digest.slice(0, SLOT_HASH_LENGTH)}_${slot}`;
+  return `th_${digest.slice(0, SLOT_HASH_LENGTH)}_${slot}`;
 }
 
 type RunwayOperations = {
@@ -129,7 +129,10 @@ export function planRunwayOperations(
       ...removedTaskIds.map((id) => buildRemove("tasks", tasks, id)),
       ...rebuilt.map((task) => buildUpdate("tasks", tasks, task)),
       ...inserted.map((task) => buildInsert("tasks", tasks, task)),
-      ...(created.length > 0 ? buildSourceChecks(dataset, change.regenerateFor) : []),
+      ...buildSourceChecks(
+        dataset,
+        change.regenerateFor.filter((habit) => created.some((task) => task.habitId === habit.id)),
+      ),
     ],
     removedTaskIds,
     createdTaskIds: inserted.map((task) => task.id),

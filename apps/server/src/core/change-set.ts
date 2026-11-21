@@ -8,9 +8,19 @@ import type {
   Timestamp,
   Transaction,
 } from "firebase-admin/firestore";
+import {
+  assertFitsOneChunk,
+  assignGuards,
+  type Chunk,
+  deferCheckedWrites,
+  getOperationId,
+  getOperationKey,
+  getRecordKey,
+  packChunks,
+} from "./change-set-chunks";
 import { writableSchema } from "./collection-store";
 import { mergeWithFieldLww, type StoredRecord } from "./field-lww";
-import { countRemovalWrites, stageRemoval } from "./tombstone";
+import { stageRemoval } from "./tombstone";
 import { ToolError } from "./tool-error";
 
 export type Expectation = { absent: true } | { updateTime: string };
@@ -54,34 +64,17 @@ export class ExpectationFailedError extends Error {
   }
 }
 
-// One write of the 450 a transaction may carry is reserved for the sync counter.
-const MAX_CHUNK_WRITES = 449;
-const MAX_CHUNK_BYTES = 9 * 1024 * 1024;
-const STAMP_ALLOWANCE_BYTES = 1024;
-const TOMBSTONE_ALLOWANCE_BYTES = 512;
 const RESERVED_DOC_ID = /^__.*__$/;
-// Never equal to a formatted updateTime, so a later chunk's check on a doc changed after commit fails.
-const CHANGED_AFTER_COMMIT: Expectation = { updateTime: "changed-after-commit" };
 
-type WriteOperation = Exclude<ChangeOperation, { kind: "check" }>;
+export type WriteOperation = Exclude<ChangeOperation, { kind: "check" }>;
 type PutOperation = Extract<ChangeOperation, { kind: "put" }>;
-type Chunk = { operations: WriteOperation[]; firstIndex: number };
 type ChunkOutcome = {
   written: number;
   removed: number;
   version: number | null;
   ids: [string, string][];
   records: Record<string, Record<string, unknown>>;
-  staged: Map<string, Record<string, unknown> | null>;
 };
-
-const getOperationId = (operation: ChangeOperation) =>
-  operation.kind === "put" ? operation.record.id : operation.id;
-
-export const getRecordKey = (collection: CollectionName, id: string) => `${collection}/${id}`;
-
-const getOperationKey = (operation: ChangeOperation) =>
-  getRecordKey(operation.collection, getOperationId(operation));
 
 const isWrite = (operation: ChangeOperation): operation is WriteOperation =>
   operation.kind !== "check";
@@ -162,67 +155,6 @@ function collectChecks(
   return checks;
 }
 
-function countOperationWrites(operation: WriteOperation): number {
-  return operation.kind === "put" ? 1 : countRemovalWrites(operation.collection);
-}
-
-/** Deliberately high: a put rewrites the larger of the old and new doc plus its stamp map; a removal deletes the stored doc. */
-function estimateOperationBytes(operation: WriteOperation): number {
-  const pathBytes = Buffer.byteLength(getOperationKey(operation)) + 64;
-  const storedBytes = operation.storedBytes ?? 0;
-  if (operation.kind === "remove")
-    return (
-      countRemovalWrites(operation.collection) *
-      (storedBytes + pathBytes + TOMBSTONE_ALLOWANCE_BYTES)
-    );
-  const recordBytes = Buffer.byteLength(JSON.stringify(operation.record));
-  return 2 * (Math.max(recordBytes, storedBytes) + pathBytes) + STAMP_ALLOWANCE_BYTES;
-}
-
-function assertFitsOneChunk(operation: WriteOperation): void {
-  if (estimateOperationBytes(operation) <= MAX_CHUNK_BYTES) return;
-  throw new ToolError("BAD_REQUEST", `${getOperationKey(operation)} is too large to write`);
-}
-
-function packChunks(operations: WriteOperation[]): Chunk[] {
-  const chunks: Chunk[] = [];
-  let current: Chunk = { operations: [], firstIndex: 0 };
-  let writes = 0;
-  let bytes = 0;
-  operations.forEach((operation, index) => {
-    const operationWrites = countOperationWrites(operation);
-    const operationBytes = estimateOperationBytes(operation);
-    const isFull =
-      writes + operationWrites > MAX_CHUNK_WRITES || bytes + operationBytes > MAX_CHUNK_BYTES;
-    if (current.operations.length > 0 && isFull) {
-      chunks.push(current);
-      current = { operations: [], firstIndex: index };
-      writes = 0;
-      bytes = 0;
-    }
-    current.operations.push(operation);
-    writes += operationWrites;
-    bytes += operationBytes;
-  });
-  if (current.operations.length > 0) chunks.push(current);
-  return chunks;
-}
-
-/** A claimed guard runs with its claiming write; a cascade guard runs with the final chunk. */
-function assignGuards(chunks: Chunk[], guards: DependentGuard[]): DependentGuard[][] {
-  const assigned: DependentGuard[][] = chunks.map(() => []);
-  const lastIndex = Math.max(chunks.length - 1, 0);
-  for (const guard of guards) {
-    const claimIndex = guard.claimedBy
-      ? chunks.findIndex((chunk) =>
-          chunk.operations.some((operation) => getOperationKey(operation) === guard.claimedBy),
-        )
-      : -1;
-    assigned[claimIndex === -1 ? lastIndex : claimIndex].push(guard);
-  }
-  return assigned;
-}
-
 function assertExpectation(key: string, expect: Expectation, snapshot: DocumentSnapshot): void {
   if ("absent" in expect) {
     if (snapshot.exists) throw new ExpectationFailedError(`${key} already exists`);
@@ -281,7 +213,6 @@ type ChunkPlan = {
   operations: WriteOperation[];
   checks: [string, Expectation][];
   guards: DependentGuard[];
-  trackedKeys: ReadonlySet<string>;
   primaryKey: string | undefined;
 };
 
@@ -308,7 +239,6 @@ function stagePut(staging: StagingContext, operation: PutOperation, snapshot: Do
   if (!changed) return false;
   const staged = { ...merged, fieldUpdatedAt };
   staging.transaction.set(snapshot.ref, staged);
-  if (plan.trackedKeys.has(key)) outcome.staged.set(key, staged);
   return true;
 }
 
@@ -317,7 +247,7 @@ function stageOperation(
   operation: WriteOperation,
   snapshot: DocumentSnapshot,
 ): void {
-  const { transaction, firestore, uid, nowIso, outcome, plan } = staging;
+  const { transaction, firestore, uid, nowIso, outcome } = staging;
   if (operation.kind === "put") {
     if (!stagePut(staging, operation, snapshot)) return;
     outcome.written += 1;
@@ -325,8 +255,6 @@ function stageOperation(
     if (!snapshot.exists) return;
     stageRemoval(transaction, firestore, uid, operation.collection, snapshot, nowIso);
     outcome.removed += 1;
-    if (plan.trackedKeys.has(getOperationKey(operation)))
-      outcome.staged.set(getOperationKey(operation), null);
   }
   outcome.ids.push([operation.collection, getOperationId(operation)]);
 }
@@ -364,7 +292,6 @@ function commitChunk(
       version: null,
       ids: [],
       records: {},
-      staged: new Map(),
     };
     const staging = { transaction, firestore, uid, nowIso, plan, outcome };
     plan.operations.forEach((operation, index) => {
@@ -378,29 +305,6 @@ function commitChunk(
   return plan.operations.length > 0
     ? firestore.runTransaction(update)
     : firestore.runTransaction(update, { readOnly: true });
-}
-
-/** Later chunks check a doc this chunk wrote against what it wrote, not against the version read at plan time. */
-async function advanceCheckedVersions(
-  firestore: Firestore,
-  uid: string,
-  checks: Map<string, Expectation>,
-  staged: Map<string, Record<string, unknown> | null>,
-): Promise<void> {
-  const putKeys = [...staged].filter(([, data]) => data !== null).map(([key]) => key);
-  for (const [key, data] of staged) if (data === null) checks.set(key, { absent: true });
-  if (putKeys.length === 0) return;
-  const snapshots = await firestore.getAll(...putKeys.map((key) => toDocRef(firestore, uid, key)));
-  snapshots.forEach((snapshot, index) => {
-    const key = putKeys[index];
-    const isOurs = snapshot.updateTime && isDeepStrictEqual(snapshot.data(), staged.get(key));
-    checks.set(
-      key,
-      isOurs && snapshot.updateTime
-        ? { updateTime: formatUpdateTime(snapshot.updateTime) }
-        : CHANGED_AFTER_COMMIT,
-    );
-  });
 }
 
 function recordCommitted(receipt: ChangeSetReceipt, outcome: ChunkOutcome): void {
@@ -430,9 +334,10 @@ export async function commitChangeSet(
   primaryKey?: string,
 ): Promise<ChangeSetReceipt> {
   const validated = changeSet.operations.map(validateOperation);
-  const writes = dedupeWrites(validated.filter(isWrite));
-  writes.forEach(assertFitsOneChunk);
-  const checks = collectChecks(validated, writes);
+  const deduped = dedupeWrites(validated.filter(isWrite));
+  deduped.forEach(assertFitsOneChunk);
+  const checks = collectChecks(validated, deduped);
+  const writes = deferCheckedWrites(deduped, new Set(checks.keys()));
   const receipt: ChangeSetReceipt = {
     written: 0,
     removed: 0,
@@ -443,17 +348,13 @@ export async function commitChangeSet(
   if (writes.length === 0 && checks.size === 0 && changeSet.guards.length === 0) return receipt;
   const chunks = writes.length > 0 ? packChunks(writes) : [{ operations: [], firstIndex: 0 }];
   const guardsByChunk = assignGuards(chunks, changeSet.guards);
-  const trackedKeys = new Set(checks.keys());
-  let previousStaged: ChunkOutcome["staged"] = new Map();
   for (const [index, chunk] of chunks.entries()) {
     let outcome: ChunkOutcome;
     try {
-      await advanceCheckedVersions(firestore, uid, checks, previousStaged);
       const plan = {
         operations: chunk.operations,
         checks: selectChunkChecks(checks, chunk),
         guards: guardsByChunk[index],
-        trackedKeys,
         primaryKey,
       };
       outcome = await commitChunk(firestore, uid, plan, nowIso);
@@ -465,7 +366,6 @@ export async function commitChangeSet(
       });
     }
     recordCommitted(receipt, outcome);
-    previousStaged = outcome.staged;
   }
   return receipt;
 }

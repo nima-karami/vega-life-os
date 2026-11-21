@@ -391,45 +391,37 @@ describe("commitChangeSet (emulator)", () => {
     expect((await valueRef(uid, "v_doc").get()).data()?.name).toBe("v_doc");
   });
 
-  it("checks a parent written by an earlier chunk against what that chunk wrote", async () => {
+  it("writes a checked parent last, so a replacement between chunks stops it", async () => {
     const uid = "cs-parent-between-chunks";
     await commitChangeSet(firestore, uid, toChangeSet([putNew("v_parent")]), NOW);
     const updateTime = await readUpdateTime(uid, "v_parent");
-    const operations: ChangeOperation[] = [
+    const withParent = (expectTime: string): ChangeOperation[] => [
       {
         kind: "put",
         collection: "values",
         record: buildValue("v_parent", "edited"),
-        expect: { updateTime },
+        expect: { updateTime: expectTime },
       },
       ...Array.from({ length: 450 }, (_, index) => putNew(`v_child_${index}`)),
-      { kind: "check", collection: "values", id: "v_parent", expect: { updateTime } },
+      { kind: "check", collection: "values", id: "v_parent", expect: { updateTime: expectTime } },
     ];
-    const clean = await commitChangeSet(firestore, uid, toChangeSet(operations), NOW);
+    const clean = await commitChangeSet(firestore, uid, toChangeSet(withParent(updateTime)), NOW);
     expect(clean.written).toBe(451);
+    expect((await valueRef(uid, "v_parent").get()).get("name")).toBe("edited");
 
-    const raced = "cs-parent-raced";
+    const raced = "cs-parent-replaced";
     await commitChangeSet(firestore, raced, toChangeSet([putNew("v_parent")]), NOW);
     const racedTime = await readUpdateTime(raced, "v_parent");
     const faults = withFailingTransaction(firestore);
-    faults.beforeTransaction(2, () =>
-      valueRef(raced, "v_parent")
-        .update({ desc: "edited between chunks" })
-        .then(() => undefined),
-    );
+    faults.beforeTransaction(2, async () => {
+      const original = (await valueRef(raced, "v_parent").get()).data() ?? {};
+      await valueRef(raced, "v_parent").delete();
+      await valueRef(raced, "v_parent").set(original);
+    });
     const attempt = commitChangeSet(
       faults.firestore,
       raced,
-      toChangeSet([
-        {
-          kind: "put",
-          collection: "values",
-          record: buildValue("v_parent", "edited"),
-          expect: { updateTime: racedTime },
-        },
-        ...Array.from({ length: 450 }, (_, index) => putNew(`v_child_${index}`)),
-        { kind: "check", collection: "values", id: "v_parent", expect: { updateTime: racedTime } },
-      ]),
+      toChangeSet(withParent(racedTime)),
       NOW,
     );
     await expect(attempt).rejects.toMatchObject({
@@ -437,6 +429,31 @@ describe("commitChangeSet (emulator)", () => {
       detail: { failedAtOperation: 449 },
     });
     expect((await valueRef(raced, "v_child_449").get()).exists).toBe(false);
+    expect((await valueRef(raced, "v_parent").get()).get("name")).toBe("v_parent");
+  });
+
+  it("refuses a claimed guard that no write in the set claims, before writing", async () => {
+    const uid = "cs-unclaimed-guard";
+    const attempt = commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet(
+        [putNew("v_one")],
+        [
+          {
+            collection: "goals",
+            field: "valueId",
+            value: "v_one",
+            expectedIds: [],
+            claimedBy: "values/v_typo",
+          },
+        ],
+      ),
+      NOW,
+    );
+    await expect(attempt).rejects.toMatchObject({ code: "INTERNAL" });
+    expect((await valueRef(uid, "v_one").get()).exists).toBe(false);
+    expect(await readSyncVersion(firestore, uid)).toBe(0);
   });
 
   it("verifies a check-only change set in a read-only transaction", async () => {

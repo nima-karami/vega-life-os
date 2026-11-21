@@ -6,8 +6,8 @@ import {
   computeChangeDigest,
   type DependentGuard,
   type Expectation,
-  getRecordKey,
 } from "../../../core/change-set";
+import { getRecordKey } from "../../../core/change-set-chunks";
 import type { StoredEntity } from "../../../core/repository";
 import { ToolError } from "../../../core/tool-error";
 import { type McpCollection, PROTECTED_FIELDS, RECORD_ID_PATTERN } from "../mcp-collections";
