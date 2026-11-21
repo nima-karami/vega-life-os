@@ -1,11 +1,11 @@
-import type { CalendarEvent } from "@vega/shared";
-import { describe, expect, it } from "vitest";
 import {
+  type CalendarEvent,
   getAllDayLivedForDay,
   getSingleDayAllDayLived,
   getTimedLivedForDay,
-  layoutSpanBars,
-} from "../grid-data";
+} from "@vega/shared";
+import { describe, expect, it } from "vitest";
+import { layoutSpanBars } from "../grid-data";
 
 const e = (over: Partial<CalendarEvent>): CalendarEvent => ({
   id: "ce",

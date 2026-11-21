@@ -1,9 +1,9 @@
 import type { CalendarEvent } from "@vega/shared";
+import { filterVisibleEvents } from "@vega/shared";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { saveBulkPut, savePut } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { saveShowGoogleEvents } from "./config";
-import { filterVisibleEvents } from "./display";
 import { normalizeEventTiming } from "./event-timing";
 
 const nowISO = () => new Date().toISOString();

@@ -1,14 +1,9 @@
-import type { CalendarEvent } from "@vega/shared";
+import { type CalendarEvent, getSingleDayAllDayLived, getTimedLivedForDay } from "@vega/shared";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { Task } from "@/features/tasks";
 import type { DragPreview, DragState } from "./drag-state";
 import { shiftSelection } from "./geometry";
-import {
-  getSingleDayAllDayLived,
-  getTimedLivedForDay,
-  isAllDayRowTask,
-  isGridTask,
-} from "./grid-data";
+import { isAllDayRowTask, isGridTask } from "./grid-data";
 
 /** Where a chip draws while a drag is live, in place of its stored date and time. */
 export interface ChipPlacement {

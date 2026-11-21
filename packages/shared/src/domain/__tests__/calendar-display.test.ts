@@ -1,6 +1,6 @@
-import type { CalendarEvent } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { dedupeForDisplay, filterVisibleEvents } from "../display";
+import type { CalendarEvent } from "../../entities/calendar-event";
+import { dedupeForDisplay, filterVisibleEvents } from "..";
 
 function event(over: Partial<CalendarEvent>): CalendarEvent {
   return {
