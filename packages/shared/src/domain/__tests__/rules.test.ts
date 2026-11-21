@@ -51,6 +51,31 @@ it("links the most recent scheduled slot", () => {
     slotDate: "2026-11-20",
   });
 });
+it("keeps the plain fields of a mixed edit", () => {
+  expect(planTaskEdit(task(), { status: "done", note: "x" }, [], "now")).toMatchObject({
+    status: "done",
+    note: "x",
+    completedAt: "prior",
+  });
+  expect(planTaskEdit(task(), { date: null, title: "Renamed" }, [], "now")).toMatchObject({
+    date: null,
+    title: "Renamed",
+    status: "open",
+  });
+});
+it("anchors a link on the date moved in the same edit", () => {
+  const parent = habit();
+  parent.schedule = { type: "weekly", days: [0, 0, 0, 0, 1, 0, 0], interval: 1, anchor: today };
+  expect(planTaskEdit(task(), { habitId: "h", date: "2026-11-27" }, [parent], "now")).toMatchObject(
+    {
+      date: "2026-11-27",
+      slotDate: "2026-11-27",
+    },
+  );
+});
+it("refuses a link to an unknown habit", () => {
+  expect(() => planTaskEdit(task(), { habitId: "missing" }, [], "now")).toThrow("unknown habit");
+});
 it("derives progress or retains its fallback", () => {
   expect(
     deriveProgress(

@@ -1,5 +1,5 @@
-import { localDayOf } from "@vega/shared";
 import { afterEach, describe, expect, it } from "vitest";
+import { localDayOf } from "..";
 
 describe("localDayOf", () => {
   const originalZone = process.env.TZ;

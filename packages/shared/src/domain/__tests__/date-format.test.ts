@@ -1,3 +1,5 @@
+import { parseISO } from "date-fns";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addMinutes,
   daysBetween,
@@ -9,9 +11,7 @@ import {
   minutesOf,
   shiftISO,
   todayISO,
-} from "@vega/shared";
-import { parseISO } from "date-fns";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+} from "..";
 
 describe("minutesOf", () => {
   it("converts HH:mm to minutes since midnight", () => {

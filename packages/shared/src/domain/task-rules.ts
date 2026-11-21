@@ -1,12 +1,11 @@
 import { format } from "date-fns";
+import type { TaskCreate as Task, TaskStatus } from "../entities/task";
 import type { HabitShape } from "./build-habit";
+import { fillDefaults } from "./defaults";
+import { uid } from "./id";
 import { findSlotOnOrBefore } from "./recurrence";
 
 const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
-
-import type { TaskCreate as Task, TaskStatus } from "../entities/task";
-import { fillDefaults } from "./defaults";
-import { uid } from "./id";
 
 /** Enforce the invariant: a task with no date can't carry a time. */
 export function normalizeSchedule<T extends Pick<Task, "date" | "time">>(task: T): T {
@@ -88,23 +87,41 @@ export function relinkTaskToHabit<T extends Task>(task: T, habit: HabitShape): T
     detached: false,
   });
 }
+function findHabit(habits: HabitShape[], habitId: string): HabitShape {
+  const habit = habits.find((row) => row.id === habitId);
+  if (!habit) throw new Error(`unknown habit: ${habitId}`);
+  return habit;
+}
+
+function applyHabitLink<T extends Task>(task: T, habitId: string | null, habits: HabitShape[]): T {
+  return habitId === null
+    ? unlinkTaskFromHabit(task)
+    : linkTaskToHabit(task, findHabit(habits, habitId));
+}
+
+function isRelinkPatch(task: Task, patch: Partial<Task>): boolean {
+  return (
+    patch.detached === false && task.detached && task.kind === "habit" && task.habitId !== null
+  );
+}
+
+/** Plain fields land first so a link anchors its slot on the new date; each intent then applies in turn. */
 export function planTaskEdit<T extends Task>(
   task: T,
   patch: Partial<Task>,
   habits: HabitShape[],
   nowLocal = nowLocalISO(),
 ): T {
-  if (patch.date === null) return unscheduleTask(task);
-  if (patch.habitId !== undefined) {
-    if (patch.habitId === null) return unlinkTaskFromHabit(task);
-    const habit = habits.find((row) => row.id === patch.habitId);
-    if (!habit) return task;
-    return linkTaskToHabit(task, habit);
-  }
-  if (patch.detached === false && task.detached && task.kind === "habit" && task.habitId) {
-    const habit = habits.find((row) => row.id === task.habitId);
-    return habit ? relinkTaskToHabit(task, habit) : task;
-  }
-  if (patch.status !== undefined) return applyTaskStatus(task, patch.status, nowLocal);
-  return applyTaskPatch(task, patch);
+  const { status, habitId, ...plain } = patch;
+  const isUnschedule = plain.date === null;
+  const isRelink = habitId === undefined && isRelinkPatch(task, plain);
+  if (isUnschedule) delete plain.date;
+  if (isRelink) delete plain.detached;
+  let edited = applyTaskPatch(task, plain);
+  if (isUnschedule) edited = unscheduleTask(edited);
+  if (habitId !== undefined) edited = applyHabitLink(edited, habitId, habits);
+  if (isRelink && edited.habitId)
+    edited = relinkTaskToHabit(edited, findHabit(habits, edited.habitId));
+  if (status !== undefined) edited = applyTaskStatus(edited, status, nowLocal);
+  return edited;
 }

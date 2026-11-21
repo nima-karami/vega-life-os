@@ -1,5 +1,5 @@
-import { getZonedWallClock, isValidTimeZone } from "@vega/shared";
 import { describe, expect, it } from "vitest";
+import { getZonedWallClock, isValidTimeZone } from "..";
 
 // The runner pins TZ=UTC, so every instant here is absolute (Date.UTC) and every
 // expectation names its zone — a wall-clock string would parse in the runner's zone.
