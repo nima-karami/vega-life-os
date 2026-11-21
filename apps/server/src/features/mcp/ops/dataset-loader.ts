@@ -6,11 +6,16 @@ import type { StoredEntity } from "../../../core/repository";
 export type LoadedCollection<C extends CollectionName> = {
   rows: StoredEntity<C>[];
   updateTimes: Map<string, string>;
+  storedBytes: Map<string, number>;
 };
 
 export type LoadedDataset = { [C in CollectionName]?: LoadedCollection<C> };
 
-type LoadedEntry<C extends CollectionName> = { row: StoredEntity<C>; updateTime: string };
+type LoadedEntry<C extends CollectionName> = {
+  row: StoredEntity<C>;
+  updateTime: string;
+  storedBytes?: number;
+};
 
 export function createLoadedCollection<C extends CollectionName>(
   entries: LoadedEntry<C>[],
@@ -18,6 +23,7 @@ export function createLoadedCollection<C extends CollectionName>(
   return {
     rows: entries.map((entry) => entry.row),
     updateTimes: new Map(entries.map((entry) => [entry.row.id, entry.updateTime])),
+    storedBytes: new Map(entries.map((entry) => [entry.row.id, entry.storedBytes ?? 0])),
   };
 }
 
@@ -48,10 +54,14 @@ async function loadCollection<C extends CollectionName>(
 ): Promise<LoadedCollection<C>> {
   const snapshot = await firestore.collection(`users/${uid}/${collection}`).get();
   return createLoadedCollection(
-    snapshot.docs.map((doc) => ({
-      row: normalizeRow(collection, doc.data() as StoredEntity<C>, today),
-      updateTime: formatUpdateTime(doc.updateTime),
-    })),
+    snapshot.docs.map((doc) => {
+      const raw = doc.data();
+      return {
+        row: normalizeRow(collection, raw as StoredEntity<C>, today),
+        updateTime: formatUpdateTime(doc.updateTime),
+        storedBytes: Buffer.byteLength(JSON.stringify(raw)),
+      };
+    }),
   );
 }
 

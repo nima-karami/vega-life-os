@@ -29,15 +29,15 @@ const reviewFields = (periodKey: string) => ({
 
 describe("planCreateReview", () => {
   it("creates under rv_<periodKey>", () => {
-    const outcome = planCreateReview(reviewsOf({}), reviewFields("2026-W47"), undefined, clock);
-    expect(outcome.result.record).toMatchObject({ id: "rv_2026-W47", createdAt: clock.nowIso });
+    const outcome = planCreateReview(reviewsOf({}), reviewFields("2026-11-16"), undefined, clock);
+    expect(outcome.result.record).toMatchObject({ id: "rv_2026-11-16", createdAt: clock.nowIso });
     expect(outcome.changeSet.operations[0].expect).toEqual({ absent: true });
   });
 
   it("updates the review already holding the period, keeping its id", () => {
     const outcome = planCreateReview(
-      reviewsOf({ rv_legacy: "2026-W47" }),
-      reviewFields("2026-W47"),
+      reviewsOf({ rv_legacy: "2026-11-16" }),
+      reviewFields("2026-11-16"),
       undefined,
       clock,
     );
@@ -51,8 +51,8 @@ describe("planCreateReview", () => {
   it("refuses an explicit id on another row's period", () => {
     expect(() =>
       planCreateReview(
-        reviewsOf({ rv_legacy: "2026-W47" }),
-        reviewFields("2026-W47"),
+        reviewsOf({ rv_legacy: "2026-11-16" }),
+        reviewFields("2026-11-16"),
         "rv_mine",
         clock,
       ),
@@ -62,9 +62,32 @@ describe("planCreateReview", () => {
 
 describe("planUpdateReview", () => {
   it("refuses moving a review onto an occupied period", () => {
-    const dataset = reviewsOf({ rv_a: "2026-W46", rv_b: "2026-W47" });
+    const dataset = reviewsOf({ rv_a: "2026-11-09", rv_b: "2026-11-16" });
     expect(() =>
-      planUpdateReview(dataset, "rv_b", { fields: { periodKey: "2026-W46" }, ignoredKeys: [] }),
+      planUpdateReview(dataset, "rv_b", { fields: { periodKey: "2026-11-09" }, ignoredKeys: [] }),
     ).toThrow(expect.objectContaining({ code: "CONFLICT" }));
+  });
+});
+
+describe("review period keys", () => {
+  it.each([
+    "2026-11-18",
+    "2026 W47",
+    "2026-11-16 ",
+  ])("refuses %j, which isn't a week's Monday", (periodKey) => {
+    expect(() =>
+      planCreateReview(reviewsOf({}), reviewFields(periodKey), undefined, clock),
+    ).toThrow(
+      expect.objectContaining({ code: "BAD_REQUEST", message: expect.stringContaining("Monday") }),
+    );
+  });
+
+  it("checks the period key again when an update moves it", () => {
+    expect(() =>
+      planUpdateReview(reviewsOf({ rv_a: "2026-11-09" }), "rv_a", {
+        fields: { periodKey: "x y" },
+        ignoredKeys: [],
+      }),
+    ).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
   });
 });

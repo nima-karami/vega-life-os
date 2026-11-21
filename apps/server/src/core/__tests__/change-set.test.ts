@@ -1,5 +1,6 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { withFailingTransaction } from "../../test/failing-transaction";
 import { bootTestServer, type TestServer } from "../../test/harness";
 import {
   type ChangeOperation,
@@ -88,10 +89,7 @@ describe("commitChangeSet (emulator)", () => {
       removed: 0,
       syncVersion: 1,
       committedIds: { values: ["v_a", "v_b"] },
-      records: {
-        "values/v_a": { ...buildValue("v_a"), updatedAt: NOW },
-        "values/v_b": { ...buildValue("v_b"), updatedAt: NOW },
-      },
+      records: {},
     });
     const stored = (await valueRef(uid, "v_a").get()).data();
     expect(stored).toMatchObject({ name: "v_a", updatedAt: NOW });
@@ -183,6 +181,7 @@ describe("commitChangeSet (emulator)", () => {
         { kind: "put", collection: "values", record: buildValue("v_same"), expect: { updateTime } },
       ]),
       "2026-11-21T00:00:00.000Z",
+      "values/v_same",
     );
     expect(receipt).toMatchObject({ written: 0, removed: 0, syncVersion: null, committedIds: {} });
     expect(receipt.records["values/v_same"]).toEqual({ ...buildValue("v_same"), updatedAt: NOW });
@@ -309,6 +308,198 @@ describe("commitChangeSet (emulator)", () => {
     );
     await expect(attempt).rejects.toBeInstanceOf(ExpectationFailedError);
     expect((await valueRef(uid, "v_key").get()).exists).toBe(false);
+  });
+
+  async function seedLargeValues(uid: string, count: number, stampBytes: number) {
+    const stamps = Object.fromEntries(
+      Array.from({ length: Math.ceil(stampBytes / 1000) }, (_, index) => [
+        `legacy_${index}`,
+        "s".repeat(980),
+      ]),
+    );
+    for (let index = 0; index < count; index += 1)
+      await valueRef(uid, `v_big_${index}`).set({
+        ...buildValue(`v_big_${index}`),
+        updatedAt: NOW,
+        fieldUpdatedAt: stamps,
+      });
+    return Promise.all(
+      Array.from({ length: count }, async (_, index) => ({
+        id: `v_big_${index}`,
+        updateTime: await readUpdateTime(uid, `v_big_${index}`),
+        storedBytes: Buffer.byteLength(
+          JSON.stringify((await valueRef(uid, `v_big_${index}`).get()).data()),
+        ),
+      })),
+    );
+  }
+
+  it("budgets an update by the stamp map it retains, splitting small edits of big docs", async () => {
+    const uid = "cs-retained-stamps";
+    const seeded = await seedLargeValues(uid, 20, 300_000);
+    const operations: ChangeOperation[] = seeded.map(({ id, updateTime, storedBytes }) => ({
+      kind: "put",
+      collection: "values",
+      record: buildValue(id, `${id} renamed`),
+      expect: { updateTime },
+      storedBytes,
+    }));
+    const receipt = await commitChangeSet(firestore, uid, toChangeSet(operations), NOW);
+    expect(receipt.written).toBe(20);
+    expect(receipt.syncVersion).toBe(2);
+  });
+
+  it("budgets a removal by the doc it deletes", async () => {
+    const uid = "cs-large-delete";
+    const seeded = await seedLargeValues(uid, 20, 300_000);
+    const operations: ChangeOperation[] = seeded.map(({ id, updateTime, storedBytes }) => ({
+      kind: "remove",
+      collection: "values",
+      id,
+      expect: { updateTime },
+      storedBytes,
+    }));
+    const receipt = await commitChangeSet(firestore, uid, toChangeSet(operations), NOW);
+    expect(receipt.removed).toBe(20);
+    expect(receipt.syncVersion).toBeGreaterThanOrEqual(2);
+  });
+
+  it("refuses a check and a write that expect the same doc at different versions", async () => {
+    const uid = "cs-contradiction";
+    await commitChangeSet(firestore, uid, toChangeSet([putNew("v_doc")]), NOW);
+    const updateTime = await readUpdateTime(uid, "v_doc");
+    const attempt = commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet([
+        {
+          kind: "put",
+          collection: "values",
+          record: buildValue("v_doc", "x"),
+          expect: { updateTime },
+        },
+        {
+          kind: "check",
+          collection: "values",
+          id: "v_doc",
+          expect: { updateTime: "2020-01-01T00:00:00.000000000Z" },
+        },
+      ]),
+      NOW,
+    );
+    await expect(attempt).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await valueRef(uid, "v_doc").get()).data()?.name).toBe("v_doc");
+  });
+
+  it("checks a parent written by an earlier chunk against what that chunk wrote", async () => {
+    const uid = "cs-parent-between-chunks";
+    await commitChangeSet(firestore, uid, toChangeSet([putNew("v_parent")]), NOW);
+    const updateTime = await readUpdateTime(uid, "v_parent");
+    const operations: ChangeOperation[] = [
+      {
+        kind: "put",
+        collection: "values",
+        record: buildValue("v_parent", "edited"),
+        expect: { updateTime },
+      },
+      ...Array.from({ length: 450 }, (_, index) => putNew(`v_child_${index}`)),
+      { kind: "check", collection: "values", id: "v_parent", expect: { updateTime } },
+    ];
+    const clean = await commitChangeSet(firestore, uid, toChangeSet(operations), NOW);
+    expect(clean.written).toBe(451);
+
+    const raced = "cs-parent-raced";
+    await commitChangeSet(firestore, raced, toChangeSet([putNew("v_parent")]), NOW);
+    const racedTime = await readUpdateTime(raced, "v_parent");
+    const faults = withFailingTransaction(firestore);
+    faults.beforeTransaction(2, () =>
+      valueRef(raced, "v_parent")
+        .update({ desc: "edited between chunks" })
+        .then(() => undefined),
+    );
+    const attempt = commitChangeSet(
+      faults.firestore,
+      raced,
+      toChangeSet([
+        {
+          kind: "put",
+          collection: "values",
+          record: buildValue("v_parent", "edited"),
+          expect: { updateTime: racedTime },
+        },
+        ...Array.from({ length: 450 }, (_, index) => putNew(`v_child_${index}`)),
+        { kind: "check", collection: "values", id: "v_parent", expect: { updateTime: racedTime } },
+      ]),
+      NOW,
+    );
+    await expect(attempt).rejects.toMatchObject({
+      code: "INTERNAL",
+      detail: { failedAtOperation: 449 },
+    });
+    expect((await valueRef(raced, "v_child_449").get()).exists).toBe(false);
+  });
+
+  it("verifies a check-only change set in a read-only transaction", async () => {
+    const uid = "cs-check-only";
+    await commitChangeSet(firestore, uid, toChangeSet([putNew("v_only")]), NOW);
+    const updateTime = await readUpdateTime(uid, "v_only");
+    const valid = await commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet([{ kind: "check", collection: "values", id: "v_only", expect: { updateTime } }]),
+      NOW,
+    );
+    expect(valid).toMatchObject({ written: 0, syncVersion: null });
+    expect(await readSyncVersion(firestore, uid)).toBe(1);
+    const stale = commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet([
+        { kind: "check", collection: "values", id: "v_only", expect: { absent: true } },
+      ]),
+      NOW,
+    );
+    await expect(stale).rejects.toBeInstanceOf(ExpectationFailedError);
+  });
+
+  it("runs a claimed key guard with its claiming write in the first chunk", async () => {
+    const uid = "cs-first-chunk-claim";
+    await firestore.doc(`users/${uid}/goals/g_holder`).set({ id: "g_holder", valueId: "v_claim" });
+    const attempt = commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet(
+        [
+          putNew("v_claim"),
+          ...Array.from({ length: 450 }, (_, index) => putNew(`v_rest_${index}`)),
+        ],
+        [
+          {
+            collection: "goals",
+            field: "valueId",
+            value: "v_claim",
+            expectedIds: [],
+            claimedBy: "values/v_claim",
+          },
+        ],
+      ),
+      NOW,
+    );
+    await expect(attempt).rejects.toBeInstanceOf(ExpectationFailedError);
+    expect((await valueRef(uid, "v_claim").get()).exists).toBe(false);
+    expect(await readSyncVersion(firestore, uid)).toBe(0);
+  });
+
+  it("captures only the primary row in the receipt", async () => {
+    const uid = "cs-primary";
+    const receipt = await commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet([putNew("v_main"), putNew("v_side_a"), putNew("v_side_b")]),
+      NOW,
+      "values/v_main",
+    );
+    expect(Object.keys(receipt.records)).toEqual(["values/v_main"]);
   });
 });
 

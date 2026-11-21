@@ -6,6 +6,7 @@ import {
   computeChangeDigest,
   type DependentGuard,
   type Expectation,
+  getRecordKey,
 } from "../../../core/change-set";
 import type { StoredEntity } from "../../../core/repository";
 import { ToolError } from "../../../core/tool-error";
@@ -55,6 +56,7 @@ export function buildInsert<C extends CollectionName>(
   loaded: LoadedCollection<C>,
   record: PutRecord,
 ): ChangeOperation {
+  assertRecordId(`${collection}.id`, record.id);
   assertIdAvailable(collection, loaded, record.id);
   return { kind: "put", collection, record, expect: ABSENT };
 }
@@ -65,7 +67,8 @@ export function buildUpdate<C extends CollectionName>(
   record: PutRecord,
 ): ChangeOperation {
   const updateTime = requireUpdateTime(collection, loaded, record.id);
-  return { kind: "put", collection, record, expect: { updateTime } };
+  const storedBytes = loaded.storedBytes.get(record.id);
+  return { kind: "put", collection, record, expect: { updateTime }, storedBytes };
 }
 
 export function buildRemove<C extends CollectionName>(
@@ -78,6 +81,7 @@ export function buildRemove<C extends CollectionName>(
     collection,
     id,
     expect: { updateTime: requireUpdateTime(collection, loaded, id) },
+    storedBytes: loaded.storedBytes.get(id),
   };
 }
 
@@ -121,6 +125,22 @@ export function buildGuard(
   return { collection, field, value, expectedIds: [...expectedIds] };
 }
 
+/** A logical key (one row per value) checked in the same transaction as the write that claims it. */
+export function buildClaimGuard(
+  collection: CollectionName,
+  field: string,
+  value: string,
+  holderId: string,
+): DependentGuard {
+  return {
+    collection,
+    field,
+    value,
+    expectedIds: [holderId],
+    claimedBy: getRecordKey(collection, holderId),
+  };
+}
+
 export function findRow<C extends CollectionName>(
   loaded: LoadedCollection<C>,
   id: string,
@@ -143,7 +163,8 @@ function assertIdAvailable<C extends CollectionName>(
   loaded: LoadedCollection<C>,
   id: string,
 ): void {
-  if (findRow(loaded, id)) throw new ToolError("CONFLICT", `${collection}/${id} already exists`);
+  if (loaded.updateTimes.has(id))
+    throw new ToolError("CONFLICT", `${collection}/${id} already exists`);
 }
 
 export function assertLinkExists<C extends CollectionName>(

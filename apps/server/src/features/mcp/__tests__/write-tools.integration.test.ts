@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { AccessTokenScope } from "@vega/shared";
@@ -133,6 +134,70 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     expect(failed.payload).toMatchObject({ code: "INTERNAL", failedAtOperation: 449 });
     return failed;
   }
+
+  async function seedArchivedValueWithDailyHabits(uid: string, client: Client) {
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_many",
+      record: { name: "Many", archivedAt: "2026-11-01T00:00:00.000Z" },
+    });
+    const daily = {
+      type: "weekly",
+      days: [1, 1, 1, 1, 1, 1, 1],
+      interval: 1,
+      anchor: "2026-11-01",
+    };
+    await seedRows(
+      uid,
+      "habits",
+      Array.from({ length: 31 }, (_, index) => ({
+        id: `h_${index}`,
+        name: `H${index}`,
+        goalId: null,
+        valueId: "v_many",
+        icon: "repeat",
+        time: null,
+        schedule: daily,
+        durationMin: 30,
+        createdAt: "2026-11-01",
+        archivedAt: null,
+        pausedAt: null,
+        resumedAt: null,
+        pausedSpans: [],
+        tracked: true,
+        plan: "",
+      })),
+    );
+  }
+
+  // A habit stored without a runway, so a check-in is what creates its instance.
+  const seedBareHabit = (uid: string, id: string) =>
+    seedRows(uid, "habits", [
+      {
+        id,
+        name: "Bare",
+        goalId: null,
+        valueId: "v_body",
+        icon: "repeat",
+        time: null,
+        schedule: MON_WED_FRI,
+        durationMin: 30,
+        createdAt: "2026-11-01",
+        archivedAt: null,
+        pausedAt: null,
+        resumedAt: null,
+        pausedSpans: [],
+        tracked: true,
+        plan: "",
+      } as { id: string },
+    ]);
+
+  const unarchiveMany = (client: Client) =>
+    callTool(client, "update_record", {
+      collection: "values",
+      id: "v_many",
+      patch: { archivedAt: null },
+    });
 
   beforeAll(async () => {
     server = await bootTestServer();
@@ -388,7 +453,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     await seedRows(uid, "reviews", [
       {
         id: "rv_app",
-        periodKey: "2026-W47",
+        periodKey: "2026-11-16",
         prompts: [],
         checkIns: [],
         createdAt: "2026-11-16T00:00:00.000Z",
@@ -396,7 +461,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     ]);
     const outcome = await callTool(client, "create_record", {
       collection: "reviews",
-      record: { periodKey: "2026-W47", prompts: [{ q: "win", a: "shipped" }] },
+      record: { periodKey: "2026-11-16", prompts: [{ q: "win", a: "shipped" }] },
     });
     expect(outcome.payload).toMatchObject({ record: { id: "rv_app" } });
     expect((await firestore.collection(`users/${uid}/reviews`).get()).size).toBe(1);
@@ -686,25 +751,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
       id: "v_body",
       record: { name: "Body" },
     });
-    await seedRows(uid, "habits", [
-      {
-        id: "h_bare",
-        name: "Bare",
-        goalId: null,
-        valueId: "v_body",
-        icon: "repeat",
-        time: null,
-        schedule: MON_WED_FRI,
-        durationMin: 30,
-        createdAt: "2026-11-01",
-        archivedAt: null,
-        pausedAt: null,
-        resumedAt: null,
-        pausedSpans: [],
-        tracked: true,
-        plan: "",
-      } as { id: string },
-    ]);
+    await seedBareHabit(uid, "h_bare");
     faults.reset();
     faults.beforeTransaction(1, () =>
       firestore
@@ -747,38 +794,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
   it("finishes a value unarchive whose second chunk failed when the unarchive is replayed", async () => {
     const uid = "wt-unarchive-replay";
     const client = await connect(uid);
-    await callTool(client, "create_record", {
-      collection: "values",
-      id: "v_many",
-      record: { name: "Many", archivedAt: "2026-11-01T00:00:00.000Z" },
-    });
-    const daily = {
-      type: "weekly",
-      days: [1, 1, 1, 1, 1, 1, 1],
-      interval: 1,
-      anchor: "2026-11-01",
-    };
-    await seedRows(
-      uid,
-      "habits",
-      Array.from({ length: 31 }, (_, index) => ({
-        id: `h_${index}`,
-        name: `H${index}`,
-        goalId: null,
-        valueId: "v_many",
-        icon: "repeat",
-        time: null,
-        schedule: daily,
-        durationMin: 30,
-        createdAt: "2026-11-01",
-        archivedAt: null,
-        pausedAt: null,
-        resumedAt: null,
-        pausedSpans: [],
-        tracked: true,
-        plan: "",
-      })),
-    );
+    await seedArchivedValueWithDailyHabits(uid, client);
     faults.reset();
     faults.failTransaction(2);
     const failed = await callTool(client, "update_record", {
@@ -814,6 +830,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
       patch: {},
     });
     expect(target.isError).toBe(true);
+    expect(target.text).toContain("ids use letters, digits");
   });
 
   it("refuses to reuse a natural row id that now belongs to a moved journal entry or review", async () => {
@@ -837,16 +854,16 @@ describe("MCP write tools (SDK client over the emulator)", () => {
 
     await callTool(client, "create_record", {
       collection: "reviews",
-      record: { periodKey: "2026-W47", prompts: [] },
+      record: { periodKey: "2026-11-16", prompts: [] },
     });
     await callTool(client, "update_record", {
       collection: "reviews",
-      id: "rv_2026-W47",
-      patch: { periodKey: "2026-W48" },
+      id: "rv_2026-11-16",
+      patch: { periodKey: "2026-11-23" },
     });
     const review = await callTool(client, "create_record", {
       collection: "reviews",
-      record: { periodKey: "2026-W47", prompts: [] },
+      record: { periodKey: "2026-11-16", prompts: [] },
     });
     expect(review.payload).toMatchObject({ code: "CONFLICT" });
   });
@@ -894,14 +911,14 @@ describe("MCP write tools (SDK client over the emulator)", () => {
 
     await callTool(client, "create_record", {
       collection: "reviews",
-      record: { periodKey: "2026-W49", prompts: [] },
+      record: { periodKey: "2026-11-30", prompts: [] },
     });
     faults.reset();
     faults.beforeTransaction(1, () =>
       seedRows(uid, "reviews", [
         {
           id: "rv_theirs",
-          periodKey: "2026-W50",
+          periodKey: "2026-12-07",
           prompts: [],
           checkIns: [],
           createdAt: NOW_ISO,
@@ -910,8 +927,8 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     );
     const moved = await callTool(client, "update_record", {
       collection: "reviews",
-      id: "rv_2026-W49",
-      patch: { periodKey: "2026-W50" },
+      id: "rv_2026-11-30",
+      patch: { periodKey: "2026-12-07" },
     });
     expect(moved.payload).toMatchObject({ code: "CONFLICT" });
   });
@@ -1069,5 +1086,81 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     });
     expect(await readDoc(uid, "financeCategories/fcat_fun")).toBeDefined();
     expect(await readDoc(uid, "financeBudgets/fcat_fun:2026-11")).toBeDefined();
+  });
+
+  it("re-plans a value unarchive when a source habit is deleted before the first chunk commits", async () => {
+    const uid = "wt-unarchive-habit-race";
+    const client = await connect(uid);
+    await seedArchivedValueWithDailyHabits(uid, client);
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      firestore
+        .doc(`users/${uid}/habits/h_0`)
+        .delete()
+        .then(() => undefined),
+    );
+    const outcome = await unarchiveMany(client);
+    expect(outcome.isError).toBe(false);
+    const tasks = await listTasks(uid);
+    expect(tasks.filter((task) => task.habitId === "h_0")).toEqual([]);
+    expect(tasks).toHaveLength(30 * 15);
+  });
+
+  it("stops a value unarchive at the next chunk when the value is archived again in between", async () => {
+    const uid = "wt-unarchive-value-race";
+    const client = await connect(uid);
+    await seedArchivedValueWithDailyHabits(uid, client);
+    faults.reset();
+    faults.beforeTransaction(2, () =>
+      firestore
+        .doc(`users/${uid}/values/v_many`)
+        .update({ archivedAt: "2026-11-20T23:00:00.000Z" })
+        .then(() => undefined),
+    );
+    const outcome = await unarchiveMany(client);
+    expect(outcome.payload).toMatchObject({ code: "INTERNAL", failedAtOperation: 449 });
+    expect((await listTasks(uid)).length).toBeLessThan(31 * 15);
+  });
+
+  it("reports no created tasks when a habit's schedule is reapplied unchanged", async () => {
+    const client = await connect("wt-reapply");
+    await seedValueAndHabit(client);
+    const outcome = await callTool(client, "update_record", {
+      collection: "habits",
+      id: "h_run",
+      patch: { schedule: MON_WED_FRI },
+    });
+    expect(outcome.payload).toMatchObject({ createdTaskIds: [] });
+  });
+
+  it("gives a 128-character habit's tasks addressable slot ids shared with check-in", async () => {
+    const uid = "wt-long-habit";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_body",
+      record: { name: "Body" },
+    });
+    const longId = `h_${"y".repeat(126)}`;
+    const created = await callTool(client, "create_record", {
+      collection: "habits",
+      id: longId,
+      record: { name: "Long", valueId: "v_body", schedule: MON_WED_FRI },
+    });
+    expect(created.isError).toBe(false);
+    const slotHash = createHash("sha256").update(longId).digest("base64url").slice(0, 22);
+    const todayId = `t_h${slotHash}_2026-11-20`;
+    expect((await listTasks(uid)).map((task) => task.id)).toContain(todayId);
+    const status = await callTool(client, "set_task_status", { id: todayId, status: "done" });
+    expect(status.payload).toMatchObject({ record: { id: todayId, status: "done" } });
+
+    const bareId = `h_${"z".repeat(126)}`;
+    await seedBareHabit(uid, bareId);
+    const bareHash = createHash("sha256").update(bareId).digest("base64url").slice(0, 22);
+    const checkIn = await callTool(client, "check_in_habit", { habitId: bareId });
+    expect(checkIn.payload).toMatchObject({
+      created: true,
+      record: { id: `t_h${bareHash}_2026-11-20` },
+    });
   });
 });

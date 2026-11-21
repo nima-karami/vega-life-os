@@ -62,7 +62,16 @@ async function planAndCommit(context: McpContext, request: WriteRequest, attempt
   const dataset = await loadCollections(firestore, grant.uid, request.collections, clock.today);
   const outcome = request.plan(dataset, clock);
   try {
-    const receipt = await commitChangeSet(firestore, grant.uid, outcome.changeSet, clock.nowIso);
+    const primaryKey = outcome.primary
+      ? getRecordKey(outcome.primary.collection, outcome.primary.id)
+      : undefined;
+    const receipt = await commitChangeSet(
+      firestore,
+      grant.uid,
+      outcome.changeSet,
+      clock.nowIso,
+      primaryKey,
+    );
     return { outcome, receipt };
   } catch (error) {
     // Only a first-chunk conflict propagates as ExpectationFailedError, so nothing has landed yet.

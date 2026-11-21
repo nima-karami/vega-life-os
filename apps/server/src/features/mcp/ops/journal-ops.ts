@@ -4,7 +4,7 @@ import { ToolError } from "../../../core/tool-error";
 import type { McpClock } from "../mcp-context";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
-  buildGuard,
+  buildClaimGuard,
   buildInsert,
   buildRemove,
   buildUpdate,
@@ -52,7 +52,7 @@ function planEntryMerge(
     return {
       changeSet: {
         operations: [put],
-        guards: [buildGuard("journal", "date", merged.date, [merged.id])],
+        guards: [buildClaimGuard("journal", "date", merged.date, merged.id)],
       },
       result: { record: toResultRecord(merged) },
       primary: { collection: "journal", id: merged.id },

@@ -89,6 +89,7 @@ describe("planUpdateValue", () => {
         collection: "values",
         record: { ...value, ...SERVER_META, archivedAt: stamp },
         expect: { updateTime: "v_mind@1" },
+        storedBytes: 0,
       },
     ]);
   });

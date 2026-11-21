@@ -312,3 +312,54 @@ describe("runway and check-in identity", () => {
     ).toEqual(["put:tasks", "check:habits", "check:values"]);
   });
 });
+
+describe("runway bookkeeping", () => {
+  it("reports no created tasks when a schedule update rebuilds the same slots", () => {
+    const slots = [
+      "2026-11-20",
+      "2026-11-23",
+      "2026-11-25",
+      "2026-11-27",
+      "2026-11-30",
+      "2026-12-02",
+      "2026-12-04",
+    ];
+    const tasks = slots.map((date) => makeInstance(date, { id: `t_h_run_${date}` }));
+    const outcome = planUpdateHabit(
+      seed([makeHabit()], tasks),
+      "h_run",
+      { fields: { schedule: MON_WED_FRI }, ignoredKeys: [] },
+      clock,
+    );
+    expect(outcome.result.createdTaskIds).toEqual([]);
+    expect(idsOf(outcome.changeSet.operations, "remove", "tasks")).toEqual([]);
+  });
+
+  it("bounds slot ids for a long habit id and shares them with check-in", () => {
+    const longId = `h_${"x".repeat(126)}`;
+    const habit = makeHabit({ id: longId });
+    const runway = planSetHabitState(
+      seed([{ ...habit, archivedAt: "2026-11-01T00:00:00.000Z" }], []),
+      { id: longId, state: "unarchive" },
+      clock,
+    );
+    const ids = idsOf(runway.changeSet.operations, "put", "tasks");
+    expect(ids.every((id) => /^t_h[A-Za-z0-9_-]{22}_\d{4}-\d{2}-\d{2}$/.test(id))).toBe(true);
+    const checkIn = planCheckInHabit(seed([habit], []), { habitId: longId }, clock);
+    expect(ids).toContain((checkIn.result.record as { id: string }).id);
+  });
+
+  it("checks each source habit and value of new instances", () => {
+    const outcome = planSetHabitState(
+      seed([makeHabit({ archivedAt: "2026-11-01T00:00:00.000Z" })], []),
+      { id: "h_run", state: "unarchive" },
+      clock,
+    );
+    const checks = outcome.changeSet.operations.filter((operation) => operation.kind === "check");
+    expect(
+      checks.map(
+        (operation) => `${operation.collection}/${operation.kind === "check" ? operation.id : ""}`,
+      ),
+    ).toEqual(expect.arrayContaining(["habits/h_run", "values/v_body"]));
+  });
+});

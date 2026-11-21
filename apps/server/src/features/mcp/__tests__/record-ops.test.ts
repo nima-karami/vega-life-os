@@ -317,7 +317,13 @@ describe("generic delete", () => {
     expect(
       planDeleteRecord(dataset, { collection: "movies", id: "m_1" }).changeSet.operations,
     ).toEqual([
-      { kind: "remove", collection: "movies", id: "m_1", expect: { updateTime: "@m_1" } },
+      {
+        kind: "remove",
+        collection: "movies",
+        id: "m_1",
+        expect: { updateTime: "@m_1" },
+        storedBytes: 0,
+      },
     ]);
     expectToolError(
       () => planDeleteRecord(dataset, { collection: "movies", id: "m_2" }),

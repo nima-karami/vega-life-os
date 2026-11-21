@@ -62,6 +62,7 @@ describe("planWriteJournal", () => {
         collection: "journal",
         id: "day_x",
         expect: { updateTime: "journal:day_x" },
+        storedBytes: 0,
       },
     ]);
     expect(outcome.result).toMatchObject({ record: null, removed: { journal: ["day_x"] } });

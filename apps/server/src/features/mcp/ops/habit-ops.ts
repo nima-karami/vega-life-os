@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   applyHabitTransition,
   applyTaskStatus,
@@ -19,6 +20,7 @@ import {
 } from "@vega/shared";
 import type { ChangeOperation } from "../../../core/change-set";
 import { ToolError } from "../../../core/tool-error";
+import { RECORD_ID_PATTERN } from "../mcp-collections";
 import type { McpClock } from "../mcp-context";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
@@ -57,8 +59,15 @@ const HABIT_LINKS: readonly LinkField[] = [
   ["goals", "goalId"],
 ];
 
-// One id per habit slot on the server, so a runway pass and a check-in racing for a slot collide.
-const getSlotTaskId = (habitId: string, slot: string) => `t_${habitId}_${slot}`;
+const SLOT_HASH_LENGTH = 22;
+
+/** One id per habit slot on the server, so a runway pass and a check-in racing for a slot collide. */
+function habitSlotTaskId(habitId: string, slot: string): string {
+  const plain = `t_${habitId}_${slot}`;
+  if (RECORD_ID_PATTERN.test(plain)) return plain;
+  const digest = createHash("sha256").update(habitId).digest("base64url");
+  return `t_h${digest.slice(0, SLOT_HASH_LENGTH)}_${slot}`;
+}
 
 type RunwayOperations = {
   operations: ChangeOperation[];
@@ -69,8 +78,22 @@ type RunwayOperations = {
 function assignSlotIds(created: TaskCreate[]): TaskCreate[] {
   return created.map((task) => ({
     ...task,
-    id: getSlotTaskId(String(task.habitId), String(task.slotDate ?? task.date)),
+    id: habitSlotTaskId(String(task.habitId), String(task.slotDate ?? task.date)),
   }));
+}
+
+/** New instances lean on their habit and its value still being the rows that made them eligible. */
+function buildSourceChecks(dataset: LoadedDataset, habits: HabitShape[]): ChangeOperation[] {
+  const loadedHabits = getLoaded(dataset, "habits");
+  const loadedValues = getLoaded(dataset, "values");
+  return habits.flatMap((habit) => [
+    ...(loadedHabits.updateTimes.has(habit.id)
+      ? [buildCheck("habits", loadedHabits, habit.id)]
+      : []),
+    ...(loadedValues.updateTimes.has(habit.valueId)
+      ? [buildCheck("values", loadedValues, habit.valueId)]
+      : []),
+  ]);
 }
 
 /** The runway the app's `commitHabitChange` would leave, limited to the habits this call touched. */
@@ -93,23 +116,23 @@ export function planRunwayOperations(
         )
       : { stale: [], created: [] };
   const created = assignSlotIds(plan.created).filter(
-    (task) => dropped.has(task.id) || !findRow(tasks, task.id),
+    (task) => dropped.has(task.id) || !tasks.updateTimes.has(task.id),
   );
-  const rebuilt = new Set(created.map((task) => task.id).filter((id) => dropped.has(id)));
+  const rebuilt = created.filter((task) => dropped.has(task.id));
+  const inserted = created.filter((task) => !dropped.has(task.id));
+  const rebuiltIds = new Set(rebuilt.map((task) => task.id));
   const removedTaskIds = [...change.dropTaskIds, ...plan.stale.map((task) => task.id)].filter(
-    (id) => !rebuilt.has(id),
+    (id) => !rebuiltIds.has(id),
   );
   return {
     operations: [
       ...removedTaskIds.map((id) => buildRemove("tasks", tasks, id)),
-      ...created.map((task) =>
-        rebuilt.has(task.id)
-          ? buildUpdate("tasks", tasks, task)
-          : buildInsert("tasks", tasks, task),
-      ),
+      ...rebuilt.map((task) => buildUpdate("tasks", tasks, task)),
+      ...inserted.map((task) => buildInsert("tasks", tasks, task)),
+      ...(created.length > 0 ? buildSourceChecks(dataset, change.regenerateFor) : []),
     ],
     removedTaskIds,
-    createdTaskIds: created.map((task) => task.id),
+    createdTaskIds: inserted.map((task) => task.id),
   };
 }
 
@@ -292,7 +315,7 @@ function buildCheckInInstance(dataset: LoadedDataset, habit: HabitShape, date: s
       order: findLatestHabitOrders(tasks).get(habit.id),
     },
     tasks.length,
-    () => getSlotTaskId(habit.id, date),
+    () => habitSlotTaskId(habit.id, date),
   );
 }
 
