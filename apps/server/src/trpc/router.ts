@@ -1,3 +1,4 @@
+import { accessTokensRouter } from "../features/access-tokens/router";
 import { booksRouter } from "../features/books/router";
 import { calendarRouter } from "../features/calendar/router";
 import { dataRouter } from "../features/data/router";
@@ -27,6 +28,7 @@ export const appRouter = router({
   calendar: calendarRouter,
   data: dataRouter,
   profile: profileRouter,
+  accessTokens: accessTokensRouter,
 });
 
 export type AppRouter = typeof appRouter;
