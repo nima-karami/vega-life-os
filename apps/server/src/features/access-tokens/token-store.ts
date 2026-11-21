@@ -62,6 +62,12 @@ export function createAccessTokenResolver(
   };
 }
 
+function assertNameHoldsNoToken(name: string): void {
+  if (name.includes(ACCESS_TOKEN_PREFIX)) {
+    throw new AppError("BAD_REQUEST", "a token name can't contain a token");
+  }
+}
+
 export async function createAccessToken(
   firestore: Firestore,
   uid: string,
@@ -69,6 +75,7 @@ export async function createAccessToken(
   nowIso: string,
 ): Promise<AccessTokenCreated> {
   assertValidTimeZone(input.timeZone);
+  assertNameHoldsNoToken(input.name);
   const token = generateAccessToken();
   const stored: StoredAccessToken = {
     id: generateTokenId(),

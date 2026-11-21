@@ -2,7 +2,7 @@ import { ACCESS_TOKEN_LIMIT, type AccessTokenCreateInput } from "@vega/shared";
 import { DocumentReference, type Firestore } from "firebase-admin/firestore";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { bootTestServer, type TestServer } from "../../../test/harness";
-import { hashAccessToken } from "../token-codec";
+import { ACCESS_TOKEN_PREFIX, hashAccessToken } from "../token-codec";
 import {
   createAccessToken,
   createAccessTokenResolver,
@@ -104,7 +104,22 @@ describe("access token store (emulator)", () => {
     ]);
 
     expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+    const rejected = outcomes.find((outcome) => outcome.status === "rejected");
+    expect(rejected?.status === "rejected" && rejected.reason).toMatchObject({
+      code: "BAD_REQUEST",
+    });
     expect(await listAccessTokens(firestore, uid)).toHaveLength(ACCESS_TOKEN_LIMIT);
+  });
+
+  it("refuses a name that contains a token", async () => {
+    await expect(
+      createAccessToken(
+        firestore,
+        "store-pasted",
+        { ...readInput, name: `${ACCESS_TOKEN_PREFIX}abc` },
+        CREATED_AT,
+      ),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("refuses an invalid time zone", async () => {

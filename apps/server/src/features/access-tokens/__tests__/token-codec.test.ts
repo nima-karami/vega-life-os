@@ -13,10 +13,10 @@ describe("access token codec", () => {
     expect(token.length).toBeGreaterThanOrEqual(52);
   });
 
-  it("hashes stably to 64 hex characters", () => {
-    const token = generateAccessToken();
-    expect(hashAccessToken(token)).toMatch(/^[0-9a-f]{64}$/);
-    expect(hashAccessToken(token)).toBe(hashAccessToken(token));
+  it("hashes with SHA-256 to lowercase hex", () => {
+    expect(hashAccessToken("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
   });
 
   it("generates a distinct token each time", () => {
