@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrayMove, reorderByIds } from "./reorder";
+import { arrayMove, reorderByIds } from "..";
 
 const items = [
   { id: "a", order: 0 },

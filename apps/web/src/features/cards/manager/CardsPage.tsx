@@ -1,7 +1,7 @@
 import type { Card, CardTypeId } from "@vega/shared";
+import { todayISO } from "@vega/shared";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Button, ConfirmDialog, EmptyState, UndoBar } from "@/core/ui";
 import {

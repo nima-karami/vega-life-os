@@ -1,4 +1,4 @@
-import { shiftISO } from "@/core/lib/date";
+import { shiftISO } from "@vega/shared";
 import type { DayEntry } from "@/features/journal/model";
 
 export interface MoodWeek {

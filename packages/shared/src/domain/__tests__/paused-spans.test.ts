@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Task } from "@/features/tasks/model";
-import type { Habit, PausedSpan } from "../model";
-import { getPausedSpans, isHabitPausedOn } from "../paused-spans";
+import type { TaskCreate as Task } from "../../entities/task";
+import type { HabitShape as Habit } from "../build-habit";
+
+type PausedSpan = Habit["pausedSpans"][number];
+
+import { getPausedSpans, isHabitPausedOn } from "..";
 
 const habit = (over: Partial<Habit> = {}): Habit => ({
   id: "h1",

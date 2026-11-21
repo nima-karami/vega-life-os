@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPeriodStep, getPresetRangeOn } from "../timeframe";
+import { getPeriodStep, getPresetRangeOn } from "..";
 
 describe("getPeriodStep", () => {
   it("steps to the next quarter", () => {

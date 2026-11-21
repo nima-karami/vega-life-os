@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type Habit, habitLifecycle, isHabitActive } from "../model";
+import { habitLifecycle, isHabitActive } from "..";
+import type { HabitShape as Habit } from "../build-habit";
 
 const base: Habit = {
   id: "h1",

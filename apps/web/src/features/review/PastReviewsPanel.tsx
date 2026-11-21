@@ -1,5 +1,5 @@
+import { formatShortDate } from "@vega/shared";
 import { useState } from "react";
-import { formatShortDate } from "@/core/lib/date";
 import { Button, cx, Panel, SectionHead } from "@/core/ui";
 import type { Review } from "./model";
 

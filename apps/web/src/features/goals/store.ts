@@ -1,9 +1,7 @@
-import { uid } from "@/core/lib/id";
-import { arrayMove } from "@/core/lib/reorder";
+import { arrayMove, deriveProgress, getPresetRange, planGoalDetach, uid } from "@vega/shared";
 import { saveBulkPut, savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Goal, Subgoal } from "./model";
-import { getPresetRange } from "./timeframe";
 
 export interface GoalsSlice {
   goals: Goal[];
@@ -15,11 +13,6 @@ export interface GoalsSlice {
   removeSubgoal: (goalId: string, subId: string) => void;
   renameSubgoal: (goalId: string, subId: string, name: string) => void;
   reorderSubgoals: (goalId: string, activeId: string, overId: string) => void;
-}
-
-function deriveProgress(subgoals: Subgoal[], fallback: number): number {
-  if (!subgoals.length) return fallback;
-  return subgoals.filter((s) => s.done).length / subgoals.length;
 }
 
 export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
@@ -59,16 +52,17 @@ export const createGoalsSlice: Slice<GoalsSlice> = (set, get) => ({
 
   removeGoal: (id) => {
     // detach dependents rather than dangle: habits/tasks fall back to upkeep
-    const habitsToFix = get()
-      .habits.filter((h) => h.goalId === id)
-      .map((h) => ({ ...h, goalId: null }));
-    const tasksToFix = get()
-      .tasks.filter((t) => t.goalId === id)
-      .map((t) => ({ ...t, goalId: null }));
+    const { habits: habitsToFix, tasks: tasksToFix } = planGoalDetach(
+      id,
+      get().habits,
+      get().tasks,
+    );
+    const detachedHabits = new Map(habitsToFix.map((h) => [h.id, h]));
+    const detachedTasks = new Map(tasksToFix.map((t) => [t.id, t]));
     set((s) => ({
       goals: s.goals.filter((g) => g.id !== id),
-      habits: s.habits.map((h) => (h.goalId === id ? { ...h, goalId: null } : h)),
-      tasks: s.tasks.map((t) => (t.goalId === id ? { ...t, goalId: null } : t)),
+      habits: s.habits.map((h) => detachedHabits.get(h.id) ?? h),
+      tasks: s.tasks.map((t) => detachedTasks.get(t.id) ?? t),
     }));
     saveRemove("goals", id);
     if (habitsToFix.length) void saveBulkPut("habits", habitsToFix);

@@ -1,5 +1,5 @@
-import { shiftISO } from "@/core/lib/date";
-import { type DayEntry, hasContent, hasGratitude } from "./model";
+import { hasContent, hasGratitude, shiftISO } from "@vega/shared";
+import type { DayEntry } from "./model";
 
 /** The daily gratitude page: nothing written today and today not skipped. */
 export function shouldShowGratitudePage(

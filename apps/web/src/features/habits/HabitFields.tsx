@@ -1,6 +1,6 @@
 import { Button, ButtonGroup, Switch } from "@heroui/react";
+import { getNextOccurrence, type HabitLifecycle, habitLifecycle, todayISO } from "@vega/shared";
 import { useEffect, useMemo, useState } from "react";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, DurationStepper, EditorField, NONE, Select, TimePicker } from "@/core/ui";
 import { getGoalsForValue } from "@/features/goals/selectors";
@@ -15,9 +15,8 @@ import {
   resetGoalForValue,
 } from "./editor";
 import { buildDraftFromHabit, buildSchedule, type Draft } from "./habit-draft";
-import { HABIT_LIFECYCLE_LABEL, type Habit, type HabitLifecycle, habitLifecycle } from "./model";
+import { HABIT_LIFECYCLE_LABEL, type Habit } from "./model";
 import { type RepeatMode, RepeatPicker } from "./RepeatPicker";
-import { getNextOccurrence } from "./recurrence";
 import { findConflictingHabits } from "./selectors";
 import { useHabitLifecycle } from "./useHabitLifecycle";
 

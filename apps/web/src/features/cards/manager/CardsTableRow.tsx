@@ -1,6 +1,6 @@
 import type { Card } from "@vega/shared";
+import { formatShortDate } from "@vega/shared";
 import { memo, useMemo } from "react";
-import { formatShortDate } from "@/core/lib/date";
 import { CheckField, ContextMenu, cx, Icon } from "@/core/ui";
 import { CardAttributeChip } from "./CardAttributeChip";
 import { buildCardMenuItems, type CardRowActions } from "./card-row-actions";

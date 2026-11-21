@@ -1,4 +1,4 @@
-import { DOW, dowIndex } from "@/core/lib/date";
+import { DOW, dowIndex } from "@vega/shared";
 import { MOOD_LABEL } from "@/features/journal/model";
 import type { MoodPoint } from "./selectors";
 

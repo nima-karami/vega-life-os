@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Habit } from "@/features/habits/model";
-import { buildMissingInstances, findStaleInstances, getGeneratingHabits } from "../habit-instances";
-import type { Task } from "../model";
+import type { TaskCreate as Task } from "../../entities/task";
+import { buildMissingInstances, findStaleInstances, getGeneratingHabits } from "..";
+import type { HabitShape as Habit } from "../build-habit";
 
 const MONDAY = "2026-10-19";
 const TUESDAY = "2026-10-20";

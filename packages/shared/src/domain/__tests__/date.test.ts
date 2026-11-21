@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { localDayOf } from "../date";
+import { localDayOf } from "..";
 
 describe("localDayOf", () => {
   const originalZone = process.env.TZ;

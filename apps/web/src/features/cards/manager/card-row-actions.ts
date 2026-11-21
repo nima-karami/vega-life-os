@@ -1,5 +1,4 @@
-import { CARD_TYPES, type Card, type CardTypeId, isLearnable } from "@vega/shared";
-import { todayISO } from "@/core/lib/date";
+import { CARD_TYPES, type Card, type CardTypeId, isLearnable, todayISO } from "@vega/shared";
 import type { MenuItem } from "@/core/ui";
 import type { PickerOption } from "./FixedListPicker";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillDefaults } from "../defaults";
+import { fillDefaults } from "..";
 
 interface Shape {
   name: string;

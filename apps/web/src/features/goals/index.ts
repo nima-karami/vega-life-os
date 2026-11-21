@@ -10,4 +10,3 @@ export {
 } from "./presentation";
 export * from "./selectors";
 export { createGoalsSlice, type GoalsSlice } from "./store";
-export { detectTimeframe, formatPeriodLabel, getPresetRange, type Timeframe } from "./timeframe";

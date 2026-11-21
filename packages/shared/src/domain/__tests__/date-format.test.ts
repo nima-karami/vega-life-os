@@ -7,11 +7,11 @@ import {
   formatRelativeDay,
   getWeekDays,
   getWeekDaysFor,
+  getZonedWallClock,
   minutesOf,
   shiftISO,
   todayISO,
-} from "./date";
-import { getZonedWallClock } from "./zone";
+} from "..";
 
 describe("minutesOf", () => {
   it("converts HH:mm to minutes since midnight", () => {

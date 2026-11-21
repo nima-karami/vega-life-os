@@ -1,9 +1,9 @@
+import { byTime } from "@vega/shared";
 import type { Goal } from "@/features/goals/model";
 import type { Habit } from "@/features/habits/model";
 import type { Value } from "@/features/values/model";
 import { getTaskLineage } from "./lineage";
 import type { Task } from "./model";
-import { byTime } from "./selectors";
 
 export interface DoneGroup {
   value: Value | null;

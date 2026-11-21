@@ -1,6 +1,6 @@
 import type { CalendarEvent } from "@vega/shared";
+import { shiftISO, todayISO } from "@vega/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { shiftISO, todayISO } from "@/core/lib/date";
 import { persistence } from "@/core/persistence";
 import { TrpcAdapter } from "@/core/persistence/trpc-adapter";
 import type { TrpcClient } from "@/core/persistence/trpc-client";

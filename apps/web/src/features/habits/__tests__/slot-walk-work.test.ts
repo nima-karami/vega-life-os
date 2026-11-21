@@ -1,8 +1,7 @@
+import { getWeekDaysFor, isActiveOnSchedule } from "@vega/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getWeekDaysFor } from "@/core/lib/date";
 import type { Task } from "@/features/tasks/model";
 import { buildHabitMeta } from "../habit-meta";
-import { isActiveOnSchedule } from "../recurrence";
 import {
   buildHabitDayRecord,
   buildHabitWeek,
@@ -12,8 +11,8 @@ import {
 } from "../selectors";
 import { buildThreeYearLoad, FIXTURE_TODAY } from "./slot-walk-fixtures";
 
-vi.mock("../recurrence", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../recurrence")>();
+vi.mock("@vega/shared", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@vega/shared")>();
   return { ...actual, isActiveOnSchedule: vi.fn(actual.isActiveOnSchedule) };
 });
 

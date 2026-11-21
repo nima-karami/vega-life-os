@@ -1,9 +1,9 @@
+import { formatWeekdayLabel } from "@vega/shared";
 import { describe, expect, it } from "vitest";
 import type { Goal } from "@/features/goals/model";
 import type { Task } from "@/features/tasks/model";
 import { clampPlan, countDetached, formatConflictNote, resetGoalForValue } from "../editor";
 import type { Habit } from "../model";
-import { formatWeekdayLabel } from "../recurrence";
 
 const goal = (id: string, valueId: string): Goal => ({
   id,

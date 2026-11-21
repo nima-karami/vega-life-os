@@ -1,5 +1,6 @@
 import { Button } from "@heroui/react";
 import type { Card } from "@vega/shared";
+import { todayISO } from "@vega/shared";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -10,7 +11,6 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { FeedCardSheet, isCardSheetMounted } from "../FeedCardSheet";
 import { type FeedControlDraft, FeedControlPage } from "../FeedControlPage";

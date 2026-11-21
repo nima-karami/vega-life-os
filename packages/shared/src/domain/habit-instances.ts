@@ -1,7 +1,8 @@
-import { type Habit, isHabitActive } from "@/features/habits/model";
-import { isActiveOn } from "@/features/habits/recurrence";
+import type { TaskCreate as Task } from "../entities/task";
+import type { HabitShape as Habit } from "./build-habit";
+import { isHabitActive } from "./habit-lifecycle";
 import { findLatestHabitOrders } from "./habit-order";
-import type { Task } from "./model";
+import { isActiveOn } from "./recurrence";
 
 /** Values carry `archivedAt`; an archived or missing parent value never generates. */
 type SchedulableValue = { id: string; archivedAt?: string | null };
@@ -12,7 +13,7 @@ type SchedulableValue = { id: string; archivedAt?: string | null };
  * generates. This folds together the habit-lifecycle and value-archive rules so the
  * engine can't miss either.
  */
-export function getGeneratingHabits(habits: Habit[], values: SchedulableValue[]): Habit[] {
+export function getGeneratingHabits<H extends Habit>(habits: H[], values: SchedulableValue[]): H[] {
   const valueById = new Map(values.map((v) => [v.id, v]));
   return habits.filter((h) => {
     if (!isHabitActive(h)) return false;
@@ -41,12 +42,12 @@ function isStaleInstance(
  * Keyed on slotDate so a moved-but-still-active instance survives. Past, done, skipped,
  * and detached stay untouched.
  */
-export function findStaleInstances(
-  tasks: Task[],
+export function findStaleInstances<T extends Task>(
+  tasks: T[],
   generating: Habit[],
   today: string,
   end: string,
-): Task[] {
+): T[] {
   const habitById = new Map(generating.map((h) => [h.id, h]));
   return tasks.filter((t) => isStaleInstance(t, habitById, today, end));
 }

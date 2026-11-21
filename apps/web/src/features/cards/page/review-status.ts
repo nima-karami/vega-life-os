@@ -1,5 +1,11 @@
-import { CARD_TYPES, type Card, foldsByDefault, hasReveal } from "@vega/shared";
-import { daysBetween, formatShortDate } from "@/core/lib/date";
+import {
+  CARD_TYPES,
+  type Card,
+  daysBetween,
+  foldsByDefault,
+  formatShortDate,
+  hasReveal,
+} from "@vega/shared";
 
 export type ReviewControlState = "learning" | "notLearning" | "promotable" | "neverLearnable";
 

@@ -1,12 +1,16 @@
-import { todayISO } from "@/core/lib/date";
+import {
+  applyHabitTransition,
+  buildHabit,
+  findFutureUndoneInstanceIds,
+  planUpcoming,
+  uid,
+} from "@vega/shared";
 import { saveBulkRemove, savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { RootState } from "@/core/store/types";
-import type { Task } from "@/features/tasks/model";
-import { planUpcoming, saveTaskChurn } from "@/features/tasks/runway";
-import { buildHabit } from "./build-habit";
-import { type Habit, habitLifecycle } from "./model";
-import { closeOpenPause } from "./paused-spans";
+import { saveTaskChurn } from "@/features/tasks/runway";
+import { pickDefaultValueId } from "./default-value";
+import type { Habit } from "./model";
 
 export interface HabitsSlice {
   habits: Habit[];
@@ -27,18 +31,6 @@ export interface HabitsSlice {
   resumeHabit: (id: string) => void;
 }
 
-/** future, undone, non-detached habit instances — the set a schedule change or
- *  archive rebuilds/strips. Past and user-customized instances are left alone. */
-function futureUndoneInstanceIds(get: () => { tasks: Task[] }, habitId: string): string[] {
-  const today = todayISO();
-  return get()
-    .tasks.filter(
-      (t) =>
-        t.habitId === habitId && t.date && t.date >= today && t.status === "todo" && !t.detached,
-    )
-    .map((t) => t.id);
-}
-
 interface HabitChange {
   habits: Habit[];
   changed: Habit;
@@ -57,7 +49,7 @@ function commitHabitChange(
   const drop = new Set(strippedTaskIds);
   const tasks = drop.size ? get().tasks.filter((t) => !drop.has(t.id)) : get().tasks;
   const plan = regenerate
-    ? planUpcoming({ tasks, habits, values: get().values })
+    ? planUpcoming({ tasks, habits, values: get().values }, undefined, undefined, uid)
     : { stale: [], created: [], tasks };
   set({ habits, tasks: plan.tasks });
   savePut("habits", changed);
@@ -73,11 +65,37 @@ function commitHabitChange(
 const replaceHabit = (habits: Habit[], next: Habit) =>
   habits.map((h) => (h.id === next.id ? next : h));
 
+function transitionHabit(
+  set: (partial: Partial<RootState>) => void,
+  get: () => RootState,
+  id: string,
+  state: Parameters<typeof applyHabitTransition>[1],
+) {
+  const prior = get().habits.find((row) => row.id === id);
+  if (!prior) return;
+  const { habit, removeTaskIds, shouldRegenerate } = applyHabitTransition(
+    prior,
+    state,
+    get().tasks,
+  );
+  if (habit === prior) return;
+  commitHabitChange(set, get, {
+    habits: replaceHabit(get().habits, habit),
+    changed: habit,
+    strippedTaskIds: removeTaskIds,
+    regenerate: shouldRegenerate,
+  });
+}
 export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
   habits: [],
 
   addHabit: (patch = {}) => {
-    const habit = buildHabit(patch, get().values);
+    const habit = buildHabit(
+      patch,
+      { valueId: patch.valueId ?? pickDefaultValueId(get().values), icon: "repeat" },
+      undefined,
+      uid,
+    );
     // newest first, and scheduled right away so it shows in calendar/today without a reload
     commitHabitChange(set, get, {
       habits: [habit, ...get().habits],
@@ -96,7 +114,7 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     commitHabitChange(set, get, {
       habits: replaceHabit(get().habits, next),
       changed: next,
-      strippedTaskIds: rebuildsRunway ? futureUndoneInstanceIds(get, id) : [],
+      strippedTaskIds: rebuildsRunway ? findFutureUndoneInstanceIds(get().tasks, id) : [],
       regenerate: rebuildsRunway,
     });
   },
@@ -114,62 +132,8 @@ export const createHabitsSlice: Slice<HabitsSlice> = (set, get) => ({
     if (orphanTaskIds.length) void saveBulkRemove("tasks", orphanTaskIds);
   },
 
-  archiveHabit: (id) => {
-    const habit = get().habits.find((h) => h.id === id);
-    if (!habit || (habit.archivedAt ?? null) !== null) return; // idempotent
-    // archived supersedes paused: clear pausedAt so unarchive returns to active
-    const next: Habit = {
-      ...habit,
-      archivedAt: new Date().toISOString(),
-      pausedAt: null,
-      pausedSpans: closeOpenPause(habit, get().tasks),
-    };
-    // strip the same future-instance set a schedule change rebuilds — but DON'T
-    // regenerate (archived habits have no future). Past/detached instances stay.
-    commitHabitChange(set, get, {
-      habits: replaceHabit(get().habits, next),
-      changed: next,
-      strippedTaskIds: futureUndoneInstanceIds(get, id),
-    });
-  },
-
-  unarchiveHabit: (id) => {
-    const habit = get().habits.find((h) => h.id === id);
-    if (!habit || (habit.archivedAt ?? null) === null) return; // idempotent
-    const next: Habit = { ...habit, archivedAt: null };
-    // resume from today forward (no back-fill of the archived gap)
-    commitHabitChange(set, get, {
-      habits: replaceHabit(get().habits, next),
-      changed: next,
-      regenerate: true,
-    });
-  },
-
-  pauseHabit: (id) => {
-    const habit = get().habits.find((h) => h.id === id);
-    if (!habit || habitLifecycle(habit) !== "active") return; // idempotent, active only
-    const next: Habit = { ...habit, pausedAt: new Date().toISOString() };
-    // strip future undone instances (like archive) — but keep it resumable. No regenerate.
-    commitHabitChange(set, get, {
-      habits: replaceHabit(get().habits, next),
-      changed: next,
-      strippedTaskIds: futureUndoneInstanceIds(get, id),
-    });
-  },
-
-  resumeHabit: (id) => {
-    const habit = get().habits.find((h) => h.id === id);
-    if (!habit || habitLifecycle(habit) !== "paused") return; // idempotent, paused only
-    const next: Habit = {
-      ...habit,
-      pausedAt: null,
-      resumedAt: new Date().toISOString(),
-      pausedSpans: closeOpenPause(habit, get().tasks),
-    };
-    commitHabitChange(set, get, {
-      habits: replaceHabit(get().habits, next),
-      changed: next,
-      regenerate: true,
-    });
-  },
+  archiveHabit: (id) => transitionHabit(set, get, id, "archive"),
+  unarchiveHabit: (id) => transitionHabit(set, get, id, "unarchive"),
+  pauseHabit: (id) => transitionHabit(set, get, id, "pause"),
+  resumeHabit: (id) => transitionHabit(set, get, id, "resume"),
 });

@@ -1,5 +1,5 @@
+import { todayISO } from "@vega/shared";
 import { useCallback } from "react";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { getTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "@/features/tasks/model";

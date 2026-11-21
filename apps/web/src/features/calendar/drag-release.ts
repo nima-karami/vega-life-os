@@ -1,5 +1,5 @@
+import { addMinutes, formatShortDate } from "@vega/shared";
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { addMinutes, formatShortDate } from "@/core/lib/date";
 import type { Task } from "@/features/tasks";
 import type { DragPreview, DragState } from "./drag-state";
 import { DROP_DURATION, formatMinutes } from "./geometry";

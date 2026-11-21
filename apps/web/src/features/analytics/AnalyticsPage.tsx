@@ -1,11 +1,11 @@
 import { Button, ButtonGroup } from "@heroui/react";
+import { isHabitActive } from "@vega/shared";
 import { type ReactNode, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
 import { useTodayISO } from "@/core/lib/clock";
 import { useQuietMode, useStore } from "@/core/store";
 import { cx, Icon, Panel, SectionHead } from "@/core/ui";
 import { computeHabitConsistency, groupHabitsByValue } from "@/features/habits";
-import { isHabitActive } from "@/features/habits/model";
 import { ReviewSection } from "@/features/review/ReviewSection";
 import { CHART_PRIMARY } from "./chart-constants";
 import { ConsistencyHeatmap } from "./components/ConsistencyHeatmap";

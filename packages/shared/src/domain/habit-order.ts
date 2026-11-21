@@ -1,6 +1,6 @@
-import type { Orderable } from "@/core/lib/reorder";
-import type { Task } from "./model";
-import { isAnytimeHabit } from "./selectors";
+import type { TaskCreate as Task } from "../entities/task";
+import type { Orderable } from "./reorder";
+import { isAnytimeHabit } from "./task-selectors";
 
 /** Each day's sorted slots, nudged apart so tied orders can still express a sequence. */
 function spreadSlots(orders: number[]): number[] {

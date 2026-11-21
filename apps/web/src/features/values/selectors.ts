@@ -1,4 +1,4 @@
-import { getWeekDays } from "@/core/lib/date";
+import { getWeekDays } from "@vega/shared";
 import type { SelectOption } from "@/core/ui";
 import type { Goal } from "@/features/goals/model";
 import { isGoalClosed } from "@/features/goals/model";

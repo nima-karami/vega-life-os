@@ -1,26 +1,30 @@
 import { addDays, format, getDate, lastDayOfMonth, parseISO } from "date-fns";
-import { daysBetween, dowIndex, todayISO, weekStartOf } from "@/core/lib/date";
-import type { Habit, HabitSchedule } from "./model";
+import type { HabitSchedule } from "../entities/habit";
+import type { HabitShape } from "./build-habit";
+import { daysBetween, dowIndex, todayISO, weekStartOf } from "./date";
 
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const listFmt = new Intl.ListFormat(undefined, { style: "long", type: "conjunction" });
 
 /** The habit's schedule — the single source of truth (always present post-normalize). */
-export function getHabitSchedule(h: Habit): HabitSchedule {
+export function getHabitSchedule(h: Pick<HabitShape, "schedule">): HabitSchedule {
   return h.schedule;
 }
 
 /** A stored/legacy habit shape that may still carry the retired `days`/`recurrence` fields. */
-type LegacyHabit = Habit & { days?: number[]; recurrence?: string };
+type LegacyHabit<Icon extends string> = HabitShape<Icon> & { days?: number[]; recurrence?: string };
 
 /** Coerce any stored or legacy habit to the consolidated shape: `schedule` present,
  *  no `days`/`recurrence`. Derives weekly/interval-1 from a legacy `days` mask. */
-export function normalizeHabit(raw: LegacyHabit): Habit {
+export function normalizeHabit<Icon extends string>(
+  raw: LegacyHabit<Icon>,
+  today = todayISO(),
+): HabitShape<Icon> {
   const schedule: HabitSchedule = raw.schedule ?? {
     type: "weekly",
     days: raw.days ?? [1, 1, 1, 1, 1, 1, 1],
     interval: 1,
-    anchor: (raw.createdAt ?? todayISO()).slice(0, 10),
+    anchor: (raw.createdAt ?? today).slice(0, 10),
   };
   const { days: _days, recurrence: _recurrence, ...rest } = raw;
   void _days;
@@ -55,12 +59,12 @@ export function isActiveOnSchedule(s: HabitSchedule, iso: string): boolean {
 }
 
 /** Wrapper used by the materializers. */
-export function isActiveOn(h: Habit, iso: string): boolean {
+export function isActiveOn(h: Pick<HabitShape, "schedule">, iso: string): boolean {
   return isActiveOnSchedule(getHabitSchedule(h), iso);
 }
 
 /** Length-7 Mon..Sun weekday mask; a monthly habit has none (all-zero). */
-export function getWeeklyMask(h: Habit): number[] {
+export function getWeeklyMask(h: Pick<HabitShape, "schedule">): number[] {
   const s = getHabitSchedule(h);
   return s.type === "weekly" ? s.days : [0, 0, 0, 0, 0, 0, 0];
 }

@@ -1,11 +1,6 @@
+import { normalizeCategory } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import {
-  buildMetaId,
-  buildVocabCardId,
-  isSameCategory,
-  matchKey,
-  normalizeCategory,
-} from "../model";
+import { buildMetaId, buildVocabCardId, isSameCategory, matchKey } from "../model";
 
 describe("category keys", () => {
   it("normalizes by trimming and matches case-insensitively", () => {

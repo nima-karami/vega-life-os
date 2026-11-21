@@ -1,9 +1,9 @@
+import { isResolved } from "@vega/shared";
 import { useCallback, useEffect, useState } from "react";
 import { pulseHaptic } from "@/core/lib/haptics";
 import { useStore } from "@/core/store";
 import { getTaskLineage } from "@/features/tasks/lineage";
 import type { Task } from "@/features/tasks/model";
-import { isResolved } from "@/features/tasks/selectors";
 import type { Value } from "@/features/values/model";
 import { buildVoteMessage } from "@/features/values/vote-message";
 import {

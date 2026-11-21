@@ -1,5 +1,5 @@
+import { addMinutes, formatShortDate, minutesOf, type WeekDay } from "@vega/shared";
 import { memo, useMemo } from "react";
-import { addMinutes, formatShortDate, minutesOf, type WeekDay } from "@/core/lib/date";
 import { cx } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
 import type { Task } from "@/features/tasks";

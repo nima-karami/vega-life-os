@@ -12,7 +12,8 @@ vi.mock("@/core/store/persist", () => ({
 }));
 
 let idSequence = 0;
-vi.mock("@/core/lib/id", () => ({
+vi.mock("@vega/shared", async (original) => ({
+  ...(await original<typeof import("@vega/shared")>()),
   uid: (prefix = "") => {
     idSequence += 1;
     return `${prefix}${idSequence}`;

@@ -1,9 +1,9 @@
 import { Card, ScrollShadow } from "@heroui/react";
+import { dowIndex, formatShortDate, getWeekDaysFor, minutesOf } from "@vega/shared";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useZonedTodayISO } from "@/core/lib/clock";
-import { dowIndex, formatShortDate, getWeekDaysFor, minutesOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   cx,

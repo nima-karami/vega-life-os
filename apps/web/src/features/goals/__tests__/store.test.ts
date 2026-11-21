@@ -1,8 +1,8 @@
+import { detectTimeframe } from "@vega/shared";
 import { describe, expect, it, vi } from "vitest";
 import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import { getGoalPhase } from "../selectors";
 import { createGoalsSlice, type GoalsSlice } from "../store";
-import { detectTimeframe } from "../timeframe";
 
 vi.mock("@/core/store/persist", () => ({
   savePut: vi.fn(),

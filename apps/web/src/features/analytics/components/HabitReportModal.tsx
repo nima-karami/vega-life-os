@@ -1,4 +1,5 @@
 import { Modal, useOverlayState } from "@heroui/react";
+import { describeRecurrence, getHabitSchedule } from "@vega/shared";
 import { useMemo } from "react";
 import { Link } from "react-router";
 import { useTodayISO } from "@/core/lib/clock";
@@ -6,7 +7,6 @@ import { useStore } from "@/core/store";
 import { Icon, useCompactModal } from "@/core/ui";
 import { computeHabitConsistency } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
-import { describeRecurrence, getHabitSchedule } from "@/features/habits/recurrence";
 import { computeHabitTimeline, type TimelineKind } from "../selectors";
 
 const KIND_STYLE: Record<TimelineKind, { style: React.CSSProperties; className: string }> = {

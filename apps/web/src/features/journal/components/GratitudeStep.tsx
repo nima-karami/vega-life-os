@@ -1,6 +1,6 @@
 import { Button } from "@heroui/react";
+import { formatRelativeDay, todayISO } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
-import { formatRelativeDay, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { CARRY_START_MS, DEPARTURE_END_MS, type GratitudeDeparture } from "../gratitude-carry";

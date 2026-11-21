@@ -1,5 +1,5 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { formatLongDate } from "@/core/lib/date";
+import { formatLongDate } from "@vega/shared";
 import { useStore } from "@/core/store";
 import {
   DatePicker,

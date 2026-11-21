@@ -1,8 +1,7 @@
-import { todayISO } from "@/core/lib/date";
+import { getHabitSchedule, todayISO } from "@vega/shared";
 import type { IconName } from "@/core/lib/icon-names";
 import type { Habit, HabitSchedule } from "./model";
 import type { RepeatMode } from "./RepeatPicker";
-import { getHabitSchedule } from "./recurrence";
 
 export interface Draft {
   name: string;
