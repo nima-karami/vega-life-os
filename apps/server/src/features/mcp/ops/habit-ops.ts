@@ -124,6 +124,7 @@ export function planRunwayOperations(
   const removedTaskIds = [...change.dropTaskIds, ...plan.stale.map((task) => task.id)].filter(
     (id) => !rebuiltIds.has(id),
   );
+  const sourceHabitIds = new Set([...created, ...plan.stale].map((task) => task.habitId));
   return {
     operations: [
       ...removedTaskIds.map((id) => buildRemove("tasks", tasks, id)),
@@ -131,7 +132,7 @@ export function planRunwayOperations(
       ...inserted.map((task) => buildInsert("tasks", tasks, task)),
       ...buildSourceChecks(
         dataset,
-        change.regenerateFor.filter((habit) => created.some((task) => task.habitId === habit.id)),
+        change.regenerateFor.filter((habit) => sourceHabitIds.has(habit.id)),
       ),
     ],
     removedTaskIds,

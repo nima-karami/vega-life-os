@@ -10,7 +10,9 @@ import {
   ExpectationFailedError,
   formatUpdateTime,
   touchesCalendar,
+  type WriteOperation,
 } from "../change-set";
+import { estimateDocumentBytes, packChunks } from "../change-set-chunks";
 import { readSyncVersion } from "../sync-version";
 import { listTombstones } from "../tombstone";
 import { ToolError } from "../tool-error";
@@ -426,34 +428,55 @@ describe("commitChangeSet (emulator)", () => {
     );
     await expect(attempt).rejects.toMatchObject({
       code: "INTERNAL",
-      detail: { failedAtOperation: 449 },
+      detail: { failedAtOperation: 450 },
     });
+    expect((await valueRef(raced, "v_child_448").get()).exists).toBe(true);
     expect((await valueRef(raced, "v_child_449").get()).exists).toBe(false);
     expect((await valueRef(raced, "v_parent").get()).get("name")).toBe("v_parent");
   });
 
-  it("refuses a claimed guard that no write in the set claims, before writing", async () => {
-    const uid = "cs-unclaimed-guard";
+  it.each([
+    "values/v_typo",
+    "",
+  ])("refuses a claimed guard (%j) that no write in the set claims, before writing", async (claimedBy) => {
+    const uid = `cs-unclaimed-guard-${claimedBy.length}`;
     const attempt = commitChangeSet(
       firestore,
       uid,
       toChangeSet(
         [putNew("v_one")],
-        [
-          {
-            collection: "goals",
-            field: "valueId",
-            value: "v_one",
-            expectedIds: [],
-            claimedBy: "values/v_typo",
-          },
-        ],
+        [{ collection: "goals", field: "valueId", value: "v_one", expectedIds: [], claimedBy }],
       ),
       NOW,
     );
     await expect(attempt).rejects.toMatchObject({ code: "INTERNAL" });
     expect((await valueRef(uid, "v_one").get()).exists).toBe(false);
     expect(await readSyncVersion(firestore, uid)).toBe(0);
+  });
+
+  it("refuses more checked writes than one chunk holds, before writing", async () => {
+    const uid = "cs-checked-overflow";
+    const seeded = Array.from({ length: 450 }, (_, index) => putNew(`v_c_${index}`));
+    await commitChangeSet(firestore, uid, toChangeSet(seeded), NOW);
+    const before = await readSyncVersion(firestore, uid);
+    const operations: ChangeOperation[] = [];
+    for (let index = 0; index < 450; index += 1) {
+      const id = `v_c_${index}`;
+      const updateTime = await readUpdateTime(uid, id);
+      operations.push(
+        {
+          kind: "put",
+          collection: "values",
+          record: buildValue(id, "renamed"),
+          expect: { updateTime },
+        },
+        { kind: "check", collection: "values", id, expect: { updateTime } },
+      );
+    }
+    const attempt = commitChangeSet(firestore, uid, toChangeSet(operations), NOW);
+    await expect(attempt).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await valueRef(uid, "v_c_0").get()).get("name")).toBe("v_c_0");
+    expect(await readSyncVersion(firestore, uid)).toBe(before);
   });
 
   it("verifies a check-only change set in a read-only transaction", async () => {
@@ -521,6 +544,26 @@ describe("commitChangeSet (emulator)", () => {
 });
 
 describe("change-set helpers", () => {
+  it("counts index entries, so many short array elements weigh more than their JSON", () => {
+    const tags = Array.from({ length: 5_000 }, (_, index) => String(index % 10));
+    const jsonBytes = Buffer.byteLength(JSON.stringify({ id: "b_1", tags }));
+    const estimate = estimateDocumentBytes({ id: "b_1", tags }, "books/b_1");
+    expect(estimate).toBeGreaterThan(jsonBytes + 5_000 * Buffer.byteLength("books/b_1"));
+  });
+
+  it("splits docs heavy in index entries below the write limit", () => {
+    const tags = Array.from({ length: 20_000 }, () => "x");
+    const operations: WriteOperation[] = Array.from({ length: 40 }, (_, index) => ({
+      kind: "put",
+      collection: "books",
+      record: { id: `b_${index}`, tags },
+      expect: { absent: true },
+    }));
+    const chunks = packChunks(operations, new Set(), (operation) => operations.indexOf(operation));
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks[1].firstIndex).toBe(chunks[0].operations.length);
+  });
+
   it("flags a change set that touches tasks or calendar events", () => {
     expect(touchesCalendar(toChangeSet([putNew("v_a")]))).toBe(false);
     expect(

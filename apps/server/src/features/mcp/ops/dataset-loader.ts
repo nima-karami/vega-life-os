@@ -1,6 +1,7 @@
 import { type CollectionName, normalizeHabit } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 import { formatUpdateTime } from "../../../core/change-set";
+import { estimateDocumentBytes, getRecordKey } from "../../../core/change-set-chunks";
 import type { StoredEntity } from "../../../core/repository";
 
 export type LoadedCollection<C extends CollectionName> = {
@@ -59,7 +60,7 @@ async function loadCollection<C extends CollectionName>(
       return {
         row: normalizeRow(collection, raw as StoredEntity<C>, today),
         updateTime: formatUpdateTime(doc.updateTime),
-        storedBytes: Buffer.byteLength(JSON.stringify(raw)),
+        storedBytes: estimateDocumentBytes(raw, getRecordKey(collection, doc.id)),
       };
     }),
   );

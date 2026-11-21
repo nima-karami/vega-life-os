@@ -1118,8 +1118,10 @@ describe("MCP write tools (SDK client over the emulator)", () => {
         .then(() => undefined),
     );
     const outcome = await unarchiveMany(client);
-    expect(outcome.payload).toMatchObject({ code: "INTERNAL", failedAtOperation: 449 });
-    expect((await listTasks(uid)).length).toBeLessThan(31 * 15);
+    expect(outcome.payload).toMatchObject({ code: "INTERNAL", failedAtOperation: 450 });
+    const value = await firestore.doc(`users/${uid}/values/v_many`).get();
+    expect(value.get("archivedAt")).toBe("2026-11-20T23:00:00.000Z");
+    expect(await listTasks(uid)).toHaveLength(449);
   });
 
   it("reports no created tasks when a habit's schedule is reapplied unchanged", async () => {

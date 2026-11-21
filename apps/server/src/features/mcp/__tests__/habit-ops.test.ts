@@ -371,4 +371,36 @@ describe("runway bookkeeping", () => {
       ),
     ).toEqual(expect.arrayContaining(["habits/h_run", "values/v_body"]));
   });
+
+  it("checks a habit whose only runway change is removing a stale instance", () => {
+    const slots = [
+      "2026-11-20",
+      "2026-11-23",
+      "2026-11-25",
+      "2026-11-27",
+      "2026-11-30",
+      "2026-12-02",
+      "2026-12-04",
+    ];
+    const tasks = [
+      ...slots.map((date) => makeInstance(date, { id: `t_h_run_${date}` })),
+      makeInstance("2026-11-24", { id: "t_stale" }),
+    ];
+    const outcome = planSetHabitState(
+      seed([makeHabit()], tasks),
+      { id: "h_run", state: "resume" },
+      clock,
+    );
+    const operations = outcome.changeSet.operations;
+    expect(idsOf(operations, "put", "tasks")).toEqual([]);
+    expect(idsOf(operations, "remove", "tasks")).toEqual(["t_stale"]);
+    expect(
+      operations.some(
+        (operation) =>
+          operation.kind === "check" &&
+          operation.collection === "habits" &&
+          operation.id === "h_run",
+      ),
+    ).toBe(true);
+  });
 });

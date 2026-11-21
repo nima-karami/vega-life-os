@@ -12,7 +12,6 @@ import {
   assertFitsOneChunk,
   assignGuards,
   type Chunk,
-  deferCheckedWrites,
   getOperationId,
   getOperationKey,
   getRecordKey,
@@ -334,10 +333,10 @@ export async function commitChangeSet(
   primaryKey?: string,
 ): Promise<ChangeSetReceipt> {
   const validated = changeSet.operations.map(validateOperation);
-  const deduped = dedupeWrites(validated.filter(isWrite));
-  deduped.forEach(assertFitsOneChunk);
-  const checks = collectChecks(validated, deduped);
-  const writes = deferCheckedWrites(deduped, new Set(checks.keys()));
+  const callerIndex = new Map(validated.map((operation, index) => [operation, index]));
+  const writes = dedupeWrites(validated.filter(isWrite));
+  writes.forEach(assertFitsOneChunk);
+  const checks = collectChecks(validated, writes);
   const receipt: ChangeSetReceipt = {
     written: 0,
     removed: 0,
@@ -346,7 +345,10 @@ export async function commitChangeSet(
     records: {},
   };
   if (writes.length === 0 && checks.size === 0 && changeSet.guards.length === 0) return receipt;
-  const chunks = writes.length > 0 ? packChunks(writes) : [{ operations: [], firstIndex: 0 }];
+  const chunks =
+    writes.length > 0
+      ? packChunks(writes, new Set(checks.keys()), (operation) => callerIndex.get(operation) ?? 0)
+      : [{ operations: [], firstIndex: 0 }];
   const guardsByChunk = assignGuards(chunks, changeSet.guards);
   for (const [index, chunk] of chunks.entries()) {
     let outcome: ChunkOutcome;
