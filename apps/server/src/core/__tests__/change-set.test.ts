@@ -250,7 +250,11 @@ describe("commitChangeSet (emulator)", () => {
 
   it("splits on the byte budget well below the write limit, and refuses one oversized record", async () => {
     const uid = "cs-bytes";
-    const book = (id: string, noteLength: number): ChangeOperation => ({
+    const book = (
+      id: string,
+      noteLength: number,
+      note = "n".repeat(noteLength),
+    ): ChangeOperation => ({
       kind: "put",
       collection: "books",
       record: {
@@ -264,7 +268,7 @@ describe("commitChangeSet (emulator)", () => {
         startedAt: null,
         finishedAt: null,
         valueId: null,
-        note: "n".repeat(noteLength),
+        note,
         order: 0,
       },
       expect: { absent: true },
@@ -284,6 +288,10 @@ describe("commitChangeSet (emulator)", () => {
       message: expect.stringContaining("too large"),
     });
     expect(await readSyncVersion(firestore, uid)).toBe(2);
+
+    const nearLimit = [book("b_long", 900 * 1024), book("b_quotes", 0, '"'.repeat(470_000))];
+    const accepted = await commitChangeSet(firestore, uid, toChangeSet(nearLimit), NOW);
+    expect(accepted.written).toBe(2);
   });
 
   it("refuses an id that isn't a single document segment", async () => {
