@@ -17,7 +17,7 @@ export function useAccessTokens() {
       setStatus("ready");
     } catch {
       if (generation !== loadGenerationRef.current) return;
-      setStatus("error");
+      setStatus((current) => (current === "ready" && !options?.showLoading ? current : "error"));
     }
   }, []);
 

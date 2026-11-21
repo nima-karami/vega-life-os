@@ -9,7 +9,7 @@ import {
 } from "@heroui/react";
 import { TRPCClientError } from "@trpc/client";
 import type { AccessTokenCreated, AccessTokenCreateInput, AccessTokenScope } from "@vega/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useStore } from "@/core/store";
 import { Icon } from "@/core/ui";
 import { smallCenteredDialogContainer } from "@/core/ui/modal";
@@ -87,6 +87,7 @@ export function CreateTokenDialog({
   const pushToast = useStore((s) => s.pushToast);
   const [phase, setPhase] = useState<Phase>("form");
   const [name, setName] = useState("");
+  const nameInputId = useId();
   const [scope, setScope] = useState<AccessTokenScope>("read");
   const [created, setCreated] = useState<AccessTokenCreated | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -138,9 +139,9 @@ export function CreateTokenDialog({
     onClose();
   };
 
-  const showSecrets = open && phase === "created" && created !== null;
+  const isShowingSecrets = open && phase === "created" && created !== null;
   const snippets =
-    showSecrets && created !== null ? buildConnectSnippets(endpointUrl, created.token) : null;
+    isShowingSecrets && created !== null ? buildConnectSnippets(endpointUrl, created.token) : null;
 
   return (
     <Modal state={state}>
@@ -157,7 +158,7 @@ export function CreateTokenDialog({
               </Modal.Heading>
             </Modal.Header>
             <Modal.Body className="space-y-4">
-              {showSecrets && created !== null && snippets !== null ? (
+              {isShowingSecrets && created !== null && snippets !== null ? (
                 <>
                   <p className="text-sm text-warning">You won&apos;t see this token again.</p>
                   <div className="space-y-1.5">
@@ -202,8 +203,11 @@ export function CreateTokenDialog({
               ) : (
                 <>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-foreground">Name</span>
+                    <label htmlFor={nameInputId} className="text-sm font-medium text-foreground">
+                      Name
+                    </label>
                     <Input
+                      id={nameInputId}
                       autoFocus
                       value={name}
                       disabled={inputsDisabled}

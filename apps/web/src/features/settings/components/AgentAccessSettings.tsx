@@ -2,7 +2,7 @@ import { Button, Chip, Spinner } from "@heroui/react";
 import { ACCESS_TOKEN_LIMIT, type AccessTokenRow } from "@vega/shared";
 import { format, parseISO } from "date-fns";
 import { KeyRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getApiUrl } from "@/core/persistence/trpc-client";
 import { useStore } from "@/core/store";
 import { ConfirmDialog, Icon } from "@/core/ui";
@@ -47,12 +47,12 @@ function EndpointRow({ endpointUrl, onCopy }: { endpointUrl: string; onCopy: () 
 function TokenRow({
   token,
   isRevoking,
-  revokeBlocked,
+  isRevokeBlocked,
   onRevoke,
 }: {
   token: AccessTokenRow;
   isRevoking: boolean;
-  revokeBlocked: boolean;
+  isRevokeBlocked: boolean;
   onRevoke: () => void;
 }) {
   return (
@@ -72,7 +72,7 @@ function TokenRow({
       <Button
         size="sm"
         variant="danger-soft"
-        isDisabled={isRevoking || revokeBlocked}
+        isDisabled={isRevoking || isRevokeBlocked}
         onPress={onRevoke}
         aria-busy={isRevoking || undefined}
       >
@@ -98,22 +98,32 @@ function AgentAccessSettingsSignedIn() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<AccessTokenRow | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const revokeInFlightRef = useRef(false);
+  const isMountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
 
   const endpointUrl = `${getApiUrl()}/mcp`;
   const isAtTokenLimit = tokens.length >= ACCESS_TOKEN_LIMIT;
 
   const handleRevokeConfirm = async () => {
-    if (revokeTarget === null || revokingId !== null) return;
+    if (revokeTarget === null || revokeInFlightRef.current) return;
+    revokeInFlightRef.current = true;
     const { id, name } = revokeTarget;
     setRevokeTarget(null);
     setRevokingId(id);
     try {
       await revoke(id);
-      pushToast(`Revoked ${name}`);
+      if (isMountedRef.current) pushToast(`Revoked ${name}`);
     } catch {
-      pushToast("Couldn't revoke");
+      if (isMountedRef.current) pushToast("Couldn't revoke");
     } finally {
-      setRevokingId(null);
+      revokeInFlightRef.current = false;
+      if (isMountedRef.current) setRevokingId(null);
     }
   };
 
@@ -165,7 +175,7 @@ function AgentAccessSettingsSignedIn() {
                     key={token.id}
                     token={token}
                     isRevoking={revokingId === token.id}
-                    revokeBlocked={revokingId !== null && revokingId !== token.id}
+                    isRevokeBlocked={revokingId !== null && revokingId !== token.id}
                     onRevoke={() => {
                       if (revokingId !== null) return;
                       setRevokeTarget(token);
