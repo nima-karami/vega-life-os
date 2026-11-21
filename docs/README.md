@@ -6,6 +6,7 @@
 | [`style-guide.md`](style-guide.md) | Naming, comments, file structure | — |
 | [`release-process.md`](release-process.md) | Commits, the gate, CI scope, releasing, rollback | — |
 | [`DECISIONS.md`](DECISIONS.md) | Standing product and engineering decisions | fixed name |
+| [`mcp-server.md`](mcp-server.md) | Connecting agents to VEGA over MCP, and the tools they get | — |
 | [`adr/`](adr/) | Architecture decision records | `YYYY-MM-DD-NNNN-<slug>.md` |
 | [`heroui/`](heroui/) | HeroUI v3 API reference for agents | — |
 
