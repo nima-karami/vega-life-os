@@ -2,9 +2,11 @@ import {
   type CollectionName,
   conformCardWrite,
   createSchemasByCollection,
+  normalizeCategory,
   uid,
 } from "@vega/shared";
 import { z } from "zod";
+import { ToolError } from "../../../core/tool-error";
 import {
   ID_PREFIX,
   isDeletableCollection,
@@ -13,18 +15,18 @@ import {
   type McpCollection,
 } from "../mcp-collections";
 import type { McpClock } from "../mcp-context";
-import { ToolError } from "../tool-result";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import { GOAL_COLLECTIONS, planCreateGoal, planDeleteGoal, planUpdateGoal } from "./goal-ops";
 import { HABIT_COLLECTIONS, planCreateHabit, planDeleteHabit, planUpdateHabit } from "./habit-ops";
 import { planCreateJournal, planUpdateJournal } from "./journal-ops";
 import {
   assertCascadeConfirmed,
-  assertIdAvailable,
+  assertRecordId,
   assertUnprotected,
   buildGuard,
-  buildPut,
+  buildInsert,
   buildRemove,
+  buildUpdate,
   describeAffected,
   hasField,
   type ParsedPatch,
@@ -83,32 +85,53 @@ const NATURAL_KEY_FORMATS: Partial<Record<McpCollection, string>> = {
 };
 
 const isText = (value: unknown): value is string => typeof value === "string";
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-function deriveNaturalKey(collection: McpCollection, record: Record<string, unknown>) {
-  const { categoryId, month } = record;
-  if (collection === "financeBudgets" && isText(categoryId) && isText(month))
-    return `${categoryId}:${month}`;
-  if (collection === "financeSettlements" && isText(month)) return month;
-  if (collection === "cardPrefs") return "feed";
-  return null;
+function requireMonth(collection: McpCollection, month: unknown): string {
+  if (isText(month) && MONTH_PATTERN.test(month)) return month;
+  throw new ToolError("BAD_REQUEST", `${collection}.month: expected YYYY-MM with a month 01-12`);
 }
 
-function assertNaturalKey(collection: McpCollection, record: Record<string, unknown>, id: string) {
+function deriveNaturalKey(collection: McpCollection, record: Record<string, unknown>): string {
+  if (collection === "cardPrefs") return "feed";
+  const month = requireMonth(collection, record.month);
+  if (collection === "financeSettlements") return month;
+  if (!isText(record.categoryId))
+    throw new ToolError("BAD_REQUEST", `${collection}.categoryId: required`);
+  return `${record.categoryId}:${month}`;
+}
+
+/** Natural-key rows are addressed by their key, so the caller names it and the record must agree. */
+function assertNaturalKey(
+  collection: McpCollection,
+  record: Record<string, unknown>,
+  id: string | undefined,
+): void {
+  const format = NATURAL_KEY_FORMATS[collection];
+  if (format === undefined) return;
+  if (id === undefined)
+    throw new ToolError("BAD_REQUEST", `${collection} needs an explicit id: ${format}`);
   const naturalKey = deriveNaturalKey(collection, record);
-  if (naturalKey === null || naturalKey === id) return;
+  if (naturalKey === id) return;
   throw new ToolError(
     "BAD_REQUEST",
-    `${collection} id must be ${NATURAL_KEY_FORMATS[collection]}; expected ${naturalKey}, got ${id}`,
+    `${collection} id must be ${format}; expected ${naturalKey}, got ${id}`,
   );
 }
 
 function resolveExplicitId(input: CreateRecordInput): string | undefined {
   const recordId = input.record.id;
-  if (recordId !== undefined && typeof recordId !== "string")
-    throw new ToolError("BAD_REQUEST", "record.id: expected a string");
+  if (recordId !== undefined) assertRecordId("record.id", recordId);
+  if (input.id !== undefined) assertRecordId("id", input.id);
   if (input.id !== undefined && recordId !== undefined && input.id !== recordId)
     throw new ToolError("BAD_REQUEST", "id and record.id disagree");
   return input.id ?? recordId;
+}
+
+/** The app trims a card's category before its length limit applies; the same order keeps parity. */
+function normalizeInput(collection: McpCollection, input: Record<string, unknown>) {
+  if (collection !== "cards" || !isText(input.category)) return input;
+  return { ...input, category: normalizeCategory(input.category) };
 }
 
 // The refinements reject slots a card type doesn't use; conforming clears them, so it reads the bare shape.
@@ -128,16 +151,18 @@ function conformRecord(
 function toRecordOutcome(
   collection: McpCollection,
   dataset: LoadedDataset,
-  record: Record<string, unknown> & { id: string },
+  write: { record: Record<string, unknown> & { id: string }; isNew: boolean },
   ignoredKeys: string[],
 ): PlanOutcome {
-  const conformed = toResultRecord(conformRecord(collection, record)) as typeof record;
+  const loaded = getLoaded(dataset, collection);
+  const conformed = toResultRecord(conformRecord(collection, write.record)) as typeof write.record;
+  const put = write.isNew
+    ? buildInsert(collection, loaded, conformed)
+    : buildUpdate(collection, loaded, conformed);
   return {
-    changeSet: {
-      operations: [buildPut(collection, getLoaded(dataset, collection), conformed)],
-      guards: [],
-    },
+    changeSet: { operations: [put], guards: [] },
     result: withIgnoredKeys({ record: conformed }, ignoredKeys),
+    primary: { collection, id: conformed.id },
   };
 }
 
@@ -148,14 +173,12 @@ function planCreatePlainRecord(
   explicitId: string | undefined,
 ): PlanOutcome {
   const loaded = getLoaded(dataset, collection);
-  const naturalKey = deriveNaturalKey(collection, patch.fields);
-  const id = explicitId ?? naturalKey ?? `${ID_PREFIX[collection]}${uid()}`;
-  assertNaturalKey(collection, patch.fields, id);
-  assertIdAvailable(collection, loaded, id);
+  assertNaturalKey(collection, patch.fields, explicitId);
+  const id = explicitId ?? `${ID_PREFIX[collection]}${uid()}`;
   const record: Record<string, unknown> & { id: string } = { ...patch.fields, id };
   if (hasField(collection, "order") && record.order === undefined)
     record.order = loaded.rows.length;
-  return toRecordOutcome(collection, dataset, record, patch.ignoredKeys);
+  return toRecordOutcome(collection, dataset, { record, isNew: true }, patch.ignoredKeys);
 }
 
 export function planCreateRecord(
@@ -167,7 +190,7 @@ export function planCreateRecord(
   assertWritable(collection);
   const explicitId = resolveExplicitId(input);
   const { id: _recordId, ...record } = input.record;
-  const patch = parsePatch(collection, record);
+  const patch = parsePatch(collection, normalizeInput(collection, record));
   assertUnprotected(collection, patch.fields);
   if (collection === "tasks") return planCreateTask(dataset, patch, explicitId);
   if (collection === "habits") return planCreateHabit(dataset, patch, explicitId, clock);
@@ -187,7 +210,7 @@ function planUpdatePlainRecord(
   const stored = requireRow(collection, getLoaded(dataset, collection), id);
   const record = { ...stored, ...patch.fields, id };
   assertNaturalKey(collection, record, id);
-  return toRecordOutcome(collection, dataset, record, patch.ignoredKeys);
+  return toRecordOutcome(collection, dataset, { record, isNew: false }, patch.ignoredKeys);
 }
 
 export function planUpdateRecord(
@@ -197,7 +220,7 @@ export function planUpdateRecord(
 ): PlanOutcome {
   const { collection, id } = input;
   assertWritable(collection);
-  const parsed = parsePatch(collection, input.patch);
+  const parsed = parsePatch(collection, normalizeInput(collection, input.patch));
   const patch = { ...parsed, fields: stripTargetId(id, parsed.fields) };
   assertUnprotected(collection, patch.fields);
   if (collection === "tasks") return planUpdateTask(dataset, id, patch, clock);
@@ -236,9 +259,9 @@ function planDeleteCategory(
       buildRemove("financeCategories", categories, id),
     ],
     guards: [
-      buildGuard("financeTransactions", "categoryId", id, []),
-      buildGuard("financeMerchants", "defaultCategoryId", id, []),
-      buildGuard("financeBudgets", "categoryId", id, budgetIds),
+      buildGuard("financeTransactions", "categoryId", id),
+      buildGuard("financeMerchants", "defaultCategoryId", id),
+      buildGuard("financeBudgets", "categoryId", id),
     ],
   };
   assertCascadeConfirmed(changeSet, confirmCascade);

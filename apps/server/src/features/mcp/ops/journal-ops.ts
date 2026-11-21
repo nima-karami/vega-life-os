@@ -1,11 +1,13 @@
 import { type DayEntryCreate, isValidISODate, mergeDayEntry, type WireRow } from "@vega/shared";
 import type { StoredEntity } from "../../../core/repository";
+import { ToolError } from "../../../core/tool-error";
 import type { McpClock } from "../mcp-context";
-import { ToolError } from "../tool-result";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
-  buildPut,
+  buildGuard,
+  buildInsert,
   buildRemove,
+  buildUpdate,
   findRow,
   type ParsedPatch,
   type PlanOutcome,
@@ -44,9 +46,16 @@ function planEntryMerge(
   const prior: WireRow<StoredEntry> | null = existing ? toWireEntry(existing) : null;
   const merged = mergeDayEntry(prior, entry.patch, entry.date, clock.nowIso, () => entry.newId);
   if (merged) {
+    const put = existing
+      ? buildUpdate("journal", journal, merged)
+      : buildInsert("journal", journal, merged);
     return {
-      changeSet: { operations: [buildPut("journal", journal, merged)], guards: [] },
+      changeSet: {
+        operations: [put],
+        guards: [buildGuard("journal", "date", merged.date, [merged.id])],
+      },
       result: { record: toResultRecord(merged) },
+      primary: { collection: "journal", id: merged.id },
     };
   }
   return {

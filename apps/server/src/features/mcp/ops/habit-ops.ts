@@ -18,18 +18,21 @@ import {
   uid,
 } from "@vega/shared";
 import type { ChangeOperation } from "../../../core/change-set";
+import { ToolError } from "../../../core/tool-error";
 import type { McpClock } from "../mcp-context";
-import { ToolError } from "../tool-result";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
   assertCascadeConfirmed,
-  assertIdAvailable,
   assertLinkExists,
+  buildCheck,
   buildGuard,
-  buildPut,
+  buildInsert,
+  buildLinkChecks,
   buildRemove,
+  buildUpdate,
   describeAffected,
   findRow,
+  type LinkField,
   type ParsedPatch,
   type PlanOutcome,
   requireRow,
@@ -49,13 +52,34 @@ type RunwayChange = {
   regenerateFor: HabitShape[];
 };
 
+const HABIT_LINKS: readonly LinkField[] = [
+  ["values", "valueId"],
+  ["goals", "goalId"],
+];
+
+// One id per habit slot on the server, so a runway pass and a check-in racing for a slot collide.
+const getSlotTaskId = (habitId: string, slot: string) => `t_${habitId}_${slot}`;
+
+type RunwayOperations = {
+  operations: ChangeOperation[];
+  removedTaskIds: string[];
+  createdTaskIds: string[];
+};
+
+function assignSlotIds(created: TaskCreate[]): TaskCreate[] {
+  return created.map((task) => ({
+    ...task,
+    id: getSlotTaskId(String(task.habitId), String(task.slotDate ?? task.date)),
+  }));
+}
+
 /** The runway the app's `commitHabitChange` would leave, limited to the habits this call touched. */
 export function planRunwayOperations(
   dataset: LoadedDataset,
   change: RunwayChange,
   clock: McpClock,
   values: { id: string; archivedAt?: string | null }[] = getLoaded(dataset, "values").rows,
-): { operations: ChangeOperation[]; removedTaskIds: string[]; createdTaskIds: string[] } {
+): RunwayOperations {
   const tasks = getLoaded(dataset, "tasks");
   const dropped = new Set(change.dropTaskIds);
   const keptTasks = tasks.rows.filter((task) => !dropped.has(task.id));
@@ -68,14 +92,24 @@ export function planRunwayOperations(
           uid,
         )
       : { stale: [], created: [] };
-  const removedTaskIds = [...change.dropTaskIds, ...plan.stale.map((task) => task.id)];
+  const created = assignSlotIds(plan.created).filter(
+    (task) => dropped.has(task.id) || !findRow(tasks, task.id),
+  );
+  const rebuilt = new Set(created.map((task) => task.id).filter((id) => dropped.has(id)));
+  const removedTaskIds = [...change.dropTaskIds, ...plan.stale.map((task) => task.id)].filter(
+    (id) => !rebuilt.has(id),
+  );
   return {
     operations: [
       ...removedTaskIds.map((id) => buildRemove("tasks", tasks, id)),
-      ...plan.created.map((task) => buildPut("tasks", tasks, task)),
+      ...created.map((task) =>
+        rebuilt.has(task.id)
+          ? buildUpdate("tasks", tasks, task)
+          : buildInsert("tasks", tasks, task),
+      ),
     ],
     removedTaskIds,
-    createdTaskIds: plan.created.map((task) => task.id),
+    createdTaskIds: created.map((task) => task.id),
   };
 }
 
@@ -86,14 +120,16 @@ function assertHabitLinks(dataset: LoadedDataset, fields: Partial<HabitShape>): 
 
 function toHabitOutcome(
   dataset: LoadedDataset,
-  habit: HabitShape,
-  runway: ReturnType<typeof planRunwayOperations>,
+  { habit, isNew }: { habit: HabitShape; isNew: boolean },
+  runway: RunwayOperations,
   ignoredKeys: string[] = [],
 ): PlanOutcome {
   const habits = getLoaded(dataset, "habits");
+  const put = isNew ? buildInsert("habits", habits, habit) : buildUpdate("habits", habits, habit);
   return {
+    primary: { collection: "habits", id: habit.id },
     changeSet: {
-      operations: [buildPut("habits", habits, habit), ...runway.operations],
+      operations: [put, ...runway.operations, ...buildLinkChecks(dataset, habit, HABIT_LINKS)],
       guards: [],
     },
     result: withIgnoredKeys(
@@ -113,8 +149,6 @@ export function planCreateHabit(
   explicitId: string | undefined,
   clock: McpClock,
 ): PlanOutcome {
-  const habits = getLoaded(dataset, "habits");
-  if (explicitId) assertIdAvailable("habits", habits, explicitId);
   const fields = patch.fields as Partial<HabitShape>;
   if (typeof fields.valueId !== "string")
     throw new ToolError("BAD_REQUEST", "habits.valueId: required (the value this habit serves)");
@@ -126,7 +160,7 @@ export function planCreateHabit(
     explicitId ? () => explicitId : uid,
   );
   const runway = planRunwayOperations(dataset, { dropTaskIds: [], regenerateFor: [habit] }, clock);
-  return toHabitOutcome(dataset, habit, runway, patch.ignoredKeys);
+  return toHabitOutcome(dataset, { habit, isNew: true }, runway, patch.ignoredKeys);
 }
 
 export function planUpdateHabit(
@@ -149,7 +183,7 @@ export function planUpdateHabit(
     },
     clock,
   );
-  return toHabitOutcome(dataset, next, runway, patch.ignoredKeys);
+  return toHabitOutcome(dataset, { habit: next, isNew: false }, runway, patch.ignoredKeys);
 }
 
 const isStrippingState = (state: HabitState) => state === "pause" || state === "archive";
@@ -185,7 +219,7 @@ export function planSetHabitState(
           regenerateFor: transition.shouldRegenerate ? [transition.habit] : [],
         };
   const runway = planRunwayOperations(dataset, change, clock);
-  const outcome = toHabitOutcome(dataset, transition.habit, runway);
+  const outcome = toHabitOutcome(dataset, { habit: transition.habit, isNew: false }, runway);
   return { ...outcome, result: { ...outcome.result, state: habitLifecycle(transition.habit) } };
 }
 
@@ -203,7 +237,7 @@ export function planDeleteHabit(
       ...childIds.map((taskId) => buildRemove("tasks", tasks, taskId)),
       buildRemove("habits", habits, id),
     ],
-    guards: [buildGuard("tasks", "habitId", id, childIds)],
+    guards: [buildGuard("tasks", "habitId", id)],
   };
   assertCascadeConfirmed(changeSet, confirmCascade);
   return { changeSet, result: describeAffected(changeSet) };
@@ -221,8 +255,9 @@ function findCheckInBlocker(
 ): string | null {
   const lifecycle = habitLifecycle(habit);
   if (lifecycle !== "active") return `the habit is ${lifecycle}`;
-  if (findRow(getLoaded(dataset, "values"), habit.valueId)?.archivedAt)
-    return "the habit's value is archived";
+  const value = findRow(getLoaded(dataset, "values"), habit.valueId);
+  if (!value) return "the habit's value no longer exists";
+  if (value.archivedAt) return "the habit's value is archived";
   if (date < getCreatedDay(habit.createdAt, clock))
     return "the date is before the habit was created";
   if (date > shiftISO(clock.today, RUNWAY_DAYS))
@@ -257,7 +292,7 @@ function buildCheckInInstance(dataset: LoadedDataset, habit: HabitShape, date: s
       order: findLatestHabitOrders(tasks).get(habit.id),
     },
     tasks.length,
-    () => `t_${habit.id}_${date}`,
+    () => getSlotTaskId(habit.id, date),
   );
 }
 
@@ -276,8 +311,16 @@ export function planCheckInHabit(
   if (!existing) assertCheckInEligible(dataset, habit, date, clock);
   const instance = existing ?? buildCheckInInstance(dataset, habit, date);
   const checkedIn = applyTaskStatus(instance, input.status ?? "done", clock.nowLocal);
+  const operations = existing
+    ? [buildUpdate("tasks", tasks, checkedIn)]
+    : [
+        buildInsert("tasks", tasks, checkedIn),
+        buildCheck("habits", getLoaded(dataset, "habits"), habit.id),
+        buildCheck("values", getLoaded(dataset, "values"), habit.valueId),
+      ];
   return {
-    changeSet: { operations: [buildPut("tasks", tasks, checkedIn)], guards: [] },
+    changeSet: { operations, guards: [] },
     result: { record: toResultRecord(checkedIn), created: !existing },
+    primary: { collection: "tasks", id: checkedIn.id },
   };
 }

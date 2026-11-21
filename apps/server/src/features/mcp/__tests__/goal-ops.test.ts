@@ -169,9 +169,10 @@ describe("planDeleteGoal", () => {
       "put",
       "remove",
     ]);
-    expect(
-      outcome.changeSet.guards.find((guard) => guard.collection === "tasks")?.expectedIds,
-    ).toEqual(["t_0", "t_2"]);
+    expect(outcome.changeSet.guards).toEqual([
+      { collection: "habits", field: "goalId", value: "g_ship", expectedIds: [] },
+      { collection: "tasks", field: "goalId", value: "g_ship", expectedIds: [] },
+    ]);
   });
 
   it("deletes a goal with no dependents without asking", () => {

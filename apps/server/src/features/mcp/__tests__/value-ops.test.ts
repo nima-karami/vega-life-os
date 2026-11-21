@@ -23,13 +23,13 @@ const value: ValueCreate = {
   identity: "",
 };
 
-function valueDataset(): LoadedDataset {
+function valueDataset(archivedAt: string | null = value.archivedAt): LoadedDataset {
   const habit = buildHabit(
     { id: "h_read", valueId: "v_mind", createdAt: "2026-11-01" },
     { valueId: "v_mind", icon: "repeat" },
   );
   return {
-    values: createLoadedCollection(withMeta([value])),
+    values: createLoadedCollection(withMeta([{ ...value, archivedAt }])),
     goals: createLoadedCollection(
       withMeta([
         {
@@ -75,15 +75,32 @@ describe("planCreateValue", () => {
 });
 
 describe("planUpdateValue", () => {
-  it("archives with a plain stamp and touches no task", () => {
-    const active = valueDataset();
+  it("archives an active value with a plain stamp and touches no task", () => {
+    const stamp = "2026-11-20T15:00:00.000Z";
     const outcome = planUpdateValue(
-      active,
+      valueDataset(null),
       "v_mind",
-      { fields: { archivedAt: "2026-11-20T15:00:00.000Z" }, ignoredKeys: [] },
+      { fields: { archivedAt: stamp }, ignoredKeys: [] },
       clock,
     );
-    expect(outcome.changeSet.operations).toHaveLength(1);
+    expect(outcome.changeSet.operations).toEqual([
+      {
+        kind: "put",
+        collection: "values",
+        record: { ...value, ...SERVER_META, archivedAt: stamp },
+        expect: { updateTime: "v_mind@1" },
+      },
+    ]);
+  });
+
+  it("refills the runway on an explicit unarchive of an already-active value", () => {
+    const outcome = planUpdateValue(
+      valueDataset(null),
+      "v_mind",
+      { fields: { archivedAt: null }, ignoredKeys: [] },
+      clock,
+    );
+    expect(outcome.result.createdTaskIds).toHaveLength(15);
   });
 
   it("regenerates its habits' runway on unarchive", () => {

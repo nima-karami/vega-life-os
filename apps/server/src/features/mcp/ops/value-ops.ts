@@ -10,10 +10,10 @@ import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import { planRunwayOperations } from "./habit-ops";
 import {
   assertCascadeConfirmed,
-  assertIdAvailable,
   buildGuard,
-  buildPut,
+  buildInsert,
   buildRemove,
+  buildUpdate,
   describeAffected,
   type ParsedPatch,
   type PlanOutcome,
@@ -30,7 +30,6 @@ export function planCreateValue(
   explicitId: string | undefined,
 ): PlanOutcome {
   const values = getLoaded(dataset, "values");
-  if (explicitId) assertIdAvailable("values", values, explicitId);
   const fields = patch.fields as Partial<ValueCreate>;
   const order = values.rows.length;
   const value: ValueCreate = {
@@ -47,7 +46,8 @@ export function planCreateValue(
     identity: fields.identity ?? "",
   };
   return {
-    changeSet: { operations: [buildPut("values", values, value)], guards: [] },
+    changeSet: { operations: [buildInsert("values", values, value)], guards: [] },
+    primary: { collection: "values", id: value.id },
     result: withIgnoredKeys({ record: toResultRecord(value) }, patch.ignoredKeys),
   };
 }
@@ -61,8 +61,11 @@ export function planUpdateValue(
 ): PlanOutcome {
   const values = getLoaded(dataset, "values");
   const value = requireRow("values", values, id);
-  const next: ValueCreate = { ...value, ...(patch.fields as Partial<ValueCreate>), id };
-  const isUnarchive = value.archivedAt != null && next.archivedAt == null;
+  const fields = patch.fields as Partial<ValueCreate>;
+  const next: ValueCreate = { ...value, ...fields, id };
+  // An explicit unarchive replay refills slots a partially committed earlier unarchive left empty.
+  const isUnarchive =
+    next.archivedAt == null && (value.archivedAt != null || "archivedAt" in fields);
   const affectedHabits = isUnarchive
     ? getLoaded(dataset, "habits").rows.filter((habit) => habit.valueId === id)
     : [];
@@ -73,7 +76,11 @@ export function planUpdateValue(
     values.rows.map((row) => (row.id === id ? next : row)),
   );
   return {
-    changeSet: { operations: [buildPut("values", values, next), ...runway.operations], guards: [] },
+    changeSet: {
+      operations: [buildUpdate("values", values, next), ...runway.operations],
+      guards: [],
+    },
+    primary: { collection: "values", id },
     result: withIgnoredKeys(
       {
         record: toResultRecord(next),
@@ -85,17 +92,13 @@ export function planUpdateValue(
   };
 }
 
-function buildValueGuards(
-  id: string,
-  cascade: ReturnType<typeof collectCascadeIds>,
-  taskIds: string[],
-) {
+function buildValueGuards(id: string, cascade: ReturnType<typeof collectCascadeIds>) {
   return [
-    buildGuard("goals", "valueId", id, cascade.goalIds),
-    buildGuard("habits", "valueId", id, cascade.habitIds),
-    buildGuard("tasks", "valueId", id, taskIds),
-    ...[...cascade.goalIds].map((goalId) => buildGuard("tasks", "goalId", goalId, taskIds)),
-    ...[...cascade.habitIds].map((habitId) => buildGuard("tasks", "habitId", habitId, taskIds)),
+    buildGuard("goals", "valueId", id),
+    buildGuard("habits", "valueId", id),
+    buildGuard("tasks", "valueId", id),
+    ...[...cascade.goalIds].map((goalId) => buildGuard("tasks", "goalId", goalId)),
+    ...[...cascade.habitIds].map((habitId) => buildGuard("tasks", "habitId", habitId)),
   ];
 }
 
@@ -122,7 +125,7 @@ export function planDeleteValue(
       ...[...cascade.goalIds].map((goalId) => buildRemove("goals", goals, goalId)),
       buildRemove("values", values, id),
     ],
-    guards: buildValueGuards(id, cascade, taskIds),
+    guards: buildValueGuards(id, cascade),
   };
   assertCascadeConfirmed(changeSet, confirmCascade);
   return { changeSet, result: describeAffected(changeSet) };

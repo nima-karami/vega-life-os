@@ -75,25 +75,108 @@ describe("generic create", () => {
   });
 
   it("enforces the natural keys of budgets and settlements", () => {
+    const budget = { categoryId: "fcat_food", month: "2026-11", cents: 100 };
     const outcome = planCreateRecord(
       { financeBudgets: loadRows([]) },
-      {
-        collection: "financeBudgets",
-        record: { categoryId: "fcat_food", month: "2026-11", cents: 100 },
-      },
+      { collection: "financeBudgets", id: "fcat_food:2026-11", record: budget },
       clock,
     );
     expect(outcome.result.record).toMatchObject({ id: "fcat_food:2026-11" });
+    const cases: [Parameters<typeof planCreateRecord>[1], string][] = [
+      [{ collection: "financeBudgets", record: budget }, "needs an explicit id"],
+      [
+        {
+          collection: "financeBudgets",
+          id: "fcat_food:2026-13",
+          record: { ...budget, month: "2026-13" },
+        },
+        "01-12",
+      ],
+      [{ collection: "financeSettlements", id: "nov", record: { month: "2026-11" } }, "'YYYY-MM'"],
+      [{ collection: "cardPrefs", record: {} }, "needs an explicit id"],
+    ];
+    for (const [input, message] of cases)
+      expectToolError(
+        () =>
+          planCreateRecord(
+            {
+              financeBudgets: loadRows([]),
+              financeSettlements: loadRows([]),
+              cardPrefs: loadRows([]),
+            },
+            input,
+            clock,
+          ),
+        "BAD_REQUEST",
+        message,
+      );
+  });
+
+  it("checks the natural key again when an update moves the month", () => {
+    const dataset: LoadedDataset = {
+      financeSettlements: loadRows([{ id: "2026-11", month: "2026-11" }]),
+    };
     expectToolError(
       () =>
-        planCreateRecord(
-          { financeSettlements: loadRows([]) },
-          { collection: "financeSettlements", record: { month: "2026-11" }, id: "nov" },
+        planUpdateRecord(
+          dataset,
+          { collection: "financeSettlements", id: "2026-11", patch: { month: "2026-12" } },
           clock,
         ),
       "BAD_REQUEST",
-      "'YYYY-MM'",
+      "expected 2026-12",
     );
+  });
+
+  it("validates record.id and link ids as single record ids", () => {
+    expectToolError(
+      () => planCreateRecord({}, { collection: "books", record: { id: "a/b" } }, clock),
+      "BAD_REQUEST",
+      "record.id",
+    );
+    const taskDataset: LoadedDataset = {
+      tasks: loadRows([]),
+      habits: loadRows([]),
+      goals: loadRows([]),
+      values: loadRows([]),
+    };
+    expectToolError(
+      () =>
+        planCreateRecord(taskDataset, { collection: "tasks", record: { goalId: "g/x" } }, clock),
+      "BAD_REQUEST",
+      "goalId",
+    );
+  });
+
+  it("lists an inherited property name as an ignored key instead of failing", () => {
+    const outcome = planCreateRecord(
+      { books: loadRows([]) },
+      { collection: "books", record: { title: "x", toString: 1 } },
+      clock,
+    );
+    expect(outcome.result.ignoredKeys).toEqual(["toString"]);
+  });
+
+  it("trims a card's category before its length limit applies", () => {
+    const category = ` ${"c".repeat(60)} `;
+    const outcome = planCreateRecord(
+      { cards: loadRows([]) },
+      {
+        collection: "cards",
+        record: {
+          type: "note",
+          category,
+          title: "T",
+          body: "B",
+          addedAt: "2026-11-20",
+          box: null,
+          lastReviewed: null,
+          nextDue: null,
+        },
+      },
+      clock,
+    );
+    expect(outcome.result.record).toMatchObject({ category: "c".repeat(60) });
   });
 
   it("normalises a card's category and clears slots its type doesn't use", () => {
@@ -193,10 +276,37 @@ describe("finance category delete", () => {
 
   it("cascades an unused category's budgets behind a confirmation, guarded on references", () => {
     const dataset = categoryDataset([]);
-    expectToolError(
-      () => planDeleteRecord(dataset, { collection: "financeCategories", id: "fcat_fun" }),
-      "CONFIRM_REQUIRED",
-    );
+    let digest = "";
+    try {
+      planDeleteRecord(dataset, { collection: "financeCategories", id: "fcat_fun" });
+    } catch (error) {
+      digest = String((error as { detail?: { confirmCascade?: string } }).detail?.confirmCascade);
+    }
+    expect(digest).toMatch(/^[0-9a-f]{16}$/);
+    const outcome = planDeleteRecord(dataset, {
+      collection: "financeCategories",
+      id: "fcat_fun",
+      confirmCascade: digest,
+    });
+    expect(outcome.changeSet.operations.map((operation) => operation.kind)).toEqual([
+      "remove",
+      "remove",
+    ]);
+    expect(outcome.changeSet.guards).toEqual([
+      {
+        collection: "financeTransactions",
+        field: "categoryId",
+        value: "fcat_fun",
+        expectedIds: [],
+      },
+      {
+        collection: "financeMerchants",
+        field: "defaultCategoryId",
+        value: "fcat_fun",
+        expectedIds: [],
+      },
+      { collection: "financeBudgets", field: "categoryId", value: "fcat_fun", expectedIds: [] },
+    ]);
     expect(listRequiredCollections("financeCategories")).toContain("financeBudgets");
   });
 });

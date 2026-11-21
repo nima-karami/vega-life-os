@@ -69,6 +69,17 @@ function seed(
   };
 }
 
+function capturePreview(run: () => unknown) {
+  let caught: unknown;
+  try {
+    run();
+  } catch (error) {
+    caught = error;
+  }
+  expect(caught).toMatchObject({ code: "CONFIRM_REQUIRED" });
+  return (caught as { detail: { confirmCascade: string; affected: unknown } }).detail;
+}
+
 const idsOf = (operations: ChangeOperation[], kind: ChangeOperation["kind"], collection: string) =>
   operations
     .filter((operation) => operation.kind === kind && operation.collection === collection)
@@ -109,9 +120,16 @@ describe("planCreateHabit", () => {
       "2026-12-02",
       "2026-12-04",
     ]);
-    expect(outcome.changeSet.operations.every((operation) => "absent" in operation.expect)).toBe(
-      true,
-    );
+    const puts = outcome.changeSet.operations.filter((operation) => operation.kind === "put");
+    expect(puts.every((operation) => "absent" in operation.expect)).toBe(true);
+    const habitId = String((outcome.result.record as { id: string }).id);
+    expect(idsOf(outcome.changeSet.operations, "put", "tasks")[0]).toBe(`t_${habitId}_2026-11-20`);
+    expect(outcome.changeSet.operations).toContainEqual({
+      kind: "check",
+      collection: "values",
+      id: "v_body",
+      expect: { updateTime: "v_body" },
+    });
     expect(outcome.result.record).toMatchObject({ createdAt: "2026-11-20" });
   });
 });
@@ -140,7 +158,9 @@ describe("planUpdateHabit", () => {
       { fields: { name: "Jog" }, ignoredKeys: [] },
       clock,
     );
-    expect(outcome.changeSet.operations).toHaveLength(1);
+    expect(
+      outcome.changeSet.operations.filter((operation) => operation.collection === "tasks"),
+    ).toEqual([]);
   });
 });
 
@@ -238,30 +258,57 @@ describe("planCheckInHabit", () => {
 describe("planDeleteHabit", () => {
   it("previews the task cascade, then commits it with the digest, children first", () => {
     const dataset = seed([makeHabit()], [makeInstance("2026-11-18"), makeInstance("2026-11-20")]);
-    let digest = "";
-    try {
-      planDeleteHabit(dataset, "h_run", undefined);
-    } catch (error) {
-      expect(error).toMatchObject({
-        code: "CONFIRM_REQUIRED",
-        detail: {
-          affected: { removed: { tasks: ["t_2026-11-18", "t_2026-11-20"], habits: ["h_run"] } },
-        },
-      });
-      digest = (error as { detail: { confirmCascade: string } }).detail.confirmCascade;
-    }
-    const outcome = planDeleteHabit(dataset, "h_run", digest);
+    const preview = capturePreview(() => planDeleteHabit(dataset, "h_run", undefined));
+    expect(preview.affected).toEqual({
+      removed: { tasks: ["t_2026-11-18", "t_2026-11-20"], habits: ["h_run"] },
+      updated: {},
+    });
+    const outcome = planDeleteHabit(dataset, "h_run", preview.confirmCascade);
     expect(outcome.changeSet.operations.at(-1)).toMatchObject({
       kind: "remove",
       collection: "habits",
     });
     expect(outcome.changeSet.guards).toEqual([
-      {
-        collection: "tasks",
-        field: "habitId",
-        value: "h_run",
-        expectedIds: ["t_2026-11-18", "t_2026-11-20"],
-      },
+      { collection: "tasks", field: "habitId", value: "h_run", expectedIds: [] },
     ]);
+  });
+
+  it("re-asks when a supplied digest no longer matches, even once the habit has no tasks left", () => {
+    const withTasks = seed([makeHabit()], [makeInstance("2026-11-18")]);
+    const preview = capturePreview(() => planDeleteHabit(withTasks, "h_run", undefined));
+    const parentOnly = seed([makeHabit()], []);
+    capturePreview(() => planDeleteHabit(parentOnly, "h_run", preview.confirmCascade));
+    expect(planDeleteHabit(parentOnly, "h_run", undefined).changeSet.operations).toHaveLength(1);
+  });
+});
+
+describe("runway and check-in identity", () => {
+  it("keeps a slot an existing web instance already fills and claims the rest by slot id", () => {
+    const webInstance = makeInstance("2026-11-23", { id: "t_web_random" });
+    const outcome = planSetHabitState(
+      seed([makeHabit({ archivedAt: "2026-11-01T00:00:00.000Z" })], [webInstance]),
+      { id: "h_run", state: "unarchive" },
+      clock,
+    );
+    const created = idsOf(outcome.changeSet.operations, "put", "tasks");
+    expect(created).not.toContain("t_h_run_2026-11-23");
+    expect(created).toContain("t_h_run_2026-11-25");
+  });
+
+  it("refuses to create an instance when the habit's value is gone", () => {
+    const orphan = seed([makeHabit({ valueId: "v_gone" })], []);
+    expect(() => planCheckInHabit(orphan, { habitId: "h_run" }, clock)).toThrow(
+      expect.objectContaining({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("value no longer exists"),
+      }),
+    );
+  });
+
+  it("checks the habit and value it created an instance under", () => {
+    const outcome = planCheckInHabit(seed([makeHabit()], []), { habitId: "h_run" }, clock);
+    expect(
+      outcome.changeSet.operations.map((operation) => `${operation.kind}:${operation.collection}`),
+    ).toEqual(["put:tasks", "check:habits", "check:values"]);
   });
 });

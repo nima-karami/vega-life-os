@@ -7,14 +7,16 @@ import {
   type TaskStatus,
   uid,
 } from "@vega/shared";
+import { ToolError } from "../../../core/tool-error";
 import type { McpClock } from "../mcp-context";
-import { ToolError } from "../tool-result";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
-  assertIdAvailable,
   assertLinkExists,
-  buildPut,
+  buildInsert,
+  buildLinkChecks,
   buildRemove,
+  buildUpdate,
+  type LinkField,
   type ParsedPatch,
   type PlanOutcome,
   requireRow,
@@ -24,6 +26,12 @@ import {
 
 export const TASK_COLLECTIONS: readonly CollectionName[] = ["tasks", "habits", "goals", "values"];
 
+const TASK_LINKS: readonly LinkField[] = [
+  ["habits", "habitId"],
+  ["goals", "goalId"],
+  ["values", "valueId"],
+];
+
 type TaskLinks = Partial<Pick<TaskCreate, "habitId" | "goalId" | "valueId">>;
 
 function assertTaskLinks(dataset: LoadedDataset, links: TaskLinks): void {
@@ -32,14 +40,22 @@ function assertTaskLinks(dataset: LoadedDataset, links: TaskLinks): void {
   assertLinkExists("values", getLoaded(dataset, "values"), "valueId", links.valueId);
 }
 
-const toTaskOutcome = (
+type TaskWrite = { task: TaskCreate; isNew: boolean; hasLinks: boolean };
+
+function toTaskOutcome(
   dataset: LoadedDataset,
-  task: TaskCreate,
+  { task, isNew, hasLinks }: TaskWrite,
   ignoredKeys: string[] = [],
-): PlanOutcome => ({
-  changeSet: { operations: [buildPut("tasks", getLoaded(dataset, "tasks"), task)], guards: [] },
-  result: withIgnoredKeys({ record: toResultRecord(task) }, ignoredKeys),
-});
+): PlanOutcome {
+  const tasks = getLoaded(dataset, "tasks");
+  const put = isNew ? buildInsert("tasks", tasks, task) : buildUpdate("tasks", tasks, task);
+  const checks = hasLinks ? buildLinkChecks(dataset, task, TASK_LINKS) : [];
+  return {
+    changeSet: { operations: [put, ...checks], guards: [] },
+    result: withIgnoredKeys({ record: toResultRecord(task) }, ignoredKeys),
+    primary: { collection: "tasks", id: task.id },
+  };
+}
 
 export function planCreateTask(
   dataset: LoadedDataset,
@@ -47,11 +63,10 @@ export function planCreateTask(
   explicitId: string | undefined,
 ): PlanOutcome {
   const tasks = getLoaded(dataset, "tasks");
-  if (explicitId) assertIdAvailable("tasks", tasks, explicitId);
   const fields = patch.fields as Partial<TaskCreate>;
   assertTaskLinks(dataset, fields);
   const task = buildTask(fields, tasks.rows.length, explicitId ? () => explicitId : uid);
-  return toTaskOutcome(dataset, task, patch.ignoredKeys);
+  return toTaskOutcome(dataset, { task, isNew: true, hasLinks: true }, patch.ignoredKeys);
 }
 
 type TaskIntent = "unschedule" | "link" | "status" | "relink" | "plain";
@@ -92,7 +107,7 @@ export function planUpdateTask(
   assertTaskLinks(dataset, fields);
   const habits = getLoaded(dataset, "habits").rows;
   const edited = planTaskEdit(task, fields, habits, clock.nowLocal);
-  return toTaskOutcome(dataset, edited, patch.ignoredKeys);
+  return toTaskOutcome(dataset, { task: edited, isNew: false, hasLinks: true }, patch.ignoredKeys);
 }
 
 export function planSetTaskStatus(
@@ -100,8 +115,9 @@ export function planSetTaskStatus(
   input: { id: string; status: TaskStatus },
   clock: McpClock,
 ): PlanOutcome {
-  const task = requireRow("tasks", getLoaded(dataset, "tasks"), input.id);
-  return toTaskOutcome(dataset, applyTaskStatus(task, input.status, clock.nowLocal));
+  const current = requireRow("tasks", getLoaded(dataset, "tasks"), input.id);
+  const task = applyTaskStatus(current, input.status, clock.nowLocal);
+  return toTaskOutcome(dataset, { task, isNew: false, hasLinks: false });
 }
 
 export function planDeleteTask(dataset: LoadedDataset, id: string): PlanOutcome {

@@ -7,16 +7,17 @@ import {
   type Subgoal,
   uid,
 } from "@vega/shared";
+import { ToolError } from "../../../core/tool-error";
 import type { McpClock } from "../mcp-context";
-import { ToolError } from "../tool-result";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
   assertCascadeConfirmed,
-  assertIdAvailable,
   assertLinkExists,
   buildGuard,
-  buildPut,
+  buildInsert,
+  buildLinkChecks,
   buildRemove,
+  buildUpdate,
   describeAffected,
   type ParsedPatch,
   type PlanOutcome,
@@ -36,19 +37,24 @@ function settleProgress(goal: GoalCreate, requestedProgress: number | undefined)
   return { goal: { ...goal, progress }, note: isOverridden ? DERIVED_PROGRESS_NOTE : null };
 }
 
+type GoalWrite = { settled: ReturnType<typeof settleProgress>; isNew: boolean; hasLinks: boolean };
+
 function toGoalOutcome(
   dataset: LoadedDataset,
-  settled: ReturnType<typeof settleProgress>,
+  { settled, isNew, hasLinks }: GoalWrite,
   ignoredKeys: string[] = [],
 ): PlanOutcome {
+  const goals = getLoaded(dataset, "goals");
   const result: Record<string, unknown> = { record: toResultRecord(settled.goal) };
   if (settled.note) result.note = settled.note;
+  const put = isNew
+    ? buildInsert("goals", goals, settled.goal)
+    : buildUpdate("goals", goals, settled.goal);
+  const checks = hasLinks ? buildLinkChecks(dataset, settled.goal, [["values", "valueId"]]) : [];
   return {
-    changeSet: {
-      operations: [buildPut("goals", getLoaded(dataset, "goals"), settled.goal)],
-      guards: [],
-    },
+    changeSet: { operations: [put, ...checks], guards: [] },
     result: withIgnoredKeys(result, ignoredKeys),
+    primary: { collection: "goals", id: settled.goal.id },
   };
 }
 
@@ -66,7 +72,6 @@ export function planCreateGoal(
   clock: McpClock,
 ): PlanOutcome {
   const goals = getLoaded(dataset, "goals");
-  if (explicitId) assertIdAvailable("goals", goals, explicitId);
   const fields = patch.fields as Partial<GoalCreate>;
   assertLinkExists("values", getLoaded(dataset, "values"), "valueId", fields.valueId);
   const quarter = getPresetRange("quarter", clock.noonDate);
@@ -82,7 +87,8 @@ export function planCreateGoal(
     subgoals: fields.subgoals ?? [],
     order: fields.order ?? goals.rows.length,
   };
-  return toGoalOutcome(dataset, settleProgress(goal, fields.progress), patch.ignoredKeys);
+  const settled = settleProgress(goal, fields.progress);
+  return toGoalOutcome(dataset, { settled, isNew: true, hasLinks: true }, patch.ignoredKeys);
 }
 
 export function planUpdateGoal(
@@ -94,7 +100,8 @@ export function planUpdateGoal(
   const fields = patch.fields as Partial<GoalCreate>;
   assertLinkExists("values", getLoaded(dataset, "values"), "valueId", fields.valueId);
   const next: GoalCreate = { ...goal, ...fields, id };
-  return toGoalOutcome(dataset, settleProgress(next, fields.progress), patch.ignoredKeys);
+  const settled = settleProgress(next, fields.progress);
+  return toGoalOutcome(dataset, { settled, isNew: false, hasLinks: true }, patch.ignoredKeys);
 }
 
 export type SubgoalEdit = { goalId: string; add?: string[]; toggle?: string[]; remove?: string[] };
@@ -124,7 +131,8 @@ export function planEditSubgoals(dataset: LoadedDataset, input: SubgoalEdit): Pl
       .map((subgoal) => (toggle.has(subgoal.id) ? { ...subgoal, done: !subgoal.done } : subgoal)),
     ...buildSubgoals(input.add ?? []),
   ];
-  return toGoalOutcome(dataset, settleProgress({ ...goal, subgoals }, undefined));
+  const settled = settleProgress({ ...goal, subgoals }, undefined);
+  return toGoalOutcome(dataset, { settled, isNew: false, hasLinks: false });
 }
 
 export function planDeleteGoal(
@@ -139,24 +147,11 @@ export function planDeleteGoal(
   const detached = planGoalDetach(id, habits.rows, tasks.rows);
   const changeSet = {
     operations: [
-      ...detached.habits.map((habit) => buildPut("habits", habits, habit)),
-      ...detached.tasks.map((task) => buildPut("tasks", tasks, task)),
+      ...detached.habits.map((habit) => buildUpdate("habits", habits, habit)),
+      ...detached.tasks.map((task) => buildUpdate("tasks", tasks, task)),
       buildRemove("goals", goals, id),
     ],
-    guards: [
-      buildGuard(
-        "habits",
-        "goalId",
-        id,
-        detached.habits.map((habit) => habit.id),
-      ),
-      buildGuard(
-        "tasks",
-        "goalId",
-        id,
-        detached.tasks.map((task) => task.id),
-      ),
-    ],
+    guards: [buildGuard("habits", "goalId", id), buildGuard("tasks", "goalId", id)],
   };
   assertCascadeConfirmed(changeSet, confirmCascade);
   const affected = describeAffected(changeSet);

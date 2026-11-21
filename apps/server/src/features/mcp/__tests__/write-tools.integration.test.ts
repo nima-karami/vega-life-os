@@ -21,6 +21,7 @@ const MON_WED_FRI = {
   interval: 1,
   anchor: "2026-11-02",
 };
+const NOW_ISO = "2026-11-21T03:30:00.000Z";
 const ROW_STAMPS = { updatedAt: "2026-11-01T00:00:00.000Z", fieldUpdatedAt: {} };
 
 // Every grant has some tool in production; the probe stands in for the read tools another lane owns.
@@ -103,6 +104,36 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     return { ...outcome, digest: String(outcome.payload.confirmCascade) };
   }
 
+  async function seedGoalWithTasks(uid: string, client: Client, taskCount: number) {
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_big",
+      record: { name: "Big" },
+    });
+    await callTool(client, "create_record", {
+      collection: "goals",
+      id: "g_big",
+      record: { name: "Big", valueId: "v_big" },
+    });
+    await seedRows(
+      uid,
+      "tasks",
+      Array.from({ length: taskCount }, (_, index) =>
+        buildTask({ id: `t_${index}`, goalId: "g_big" }, index),
+      ),
+    );
+  }
+
+  async function deleteBigGoal(client: Client, confirmCascade: string) {
+    const failed = await callTool(client, "delete_record", {
+      collection: "goals",
+      id: "g_big",
+      confirmCascade,
+    });
+    expect(failed.payload).toMatchObject({ code: "INTERNAL", failedAtOperation: 449 });
+    return failed;
+  }
+
   beforeAll(async () => {
     server = await bootTestServer();
     firestore = server.firestore;
@@ -172,6 +203,8 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     const uid = "wt-ac5";
     const created = await seedValueAndHabit(await connect(uid));
     expect(created.isError).toBe(false);
+    const ids = (await listTasks(uid)).map((task) => task.id);
+    expect(ids).toContain("t_h_run_2026-11-20");
     const dates = (await listTasks(uid)).map((task) => task.date).sort();
     expect(dates).toEqual([
       "2026-11-20",
@@ -523,34 +556,13 @@ describe("MCP write tools (SDK client over the emulator)", () => {
   it("commits a 500-task goal delete in two chunks, parent last; a failed second chunk reports what landed", async () => {
     const uid = "wt-chunks";
     const client = await connect(uid);
-    await callTool(client, "create_record", {
-      collection: "values",
-      id: "v_big",
-      record: { name: "Big" },
-    });
-    await callTool(client, "create_record", {
-      collection: "goals",
-      id: "g_big",
-      record: { name: "Big", valueId: "v_big" },
-    });
-    await seedRows(
-      uid,
-      "tasks",
-      Array.from({ length: 500 }, (_, index) =>
-        buildTask({ id: `t_${index}`, goalId: "g_big" }, index),
-      ),
-    );
+    await seedGoalWithTasks(uid, client, 500);
 
     const preview = await previewDigest(client, { collection: "goals", id: "g_big" });
     faults.reset();
     faults.failTransaction(2);
     reconciles = [];
-    const failed = await callTool(client, "delete_record", {
-      collection: "goals",
-      id: "g_big",
-      confirmCascade: preview.digest,
-    });
-    expect(failed.payload).toMatchObject({ code: "INTERNAL", failedAtOperation: 449 });
+    const failed = await deleteBigGoal(client, preview.digest);
     expect((failed.payload.committedIds as Record<string, string[]>).tasks).toHaveLength(449);
     expect(await readDoc(uid, "goals/g_big")).toBeDefined();
     expect(reconciles).toEqual([uid]);
@@ -588,5 +600,474 @@ describe("MCP write tools (SDK client over the emulator)", () => {
       "t_late",
     );
     expect(await readDoc(uid, "habits/h_run")).toBeDefined();
+  });
+
+  const affectedIds = (outcome: ToolOutcome, group: "removed" | "updated", collection: string) =>
+    (outcome.payload.affected as Record<string, Record<string, string[]>>)[group][collection] ?? [];
+
+  it("refuses the parent removal when a detached child is reattached between chunks", async () => {
+    const uid = "wt-reattach";
+    const client = await connect(uid);
+    await seedGoalWithTasks(uid, client, 500);
+    const preview = await previewDigest(client, { collection: "goals", id: "g_big" });
+    faults.reset();
+    faults.beforeTransaction(2, () =>
+      firestore
+        .doc(`users/${uid}/tasks/t_0`)
+        .update({ goalId: "g_big" })
+        .then(() => undefined),
+    );
+    await deleteBigGoal(client, preview.digest);
+    expect(await readDoc(uid, "goals/g_big")).toBeDefined();
+    const rest = await previewDigest(client, { collection: "goals", id: "g_big" });
+    expect(affectedIds(rest, "updated", "tasks")).toContain("t_0");
+  });
+
+  it("re-plans a task create whose goal is deleted before it commits", async () => {
+    const uid = "wt-parent-first";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_p",
+      record: { name: "P" },
+    });
+    await callTool(client, "create_record", {
+      collection: "goals",
+      id: "g_p",
+      record: { name: "P", valueId: "v_p" },
+    });
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      firestore
+        .doc(`users/${uid}/goals/g_p`)
+        .delete()
+        .then(() => undefined),
+    );
+    const outcome = await callTool(client, "create_record", {
+      collection: "tasks",
+      id: "t_child",
+      record: { title: "c", goalId: "g_p" },
+    });
+    expect(outcome.payload).toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("goalId"),
+    });
+    expect(await readDoc(uid, "tasks/t_child")).toBeUndefined();
+  });
+
+  it("re-plans a goal delete when a task links to it before the delete commits", async () => {
+    const uid = "wt-child-first";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_c",
+      record: { name: "C" },
+    });
+    await callTool(client, "create_record", {
+      collection: "goals",
+      id: "g_c",
+      record: { name: "C", valueId: "v_c" },
+    });
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      seedRows(uid, "tasks", [buildTask({ id: "t_new", goalId: "g_c" }, 0)]),
+    );
+    const outcome = await callTool(client, "delete_record", { collection: "goals", id: "g_c" });
+    expect(outcome.payload).toMatchObject({ code: "CONFIRM_REQUIRED" });
+    expect(affectedIds(outcome, "updated", "tasks")).toEqual(["t_new"]);
+    expect(await readDoc(uid, "goals/g_c")).toBeDefined();
+  });
+
+  it("re-plans a check-in when the habit is paused before the new instance commits", async () => {
+    const uid = "wt-checkin-race";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_body",
+      record: { name: "Body" },
+    });
+    await seedRows(uid, "habits", [
+      {
+        id: "h_bare",
+        name: "Bare",
+        goalId: null,
+        valueId: "v_body",
+        icon: "repeat",
+        time: null,
+        schedule: MON_WED_FRI,
+        durationMin: 30,
+        createdAt: "2026-11-01",
+        archivedAt: null,
+        pausedAt: null,
+        resumedAt: null,
+        pausedSpans: [],
+        tracked: true,
+        plan: "",
+      } as { id: string },
+    ]);
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      firestore
+        .doc(`users/${uid}/habits/h_bare`)
+        .update({ pausedAt: "2026-11-20T12:00:00.000Z" })
+        .then(() => undefined),
+    );
+    const outcome = await callTool(client, "check_in_habit", { habitId: "h_bare" });
+    expect(outcome.payload).toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("paused"),
+    });
+    expect(await readDoc(uid, "tasks/t_h_bare_2026-11-20")).toBeUndefined();
+  });
+
+  it("refuses a stale digest once the cascade shrank to the parent alone", async () => {
+    const uid = "wt-stale-parent-only";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_s",
+      record: { name: "S" },
+    });
+    await callTool(client, "create_record", {
+      collection: "goals",
+      id: "g_s",
+      record: { name: "S", valueId: "v_s" },
+    });
+    const preview = await previewDigest(client, { collection: "values", id: "v_s" });
+    await firestore.doc(`users/${uid}/goals/g_s`).delete();
+    const outcome = await callTool(client, "delete_record", {
+      collection: "values",
+      id: "v_s",
+      confirmCascade: preview.digest,
+    });
+    expect(outcome.payload).toMatchObject({ code: "CONFIRM_REQUIRED" });
+    expect(await readDoc(uid, "values/v_s")).toBeDefined();
+  });
+
+  it("finishes a value unarchive whose second chunk failed when the unarchive is replayed", async () => {
+    const uid = "wt-unarchive-replay";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_many",
+      record: { name: "Many", archivedAt: "2026-11-01T00:00:00.000Z" },
+    });
+    const daily = {
+      type: "weekly",
+      days: [1, 1, 1, 1, 1, 1, 1],
+      interval: 1,
+      anchor: "2026-11-01",
+    };
+    await seedRows(
+      uid,
+      "habits",
+      Array.from({ length: 31 }, (_, index) => ({
+        id: `h_${index}`,
+        name: `H${index}`,
+        goalId: null,
+        valueId: "v_many",
+        icon: "repeat",
+        time: null,
+        schedule: daily,
+        durationMin: 30,
+        createdAt: "2026-11-01",
+        archivedAt: null,
+        pausedAt: null,
+        resumedAt: null,
+        pausedSpans: [],
+        tracked: true,
+        plan: "",
+      })),
+    );
+    faults.reset();
+    faults.failTransaction(2);
+    const failed = await callTool(client, "update_record", {
+      collection: "values",
+      id: "v_many",
+      patch: { archivedAt: null },
+    });
+    expect(failed.payload).toMatchObject({ code: "INTERNAL" });
+    expect((await listTasks(uid)).length).toBeLessThan(31 * 15);
+    faults.reset();
+    const replay = await callTool(client, "update_record", {
+      collection: "values",
+      id: "v_many",
+      patch: { archivedAt: null },
+    });
+    expect(replay.isError).toBe(false);
+    expect((await listTasks(uid)).length).toBe(31 * 15);
+  });
+
+  it("rejects ids that aren't a single record id", async () => {
+    const client = await connect("wt-ids");
+    const nested = await callTool(client, "create_record", {
+      collection: "books",
+      record: { id: "b_1/inner", title: "x" },
+    });
+    expect(nested.payload).toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("record.id"),
+    });
+    const target = await callTool(client, "update_record", {
+      collection: "books",
+      id: "a/b",
+      patch: {},
+    });
+    expect(target.isError).toBe(true);
+  });
+
+  it("refuses to reuse a natural row id that now belongs to a moved journal entry or review", async () => {
+    const uid = "wt-moved-ids";
+    const client = await connect(uid);
+    await callTool(client, "write_journal", { date: "2026-11-18", journal: "first" });
+    await callTool(client, "update_record", {
+      collection: "journal",
+      id: "day_2026-11-18",
+      patch: { date: "2026-11-19" },
+    });
+    const journal = await callTool(client, "write_journal", {
+      date: "2026-11-18",
+      journal: "second",
+    });
+    expect(journal.payload).toMatchObject({ code: "CONFLICT" });
+    expect(await readDoc(uid, "journal/day_2026-11-18")).toMatchObject({
+      date: "2026-11-19",
+      journal: "first",
+    });
+
+    await callTool(client, "create_record", {
+      collection: "reviews",
+      record: { periodKey: "2026-W47", prompts: [] },
+    });
+    await callTool(client, "update_record", {
+      collection: "reviews",
+      id: "rv_2026-W47",
+      patch: { periodKey: "2026-W48" },
+    });
+    const review = await callTool(client, "create_record", {
+      collection: "reviews",
+      record: { periodKey: "2026-W47", prompts: [] },
+    });
+    expect(review.payload).toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("refuses a check-in whose slot id is held by a task unlinked from the habit", async () => {
+    const uid = "wt-unlinked-slot";
+    const client = await connect(uid);
+    await seedValueAndHabit(client);
+    await callTool(client, "update_record", {
+      collection: "tasks",
+      id: "t_h_run_2026-11-20",
+      patch: { habitId: null },
+    });
+    const outcome = await callTool(client, "check_in_habit", { habitId: "h_run" });
+    expect(outcome.payload).toMatchObject({ code: "CONFLICT" });
+    expect(await readDoc(uid, "tasks/t_h_run_2026-11-20")).toMatchObject({
+      habitId: null,
+      status: "todo",
+    });
+  });
+
+  it("keeps one journal entry per date and one review per period under competing ids", async () => {
+    const uid = "wt-logical-keys";
+    const client = await connect(uid);
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      seedRows(uid, "journal", [
+        {
+          id: "day_other",
+          date: "2026-11-15",
+          gratitude: [],
+          mood: null,
+          journal: "theirs",
+          createdAt: NOW_ISO,
+        } as { id: string },
+      ]),
+    );
+    const journal = await callTool(client, "create_record", {
+      collection: "journal",
+      id: "day_mine",
+      record: { date: "2026-11-15", journal: "mine" },
+    });
+    expect(journal.payload).toMatchObject({ code: "CONFLICT" });
+    expect(await readDoc(uid, "journal/day_mine")).toBeUndefined();
+
+    await callTool(client, "create_record", {
+      collection: "reviews",
+      record: { periodKey: "2026-W49", prompts: [] },
+    });
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      seedRows(uid, "reviews", [
+        {
+          id: "rv_theirs",
+          periodKey: "2026-W50",
+          prompts: [],
+          checkIns: [],
+          createdAt: NOW_ISO,
+        } as { id: string },
+      ]),
+    );
+    const moved = await callTool(client, "update_record", {
+      collection: "reviews",
+      id: "rv_2026-W49",
+      patch: { periodKey: "2026-W50" },
+    });
+    expect(moved.payload).toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("re-plans a runway that collides with a slot claimed meanwhile, keeping the claimed instance", async () => {
+    const uid = "wt-slot-race";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_body",
+      record: { name: "Body" },
+    });
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      seedRows(uid, "tasks", [
+        buildTask(
+          {
+            id: "t_h_run_2026-11-20",
+            kind: "habit",
+            habitId: "h_run",
+            valueId: "v_body",
+            date: "2026-11-20",
+            title: "claimed",
+          },
+          0,
+        ),
+      ]),
+    );
+    const created = await callTool(client, "create_record", {
+      collection: "habits",
+      id: "h_run",
+      record: { name: "Run", valueId: "v_body", schedule: MON_WED_FRI },
+    });
+    expect(created.isError).toBe(false);
+    const today = (await listTasks(uid)).filter((task) => task.date === "2026-11-20");
+    expect(today).toEqual([
+      expect.objectContaining({ id: "t_h_run_2026-11-20", title: "claimed" }),
+    ]);
+  });
+
+  it("runs a legacy habit (days, no schedule) through check-in and the runway", async () => {
+    const uid = "wt-legacy";
+    const client = await connect(uid);
+    await callTool(client, "create_record", {
+      collection: "values",
+      id: "v_old",
+      record: { name: "Old" },
+    });
+    await seedRows(uid, "habits", [
+      {
+        id: "h_old",
+        name: "Old",
+        goalId: null,
+        valueId: "v_old",
+        icon: "repeat",
+        time: null,
+        days: [1, 1, 1, 1, 1, 1, 1],
+        durationMin: 30,
+        createdAt: "2026-10-01",
+        archivedAt: null,
+      } as { id: string },
+    ]);
+    const checkIn = await callTool(client, "check_in_habit", { habitId: "h_old" });
+    expect(checkIn.payload).toMatchObject({
+      created: true,
+      record: { id: "t_h_old_2026-11-20", status: "done" },
+    });
+    await callTool(client, "set_habit_state", { id: "h_old", state: "pause" });
+    const resumed = await callTool(client, "set_habit_state", { id: "h_old", state: "resume" });
+    expect(resumed.isError).toBe(false);
+    expect((await listTasks(uid)).filter((task) => task.habitId === "h_old")).toHaveLength(15);
+    expect(await readDoc(uid, "habits/h_old")).toMatchObject({ schedule: { type: "weekly" } });
+  });
+
+  it("returns the canonical stored row, defaults included, and the stored row on a replay", async () => {
+    const uid = "wt-canonical";
+    const client = await connect(uid);
+    const created = await callTool(client, "create_record", {
+      collection: "cardPrefs",
+      id: "feed",
+      record: {},
+    });
+    const { fieldUpdatedAt: _stamps, ...stored } = (await readDoc(uid, "cardPrefs/feed")) ?? {};
+    expect(created.payload.record).toEqual(stored);
+    expect(created.payload.record).toMatchObject({
+      mode: "mix",
+      migratedAt: null,
+      updatedAt: expect.any(String),
+    });
+    nowMs += 60_000;
+    const replay = await callTool(client, "update_record", {
+      collection: "cardPrefs",
+      id: "feed",
+      patch: { mode: "mix" },
+    });
+    expect(replay.payload).toMatchObject({ record: stored, writtenCount: 0, syncVersion: null });
+  });
+
+  it("lists an inherited property name under ignoredKeys", async () => {
+    const client = await connect("wt-tostring");
+    const outcome = await callTool(client, "create_record", {
+      collection: "movies",
+      record: {
+        title: "Dune",
+        director: "V",
+        status: "queued",
+        rating: null,
+        note: "",
+        year: null,
+        watchedAt: null,
+        toString: "x",
+      },
+    });
+    expect(outcome.payload).toMatchObject({ ignoredKeys: ["toString"] });
+  });
+
+  it("keeps a category a merchant starts using between the preview and the delete", async () => {
+    const uid = "wt-category-race";
+    const client = await connect(uid);
+    await seedRows(uid, "financeCategories", [
+      {
+        id: "fcat_fun",
+        name: "Fun",
+        kind: "spend",
+        order: 0,
+        colorIndex: null,
+        archivedAt: null,
+      } as { id: string },
+    ]);
+    await seedRows(uid, "financeBudgets", [
+      { id: "fcat_fun:2026-11", categoryId: "fcat_fun", month: "2026-11", cents: 100 } as {
+        id: string;
+      },
+    ]);
+    const preview = await previewDigest(client, {
+      collection: "financeCategories",
+      id: "fcat_fun",
+    });
+    faults.reset();
+    faults.beforeTransaction(1, () =>
+      seedRows(uid, "financeMerchants", [
+        { id: "fmer_1", pattern: "x", displayName: "X", defaultCategoryId: "fcat_fun" } as {
+          id: string;
+        },
+      ]),
+    );
+    const outcome = await callTool(client, "delete_record", {
+      collection: "financeCategories",
+      id: "fcat_fun",
+      confirmCascade: preview.digest,
+    });
+    expect(outcome.payload).toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("merchant"),
+    });
+    expect(await readDoc(uid, "financeCategories/fcat_fun")).toBeDefined();
+    expect(await readDoc(uid, "financeBudgets/fcat_fun:2026-11")).toBeDefined();
   });
 });

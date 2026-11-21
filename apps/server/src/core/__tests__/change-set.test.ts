@@ -1,6 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ToolError } from "../../features/mcp/tool-result";
 import { bootTestServer, type TestServer } from "../../test/harness";
 import {
   type ChangeOperation,
@@ -13,6 +12,7 @@ import {
 } from "../change-set";
 import { readSyncVersion } from "../sync-version";
 import { listTombstones } from "../tombstone";
+import { ToolError } from "../tool-error";
 
 const NOW = "2026-11-20T15:00:00.000Z";
 
@@ -65,7 +65,13 @@ describe("commitChangeSet (emulator)", () => {
   it("commits nothing and leaves the counter alone for an empty change set", async () => {
     const uid = "cs-empty";
     const receipt = await commitChangeSet(firestore, uid, toChangeSet([]), NOW);
-    expect(receipt).toEqual({ written: 0, removed: 0, syncVersion: null, committedIds: {} });
+    expect(receipt).toEqual({
+      written: 0,
+      removed: 0,
+      syncVersion: null,
+      committedIds: {},
+      records: {},
+    });
     expect(await readSyncVersion(firestore, uid)).toBe(0);
   });
 
@@ -82,6 +88,10 @@ describe("commitChangeSet (emulator)", () => {
       removed: 0,
       syncVersion: 1,
       committedIds: { values: ["v_a", "v_b"] },
+      records: {
+        "values/v_a": { ...buildValue("v_a"), updatedAt: NOW },
+        "values/v_b": { ...buildValue("v_b"), updatedAt: NOW },
+      },
     });
     const stored = (await valueRef(uid, "v_a").get()).data();
     expect(stored).toMatchObject({ name: "v_a", updatedAt: NOW });
@@ -174,7 +184,8 @@ describe("commitChangeSet (emulator)", () => {
       ]),
       "2026-11-21T00:00:00.000Z",
     );
-    expect(receipt).toEqual({ written: 0, removed: 0, syncVersion: null, committedIds: {} });
+    expect(receipt).toMatchObject({ written: 0, removed: 0, syncVersion: null, committedIds: {} });
+    expect(receipt.records["values/v_same"]).toEqual({ ...buildValue("v_same"), updatedAt: NOW });
     expect(await readSyncVersion(firestore, uid)).toBe(1);
   });
 
@@ -216,6 +227,88 @@ describe("commitChangeSet (emulator)", () => {
     );
     await expect(attempt).rejects.toBeInstanceOf(ExpectationFailedError);
     expect((await valueRef(uid, "v_parent").get()).exists).toBe(true);
+  });
+
+  it("verifies a check against its parent's snapshot without writing it", async () => {
+    const uid = "cs-check";
+    await commitChangeSet(firestore, uid, toChangeSet([putNew("v_parent")]), NOW);
+    const updateTime = await readUpdateTime(uid, "v_parent");
+    const check: ChangeOperation = {
+      kind: "check",
+      collection: "values",
+      id: "v_parent",
+      expect: { updateTime },
+    };
+    await commitChangeSet(firestore, uid, toChangeSet([putNew("v_child"), check]), NOW);
+    expect(await readSyncVersion(firestore, uid)).toBe(2);
+    await valueRef(uid, "v_parent").update({ desc: "changed" });
+    const stale = commitChangeSet(firestore, uid, toChangeSet([putNew("v_late"), check]), NOW);
+    await expect(stale).rejects.toBeInstanceOf(ExpectationFailedError);
+    expect((await valueRef(uid, "v_late").get()).exists).toBe(false);
+  });
+
+  it("splits on the byte budget well below the write limit, and refuses one oversized record", async () => {
+    const uid = "cs-bytes";
+    const book = (id: string, noteLength: number): ChangeOperation => ({
+      kind: "put",
+      collection: "books",
+      record: {
+        id,
+        title: id,
+        author: "a",
+        status: "queued",
+        rating: null,
+        pages: null,
+        currentPage: null,
+        startedAt: null,
+        finishedAt: null,
+        valueId: null,
+        note: "n".repeat(noteLength),
+        order: 0,
+      },
+      expect: { absent: true },
+    });
+    const bulky = Array.from({ length: 20 }, (_, index) => book(`b_${index}`, 300_000));
+    const receipt = await commitChangeSet(firestore, uid, toChangeSet(bulky), NOW);
+    expect(receipt.written).toBe(20);
+    expect(receipt.syncVersion).toBe(2);
+    const oversized = commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet([book("b_huge", 5_000_000)]),
+      NOW,
+    );
+    await expect(oversized).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("too large"),
+    });
+    expect(await readSyncVersion(firestore, uid)).toBe(2);
+  });
+
+  it("refuses an id that isn't a single document segment", async () => {
+    const attempt = commitChangeSet(
+      firestore,
+      "cs-segment",
+      toChangeSet([putNew("v_a/nested")]),
+      NOW,
+    );
+    await expect(attempt).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("evaluates a logical-key guard on a change set with no removal", async () => {
+    const uid = "cs-logical-key";
+    await firestore.doc(`users/${uid}/goals/g_holder`).set({ id: "g_holder", valueId: "v_key" });
+    const attempt = commitChangeSet(
+      firestore,
+      uid,
+      toChangeSet(
+        [putNew("v_key")],
+        [{ collection: "goals", field: "valueId", value: "v_key", expectedIds: ["g_other"] }],
+      ),
+      NOW,
+    );
+    await expect(attempt).rejects.toBeInstanceOf(ExpectationFailedError);
+    expect((await valueRef(uid, "v_key").get()).exists).toBe(false);
   });
 });
 

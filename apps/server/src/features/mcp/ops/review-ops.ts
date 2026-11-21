@@ -1,9 +1,11 @@
 import { type ReviewCreate, resolveReviewForSave } from "@vega/shared";
+import { ToolError } from "../../../core/tool-error";
 import type { McpClock } from "../mcp-context";
-import { ToolError } from "../tool-result";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
-  buildPut,
+  buildGuard,
+  buildInsert,
+  buildUpdate,
   findRow,
   type ParsedPatch,
   type PlanOutcome,
@@ -14,15 +16,21 @@ import {
 
 function toReviewOutcome(
   dataset: LoadedDataset,
-  record: Record<string, unknown> & { id: string },
+  record: Record<string, unknown> & { id: string; periodKey: string },
   ignoredKeys: string[],
+  isNew: boolean,
 ): PlanOutcome {
+  const reviews = getLoaded(dataset, "reviews");
+  const put = isNew
+    ? buildInsert("reviews", reviews, record)
+    : buildUpdate("reviews", reviews, record);
   return {
     changeSet: {
-      operations: [buildPut("reviews", getLoaded(dataset, "reviews"), record)],
-      guards: [],
+      operations: [put],
+      guards: [buildGuard("reviews", "periodKey", record.periodKey, [record.id])],
     },
     result: withIgnoredKeys({ record: toResultRecord(record) }, ignoredKeys),
+    primary: { collection: "reviews", id: record.id },
   };
 }
 
@@ -57,7 +65,8 @@ export function planCreateReview(
     () => `rv_${periodKey}`,
   );
   if (conflictWith) throw conflictOnPeriod(conflictWith, periodKey);
-  return toReviewOutcome(dataset, record, patch.ignoredKeys);
+  const isHeld = reviews.rows.some((row) => row.id === record.id && row.periodKey === periodKey);
+  return toReviewOutcome(dataset, record, patch.ignoredKeys, !isHeld);
 }
 
 export function planUpdateReview(
@@ -70,5 +79,5 @@ export function planUpdateReview(
   const next = { ...review, ...(patch.fields as Partial<ReviewCreate>), id };
   const holder = reviews.rows.find((row) => row.id !== id && row.periodKey === next.periodKey);
   if (holder) throw conflictOnPeriod(holder.id, next.periodKey);
-  return toReviewOutcome(dataset, next, patch.ignoredKeys);
+  return toReviewOutcome(dataset, next, patch.ignoredKeys, false);
 }

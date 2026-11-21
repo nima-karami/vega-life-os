@@ -1,4 +1,4 @@
-import type { CollectionName } from "@vega/shared";
+import { type CollectionName, normalizeHabit } from "@vega/shared";
 import type { Firestore } from "firebase-admin/firestore";
 import { formatUpdateTime } from "../../../core/change-set";
 import type { StoredEntity } from "../../../core/repository";
@@ -30,15 +30,26 @@ export function getLoaded<C extends CollectionName>(
   return loaded;
 }
 
+// Legacy habits carry `days` and no `schedule`; the app normalizes them on read, so the planners must too.
+function normalizeRow<C extends CollectionName>(
+  collection: C,
+  raw: StoredEntity<C>,
+  today: string,
+): StoredEntity<C> {
+  if (collection !== "habits") return raw;
+  return normalizeHabit(raw as StoredEntity<"habits">, today) as StoredEntity<C>;
+}
+
 async function loadCollection<C extends CollectionName>(
   firestore: Firestore,
   uid: string,
   collection: C,
+  today: string,
 ): Promise<LoadedCollection<C>> {
   const snapshot = await firestore.collection(`users/${uid}/${collection}`).get();
   return createLoadedCollection(
     snapshot.docs.map((doc) => ({
-      row: doc.data() as StoredEntity<C>,
+      row: normalizeRow(collection, doc.data() as StoredEntity<C>, today),
       updateTime: formatUpdateTime(doc.updateTime),
     })),
   );
@@ -48,10 +59,11 @@ export async function loadCollections(
   firestore: Firestore,
   uid: string,
   collections: readonly CollectionName[],
+  today: string,
 ): Promise<LoadedDataset> {
   const loaded = await Promise.all(
     collections.map(async (collection) => {
-      const rows = await loadCollection(firestore, uid, collection);
+      const rows = await loadCollection(firestore, uid, collection, today);
       return [collection, rows] as const;
     }),
   );
