@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { carryHabitOrderForward, findLatestHabitOrders } from "../habit-order";
-import type { Task } from "../model";
+import type { TaskCreate as Task } from "../../entities/task";
+import { carryHabitOrderForward, findLatestHabitOrders } from "..";
 
 const MONDAY = "2026-10-19";
 const TUESDAY = "2026-10-20";

@@ -1,5 +1,6 @@
 export * from "./access-token";
 export * from "./collections";
+export * from "./domain";
 export * from "./entities/book";
 export * from "./entities/calendar-event";
 export * from "./entities/card";

@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { dowIndex } from "@/core/lib/date";
-import type { Habit, HabitSchedule } from "../model";
+import type { HabitSchedule } from "../../entities/habit";
 import {
   describeRecurrence,
+  dowIndex,
   findSlotOnOrBefore,
   getNextOccurrence,
   getWeeklyMask,
   isActiveOn,
   isActiveOnSchedule,
   normalizeHabit,
-} from "../recurrence";
+} from "..";
+import type { HabitShape as Habit } from "../build-habit";
 
 const weekly = (over: Partial<Extract<HabitSchedule, { type: "weekly" }>> = {}): HabitSchedule => ({
   type: "weekly",

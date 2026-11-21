@@ -1,9 +1,8 @@
+import { computeDayCounts, getZonedWallClock, partitionToday, todayISO } from "@vega/shared";
 import { startOfHour } from "date-fns";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useNowMs } from "@/core/lib/clock";
-import { todayISO } from "@/core/lib/date";
-import { getZonedWallClock } from "@/core/lib/zone";
 import { useStore } from "@/core/store";
 import { UndoBar } from "@/core/ui";
 import { EventEditor } from "@/features/calendar/EventEditor";
@@ -16,7 +15,6 @@ import {
 } from "@/features/journal";
 import { AddTaskInline } from "@/features/tasks/components/AddTaskInline";
 import { TaskDrawer } from "@/features/tasks/components/TaskDrawer";
-import { computeDayCounts } from "@/features/tasks/selectors";
 import { AllDoneMarker } from "./components/AllDoneMarker";
 import { DoneTasks } from "./components/DoneTasks";
 import { EveningCard } from "./components/EveningCard";
@@ -25,13 +23,7 @@ import { JournalEntryButton } from "./components/JournalEntryButton";
 import { LazyReflectionDialog } from "./components/LazyReflectionDialog";
 import { RemainingTasks } from "./components/RemainingTasks";
 import { TodayHeader } from "./components/TodayHeader";
-import {
-  describeEmptyDay,
-  findLiveCopy,
-  isDayCleared,
-  partitionToday,
-  shouldShowEveningCard,
-} from "./today-logic";
+import { describeEmptyDay, findLiveCopy, isDayCleared, shouldShowEveningCard } from "./today-logic";
 import { useDayLayout } from "./useDayLayout";
 import { useFreshStart } from "./useFreshStart";
 import { useTodayTaskActions } from "./useTodayTaskActions";

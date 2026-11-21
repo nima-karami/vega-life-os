@@ -6,8 +6,8 @@ const { savePut, saveRemove } = vi.hoisted(() => ({
 }));
 vi.mock("@/core/store/persist", () => ({ savePut, saveRemove }));
 
+import { todayISO } from "@vega/shared";
 import { create } from "zustand";
-import { todayISO } from "@/core/lib/date";
 import { createLibrarySlice, type LibrarySlice } from "../store";
 
 const mk = () =>

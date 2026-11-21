@@ -1,5 +1,5 @@
 import { Button } from "@heroui/react";
-import { formatShortDate, type WeekDay } from "@/core/lib/date";
+import { formatShortDate, type WeekDay } from "@vega/shared";
 import { Icon } from "@/core/ui";
 import { isForeignDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import type { Goal } from "@/features/goals";

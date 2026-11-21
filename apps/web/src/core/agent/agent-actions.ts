@@ -1,4 +1,4 @@
-import { todayISO } from "@/core/lib/date";
+import { todayISO } from "@vega/shared";
 import type { IconName } from "@/core/lib/icon-names";
 import type { RootState } from "@/core/store";
 import type { Goal } from "@/features/goals/model";

@@ -1,6 +1,6 @@
+import { GRATITUDE_ITEM_MAX, GRATITUDE_SLOTS } from "@vega/shared";
 import { useEffect, useRef } from "react";
 import { growToFitContent } from "@/core/ui";
-import { GRATITUDE_ITEM_MAX, GRATITUDE_SLOTS } from "../model";
 
 const SLOT_KEYS = Array.from({ length: GRATITUDE_SLOTS }, (_, i) => `gratitude-slot-${i}`);
 

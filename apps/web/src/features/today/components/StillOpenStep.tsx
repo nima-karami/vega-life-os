@@ -1,5 +1,5 @@
 import { Button, ButtonGroup } from "@heroui/react";
-import { formatShortDate } from "@/core/lib/date";
+import { formatShortDate } from "@vega/shared";
 import type { Task } from "@/features/tasks/model";
 import type { CarryChoice, CarryChoices } from "../close-out";
 

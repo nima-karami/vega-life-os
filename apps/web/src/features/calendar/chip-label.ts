@@ -1,4 +1,4 @@
-import { addMinutes } from "@/core/lib/date";
+import { addMinutes } from "@vega/shared";
 import type { Task } from "@/features/tasks";
 
 interface TimedChipLabelInput {

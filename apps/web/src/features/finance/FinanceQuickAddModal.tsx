@@ -1,7 +1,7 @@
 import { Button, ButtonGroup, Modal, useOverlayState } from "@heroui/react";
 import type { FinanceTransaction } from "@vega/shared";
+import { todayISO } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   DatePicker,

@@ -4,54 +4,26 @@
  * node vitest environment (no DOM). Components import these helpers.
  */
 import type { CalendarEvent } from "@vega/shared";
-import { daysBetween, isValidISODate, minutesOf, todayISO } from "@/core/lib/date";
-import { reorderByIds } from "@/core/lib/reorder";
-import { getZonedWallClock } from "@/core/lib/zone";
+import {
+  carryHabitOrderForward,
+  computeDayCounts,
+  daysBetween,
+  getZonedWallClock,
+  isAnytimeHabit,
+  isReflected,
+  isValidISODate,
+  minutesOf,
+  partitionToday,
+  reorderByIds,
+  type TodayGroups,
+  todayISO,
+} from "@vega/shared";
 import { getAllDayLivedForDay, getTimedLivedForDay } from "@/features/calendar/grid-data";
 import type { Goal } from "@/features/goals/model";
-import { type DayEntry, isReflected } from "@/features/journal";
-import { carryHabitOrderForward } from "@/features/tasks/habit-order";
+import type { DayEntry } from "@/features/journal";
 import type { Task, TaskStatus } from "@/features/tasks/model";
-import {
-  computeDayCounts,
-  getDayQueue,
-  isAnytimeHabit,
-  isResolved,
-} from "@/features/tasks/selectors";
 import type { CardDensity } from "@/features/tasks/task-card";
 import type { VoteMessage } from "@/features/values/vote-message";
-
-const NO_SETTLING: ReadonlySet<string> = new Set();
-
-export interface TodayGroups {
-  /** open | todo cards — still to do today, sorted by time then order */
-  remaining: Task[];
-  /** done | skip cards — resolved today, sorted by time then order */
-  done: Task[];
-  /** anytime habits still to do — the slim rows under "Anytime today", in the user's order */
-  anytime: Task[];
-  /** resolved anytime habits — slim rows under the Done cards */
-  anytimeDone: Task[];
-}
-
-/**
- * Partition today's queue into the card groups and the Anytime groups, each split at
- * `isResolved` and sorted by `getDayQueue` (time, then order). A resolved task in
- * `settlingIds` stays in its to-do group until its done moment has played out.
- */
-export function partitionToday(
-  tasks: Task[],
-  date: string,
-  settlingIds: ReadonlySet<string> = NO_SETTLING,
-): TodayGroups {
-  const groups: TodayGroups = { remaining: [], done: [], anytime: [], anytimeDone: [] };
-  for (const t of getDayQueue(tasks, date)) {
-    const isDone = isResolved(t) && !settlingIds.has(t.id);
-    if (isAnytimeHabit(t)) (isDone ? groups.anytimeDone : groups.anytime).push(t);
-    else (isDone ? groups.done : groups.remaining).push(t);
-  }
-  return groups;
-}
 
 /** Nothing left to do, and something was on the list: the day is settled. */
 export function isDayCleared(groups: TodayGroups): boolean {

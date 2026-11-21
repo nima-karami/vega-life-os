@@ -1,5 +1,5 @@
+import { fillDefaults } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { fillDefaults } from "../defaults";
 
 interface Shape {
   name: string;

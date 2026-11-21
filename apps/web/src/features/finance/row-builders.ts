@@ -7,8 +7,7 @@ import type {
   FinanceSettlement,
   FinanceTransaction,
 } from "@vega/shared";
-import { todayISO } from "@/core/lib/date";
-import { uid } from "@/core/lib/id";
+import { todayISO, uid } from "@vega/shared";
 import { nextCategoryColorIndex } from "./category-palette";
 import { FULL_SHARE_BPS, MIN_SPREAD_MONTHS } from "./money";
 import { toMonthKey } from "./month-cursor";

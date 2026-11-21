@@ -1,4 +1,4 @@
-import { shiftISO } from "@/core/lib/date";
+import { shiftISO } from "@vega/shared";
 
 export const LEITNER_DAYS = [0, 1, 2, 4, 8, 16] as const;
 

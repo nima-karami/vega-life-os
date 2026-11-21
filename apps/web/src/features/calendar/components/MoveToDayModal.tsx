@@ -1,5 +1,5 @@
 import { Button, ButtonGroup } from "@heroui/react";
-import { formatShortDate, type WeekDay } from "@/core/lib/date";
+import { formatShortDate, type WeekDay } from "@vega/shared";
 import { cx } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { formatTaskDaySubtitle } from "../task-labels";

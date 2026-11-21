@@ -3,10 +3,9 @@
  * Logic-bearing display rules extracted so they are unit-testable without a DOM.
  * No store access — callers pass the goal in.
  */
-import { todayISO } from "@/core/lib/date";
+import { formatPeriodLabel, todayISO } from "@vega/shared";
 import { type Goal, type GoalStatus, isGoalClosed } from "./model";
 import { computeGoalPace, type GoalPhase, getGoalPhase } from "./selectors";
-import { formatPeriodLabel } from "./timeframe";
 
 /** Headline progress as a whole-number percent (0..100). */
 export function computeGoalProgressPercent(goal: Goal): number {

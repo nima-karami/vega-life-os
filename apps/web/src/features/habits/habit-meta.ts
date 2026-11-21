@@ -1,7 +1,7 @@
+import { describeRecurrence } from "@vega/shared";
 import type { CardMeta } from "@/core/ui";
 import type { Task } from "@/features/tasks/model";
 import type { Habit } from "./model";
-import { describeRecurrence } from "./recurrence";
 import { computeHabitConsistency } from "./selectors";
 
 export function buildHabitMeta(

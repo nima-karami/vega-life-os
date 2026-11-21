@@ -1,4 +1,4 @@
-import { isValidISODate } from "@/core/lib/date";
+import { isValidISODate } from "@vega/shared";
 import { getTrpcClient } from "@/core/persistence/trpc-client";
 import { auth, loadFirestore } from "./app";
 

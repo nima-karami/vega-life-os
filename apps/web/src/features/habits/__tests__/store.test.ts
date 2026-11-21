@@ -1,5 +1,5 @@
+import { shiftISO, todayISO } from "@vega/shared";
 import { describe, expect, it, vi } from "vitest";
-import { shiftISO, todayISO } from "@/core/lib/date";
 import { createSliceHarness } from "@/core/store/__tests__/slice-harness";
 import type { Task } from "@/features/tasks/model";
 import { createHabitsSlice } from "../store";

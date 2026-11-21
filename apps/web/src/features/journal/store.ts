@@ -1,6 +1,7 @@
+import { mergeDayEntry } from "@vega/shared";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import { type DayEntry, mergeDayEntry } from "./model";
+import type { DayEntry } from "./model";
 import { saveGratitudeNudgeAck } from "./nudge-ack";
 
 /** Coalesce rapid edits (typing in gratitude/journal) into one persist after a short
@@ -91,7 +92,7 @@ export const createJournalSlice: Slice<JournalSlice> = (set, get) => {
 
     upsertDayEntry: (date, patch, opts) => {
       const existing = get().journal.find((e) => e.date === date);
-      const merged = mergeDayEntry(existing, date, patch, new Date().toISOString());
+      const merged = mergeDayEntry(existing ?? null, patch, date, new Date().toISOString());
       if (!merged) {
         if (existing) get().removeDayEntry(existing.id);
         return null;

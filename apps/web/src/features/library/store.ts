@@ -1,5 +1,4 @@
-import { todayISO } from "@/core/lib/date";
-import { uid } from "@/core/lib/id";
+import { todayISO, uid } from "@vega/shared";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { stepLeitner } from "@/features/cards/leitner";

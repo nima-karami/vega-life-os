@@ -1,5 +1,7 @@
 /** /goals/:goalId — a goal is a page, not a modal. You arrive through a value, so the
  *  trail names the values index and that value; every field autosaves as you touch it. */
+
+import { formatPeriodLabel } from "@vega/shared";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuietMode, useStore } from "@/core/store";
@@ -30,7 +32,6 @@ import {
   getGoalPaceBadge,
   isGoalProgressDerived,
 } from "./presentation";
-import { formatPeriodLabel } from "./timeframe";
 import { useGoalSeal } from "./useGoalSeal";
 
 export function GoalPage() {

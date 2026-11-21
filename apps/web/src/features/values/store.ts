@@ -1,9 +1,6 @@
-import { uid } from "@/core/lib/id";
+import { collectCascadeIds, pickSpectrum, uid } from "@vega/shared";
 import { saveBulkRemove, savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import type { Goal } from "@/features/goals/model";
-import type { Habit } from "@/features/habits/model";
-import type { Task } from "@/features/tasks/model";
 import type { Value } from "./model";
 
 export interface ValuesSlice {
@@ -17,27 +14,6 @@ export interface ValuesSlice {
   unarchiveValue: (id: string) => void;
 }
 
-const SPECTRA = ["courage", "presence", "selfcare", "stability", "vitality"];
-
-function collectCascadeIds(
-  valueId: string,
-  state: { goals: Goal[]; habits: Habit[]; tasks: Task[] },
-): { goalIds: Set<string>; habitIds: Set<string>; taskIds: Set<string> } {
-  const goalIds = new Set(state.goals.filter((g) => g.valueId === valueId).map((g) => g.id));
-  const habitIds = new Set(state.habits.filter((h) => h.valueId === valueId).map((h) => h.id));
-  const taskIds = new Set(
-    state.tasks
-      .filter(
-        (t) =>
-          t.valueId === valueId ||
-          (t.goalId && goalIds.has(t.goalId)) ||
-          (t.habitId && habitIds.has(t.habitId)),
-      )
-      .map((t) => t.id),
-  );
-  return { goalIds, habitIds, taskIds };
-}
-
 export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
   values: [],
 
@@ -48,7 +24,7 @@ export const createValuesSlice: Slice<ValuesSlice> = (set, get) => ({
       name: patch.name ?? "New value",
       icon: patch.icon ?? "compass",
       hue: patch.hue ?? "#55554c",
-      spectrum: patch.spectrum ?? SPECTRA[order % SPECTRA.length],
+      spectrum: patch.spectrum ?? pickSpectrum(order),
       energy: patch.energy ?? 0.5,
       desc: patch.desc ?? "",
       order: patch.order ?? order,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildTask, normalizeSchedule } from "../build-task";
-import type { Task } from "../model";
+import type { TaskCreate as Task } from "../../entities/task";
+import { buildTask, normalizeSchedule } from "..";
 
 describe("buildTask", () => {
   it("builds an unscheduled one-off as an open inbox task", () => {

@@ -1,3 +1,4 @@
+import { type HabitLifecycle, habitLifecycle } from "@vega/shared";
 import { type ReactNode, useMemo } from "react";
 import { useTodayISO } from "@/core/lib/clock";
 import type { IconName } from "@/core/lib/icon-names";
@@ -7,7 +8,7 @@ import type { Task } from "@/features/tasks/model";
 import { getValueCardFill } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
 import { buildHabitMeta } from "./habit-meta";
-import { HABIT_LIFECYCLE_LABEL, type Habit, type HabitLifecycle, habitLifecycle } from "./model";
+import { HABIT_LIFECYCLE_LABEL, type Habit } from "./model";
 import { buildHabitWeek } from "./selectors";
 
 const STATUS_ICON: Record<HabitLifecycle, IconName> = {

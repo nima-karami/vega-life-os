@@ -1,5 +1,5 @@
+import { todayISO } from "@vega/shared";
 import { format, subDays } from "date-fns";
-import { todayISO } from "@/core/lib/date";
 import { type RootState, useStore } from "@/core/store";
 import type { Task } from "@/features/tasks/model";
 import {

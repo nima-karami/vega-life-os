@@ -5,8 +5,8 @@ import {
   foldsByDefault,
   listTypeSlots,
   type SlotId,
+  todayISO,
 } from "@vega/shared";
-import { todayISO } from "@/core/lib/date";
 import { fillSampleSlots, type SampledCard } from "./card-sample";
 
 export interface CardDraft {

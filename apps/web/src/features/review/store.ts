@@ -1,4 +1,4 @@
-import { uid } from "@/core/lib/id";
+import { resolveReviewForSave, uid } from "@vega/shared";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import type { Review } from "./model";
@@ -15,17 +15,7 @@ export const createReviewSlice: Slice<ReviewSlice> = (set, get) => ({
   reviews: [],
 
   saveReview: (input) => {
-    // one review per period — overwrite if the week already has one
-    const existing = get().reviews.find(
-      (r) => r.periodKey === input.periodKey && (!input.id || r.id === input.id),
-    );
-    const review: Review = {
-      id: input.id ?? existing?.id ?? uid("rv_"),
-      periodKey: input.periodKey,
-      prompts: input.prompts,
-      checkIns: input.checkIns,
-      createdAt: input.createdAt ?? new Date().toISOString(),
-    };
+    const { record: review } = resolveReviewForSave(get().reviews, input, undefined, uid);
     set((s) => {
       const rest = s.reviews.filter((r) => r.id !== review.id);
       return { reviews: [review, ...rest] };

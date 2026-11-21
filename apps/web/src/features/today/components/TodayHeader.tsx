@@ -1,5 +1,5 @@
+import { formatLongDate, formatRelativeDay } from "@vega/shared";
 import type { ReactNode } from "react";
-import { formatLongDate, formatRelativeDay } from "@/core/lib/date";
 import { CalendarPopover, Icon, IconButton } from "@/core/ui";
 import { describeDay } from "../today-logic";
 

@@ -1,5 +1,5 @@
+import { shiftISO } from "@vega/shared";
 import { useSearchParams } from "react-router";
-import { shiftISO } from "@/core/lib/date";
 import { resolveViewDate } from "./today-logic";
 
 /** The Today page's viewed day, held in `?date=` so Back from a deep link restores it. */

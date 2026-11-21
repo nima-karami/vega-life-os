@@ -5,10 +5,11 @@
  * adding a value or a goal creates it and lands on its page. Archived values keep
  * their non-destructive `archivedAt` lifecycle behind a quiet disclosure.
  */
+
+import { reorderByIds } from "@vega/shared";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useRegisterCommands } from "@/app/commands";
-import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
 import { AddButton, CreateNameDialog, Disclosure, SortableList } from "@/core/ui";
 import { DeleteValueDialog } from "./components/DeleteValueDialog";

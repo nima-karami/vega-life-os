@@ -1,21 +1,22 @@
 import {
-  CARD_TYPES,
   type Card,
   type CardCreate,
   type CardPrefs,
   canPromote,
+  conformCardWrite,
   DEFAULT_CARD_PREFS,
   isLearnable,
   type MindCard,
   type MindMetaRecord,
-  type SlotId,
+  NO_SCHEDULE,
+  normalizeCategory,
+  todayISO,
+  uid,
 } from "@vega/shared";
-import { todayISO } from "@/core/lib/date";
-import { uid } from "@/core/lib/id";
 import { savePut, saveRemove } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
 import { stepLeitner } from "./leitner";
-import { matchKey, normalizeCategory } from "./model";
+import { matchKey } from "./model";
 
 export interface CardsSlice {
   cards: Card[];
@@ -39,39 +40,11 @@ export function resolveCardPrefs(rows: CardPrefs[]): CardPrefs {
   return rows.find((row) => row.id === "feed") ?? DEFAULT_CARD_PREFS;
 }
 
-const EMPTY_SLOT: Record<SlotId, "" | null | string[]> = {
-  title: "",
-  body: "",
-  author: null,
-  work: null,
-  locator: null,
-  phonetic: null,
-  language: null,
-  examples: [],
-  synonyms: [],
-};
-
-const NO_SCHEDULE = { box: null, nextDue: null, lastReviewed: null } as const;
-
 // A correct grade pushes nextDue past today, so this is true once — a duplicate same-day
 // fire is blocked. A wrong grade leaves nextDue at today, so the card stays gradeable and
 // can still be cleared this session (the whole point of forced reinsertion).
 export function hasClearedToday(card: Card, today: string): boolean {
   return card.lastReviewed === today && card.nextDue !== null && card.nextDue > today;
-}
-
-/** Rule 2 and rule 4 of the schema, applied on the way in so no write can violate them. */
-function conformCard(card: Card): Card {
-  const declared = CARD_TYPES[card.type].slots;
-  const next = { ...card };
-  for (const slot of Object.keys(EMPTY_SLOT) as SlotId[]) {
-    if (declared[slot]) continue;
-    (next as Record<string, unknown>)[slot] = Array.isArray(EMPTY_SLOT[slot])
-      ? []
-      : EMPTY_SLOT[slot];
-  }
-  if (!isLearnable(next)) return { ...next, ...NO_SCHEDULE };
-  return next;
 }
 
 /** Retired sources, kept on state so migration v4 can read them. Never written again (spec §3.1). */
@@ -93,10 +66,9 @@ export const createCardsSlice: Slice<CardsSlice & RetiredMindState> = (set, get)
     mindMeta: [],
 
     addCard: (input) => {
-      const card = conformCard({
+      const card = conformCardWrite({
         ...input,
         id: uid("c_"),
-        category: normalizeCategory(input.category),
         updatedAt: "",
         fieldUpdatedAt: {},
       });
@@ -110,9 +82,8 @@ export const createCardsSlice: Slice<CardsSlice & RetiredMindState> = (set, get)
       if (!card) return;
       const merged = { ...card, ...patch, id };
       write(
-        conformCard({
+        conformCardWrite({
           ...merged,
-          category: normalizeCategory(merged.category),
           reviewCount: patch.reviewCount ?? card.reviewCount,
         }),
       );

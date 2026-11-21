@@ -1,6 +1,7 @@
 // apps/web/src/features/cards/__tests__/card-draft.test.ts
+
+import { todayISO } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { todayISO } from "@/core/lib/date";
 import {
   changeDraftType,
   createEmptyDraft,

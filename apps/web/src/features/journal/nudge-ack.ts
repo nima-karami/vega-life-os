@@ -1,5 +1,5 @@
+import { isValidISODate } from "@vega/shared";
 import { setCloudProfile } from "@/core/firebase/profile";
-import { isValidISODate } from "@/core/lib/date";
 
 // Signed in it lives on the cloud profile (hydrated with the account); signed out, here.
 const KEY = "vega.gratitudeNudgeAckedThrough";

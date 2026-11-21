@@ -1,5 +1,3 @@
-import { parseISO } from "date-fns";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addMinutes,
   daysBetween,
@@ -7,11 +5,13 @@ import {
   formatRelativeDay,
   getWeekDays,
   getWeekDaysFor,
+  getZonedWallClock,
   minutesOf,
   shiftISO,
   todayISO,
-} from "./date";
-import { getZonedWallClock } from "./zone";
+} from "@vega/shared";
+import { parseISO } from "date-fns";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("minutesOf", () => {
   it("converts HH:mm to minutes since midnight", () => {

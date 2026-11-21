@@ -1,4 +1,4 @@
-import { daysBetween, todayISO } from "@/core/lib/date";
+import { daysBetween, todayISO } from "@vega/shared";
 import type { Habit } from "@/features/habits/model";
 import type { Task } from "@/features/tasks/model";
 import type { Goal } from "./model";

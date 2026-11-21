@@ -1,5 +1,4 @@
-import { CARD_TYPES, type Card, foldsByDefault } from "@vega/shared";
-import { daysBetween } from "@/core/lib/date";
+import { CARD_TYPES, type Card, daysBetween, foldsByDefault } from "@vega/shared";
 import { stepLeitner } from "./leitner";
 
 // Deliberately not canPromote: the title clause is left out so an untitled card still

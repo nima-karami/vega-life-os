@@ -4,8 +4,8 @@ const { savePut, saveRemove } = vi.hoisted(() => ({ savePut: vi.fn(), saveRemove
 vi.mock("@/core/store/persist", () => ({ savePut, saveRemove }));
 
 import type { Card, CardCreate } from "@vega/shared";
+import { shiftISO, todayISO } from "@vega/shared";
 import { create } from "zustand";
-import { shiftISO, todayISO } from "@/core/lib/date";
 import { LEITNER_DAYS } from "../leitner";
 import { createEmptyDraft, setDraftSlot, toCardCreate } from "../page/card-draft";
 import { selectReviewSet } from "../queue";

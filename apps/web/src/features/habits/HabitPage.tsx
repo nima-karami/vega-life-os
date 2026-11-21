@@ -1,4 +1,5 @@
 import { Button } from "@heroui/react";
+import { type HabitLifecycle, habitLifecycle } from "@vega/shared";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTodayISO } from "@/core/lib/clock";
@@ -20,7 +21,7 @@ import { DeleteHabitDialog } from "./DeleteHabitDialog";
 import { HabitDayRecord } from "./HabitDayRecord";
 import { HabitFields } from "./HabitFields";
 import { buildHabitMeta } from "./habit-meta";
-import { HABIT_LIFECYCLE_LABEL, type Habit, type HabitLifecycle, habitLifecycle } from "./model";
+import { HABIT_LIFECYCLE_LABEL, type Habit } from "./model";
 import { buildHabitDayRecord } from "./selectors";
 import { useHabitLifecycle } from "./useHabitLifecycle";
 

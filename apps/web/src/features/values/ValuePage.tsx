@@ -1,10 +1,9 @@
 /** /values/:valueId — the value itself is the editor: the title is the name field,
  *  and its goals and habits stand as cards in its own colour. */
 
-import { VALUE_IDENTITY_MAX } from "@vega/shared";
+import { reorderByIds, VALUE_IDENTITY_MAX } from "@vega/shared";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { reorderByIds } from "@/core/lib/reorder";
 import { useStore } from "@/core/store";
 import { CreateNameDialog, Icon, IconField, Menu, SortableList } from "@/core/ui";
 import { GoalEntityCard } from "@/features/goals/components/GoalEntityCard";

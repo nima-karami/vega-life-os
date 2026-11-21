@@ -1,5 +1,5 @@
+import { shiftISO } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { shiftISO } from "@/core/lib/date";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Habit, HabitSchedule } from "../model";
 import { buildHabitDayRecord } from "../selectors";
