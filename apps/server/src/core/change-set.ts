@@ -16,6 +16,7 @@ import {
   getOperationKey,
   getRecordKey,
   packChunks,
+  toDocPath,
 } from "./change-set-chunks";
 import { writableSchema } from "./collection-store";
 import { mergeWithFieldLww, type StoredRecord } from "./field-lww";
@@ -259,7 +260,7 @@ function stageOperation(
 }
 
 const toDocRef = (firestore: Firestore, uid: string, key: string): DocumentReference =>
-  firestore.doc(`users/${uid}/${key}`);
+  firestore.doc(toDocPath(uid, key));
 
 function commitChunk(
   firestore: Firestore,
@@ -335,7 +336,7 @@ export async function commitChangeSet(
   const validated = changeSet.operations.map(validateOperation);
   const callerIndex = new Map(validated.map((operation, index) => [operation, index]));
   const writes = dedupeWrites(validated.filter(isWrite));
-  writes.forEach(assertFitsOneChunk);
+  for (const operation of writes) assertFitsOneChunk(uid, operation);
   const checks = collectChecks(validated, writes);
   const receipt: ChangeSetReceipt = {
     written: 0,
@@ -347,7 +348,12 @@ export async function commitChangeSet(
   if (writes.length === 0 && checks.size === 0 && changeSet.guards.length === 0) return receipt;
   const chunks =
     writes.length > 0
-      ? packChunks(writes, new Set(checks.keys()), (operation) => callerIndex.get(operation) ?? 0)
+      ? packChunks(
+          uid,
+          writes,
+          new Set(checks.keys()),
+          (operation) => callerIndex.get(operation) ?? 0,
+        )
       : [{ operations: [], firstIndex: 0 }];
   const guardsByChunk = assignGuards(chunks, changeSet.guards);
   for (const [index, chunk] of chunks.entries()) {

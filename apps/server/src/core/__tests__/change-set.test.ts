@@ -269,9 +269,9 @@ describe("commitChangeSet (emulator)", () => {
       },
       expect: { absent: true },
     });
-    const bulky = Array.from({ length: 20 }, (_, index) => book(`b_${index}`, 300_000));
+    const bulky = Array.from({ length: 40 }, (_, index) => book(`b_${index}`, 300_000));
     const receipt = await commitChangeSet(firestore, uid, toChangeSet(bulky), NOW);
-    expect(receipt.written).toBe(20);
+    expect(receipt.written).toBe(40);
     expect(receipt.syncVersion).toBe(2);
     const oversized = commitChangeSet(
       firestore,
@@ -547,8 +547,9 @@ describe("change-set helpers", () => {
   it("counts index entries, so many short array elements weigh more than their JSON", () => {
     const tags = Array.from({ length: 5_000 }, (_, index) => String(index % 10));
     const jsonBytes = Buffer.byteLength(JSON.stringify({ id: "b_1", tags }));
-    const estimate = estimateDocumentBytes({ id: "b_1", tags }, "books/b_1");
-    expect(estimate).toBeGreaterThan(jsonBytes + 5_000 * Buffer.byteLength("books/b_1"));
+    const docPath = "users/u/books/b_1";
+    const estimate = estimateDocumentBytes({ id: "b_1", tags }, docPath);
+    expect(estimate).toBeGreaterThan(jsonBytes + 2 * 5_000 * Buffer.byteLength(docPath));
   });
 
   it("splits docs heavy in index entries below the write limit", () => {
@@ -559,9 +560,54 @@ describe("change-set helpers", () => {
       record: { id: `b_${index}`, tags },
       expect: { absent: true },
     }));
-    const chunks = packChunks(operations, new Set(), (operation) => operations.indexOf(operation));
+    const chunks = packChunks("u", operations, new Set(), (operation) =>
+      operations.indexOf(operation),
+    );
     expect(chunks.length).toBeGreaterThan(1);
     expect(chunks[1].firstIndex).toBe(chunks[0].operations.length);
+  });
+
+  it("charges a long uid twice per index entry", () => {
+    const uid = "u".repeat(128);
+    const operations: WriteOperation[] = Array.from({ length: 2 }, (_, index) => ({
+      kind: "put",
+      collection: "books",
+      record: { id: `b_${index}`, tags: Array.from({ length: 15_000 }, (_, tag) => `t${tag}`) },
+      expect: { absent: true },
+    }));
+    expect(
+      packChunks(uid, operations, new Set(), (operation) => operations.indexOf(operation)),
+    ).toHaveLength(2);
+  });
+
+  it("caps an indexed value at Firestore's 1,500 bytes, keeping two big text edits together", () => {
+    const body = "x".repeat(900 * 1024);
+    const operations: WriteOperation[] = ["n_a", "n_b"].map((id) => ({
+      kind: "put",
+      collection: "journal",
+      record: { id, journal: body },
+      expect: { updateTime: "t" },
+      storedBytes: estimateDocumentBytes({ id, journal: body }, `users/u/journal/${id}`),
+    }));
+    const checked = new Set(["journal/n_a", "journal/n_b"]);
+    expect(
+      packChunks("u", operations, checked, (operation) => operations.indexOf(operation)),
+    ).toHaveLength(1);
+  });
+
+  it("commits a small change with a checked write in one chunk", () => {
+    const operations: WriteOperation[] = [
+      { kind: "put", collection: "tasks", record: { id: "t_1" }, expect: { absent: true } },
+      { kind: "put", collection: "habits", record: { id: "h_1" }, expect: { updateTime: "t" } },
+    ];
+    const chunks = packChunks("u", operations, new Set(["habits/h_1"]), (operation) =>
+      operations.indexOf(operation),
+    );
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].operations.map((operation) => operation.collection)).toEqual([
+      "tasks",
+      "habits",
+    ]);
   });
 
   it("flags a change set that touches tasks or calendar events", () => {
