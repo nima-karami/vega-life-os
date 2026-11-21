@@ -1,3 +1,4 @@
+export * from "./access-token";
 export * from "./collections";
 export * from "./entities/book";
 export * from "./entities/calendar-event";
