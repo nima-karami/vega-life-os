@@ -1,6 +1,6 @@
 import { Button, Modal, useOverlayState } from "@heroui/react";
+import { addMinutes, minutesOf } from "@vega/shared";
 import { useState } from "react";
-import { addMinutes, minutesOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   ConfirmDialog,

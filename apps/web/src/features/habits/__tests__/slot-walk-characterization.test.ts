@@ -1,5 +1,5 @@
+import { getWeekDays, shiftISO } from "@vega/shared";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { getWeekDays, shiftISO } from "@/core/lib/date";
 import { computeHabitTimeline } from "@/features/analytics/selectors";
 import { computeWeekRollup } from "@/features/review/rollup";
 import { buildHabitMeta } from "../habit-meta";

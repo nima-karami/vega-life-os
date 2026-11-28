@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
+import { formatLongDate, todayISO } from "@vega/shared";
 import { memo, type ReactNode, useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { formatLongDate, todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, Icon, useCompact } from "@/core/ui";
 import { EntriesMobileList } from "./components/EntriesMobileList";

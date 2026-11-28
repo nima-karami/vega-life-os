@@ -1,7 +1,6 @@
-import { shiftISO } from "@/core/lib/date";
+import { isActiveOnSchedule, shiftISO } from "@vega/shared";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Habit, HabitSchedule, PausedSpan } from "../model";
-import { isActiveOnSchedule } from "../recurrence";
 
 export const FIXTURE_TODAY = "2026-03-30";
 export const FIXTURE_NOW = new Date(`${FIXTURE_TODAY}T12:00:00`);

@@ -1,4 +1,4 @@
-import { shiftISO } from "@/core/lib/date";
+import { shiftISO } from "@vega/shared";
 import type { NearDuplicateCandidate, NearDuplicateSubject } from "./types";
 
 export const NEAR_DUPLICATE_DAY_WINDOW = 3;

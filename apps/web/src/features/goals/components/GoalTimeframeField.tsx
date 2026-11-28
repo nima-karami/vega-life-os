@@ -1,4 +1,11 @@
 import { Button } from "@heroui/react";
+import {
+  detectTimeframe,
+  formatPeriodLabel,
+  getPeriodStep,
+  getPresetRangeOn,
+  type Timeframe,
+} from "@vega/shared";
 import { useState } from "react";
 import { useStore } from "@/core/store";
 import { DatePicker, Icon, SegmentButton } from "@/core/ui";
@@ -6,13 +13,6 @@ import { DetailSection } from "@/features/values/components/DetailPage";
 import type { Goal } from "../model";
 import { coerceStatus } from "../presentation";
 import { getGoalPhase } from "../selectors";
-import {
-  detectTimeframe,
-  formatPeriodLabel,
-  getPeriodStep,
-  getPresetRangeOn,
-  type Timeframe,
-} from "../timeframe";
 
 const TIMEFRAMES: { id: Timeframe; label: string }[] = [
   { id: "quarter", label: "Quarter" },

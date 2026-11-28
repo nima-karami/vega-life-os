@@ -1,5 +1,6 @@
+import { isHabitActive } from "@vega/shared";
 import type { Task } from "@/features/tasks/model";
-import { type Habit, isHabitActive } from "./model";
+import type { Habit } from "./model";
 import { hasLapsedPreviousSlot } from "./selectors";
 
 /** Today's open instance of a tracked, active habit whose previous slot lapsed. */

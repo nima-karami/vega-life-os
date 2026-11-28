@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { todayISO } from "@/core/lib/date";
+import { todayISO } from "@vega/shared";
 import { type RootState, useStore } from "@/core/store";
 import {
   buildCloseTaskAction,

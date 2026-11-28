@@ -1,5 +1,5 @@
+import { daysBetween, shiftISO } from "@vega/shared";
 import { describe, expect, it } from "vitest";
-import { daysBetween, shiftISO } from "@/core/lib/date";
 import {
   findNearDuplicates,
   NEAR_DUPLICATE_DAY_WINDOW,

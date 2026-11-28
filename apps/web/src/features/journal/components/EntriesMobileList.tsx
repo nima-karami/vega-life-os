@@ -1,5 +1,5 @@
+import { formatLongDate } from "@vega/shared";
 import { memo } from "react";
-import { formatLongDate } from "@/core/lib/date";
 import { cx, Icon } from "@/core/ui";
 import { EMPTY_FIELD, ENTRY_STATUS_LABEL, summarizeGratitude, summarizeJournal } from "../entries";
 import { type DayEntry, type EntryStatus, getEntryStatus, MOOD_LABEL } from "../model";

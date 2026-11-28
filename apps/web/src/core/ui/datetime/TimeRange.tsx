@@ -1,5 +1,5 @@
+import { minutesOf } from "@vega/shared";
 import { useEffect, useRef, useState } from "react";
-import { minutesOf } from "@/core/lib/date";
 import { cx } from "../cx";
 import { Icon } from "../icons";
 import { Popover } from "../popover";

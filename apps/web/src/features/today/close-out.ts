@@ -1,6 +1,5 @@
-import { shiftISO } from "@/core/lib/date";
+import { byTime, shiftISO } from "@vega/shared";
 import type { Task } from "@/features/tasks/model";
-import { byTime } from "@/features/tasks/selectors";
 
 export type CarryChoice = "tomorrow" | "let-go";
 export type CarryChoices = Record<string, CarryChoice>;

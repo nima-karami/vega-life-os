@@ -1,4 +1,5 @@
 import { Button } from "@heroui/react";
+import { todayISO } from "@vega/shared";
 import {
   endOfMonth,
   endOfWeek,
@@ -9,7 +10,6 @@ import {
 } from "date-fns";
 import { useMemo, useState } from "react";
 import { getAlignment } from "@/core/lib/align";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, Icon, Label, NONE, Select } from "@/core/ui";
 import type { Task } from "../model";

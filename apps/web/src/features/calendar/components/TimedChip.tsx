@@ -1,5 +1,5 @@
+import { addMinutes } from "@vega/shared";
 import { memo } from "react";
-import { addMinutes } from "@/core/lib/date";
 import { ContextMenu, cx } from "@/core/ui";
 import type { Task } from "@/features/tasks";
 import { useValueColor } from "@/features/values";

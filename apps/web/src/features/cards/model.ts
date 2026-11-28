@@ -4,8 +4,6 @@ export type { MindMetaRecord } from "@vega/shared";
 
 const VOCAB_ID_PREFIX = "d:vocab:";
 
-export const normalizeCategory = (raw: string): string => raw.trim();
-
 export const matchKey = (raw: string): string => raw.trim().toLowerCase();
 
 export const isSameCategory = (a: string, b: string): boolean => matchKey(a) === matchKey(b);

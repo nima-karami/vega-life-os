@@ -1,5 +1,6 @@
+import type { HabitLifecycle } from "@vega/shared";
 import { useStore } from "@/core/store";
-import type { Habit, HabitLifecycle } from "./model";
+import type { Habit } from "./model";
 
 /** Move a habit between Active / Paused / Archived. Applies immediately — the
  *  transitions carry side effects (instance regeneration, the resume anchor)

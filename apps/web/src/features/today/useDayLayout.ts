@@ -1,7 +1,7 @@
+import { filterVisibleEvents } from "@vega/shared";
 import { useMemo } from "react";
 import { useStore } from "@/core/store";
 import { useCalendarAutoRefresh } from "@/features/calendar/useCalendarAutoRefresh";
-import { filterVisibleEvents } from "@/features/calendar-sync";
 import type { Task } from "@/features/tasks/model";
 import { type DayLayout, layoutDay } from "./today-logic";
 

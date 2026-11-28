@@ -1,4 +1,4 @@
-import { isValidTimeZone } from "@/core/lib/zone";
+import { isValidTimeZone } from "@vega/shared";
 
 /** The zone the mirrored event layer is expressed in: the account's when usable, else the browser's. */
 export function resolveDisplayZone(

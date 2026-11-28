@@ -1,3 +1,4 @@
+import { habitLifecycle } from "@vega/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useRegisterCommands } from "@/app/commands";
@@ -5,7 +6,7 @@ import { useStore } from "@/core/store";
 import { AddButton, CreateNameDialog, Disclosure } from "@/core/ui";
 import { getValueCardFill } from "@/features/values/color";
 import { HabitEntityCard } from "./HabitEntityCard";
-import { type Habit, habitLifecycle } from "./model";
+import type { Habit } from "./model";
 import { groupHabitsByValue, sortArchived } from "./selectors";
 
 export function HabitsPage() {

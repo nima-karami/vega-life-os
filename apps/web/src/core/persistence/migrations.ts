@@ -1,8 +1,7 @@
 import type { Card, CardPrefs, MindCard, MindMetaRecord } from "@vega/shared";
-import { todayISO } from "@/core/lib/date";
+import { isActiveOn, normalizeHabit, todayISO } from "@vega/shared";
 import { saveBulkPut, saveBulkRemove, savePut } from "@/core/store/persist";
 import type { Habit } from "@/features/habits/model";
-import { isActiveOn, normalizeHabit } from "@/features/habits/recurrence";
 import type { VocabEntry } from "@/features/library/model";
 import type { Task } from "@/features/tasks/model";
 import { RETIRED_HUE_REPLACEMENT } from "@/features/values/color";
@@ -60,7 +59,7 @@ export function migrateData(snapshot: { habits: Habit[]; tasks: Task[]; values: 
   rehuedValueIds: string[];
   prunedTaskIds: string[];
 } {
-  const habits = snapshot.habits.map(normalizeHabit);
+  const habits = snapshot.habits.map((habit) => normalizeHabit(habit));
   const today = todayISO();
   const habitById = new Map(habits.map((h) => [h.id, h]));
 

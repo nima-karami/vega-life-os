@@ -1,6 +1,6 @@
 import { Card } from "@heroui/react";
+import { addMinutes } from "@vega/shared";
 import { useNowMs } from "@/core/lib/clock";
-import { addMinutes } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { cx, getValueStripeStyle, Icon, Lineage, ROW_META_CLASS } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";

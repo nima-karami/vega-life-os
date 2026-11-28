@@ -1,3 +1,4 @@
+import type { HabitLifecycle } from "@vega/shared";
 import type { IconName } from "@/core/lib/icon-names";
 
 export type HabitSchedule =
@@ -44,20 +45,8 @@ export interface Habit {
   plan: string;
 }
 
-/** Three lifecycle states, derived from the two timestamps (archived supersedes paused). */
-export type HabitLifecycle = "active" | "paused" | "archived";
-
 export const HABIT_LIFECYCLE_LABEL: Record<HabitLifecycle, string> = {
   active: "Active",
   paused: "Paused",
   archived: "Archived",
 };
-
-export function habitLifecycle(h: Habit): HabitLifecycle {
-  if ((h.archivedAt ?? null) !== null) return "archived";
-  if ((h.pausedAt ?? null) !== null) return "paused";
-  return "active";
-}
-
-/** Only active habits generate instances and count toward consistency/analytics. */
-export const isHabitActive = (h: Habit): boolean => habitLifecycle(h) === "active";

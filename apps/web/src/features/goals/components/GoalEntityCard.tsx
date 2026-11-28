@@ -1,3 +1,4 @@
+import { formatPeriodLabel } from "@vega/shared";
 import type { ReactNode } from "react";
 import type { IconName } from "@/core/lib/icon-names";
 import { useQuietMode } from "@/core/store";
@@ -6,7 +7,6 @@ import { getValueCardFill } from "@/features/values/color";
 import type { Value } from "@/features/values/model";
 import { GOAL_STATUS_LABEL, type Goal, type GoalStatus } from "../model";
 import { computeGoalProgressPercent, getGoalPaceBadge } from "../presentation";
-import { formatPeriodLabel } from "../timeframe";
 
 /** Semantic colour cannot survive on a saturated fill, so a status separates by glyph. */
 const STATUS_ICON: Record<GoalStatus, IconName> = {

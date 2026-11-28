@@ -8,7 +8,7 @@
  * These mirror the spec's "placed on grid iff time != null && date == visibleDay"
  * rule and keep the view free of filtering logic.
  */
-import type { CalendarEvent } from "@vega/shared";
+import { type CalendarEvent, isMultiDayEvent } from "@vega/shared";
 import type { Task } from "@/features/tasks";
 
 /** A task with a time draws as a positioned chip on the timed grid. */
@@ -33,37 +33,6 @@ export function getUntimedTasksForDay(tasks: Task[], dayIso: string): Task[] {
 /** Backlog tasks with no date, ordered by their `order` field. */
 export function getUnscheduledTasks(tasks: Task[]): Task[] {
   return tasks.filter((t) => t.date === null).sort((a, b) => a.order - b.order);
-}
-
-/**
- * A multi-day span belongs in the all-day row, not the timed grid: an all-day event
- * covering >1 day, or a timed block lasting ≥24h. A short timed block that merely
- * crosses midnight stays a single-day timed chip on its start day.
- */
-function isMultiDay(e: CalendarEvent): boolean {
-  if (e.endDate == null || e.date == null || e.endDate === e.date) return false;
-  return e.time == null || e.durationMin >= 1440;
-}
-
-function coversDay(e: CalendarEvent, dayIso: string): boolean {
-  if (e.date == null) return false;
-  const end = e.endDate ?? e.date;
-  return e.date <= dayIso && dayIso <= end;
-}
-
-/** Timed lived (Google) events for a given ISO day — placed on the timed grid. */
-export function getTimedLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
-  return events.filter((e) => e.time != null && !isMultiDay(e) && e.date === dayIso);
-}
-
-/** All-day + multi-day lived (Google) events covering a given ISO day — the all-day row. */
-export function getAllDayLivedForDay(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
-  return events.filter((e) => (e.time == null || isMultiDay(e)) && coversDay(e, dayIso));
-}
-
-/** Single-day all-day lived events for a day — the per-day cells (multi-day go in bars). */
-export function getSingleDayAllDayLived(events: CalendarEvent[], dayIso: string): CalendarEvent[] {
-  return events.filter((e) => e.time == null && !isMultiDay(e) && e.date === dayIso);
 }
 
 /** One multi-day event drawn as a continuous bar across the visible day columns. */
@@ -91,7 +60,7 @@ export function layoutSpanBars(
   const endOf = (e: CalendarEvent) => e.endDate ?? (e.date as string);
 
   const spans = events
-    .filter((e) => isMultiDay(e) && e.date != null && e.date <= last && endOf(e) >= first)
+    .filter((e) => isMultiDayEvent(e) && e.date != null && e.date <= last && endOf(e) >= first)
     .sort((a, b) =>
       a.date === b.date
         ? endOf(b) < endOf(a)

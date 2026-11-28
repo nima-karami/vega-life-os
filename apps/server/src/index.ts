@@ -2,12 +2,15 @@ import { serve } from "@hono/node-server";
 import { buildApp } from "./app";
 import { assertDbMatchesEnv, loadServerConfig } from "./core/config";
 import { initAdmin } from "./core/firebase-admin";
+import { createAccessTokenResolver } from "./features/access-tokens/token-store";
 import { createGoogleClient } from "./features/calendar/google-client";
 import { createOauthGateway } from "./features/calendar/oauth";
 import { createOidcVerifier } from "./features/calendar/oidc";
 import type { ReconcileDeps } from "./features/calendar/reconcile";
 import { createReconcileScheduler } from "./features/calendar/schedule-reconcile";
 import { refreshAccessToken } from "./features/calendar/token-store";
+import { registerReadTools } from "./features/mcp/read-tools";
+import { registerWriteTools } from "./features/mcp/write-tools";
 import { type CalendarContext, createAdminVerifier, makeCreateContext } from "./trpc/context";
 
 const config = loadServerConfig();
@@ -44,6 +47,10 @@ const app = buildApp({
   }),
   firestore,
   calendar,
+  mcp: {
+    resolveAccessToken: createAccessTokenResolver(firestore),
+    registrars: [registerReadTools, registerWriteTools],
+  },
   verifyOidc: createOidcVerifier(`${publicBaseUrl}/tasks/reconcile`),
 });
 

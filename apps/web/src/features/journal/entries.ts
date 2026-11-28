@@ -1,4 +1,5 @@
-import { type DayEntry, type EntryStatus, hasGratitude } from "./model";
+import { hasGratitude } from "@vega/shared";
+import type { DayEntry, EntryStatus } from "./model";
 
 export type EntryFilter = "all" | "journaled" | "gratitude" | "mood";
 export type EntrySort = "newest" | "oldest";

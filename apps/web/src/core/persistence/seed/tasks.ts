@@ -1,6 +1,6 @@
+import { isActiveOn } from "@vega/shared";
 import { addDays } from "date-fns";
 import type { Habit } from "@/features/habits/model";
-import { isActiveOn } from "@/features/habits/recurrence";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import { iso, mulberry32 } from "./helpers";
 

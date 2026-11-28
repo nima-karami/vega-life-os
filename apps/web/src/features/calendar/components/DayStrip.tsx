@@ -1,4 +1,4 @@
-import type { WeekDay } from "@/core/lib/date";
+import type { WeekDay } from "@vega/shared";
 import { cx } from "@/core/ui";
 
 // A border, not a ring: the strip's horizontal overflow clips a ring top and bottom.

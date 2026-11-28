@@ -1,5 +1,5 @@
+import { todayISO } from "@vega/shared";
 import { addDays, format } from "date-fns";
-import { todayISO } from "@/core/lib/date";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 

@@ -31,3 +31,7 @@ linked section of `CLAUDE.md` or the ADR. Item 1 keeps its number because older 
     client still sends ([`release-process.md`](release-process.md) §5).
 13. **CI skips work a change cannot affect** (2026-10-22): docs-only and web-only scopes
     ([`release-process.md`](release-process.md) §3).
+14. **Agents reach VEGA through the MCP server** (2026-11-20). Personal access tokens,
+    scoped read or read+write per token; bulk import and wipe stay app-only. Domain rules
+    live once, in `packages/shared/src/domain`, for both the web store and the server
+    ([ADR 0006](adr/2026-11-20-0006-mcp-server.md)).

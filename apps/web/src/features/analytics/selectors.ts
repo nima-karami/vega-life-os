@@ -1,12 +1,17 @@
+import {
+  getPausedSpans,
+  hasGratitude,
+  isActiveOnSchedule,
+  isHabitPausedOn,
+  shiftISO,
+  todayISO,
+} from "@vega/shared";
 import { addDays, format, parseISO, startOfWeek, subDays } from "date-fns";
-import { shiftISO, todayISO } from "@/core/lib/date";
 import { type Goal, isGoalClosed } from "@/features/goals/model";
 import { getGoalPaceBadge } from "@/features/goals/presentation";
 import { computeHabitConsistency } from "@/features/habits";
 import type { Habit } from "@/features/habits/model";
-import { getPausedSpans, isHabitPausedOn } from "@/features/habits/paused-spans";
-import { isActiveOnSchedule } from "@/features/habits/recurrence";
-import { type DayEntry, hasGratitude } from "@/features/journal/model";
+import type { DayEntry } from "@/features/journal/model";
 import { countDayRun } from "@/features/journal/selectors";
 import type { Task } from "@/features/tasks/model";
 

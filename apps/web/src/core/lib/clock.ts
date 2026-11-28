@@ -1,6 +1,5 @@
+import { getZonedWallClock, todayISO } from "@vega/shared";
 import { useSyncExternalStore } from "react";
-import { todayISO } from "./date";
-import { getZonedWallClock } from "./zone";
 
 /** ms remaining until the next wall-clock minute boundary (self-correcting, no drift). */
 export function msUntilNextMinute(nowMs: number): number {

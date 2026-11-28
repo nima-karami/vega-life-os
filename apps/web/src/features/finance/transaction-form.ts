@@ -1,5 +1,5 @@
 import type { FinanceCategory, FinancePayer, FinanceTransaction } from "@vega/shared";
-import { todayISO } from "@/core/lib/date";
+import { todayISO } from "@vega/shared";
 import {
   FULL_SHARE_BPS,
   formatCentsPlain,

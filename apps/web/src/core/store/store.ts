@@ -1,4 +1,4 @@
-import { createSyncCursor, DEFAULT_CARD_PREFS } from "@vega/shared";
+import { createSyncCursor, DEFAULT_CARD_PREFS, normalizeHabit } from "@vega/shared";
 import { create } from "zustand";
 import { auth, firebaseEnabled } from "@/core/firebase/app";
 import { getCloudProfile } from "@/core/firebase/profile";
@@ -22,7 +22,6 @@ import { createCardsBulkSlice } from "@/features/cards/bulk-store";
 import { createCardsSlice, resolveCardPrefs } from "@/features/cards/store";
 import { createFinanceSlice } from "@/features/finance/store";
 import { createGoalsSlice } from "@/features/goals/store";
-import { normalizeHabit } from "@/features/habits/recurrence";
 import { createHabitsSlice } from "@/features/habits/store";
 import { readLocalGratitudeNudgeAck } from "@/features/journal/nudge-ack";
 import { createJournalSlice } from "@/features/journal/store";

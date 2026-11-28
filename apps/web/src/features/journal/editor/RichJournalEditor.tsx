@@ -1,4 +1,4 @@
-import { JOURNAL_MAX } from "../model";
+import { JOURNAL_MAX } from "@vega/shared";
 import { RichMarkdownEditor } from "./RichMarkdownEditor";
 
 const DEBOUNCE_MS = 600;

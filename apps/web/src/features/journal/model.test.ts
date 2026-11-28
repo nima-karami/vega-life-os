@@ -1,14 +1,13 @@
-import { describe, expect, it } from "vitest";
 import {
-  type DayEntry,
   GRATITUDE_ITEM_MAX,
-  getEntryStatus,
   hasContent,
   hasGratitude,
   isReflected,
   JOURNAL_MAX,
   mergeDayEntry,
-} from "./model";
+} from "@vega/shared";
+import { describe, expect, it } from "vitest";
+import { type DayEntry, getEntryStatus } from "./model";
 
 const base = (over: Partial<DayEntry> = {}): DayEntry => ({
   id: "day_x",
@@ -56,7 +55,7 @@ describe("limits", () => {
 
 describe("mergeDayEntry", () => {
   it("creates a new entry from a patch (stamps timestamps + id)", () => {
-    const out = mergeDayEntry(undefined, "2026-06-22", { gratitude: ["sun"] }, "t1");
+    const out = mergeDayEntry(null, { gratitude: ["sun"] }, "2026-06-22", "t1");
     expect(out).not.toBeNull();
     expect(out?.date).toBe("2026-06-22");
     expect(out?.gratitude).toEqual(["sun"]);
@@ -67,7 +66,7 @@ describe("mergeDayEntry", () => {
 
   it("updates an existing entry, preserving id/createdAt and bumping updatedAt", () => {
     const existing = base({ id: "day_1", gratitude: ["a"], createdAt: "t0" });
-    const out = mergeDayEntry(existing, "2026-06-22", { mood: 5 }, "t2");
+    const out = mergeDayEntry(existing, { mood: 5 }, "2026-06-22", "t2");
     expect(out?.id).toBe("day_1");
     expect(out?.createdAt).toBe("t0");
     expect(out?.updatedAt).toBe("t2");
@@ -77,12 +76,13 @@ describe("mergeDayEntry", () => {
 
   it("drops blank gratitude slots and clamps lengths", () => {
     const out = mergeDayEntry(
-      undefined,
-      "2026-06-22",
+      null,
+
       {
         gratitude: ["keep", "   ", "x".repeat(GRATITUDE_ITEM_MAX + 50)],
         journal: "y".repeat(JOURNAL_MAX + 100),
       },
+      "2026-06-22",
       "t1",
     );
     expect(out?.gratitude).toEqual(["keep", "x".repeat(GRATITUDE_ITEM_MAX)]);
@@ -90,7 +90,7 @@ describe("mergeDayEntry", () => {
   });
 
   it("returns null (discard) when the merged entry has no content", () => {
-    expect(mergeDayEntry(undefined, "2026-06-22", { gratitude: ["  "] }, "t1")).toBeNull();
-    expect(mergeDayEntry(base({ id: "day_1" }), "2026-06-22", { journal: "" }, "t1")).toBeNull();
+    expect(mergeDayEntry(null, { gratitude: ["  "] }, "2026-06-22", "t1")).toBeNull();
+    expect(mergeDayEntry(base({ id: "day_1" }), { journal: "" }, "2026-06-22", "t1")).toBeNull();
   });
 });

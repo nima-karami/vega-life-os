@@ -1,8 +1,8 @@
 import { Button as HeroButton } from "@heroui/react";
 import type { FinanceSettlement, FinanceTransaction } from "@vega/shared";
+import { todayISO } from "@vega/shared";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { todayISO } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import { Button, ConfirmDialog, Icon } from "@/core/ui";
 import { FinancePageShell } from "./FinancePageShell";

@@ -1,6 +1,6 @@
 import type { FinanceAccount, FinanceColumnMapping } from "@vega/shared";
+import { uid } from "@vega/shared";
 import { useRef, useState } from "react";
-import { uid } from "@/core/lib/id";
 import { useStore } from "@/core/store";
 import { parseDelimitedTable } from "./import/delimited";
 import { parseStatement } from "./import/parse";

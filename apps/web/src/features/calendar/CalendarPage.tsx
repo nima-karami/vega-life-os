@@ -1,9 +1,15 @@
 import { Card, ScrollShadow } from "@heroui/react";
+import {
+  dowIndex,
+  filterVisibleEvents,
+  formatShortDate,
+  getWeekDaysFor,
+  minutesOf,
+} from "@vega/shared";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterCommands } from "@/app/commands";
 import { useZonedTodayISO } from "@/core/lib/clock";
-import { dowIndex, formatShortDate, getWeekDaysFor, minutesOf } from "@/core/lib/date";
 import { useStore } from "@/core/store";
 import {
   cx,
@@ -15,7 +21,6 @@ import {
   useCompact,
 } from "@/core/ui";
 import type { CalendarEvent } from "@/features/calendar-sync";
-import { filterVisibleEvents } from "@/features/calendar-sync";
 import { useDisplayZone } from "@/features/calendar-sync/useDisplayZone";
 import { getFocusableGoals } from "@/features/goals";
 import type { Task, TaskStatus } from "@/features/tasks";

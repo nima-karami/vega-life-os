@@ -1,5 +1,5 @@
 import { Button, Card } from "@heroui/react";
-import { formatLongDate } from "@/core/lib/date";
+import { formatLongDate } from "@vega/shared";
 import { Icon, IconButton } from "@/core/ui";
 
 /**

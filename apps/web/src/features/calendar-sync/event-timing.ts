@@ -1,4 +1,4 @@
-import { minutesOf, shiftISO } from "@/core/lib/date";
+import { minutesOf, shiftISO } from "@vega/shared";
 
 export interface EventTiming {
   date: string | null;

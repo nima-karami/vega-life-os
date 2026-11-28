@@ -1,15 +1,23 @@
-import { format } from "date-fns";
-import { getWeekDays } from "@/core/lib/date";
+import {
+  applyTaskPatch,
+  applyTaskStatus,
+  buildInstances,
+  buildMissingInstances,
+  buildTask,
+  getGeneratingHabits,
+  getWeekDays,
+  linkTaskToHabit,
+  normalizeSchedule,
+  planUpcoming,
+  relinkTaskToHabit,
+  uid,
+  unlinkTaskFromHabit,
+  unscheduleTask,
+} from "@vega/shared";
 import { saveBulkPut, savePut, saveRemove, type WriteRollback } from "@/core/store/persist";
 import type { Slice } from "@/core/store/slice";
-import { findSlotOnOrBefore } from "@/features/habits/recurrence";
-import { buildTask, normalizeSchedule } from "./build-task";
-import { buildMissingInstances, getGeneratingHabits } from "./habit-instances";
 import type { Task, TaskStatus } from "./model";
-import { buildInstances, planUpcoming, saveTaskChurn } from "./runway";
-
-/** Local-time stamp for a completion (the app reasons about dates in local time). */
-const nowLocalISO = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss");
+import { saveTaskChurn } from "./runway";
 
 export interface TasksSlice {
   tasks: Task[];
@@ -49,16 +57,6 @@ interface TaskPatch {
 
 type StoreSet = Parameters<Slice<TasksSlice>>[0];
 
-/**
- * Slot-integrity invariant: lock a habit instance to the slot it currently fills BEFORE any edit
- * can move its date, or a move frees the origin slot and the generator makes a phantom duplicate
- * (the phantom-duplicate bug). An explicit slotDate in the patch still wins.
- */
-function applyTaskPatch(task: Task, patch: Partial<Task>): Task {
-  const slotDate = task.habitId != null ? (task.slotDate ?? task.date) : task.slotDate;
-  return normalizeSchedule({ ...task, slotDate, ...patch, id: task.id });
-}
-
 /** One store update and one write for every task `patchTask` returns a new row for. */
 function writeTaskPatches(set: StoreSet, patchTask: (task: Task) => Task | null): void {
   const updated: Task[] = [];
@@ -79,7 +77,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   tasks: [],
 
   addTask: (patch = {}) => {
-    const task = buildTask(patch, get().tasks.length);
+    const task = buildTask(patch, get().tasks.length, uid);
     set((s) => ({ tasks: [...s.tasks, task] }));
     savePut("tasks", task, { kind: "insert" });
     return task;
@@ -125,12 +123,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
       tasks: s.tasks.map((t) => {
         if (t.id !== id) return t;
         prior = t;
-        // stamp the completion time on done (keep an existing stamp), clear it otherwise
-        next = {
-          ...t,
-          status,
-          completedAt: status === "done" ? (t.completedAt ?? nowLocalISO()) : null,
-        };
+        next = applyTaskStatus(t, status);
         return next;
       }),
     }));
@@ -162,10 +155,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   unscheduleTask: (id) => {
     const task = get().tasks.find((x) => x.id === id);
     if (!task) return;
-    // slotDate is preserved (the slot is still owed); a habit instance is not detached
-    const patch: Partial<Task> = { date: null, time: null };
-    if (task.status === "todo") patch.status = "open"; // done/skip preserved
-    get().updateTask(id, patch);
+    get().updateTask(id, unscheduleTask(task));
   },
 
   relinkTaskToHabit: (id) => {
@@ -173,37 +163,19 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     if (task?.kind !== "habit" || !task.detached || !task.habitId) return;
     const habit = get().habits.find((x) => x.id === task.habitId);
     if (!habit) return;
-    // Snap back schedule + lineage + title; keep the instance's date/status/note/order.
-    get().updateTask(id, {
-      title: habit.name,
-      time: habit.time,
-      durationMin: habit.durationMin,
-      goalId: habit.goalId,
-      valueId: habit.valueId,
-      detached: false,
-    });
+    get().updateTask(id, relinkTaskToHabit(task, habit));
   },
 
   linkTaskToHabit: (id, habitId) => {
     const task = get().tasks.find((x) => x.id === id);
     if (!task) return;
     if (habitId == null) {
-      get().updateTask(id, { habitId: null, kind: "oneoff", slotDate: null, detached: false });
+      get().updateTask(id, unlinkTaskFromHabit(task));
       return;
     }
     const habit = get().habits.find((x) => x.id === habitId);
     if (!habit) return;
-    // anchor to the scheduled occurrence this task fulfils: its own day if scheduled,
-    // else the latest scheduled day on-or-before it (a moved/late occurrence)
-    const slot = task.date ? (findSlotOnOrBefore(habit.schedule, task.date) ?? task.date) : null;
-    get().updateTask(id, {
-      habitId,
-      kind: "habit",
-      slotDate: slot,
-      valueId: habit.valueId,
-      goalId: habit.goalId,
-      detached: false,
-    });
+    get().updateTask(id, linkTaskToHabit(task, habit));
   },
 
   bulkUpdateTasks: (ids, patch) => {
@@ -239,6 +211,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
     const created = buildInstances(
       buildMissingInstances(tasks, generating, isoDates),
       tasks.length,
+      uid,
     );
     if (created.length) set({ tasks: [...tasks, ...created] });
     saveTaskChurn([], created);
@@ -246,7 +219,7 @@ export const createTasksSlice: Slice<TasksSlice> = (set, get) => ({
   },
 
   ensureUpcoming: (daysAhead = 14) => {
-    const plan = planUpcoming(get(), daysAhead);
+    const plan = planUpcoming(get(), daysAhead, undefined, uid);
     if (plan.stale.length || plan.created.length) set({ tasks: plan.tasks });
     saveTaskChurn(
       plan.stale.map((t) => ({ id: t.id, prior: t })),

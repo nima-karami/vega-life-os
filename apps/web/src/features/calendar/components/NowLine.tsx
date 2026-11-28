@@ -1,5 +1,5 @@
+import { getZonedWallClock } from "@vega/shared";
 import { useNowMs } from "@/core/lib/clock";
-import { getZonedWallClock } from "@/core/lib/zone";
 import { DAY_END, DAY_START, getChipTop } from "../geometry";
 
 export function NowLine({ zone }: { zone: string }) {

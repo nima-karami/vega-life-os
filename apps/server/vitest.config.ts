@@ -13,6 +13,8 @@ export default defineConfig({
       NODE_ENV: "test",
       FIRESTORE_DB: "test",
       PROJECT_ID: "vega-life-os",
+      // Token zones in tests are America/Toronto, so any host-time leak in a write shows up.
+      TZ: "Asia/Tokyo",
     },
   },
 });

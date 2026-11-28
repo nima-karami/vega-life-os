@@ -28,7 +28,7 @@ async function bootSandbox(page: Page) {
   }
 }
 
-// Local date, matching the app's own `todayISO()` (core/lib/date.ts) — a UTC slice
+// Local date, matching the app's own `todayISO()` (packages/shared/src/domain/date.ts) — a UTC slice
 // drifts a day off local "today" for half the clock, in either direction by tz.
 function livedEvent(over: Record<string, unknown>) {
   const today = format(new Date(), "yyyy-MM-dd");

@@ -1,4 +1,4 @@
-import { formatShortDate } from "@/core/lib/date";
+import { formatShortDate } from "@vega/shared";
 import type { Task } from "@/features/tasks";
 import { PickerModal } from "./PickerModal";
 import { ScheduleRow } from "./ScheduleRow";

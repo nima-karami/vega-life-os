@@ -1,9 +1,16 @@
-import { getWeekDaysFor, shiftISO, todayISO } from "@/core/lib/date";
+import {
+  createPausedDayCheck,
+  getPausedSpans,
+  getWeekDaysFor,
+  getWeeklyMask,
+  isActiveOnSchedule,
+  isHabitActive,
+  shiftISO,
+  todayISO,
+} from "@vega/shared";
 import type { Task, TaskStatus } from "@/features/tasks/model";
 import type { Value } from "@/features/values/model";
-import { type Habit, isHabitActive, type PausedSpan } from "./model";
-import { createPausedDayCheck, getPausedSpans } from "./paused-spans";
-import { getWeeklyMask, isActiveOnSchedule } from "./recurrence";
+import type { Habit, PausedSpan } from "./model";
 
 const collator = new Intl.Collator(undefined, { sensitivity: "base" });
 

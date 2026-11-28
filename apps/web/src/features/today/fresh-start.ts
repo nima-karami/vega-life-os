@@ -1,4 +1,4 @@
-import { dowIndex, isValidISODate } from "@/core/lib/date";
+import { dowIndex, isValidISODate } from "@vega/shared";
 
 // Per device on purpose: the card is a nudge, not a record worth syncing.
 const KEY = "vega.freshStartDismissedFor";

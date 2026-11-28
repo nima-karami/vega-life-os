@@ -1,8 +1,13 @@
-import { type Card, DEFAULT_CARD_PREFS, type MindCard, type MindMetaRecord } from "@vega/shared";
+import {
+  type Card,
+  DEFAULT_CARD_PREFS,
+  type MindCard,
+  type MindMetaRecord,
+  normalizeHabit,
+} from "@vega/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { saveBulkPut, saveBulkRemove, savePut, saveRemove } from "@/core/store/persist";
 import type { Habit } from "@/features/habits/model";
-import { normalizeHabit } from "@/features/habits/recurrence";
 import type { VocabEntry } from "@/features/library/model";
 import type { Task } from "@/features/tasks/model";
 import { RETIRED_HUE_REPLACEMENT } from "@/features/values/color";
