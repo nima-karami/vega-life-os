@@ -59,15 +59,24 @@ values, goals and habits.
 | `set_task_status` | write | Mark a task done, skipped, open or to do |
 | `check_in_habit` | write | Mark a habit done or skipped for a day (today by default) |
 | `set_habit_state` | write | Pause, resume, archive or unarchive a habit |
-| `edit_subgoals` | write | Add, toggle or remove a goal's subgoals; progress follows |
+| `edit_subgoals` | write | Add, complete, reopen or remove a goal's subgoals; progress follows |
 | `write_journal` | write | Write or append to a day's journal, gratitude and mood |
 
 Changes made by an agent appear in an open VEGA tab at its next sync check: within 5 minutes,
 or right away when you switch back to the tab.
 
-A write never overwrites a change made since the agent read the record: VEGA re-plans it, or
-answers `CONFLICT`. A very large change (hundreds of tasks) commits in parts; if one part
-fails, the answer lists what landed and running the same call again finishes the job.
+An agent's write never overwrites a change made since the agent read the record: VEGA re-plans
+it, or answers `CONFLICT`. The reverse isn't guarded: a VEGA tab that hasn't synced since the
+agent's write saves whole records, so editing that record there can undo the agent's change,
+the same as editing on two devices.
+
+A very large change (hundreds of tasks) commits in parts. If one part fails, the answer lists
+what landed, and running the same call again finishes the job. A large delete re-run asks for a
+fresh `confirmCascade`, because what's left to delete has changed.
+
+Dates, times and amounts must use the formats the app writes (`YYYY-MM-DD`, `HH:mm`, whole
+cents and so on). `describe_collection` names the format of each such field, and a write in any
+other format is refused with `BAD_REQUEST`.
 
 ## Limits
 

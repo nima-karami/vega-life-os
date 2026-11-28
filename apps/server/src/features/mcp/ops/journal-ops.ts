@@ -1,6 +1,13 @@
-import { type DayEntryCreate, isValidISODate, mergeDayEntry, type WireRow } from "@vega/shared";
+import {
+  type DayEntryCreate,
+  isValidISODate,
+  mergeDayEntry,
+  uid,
+  type WireRow,
+} from "@vega/shared";
 import type { StoredEntity } from "../../../core/repository";
 import { ToolError } from "../../../core/tool-error";
+import { findFormatViolation } from "../field-formats";
 import type { McpClock } from "../mcp-context";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
 import {
@@ -32,8 +39,21 @@ function assertEntryDate(date: unknown): asserts date is string {
     throw new ToolError("BAD_REQUEST", "journal.date: expected YYYY-MM-DD");
 }
 
-const findEntryByDate = (dataset: LoadedDataset, date: string) =>
-  getLoaded(dataset, "journal").rows.find((entry) => entry.date === date);
+function findEntryByDate(dataset: LoadedDataset, date: string): StoredEntry | undefined {
+  const holders = getLoaded(dataset, "journal").rows.filter((entry) => entry.date === date);
+  if (holders.length > 1)
+    throw new ToolError(
+      "CONFLICT",
+      `${date} has ${holders.length} journal entries (${holders.map((entry) => entry.id).join(", ")}); keep one and remove the rest with delete_record`,
+    );
+  return holders[0];
+}
+
+/** day_<date>, unless an entry moved off that date still holds the id. */
+function pickNewEntryId(dataset: LoadedDataset, date: string): string {
+  const naturalId = `day_${date}`;
+  return findRow(getLoaded(dataset, "journal"), naturalId) ? uid("day_") : naturalId;
+}
 
 /** The app's merge (trim, caps, empty-discard): an entry that ends up empty is removed, not stored. */
 function planEntryMerge(
@@ -72,6 +92,14 @@ function toWireEntry(entry: StoredEntry): WireRow<StoredEntry> {
   return wire;
 }
 
+function assertJournalFormats(patch: JournalPatch): void {
+  const messages = Object.entries(patch).flatMap(([field, value]) => {
+    const violation = findFormatViolation("journal", field, value);
+    return violation ? [`${field}: ${violation}`] : [];
+  });
+  if (messages.length > 0) throw new ToolError("BAD_REQUEST", messages.join("\n"));
+}
+
 function pickJournalPatch(fields: Partial<DayEntryCreate>): JournalPatch {
   const patch: JournalPatch = {};
   if (fields.gratitude !== undefined) patch.gratitude = fields.gratitude;
@@ -93,7 +121,9 @@ export function planWriteJournal(
     const base = patch.journal ?? existing?.journal ?? "";
     patch.journal = base.trim() === "" ? input.appendJournal : `${base}\n${input.appendJournal}`;
   }
-  return planEntryMerge(dataset, existing, { date, patch, newId: `day_${date}` }, clock);
+  assertJournalFormats(patch);
+  const newId = existing?.id ?? pickNewEntryId(dataset, date);
+  return planEntryMerge(dataset, existing, { date, patch, newId }, clock);
 }
 
 export function planCreateJournal(
@@ -108,15 +138,18 @@ export function planCreateJournal(
   const holder = explicitId ? findRow(getLoaded(dataset, "journal"), explicitId) : undefined;
   if (holder && holder.date !== fields.date)
     throw new ToolError("CONFLICT", `journal/${explicitId} already exists for ${holder.date}`);
-  if (explicitId && existing && existing.id !== explicitId)
-    throw new ToolError("CONFLICT", `journal/${existing.id} already holds ${fields.date}`);
+  if (existing)
+    throw new ToolError(
+      "CONFLICT",
+      `journal/${existing.id} already holds ${fields.date}; change it with write_journal or update_record`,
+    );
   const outcome = planEntryMerge(
     dataset,
     existing,
     {
       date: fields.date,
       patch: pickJournalPatch(fields),
-      newId: explicitId ?? `day_${fields.date}`,
+      newId: explicitId ?? pickNewEntryId(dataset, fields.date),
     },
     clock,
   );
@@ -133,9 +166,10 @@ export function planUpdateJournal(
   const fields = patch.fields as Partial<DayEntryCreate>;
   const date = fields.date ?? entry.date;
   assertEntryDate(date);
-  const holder = findEntryByDate(dataset, date);
-  if (holder && holder.id !== id)
-    throw new ToolError("CONFLICT", `journal/${holder.id} already holds ${date}`);
+  const holder = getLoaded(dataset, "journal").rows.find(
+    (row) => row.id !== id && row.date === date,
+  );
+  if (holder) throw new ToolError("CONFLICT", `journal/${holder.id} already holds ${date}`);
   const outcome = planEntryMerge(
     dataset,
     entry,

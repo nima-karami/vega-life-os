@@ -2,6 +2,7 @@ import {
   applyTaskStatus,
   buildTask,
   type CollectionName,
+  linkTaskToHabit,
   planTaskEdit,
   type TaskCreate,
   type TaskStatus,
@@ -65,8 +66,28 @@ export function planCreateTask(
   const tasks = getLoaded(dataset, "tasks");
   const fields = patch.fields as Partial<TaskCreate>;
   assertTaskLinks(dataset, fields);
-  const task = buildTask(fields, tasks.rows.length, explicitId ? () => explicitId : uid);
+  const { habitId, kind, ...plain } = fields;
+  if (kind === "habit" && !habitId)
+    throw new ToolError("BAD_REQUEST", "tasks.kind: a habit task needs habitId");
+  const built = buildTask(plain, tasks.rows.length, explicitId ? () => explicitId : uid);
+  const task = habitId ? linkNewTask(dataset, built, habitId) : built;
   return toTaskOutcome(dataset, { task, isNew: true, hasLinks: true }, patch.ignoredKeys);
+}
+
+/** A task created under a habit becomes its instance the way the app links one, and can't double a slot. */
+function linkNewTask(dataset: LoadedDataset, task: TaskCreate, habitId: string): TaskCreate {
+  const habit = requireRow("habits", getLoaded(dataset, "habits"), habitId);
+  const linked = linkTaskToHabit(task, habit);
+  if (linked.slotDate === null) return linked;
+  const holder = getLoaded(dataset, "tasks").rows.find(
+    (row) => row.habitId === habitId && (row.slotDate ?? row.date) === linked.slotDate,
+  );
+  if (holder)
+    throw new ToolError(
+      "CONFLICT",
+      `tasks/${holder.id} is already ${habitId}'s task for ${linked.slotDate}; use check_in_habit or update that task`,
+    );
+  return linked;
 }
 
 type TaskIntent = "unschedule" | "link" | "status" | "relink" | "plain";
@@ -105,6 +126,8 @@ export function planUpdateTask(
   if (fields.habitId === task.habitId) delete fields.habitId;
   assertSingleIntent(task, fields);
   assertTaskLinks(dataset, fields);
+  if (classifyTaskIntents(task, fields).has("relink"))
+    assertLinkExists("habits", getLoaded(dataset, "habits"), "habitId", task.habitId);
   const habits = getLoaded(dataset, "habits").rows;
   const edited = planTaskEdit(task, fields, habits, clock.nowLocal);
   return toTaskOutcome(dataset, { task: edited, isNew: false, hasLinks: true }, patch.ignoredKeys);

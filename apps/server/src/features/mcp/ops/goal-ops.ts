@@ -104,7 +104,13 @@ export function planUpdateGoal(
   return toGoalOutcome(dataset, { settled, isNew: false, hasLinks: true }, patch.ignoredKeys);
 }
 
-export type SubgoalEdit = { goalId: string; add?: string[]; toggle?: string[]; remove?: string[] };
+export type SubgoalEdit = {
+  goalId: string;
+  add?: string[];
+  complete?: string[];
+  reopen?: string[];
+  remove?: string[];
+};
 
 function assertKnownSubgoals(subgoals: Subgoal[], ids: string[]): void {
   const known = new Set(subgoals.map((subgoal) => subgoal.id));
@@ -113,24 +119,36 @@ function assertKnownSubgoals(subgoals: Subgoal[], ids: string[]): void {
     throw new ToolError("BAD_REQUEST", `unknown subgoal id(s): ${unknown.join(", ")}`);
 }
 
-function buildSubgoals(names: string[]): Subgoal[] {
+// A replayed call must not add the same subgoal twice, so a name already on the goal is skipped.
+function buildNewSubgoals(existing: Subgoal[], names: string[]): Subgoal[] {
   const trimmed = names.map((name) => name.trim());
   if (trimmed.some((name) => name === ""))
     throw new ToolError("BAD_REQUEST", "add: subgoal names can't be empty");
-  return trimmed.map((name) => ({ id: uid("s_"), name, done: false }));
+  const taken = new Set(existing.map((subgoal) => subgoal.name.trim().toLowerCase()));
+  return [...new Set(trimmed)]
+    .filter((name) => !taken.has(name.toLowerCase()))
+    .map((name) => ({ id: uid("s_"), name, done: false }));
+}
+
+function resolveDone(subgoal: Subgoal, complete: Set<string>, reopen: Set<string>): Subgoal {
+  if (complete.has(subgoal.id)) return { ...subgoal, done: true };
+  if (reopen.has(subgoal.id)) return { ...subgoal, done: false };
+  return subgoal;
 }
 
 export function planEditSubgoals(dataset: LoadedDataset, input: SubgoalEdit): PlanOutcome {
   const goal = requireRow("goals", getLoaded(dataset, "goals"), input.goalId);
-  const toggle = new Set(input.toggle ?? []);
+  const complete = new Set(input.complete ?? []);
+  const reopen = new Set(input.reopen ?? []);
   const remove = new Set(input.remove ?? []);
-  assertKnownSubgoals(goal.subgoals, [...toggle, ...remove]);
-  const subgoals = [
-    ...goal.subgoals
-      .filter((subgoal) => !remove.has(subgoal.id))
-      .map((subgoal) => (toggle.has(subgoal.id) ? { ...subgoal, done: !subgoal.done } : subgoal)),
-    ...buildSubgoals(input.add ?? []),
-  ];
+  assertKnownSubgoals(goal.subgoals, [...complete, ...reopen, ...remove]);
+  const contradicted = [...complete].filter((id) => reopen.has(id));
+  if (contradicted.length > 0)
+    throw new ToolError("BAD_REQUEST", `complete and reopen both name ${contradicted.join(", ")}`);
+  const kept = goal.subgoals
+    .filter((subgoal) => !remove.has(subgoal.id))
+    .map((subgoal) => resolveDone(subgoal, complete, reopen));
+  const subgoals = [...kept, ...buildNewSubgoals(kept, input.add ?? [])];
   const settled = settleProgress({ ...goal, subgoals }, undefined);
   return toGoalOutcome(dataset, { settled, isNew: false, hasLinks: false });
 }

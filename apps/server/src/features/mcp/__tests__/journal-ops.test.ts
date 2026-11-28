@@ -78,14 +78,17 @@ describe("planWriteJournal", () => {
 describe("journal create and update", () => {
   const held = journalDataset([{ id: "day_held", date: "2026-11-18", journal: "kept" }]);
 
-  it("merges a create for a held date into that entry", () => {
-    const outcome = planCreateJournal(
-      held,
-      { fields: { date: "2026-11-18", mood: 2 }, ignoredKeys: [] },
-      undefined,
-      clock,
-    );
-    expect(outcome.result.record).toMatchObject({ id: "day_held", journal: "kept", mood: 2 });
+  it("refuses a create for a held date rather than replacing or deleting that entry", () => {
+    for (const fields of [
+      { date: "2026-11-18", journal: "agent note" },
+      { date: "2026-11-18", journal: "", gratitude: [], mood: null },
+    ])
+      expect(() => planCreateJournal(held, { fields, ignoredKeys: [] }, undefined, clock)).toThrow(
+        expect.objectContaining({
+          code: "CONFLICT",
+          message: expect.stringContaining("write_journal"),
+        }),
+      );
   });
 
   it("refuses an explicit id that disagrees with the date's holder", () => {

@@ -1,4 +1,10 @@
-import { dowIndex, isValidISODate, type ReviewCreate, resolveReviewForSave } from "@vega/shared";
+import {
+  dowIndex,
+  isValidISODate,
+  type ReviewCreate,
+  resolveReviewForSave,
+  uid,
+} from "@vega/shared";
 import { ToolError } from "../../../core/tool-error";
 import type { McpClock } from "../mcp-context";
 import { getLoaded, type LoadedDataset } from "./dataset-loader";
@@ -61,17 +67,25 @@ export function planCreateReview(
   const holder = explicitId ? findRow(reviews, explicitId) : undefined;
   if (holder && holder.periodKey !== periodKey)
     throw new ToolError("CONFLICT", `reviews/${explicitId} already exists for ${holder.periodKey}`);
+  const holders = reviews.rows.filter((row) => row.periodKey === periodKey);
+  if (holders.length > 1)
+    throw new ToolError(
+      "CONFLICT",
+      `${periodKey} has ${holders.length} reviews (${holders.map((row) => row.id).join(", ")}); keep one and remove the rest with delete_record`,
+    );
+  const held = holders.find((row) => !explicitId || row.id === explicitId);
+  const naturalId = `rv_${periodKey}`;
   const { record, conflictWith } = resolveReviewForSave(
     reviews.rows,
     {
       periodKey,
-      prompts: fields.prompts ?? [],
-      checkIns: fields.checkIns ?? [],
-      createdAt: fields.createdAt,
+      prompts: fields.prompts ?? held?.prompts ?? [],
+      checkIns: fields.checkIns ?? held?.checkIns ?? [],
+      createdAt: fields.createdAt ?? held?.createdAt,
       id: explicitId,
     },
     clock.nowIso,
-    () => `rv_${periodKey}`,
+    () => (findRow(reviews, naturalId) ? uid("rv_") : naturalId),
   );
   if (conflictWith) throw conflictOnPeriod(conflictWith, periodKey);
   const isHeld = reviews.rows.some((row) => row.id === record.id && row.periodKey === periodKey);

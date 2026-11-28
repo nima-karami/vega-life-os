@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import {
   applyHabitTransition,
   applyTaskStatus,
@@ -22,7 +23,7 @@ import type { ChangeOperation } from "../../../core/change-set";
 import { ToolError } from "../../../core/tool-error";
 import { RECORD_ID_PATTERN } from "../mcp-collections";
 import type { McpClock } from "../mcp-context";
-import { getLoaded, type LoadedDataset } from "./dataset-loader";
+import { getLoaded, type LoadedCollection, type LoadedDataset } from "./dataset-loader";
 import {
   assertCascadeConfirmed,
   assertLinkExists,
@@ -73,13 +74,23 @@ type RunwayOperations = {
   operations: ChangeOperation[];
   removedTaskIds: string[];
   createdTaskIds: string[];
+  rebuiltTaskIds: string[];
 };
 
-function assignSlotIds(created: TaskCreate[]): TaskCreate[] {
-  return created.map((task) => ({
-    ...task,
-    id: habitSlotTaskId(String(task.habitId), String(task.slotDate ?? task.date)),
-  }));
+/** A slot's id is deterministic unless a task that has left the slot still holds it. */
+function isSlotIdSquatted(tasks: LoadedCollection<"tasks">, slotId: string, dropped: Set<string>) {
+  return tasks.updateTimes.has(slotId) && !dropped.has(slotId);
+}
+
+function assignSlotIds(
+  created: TaskCreate[],
+  tasks: LoadedCollection<"tasks">,
+  dropped: Set<string>,
+): TaskCreate[] {
+  return created.map((task) => {
+    const slotId = habitSlotTaskId(String(task.habitId), String(task.slotDate ?? task.date));
+    return { ...task, id: isSlotIdSquatted(tasks, slotId, dropped) ? task.id : slotId };
+  });
 }
 
 /** New instances lean on their habit and its value still being the rows that made them eligible. */
@@ -115,9 +126,7 @@ export function planRunwayOperations(
           uid,
         )
       : { stale: [], created: [] };
-  const created = assignSlotIds(plan.created).filter(
-    (task) => dropped.has(task.id) || !tasks.updateTimes.has(task.id),
-  );
+  const created = assignSlotIds(plan.created, tasks, dropped);
   const rebuilt = created.filter((task) => dropped.has(task.id));
   const inserted = created.filter((task) => !dropped.has(task.id));
   const rebuiltIds = new Set(rebuilt.map((task) => task.id));
@@ -137,12 +146,24 @@ export function planRunwayOperations(
     ],
     removedTaskIds,
     createdTaskIds: inserted.map((task) => task.id),
+    rebuiltTaskIds: [...rebuiltIds],
   };
 }
 
 function assertHabitLinks(dataset: LoadedDataset, fields: Partial<HabitShape>): void {
   assertLinkExists("values", getLoaded(dataset, "values"), "valueId", fields.valueId);
   assertLinkExists("goals", getLoaded(dataset, "goals"), "goalId", fields.goalId);
+}
+
+// The app only offers goals under the habit's own value; a value delete relies on it.
+function assertGoalUnderValue(dataset: LoadedDataset, habit: HabitShape): void {
+  if (!habit.goalId) return;
+  const goal = findRow(getLoaded(dataset, "goals"), habit.goalId);
+  if (!goal || goal.valueId === habit.valueId) return;
+  throw new ToolError(
+    "BAD_REQUEST",
+    `habits.goalId: goal ${goal.id} belongs to value ${goal.valueId}, not ${habit.valueId}; change or clear goalId with valueId`,
+  );
 }
 
 function toHabitOutcome(
@@ -164,6 +185,7 @@ function toHabitOutcome(
         record: toResultRecord(habit),
         removedTaskIds: runway.removedTaskIds,
         createdTaskIds: runway.createdTaskIds,
+        rebuiltTaskIds: runway.rebuiltTaskIds,
       },
       ignoredKeys,
     ),
@@ -186,6 +208,7 @@ export function planCreateHabit(
     clock.today,
     explicitId ? () => explicitId : uid,
   );
+  assertGoalUnderValue(dataset, habit);
   const runway = planRunwayOperations(dataset, { dropTaskIds: [], regenerateFor: [habit] }, clock);
   return toHabitOutcome(dataset, { habit, isNew: true }, runway, patch.ignoredKeys);
 }
@@ -200,7 +223,10 @@ export function planUpdateHabit(
   const fields = patch.fields as Partial<HabitShape>;
   assertHabitLinks(dataset, fields);
   const next: HabitShape = { ...habit, ...fields, id };
-  const rebuildsRunway = fields.schedule !== undefined || fields.time !== undefined;
+  if ("goalId" in fields || "valueId" in fields) assertGoalUnderValue(dataset, next);
+  const rebuildsRunway =
+    !isDeepStrictEqual(next.schedule, habit.schedule) ||
+    (next.time ?? null) !== (habit.time ?? null);
   const tasks = getLoaded(dataset, "tasks").rows;
   const runway = planRunwayOperations(
     dataset,
@@ -270,7 +296,9 @@ export function planDeleteHabit(
   return { changeSet, result: describeAffected(changeSet) };
 }
 
-function getCreatedDay(createdAt: string, clock: McpClock): string {
+// A legacy habit may predate createdAt; it then has no creation floor.
+function getCreatedDay(createdAt: string | undefined, clock: McpClock): string {
+  if (!createdAt) return "";
   return createdAt.length > 10 ? clock.dayOf(createdAt) : createdAt;
 }
 
@@ -304,7 +332,8 @@ function assertCheckInEligible(
 }
 
 function buildCheckInInstance(dataset: LoadedDataset, habit: HabitShape, date: string): TaskCreate {
-  const tasks = getLoaded(dataset, "tasks").rows;
+  const loaded = getLoaded(dataset, "tasks");
+  const tasks = loaded.rows;
   return buildTask(
     {
       title: habit.name,
@@ -319,7 +348,10 @@ function buildCheckInInstance(dataset: LoadedDataset, habit: HabitShape, date: s
       order: findLatestHabitOrders(tasks).get(habit.id),
     },
     tasks.length,
-    () => habitSlotTaskId(habit.id, date),
+    (prefix) => {
+      const slotId = habitSlotTaskId(habit.id, date);
+      return isSlotIdSquatted(loaded, slotId, new Set()) ? uid(prefix) : slotId;
+    },
   );
 }
 

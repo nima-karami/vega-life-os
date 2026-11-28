@@ -48,6 +48,18 @@ describe("planCreateReview", () => {
     expect(outcome.changeSet.operations[0].expect).toEqual({ updateTime: "rev@rv_legacy" });
   });
 
+  it("keeps the held review's check-ins and createdAt when the caller leaves them out", () => {
+    const dataset = reviewsOf({ rv_legacy: "2026-11-16" });
+    const checkIns = [{ valueId: "v_body", rating: 4 }];
+    Object.assign(dataset.reviews?.rows[0] ?? {}, { checkIns });
+    const outcome = planCreateReview(dataset, reviewFields("2026-11-16"), undefined, clock);
+    expect(outcome.result.record).toMatchObject({
+      prompts: [{ q: "win?", a: "new" }],
+      checkIns,
+      createdAt: "2026-11-01T00:00:00.000Z",
+    });
+  });
+
   it("refuses an explicit id on another row's period", () => {
     expect(() =>
       planCreateReview(

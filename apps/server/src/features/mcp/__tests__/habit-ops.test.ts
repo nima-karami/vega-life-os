@@ -199,6 +199,32 @@ describe("planSetHabitState", () => {
 });
 
 describe("planCheckInHabit", () => {
+  it("checks in under a fresh id when an unlinked task still holds the slot id", () => {
+    const squatter = buildTask({ id: "t_h_run_2026-11-23", date: "2026-11-23" }, 0);
+    const outcome = planCheckInHabit(
+      seed([makeHabit()], [squatter]),
+      { habitId: "h_run", date: "2026-11-23" },
+      clock,
+    );
+    const [put] = outcome.changeSet.operations;
+    expect(put).toMatchObject({ kind: "put", expect: { absent: true } });
+    expect(put.kind === "put" && put.record.id).not.toBe("t_h_run_2026-11-23");
+  });
+
+  it("regenerates a slot whose id an unlinked task still holds", () => {
+    const squatter = buildTask({ id: "t_h_run_2026-11-23", date: "2026-11-23" }, 0);
+    const outcome = planUpdateHabit(
+      seed([makeHabit()], [squatter]),
+      "h_run",
+      { fields: { time: "06:30" }, ignoredKeys: [] },
+      clock,
+    );
+    const slotDates = outcome.changeSet.operations.flatMap((op) =>
+      op.kind === "put" && op.collection === "tasks" ? [op.record.slotDate ?? op.record.date] : [],
+    );
+    expect(slotDates).toContain("2026-11-23");
+  });
+
   it("applies the status to an existing instance whatever the habit's state", () => {
     const outcome = planCheckInHabit(
       seed([makeHabit({ archivedAt: "2026-11-01T00:00:00.000Z" })], [makeInstance("2026-11-20")]),
@@ -313,8 +339,52 @@ describe("runway and check-in identity", () => {
   });
 });
 
+describe("habit goal links", () => {
+  it("refuses a goal that sits under another value", () => {
+    const dataset = seed([makeHabit()], []);
+    dataset.goals = createLoadedCollection([
+      {
+        row: {
+          id: "g_other",
+          valueId: "v_mind",
+          name: "Read",
+          icon: "book",
+          status: "active",
+          start: "2026-10-01",
+          end: "2026-12-31",
+          progress: 0,
+          subgoals: [],
+          order: 0,
+          ...STAMPS,
+        },
+        updateTime: "g_other",
+      },
+    ]);
+    expect(() =>
+      planUpdateHabit(dataset, "h_run", { fields: { goalId: "g_other" }, ignoredKeys: [] }, clock),
+    ).toThrow(
+      expect.objectContaining({ code: "BAD_REQUEST", message: expect.stringContaining("v_mind") }),
+    );
+  });
+});
+
 describe("runway bookkeeping", () => {
-  it("reports no created tasks when a schedule update rebuilds the same slots", () => {
+  it("leaves future instances alone when an edit echoes the unchanged schedule and time", () => {
+    const custom = makeInstance("2026-11-23", { id: "t_h_run_2026-11-23", note: "race bib 112" });
+    const habit = makeHabit();
+    const outcome = planUpdateHabit(
+      seed([habit], [custom]),
+      "h_run",
+      {
+        fields: { name: "Morning run", schedule: { ...MON_WED_FRI }, time: habit.time },
+        ignoredKeys: [],
+      },
+      clock,
+    );
+    expect(outcome.changeSet.operations.filter((op) => op.collection === "tasks")).toEqual([]);
+  });
+
+  it("reports no created tasks when a time change rebuilds the same slots", () => {
     const slots = [
       "2026-11-20",
       "2026-11-23",
@@ -328,7 +398,7 @@ describe("runway bookkeeping", () => {
     const outcome = planUpdateHabit(
       seed([makeHabit()], tasks),
       "h_run",
-      { fields: { schedule: MON_WED_FRI }, ignoredKeys: [] },
+      { fields: { time: "06:30" }, ignoredKeys: [] },
       clock,
     );
     expect(outcome.result.createdTaskIds).toEqual([]);

@@ -145,7 +145,13 @@ function conformRecord(
   if (collection !== "cards") return record;
   const parsed = cardShapeSchema.safeParse(record);
   if (!parsed.success) return record;
-  return conformCardWrite({ ...parsed.data, updatedAt: "", fieldUpdatedAt: {} });
+  const card = conformCardWrite({ ...parsed.data, updatedAt: "", fieldUpdatedAt: {} });
+  if (card.box !== null && card.nextDue === null)
+    throw new ToolError(
+      "BAD_REQUEST",
+      "cards.nextDue: a card in a Leitner box needs nextDue (YYYY-MM-DD), or it never comes due",
+    );
+  return card;
 }
 
 function toRecordOutcome(

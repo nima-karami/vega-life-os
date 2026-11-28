@@ -86,6 +86,7 @@ export function planUpdateValue(
         record: toResultRecord(next),
         removedTaskIds: runway.removedTaskIds,
         createdTaskIds: runway.createdTaskIds,
+        rebuiltTaskIds: runway.rebuiltTaskIds,
       },
       patch.ignoredKeys,
     ),

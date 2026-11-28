@@ -14,6 +14,7 @@ import { toWireRow, toWireRows } from "../../core/wire";
 import { SCOPE_VERSION } from "../calendar/oauth";
 import { readGcalAccount } from "../calendar/token-store";
 import { buildDayView } from "./day-view";
+import { getFieldFormat } from "./field-formats";
 import {
   COLLECTION_NOTES,
   ID_PREFIX,
@@ -125,6 +126,9 @@ function describeCollection(collection: McpCollection) {
       if (path.length === 0 && Array.isArray(jsonSchema.required)) {
         jsonSchema.required = jsonSchema.required.filter((key) => key !== "id");
       }
+      const isField = path.length === 2 && path[0] === "properties";
+      const format = isField ? getFieldFormat(collection, String(path[1])) : undefined;
+      if (format) jsonSchema.description = format.label;
     },
   });
   return {

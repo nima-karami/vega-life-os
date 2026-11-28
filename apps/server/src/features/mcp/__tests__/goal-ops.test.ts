@@ -108,11 +108,17 @@ describe("planCreateGoal", () => {
 });
 
 describe("planEditSubgoals", () => {
-  it("recomputes progress as done ÷ total after add, toggle and remove", () => {
+  const withSubgoals = (subgoals: GoalCreate["subgoals"]) => {
+    const dataset = goalDataset();
+    Object.assign(dataset.goals?.rows[0] ?? {}, { subgoals });
+    return dataset;
+  };
+
+  it("recomputes progress as done ÷ total after add, complete and remove", () => {
     const outcome = planEditSubgoals(goalDataset(), {
       goalId: "g_ship",
       add: [" c ", "d"],
-      toggle: ["s_2"],
+      complete: ["s_2"],
     });
     expect(outcome.result.record).toMatchObject({ progress: 0.5 });
     expect((outcome.result.record as GoalCreate).subgoals.map((subgoal) => subgoal.name)).toEqual([
@@ -129,9 +135,26 @@ describe("planEditSubgoals", () => {
   });
 
   it("refuses an unknown subgoal id", () => {
-    expect(() => planEditSubgoals(goalDataset(), { goalId: "g_ship", toggle: ["s_9"] })).toThrow(
+    expect(() => planEditSubgoals(goalDataset(), { goalId: "g_ship", complete: ["s_9"] })).toThrow(
       expect.objectContaining({ code: "BAD_REQUEST" }),
     );
+  });
+
+  it("gives the same result when a call is repeated", () => {
+    const edit = { goalId: "g_ship", add: ["c"], complete: ["s_2"] };
+    const first = planEditSubgoals(goalDataset(), edit).result.record as GoalCreate;
+    const replayed = planEditSubgoals(withSubgoals(first.subgoals), edit).result
+      .record as GoalCreate;
+    expect(replayed.subgoals).toEqual(first.subgoals);
+  });
+
+  it("reopens a done subgoal", () => {
+    const done = planEditSubgoals(goalDataset(), { goalId: "g_ship", complete: ["s_1"] });
+    const reopened = planEditSubgoals(withSubgoals((done.result.record as GoalCreate).subgoals), {
+      goalId: "g_ship",
+      reopen: ["s_1"],
+    });
+    expect((reopened.result.record as GoalCreate).subgoals[0]).toMatchObject({ done: false });
   });
 });
 

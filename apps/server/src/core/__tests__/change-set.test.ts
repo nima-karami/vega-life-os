@@ -166,7 +166,7 @@ describe("commitChangeSet (emulator)", () => {
     const attempt = commitChangeSet(firestore, uid, toChangeSet([putNew("v_ok"), broken]), NOW);
     await expect(attempt).rejects.toMatchObject({
       code: "BAD_REQUEST",
-      message: expect.stringContaining("values.energy:"),
+      message: expect.stringContaining("values/v_bad.energy:"),
     });
     await expect(attempt).rejects.toBeInstanceOf(ToolError);
     expect((await valueRef(uid, "v_ok").get()).exists).toBe(false);

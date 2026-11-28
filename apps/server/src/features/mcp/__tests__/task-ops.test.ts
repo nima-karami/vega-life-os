@@ -67,6 +67,44 @@ describe("planCreateTask", () => {
   });
 });
 
+describe("planCreateTask under a habit", () => {
+  it("creates the habit's instance, with its value and slot, as the app links one", () => {
+    const outcome = planCreateTask(
+      buildDataset([]),
+      plainPatch({ habitId: "h_gym", date: "2026-11-24" }),
+      undefined,
+    );
+    expect(firstRecord(outcome)).toMatchObject({
+      kind: "habit",
+      habitId: "h_gym",
+      valueId: "v_health",
+      slotDate: "2026-11-23",
+    });
+  });
+
+  it("refuses a slot the habit already has a task for", () => {
+    const instance = buildTask(
+      { id: "t_inst", kind: "habit", habitId: "h_gym", date: "2026-11-23", slotDate: "2026-11-23" },
+      0,
+    );
+    expect(() =>
+      planCreateTask(
+        buildDataset([instance]),
+        plainPatch({ habitId: "h_gym", date: "2026-11-23" }),
+        undefined,
+      ),
+    ).toThrow(
+      expect.objectContaining({ code: "CONFLICT", message: expect.stringContaining("t_inst") }),
+    );
+  });
+
+  it("refuses a habit task with no habit", () => {
+    expect(() =>
+      planCreateTask(buildDataset([]), plainPatch({ kind: "habit" }), undefined),
+    ).toThrow(expect.objectContaining({ code: "BAD_REQUEST" }));
+  });
+});
+
 describe("planUpdateTask", () => {
   const instance = buildTask(
     { id: "t_inst", kind: "habit", habitId: "h_gym", date: "2026-11-23", title: "Gym" },
@@ -122,6 +160,15 @@ describe("planUpdateTask", () => {
       valueId: "v_health",
       slotDate: "2026-11-23",
     });
+  });
+
+  it("refuses to relink a detached task whose habit is gone", () => {
+    const orphan = { ...instance, habitId: "h_deleted", detached: true };
+    expect(() =>
+      planUpdateTask(buildDataset([orphan]), "t_inst", plainPatch({ detached: false }), clock),
+    ).toThrow(
+      expect.objectContaining({ code: "BAD_REQUEST", message: expect.stringContaining("habitId") }),
+    );
   });
 
   it("refuses a patch that mixes intents", () => {

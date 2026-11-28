@@ -10,6 +10,7 @@ import {
 import { getRecordKey } from "../../../core/change-set-chunks";
 import type { StoredEntity } from "../../../core/repository";
 import { ToolError } from "../../../core/tool-error";
+import { findFormatViolation } from "../field-formats";
 import { type McpCollection, PROTECTED_FIELDS, RECORD_ID_PATTERN } from "../mcp-collections";
 import { getLoaded, type LoadedCollection, type LoadedDataset } from "./dataset-loader";
 
@@ -199,7 +200,9 @@ export function parsePatch(
       continue;
     }
     const parsed = shape[key].safeParse(value);
-    if (parsed.success) fields[key] = parsed.data;
+    const formatViolation = parsed.success && findFormatViolation(collection, key, parsed.data);
+    if (formatViolation) messages.push(`${collection}.${key}: ${formatViolation}`);
+    else if (parsed.success) fields[key] = parsed.data;
     else
       for (const issue of parsed.error.issues)
         messages.push(`${formatIssuePath(collection, key, issue)}: ${issue.message}`);

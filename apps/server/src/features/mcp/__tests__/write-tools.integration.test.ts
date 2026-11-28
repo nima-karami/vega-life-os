@@ -230,7 +230,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
       set_task_status: false,
       check_in_habit: false,
       set_habit_state: true,
-      edit_subgoals: false,
+      edit_subgoals: true,
       write_journal: true,
     });
     expect((await reader.listTools()).tools.map((tool) => tool.name)).toEqual(["probe"]);
@@ -372,7 +372,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     });
     expect(incomplete.payload).toMatchObject({
       code: "BAD_REQUEST",
-      message: expect.stringContaining("books.author"),
+      message: expect.stringMatching(/^books\/b_\w+\.author: /),
     });
     expect(await readSyncVersion(firestore, uid)).toBe(0);
   });
@@ -427,7 +427,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     const ids = (added.payload.record as { subgoals: { id: string }[] }).subgoals.map(
       (subgoal) => subgoal.id,
     );
-    await callTool(client, "edit_subgoals", { goalId: "g_read", toggle: ids.slice(0, 2) });
+    await callTool(client, "edit_subgoals", { goalId: "g_read", complete: ids.slice(0, 2) });
     expect(await readDoc(uid, "goals/g_read")).toMatchObject({ progress: 0.5 });
   });
 
@@ -465,6 +465,20 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     });
     expect(outcome.payload).toMatchObject({ record: { id: "rv_app" } });
     expect((await firestore.collection(`users/${uid}/reviews`).get()).size).toBe(1);
+  });
+
+  it("updates a legacy task stored without slotDate", async () => {
+    const uid = "wt-legacy-task";
+    const client = await connect(uid);
+    const { slotDate: _slotDate, ...legacy } = buildTask({ id: "t_old", date: "2026-11-20" }, 0);
+    await seedRows(uid, "tasks", [legacy]);
+    const outcome = await callTool(client, "update_record", {
+      collection: "tasks",
+      id: "t_old",
+      patch: { title: "renamed" },
+    });
+    expect(outcome.payload).toMatchObject({ record: { id: "t_old", title: "renamed" } });
+    expect(await readDoc(uid, "tasks/t_old")).toMatchObject({ title: "renamed" });
   });
 
   it("AC17: check_in_habit refuses to create an ineligible instance and writes nothing", async () => {
@@ -833,7 +847,7 @@ describe("MCP write tools (SDK client over the emulator)", () => {
     expect(target.text).toContain("ids use letters, digits");
   });
 
-  it("refuses to reuse a natural row id that now belongs to a moved journal entry or review", async () => {
+  it("writes under a fresh id when a moved journal entry or review still holds the natural id", async () => {
     const uid = "wt-moved-ids";
     const client = await connect(uid);
     await callTool(client, "write_journal", { date: "2026-11-18", journal: "first" });
@@ -846,7 +860,8 @@ describe("MCP write tools (SDK client over the emulator)", () => {
       date: "2026-11-18",
       journal: "second",
     });
-    expect(journal.payload).toMatchObject({ code: "CONFLICT" });
+    expect(journal.payload).toMatchObject({ record: { date: "2026-11-18", journal: "second" } });
+    expect((journal.payload.record as { id: string }).id).not.toBe("day_2026-11-18");
     expect(await readDoc(uid, "journal/day_2026-11-18")).toMatchObject({
       date: "2026-11-19",
       journal: "first",
@@ -865,10 +880,11 @@ describe("MCP write tools (SDK client over the emulator)", () => {
       collection: "reviews",
       record: { periodKey: "2026-11-16", prompts: [] },
     });
-    expect(review.payload).toMatchObject({ code: "CONFLICT" });
+    expect(review.payload).toMatchObject({ record: { periodKey: "2026-11-16" } });
+    expect(await readDoc(uid, "reviews/rv_2026-11-16")).toMatchObject({ periodKey: "2026-11-23" });
   });
 
-  it("refuses a check-in whose slot id is held by a task unlinked from the habit", async () => {
+  it("checks in under a fresh id when a task unlinked from the habit holds the slot id", async () => {
     const uid = "wt-unlinked-slot";
     const client = await connect(uid);
     await seedValueAndHabit(client);
@@ -878,7 +894,9 @@ describe("MCP write tools (SDK client over the emulator)", () => {
       patch: { habitId: null },
     });
     const outcome = await callTool(client, "check_in_habit", { habitId: "h_run" });
-    expect(outcome.payload).toMatchObject({ code: "CONFLICT" });
+    expect(outcome.payload).toMatchObject({
+      record: { habitId: "h_run", date: "2026-11-20", status: "done" },
+    });
     expect(await readDoc(uid, "tasks/t_h_run_2026-11-20")).toMatchObject({
       habitId: null,
       status: "todo",

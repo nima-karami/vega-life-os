@@ -107,7 +107,7 @@ async function runWrite(context: McpContext, request: WriteRequest): Promise<Cal
 const recordIdSchema = z
   .string()
   .regex(RECORD_ID_PATTERN, "ids use letters, digits and _ : @ . - (max 128)");
-const isoDateSchema = z.string().describe("YYYY-MM-DD");
+const isoDateSchema = z.iso.date().describe("YYYY-MM-DD");
 
 function registerRecordTools(server: McpServer, context: McpContext): void {
   server.registerTool(
@@ -115,7 +115,7 @@ function registerRecordTools(server: McpServer, context: McpContext): void {
     {
       title: "Create a record",
       description:
-        "Create a record in a writable collection. VEGA fills the id (with the collection's prefix) unless you pass one; an id that already exists returns CONFLICT, so a retry is safe. Domain collections apply the app's defaults: a new habit needs valueId and gets its next 14 days of tasks, a review for an existing periodKey updates that review, a journal entry is keyed by date. financeBudgets, financeSettlements and cardPrefs need their natural-key id. Unknown fields are dropped and listed under ignoredKeys. Call describe_collection first for the fields.",
+        "Create a record in a writable collection. VEGA fills the id (with the collection's prefix) unless you pass one; an id that already exists returns CONFLICT, so pass your own id when you may retry: without one, a retry creates a second record. Domain collections apply the app's defaults: a new habit needs valueId and gets its next 14 days of tasks; a review for an existing periodKey updates that review, keeping any field you leave out; a journal entry is keyed by date, and a date that already has one returns CONFLICT (use write_journal). financeBudgets, financeSettlements and cardPrefs need their natural-key id. Unknown fields are dropped and listed under ignoredKeys. Call describe_collection first for the fields.",
       inputSchema: {
         collection: mcpCollectionSchema,
         record: z.record(z.string(), z.unknown()),
@@ -135,7 +135,7 @@ function registerRecordTools(server: McpServer, context: McpContext): void {
     {
       title: "Update a record",
       description:
-        "Shallow-merge a patch into a stored record and write the whole record through the app's rules. Tasks take one kind of change per call: clearing date (unschedule), a habitId change, status, detached:false (relink a detached habit task), or plain fields (a new date may ride with plain fields). A habit schedule or time change removes its future undone tasks and regenerates them. Unarchiving a value regenerates its habits' tasks. Habit lifecycle fields go through set_habit_state.",
+        "Shallow-merge a patch into a stored record and write the whole record through the app's rules. Tasks take one kind of change per call: clearing date (unschedule), a habitId change, status, detached:false (relink a detached habit task: resets its title, time, duration, goal and value to the habit's), or plain fields (a new date may ride with plain fields). A habitId change takes the habit's goal and value. A habit schedule or time change rebuilds its future undone tasks from the habit, dropping their own edits; the result lists them under removedTaskIds and rebuiltTaskIds. Unarchiving a value regenerates its habits' tasks. Habit lifecycle fields go through set_habit_state.",
       inputSchema: {
         collection: mcpCollectionSchema,
         id: recordIdSchema,
@@ -236,14 +236,15 @@ function registerGoalAndJournalTools(server: McpServer, context: McpContext): vo
     {
       title: "Edit a goal's subgoals",
       description:
-        "Add subgoals by name, toggle them done/undone, or remove them by id, then recompute the goal's progress as done ÷ total.",
+        "Add subgoals by name, mark them done (complete) or not done (reopen) by id, or remove them by id, then recompute the goal's progress as done ÷ total. remove deletes the subgoal for good. Repeating a call is safe: complete and reopen set a state, and a name the goal already has isn't added again.",
       inputSchema: {
         goalId: recordIdSchema,
         add: z.array(z.string()).optional(),
-        toggle: z.array(z.string()).optional(),
+        complete: z.array(z.string()).optional(),
+        reopen: z.array(z.string()).optional(),
         remove: z.array(z.string()).optional(),
       },
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },
     (input) =>
       runWrite(context, {
@@ -257,13 +258,13 @@ function registerGoalAndJournalTools(server: McpServer, context: McpContext): vo
     {
       title: "Write a journal entry",
       description:
-        "Write the journal entry for a date (default today in your time zone). journal replaces the text, appendJournal adds a line, gratitude replaces the list, mood sets the mood. An entry left with no content is deleted.",
+        "Write the journal entry for a date (default today in your time zone). journal replaces the text; appendJournal adds a line (so repeating that call adds it again); gratitude replaces the whole list (at most 3 items: read the entry first to keep existing ones); mood is a whole number 1-5 or null. An entry left with no content is deleted.",
       inputSchema: {
         date: isoDateSchema.optional(),
         journal: z.string().optional(),
         appendJournal: z.string().optional(),
         gratitude: z.array(z.string()).optional(),
-        mood: z.number().nullable().optional(),
+        mood: z.number().int().min(1).max(5).nullable().optional(),
       },
       annotations: { readOnlyHint: false, destructiveHint: true },
     },

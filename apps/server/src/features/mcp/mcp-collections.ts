@@ -51,7 +51,7 @@ export const ID_PREFIX: Record<McpCollection, string> = {
   cardPrefs: "",
 };
 
-export const RECORD_ID_PATTERN = /^(?!\.\.?$)[A-Za-z0-9_:@.-]{1,128}$/;
+export const RECORD_ID_PATTERN = /^(?!\.\.?$)(?!__.*__$)[A-Za-z0-9_:@.-]{1,128}$/;
 
 export const COLLECTION_NOTES: Record<McpCollection, string> = {
   values:

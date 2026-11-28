@@ -202,6 +202,33 @@ describe("generic create", () => {
   });
 });
 
+describe("card review schedule", () => {
+  it("refuses a card in a box with no due date, which would never come due", () => {
+    expect(() =>
+      planCreateRecord(
+        { cards: loadRows([]) },
+        {
+          collection: "cards",
+          record: {
+            type: "note",
+            category: "Ideas",
+            title: "T",
+            body: "B",
+            hasRecall: true,
+            addedAt: "2026-11-20",
+            box: 1,
+            lastReviewed: null,
+            nextDue: null,
+          },
+        },
+        clock,
+      ),
+    ).toThrow(
+      expect.objectContaining({ code: "BAD_REQUEST", message: expect.stringContaining("nextDue") }),
+    );
+  });
+});
+
 describe("protected fields and cardPrefs", () => {
   it("routes habit lifecycle fields to set_habit_state", () => {
     expectToolError(

@@ -114,13 +114,25 @@ function assertDocumentSegment(operation: ChangeOperation): void {
     throw new ToolError("BAD_REQUEST", `${operation.collection}: invalid record id ${String(id)}`);
 }
 
+// Firestore rejects an explicit undefined, which domain helpers leave on optional fields of legacy rows.
+function dropUndefined(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(dropUndefined);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, field]) => field !== undefined)
+      .map(([key, field]) => [key, dropUndefined(field)]),
+  );
+}
+
 function validateOperation(operation: ChangeOperation): ChangeOperation {
   assertDocumentSegment(operation);
   if (operation.kind !== "put") return operation;
   const parsed = writableSchema(operation.collection).safeParse(operation.record);
-  if (parsed.success) return { ...operation, record: parsed.data as PutRecord };
+  if (parsed.success) return { ...operation, record: dropUndefined(parsed.data) as PutRecord };
+  const target = `${operation.collection}/${operation.record.id}`;
   const message = parsed.error.issues
-    .map((issue) => `${operation.collection}.${issue.path.join(".")}: ${issue.message}`)
+    .map((issue) => `${target}.${issue.path.join(".")}: ${issue.message}`)
     .join("\n");
   throw new ToolError("BAD_REQUEST", message);
 }
@@ -368,6 +380,7 @@ export async function commitChangeSet(
       outcome = await commitChunk(firestore, uid, plan, nowIso);
     } catch (error) {
       if (index === 0) throw error;
+      console.error("mcp partial commit", { uid, failedAtOperation: chunk.firstIndex, error });
       throw new ToolError("INTERNAL", "partial commit: re-run to finish", {
         committedIds: receipt.committedIds,
         failedAtOperation: chunk.firstIndex,
